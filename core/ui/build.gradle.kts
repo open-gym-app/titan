@@ -14,6 +14,13 @@ android {
     buildFeatures {
         compose = true
     }
+
+    lint {
+        abortOnError = true
+        lintConfig = rootProject.file("lint.xml")
+        htmlReport = true
+        xmlReport = true
+    }
 }
 
 kotlin {
