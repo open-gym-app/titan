@@ -2,12 +2,12 @@
 
 ## Module structure
 
-```
+```text
 open-gym/
-├── app/                    # Composition root — wires DI graph, declares Application/Activity
+├── app/                    # Composition root - wires DI graph, declares Application/Activity
 ├── core/
-│   ├── domain/             # Business logic — pure Kotlin JVM, zero Android deps
-│   ├── data/               # Data access — Room, repositories, Hilt bindings
+│   ├── domain/             # Business logic - pure Kotlin JVM, zero Android deps
+│   ├── data/               # Data access - Room, repositories, Hilt bindings
 │   └── ui/                 # Shared Compose components and theming
 └── feature/                # (placeholder) one sub-module per vertical slice
 ```
@@ -17,19 +17,21 @@ Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`.
 ## Layers and responsibilities
 
 ### Domain (`:core:domain`)
-The inner-most layer. Contains entities, use cases, and repository interfaces.  
-Must compile as a plain Kotlin JVM library — no `android {}` block, no Android imports.  
+
+The inner-most layer. Contains entities, use cases, and repository interfaces.
+Must compile as a plain Kotlin JVM library - no `android {}` block, no Android imports.
 All business rules live here so they can be tested without an Android runtime.
 
 ### Data (`:core:data`)
 
-Implements the repository interfaces declared in `:core:domain`.  
-Owns all I/O: Room DAOs, remote API clients, data mappers.  
+Implements the repository interfaces declared in `:core:domain`.
+Owns all I/O: Room DAOs, remote API clients, data mappers.
 Depends on `:core:domain` for the contracts it fulfils.
 
 ### Presentation (`:core:ui` + future `:feature:*`)
-Compose screens, ViewModels, and shared UI components.  
-ViewModels call domain use cases directly — they do not touch data sources.  
+
+Compose screens, ViewModels, and shared UI components.
+ViewModels call domain use cases directly - they do not touch data sources.
 `:core:ui` holds only reusable widgets and the design system; it carries no business logic.
 
 ### App (`:app`)
