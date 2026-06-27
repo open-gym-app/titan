@@ -22,6 +22,7 @@ Must compile as a plain Kotlin JVM library — no `android {}` block, no Android
 All business rules live here so they can be tested without an Android runtime.
 
 ### Data (`:core:data`)
+
 Implements the repository interfaces declared in `:core:domain`.  
 Owns all I/O: Room DAOs, remote API clients, data mappers.  
 Depends on `:core:domain` for the contracts it fulfils.
