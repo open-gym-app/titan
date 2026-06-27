@@ -1,9 +1,20 @@
+import java.util.Properties
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
+
+private val keystoreProperties = Properties().also { props ->
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(props::load)
+}
+
+private fun prop(envKey: String, fileKey: String): String? =
+    (System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey))?.takeIf { it.isNotEmpty() }
 
 android {
     namespace = "com.opengym.app"
@@ -19,13 +30,37 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = prop("KEYSTORE_PATH", "storeFile")?.let(::file)
+            storePassword = prop("KEYSTORE_PASSWORD", "storePassword")
+            keyAlias = prop("KEY_ALIAS", "keyAlias")
+            keyPassword = prop("KEY_PASSWORD", "keyPassword")
+        }
+    }
+
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            val releaseSigning = signingConfigs.getByName("release")
+            if (releaseSigning.storeFile != null) {
+                signingConfig = releaseSigning
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
+        }
+        create("staging") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
+            matchingFallbacks += listOf("release")
         }
     }
 
@@ -43,6 +78,12 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    javaCompiler.set(javaToolchains.compilerFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
 }
 
 dependencies {
