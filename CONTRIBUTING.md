@@ -39,6 +39,40 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 The description must be lowercase and must not end with a period.
 
+## Naming conventions
+
+### Classes
+
+| Construct | Pattern | Example |
+|---|---|---|
+| Entity | `<Noun>` | `Session`, `Exercise`, `WorkoutSet` |
+| Repository interface | `<Noun>Repository` | `SessionRepository` |
+| Repository implementation | `<Noun>RepositoryImpl` | `SessionRepositoryImpl` |
+| DAO | `<Noun>Dao` | `SessionDao` |
+| Use case | `<Verb><Noun>UseCase` | `LogSessionUseCase`, `GetExercisesUseCase` |
+| ViewModel | `<Screen>ViewModel` | `SessionViewModel`, `ExerciseLibraryViewModel` |
+
+```kotlin
+// ✅
+class LogSessionUseCase
+class SessionRepositoryImpl : SessionRepository
+
+// ❌
+class SessionManager       // ambiguous — is this a repository? a use case?
+class SessionRepo          // abbreviation, inconsistent with the rest
+class CreateSession        // missing UseCase suffix
+```
+
+### Files and packages
+
+Each class lives in a package that matches its layer and module:
+
+```
+com.opengym.core.domain.usecase.LogSessionUseCase
+com.opengym.core.data.repository.SessionRepositoryImpl
+com.opengym.core.data.local.dao.SessionDao
+```
+
 ## Pull requests
 
 - **One concern per PR** — keep scope tight so the diff stays readable.
