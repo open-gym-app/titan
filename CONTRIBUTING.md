@@ -1,0 +1,48 @@
+# Contributing
+
+## Branch naming
+
+```
+<type>/<short-description>
+```
+
+Use the same types as commit messages. Examples:
+
+```
+feat/user-login
+fix/crash-on-startup
+ci/add-release-workflow
+refactor/session-repository
+```
+
+## Commit messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+```
+<type>(<scope>): <description>
+```
+
+| Type | When to use |
+|------|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `refactor` | Code change that is neither a feature nor a fix |
+| `test` | Adding or updating tests |
+| `ci` | CI/CD changes |
+| `build` | Build system or dependency changes |
+| `style` | Formatting, lint fixes (no logic change) |
+| `docs` | Documentation only |
+| `chore` | Anything else that doesn't affect production code |
+
+`scope` is optional and refers to the affected module (e.g. `fix(data): …`, `feat(ui): …`).
+
+The description must be lowercase and must not end with a period.
+
+## Pull requests
+
+- **One concern per PR** — keep scope tight so the diff stays readable.
+- **CI must be green** before requesting a review (lint, tests, build).
+- **1 approval required** to merge.
+- **Squash & merge** — all commits on the branch are squashed into one on `main`. The squash commit message must follow the Conventional Commits format above.
+- Delete the branch after merging.
