@@ -25,6 +25,9 @@ captures/
 .externalNativeBuild
 .cxx/
 
-debug.keystore
+*.jks
+*.keystore
+keystore.properties
+
 .DS_Store
 .kotlin/

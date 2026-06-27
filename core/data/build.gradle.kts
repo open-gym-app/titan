@@ -12,6 +12,13 @@ android {
         minSdk = 26
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    lint {
+        abortOnError = true
+        lintConfig = rootProject.file("lint.xml")
+        htmlReport = true
+        xmlReport = true
+    }
 }
 
 kotlin {
@@ -30,4 +37,5 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockk)
 }

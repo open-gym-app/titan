@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Android Lint suppression configuration for open-gym.
+  Suppression policy: any severity="ignore" entry must have a comment here explaining
+  the rationale for accepting the finding.
+-->
+<lint>
+    <!--
+      ObsoleteSdkInt: minSdk = 26, so version-guard checks for APIs below 26 are dead code.
+      Lint flags these correctly but they appear in generated/library code we don't own.
+    -->
+    <issue id="ObsoleteSdkInt" severity="ignore" />
+
+    <!--
+      GradleDependency: version catalog manages all dependency versions centrally;
+      individual module build files intentionally omit explicit version strings.
+    -->
+    <issue id="GradleDependency" severity="ignore" />
+</lint>
