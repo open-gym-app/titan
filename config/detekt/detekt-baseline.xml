@@ -1,0 +1,12 @@
+<?xml version="1.0" ?>
+<!--
+  Detekt baseline — pre-existing violations accepted at project inception.
+  Suppression policy: each entry below must have a corresponding inline comment
+  in the source file explaining WHY the violation is accepted.
+
+  To regenerate after resolving issues: ./gradlew detektBaseline
+-->
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues/>
+</SmellBaseline>

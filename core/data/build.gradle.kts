@@ -13,6 +13,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    lint {
+        abortOnError = true
+        lintConfig = rootProject.file("lint.xml")
+        htmlReport = true
+        xmlReport = true
+    }
 }
 
 kotlin {
