@@ -24,9 +24,16 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
 }
 
-// Wire detekt into each subproject's check lifecycle task
 subprojects {
     afterEvaluate {
+        tasks.withType<Test>().configureEach {
+            testLogging {
+                events("failed", "skipped")
+                exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                showCauses = true
+                showStackTraces = true
+            }
+        }
         tasks.findByName("check")?.dependsOn(rootProject.tasks.named("detekt"))
     }
 }
