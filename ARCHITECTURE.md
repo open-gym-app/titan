@@ -33,6 +33,7 @@ ViewModels call domain use cases directly — they do not touch data sources.
 `:core:ui` holds only reusable widgets and the design system; it carries no business logic.
 
 ### App (`:app`)
+
 Composition root only. Declares `Application`, the single `Activity`, and the top-level
 navigation graph. Connects all layers through Hilt modules. Contains no business logic.
 
