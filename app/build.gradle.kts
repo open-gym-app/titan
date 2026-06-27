@@ -11,8 +11,8 @@ private val keystoreProperties = Properties().also { props ->
     rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use(props::load)
 }
 
-private fun prop(envKey: String, fileKey: String): String =
-    System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey, "")
+private fun prop(envKey: String, fileKey: String): String? =
+    (System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey))?.takeIf { it.isNotEmpty() }
 
 android {
     namespace = "com.opengym.app"
@@ -30,7 +30,7 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = prop("KEYSTORE_PATH", "storeFile").ifEmpty { null }?.let(::file)
+            storeFile = prop("KEYSTORE_PATH", "storeFile")?.let(::file)
             storePassword = prop("KEYSTORE_PASSWORD", "storePassword")
             keyAlias = prop("KEY_ALIAS", "keyAlias")
             keyPassword = prop("KEY_PASSWORD", "keyPassword")
@@ -42,18 +42,6 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
-        create("staging") {
-            initWith(getByName("release"))
-            applicationIdSuffix = ".staging"
-            versionNameSuffix = "-staging"
-            isMinifyEnabled = true
-            isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro",
-            )
-        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -62,6 +50,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        create("staging") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-staging"
         }
     }
 
