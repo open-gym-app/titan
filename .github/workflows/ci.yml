@@ -55,7 +55,7 @@ jobs:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --continue
+        run: ./gradlew test testDebugUnitTest --continue
 
   build:
     name: Build (debug APK)
