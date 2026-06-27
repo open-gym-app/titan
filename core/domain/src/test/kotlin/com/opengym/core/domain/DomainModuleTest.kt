@@ -12,6 +12,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+private class TestException(message: String) : Exception(message)
+
 private interface SampleRepository {
     suspend fun fetch(): String
     fun stream(): Flow<Int>
@@ -34,18 +36,18 @@ class DomainModuleTest {
 
     @Test
     fun `flow emits expected sequence via turbine`() = runTest {
-        val expected = listOf(1, 2, 3)
-        coEvery { repository.stream() } returns flowOf(*expected.toTypedArray())
+        coEvery { repository.stream() } returns flowOf(1, 2)
 
         repository.stream().test {
-            expected.forEach { assertEquals(it, awaitItem()) }
+            assertEquals(1, awaitItem())
+            assertEquals(2, awaitItem())
             awaitComplete()
         }
     }
 
     @Test
     fun `flow error path propagates exception`() = runTest {
-        coEvery { repository.stream() } returns flow { throw RuntimeException("network error") }
+        coEvery { repository.stream() } returns flow { throw TestException("network error") }
 
         repository.stream().test {
             assertEquals("network error", awaitError().message)

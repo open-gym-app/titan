@@ -30,13 +30,17 @@ class DataModuleTest {
 
     @Test
     fun `findById returns null when record does not exist`() = runTest {
-        coEvery { dao.findById(99) } returns null
-        assertNull(dao.findById(99))
+        coEvery { dao.findById(MISSING_ID) } returns null
+        assertNull(dao.findById(MISSING_ID))
     }
 
     @Test
     fun `findById returns value when record exists`() = runTest {
         coEvery { dao.findById(1) } returns "record"
         assertEquals("record", dao.findById(1))
+    }
+
+    companion object {
+        private const val MISSING_ID = 99
     }
 }
