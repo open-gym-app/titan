@@ -28,7 +28,7 @@
 
 ## Introduction
 
-<!-- Describe what open-gym does and who it's for -->
+OpenGym is a free, open-source Android workout tracker built with Kotlin and Jetpack Compose. All data lives on your device. **No account required**.
 
 ## Getting started
 
