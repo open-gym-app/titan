@@ -7,10 +7,10 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    tableName = "sets",
+    tableName = "session_exercise",
     foreignKeys = [
         ForeignKey(
-            entity = SessionEntity::class,
+            entity = WorkoutSessionEntity::class,
             parentColumns = ["id"],
             childColumns = ["session_id"],
             onDelete = ForeignKey.CASCADE,
@@ -21,29 +21,35 @@ import androidx.room.PrimaryKey
             childColumns = ["exercise_id"],
             onDelete = ForeignKey.RESTRICT,
         ),
+        ForeignKey(
+            entity = TemplateExerciseEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["template_exercise_id"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
     ],
     indices = [
         Index("session_id"),
+        Index(value = ["session_id", "position"], unique = true),
         Index("exercise_id"),
+        Index("template_exercise_id"),
     ],
 )
-data class SetEntity(
+data class SessionExerciseEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     @ColumnInfo(name = "session_id")
     val sessionId: Long,
     @ColumnInfo(name = "exercise_id")
     val exerciseId: Long,
-    @ColumnInfo(name = "set_order")
-    val setOrder: Int,
-    @ColumnInfo(name = "reps")
-    val reps: Int? = null,
-    @ColumnInfo(name = "weight_kg")
-    val weightKg: Double? = null,
-    @ColumnInfo(name = "duration_seconds")
-    val durationSeconds: Long? = null,
-    @ColumnInfo(name = "distance_meters")
-    val distanceMeters: Double? = null,
-    @ColumnInfo(name = "notes", defaultValue = "")
-    val notes: String = "",
+    @ColumnInfo(name = "position")
+    val position: Int,
+    @ColumnInfo(name = "template_exercise_id")
+    val templateExerciseId: Long? = null,
+    @ColumnInfo(name = "notes")
+    val notes: String? = null,
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long,
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long,
 )
