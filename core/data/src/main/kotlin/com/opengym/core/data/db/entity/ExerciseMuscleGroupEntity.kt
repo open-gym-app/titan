@@ -22,6 +22,10 @@ import androidx.room.Index
             onDelete = ForeignKey.RESTRICT,
         ),
     ],
+    // Only muscle_group_id is indexed explicitly: the composite primary key
+    // (exercise_id, muscle_group_id) already provides a left-prefix index that
+    // covers exercise_id lookups, so a separate exercise_id index would be
+    // redundant. muscle_group_id needs its own index for the reverse FK.
     indices = [Index("muscle_group_id")],
 )
 data class ExerciseMuscleGroupEntity(

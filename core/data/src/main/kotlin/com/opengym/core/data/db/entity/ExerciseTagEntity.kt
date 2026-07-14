@@ -22,6 +22,10 @@ import androidx.room.Index
             onDelete = ForeignKey.CASCADE,
         ),
     ],
+    // Only tag_id is indexed explicitly: the composite primary key
+    // (exercise_id, tag_id) already provides a left-prefix index that covers
+    // exercise_id lookups, so a separate exercise_id index would be redundant.
+    // tag_id needs its own index for the reverse FK.
     indices = [Index("tag_id")],
 )
 data class ExerciseTagEntity(
