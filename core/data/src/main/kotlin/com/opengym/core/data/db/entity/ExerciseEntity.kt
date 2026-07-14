@@ -9,7 +9,7 @@ import androidx.room.PrimaryKey
     tableName = "exercise",
     indices = [
         Index("name"),
-        Index("category"),
+        Index("equipment_type"),
         Index("exercise_type"),
     ],
 )
@@ -20,8 +20,6 @@ data class ExerciseEntity(
     val name: String,
     @ColumnInfo(name = "exercise_type", defaultValue = "STRENGTH")
     val exerciseType: String = "STRENGTH",
-    @ColumnInfo(name = "category")
-    val category: String,
     @ColumnInfo(name = "equipment_type")
     val equipmentType: String? = null,
     @ColumnInfo(name = "mechanic_type")

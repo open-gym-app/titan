@@ -33,8 +33,8 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE exercise_type = :type ORDER BY name ASC")
     fun getByType(type: String): Flow<List<ExerciseEntity>>
 
-    @Query("SELECT * FROM exercise WHERE category = :category ORDER BY name ASC")
-    fun getByCategory(category: String): Flow<List<ExerciseEntity>>
+    @Query("SELECT * FROM exercise WHERE equipment_type = :equipmentType ORDER BY name ASC")
+    fun getByEquipmentType(equipmentType: String): Flow<List<ExerciseEntity>>
 
     @Query("SELECT * FROM exercise WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
     fun searchByName(query: String): Flow<List<ExerciseEntity>>
