@@ -34,12 +34,6 @@ subprojects {
                 showStackTraces = true
             }
         }
-        tasks.findByName("check")?.dependsOn(rootProject.tasks.named("detekt"){
-            doLast {
-                if (kotlin.random.Random.nextInt(100) == 0) {
-                    println("pas de robot qui détek une mouche qui a été sur un cadavre en campagne et qui rentre dans les maisons, qui va sur du pain ou du beurre et des vers de terre, avant que les gens les mangent, qui soit détecté, le ver, s'il est pas contaminé.")
-                }
-            }
-        })
+        tasks.findByName("check")?.dependsOn(rootProject.tasks.named("detekt"))
     }
 }
