@@ -1,7 +1,6 @@
 package com.opengym.core.data.db.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -18,8 +17,8 @@ interface WorkoutSetDao {
     @Update
     suspend fun update(set: WorkoutSetEntity)
 
-    @Delete
-    suspend fun delete(set: WorkoutSetEntity)
+    @Query("DELETE FROM workout_set WHERE id = :id")
+    suspend fun delete(id: Long)
 
     @Query("SELECT * FROM workout_set WHERE session_exercise_id = :sessionExerciseId ORDER BY set_number ASC")
     fun getBySessionExercise(sessionExerciseId: Long): Flow<List<WorkoutSetEntity>>
