@@ -1,5 +1,6 @@
 package com.opengym.core.data.db.dao
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -22,6 +23,14 @@ interface PersonalRecordDao {
 
     @Query("SELECT * FROM personal_record WHERE exercise_id = :exerciseId ORDER BY achieved_at DESC")
     fun getByExercise(exerciseId: Long): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * Paginated variant of [getByExercise]. Records accumulate over time, so the
+     * per-exercise records screen can page through the history while [getByExercise]
+     * stays available for callers that need the whole set at once.
+     */
+    @Query("SELECT * FROM personal_record WHERE exercise_id = :exerciseId ORDER BY achieved_at DESC")
+    fun getByExercisePaginated(exerciseId: Long): PagingSource<Int, PersonalRecordEntity>
 
     @Query(
         """

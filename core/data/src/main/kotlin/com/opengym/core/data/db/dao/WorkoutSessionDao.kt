@@ -1,5 +1,6 @@
 package com.opengym.core.data.db.dao
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -22,6 +23,14 @@ interface WorkoutSessionDao {
 
     @Query("SELECT * FROM workout_session ORDER BY created_at DESC")
     fun getAll(): Flow<List<WorkoutSessionEntity>>
+
+    /**
+     * Paginated variant of [getAll] for the session-history screen, which grows
+     * unbounded over the app's lifetime. Kept alongside [getAll] so callers that
+     * need the full list (charts, exports) keep the Flow<List> option.
+     */
+    @Query("SELECT * FROM workout_session ORDER BY created_at DESC")
+    fun getAllPaginated(): PagingSource<Int, WorkoutSessionEntity>
 
     @Query("SELECT * FROM workout_session WHERE id = :id")
     fun getById(id: Long): Flow<WorkoutSessionEntity?>
