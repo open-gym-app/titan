@@ -11,6 +11,10 @@ import androidx.room.PrimaryKey
         Index("name"),
         Index("equipment_type"),
         Index("exercise_type"),
+        // A movement is identified by name + equipment + (for machines) brand, so PRs
+        // stay separate per machine. NULL brand doesn't collide with other NULLs, so
+        // non-machine equipment (barbell, dumbbell, bodyweight...) is unaffected.
+        Index(value = ["name", "equipment_type", "machine_brand"], unique = true),
     ],
 )
 data class ExerciseEntity(
@@ -22,6 +26,8 @@ data class ExerciseEntity(
     val exerciseType: String = "STRENGTH",
     @ColumnInfo(name = "equipment_type")
     val equipmentType: String? = null,
+    @ColumnInfo(name = "machine_brand")
+    val machineBrand: String? = null,
     @ColumnInfo(name = "mechanic_type")
     val mechanicType: String? = null,
     @ColumnInfo(name = "difficulty_level")

@@ -1,11 +1,13 @@
 package com.opengym.core.data.db
 
+import android.database.sqlite.SQLiteConstraintException
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -58,6 +60,30 @@ class ExerciseDaoTest : RoomTestBase() {
         dao.insert(exercise(name = "Cable Row", equipmentType = "CABLE"))
         val cable = dao.getByEquipmentType("CABLE").first()
         assertEquals(listOf("Cable Row"), cable.map { it.name })
+    }
+
+    @Test
+    fun `insert rejects a duplicate name plus equipment plus machine brand`() {
+        runBlocking { dao.insert(exercise(name = "Leg Press", equipmentType = "MACHINE", machineBrand = "Cybex")) }
+        assertThrows(SQLiteConstraintException::class.java) {
+            runBlocking { dao.insert(exercise(name = "Leg Press", equipmentType = "MACHINE", machineBrand = "Cybex")) }
+        }
+    }
+
+    @Test
+    fun `insert allows same name and equipment on a different machine brand`() = runBlocking {
+        dao.insert(exercise(name = "Leg Press", equipmentType = "MACHINE", machineBrand = "Cybex"))
+        val hammerStrengthId =
+            dao.insert(exercise(name = "Leg Press", equipmentType = "MACHINE", machineBrand = "Hammer Strength"))
+        assertEquals(2, dao.getAll().first().size)
+        assertEquals("Hammer Strength", dao.getById(hammerStrengthId).first()?.machineBrand)
+    }
+
+    @Test
+    fun `insert allows repeated name and equipment when machine brand is null`() = runBlocking {
+        dao.insert(exercise(name = "Push Up", equipmentType = "BODYWEIGHT", machineBrand = null))
+        dao.insert(exercise(name = "Push Up", equipmentType = "BODYWEIGHT", machineBrand = null))
+        assertEquals(2, dao.getAll().first().size)
     }
 
     @Test

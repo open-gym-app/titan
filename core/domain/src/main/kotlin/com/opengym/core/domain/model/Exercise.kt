@@ -5,6 +5,7 @@ data class Exercise(
     val name: String,
     val type: ExerciseType = ExerciseType.STRENGTH,
     val equipmentType: EquipmentType? = null,
+    val machineBrand: String? = null,
     val mechanicType: MechanicType? = null,
     val difficultyLevel: String? = null,
     val isUnilateral: Boolean = false,

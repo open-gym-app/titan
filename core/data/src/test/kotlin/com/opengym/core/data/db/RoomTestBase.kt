@@ -52,7 +52,13 @@ abstract class RoomTestBase {
         name: String = "Bench Press",
         exerciseType: String = "STRENGTH",
         equipmentType: String? = "BARBELL",
-    ) = ExerciseEntity(name = name, exerciseType = exerciseType, equipmentType = equipmentType)
+        machineBrand: String? = null,
+    ) = ExerciseEntity(
+        name = name,
+        exerciseType = exerciseType,
+        equipmentType = equipmentType,
+        machineBrand = machineBrand,
+    )
 
     protected fun muscleGroup(name: String = "CHEST") = MuscleGroupEntity(name = name)
 
