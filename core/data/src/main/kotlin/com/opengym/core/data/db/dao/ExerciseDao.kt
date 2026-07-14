@@ -37,7 +37,7 @@ interface ExerciseDao {
     fun getByEquipmentType(equipmentType: String): Flow<List<ExerciseEntity>>
 
     @Query("SELECT * FROM exercise WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
-    fun searchByName(query: String): Flow<List<ExerciseEntity>>
+    fun searchByPartialName(query: String): Flow<List<ExerciseEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addMuscleGroup(ref: ExerciseMuscleGroupEntity)

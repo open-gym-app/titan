@@ -61,10 +61,10 @@ class ExerciseDaoTest : RoomTestBase() {
     }
 
     @Test
-    fun `searchByName matches a substring case-insensitively`() = runBlocking {
+    fun `searchByPartialName matches a substring case-insensitively`() = runBlocking {
         dao.insert(exercise(name = "Incline Bench Press"))
         dao.insert(exercise(name = "Deadlift"))
-        val hits = dao.searchByName("bench").first()
+        val hits = dao.searchByPartialName("bench").first()
         assertEquals(listOf("Incline Bench Press"), hits.map { it.name })
     }
 

@@ -12,7 +12,7 @@ interface ExerciseRepository {
     fun getById(id: Long): Flow<Exercise?>
     fun getByType(type: ExerciseType): Flow<List<Exercise>>
     fun getByEquipmentType(equipmentType: EquipmentType): Flow<List<Exercise>>
-    fun searchByName(query: String): Flow<List<Exercise>>
+    fun searchByPartialName(query: String): Flow<List<Exercise>>
     fun getMuscleGroups(exerciseId: Long): Flow<List<MuscleGroup>>
     fun getTags(exerciseId: Long): Flow<List<Tag>>
     suspend fun insert(exercise: Exercise): Long
