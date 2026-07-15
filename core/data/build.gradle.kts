@@ -19,6 +19,19 @@ android {
         htmlReport = true
         xmlReport = true
     }
+
+    testOptions {
+        unitTests {
+            // Robolectric-backed DAO tests run against a real in-memory SQLite
+            // on the JVM, no emulator required.
+            isIncludeAndroidResources = true
+        }
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 kotlin {
@@ -30,6 +43,7 @@ dependencies {
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.room.paging)
     ksp(libs.room.compiler)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
@@ -38,4 +52,13 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.room.testing)
+    testImplementation(libs.androidx.paging.testing)
+
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
