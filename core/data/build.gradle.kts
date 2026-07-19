@@ -13,6 +13,17 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    sourceSets {
+        // Exported Room schemas, so MigrationTestHelper can build historical
+        // versions of the database from their on-disk JSON spec.
+        getByName("test") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+        getByName("androidTest") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
+
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
