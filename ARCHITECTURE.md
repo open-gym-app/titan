@@ -68,3 +68,47 @@ graph TD
 
 Any dependency that violates these rules must be refactored: extract the shared concern into
 `:core:domain` (if it is a contract) or `:core:ui` (if it is a visual primitive).
+
+## Dependency injection (Hilt)
+
+### Module location
+
+Each Hilt module lives in a `di/` package inside the Gradle module that owns the dependency it
+provides - e.g. Room/DAO bindings live in `core/data/.../di/DatabaseModule.kt`. Do not centralize
+unrelated bindings in a single top-level module; split by concern instead.
+
+### Scoping rules
+
+| Scope | Component | Use for |
+|---|---|---|
+| `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, network clients, repositories |
+| `@ViewModelScoped` | `ViewModelComponent` | Dependencies shared across a single ViewModel's injection graph but recreated per screen |
+| *(none)* | any | Cheap, stateless objects (e.g. mappers) - a fresh instance per injection site is fine, don't over-scope |
+
+### `@Provides` vs `@Binds`
+
+Use `@Provides` when the type needs construction logic or you don't own its constructor
+(e.g. configuring a `Room.databaseBuilder`):
+
+```kotlin
+// ✅ construction logic required - @Provides is correct
+@Provides
+@Singleton
+fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
+    Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
+        .addMigrations(*OpenGymDatabase.MIGRATIONS)
+        .build()
+```
+
+Use `@Binds` when you're only mapping an interface to an implementation - it's an abstract
+method, so Hilt generates the wiring without a method body:
+
+```kotlin
+// ✅ pure interface-to-impl mapping - @Binds is correct
+@Binds
+abstract fun bindWorkoutRepository(impl: WorkoutRepositoryImpl): WorkoutRepository
+
+// ❌ no construction logic here - should be @Binds, not @Provides
+@Provides
+fun provideWorkoutRepository(impl: WorkoutRepositoryImpl): WorkoutRepository = impl
+```
