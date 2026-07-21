@@ -23,12 +23,16 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    // addMigrations is vararg-only; this runs once per process at singleton
+    // creation, so the spread's copy cost is irrelevant.
+    @Suppress("SpreadOperator")
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
         Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
             .addCallback(OpenGymDatabase.foreignKeysCallback)
             .addCallback(OpenGymDatabase.seedCallback)
+            .addMigrations(*OpenGymDatabase.MIGRATIONS)
             .build()
 
     @Provides

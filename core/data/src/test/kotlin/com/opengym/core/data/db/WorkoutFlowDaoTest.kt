@@ -184,6 +184,20 @@ class WorkoutFlowDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `record pagination filters and orders like the flow variant`() = runBlocking {
+        val (exerciseId, sessionExerciseId) = seedSessionExercise()
+        val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
+        val dao = db.personalRecordDao()
+        dao.insert(personalRecord(exerciseId, setId, achievedAt = 100))
+        dao.insert(personalRecord(exerciseId, setId, achievedAt = 300))
+        dao.insert(personalRecord(exerciseId, setId, achievedAt = 200))
+
+        val pager = TestPager(PagingConfig(pageSize = 10), dao.getByExercisePaginated(exerciseId))
+        val page = pager.refresh() as PagingSource.LoadResult.Page
+        assertEquals(listOf(300L, 200L, 100L), page.data.map { it.achievedAt })
+    }
+
+    @Test
     fun `getLatestByType returns the most recent record of that type`() = runBlocking {
         val (exerciseId, sessionExerciseId) = seedSessionExercise()
         val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))

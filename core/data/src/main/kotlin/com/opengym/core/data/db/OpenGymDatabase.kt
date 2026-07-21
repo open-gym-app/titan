@@ -2,6 +2,7 @@ package com.opengym.core.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.opengym.core.data.db.dao.BodyWeightLogDao
 import com.opengym.core.data.db.dao.ExerciseDao
@@ -67,5 +68,13 @@ abstract class OpenGymDatabase : RoomDatabase() {
                 DatabaseSeed.insertInto(db)
             }
         }
+
+        /**
+         * Every version bump beyond 1 must add its `Migration` here and a matching
+         * test in the migration test suite. The database is deliberately *not*
+         * built with a destructive fallback: a version bump without a migration
+         * here throws at startup instead of silently wiping user history.
+         */
+        val MIGRATIONS: Array<Migration> = emptyArray()
     }
 }
