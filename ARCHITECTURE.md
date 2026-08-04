@@ -27,6 +27,7 @@ All business rules live here so they can be tested without an Android runtime.
 Implements the repository interfaces declared in `:core:domain`.
 Owns all I/O: Room DAOs, remote API clients, data mappers.
 Depends on `:core:domain` for the contracts it fulfils.
+The schema, its migration strategy, and the storage assumptions analytics and import/export rely on are documented in [PERSISTENCE.md](PERSISTENCE.md).
 
 ### Presentation (`:core:ui` + future `:feature:*`)
 
@@ -36,8 +37,7 @@ ViewModels call domain use cases directly - they do not touch data sources.
 
 ### App (`:app`)
 
-Composition root only. Declares `Application`, the single `Activity`, and the top-level
-navigation graph. Connects all layers through Hilt modules. Contains no business logic.
+Composition root only. Declares `Application`, the single `Activity`, and the top-level navigation graph. Connects all layers through Hilt modules. Contains no business logic.
 
 ## Allowed dependency directions
 
@@ -60,7 +60,7 @@ graph TD
 ## Prohibited dependencies
 
 | From | May NOT depend on | Reason |
-|------|-------------------|--------|
+| ------ | ------------------- | -------- |
 | `:core:domain` | `:core:data`, `:core:ui`, `:app`, `:feature:*` | Domain must be the stable, dependency-free centre |
 | `:core:ui` | `:core:data` | Presentation must not bypass the domain layer |
 | `:core:data` | `:core:ui`, `:app`, `:feature:*` | Data layer is unaware of how results are displayed |
@@ -73,22 +73,19 @@ Any dependency that violates these rules must be refactored: extract the shared 
 
 ### Module location
 
-Each Hilt module lives in a `di/` package inside the Gradle module that owns the dependency it
-provides - e.g. Room/DAO bindings live in `core/data/.../di/DatabaseModule.kt`. Do not centralize
-unrelated bindings in a single top-level module; split by concern instead.
+Each Hilt module lives in a `di/` package inside the Gradle module that owns the dependency it provides - e.g. Room/DAO bindings live in `core/data/.../di/DatabaseModule.kt`. Do not centralize unrelated bindings in a single top-level module; split by concern instead.
 
 ### Scoping rules
 
 | Scope | Component | Use for |
-|---|---|---|
+| --- | --- | --- |
 | `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, network clients, repositories |
 | `@ViewModelScoped` | `ViewModelComponent` | Dependencies shared across a single ViewModel's injection graph but recreated per screen |
 | *(none)* | any | Cheap, stateless objects (e.g. mappers) - a fresh instance per injection site is fine, don't over-scope |
 
 ### `@Provides` vs `@Binds`
 
-Use `@Provides` when the type needs construction logic or you don't own its constructor
-(e.g. configuring a `Room.databaseBuilder`):
+Use `@Provides` when the type needs construction logic or you don't own its constructor (e.g. configuring a `Room.databaseBuilder`):
 
 ```kotlin
 // ✅ construction logic required - @Provides is correct
@@ -100,8 +97,7 @@ fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
         .build()
 ```
 
-Use `@Binds` when you're only mapping an interface to an implementation - it's an abstract
-method, so Hilt generates the wiring without a method body:
+Use `@Binds` when you're only mapping an interface to an implementation - it's an abstract method, so Hilt generates the wiring without a method body:
 
 ```kotlin
 // ✅ pure interface-to-impl mapping - @Binds is correct
