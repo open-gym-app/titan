@@ -56,6 +56,9 @@ Full documentation is available at **[open-gym-app.github.io](https://open-gym-a
 
 For project architecture and module structure see [ARCHITECTURE.md](ARCHITECTURE.md).
 
+For the database schema, its migration strategy and the storage assumptions built on it, see
+[PERSISTENCE.md](PERSISTENCE.md).
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
