@@ -31,7 +31,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
         Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
             .addCallback(OpenGymDatabase.foreignKeysCallback)
-            .addCallback(OpenGymDatabase.seedCallback)
+            .addCallback(OpenGymDatabase.seedCallback(context.assets))
             .addMigrations(*OpenGymDatabase.MIGRATIONS)
             .build()
 

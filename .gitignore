@@ -31,3 +31,6 @@ keystore.properties
 
 .DS_Store
 .kotlin/
+
+# Cached upstream tarballs for tools/seed/generate_seed.py
+tools/seed/.cache/

@@ -12,6 +12,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  seed:
+    name: Seed assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      # The upstream tarball is ~95 MB and only changes when source.lock is
+      # re-pinned, so key the cache on the lock file itself.
+      - name: Cache the pinned upstream tarball
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.2.3
+        with:
+          path: tools/seed/.cache
+          key: seed-source-${{ hashFiles('tools/seed/source.lock') }}
+
+      # Guards against a hand-edited exercises.sql or an image dropped from the
+      # bundle: both would ship a catalogue that no longer matches the pinned
+      # upstream commit. Compares the SQL byte for byte and the image *names*
+      # only, since WebP output varies across Pillow versions.
+      - name: Verify the committed seed matches the pinned source
+        run: make seed-check
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

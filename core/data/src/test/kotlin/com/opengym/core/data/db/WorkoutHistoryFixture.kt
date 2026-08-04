@@ -161,8 +161,9 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
     }
 
     companion object {
+        /** A representative slice of the seeded taxonomy - see `DatabaseSeed`. */
         val MUSCLE_GROUPS =
-            listOf("CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "LEGS", "CORE")
+            listOf("CHEST", "LATS", "SHOULDERS", "BICEPS", "TRICEPS", "QUADRICEPS", "ABDOMINALS")
 
         private const val MILLIS_PER_DAY = 86_400_000L
 

@@ -15,10 +15,10 @@ class CatalogDaoTest : RoomTestBase() {
     @Test
     fun `insertAll ignores duplicate names and lists ordered by name`() = runBlocking {
         val dao = db.muscleGroupDao()
-        dao.insertAll(listOf(muscleGroup("LEGS"), muscleGroup("BACK")))
-        dao.insertAll(listOf(muscleGroup("BACK"))) // duplicate -> ignored
+        dao.insertAll(listOf(muscleGroup("QUADRICEPS"), muscleGroup("LATS")))
+        dao.insertAll(listOf(muscleGroup("LATS"))) // duplicate -> ignored
         val names = dao.getAll().first().map { it.name }
-        assertEquals(listOf("BACK", "LEGS"), names)
+        assertEquals(listOf("LATS", "QUADRICEPS"), names)
     }
 
     // --- tag --------------------------------------------------------------
