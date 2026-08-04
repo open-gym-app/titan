@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "c37caed85bf808e156c7e879fe46d650",
+    "identityHash": "e2f1347f3f7ec2847404841f5076603e",
     "entities": [
       {
         "tableName": "exercise",
@@ -852,6 +852,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_set_is_completed` ON `${TABLE_NAME}` (`is_completed`)"
+          },
+          {
+            "name": "index_workout_set_completed_at",
+            "unique": false,
+            "columnNames": [
+              "completed_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_workout_set_completed_at` ON `${TABLE_NAME}` (`completed_at`)"
           }
         ],
         "foreignKeys": [
@@ -953,6 +962,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_record_workout_set_id` ON `${TABLE_NAME}` (`workout_set_id`)"
+          },
+          {
+            "name": "index_personal_record_achieved_at",
+            "unique": false,
+            "columnNames": [
+              "achieved_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_personal_record_achieved_at` ON `${TABLE_NAME}` (`achieved_at`)"
           }
         ],
         "foreignKeys": [
@@ -1035,7 +1053,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c37caed85bf808e156c7e879fe46d650')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e2f1347f3f7ec2847404841f5076603e')"
     ]
   }
 }

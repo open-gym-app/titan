@@ -7,6 +7,8 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.opengym.core.data.db.entity.WorkoutSetEntity
+import com.opengym.core.data.db.projection.MuscleVolumeRow
+import com.opengym.core.data.db.projection.WeeklyVolumeRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -48,4 +50,70 @@ interface WorkoutSetDao {
         """,
     )
     fun getHistoryByExercisePaginated(exerciseId: Long): PagingSource<Int, WorkoutSetEntity>
+
+    /**
+     * Weekly training volume from [sinceEpochDay] onwards, one row per week that
+     * has at least one completed set. The chart on the progression screen reads
+     * this instead of loading the underlying sets: the `SUM` runs in SQLite, so
+     * the result grows with the number of *weeks*, not the number of sets.
+     *
+     * Weeks start on Monday, UTC. `completed_at` holds epoch milliseconds, so
+     * `completed_at / 86400000` is the epoch day; epoch day 0 was a Thursday,
+     * hence the `+ 3` that shifts Monday onto a multiple of 7 before rounding
+     * the day down to the start of its week.
+     *
+     * Sets with no `weight` or no `reps` (cardio, holds) count as zero volume
+     * rather than dropping their week from the series.
+     */
+    @Query(
+        """
+        SELECT
+            (ws.completed_at / 86400000) - (((ws.completed_at / 86400000) + 3) % 7) AS week_start,
+            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
+        FROM workout_set ws
+        WHERE ws.is_completed = 1 AND ws.completed_at >= :sinceEpochDay * 86400000
+        GROUP BY week_start
+        ORDER BY week_start ASC
+        """,
+    )
+    fun getVolumeByWeek(sinceEpochDay: Long): Flow<List<WeeklyVolumeRow>>
+
+    /**
+     * Volume per muscle group over the half-open day range
+     * `[startEpochDay, endEpochDayExclusive)`, aggregated in SQL so a wide range
+     * returns one row per muscle group instead of every set in it.
+     *
+     * The join fans a set out across `exercise_muscle_group`, so an exercise
+     * with one primary and two secondary muscles credits all three; the
+     * `GROUP BY` then collapses each group back to a single row, which is what
+     * keeps a multi-secondary exercise from counting a set twice against the
+     * same muscle. See [MuscleVolumeRow] for how the two sums differ.
+     */
+    @Query(
+        """
+        SELECT
+            mg.id AS muscle_group_id,
+            mg.name AS muscle_group_name,
+            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
+            SUM(
+                CASE WHEN emg.is_primary = 1
+                    THEN COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)
+                    ELSE (COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) / 2
+                END
+            ) AS weighted_volume
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN exercise_muscle_group emg ON emg.exercise_id = se.exercise_id
+        INNER JOIN muscle_group mg ON mg.id = emg.muscle_group_id
+        WHERE ws.is_completed = 1
+            AND ws.completed_at >= :startEpochDay * 86400000
+            AND ws.completed_at < :endEpochDayExclusive * 86400000
+        GROUP BY mg.id, mg.name
+        ORDER BY total_volume DESC, mg.name ASC
+        """,
+    )
+    fun getVolumeByMuscleGroup(
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<List<MuscleVolumeRow>>
 }

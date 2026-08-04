@@ -41,4 +41,13 @@ interface PersonalRecordDao {
         """,
     )
     fun getLatestByType(exerciseId: Long, prType: String): Flow<PersonalRecordEntity?>
+
+    /**
+     * The [limit] most recently achieved records across every exercise, for the
+     * "recent PRs" summary on the home and session-summary screens. Bounded by
+     * `LIMIT`, and served by the `achieved_at` index rather than sorting the
+     * whole table.
+     */
+    @Query("SELECT * FROM personal_record ORDER BY achieved_at DESC LIMIT :limit")
+    fun getRecentRecords(limit: Int): Flow<List<PersonalRecordEntity>>
 }

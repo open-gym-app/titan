@@ -9,7 +9,8 @@ import androidx.room.PrimaryKey
 /**
  * Derived data: a record always points at the set that achieved it, so both
  * foreign keys cascade — deleting the source data deletes the record.
- * weight/estimated_1rm in milligrams, distance in centimeters, duration in seconds.
+ * weight/estimated_1rm in milligrams, distance in centimeters, duration in
+ * seconds, achieved_at in epoch milliseconds.
  */
 @Entity(
     tableName = "personal_record",
@@ -30,6 +31,9 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["exercise_id", "achieved_at"]),
         Index("workout_set_id"),
+        // getRecentRecords orders by achieved_at across all exercises, which the
+        // composite index above can't serve (achieved_at isn't its left prefix).
+        Index("achieved_at"),
     ],
 )
 data class PersonalRecordEntity(
