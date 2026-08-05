@@ -1,0 +1,95 @@
+package com.opengym.core.domain.usecase
+
+import com.opengym.core.domain.model.TemplateError
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class ApplyTemplateUseCaseTest {
+
+    private val templates = FakeTemplateRepository()
+    private val applyTemplate = ApplyTemplateUseCase(templates)
+
+    @Test
+    fun `applying returns the exercises in template order`() = runTest {
+        val id = templates.seed(
+            "Push day",
+            listOf(draft(exerciseId = 3L), draft(exerciseId = 1L), draft(exerciseId = 2L)),
+        )
+
+        val applied = applyTemplate(id).getOrThrow()
+
+        assertEquals(listOf(3L, 1L, 2L), applied.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), applied.map { it.position })
+    }
+
+    @Test
+    fun `applying carries the defaults a session should be pre-filled with`() = runTest {
+        val id = templates.seed(
+            "Leg day",
+            listOf(
+                draft(
+                    exerciseId = 3L,
+                    defaultSets = 5,
+                    defaultReps = 5,
+                    defaultWeight = 100_000L,
+                    restDuration = 180L,
+                    notes = "warm up first",
+                ),
+            ),
+        )
+
+        val applied = applyTemplate(id).getOrThrow().single()
+
+        assertEquals(3L, applied.exerciseId)
+        assertEquals(5, applied.defaultSets)
+        assertEquals(5, applied.defaultReps)
+        assertEquals(100_000L, applied.defaultWeight)
+        assertEquals(180L, applied.restDuration)
+        assertEquals("warm up first", applied.notes)
+    }
+
+    @Test
+    fun `applying writes nothing`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L)))
+
+        applyTemplate(id).getOrThrow()
+
+        assertEquals(0, templates.writeCount)
+    }
+
+    @Test
+    fun `applying leaves the template in place`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L)))
+        val before = templates.stored(id)
+        val exercisesBefore = templates.storedExercises(id)
+
+        applyTemplate(id).getOrThrow()
+
+        assertEquals(before, templates.stored(id))
+        assertEquals(exercisesBefore, templates.storedExercises(id))
+    }
+
+    @Test
+    fun `applying the same template twice returns the same plan`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L), draft(exerciseId = 2L)))
+
+        assertEquals(applyTemplate(id).getOrThrow(), applyTemplate(id).getOrThrow())
+    }
+
+    @Test
+    fun `applying a template that does not exist is refused`() = runTest {
+        val result = applyTemplate(404L)
+
+        assertEquals(TemplateError.NotFound(404L), result.exceptionOrNull())
+    }
+
+    @Test
+    fun `applying a template whose exercises were removed underneath is refused`() = runTest {
+        val id = templates.seedEmpty("Push day")
+
+        val result = applyTemplate(id)
+
+        assertEquals(TemplateError.NoExercises, result.exceptionOrNull())
+    }
+}

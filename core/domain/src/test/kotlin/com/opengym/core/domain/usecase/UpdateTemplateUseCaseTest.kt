@@ -1,0 +1,125 @@
+package com.opengym.core.domain.usecase
+
+import com.opengym.core.domain.model.TemplateError
+import com.opengym.core.domain.model.WorkoutTemplate
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class UpdateTemplateUseCaseTest {
+
+    private val templates = FakeTemplateRepository()
+    private val updateTemplate = UpdateTemplateUseCase(templates)
+
+    @Test
+    fun `updating rewrites the name`() = runTest {
+        val id = templates.seed("Push day")
+
+        val updated = updateTemplate(id, "Upper body", listOf(draft(exerciseId = 1L))).getOrThrow()
+
+        assertEquals(WorkoutTemplate(id = id, name = "Upper body", icon = null), updated)
+        assertEquals("Upper body", templates.stored(id)?.name)
+    }
+
+    @Test
+    fun `updating replaces the whole exercise list`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L), draft(exerciseId = 2L)))
+
+        updateTemplate(id, "Push day", listOf(draft(exerciseId = 9L))).getOrThrow()
+
+        val stored = templates.storedExercises(id)
+        assertEquals(listOf(9L), stored.map { it.exerciseId })
+        assertEquals(listOf(0), stored.map { it.position })
+    }
+
+    @Test
+    fun `updating renumbers positions from the new order`() = runTest {
+        val id = templates.seed("Push day")
+
+        updateTemplate(
+            id,
+            "Push day",
+            listOf(draft(exerciseId = 5L), draft(exerciseId = 4L), draft(exerciseId = 6L)),
+        ).getOrThrow()
+
+        val stored = templates.storedExercises(id)
+        assertEquals(listOf(5L, 4L, 6L), stored.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), stored.map { it.position })
+    }
+
+    @Test
+    fun `keeping the template's own name is not a duplicate`() = runTest {
+        val id = templates.seed("Push day")
+
+        val updated = updateTemplate(id, "Push day", listOf(draft(exerciseId = 1L))).getOrThrow()
+
+        assertEquals("Push day", updated.name)
+    }
+
+    @Test
+    fun `re-casing the template's own name is not a duplicate`() = runTest {
+        val id = templates.seed("Push day")
+
+        val updated = updateTemplate(id, "PUSH DAY", listOf(draft(exerciseId = 1L))).getOrThrow()
+
+        assertEquals("PUSH DAY", updated.name)
+    }
+
+    @Test
+    fun `taking another template's name is refused`() = runTest {
+        val id = templates.seed("Push day")
+        templates.seed("Pull day")
+
+        val result = updateTemplate(id, "Pull day", listOf(draft(exerciseId = 1L)))
+
+        assertEquals(TemplateError.DuplicateName("Pull day"), result.exceptionOrNull())
+    }
+
+    @Test
+    fun `taking another template's name in a different case is refused`() = runTest {
+        val id = templates.seed("Push day")
+        templates.seed("Pull day")
+
+        val result = updateTemplate(id, "pull DAY", listOf(draft(exerciseId = 1L)))
+
+        assertTrue(result.exceptionOrNull() is TemplateError.DuplicateName)
+    }
+
+    @Test
+    fun `an empty name is refused`() = runTest {
+        val id = templates.seed("Push day")
+
+        val result = updateTemplate(id, "  ", listOf(draft(exerciseId = 1L)))
+
+        assertEquals(TemplateError.EmptyName, result.exceptionOrNull())
+    }
+
+    @Test
+    fun `emptying the exercise list is refused`() = runTest {
+        val id = templates.seed("Push day")
+
+        val result = updateTemplate(id, "Push day", emptyList())
+
+        assertEquals(TemplateError.NoExercises, result.exceptionOrNull())
+    }
+
+    @Test
+    fun `updating a template that does not exist is refused`() = runTest {
+        val result = updateTemplate(404L, "Push day", listOf(draft(exerciseId = 1L)))
+
+        assertEquals(TemplateError.NotFound(404L), result.exceptionOrNull())
+    }
+
+    @Test
+    fun `a refused update leaves the stored template untouched`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L)))
+
+        updateTemplate(id, "", listOf(draft(exerciseId = 2L)))
+        updateTemplate(id, "Renamed", emptyList())
+
+        assertEquals(0, templates.writeCount)
+        assertEquals("Push day", templates.stored(id)?.name)
+        assertEquals(listOf(1L), templates.storedExercises(id).map { it.exerciseId })
+    }
+}
