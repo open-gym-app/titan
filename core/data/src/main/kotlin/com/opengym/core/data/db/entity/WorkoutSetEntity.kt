@@ -8,9 +8,10 @@ import androidx.room.PrimaryKey
 
 /**
  * Canonical storage units: weight in milligrams, distance in centimeters,
- * duration/rest_after in seconds, rpe as RPE x 10 (range 10-100).
- * The rpe range and set_type values are enforced by the domain layer
- * (Room cannot express SQL CHECK constraints).
+ * duration/rest_after in seconds, rpe as RPE x 10 (range 10-100), and every
+ * timestamp column (`completed_at`, `created_at`, `updated_at`) in epoch
+ * milliseconds. The rpe range and set_type values are enforced by the domain
+ * layer (Room cannot express SQL CHECK constraints).
  */
 @Entity(
     tableName = "workout_set",
@@ -25,6 +26,10 @@ import androidx.room.PrimaryKey
     indices = [
         Index("session_exercise_id"),
         Index("is_completed"),
+        // The analytics aggregates (weekly volume, volume by muscle group) scan
+        // a date range over the whole table, so completed_at needs its own
+        // index — without it every trend query is a full scan of all history.
+        Index("completed_at"),
     ],
 )
 data class WorkoutSetEntity(

@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.data.db.entity.BodyWeightLogEntity
 import com.opengym.core.data.db.entity.ExerciseEntity
+import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.MuscleGroupEntity
 import com.opengym.core.data.db.entity.PersonalRecordEntity
 import com.opengym.core.data.db.entity.SessionExerciseEntity
@@ -105,13 +106,27 @@ abstract class RoomTestBase {
         setNumber: Int,
         isCompleted: Boolean = true,
         completedAt: Long = 0,
+        reps: Int? = null,
+        weight: Long? = null,
     ) = WorkoutSetEntity(
         sessionExerciseId = sessionExerciseId,
         setNumber = setNumber,
+        reps = reps,
+        weight = weight,
         isCompleted = isCompleted,
         completedAt = completedAt,
         createdAt = 0,
         updatedAt = 0,
+    )
+
+    protected fun exerciseMuscleGroup(
+        exerciseId: Long,
+        muscleGroupId: Long,
+        isPrimary: Boolean = true,
+    ) = ExerciseMuscleGroupEntity(
+        exerciseId = exerciseId,
+        muscleGroupId = muscleGroupId,
+        isPrimary = isPrimary,
     )
 
     protected fun personalRecord(

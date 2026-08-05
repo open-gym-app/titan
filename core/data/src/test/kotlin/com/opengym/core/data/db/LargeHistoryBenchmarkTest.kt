@@ -10,7 +10,8 @@ import org.junit.Test
 
 /**
  * Seeds a multi-year, power-user-scale history (10k sessions, ~30k
- * session_exercise rows, 100k sets) and asserts the hot-path read queries
+ * session_exercise rows, 100k sets, 10k personal records) and asserts the
+ * hot-path read queries
  * stay fast at that scale, so a missing index doesn't reach production
  * unnoticed. Thresholds are generous on purpose: this guards against gross
  * regressions (e.g. an unindexed join going quadratic), not micro-benchmarking.
@@ -22,7 +23,11 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         const val SESSION_COUNT = 10_000
         const val EXERCISES_PER_SESSION = 3
         const val SETS_PER_SESSION = 10
+        const val MUSCLE_GROUPS_PER_EXERCISE = 3
         const val QUERY_BUDGET_MS = 500L
+
+        val MUSCLE_GROUPS =
+            listOf("CHEST", "BACK", "SHOULDERS", "BICEPS", "TRICEPS", "LEGS", "CORE")
     }
 
     @Test
@@ -54,10 +59,44 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             )
             pager.refresh()
         }
+
+        // Analytics aggregates: these scan a date range across all history, so
+        // they are the queries most exposed to a missing completed_at index.
+        assertUnder("getVolumeByWeek over the whole history") {
+            db.workoutSetDao().getVolumeByWeek(0).first()
+        }
+
+        assertUnder("getVolumeByMuscleGroup over a one-month range") {
+            db.workoutSetDao().getVolumeByMuscleGroup(0, 30).first()
+        }
+
+        assertUnder("getRecentRecords") {
+            db.personalRecordDao().getRecentRecords(limit = 10).first()
+        }
     }
 
-    private suspend fun seedExercises(): List<Long> =
-        (0 until EXERCISE_COUNT).map { i -> db.exerciseDao().insert(exercise(name = "Exercise $i")) }
+    /**
+     * Inserts the exercises and links each one to a primary and two secondary
+     * muscle groups, so the muscle-group aggregate has a realistic fan-out
+     * (every set joins to three rows) instead of an empty join.
+     */
+    private suspend fun seedExercises(): List<Long> {
+        db.muscleGroupDao().insertAll(MUSCLE_GROUPS.map { muscleGroup(it) })
+        val muscleGroupIds = db.muscleGroupDao().getAll().first().map { it.id }
+        return (0 until EXERCISE_COUNT).map { i ->
+            val exerciseId = db.exerciseDao().insert(exercise(name = "Exercise $i"))
+            repeat(MUSCLE_GROUPS_PER_EXERCISE) { slot ->
+                db.exerciseDao().addMuscleGroup(
+                    exerciseMuscleGroup(
+                        exerciseId = exerciseId,
+                        muscleGroupId = muscleGroupIds[(i + slot) % muscleGroupIds.size],
+                        isPrimary = slot == 0,
+                    ),
+                )
+            }
+            exerciseId
+        }
+    }
 
     private suspend fun seedHistory(exerciseIds: List<Long>) {
         db.withTransaction {
@@ -72,14 +111,26 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
                 }
                 repeat(SETS_PER_SESSION) { setIndex ->
                     val sessionExerciseId = sessionExerciseIds[setIndex % sessionExerciseIds.size]
-                    db.workoutSetDao().insert(
+                    val setId = db.workoutSetDao().insert(
                         workoutSet(
                             sessionExerciseId = sessionExerciseId,
                             setNumber = setIndex / sessionExerciseIds.size + 1,
                             isCompleted = true,
                             completedAt = createdAt + setIndex,
+                            reps = 8,
+                            weight = 100_000_000L,
                         ),
                     )
+                    // One PR per session, so personal_record grows with history too.
+                    if (setIndex == 0) {
+                        db.personalRecordDao().insert(
+                            personalRecord(
+                                exerciseId = exerciseIds[sessionIndex % exerciseIds.size],
+                                workoutSetId = setId,
+                                achievedAt = createdAt,
+                            ),
+                        )
+                    }
                 }
             }
             // Most-recently-active in-progress session, so getActive has real work to skip past.
