@@ -212,6 +212,23 @@ class MuscleVolumeCalculatorTest {
     }
 
     @Test
+    fun `a repeated link that disagrees on the flag keeps the primary, whichever came first`() {
+        // Collapsing the repeat must not be order-dependent: a caller that listed the
+        // secondary first would otherwise halve a muscle the exercise trains outright.
+        val primaryFirst = mapOf(1L to listOf(primary(CHEST), secondary(CHEST)))
+        val secondaryFirst = mapOf(1L to listOf(secondary(CHEST), primary(CHEST)))
+
+        assertEquals(
+            MuscleVolumeCalculator.volumeByMuscle(listOf(set()), primaryFirst),
+            MuscleVolumeCalculator.volumeByMuscle(listOf(set()), secondaryFirst),
+        )
+        assertEquals(
+            mapOf(CHEST to 1_000 * KG),
+            MuscleVolumeCalculator.volumeByMuscle(listOf(set()), secondaryFirst),
+        )
+    }
+
+    @Test
     fun `groups are keyed by id, so a stale icon does not split one muscle in two`() {
         val restyled = CHEST.copy(icon = "ic_chest_v2")
         val links = mapOf(

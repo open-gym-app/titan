@@ -60,8 +60,13 @@ object MuscleVolumeCalculator {
         // Collapsed once here rather than per set: the database's composite primary key
         // on (exercise_id, muscle_group_id) means a real link list never repeats a
         // group, and a hand-built one that does should still credit it a single time.
+        // A repeat that disagrees on the flag keeps the primary, so the result does not
+        // depend on which of the two the caller happened to list first.
         val links = linksBySessionExerciseId.mapValues { (_, value) ->
-            value.distinctBy { it.muscleGroup.id }
+            value.groupBy { it.muscleGroup.id }
+                .map { (_, sameGroup) ->
+                    sameGroup.firstOrNull(ExerciseMuscleGroupLink::isPrimary) ?: sameGroup.first()
+                }
         }
 
         val totals = LinkedHashMap<Long, Long>()
@@ -69,7 +74,9 @@ object MuscleVolumeCalculator {
         // icon - cannot split one muscle group across two map entries.
         val groupsById = LinkedHashMap<Long, MuscleGroup>()
 
-        for (set in sets.filter(WorkoutSet::isCompleted)) {
+        // A sequence, not a filtered list: this runs over whole-window set lists, and
+        // there is no reason to materialise a second copy of one just to skip a few rows.
+        for (set in sets.asSequence().filter(WorkoutSet::isCompleted)) {
             val exerciseLinks = links[set.sessionExerciseId] ?: continue
             val volume = VolumeCalculator.setVolume(set)
             for (link in exerciseLinks) {
