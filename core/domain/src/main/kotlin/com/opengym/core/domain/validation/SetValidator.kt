@@ -103,7 +103,8 @@ object SetValidator {
         weight?.let { value ->
             if (value !in WEIGHT_MIN_MG..WEIGHT_MAX_MG) {
                 add(
-                    "weight must be within 0 kg..${WEIGHT_MAX_MG / MG_PER_KG} kg " +
+                    "weight must be within ${WEIGHT_MIN_MG / MG_PER_KG} kg.." +
+                        "${WEIGHT_MAX_MG / MG_PER_KG} kg " +
                         "($WEIGHT_MIN_MG..$WEIGHT_MAX_MG mg), was $value mg",
                 )
             }
@@ -120,7 +121,8 @@ object SetValidator {
         distance?.let { value ->
             if (value !in DISTANCE_MIN_CM..DISTANCE_MAX_CM) {
                 add(
-                    "distance must be within 0 km..${DISTANCE_MAX_CM / CM_PER_KM} km " +
+                    "distance must be within ${DISTANCE_MIN_CM / CM_PER_KM} km.." +
+                        "${DISTANCE_MAX_CM / CM_PER_KM} km " +
                         "($DISTANCE_MIN_CM..$DISTANCE_MAX_CM cm), was $value cm",
                 )
             }
