@@ -10,6 +10,7 @@ import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /**
@@ -59,6 +60,14 @@ class FakeSessionRepository : SessionRepository {
     var updateCount = 0
         private set
 
+    /** Reads of a whole session's sets, to pin down that summarising takes one. */
+    var setsForSessionReads = 0
+        private set
+
+    /** Per-exercise set reads, which the summary must no longer make. */
+    var setsByExerciseReads = 0
+        private set
+
     override fun getAll(): Flow<List<WorkoutSession>> = sessions.map { it.values.toList() }
 
     override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
@@ -71,9 +80,26 @@ class FakeSessionRepository : SessionRepository {
         exercises.map { it[sessionId].orEmpty() }
 
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> =
-        sets.map { it[sessionExerciseId].orEmpty() }
+        sets.map { stored ->
+            setsByExerciseReads++
+            stored[sessionExerciseId].orEmpty()
+        }
+
+    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
+        combine(exercises, sets) { exercisesBySession, setsByExercise ->
+            setsForSessionReads++
+            exercisesBySession[sessionId].orEmpty().flatMap { setsByExercise[it.id].orEmpty() }
+        }
+
+    /**
+     * Runs inside [insert] before the row is stored. Lets a test park a caller
+     * mid-transition and let a second one race it — the window a check-then-act
+     * start would lose.
+     */
+    var beforeInsert: (suspend () -> Unit)? = null
 
     override suspend fun insert(session: WorkoutSession): Long {
+        beforeInsert?.invoke()
         val id = nextSessionId++
         sessions.value += id to session.copy(id = id)
         return id

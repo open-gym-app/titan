@@ -20,18 +20,24 @@ import kotlinx.coroutines.flow.first
  * state machine, e.g. after a process restart. [ResumeSessionUseCase] is the way
  * back to that session; a caller handling [SessionError.SessionAlreadyActive] should
  * offer resuming it, not treat it as a dead end.
+ *
+ * The check and the insert run under [SessionLifecycleLock], so two concurrent
+ * starts cannot both pass the check and open a session each.
  */
 class StartSessionUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     suspend operator fun invoke(
         templateId: Long? = null,
         notes: String? = null,
-    ): Result<SessionState.Active> {
-        runningSessionId()?.let { return Result.failure(SessionError.SessionAlreadyActive(it)) }
+    ): Result<SessionState.Active> = lock.withTransition {
+        runningSessionId()?.let {
+            return@withTransition Result.failure(SessionError.SessionAlreadyActive(it))
+        }
 
         val now = clock.nowMillis()
         val sessionId = sessionRepository.insert(
@@ -47,7 +53,7 @@ class StartSessionUseCase(
 
         val started = SessionState.Active(sessionId = sessionId, startedAt = now)
         sessionStateRepository.update(started)
-        return Result.success(started)
+        Result.success(started)
     }
 
     /**

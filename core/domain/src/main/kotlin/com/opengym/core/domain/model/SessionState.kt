@@ -23,6 +23,7 @@ package com.opengym.core.domain.model
  * disk, and resume is what reattaches to it.
  *
  * Anything else is rejected with a [SessionError]; see the individual use cases.
+ *
  */
 sealed interface SessionState {
 

@@ -20,42 +20,41 @@ import kotlinx.coroutines.flow.first
  *
  * A session with no completed sets is refused with [SessionError.NoSetsLogged] and
  * left in progress, so the user can either log something or discard it outright.
+ *
+ * Runs under [SessionLifecycleLock] so a double-tapped finish cannot close the same
+ * session out twice.
  */
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Finished> {
+    suspend operator fun invoke(): Result<SessionState.Finished> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val sessionId = current.openSessionId
-            ?: return Result.failure(SessionError.SessionNotActive(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
         val session = sessionRepository.loadSession(sessionId)
-            .getOrElse { return Result.failure(it) }
+            .getOrElse { return@withTransition Result.failure(it) }
 
-        val performed = performedSets(sessionId)
-        return if (performed.isEmpty()) {
+        // One read for the whole session rather than one per exercise: the sets
+        // carry their own sessionExerciseId, so the exercise count is a grouping
+        // rather than a second query.
+        val performed = sessionRepository.getSetsForSession(sessionId).first()
+            .filter(WorkoutSet::isCompleted)
+
+        if (performed.isEmpty()) {
             Result.failure(SessionError.NoSetsLogged)
         } else {
             Result.success(closeOut(session, performed))
         }
     }
 
-    /**
-     * The session's completed sets, grouped by exercise and with the exercises that
-     * contributed nothing dropped. Grouped rather than flattened because the summary
-     * counts exercises actually performed, not sets alone.
-     */
-    private suspend fun performedSets(sessionId: Long): List<List<WorkoutSet>> =
-        sessionRepository.getExercises(sessionId).first()
-            .map { exercise -> sessionRepository.getSets(exercise.id).first().filter(WorkoutSet::isCompleted) }
-            .filter { it.isNotEmpty() }
-
     private suspend fun closeOut(
         session: WorkoutSession,
-        performed: List<List<WorkoutSet>>,
+        performed: List<WorkoutSet>,
     ): SessionState.Finished {
         val now = clock.nowMillis()
         sessionRepository.update(
@@ -75,9 +74,9 @@ class FinishSessionUseCase(
                 // Clamped: a backwards device-clock adjustment mid-session would
                 // otherwise surface as a negative duration in the UI.
                 durationMillis = (now - session.createdAt).coerceAtLeast(0),
-                exerciseCount = performed.size,
-                totalSets = performed.sumOf { it.size },
-                totalVolume = performed.flatten().sumOf { it.volume() },
+                exerciseCount = performed.distinctBy { it.sessionExerciseId }.size,
+                totalSets = performed.size,
+                totalVolume = performed.sumOf { it.volume() },
             ),
         )
         sessionStateRepository.update(finished)

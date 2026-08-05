@@ -237,6 +237,17 @@ class FinishSessionUseCaseTest {
     }
 
     @Test
+    fun `summarising reads the session's sets once, not once per exercise`() = runTest {
+        val started = startSession().getOrThrow()
+        repeat(5) { sessions.addSet(sessions.addExercise(started.sessionId, exerciseId = it + 1L)) }
+
+        finishSession().getOrThrow()
+
+        assertEquals(1, sessions.setsForSessionReads)
+        assertEquals(0, sessions.setsByExerciseReads)
+    }
+
+    @Test
     fun `a backwards clock adjustment cannot produce a negative duration`() = runTest {
         startWithSets()
         clock.now = 1_000L

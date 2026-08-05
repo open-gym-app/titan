@@ -16,26 +16,29 @@ import kotlinx.coroutines.flow.first
  * The session row stays `is_in_progress = 1` — pausing is a UI-facing distinction,
  * not a persistence one — but its `last_active_at` is stamped, because that is what
  * resume-after-restart orders on.
+ *
+ * Runs under [SessionLifecycleLock] so it cannot interleave with another transition.
  */
 class PauseSessionUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Paused> {
+    suspend operator fun invoke(): Result<SessionState.Paused> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val active = current as? SessionState.Active
-            ?: return Result.failure(SessionError.SessionNotActive(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
         val session = sessionRepository.loadSession(active.sessionId)
-            .getOrElse { return Result.failure(it) }
+            .getOrElse { return@withTransition Result.failure(it) }
 
         val now = clock.nowMillis()
         sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
 
         val paused = SessionState.Paused(sessionId = active.sessionId, pausedAt = now)
         sessionStateRepository.update(paused)
-        return Result.success(paused)
+        Result.success(paused)
     }
 }

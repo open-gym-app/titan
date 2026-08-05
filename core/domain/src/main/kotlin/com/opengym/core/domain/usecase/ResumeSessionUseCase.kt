@@ -30,27 +30,30 @@ import kotlinx.coroutines.flow.first
  * Refused with [SessionError.SessionNotPaused] when there is nothing to resume:
  * from `Active` (already running), or from `Idle`/`Finished` with no session in
  * progress.
+ *
+ * Runs under [SessionLifecycleLock] so it cannot interleave with another transition.
  */
 class ResumeSessionUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Active> {
+    suspend operator fun invoke(): Result<SessionState.Active> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val sessionId = resumableSessionId(current)
-            ?: return Result.failure(SessionError.SessionNotPaused(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotPaused(current))
 
         val session = sessionRepository.loadSession(sessionId)
-            .getOrElse { return Result.failure(it) }
+            .getOrElse { return@withTransition Result.failure(it) }
 
         val now = clock.nowMillis()
         sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
 
         val active = SessionState.Active(sessionId = session.id, startedAt = session.createdAt)
         sessionStateRepository.update(active)
-        return Result.success(active)
+        Result.success(active)
     }
 
     private suspend fun resumableSessionId(current: SessionState): Long? = when (current) {
