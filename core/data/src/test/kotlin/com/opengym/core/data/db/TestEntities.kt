@@ -31,7 +31,8 @@ fun exercise(
     machineBrand = machineBrand,
 )
 
-fun muscleGroup(name: String = "CHEST") = MuscleGroupEntity(name = name)
+fun muscleGroup(name: String = "CHEST", icon: String? = null) =
+    MuscleGroupEntity(name = name, icon = icon)
 
 fun tag(name: String = "PUSH", isSystem: Boolean = false) =
     TagEntity(name = name, isSystem = isSystem)

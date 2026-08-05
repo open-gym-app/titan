@@ -8,8 +8,8 @@ import androidx.room.Update
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
-import com.opengym.core.data.db.entity.MuscleGroupEntity
 import com.opengym.core.data.db.entity.TagEntity
+import com.opengym.core.data.db.projection.ExerciseMuscleGroupLinkRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -48,15 +48,29 @@ interface ExerciseDao {
     @Query("DELETE FROM exercise_muscle_group WHERE exercise_id = :exerciseId AND muscle_group_id = :muscleGroupId")
     suspend fun removeMuscleGroup(exerciseId: Long, muscleGroupId: Long)
 
+    /**
+     * The muscle groups [exerciseId] trains, each with the join row's `is_primary`
+     * flag, primary first and then by name.
+     *
+     * Returns [ExerciseMuscleGroupLinkRow] rather than the bare muscle group so the
+     * flag survives the query: volume attribution weights a primary link at 100% and
+     * a secondary one at 50%, and recovering that with a second read would mean
+     * walking the same join twice.
+     */
     @Query(
         """
-        SELECT mg.* FROM muscle_group mg
+        SELECT
+            mg.id AS muscle_group_id,
+            mg.name AS muscle_group_name,
+            mg.icon AS muscle_group_icon,
+            emg.is_primary AS is_primary
+        FROM muscle_group mg
         INNER JOIN exercise_muscle_group emg ON mg.id = emg.muscle_group_id
         WHERE emg.exercise_id = :exerciseId
         ORDER BY emg.is_primary DESC, mg.name ASC
         """,
     )
-    fun getMuscleGroups(exerciseId: Long): Flow<List<MuscleGroupEntity>>
+    fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLinkRow>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addTag(ref: ExerciseTagEntity)

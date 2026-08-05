@@ -147,6 +147,8 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 - **Weeks start Monday, UTC.** `getVolumeByWeek` derives the epoch day as `completed_at / 86400000` and shifts by `+ 3` because epoch day 0 was a Thursday. There is no local-timezone or DST handling: a session logged late on a Sunday evening west of UTC lands in the following week's bucket.
 - **Day ranges are half-open** `[startEpochDay, endEpochDayExclusive)` and are expressed in epoch days, converted to milliseconds inside the query.
 - **Muscle attribution is per link, not per set.** `getVolumeByMuscleGroup` fans a set out across `exercise_muscle_group`, so `total_volume` credits the full volume to every linked group and intentionally sums to more than the session total. `weighted_volume` applies 100% to a primary link and 50% to a secondary one, with integer division truncating the halved value.
+- **`weighted_volume` has a domain twin.** `MuscleVolumeCalculator` in `:core:domain` applies the identical rule to sets already held in memory, for a session or window that has been loaded anyway; the SQL aggregate is for ranges wide enough that materialising the sets would be wasteful. Both halve *each set* before summing, so the truncation matches figure for figure — `MuscleVolumeParityTest` pins that, and an edit to either rule has to change both.
+- **Attributed volume is not conserved, and the 17-row taxonomy sharpens that.** A secondary link takes a flat 50% however many secondaries the exercise has, so a 1-primary/9-secondary movement attributes 5.5x the volume actually lifted, against 2x for a bench press. The figures therefore track a muscle against itself over time; they are not a share-of-effort split, and no consumer should render them as parts of a whole.
 
 ## Hot paths and their indexes
 
@@ -166,6 +168,6 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 
 - The export envelope must carry the schema version it was written at. An import reads it and refuses (or up-converts) anything it does not understand - the Room migration ladder only upgrades a *database file*, not a JSON document.
 - Match on natural keys and remap ids, as above.
-- Reference data (7 muscle groups, 6 system tags) already exists on the target install; import must resolve it by name rather than inserting duplicates.
+- Reference data (17 muscle groups, 6 system tags) already exists on the target install; import must resolve it by name rather than inserting duplicates.
 - Units are integers and timestamps are epoch-millisecond UTC, so no locale or precision conversion belongs in the serializer; converting to kilograms, pounds or local time is a UI concern.
 - Restoring by replacing the database file is only safe when the file's version is one the app can migrate; prefer a row-level import that goes through Room.
