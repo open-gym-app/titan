@@ -1,6 +1,7 @@
 package com.opengym.core.domain.usecase
 
 import app.cash.turbine.test
+import com.opengym.core.domain.model.WorkoutTemplate
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -15,7 +16,7 @@ class GetTemplatesUseCaseTest {
 
     @Test
     fun `an empty store emits an empty list rather than nothing`() = runTest {
-        assertEquals(emptyList<Long>(), getTemplates().first())
+        assertEquals(emptyList<WorkoutTemplate>(), getTemplates().first())
     }
 
     @Test
@@ -30,7 +31,7 @@ class GetTemplatesUseCaseTest {
     @Test
     fun `the list re-emits when a template is created`() = runTest {
         getTemplates().test {
-            assertEquals(emptyList<Long>(), awaitItem())
+            assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
 
             createTemplate("Push day", listOf(draft(exerciseId = 1L))).getOrThrow()
 
@@ -48,7 +49,7 @@ class GetTemplatesUseCaseTest {
 
             deleteTemplate(id).getOrThrow()
 
-            assertEquals(emptyList<Long>(), awaitItem())
+            assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
     }

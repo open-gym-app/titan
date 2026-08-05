@@ -1,6 +1,7 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.TemplateError
+import com.opengym.core.domain.model.TemplateExercise
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -28,7 +29,7 @@ class DeleteTemplateUseCaseTest {
 
         deleteTemplate(id).getOrThrow()
 
-        assertEquals(emptyList<Long>(), templates.storedExercises(id))
+        assertEquals(emptyList<TemplateExercise>(), templates.storedExercises(id))
     }
 
     @Test
