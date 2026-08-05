@@ -11,6 +11,7 @@ import androidx.room.PrimaryKey
         Index("name"),
         Index("equipment_type"),
         Index("exercise_type"),
+        Index("discipline"),
         // A movement is identified by name + equipment + (for machines) brand, so PRs
         // stay separate per machine. NULL brand doesn't collide with other NULLs, so
         // non-machine equipment (barbell, dumbbell, bodyweight...) is unaffected.
@@ -24,6 +25,8 @@ data class ExerciseEntity(
     val name: String,
     @ColumnInfo(name = "exercise_type", defaultValue = "STRENGTH")
     val exerciseType: String = "STRENGTH",
+    @ColumnInfo(name = "discipline")
+    val discipline: String? = null,
     @ColumnInfo(name = "equipment_type")
     val equipmentType: String? = null,
     @ColumnInfo(name = "machine_brand")
@@ -36,8 +39,12 @@ data class ExerciseEntity(
     val isUnilateral: Boolean = false,
     @ColumnInfo(name = "default_rest")
     val defaultRest: Long? = null,
-    @ColumnInfo(name = "description")
-    val description: String? = null,
+    // The user's own remarks on this exercise ("the leg press here reads 20kg
+    // light"), never written by the seed. Distinct from `instructions`, which is
+    // the canonical how-to and is seeded: keeping a summary or a how-to here
+    // would put the same text under two names.
+    @ColumnInfo(name = "notes")
+    val notes: String? = null,
     @ColumnInfo(name = "instructions")
     val instructions: String? = null,
     @ColumnInfo(name = "is_custom", defaultValue = "0")

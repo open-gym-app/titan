@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "e2f1347f3f7ec2847404841f5076603e",
+    "identityHash": "dccb6e9afcfbcf2a4eff21cb0c6bd6d9",
     "entities": [
       {
         "tableName": "exercise",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `exercise_type` TEXT NOT NULL DEFAULT 'STRENGTH', `equipment_type` TEXT, `machine_brand` TEXT, `mechanic_type` TEXT, `difficulty_level` TEXT, `is_unilateral` INTEGER NOT NULL DEFAULT 0, `default_rest` INTEGER, `description` TEXT, `instructions` TEXT, `is_custom` INTEGER NOT NULL DEFAULT 0, `icon` TEXT)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `exercise_type` TEXT NOT NULL DEFAULT 'STRENGTH', `discipline` TEXT, `equipment_type` TEXT, `machine_brand` TEXT, `mechanic_type` TEXT, `difficulty_level` TEXT, `is_unilateral` INTEGER NOT NULL DEFAULT 0, `default_rest` INTEGER, `notes` TEXT, `instructions` TEXT, `is_custom` INTEGER NOT NULL DEFAULT 0, `icon` TEXT)",
         "fields": [
           {
             "fieldPath": "id",
@@ -26,6 +26,11 @@
             "affinity": "TEXT",
             "notNull": true,
             "defaultValue": "'STRENGTH'"
+          },
+          {
+            "fieldPath": "discipline",
+            "columnName": "discipline",
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "equipmentType",
@@ -60,8 +65,8 @@
             "affinity": "INTEGER"
           },
           {
-            "fieldPath": "description",
-            "columnName": "description",
+            "fieldPath": "notes",
+            "columnName": "notes",
             "affinity": "TEXT"
           },
           {
@@ -115,6 +120,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_exercise_exercise_type` ON `${TABLE_NAME}` (`exercise_type`)"
+          },
+          {
+            "name": "index_exercise_discipline",
+            "unique": false,
+            "columnNames": [
+              "discipline"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_exercise_discipline` ON `${TABLE_NAME}` (`discipline`)"
           },
           {
             "name": "index_exercise_name_equipment_type_machine_brand",
@@ -1053,7 +1067,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e2f1347f3f7ec2847404841f5076603e')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'dccb6e9afcfbcf2a4eff21cb0c6bd6d9')"
     ]
   }
 }

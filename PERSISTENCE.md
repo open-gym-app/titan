@@ -9,7 +9,9 @@ How the Room schema in `:core:data` is versioned, and the assumptions any consum
 | Entities | `core/data/src/main/kotlin/com/opengym/core/data/db/entity/` |
 | DAOs | `core/data/src/main/kotlin/com/opengym/core/data/db/dao/` |
 | Database + migrations | `core/data/src/main/kotlin/com/opengym/core/data/db/OpenGymDatabase.kt` |
-| Reference data | `core/data/src/main/kotlin/com/opengym/core/data/db/DatabaseSeed.kt` |
+| Reference data + catalogue seeding | `core/data/src/main/kotlin/com/opengym/core/data/db/DatabaseSeed.kt` |
+| Generated seed assets | `core/data/src/main/assets/seed/` |
+| Seed generator | `tools/seed/generate_seed.py` (`make seed`) |
 | Exported schema JSON | `core/data/schemas/com.opengym.core.data.db.OpenGymDatabase/<version>.json` |
 | Migration + DAO tests | `core/data/src/test/kotlin/com/opengym/core/data/db/` |
 
@@ -42,8 +44,45 @@ The database is deliberately **not** built with `fallbackToDestructiveMigration`
 ### Writing the migration itself
 
 - Foreign keys are **not enforced inside the migration transaction**: `PRAGMA foreign_keys = ON` is applied by `OpenGymDatabase.foreignKeysCallback` in `onOpen`, which Room runs *after* migrations. A migration that rebuilds a table (SQLite cannot alter constraints in place) should finish with `PRAGMA foreign_key_check` to prove it did not orphan any child row.
-- `DatabaseSeed` runs from `seedCallback.onCreate`, which fires **only on a fresh install**. New reference data (a muscle group, a system tag) must therefore be inserted by the migration *and* added to `DatabaseSeed`, otherwise existing installs never get it. Use `INSERT OR IGNORE` in both, keyed on the unique `name`.
+- `DatabaseSeed` runs from `seedCallback.onCreate`, which fires **only on a fresh install**. New reference data (a muscle group, a system tag) must therefore be inserted by the migration *and* present in the seed, otherwise existing installs never get it. Use `INSERT OR IGNORE` in both, keyed on the unique `name`.
 - Version 1 has not shipped yet, so it may still be edited in place with the JSON regenerated. Once a version is released, it is frozen: correct it with a new version, never by editing it.
+
+## Seed data
+
+The baseline exercise library is **generated, not hand-written**. `tools/seed/generate_seed.py` reads the public-domain [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) dataset, pinned by commit in `tools/seed/source.lock`, and emits two assets:
+
+| Asset | Contents |
+| --- | --- |
+| `core/data/src/main/assets/seed/exercises.sql` | 17 muscle groups, 6 system tags, 873 exercises, 2 574 muscle links, 1 630 tag links |
+| `core/data/src/main/assets/seed/images/*.webp` | One 400 px photo per exercise, ~8 MB total, referenced by `exercise.icon` |
+
+| Command | Effect |
+| --- | --- |
+| `make seed` | Regenerate from the pinned commit |
+| `make seed-update` | Re-pin `source.lock` to upstream HEAD, then regenerate |
+| `make seed-check` | Fail if the committed assets are stale (runs in CI) |
+
+`exercises.sql` is replayed verbatim by `DatabaseSeed.insertInto`. Its format is deliberately parser-free - **every line is blank, a `--` comment, or one complete statement** - which is why instruction paragraphs are re-joined with `char(10)` concatenation instead of embedding raw newlines. Anything editing the generator must preserve that invariant. Every statement is `INSERT OR IGNORE`, so a replay over a populated database is a no-op; `DatabaseSeedTest` asserts this.
+
+Exercise, muscle-group and tag ids are **written explicitly** by the generated SQL rather than autoincremented, because the link rows have to reference them. They therefore follow the ordering of `MUSCLE_GROUPS` / `SYSTEM_TAGS` in the generator and the upstream slug sort for exercises: reordering either constant renumbers rows, so the regenerated SQL must be committed with the change.
+
+### Field mapping
+
+| Column | Upstream field | Note |
+| --- | --- | --- |
+| `name`, `instructions` | `name`, `instructions[]` | Paragraphs joined with `\n` |
+| `exercise_type` | `category` | `ExerciseType` is a *logging mode*: every barbell-shaped discipline folds into `STRENGTH`, `cardio` → `ENDURANCE`, `stretching` → `ISOMETRIC` |
+| `discipline` | `category` | 1:1. Keeps what the fold above destroys - five disciplines share `exercise_type = STRENGTH`, so neither column derives the other |
+| `equipment_type` | `equipment` | Never NULL - upstream's `other` and a missing value both become `OTHER`, because a NULL would defeat the unique index (SQLite treats NULLs as distinct) |
+| `mechanic_type`, `difficulty_level` | `mechanic`, `level` | Direct, nullable |
+| `is_unilateral` | *derived* | Inferred from name markers (`One-Arm`, `Single-Leg`, `Alternating`, …); no marker means the `false` default, never a guess |
+| `icon` | `images[0]` | Asset-relative path to the bundled WebP |
+| `exercise_muscle_group` | `primaryMuscles`, `secondaryMuscles` | Exactly one `is_primary` row per exercise, enforced by the generator and by `DatabaseSeedTest` |
+| `exercise_tag` | `force`, `mechanic` | Links to the seeded `PUSH`/`PULL`/`STATIC` and `COMPOUND`/`ISOLATION` system tags |
+
+Every upstream field is imported except the second of each exercise's two photos. `machine_brand`, `default_rest` and `notes` stay NULL rather than being fabricated: all three belong to the user, not the catalogue.
+
+`notes` and `instructions` are easy to confuse and must not be. **`instructions` is the canonical how-to** - imperative, second-person, seeded from upstream ("Stand up with your torso upright while holding a barbell…"). **`notes` is whatever the user writes about the exercise** and is never seeded. A third-person summary of a movement belongs in neither: the dataset has no such field, and duplicating `instructions` under a second name is what the old `description` column invited before it was renamed.
 
 ## Storage assumptions
 
@@ -60,7 +99,7 @@ Physical units are integers - no floating point anywhere in the schema, so value
 
 Other invariants:
 
-- **Enum-like text columns** (`exercise_type`, `equipment_type`, `mechanic_type`, `difficulty_level`, `set_type`, `pr_type`) hold uppercase identifiers validated by the domain layer. Room cannot express SQL `CHECK` constraints, so the database will accept anything - an importer must validate them itself.
+- **Enum-like text columns** (`exercise_type`, `discipline`, `equipment_type`, `mechanic_type`, `difficulty_level`, `set_type`, `pr_type`) hold uppercase identifiers validated by the domain layer. Room cannot express SQL `CHECK` constraints, so the database will accept anything - an importer must validate them itself.
 - **`workout_set.completed_at` is NOT NULL** even for a set that is not finished; callers write `0` as a placeholder and flag it with `is_completed = 0`. Analytics filter on `is_completed = 1`, so placeholders never reach an aggregate - but a row with `is_completed = 1` and `completed_at = 0` would be counted at epoch 1970.
 - **`workout_session.completed_at` is nullable**; a session in progress is identified by `is_in_progress = 1`, and resume picks the highest `last_active_at`.
 
@@ -69,7 +108,7 @@ Other invariants:
 | Table | Natural key | Note |
 | --- | --- | --- |
 | `exercise` | `(name, equipment_type, machine_brand)` unique | Keeps PRs separate per machine brand. SQLite treats NULLs as distinct, so rows with a NULL brand do **not** collide with each other |
-| `muscle_group` | `name` unique | 7 seeded values |
+| `muscle_group` | `name` unique | 17 seeded values |
 | `tag` | `name` unique | 6 seeded system tags, plus user tags |
 | `session_exercise` | `(session_id, position)` unique | Reordering must not transiently duplicate a position |
 | `template_exercise` | `(template_id, position)` unique | Same |

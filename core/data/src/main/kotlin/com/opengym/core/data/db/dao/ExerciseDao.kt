@@ -36,6 +36,9 @@ interface ExerciseDao {
     @Query("SELECT * FROM exercise WHERE equipment_type = :equipmentType ORDER BY name ASC")
     fun getByEquipmentType(equipmentType: String): Flow<List<ExerciseEntity>>
 
+    @Query("SELECT * FROM exercise WHERE discipline = :discipline ORDER BY name ASC")
+    fun getByDiscipline(discipline: String): Flow<List<ExerciseEntity>>
+
     @Query("SELECT * FROM exercise WHERE name LIKE '%' || :query || '%' ORDER BY name ASC")
     fun searchByPartialName(query: String): Flow<List<ExerciseEntity>>
 

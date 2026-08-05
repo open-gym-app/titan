@@ -1,5 +1,6 @@
 package com.opengym.core.data.db
 
+import android.content.res.AssetManager
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
@@ -63,9 +64,14 @@ abstract class OpenGymDatabase : RoomDatabase() {
             }
         }
 
-        val seedCallback = object : Callback() {
+        /**
+         * Seeds the bundled exercise catalogue on a fresh install. Takes the
+         * [AssetManager] rather than a `Context` because reading the generated
+         * SQL asset is the only thing the seed needs from the platform.
+         */
+        fun seedCallback(assets: AssetManager) = object : Callback() {
             override fun onCreate(db: SupportSQLiteDatabase) {
-                DatabaseSeed.insertInto(db)
+                DatabaseSeed.insertInto(db, assets)
             }
         }
 
