@@ -8,12 +8,28 @@ import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
 
 /**
- * Puts a suspended session back into [SessionState.Active].
+ * Puts a session back into [SessionState.Active], either from [SessionState.Paused]
+ * or by recovering one the state machine has lost track of.
  *
- * Only [SessionState.Paused] can be resumed; anything else is refused with
- * [SessionError.SessionNotPaused]. The restored `startedAt` is read back from the
- * session row rather than recomputed, so a pause/resume cycle does not restart the
- * elapsed-time clock.
+ * The restored `startedAt` is read back from the session row rather than recomputed,
+ * so neither a pause/resume cycle nor a recovery restarts the elapsed-time clock.
+ *
+ * ### Recovery
+ *
+ * The state machine is in-memory, but the session row is not: a process restart
+ * leaves the state at `Idle` with `is_in_progress = 1` still on disk. Since
+ * [StartSessionUseCase] refuses to open a second session while that row exists,
+ * this use case is the way back to it — resuming from `Idle` or `Finished` adopts
+ * whatever session `getActive` resolves to. Without that, a restart mid-workout
+ * would strand the session: unreachable by every transition, and blocking new ones.
+ *
+ * Once M3-07 makes the state itself durable this path becomes the rare case rather
+ * than the every-restart case, but it stays correct either way — the row is the
+ * authority on what is in progress.
+ *
+ * Refused with [SessionError.SessionNotPaused] when there is nothing to resume:
+ * from `Active` (already running), or from `Idle`/`Finished` with no session in
+ * progress.
  */
 class ResumeSessionUseCase(
     private val sessionRepository: SessionRepository,
@@ -23,10 +39,10 @@ class ResumeSessionUseCase(
 
     suspend operator fun invoke(): Result<SessionState.Active> {
         val current = sessionStateRepository.observe().first()
-        val paused = current as? SessionState.Paused
+        val sessionId = resumableSessionId(current)
             ?: return Result.failure(SessionError.SessionNotPaused(current))
 
-        val session = sessionRepository.loadSession(paused.sessionId)
+        val session = sessionRepository.loadSession(sessionId)
             .getOrElse { return Result.failure(it) }
 
         val now = clock.nowMillis()
@@ -35,5 +51,12 @@ class ResumeSessionUseCase(
         val active = SessionState.Active(sessionId = session.id, startedAt = session.createdAt)
         sessionStateRepository.update(active)
         return Result.success(active)
+    }
+
+    private suspend fun resumableSessionId(current: SessionState): Long? = when (current) {
+        // Already running: resuming it would be a no-op that hid a caller's bug.
+        is SessionState.Active -> null
+        is SessionState.Paused -> current.sessionId
+        SessionState.Idle, is SessionState.Finished -> sessionRepository.getActive().first()?.id
     }
 }

@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
+import com.opengym.core.domain.model.WorkoutSession
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -65,7 +66,51 @@ class ResumeSessionUseCaseTest {
     }
 
     @Test
-    fun `resuming an idle session is refused`() = runTest {
+    fun `resuming with no session in progress is refused`() = runTest {
+        val result = resumeSession()
+
+        assertEquals(SessionError.SessionNotPaused(SessionState.Idle), result.exceptionOrNull())
+    }
+
+    @Test
+    fun `resuming adopts a session left in progress by a lost state machine`() = runTest {
+        // What a process restart looks like: the row survives, the state does not.
+        val restarted = FakeSessionStateRepository()
+        sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 100L, createdAt = 100L, updatedAt = 100L),
+        )
+
+        val resumed = ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
+
+        assertEquals(SessionState.Active(sessionId = 1L, startedAt = 100L), resumed)
+        assertEquals(resumed, restarted.current)
+    }
+
+    @Test
+    fun `an adopted session keeps its original start time`() = runTest {
+        val restarted = FakeSessionStateRepository()
+        sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 100L, createdAt = 100L, updatedAt = 100L),
+        )
+
+        val resumed = ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
+
+        assertEquals(100L, resumed.startedAt)
+        assertEquals(5_000L, sessions.stored(1L)?.lastActiveAt)
+    }
+
+    @Test
+    fun `a completed session is not adopted`() = runTest {
+        sessions.insert(
+            WorkoutSession(
+                completedAt = 200L,
+                isInProgress = false,
+                lastActiveAt = 200L,
+                createdAt = 100L,
+                updatedAt = 200L,
+            ),
+        )
+
         val result = resumeSession()
 
         assertEquals(SessionError.SessionNotPaused(SessionState.Idle), result.exceptionOrNull())
@@ -81,7 +126,7 @@ class ResumeSessionUseCaseTest {
     }
 
     @Test
-    fun `resuming a finished session is refused`() = runTest {
+    fun `resuming from finished with no session in progress is refused`() = runTest {
         val summary = SessionSummary(
             sessionId = 1L,
             startedAt = 0L,

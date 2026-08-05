@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.first
  * Refuses with [SessionError.SessionAlreadyActive] when one is already running.
  * `Idle` and `Finished` both start cleanly — `Finished` just means the previous
  * session was closed out and never cleared.
+ *
+ * The refusal also covers a session that is in progress on disk but absent from the
+ * state machine, e.g. after a process restart. [ResumeSessionUseCase] is the way
+ * back to that session; a caller handling [SessionError.SessionAlreadyActive] should
+ * offer resuming it, not treat it as a dead end.
  */
 class StartSessionUseCase(
     private val sessionRepository: SessionRepository,

@@ -13,7 +13,14 @@ package com.opengym.core.domain.model
  * Idle ──start──▶ Active ──pause──▶ Paused ──resume──▶ Active
  *                    │                 │
  *                    └─────finish──────┴──▶ Finished ──start──▶ Active
+ *
+ * Idle / Finished ──resume──▶ Active     (only when a session row is still
+ *                                        in progress; see ResumeSessionUseCase)
  * ```
+ *
+ * That last edge exists because this state is in-memory while the session row is
+ * not: after a process restart the state reads `Idle` with a session still open on
+ * disk, and resume is what reattaches to it.
  *
  * Anything else is rejected with a [SessionError]; see the individual use cases.
  */

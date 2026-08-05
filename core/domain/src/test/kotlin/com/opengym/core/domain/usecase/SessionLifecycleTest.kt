@@ -78,6 +78,42 @@ class SessionLifecycleTest {
     }
 
     @Test
+    fun `a session survives losing the state machine and can still be finished`() = runTest {
+        // Regression: blocking a duplicate start must not strand the open session.
+        // Before resume learned to adopt it, every transition here was refused and
+        // the workout became unreachable.
+        val started = startSession().getOrThrow()
+        sessions.addSet(sessions.addExercise(started.sessionId))
+
+        // The process restarts: the row survives, the in-memory state does not.
+        val restarted = FakeSessionStateRepository()
+        assertTrue(StartSessionUseCase(sessions, restarted, clock)().isFailure)
+
+        clock.advance(60_000L)
+        val resumed = ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
+        assertEquals(started, resumed)
+
+        val finished = FinishSessionUseCase(sessions, restarted, clock)().getOrThrow()
+        assertEquals(started.sessionId, finished.summary.sessionId)
+        assertEquals(1, finished.summary.totalSets)
+        assertEquals(false, sessions.stored(started.sessionId)?.isInProgress)
+    }
+
+    @Test
+    fun `once the stranded session is finished a new one can start`() = runTest {
+        val started = startSession().getOrThrow()
+        sessions.addSet(sessions.addExercise(started.sessionId))
+
+        val restarted = FakeSessionStateRepository()
+        ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
+        FinishSessionUseCase(sessions, restarted, clock)().getOrThrow()
+
+        val second = StartSessionUseCase(sessions, restarted, clock)().getOrThrow()
+
+        assertEquals(2L, second.sessionId)
+    }
+
+    @Test
     fun `a refused transition leaves the machine in its previous state`() = runTest {
         val started = startSession().getOrThrow()
 
