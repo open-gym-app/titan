@@ -105,8 +105,23 @@ class ExerciseDaoTest : RoomTestBase() {
         dao.addMuscleGroup(ExerciseMuscleGroupEntity(exerciseId, shoulders, isPrimary = false))
         dao.addMuscleGroup(ExerciseMuscleGroupEntity(exerciseId, chest, isPrimary = true))
 
-        val ordered = dao.getMuscleGroups(exerciseId).first().map { it.name }
-        assertEquals(listOf("CHEST", "SHOULDERS", "TRICEPS"), ordered)
+        val links = dao.getMuscleGroupLinks(exerciseId).first()
+        assertEquals(listOf("CHEST", "SHOULDERS", "TRICEPS"), links.map { it.muscleGroupName })
+        // The flag rides along with the row rather than needing a second query.
+        assertEquals(listOf(true, false, false), links.map { it.isPrimary })
+    }
+
+    @Test
+    fun `a muscle group link carries the group's icon`() = runBlocking {
+        val exerciseId = dao.insert(exercise())
+        val chest = db.muscleGroupDao()
+            .insertAll(listOf(muscleGroup("CHEST", icon = "ic_chest")))
+            .first()
+        dao.addMuscleGroup(ExerciseMuscleGroupEntity(exerciseId, chest, isPrimary = true))
+
+        val link = dao.getMuscleGroupLinks(exerciseId).first().single()
+        assertEquals(chest, link.muscleGroupId)
+        assertEquals("ic_chest", link.muscleGroupIcon)
     }
 
     @Test
@@ -115,7 +130,7 @@ class ExerciseDaoTest : RoomTestBase() {
         val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup("CHEST"))).first()
         dao.addMuscleGroup(ExerciseMuscleGroupEntity(exerciseId, chest, isPrimary = true))
         dao.removeMuscleGroup(exerciseId, chest)
-        assertTrue(dao.getMuscleGroups(exerciseId).first().isEmpty())
+        assertTrue(dao.getMuscleGroupLinks(exerciseId).first().isEmpty())
     }
 
     @Test

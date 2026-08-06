@@ -201,10 +201,12 @@ class DatabaseSeedTest {
                 .singleOrNull { it.name == name }
             assertNotNull("$name is missing from the seed", exercise)
 
-            val muscles = db.exerciseDao().getMuscleGroups(exercise!!.id).first()
-            assertTrue("$name has no muscle groups", muscles.isNotEmpty())
-            // getMuscleGroups orders is_primary first.
-            assertEquals("wrong primary muscle for $name", primaryMuscle, muscles.first().name)
+            val links = db.exerciseDao().getMuscleGroupLinks(exercise!!.id).first()
+            assertTrue("$name has no muscle groups", links.isNotEmpty())
+            // getMuscleGroupLinks orders is_primary first.
+            val primary = links.first()
+            assertEquals("wrong primary muscle for $name", primaryMuscle, primary.muscleGroupName)
+            assertTrue("$name's first link should be flagged primary", primary.isPrimary)
         }
     }
 
