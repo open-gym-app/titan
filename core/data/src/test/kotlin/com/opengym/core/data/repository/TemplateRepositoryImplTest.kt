@@ -168,6 +168,34 @@ class TemplateRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `update is a no-op for a template that was never stored`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+
+        // Both exercise lists, because without the guard in the DAO they diverge:
+        // the empty one succeeds silently and the populated one fails the foreign
+        // key on a template_id with no parent row. A caller cannot be asked to
+        // predict which, so both are the no-op that `delete` already is.
+        repository.update(WorkoutTemplate(id = 404, name = "Ghost"), emptyList())
+        repository.update(WorkoutTemplate(id = 404, name = "Ghost"), listOf(TemplateExerciseDraft(squat)))
+
+        assertNull(repository.getById(404).first())
+        assertEquals(0, countRows("workout_template"))
+        assertEquals(0, countRows("template_exercise"))
+    }
+
+    @Test
+    fun `update on an absent template leaves the templates that do exist alone`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))
+
+        repository.update(WorkoutTemplate(id = 404, name = "Ghost"), listOf(TemplateExerciseDraft(squat)))
+
+        assertEquals("Push Day", repository.getById(id).first()?.name)
+        assertEquals(1, repository.getExercises(id).first().size)
+        assertEquals(1, countRows("workout_template"))
+    }
+
+    @Test
     fun `update detaches past sessions from the rows it replaces without deleting them`() = runBlocking {
         val squat = catalogueExercise("Squat")
         val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))

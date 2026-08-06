@@ -29,11 +29,16 @@ import javax.inject.Singleton
 @Singleton
 class SessionStateRepositoryImpl @Inject constructor() : SessionStateRepository {
 
-    private val state = MutableStateFlow<SessionState>(SessionState.Idle)
+    /**
+     * Named for what it is rather than for what it holds, so [update] can assign it
+     * without the parameter shadowing it — the override keeps the interface's own
+     * parameter name.
+     */
+    private val mutableState = MutableStateFlow<SessionState>(SessionState.Idle)
 
-    override fun observe(): Flow<SessionState> = state.asStateFlow()
+    override fun observe(): Flow<SessionState> = mutableState.asStateFlow()
 
     override suspend fun update(state: SessionState) {
-        this.state.value = state
+        mutableState.value = state
     }
 }

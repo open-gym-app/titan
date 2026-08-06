@@ -1,11 +1,12 @@
 package com.opengym.core.data.repository
 
 import android.content.Context
+import com.opengym.core.data.di.IoDispatcher
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSessionFormat
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -40,7 +41,11 @@ import javax.inject.Singleton
  *
  * The [Mutex] covers the other half — two concurrent [save]s share one scratch
  * path, so serialising them is what keeps the rename atomic *per draft* rather than
- * merely atomic per rename.
+ * merely atomic per rename. Encoding happens *inside* it for the same reason the
+ * write does: the contract says the last write wins, and `kotlinx` [Mutex] is FIFO,
+ * so holding it across the encode makes the order the drafts land the order [save]
+ * was called in. Encoding outside would leave a caller free to encode first, lose
+ * the lock race, and then overwrite the newer draft with its older one.
  *
  * ### Why every failure is null
  *
@@ -53,6 +58,7 @@ import javax.inject.Singleton
 @Singleton
 class InProgressSessionRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : InProgressSessionRepository {
 
     /** Serialises writers against each other; see the note on the scratch file. */
@@ -63,13 +69,12 @@ class InProgressSessionRepositoryImpl @Inject constructor(
     private val scratch: File get() = File(context.filesDir, SCRATCH_NAME)
 
     override suspend fun save(session: ActiveSession) {
-        val encoded = ActiveSessionFormat.encode(session)
-        withContext(Dispatchers.IO) {
-            writeLock.withLock { writeAtomically(encoded) }
+        withContext(ioDispatcher) {
+            writeLock.withLock { writeAtomically(ActiveSessionFormat.encode(session)) }
         }
     }
 
-    override suspend fun load(): ActiveSession? = withContext(Dispatchers.IO) {
+    override suspend fun load(): ActiveSession? = withContext(ioDispatcher) {
         val text = try {
             document.takeIf { it.exists() }?.readText()
         } catch (_: IOException) {
@@ -80,7 +85,7 @@ class InProgressSessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun clear() {
-        withContext(Dispatchers.IO) {
+        withContext(ioDispatcher) {
             writeLock.withLock {
                 document.delete()
                 // A save killed between the write and the rename leaves this behind;

@@ -16,8 +16,9 @@ interface WorkoutTemplateDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(template: WorkoutTemplateEntity): Long
 
+    /** Returns the number of rows changed: 0 when `template.id` matches nothing. */
     @Update
-    suspend fun update(template: WorkoutTemplateEntity)
+    suspend fun update(template: WorkoutTemplateEntity): Int
 
     @Query("DELETE FROM workout_template WHERE id = :id")
     suspend fun delete(id: Long)
@@ -71,13 +72,21 @@ interface WorkoutTemplateDao {
      * atomically outside the database. The delete is what `SET NULL`s
      * `session_exercise.template_exercise_id` on past sessions that referenced the
      * replaced rows; the sessions themselves are untouched.
+     *
+     * An absent `template.id` returns early rather than falling through. Without the
+     * guard the outcome depends on the *list*: an empty one leaves [update] and
+     * [deleteExercises] as silent no-ops and the call succeeds, while a non-empty one
+     * reaches [insertExercise] with a `template_id` that has no parent row and fails
+     * the foreign key. Both write nothing, so the transaction was never the problem —
+     * but a caller cannot be asked to predict which of the two it gets, so the no-op
+     * is made the answer in both, matching [delete].
      */
     @Transaction
     suspend fun updateWithExercises(
         template: WorkoutTemplateEntity,
         exercises: List<TemplateExerciseEntity>,
     ) {
-        update(template)
+        if (update(template) == 0) return
         deleteExercises(template.id)
         exercises.forEach { insertExercise(it.copy(templateId = template.id)) }
     }

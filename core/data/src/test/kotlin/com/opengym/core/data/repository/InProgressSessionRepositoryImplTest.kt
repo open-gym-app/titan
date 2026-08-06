@@ -8,6 +8,7 @@ import com.opengym.core.domain.model.ActiveSessionFormat
 import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.timer.RestTimerSnapshot
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -46,7 +47,10 @@ class InProgressSessionRepositoryImplTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        repository = InProgressSessionRepositoryImpl(context)
+        // The real IO dispatcher rather than a TestDispatcher: what is under test
+        // here is a file on disk, and `concurrent saves` below needs writers that
+        // genuinely overlap, which a single-threaded test dispatcher would remove.
+        repository = InProgressSessionRepositoryImpl(context, Dispatchers.IO)
     }
 
     @After

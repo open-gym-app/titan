@@ -33,10 +33,14 @@ import javax.inject.Provider
  * reach these. Without this, the first screen wired up in M4 would be where the
  * graph is discovered to be broken.
  *
- * Injected as [Provider]s, deliberately. Resolving the binding is what is being
- * asserted, and resolution happens at compile time; calling `get()` on the
- * Room-backed ones would additionally build the database and run the catalogue
- * seed, which is a DAO test's job and not this one's.
+ * Injected as [Provider]s so the scope assertions below can ask the graph for an
+ * instance *twice*, which is the only way to tell a `@Singleton` binding from an
+ * unscoped one — a plain injected field is handed over once and would make
+ * `assertSame` compare a reference with itself.
+ *
+ * Resolving these costs nothing beyond the graph: `Room.databaseBuilder().build()`
+ * does not open the file, so `get()` on the Room-backed repositories constructs
+ * them without running a query or the catalogue seed, which is a DAO test's job.
  */
 @HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
