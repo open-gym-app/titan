@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
 
@@ -66,6 +67,7 @@ class FinishSessionUseCase(
             ),
         )
 
+        val stats = SessionStatsCalculator.calculate(performed, session.createdAt, now)
         val finished = SessionState.Finished(
             SessionSummary(
                 sessionId = session.id,
@@ -74,18 +76,12 @@ class FinishSessionUseCase(
                 // Clamped: a backwards device-clock adjustment mid-session would
                 // otherwise surface as a negative duration in the UI.
                 durationMillis = (now - session.createdAt).coerceAtLeast(0),
-                exerciseCount = performed.distinctBy { it.sessionExerciseId }.size,
-                totalSets = performed.size,
-                totalVolume = performed.sumOf { it.volume() },
+                exerciseCount = stats.exerciseBreakdown.size,
+                totalSets = stats.totalSets,
+                totalVolume = stats.totalVolume,
             ),
         )
         sessionStateRepository.update(finished)
         return finished
     }
 }
-
-/**
- * `weight x reps` in milligram-reps. Missing weight or reps (cardio, timed holds)
- * count as zero, mirroring the `COALESCE` in `WorkoutSetDao.getVolumeByWeek`.
- */
-private fun WorkoutSet.volume(): Long = (weight ?: 0L) * (reps ?: 0).toLong()
