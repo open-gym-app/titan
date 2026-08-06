@@ -156,6 +156,18 @@ class ActiveSessionTest {
     }
 
     @Test
+    fun `a set ticked off without a completion time is refused`() {
+        assertThrows(IllegalArgumentException::class.java) { ActiveSet(reps = 5, isCompleted = true) }
+    }
+
+    @Test
+    fun `a set carrying a completion time it has not reached yet is allowed`() {
+        val typed = ActiveSet(reps = 5, completedAt = STARTED_AT)
+
+        assertFalse(typed.isCompleted)
+    }
+
+    @Test
     fun `a set with an out-of-range rpe is refused`() {
         assertThrows(IllegalArgumentException::class.java) { ActiveSet(rpe = WorkoutSet.RPE_MAX + 1) }
         assertThrows(IllegalArgumentException::class.java) { ActiveSet(rpe = WorkoutSet.RPE_MIN - 1) }

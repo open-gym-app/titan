@@ -45,6 +45,14 @@ import kotlin.time.Duration.Companion.milliseconds
  *   the end of its own list would restore onto nothing.
  * @property restTimer the rest countdown, as an absolute deadline rather than a
  *   remainder. See [RestTimerSnapshot] for why that distinction is the whole point.
+ *   Independent of [pausedAt]: pausing the *session* does not pause the rest, here or in
+ *   [com.opengym.core.domain.usecase.PauseSessionUseCase], so a draft paused for twenty
+ *   minutes with a rest in flight restores with its elapsed time frozen and its rest
+ *   [RestTimerState.Finished]. That asymmetry is intended — the session clock measures
+ *   how long the user has been working out, which a pause suspends, while the rest
+ *   measures how long they have been standing still, which it does not. A caller that
+ *   wants the countdown held over a pause pauses the timer itself, and the draft then
+ *   carries [RestTimerSnapshot.Paused], whose remainder does not go stale.
  */
 @Serializable
 data class ActiveSession(

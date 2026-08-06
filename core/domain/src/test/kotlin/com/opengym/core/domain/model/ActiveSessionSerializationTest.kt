@@ -21,6 +21,30 @@ private const val GOLDEN_DOCUMENT =
         """"pausedAt":null,"exercises":[],"currentExerciseIndex":0,"restTimer":{"type":"idle"}}}"""
 
 /**
+ * The same, for a draft with every field populated — which is the one that pins the
+ * *nested* spellings.
+ *
+ * [GOLDEN_DOCUMENT] cannot: its `exercises` is empty, so renaming a field of
+ * [ActiveExercise], [ActiveSet] or [com.opengym.core.domain.timer.RestTimerSnapshot],
+ * or changing one of the timer's `@SerialName` discriminators, changes the stored format
+ * without moving a character of it. The parity tests do not catch that either — they
+ * compare declared field names against serial names, and a rename moves both at once.
+ * This constant is the only thing standing between a rename and every draft on every
+ * device in the field decoding to nothing.
+ */
+private const val GOLDEN_MAXIMAL_DOCUMENT =
+    """{"version":1,"session":{"sessionId":7,"startedAt":1700000000000,"pausedDuration":"PT1M35S",""" +
+        """"pausedAt":1700000600000,"exercises":[{"exerciseId":12,"sessionExerciseId":34,""" +
+        """"notes":"belt on from set 3","sets":[{"id":56,"reps":5,"weight":102500000,"duration":45,""" +
+        """"distance":20000,"heartRateAvg":132,"heartRateMax":168,"restAfter":90,"rpe":85,""" +
+        """"setType":"DROP_SET","isCompleted":true,"completedAt":1700000120000,"notes":"last one moved slow"},""" +
+        """{"id":null,"reps":8,"weight":null,"duration":null,"distance":null,"heartRateAvg":null,""" +
+        """"heartRateMax":null,"restAfter":null,"rpe":null,"setType":"NORMAL","isCompleted":false,""" +
+        """"completedAt":null,"notes":null}]},{"exerciseId":13,"sessionExerciseId":35,"notes":null,""" +
+        """"sets":[]}],"currentExerciseIndex":1,"restTimer":{"type":"running","deadline":1700000700000,""" +
+        """"total":"PT1M30S"}}}"""
+
+/**
  * The draft can be written down and read back as the same thing.
  *
  * The round trip is asserted on a draft with *every* field populated and no field on
@@ -177,6 +201,23 @@ class ActiveSessionSerializationTest {
     @Test
     fun `the document is the shape this contract promised`() {
         assertEquals(GOLDEN_DOCUMENT, ActiveSessionFormat.encode(minimalSession()))
+    }
+
+    @Test
+    fun `a populated document spells every nested field the way it always has`() {
+        assertEquals(GOLDEN_MAXIMAL_DOCUMENT, ActiveSessionFormat.encode(maximalSession()))
+    }
+
+    @Test
+    fun `a document written against the pinned spelling is still readable`() {
+        assertEquals(maximalSession(), ActiveSessionFormat.decode(GOLDEN_MAXIMAL_DOCUMENT))
+    }
+
+    @Test
+    fun `a foreign version is refused even when this build cannot parse the session it carries`() {
+        val document = """{"version":${ActiveSessionFormat.VERSION + 1},"session":{"shape":"from another build"}}"""
+
+        assertNull(ActiveSessionFormat.decode(document))
     }
 
     @Test

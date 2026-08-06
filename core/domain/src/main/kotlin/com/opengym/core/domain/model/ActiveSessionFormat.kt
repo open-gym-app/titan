@@ -2,6 +2,7 @@ package com.opengym.core.domain.model
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 
 /**
  * The wire format of an [ActiveSession] draft: kotlinx.serialization JSON, defined
@@ -21,6 +22,15 @@ import kotlinx.serialization.json.Json
  * differently is *rejected*, not misread. PERSISTENCE.md requires the same of the
  * export envelope, for the same reason — a Room migration ladder upgrades a database
  * file, not a JSON document, and nothing here up-converts.
+ *
+ * [decode] takes that literally: it reads the envelope with the session left as an
+ * uninterpreted [JsonElement], checks the version, and only then decodes the session
+ * against *this* build's model. A future document whose session cannot be parsed by
+ * this build is therefore refused for the reason it should be — the version — rather
+ * than incidentally, by the decoder tripping over a shape it does not recognise. Today
+ * both paths return null and nothing can tell them apart; the day an up-converter is
+ * added, the version is what it will dispatch on, and it has to be legible before the
+ * session is.
  *
  * Rejecting is cheap precisely because a draft is disposable. It is a snapshot of a
  * workout in progress, not a record of one — the session rows are the record — so
@@ -53,11 +63,21 @@ object ActiveSessionFormat {
     private val json = Json {
         encodeDefaults = true
         ignoreUnknownKeys = true
+        // Already the library default. Spelled out because this is a *persisted* format:
+        // a discriminator that changed with a library upgrade would silently stop every
+        // stored draft's rest timer from decoding.
         classDiscriminator = "type"
     }
 
+    /** The envelope as it is written: the session encoded against this build's model. */
+    private val envelopeSerializer = Envelope.serializer(ActiveSession.serializer())
+
+    /** The envelope as it is read: the session left uninterpreted until the version is checked. */
+    private val rawEnvelopeSerializer = Envelope.serializer(JsonElement.serializer())
+
     /** [session] as a JSON document, stamped with [VERSION]. */
-    fun encode(session: ActiveSession): String = json.encodeToString(Envelope(VERSION, session))
+    fun encode(session: ActiveSession): String =
+        json.encodeToString(envelopeSerializer, Envelope(VERSION, session))
 
     /**
      * The draft [text] holds, or **null** when it does not hold one this build can
@@ -69,10 +89,17 @@ object ActiveSessionFormat {
      * thing to the caller: there is no draft to restore. That is exactly the answer
      * [com.opengym.core.domain.repository.InProgressSessionRepository.load] gives for
      * an empty store, and a corrupt draft must not be the reason the app cannot start.
+     *
+     * The version is read before the session is interpreted, which is what makes the
+     * envelope worth having; see the note on this object.
      */
     fun decode(text: String): ActiveSession? =
         try {
-            json.decodeFromString<Envelope>(text).takeIf { it.version == VERSION }?.session
+            val envelope = json.decodeFromString(rawEnvelopeSerializer, text)
+            when (envelope.version) {
+                VERSION -> json.decodeFromJsonElement(ActiveSession.serializer(), envelope.session)
+                else -> null
+            }
         } catch (_: IllegalArgumentException) {
             // Covers both halves of "unreadable": [SerializationException] *is* an
             // IllegalArgumentException, and a model invariant refusing the decoded
@@ -80,7 +107,13 @@ object ActiveSessionFormat {
             null
         }
 
-    /** The versioned wrapper. Private because the version is this object's to manage. */
+    /**
+     * The versioned wrapper. Private because the version is this object's to manage.
+     *
+     * Generic in its payload so the same declaration serves both directions: [encode]
+     * instantiates it at [ActiveSession], [decode] at [JsonElement] so that a session it
+     * cannot parse does not stop it reading the version.
+     */
     @Serializable
-    private data class Envelope(val version: Int, val session: ActiveSession)
+    private data class Envelope<T>(val version: Int, val session: T)
 }

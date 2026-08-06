@@ -14,6 +14,9 @@ import kotlinx.serialization.Serializable
  *   that is never null — an exercise the user has not chosen is not on the screen.
  * @property sessionExerciseId the `session_exercise` row this draft entry was read
  *   from, or null for an exercise added to the running session but not yet written.
+ * @property notes what the user typed against this exercise, or null. Carried in the
+ *   draft rather than left to the row it came from because it is edited on the same
+ *   screen as the sets and is unsaved for exactly as long as they are.
  * @property sets every set on this exercise, completed or not, in the order they are
  *   shown.
  */

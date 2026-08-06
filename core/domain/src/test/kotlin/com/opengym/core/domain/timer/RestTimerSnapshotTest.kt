@@ -50,10 +50,16 @@ class RestTimerSnapshotTest {
     }
 
     @Test
-    fun `a deadline reached to the millisecond restores as finished`() {
+    fun `a deadline one millisecond away still restores as running`() {
         val snapshot = RestTimerSnapshot.Running(deadline = NOW + 90_000, total = 90.seconds)
 
         assertEquals(RestTimerState.Running(1.milliseconds, 90.seconds), snapshot.toStateAt(NOW + 89_999))
+    }
+
+    @Test
+    fun `a deadline reached to the millisecond restores as finished`() {
+        val snapshot = RestTimerSnapshot.Running(deadline = NOW + 90_000, total = 90.seconds)
+
         assertEquals(RestTimerState.Finished, snapshot.toStateAt(NOW + 90_000))
     }
 

@@ -26,7 +26,10 @@ import kotlinx.serialization.Serializable
  *   bring back — but it contributes to no figure until it is completed, which is why
  *   [completedAt] may be null while the set exists.
  * @property completedAt when the set was ticked off, epoch millis UTC, or null while it
- *   is not yet completed.
+ *   is not yet completed. Required once [isCompleted] is true: [WorkoutSet.completedAt]
+ *   is not nullable, so a draft that ticks a set off without saying when would leave the
+ *   write path inventing a timestamp — and the one it would invent is the time of the
+ *   restore, which is not when the user did the set.
  */
 @Serializable
 data class ActiveSet(
@@ -48,5 +51,6 @@ data class ActiveSet(
         require(rpe == null || rpe in WorkoutSet.RPE_MIN..WorkoutSet.RPE_MAX) {
             "rpe must be within ${WorkoutSet.RPE_MIN}..${WorkoutSet.RPE_MAX} (RPE x 10), was $rpe"
         }
+        require(!isCompleted || completedAt != null) { "a completed set records when it was completed" }
     }
 }
