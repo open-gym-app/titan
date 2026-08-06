@@ -1,0 +1,199 @@
+package com.opengym.core.data.repository
+
+import com.opengym.core.data.db.RoomTestBase
+import com.opengym.core.data.db.exercise
+import com.opengym.core.data.db.session
+import com.opengym.core.data.db.sessionExercise
+import com.opengym.core.data.db.workoutSet
+import com.opengym.core.data.mapper.SessionExerciseMapper
+import com.opengym.core.data.mapper.SessionMapper
+import com.opengym.core.data.mapper.WorkoutSetMapper
+import com.opengym.core.domain.model.WorkoutSession
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class SessionRepositoryImplTest : RoomTestBase() {
+
+    private val repository by lazy {
+        SessionRepositoryImpl(
+            sessionDao = db.workoutSessionDao(),
+            sessionExerciseDao = db.sessionExerciseDao(),
+            setDao = db.workoutSetDao(),
+            sessionMapper = SessionMapper(),
+            sessionExerciseMapper = SessionExerciseMapper(),
+            setMapper = WorkoutSetMapper(),
+        )
+    }
+
+    @Test
+    fun `insert then getById returns the session as a domain model`() = runBlocking {
+        val id = repository.insert(
+            WorkoutSession(lastActiveAt = 1_000, createdAt = 1_000, updatedAt = 1_000, notes = "leg day"),
+        )
+
+        val loaded = repository.getById(id).first()
+
+        assertEquals(id, loaded?.id)
+        assertEquals("leg day", loaded?.notes)
+        assertTrue(loaded?.isInProgress == true)
+    }
+
+    @Test
+    fun `getById emits null for an id that was never stored`() = runBlocking {
+        assertNull(repository.getById(404).first())
+    }
+
+    @Test
+    fun `getAll is ordered by creation, newest first`() = runBlocking {
+        db.workoutSessionDao().insert(session(createdAt = 100))
+        db.workoutSessionDao().insert(session(createdAt = 300))
+        db.workoutSessionDao().insert(session(createdAt = 200))
+
+        assertEquals(listOf(300L, 200L, 100L), repository.getAll().first().map { it.createdAt })
+    }
+
+    @Test
+    fun `getActive returns the in-progress session with the latest activity`() = runBlocking {
+        db.workoutSessionDao().insert(session(isInProgress = false, lastActiveAt = 900))
+        db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = 300))
+        val newest = db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = 500))
+
+        assertEquals(newest, repository.getActive().first()?.id)
+    }
+
+    @Test
+    fun `getActive emits null once nothing is in progress`() = runBlocking {
+        val id = db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = 10))
+        val stored = repository.getById(id).first()!!
+
+        repository.update(stored.copy(isInProgress = false, completedAt = 20))
+
+        assertNull(repository.getActive().first())
+    }
+
+    @Test
+    fun `getExercises is ordered by position`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 1))
+        db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+
+        assertEquals(listOf(0, 1), repository.getExercises(sessionId).first().map { it.position })
+    }
+
+    @Test
+    fun `getSets is ordered by set number within one exercise`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionExerciseId = db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 2, reps = 8))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1, reps = 10))
+
+        val sets = repository.getSets(sessionExerciseId).first()
+
+        assertEquals(listOf(1, 2), sets.map { it.setNumber })
+        assertEquals(listOf(10, 8), sets.map { it.reps })
+    }
+
+    @Test
+    fun `getSetsForSession reads every exercise's sets in one pass, in session order`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench", equipmentType = "BARBELL", machineBrand = "B"))
+        val second = db.sessionExerciseDao().insert(sessionExercise(sessionId, bench, position = 1))
+        val first = db.sessionExerciseDao().insert(sessionExercise(sessionId, squat, position = 0))
+        db.workoutSetDao().insert(workoutSet(second, setNumber = 1))
+        db.workoutSetDao().insert(workoutSet(first, setNumber = 2))
+        db.workoutSetDao().insert(workoutSet(first, setNumber = 1))
+
+        val sets = repository.getSetsForSession(sessionId).first()
+
+        // Exercise position first, then set number: the order the session is shown in.
+        assertEquals(listOf(first to 1, first to 2, second to 1), sets.map { it.sessionExerciseId to it.setNumber })
+    }
+
+    @Test
+    fun `getSetsForSession ignores sets belonging to another session`() = runBlocking {
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val mine = db.workoutSessionDao().insert(session(createdAt = 1))
+        val theirs = db.workoutSessionDao().insert(session(createdAt = 2))
+        val myExercise = db.sessionExerciseDao().insert(sessionExercise(mine, exerciseId, position = 0))
+        val theirExercise = db.sessionExerciseDao().insert(sessionExercise(theirs, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(myExercise, setNumber = 1))
+        db.workoutSetDao().insert(workoutSet(theirExercise, setNumber = 1))
+
+        assertEquals(listOf(myExercise), repository.getSetsForSession(mine).first().map { it.sessionExerciseId })
+    }
+
+    @Test
+    fun `getSetsForSession is empty for a session with no exercises`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+
+        assertTrue(repository.getSetsForSession(sessionId).first().isEmpty())
+    }
+
+    @Test
+    fun `update writes the changed fields back`() = runBlocking {
+        val id = repository.insert(WorkoutSession(lastActiveAt = 1, createdAt = 1, updatedAt = 1))
+        val stored = repository.getById(id).first()!!
+
+        repository.update(stored.copy(isInProgress = false, completedAt = 50, notes = "done", updatedAt = 50))
+
+        val reloaded = repository.getById(id).first()!!
+        assertFalse(reloaded.isInProgress)
+        assertEquals(50L, reloaded.completedAt)
+        assertEquals("done", reloaded.notes)
+    }
+
+    @Test
+    fun `delete takes the session's exercises and sets with it`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionExerciseId = db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
+
+        repository.delete(sessionId)
+
+        assertNull(repository.getById(sessionId).first())
+        assertEquals(0, countRows("session_exercise"))
+        assertEquals(0, countRows("workout_set"))
+        // The catalogue entry is not the session's to delete.
+        assertEquals(1, countRows("exercise"))
+    }
+
+    /**
+     * The resume path, end to end: a session left `is_in_progress = 1` by a process
+     * that died has to come back with the same exercises in the same order and the
+     * same sets against each. Restarting the process is not something a JVM test can
+     * do, but everything the restore reads is on disk, so re-reading it through a
+     * repository built over a fresh handle is the same question.
+     */
+    @Test
+    fun `an in-progress session restores its exercises and sets exactly`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = 400))
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val press = db.exerciseDao().insert(exercise(name = "Press", equipmentType = "BARBELL", machineBrand = "P"))
+        val first = db.sessionExerciseDao().insert(sessionExercise(sessionId, squat, position = 0))
+        val second = db.sessionExerciseDao().insert(sessionExercise(sessionId, press, position = 1))
+        db.workoutSetDao().insert(workoutSet(first, setNumber = 1, reps = 5, weight = 100_000_000))
+        db.workoutSetDao().insert(workoutSet(first, setNumber = 2, reps = 5, weight = 100_000_000))
+        db.workoutSetDao().insert(workoutSet(second, setNumber = 1, isCompleted = false, reps = 8))
+
+        val resumed = repository.getActive().first()
+        val exercises = repository.getExercises(resumed!!.id).first()
+        val sets = repository.getSetsForSession(resumed.id).first()
+
+        assertEquals(sessionId, resumed.id)
+        assertEquals(listOf(squat, press), exercises.map { it.exerciseId })
+        assertEquals(listOf(0, 1), exercises.map { it.position })
+        assertEquals(3, sets.size)
+        assertEquals(listOf(5, 5, 8), sets.map { it.reps })
+        assertEquals(listOf(true, true, false), sets.map { it.isCompleted })
+        assertEquals(100_000_000L, sets.first().weight)
+    }
+}

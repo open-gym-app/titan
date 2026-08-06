@@ -26,6 +26,26 @@ interface WorkoutSetDao {
     @Query("SELECT * FROM workout_set WHERE session_exercise_id = :sessionExerciseId ORDER BY set_number ASC")
     fun getBySessionExercise(sessionExerciseId: Long): Flow<List<WorkoutSetEntity>>
 
+    /**
+     * Every set logged against [sessionId], across all of its exercises, in the
+     * order the session presents them.
+     *
+     * One join rather than a [getBySessionExercise] per exercise: a session summary
+     * or an export wants the whole session, and walking it exercise by exercise is
+     * an N+1 whose fan-out grows with how much the user actually did. The rows carry
+     * `session_exercise_id`, so a caller that wants them grouped by exercise groups
+     * what it already has.
+     */
+    @Query(
+        """
+        SELECT ws.* FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        WHERE se.session_id = :sessionId
+        ORDER BY se.position ASC, ws.set_number ASC
+        """,
+    )
+    fun getBySession(sessionId: Long): Flow<List<WorkoutSetEntity>>
+
     @Query(
         """
         SELECT ws.* FROM workout_set ws

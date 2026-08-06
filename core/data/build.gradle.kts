@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.compile.JavaCompile
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.hilt)
@@ -49,6 +52,17 @@ kotlin {
     jvmToolchain(17)
 }
 
+// Hilt aggregates its test components through javac, which needs a real compiler
+// rather than whichever JVM happens to be running Gradle. Pinned the same way :app
+// pins its own JavaCompile tasks.
+tasks.withType<JavaCompile>().configureEach {
+    javaCompiler.set(
+        javaToolchains.compilerFor {
+            languageVersion.set(JavaLanguageVersion.of(17))
+        },
+    )
+}
+
 dependencies {
     implementation(project(":core:domain"))
 
@@ -67,6 +81,8 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.room.testing)
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
     testImplementation(libs.androidx.paging.testing)
 
     androidTestImplementation(libs.androidx.junit)

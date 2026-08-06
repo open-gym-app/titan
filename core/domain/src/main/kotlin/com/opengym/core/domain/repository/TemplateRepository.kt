@@ -43,6 +43,11 @@ interface TemplateRepository {
      * `session_exercise.template_exercise_id` is `SET NULL`-ed for sessions that
      * referenced the replaced rows, which loses "this set came from that template
      * line" for past sessions; the sessions themselves are untouched.
+     *
+     * A no-op when `template.id` is absent, as in [delete]. Updating a template that
+     * is not there is the same non-event as deleting one that is not there, and an
+     * edit screen racing a delete from another screen is the ordinary way to reach
+     * it — not a case worth its own error path.
      */
     suspend fun update(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>)
 
