@@ -24,6 +24,24 @@ class ApplyTemplateUseCaseTest {
     }
 
     @Test
+    fun `applying re-sorts a store that hands its exercises back out of order`() = runTest {
+        // The use case sorts by position rather than trusting the repository's contract,
+        // and this is the only case in which that sort does anything: with a store that
+        // honours the ordering it is a no-op, so deleting it would pass every other test
+        // here while leaving a user's workout free to come back reordered.
+        val id = templates.seed(
+            "Push day",
+            listOf(draft(exerciseId = 3L), draft(exerciseId = 1L), draft(exerciseId = 2L)),
+        )
+        templates.honoursPositionOrder = false
+
+        val applied = applyTemplate(id).getOrThrow()
+
+        assertEquals(listOf(3L, 1L, 2L), applied.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), applied.map { it.position })
+    }
+
+    @Test
     fun `applying carries the defaults a session should be pre-filled with`() = runTest {
         val id = templates.seed(
             "Leg day",

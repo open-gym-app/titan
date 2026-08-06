@@ -35,13 +35,27 @@ class FakeTemplateRepository : TemplateRepository {
     /** Total writes of any kind — the assertion for "this was a pure read". */
     val writeCount: Int get() = insertCount + updateCount + deleteCount
 
+    /**
+     * Whether [getExercises] honours the ordering its contract promises.
+     *
+     * Set it false to have the fake hand its list back out of position order on purpose.
+     * [ApplyTemplateUseCase] re-sorts rather than trusting the repository, precisely so an
+     * implementation that stopped ordering could not silently reorder a user's workout —
+     * and that defence is only testable against a store that breaks the promise, because
+     * one that keeps it makes the sort a no-op.
+     */
+    var honoursPositionOrder = true
+
     override fun getAll(): Flow<List<WorkoutTemplate>> =
         templates.map { stored -> stored.values.sortedBy(WorkoutTemplate::name) }
 
     override fun getById(id: Long): Flow<WorkoutTemplate?> = templates.map { it[id] }
 
     override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> =
-        exercises.map { it[templateId].orEmpty() }
+        exercises.map { stored ->
+            val list = stored[templateId].orEmpty()
+            if (honoursPositionOrder) list else list.reversed()
+        }
 
     override suspend fun insert(
         template: WorkoutTemplate,
