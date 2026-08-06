@@ -4,6 +4,7 @@
 
 ```text
 open-gym/
+├── build-logic/            # Included build - the `opengym.android.*` convention plugins
 ├── app/                    # Composition root - wires DI graph, declares Application/Activity
 ├── core/
 │   ├── domain/             # Business logic - pure Kotlin JVM, zero Android deps
@@ -13,6 +14,39 @@ open-gym/
 ```
 
 Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`.
+
+## Build logic
+
+Shared Gradle configuration lives in `build-logic/`, an included build rather than
+`buildSrc` so that editing a convention plugin does not invalidate every module's build
+script cache. Its plugins read `gradle/libs.versions.toml` through the same catalog the
+modules use.
+
+| Plugin id | Applies |
+| --- | --- |
+| `opengym.android.library` | `com.android.library`, the SDK levels, the JVM toolchain, the shared `lint {}` block, and the JVM unit-test dependencies |
+| `opengym.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
+| `opengym.android.hilt` | Hilt and the KSP processor that generates its components |
+| `opengym.android.feature` | The three above, plus `:core:domain` and `:core:ui` — everything a vertical slice needs |
+
+A feature module's build file should be the plugin and a `namespace`, nothing more:
+
+```kotlin
+plugins {
+    id("opengym.android.feature")
+}
+
+android {
+    namespace = "com.opengym.feature.home"
+}
+```
+
+`:app` and `:core:domain` are deliberately left out: `:app` is an application module with
+signing config and build variants that is not worth generalising for one consumer, and
+`:core:domain` is a plain Kotlin JVM library carrying a JaCoCo coverage floor no other
+module shares. `compileSdk`, `minSdk` and the JVM toolchain are constants in
+`build-logic/.../AndroidSdk.kt` rather than catalog entries — the catalog addresses
+artifacts, and an SDK level is not one.
 
 ## Layers and responsibilities
 

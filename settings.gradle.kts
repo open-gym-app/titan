@@ -1,4 +1,9 @@
 pluginManagement {
+    // Shared build logic (the `opengym.android.*` convention plugins). An included
+    // build rather than `buildSrc`, so editing a convention plugin does not invalidate
+    // every module's build script cache.
+    includeBuild("build-logic")
+
     repositories {
         google()
         mavenCentral()
