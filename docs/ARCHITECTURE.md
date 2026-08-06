@@ -93,9 +93,22 @@ graph TD
     app --> data
     app --> ui
     data --> domain
+    ui --> domain
     feature --> domain
     feature --> ui
 ```
+
+| Edge | Why it is allowed |
+| --- | --- |
+| `:app` → everything | Composition root; it is the only place the layers are wired together |
+| `:core:data` → `:core:domain` | Implements the repository interfaces the domain declares |
+| `:core:ui` → `:core:domain` | Shared components take domain types directly — `RestTimerBar(state: RestTimerState)`, `StatChip(stat: SessionStats)` — rather than each feature translating into a private mirror of the same model. `:core:domain` is pure Kotlin with zero Android dependencies, so the edge carries nothing upward |
+| `:feature:*` → `:core:domain` | ViewModels call use cases directly |
+| `:feature:*` → `:core:ui` | The design system and shared widgets |
+
+`:core:ui` → `:core:domain` is a dependency on *types*, not on behaviour. A shared
+component may accept and render a domain model; it may not call a use case or a
+repository. That work belongs to the feature's ViewModel.
 
 ## Prohibited dependencies
 
@@ -108,6 +121,76 @@ graph TD
 
 Any dependency that violates these rules must be refactored: extract the shared concern into
 `:core:domain` (if it is a contract) or `:core:ui` (if it is a visual primitive).
+
+## Navigation
+
+### Features do not know about each other
+
+`:feature:*` modules may not depend on one another, so a feature cannot name another
+feature's destination. Instead each feature exposes a `NavGraphBuilder` extension and
+hoists every outbound navigation action as a lambda. `:app` owns the `NavHost`, calls
+each extension, and supplies the lambdas — it is the only place in the codebase that
+calls `navController.navigate(...)` across a module boundary.
+
+```kotlin
+// :feature:home — declares what it needs to leave with, not where it goes
+fun NavGraphBuilder.homeGraph(
+    onStartEmptySession: () -> Unit,
+    onResumeSession: (sessionId: Long) -> Unit,
+) {
+    composable<HomeRoute> {
+        HomeRoute(
+            onStartEmptySession = onStartEmptySession,
+            onResumeSession = onResumeSession,
+        )
+    }
+}
+```
+
+```kotlin
+// :app — the only module that knows both sides of the edge
+NavHost(navController = navController, startDestination = HomeRoute) {
+    homeGraph(
+        onStartEmptySession = { navController.navigate(NewSessionRoute) },
+        onResumeSession = { id -> navController.navigate(ActiveSessionRoute(id)) },
+    )
+    sessionGraph(
+        onSessionFinished = { id -> navController.navigate(SummaryRoute(id)) },
+    )
+}
+```
+
+**Route types live in the module that owns the destination.** `ActiveSessionRoute` is
+declared in `:feature:session` and `:app` imports it. This is the one direction that
+works: `:app` already depends on every feature, so no new edge is created, and the
+feature that owns a screen owns the shape of its arguments.
+
+A lambda parameter named for the *event* (`onSessionFinished`) rather than the
+destination (`goToSummary`) keeps the feature honest — it is reporting what happened, and
+`:app` decides where that leads.
+
+### Routes are type-safe
+
+Destinations are `@Serializable` objects or data classes, navigated with
+`composable<Route>` and read back with `toRoute<Route>()`. No string route templates, no
+`navArgument` declarations, no manual argument parsing — a wrong argument type is a
+compile error rather than a null at runtime.
+
+```kotlin
+@Serializable
+data object HomeRoute
+
+@Serializable
+data class ActiveSessionRoute(val sessionId: Long)
+
+composable<ActiveSessionRoute> { entry ->
+    val route: ActiveSessionRoute = entry.toRoute()
+    ActiveSessionRoute(sessionId = route.sessionId)
+}
+```
+
+The `opengym.android.feature` convention plugin applies the `kotlin-serialization`
+plugin, so a feature module needs no extra setup to declare one.
 
 ## Dependency injection (Hilt)
 

@@ -10,7 +10,7 @@ import org.gradle.kotlin.dsl.project
  *
  * The two module dependencies are the only ones a feature is allowed: `:core:domain`
  * for use cases and models, `:core:ui` for the design system. Features may not depend on
- * `:core:data` or on each other — see ARCHITECTURE.md.
+ * `:core:data` or on each other — see docs/ARCHITECTURE.md.
  */
 class AndroidFeatureConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
@@ -18,9 +18,17 @@ class AndroidFeatureConventionPlugin : Plugin<Project> {
         pluginManager.apply("opengym.android.compose")
         pluginManager.apply("opengym.android.hilt")
 
+        // Destinations are `@Serializable` route types, so every feature needs the
+        // serialization compiler plugin to generate their serializers.
+        pluginManager.apply("org.jetbrains.kotlin.plugin.serialization")
+
         dependencies {
             add("implementation", project(":core:domain"))
             add("implementation", project(":core:ui"))
+
+            // Each feature exposes a `NavGraphBuilder` extension and owns its route
+            // types; `:app` is the only caller that navigates across a module boundary.
+            add("implementation", library("androidx-navigation-compose"))
 
             // The ViewModel-to-Compose bridge. `viewModel()` and `hiltViewModel()` live in
             // these two artifacts, not in the Compose BOM or in `hilt-android`: a screen

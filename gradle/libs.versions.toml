@@ -4,9 +4,18 @@ kotlin = "2.3.20"
 ksp = "2.3.9"
 coreKtx = "1.16.0"
 lifecycle = "2.11.0"
+# Compiled against the Android 37 APIs, as is lifecycle 2.11.0 above — both need
+# `AndroidSdk.COMPILE` (and `:app`'s `compileSdk`) at 37 to be consumable at all.
 androidxHilt = "1.4.0"
 activityCompose = "1.12.3"
 composeBom = "2026.05.00"
+# 2.8+ is the floor for type-safe `composable<Route>` destinations; see docs/ARCHITECTURE.md.
+navigation = "2.9.8"
+# Held at 3.4.0 deliberately. 3.5.0 is compiled with Kotlin 2.4, and Hilt 2.59.2 bundles a
+# kotlin-metadata-jvm that reads at most metadata 2.3.0 — so `:app:hiltJavaCompileDebug`
+# fails on the *transitive* Coil classes, with an error that names neither Coil nor this
+# file. Bump this only together with Hilt, and run `./gradlew :app:assembleDebug` after.
+coil = "3.4.0"
 hilt = "2.59.2"
 room = "2.8.4"
 paging = "3.3.6"
@@ -25,15 +34,24 @@ jacoco = "0.8.13"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHilt" }
+coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }
+# Every artifact below is versioned by the Compose BOM - do not add a version.ref.
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
-androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHilt" }
+# Frozen upstream at 1.7.8; the BOM still pins it and it remains the icon set Material 3
+# expects. There is no newer release to move to.
+androidx-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hilt" }

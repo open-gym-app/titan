@@ -34,8 +34,23 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
             add("implementation", library("androidx-compose-ui-graphics"))
             add("implementation", library("androidx-compose-ui-tooling-preview"))
             add("implementation", library("androidx-material3"))
+            add("implementation", library("androidx-material-icons-extended"))
+
+            // `collectAsStateWithLifecycle()` and `viewModel()`. Shared components in
+            // `:core:ui` collect domain flows too, so this is not feature-only.
+            add("implementation", library("androidx-lifecycle-runtime-compose"))
+            add("implementation", library("androidx-lifecycle-viewmodel-compose"))
+
+            // Exercise imagery from the seeded WebP assets.
+            add("implementation", library("coil-compose"))
 
             add("debugImplementation", library("androidx-compose-ui-tooling"))
+
+            // The BOM again for the test classpath: `platform()` applies per
+            // configuration, so the compile-time constraint above does not reach it.
+            add("testImplementation", platform(library("androidx-compose-bom")))
+            add("testImplementation", library("androidx-compose-ui-test-junit4"))
+            add("debugImplementation", library("androidx-compose-ui-test-manifest"))
         }
     }
 }

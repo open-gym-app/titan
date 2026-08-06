@@ -54,10 +54,12 @@ OpenGym is a free, open-source Android workout tracker built with Kotlin and Jet
 
 Full documentation is available at **[open-gym-app.github.io](https://open-gym-app.github.io)**.
 
-For project architecture and module structure see [ARCHITECTURE.md](ARCHITECTURE.md).
+Reference documentation lives in [`docs/`](docs/):
 
-For the database schema, its migration strategy and the storage assumptions built on it, see
-[PERSISTENCE.md](PERSISTENCE.md).
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — module structure, dependency rules,
+  navigation and dependency injection.
+- [PERSISTENCE.md](docs/PERSISTENCE.md) — the database schema, its migration strategy and
+  the storage assumptions built on it.
 
 ## Contributing
 
