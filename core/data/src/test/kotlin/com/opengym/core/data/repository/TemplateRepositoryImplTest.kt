@@ -1,0 +1,212 @@
+package com.opengym.core.data.repository
+
+import android.database.sqlite.SQLiteConstraintException
+import com.opengym.core.data.db.RoomTestBase
+import com.opengym.core.data.db.exercise
+import com.opengym.core.data.db.session
+import com.opengym.core.data.db.sessionExercise
+import com.opengym.core.data.mapper.TemplateExerciseMapper
+import com.opengym.core.data.mapper.TemplateMapper
+import com.opengym.core.domain.model.TemplateExerciseDraft
+import com.opengym.core.domain.model.WorkoutTemplate
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class TemplateRepositoryImplTest : RoomTestBase() {
+
+    private val repository by lazy {
+        TemplateRepositoryImpl(
+            templateDao = db.workoutTemplateDao(),
+            templateMapper = TemplateMapper(),
+            templateExerciseMapper = TemplateExerciseMapper(),
+        )
+    }
+
+    /** A catalogue exercise to build templates out of, named so ids stay distinct. */
+    private suspend fun catalogueExercise(name: String): Long = db.exerciseDao().insert(exercise(name = name))
+
+    @Test
+    fun `insert stores the template and its exercises together`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val bench = catalogueExercise("Bench")
+
+        val id = repository.insert(
+            WorkoutTemplate(name = "Push Day", icon = "dumbbell"),
+            listOf(
+                TemplateExerciseDraft(exerciseId = squat, defaultSets = 5, defaultReps = 5),
+                TemplateExerciseDraft(exerciseId = bench, restDuration = 120, notes = "pause"),
+            ),
+        )
+
+        val template = repository.getById(id).first()
+        val exercises = repository.getExercises(id).first()
+        assertEquals("Push Day", template?.name)
+        assertEquals("dumbbell", template?.icon)
+        assertEquals(listOf(squat, bench), exercises.map { it.exerciseId })
+        assertEquals(listOf(5, null), exercises.map { it.defaultSets })
+        assertEquals(listOf(null, 120L), exercises.map { it.restDuration })
+        assertTrue(exercises.all { it.templateId == id })
+    }
+
+    @Test
+    fun `insert numbers positions from the order of the list, not from the caller`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val bench = catalogueExercise("Bench")
+        val row = catalogueExercise("Row")
+
+        val id = repository.insert(
+            WorkoutTemplate(name = "Full Body"),
+            listOf(row, squat, bench).map { TemplateExerciseDraft(exerciseId = it) },
+        )
+
+        val exercises = repository.getExercises(id).first()
+        assertEquals(listOf(0, 1, 2), exercises.map { it.position })
+        assertEquals(listOf(row, squat, bench), exercises.map { it.exerciseId })
+    }
+
+    @Test
+    fun `insert ignores an id supplied by the caller`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val occupied = repository.insert(WorkoutTemplate(name = "Existing"), listOf(TemplateExerciseDraft(squat)))
+
+        val id = repository.insert(
+            WorkoutTemplate(id = occupied, name = "Impostor"),
+            listOf(TemplateExerciseDraft(exerciseId = squat)),
+        )
+
+        assertNotEquals(occupied, id)
+        assertEquals("Existing", repository.getById(occupied).first()?.name)
+        assertEquals("Impostor", repository.getById(id).first()?.name)
+    }
+
+    @Test
+    fun `insert accepts a template with no exercises`() = runBlocking {
+        // The rule that a template needs one is CreateTemplateUseCase's, not the
+        // store's; the store must not be the thing that enforces it twice.
+        val id = repository.insert(WorkoutTemplate(name = "Empty"), emptyList())
+
+        assertEquals("Empty", repository.getById(id).first()?.name)
+        assertTrue(repository.getExercises(id).first().isEmpty())
+    }
+
+    @Test
+    fun `insert writes nothing at all when an exercise row is rejected`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            runBlocking {
+                repository.insert(
+                    WorkoutTemplate(name = "Half Written"),
+                    listOf(TemplateExerciseDraft(exerciseId = squat), TemplateExerciseDraft(exerciseId = 9_999)),
+                )
+            }
+        }
+
+        // The whole point of the single transaction: no named template with a
+        // truncated body survives the failure.
+        assertEquals(0, countRows("workout_template"))
+        assertEquals(0, countRows("template_exercise"))
+    }
+
+    @Test
+    fun `getAll is ordered by name`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        repository.insert(WorkoutTemplate(name = "Pull Day"), listOf(TemplateExerciseDraft(squat)))
+        repository.insert(WorkoutTemplate(name = "Leg Day"), listOf(TemplateExerciseDraft(squat)))
+
+        assertEquals(listOf("Leg Day", "Pull Day"), repository.getAll().first().map { it.name })
+    }
+
+    @Test
+    fun `getById emits null for an id that was never stored`() = runBlocking {
+        assertNull(repository.getById(404).first())
+    }
+
+    @Test
+    fun `getExercises is empty for a template that does not exist`() = runBlocking {
+        assertTrue(repository.getExercises(404).first().isEmpty())
+    }
+
+    @Test
+    fun `update replaces the whole exercise list and renumbers it`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val bench = catalogueExercise("Bench")
+        val row = catalogueExercise("Row")
+        val id = repository.insert(
+            WorkoutTemplate(name = "Push Day"),
+            listOf(squat, bench, row).map { TemplateExerciseDraft(exerciseId = it) },
+        )
+
+        repository.update(
+            WorkoutTemplate(id = id, name = "Push Day v2", icon = "barbell"),
+            listOf(TemplateExerciseDraft(exerciseId = row), TemplateExerciseDraft(exerciseId = squat)),
+        )
+
+        val template = repository.getById(id).first()
+        val exercises = repository.getExercises(id).first()
+        assertEquals("Push Day v2", template?.name)
+        assertEquals("barbell", template?.icon)
+        assertEquals(listOf(row, squat), exercises.map { it.exerciseId })
+        assertEquals(listOf(0, 1), exercises.map { it.position })
+        assertEquals(2, countRows("template_exercise"))
+    }
+
+    @Test
+    fun `update clears the exercise list when handed an empty one`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))
+
+        repository.update(WorkoutTemplate(id = id, name = "Push Day"), emptyList())
+
+        assertTrue(repository.getExercises(id).first().isEmpty())
+    }
+
+    @Test
+    fun `update detaches past sessions from the rows it replaces without deleting them`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))
+        val templateExerciseId = repository.getExercises(id).first().single().id
+        val sessionId = db.workoutSessionDao().insert(session(templateId = id, isInProgress = false))
+        db.sessionExerciseDao().insert(sessionExercise(sessionId, squat, position = 0, templateExerciseId))
+
+        repository.update(WorkoutTemplate(id = id, name = "Push Day"), listOf(TemplateExerciseDraft(squat)))
+
+        // ON DELETE SET NULL: the session keeps its exercise, loses only the link
+        // back to the template line it came from. Documented on TemplateRepository.
+        val stored = db.sessionExerciseDao().getBySession(sessionId).first().single()
+        assertNull(stored.templateExerciseId)
+        assertEquals(squat, stored.exerciseId)
+    }
+
+    @Test
+    fun `delete removes the template and cascades to its exercises`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val bench = catalogueExercise("Bench")
+        val id = repository.insert(
+            WorkoutTemplate(name = "Push Day"),
+            listOf(squat, bench).map { TemplateExerciseDraft(exerciseId = it) },
+        )
+
+        repository.delete(id)
+
+        assertNull(repository.getById(id).first())
+        assertEquals(0, countRows("template_exercise"))
+    }
+
+    @Test
+    fun `delete is a no-op for an id that was never stored`() = runBlocking {
+        val squat = catalogueExercise("Squat")
+        val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))
+
+        repository.delete(404)
+
+        assertEquals(1, countRows("workout_template"))
+        assertEquals("Push Day", repository.getById(id).first()?.name)
+    }
+}
