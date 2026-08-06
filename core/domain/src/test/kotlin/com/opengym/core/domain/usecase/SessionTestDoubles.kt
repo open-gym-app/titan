@@ -141,16 +141,41 @@ class FakeSessionRepository : SessionRepository {
         isCompleted: Boolean = true,
     ) {
         val existing = sets.value[sessionExerciseId].orEmpty()
-        sets.value += sessionExerciseId to existing + WorkoutSet(
-            id = nextSetId++,
-            sessionExerciseId = sessionExerciseId,
-            setNumber = existing.size + 1,
-            reps = reps,
-            weight = weight,
-            isCompleted = isCompleted,
-            completedAt = if (isCompleted) 1L else 0L,
-            createdAt = 0,
-            updatedAt = 0,
+        store(
+            sessionExerciseId,
+            WorkoutSet(
+                sessionExerciseId = sessionExerciseId,
+                setNumber = existing.size + 1,
+                reps = reps,
+                weight = weight,
+                isCompleted = isCompleted,
+                completedAt = if (isCompleted) 1L else 0L,
+                createdAt = 0,
+                updatedAt = 0,
+            ),
         )
+    }
+
+    /**
+     * Seeds [set] as given, returning it with the id and set number the store assigned.
+     *
+     * The defaulted overload above is for tests that only care how *many* sets a session
+     * holds; this one is for tests that care what is in them — an integration run logging
+     * a real set of reps and weight, say, whose figures then have to come back out of the
+     * summary.
+     */
+    fun addSet(sessionExerciseId: Long, set: WorkoutSet): WorkoutSet {
+        val existing = sets.value[sessionExerciseId].orEmpty()
+        return store(
+            sessionExerciseId,
+            set.copy(sessionExerciseId = sessionExerciseId, setNumber = existing.size + 1),
+        )
+    }
+
+    /** Files [set] under [sessionExerciseId] with a fresh id, and returns it as stored. */
+    private fun store(sessionExerciseId: Long, set: WorkoutSet): WorkoutSet {
+        val stored = set.copy(id = nextSetId++)
+        sets.value += sessionExerciseId to sets.value[sessionExerciseId].orEmpty() + stored
+        return stored
     }
 }

@@ -220,6 +220,25 @@ class RestTimerControllerTest {
     }
 
     @Test
+    fun `resuming a rest with nothing left finishes it rather than running a zero countdown`() = runTest {
+        // The edge `resume` documents and nothing reached until now: a rest paused in the
+        // instant between its countdown expiring and `Finished` being published. There is
+        // no Running state that could express it — the type rejects a non-positive
+        // remainder — so resuming has to land straight on Finished.
+        val timer = restTimer()
+        timer.restore(RestTimerState.Paused(Duration.ZERO, 90.seconds))
+        val recording = record(timer)
+
+        timer.resume()
+        advanceTimeTo(5.seconds)
+
+        assertEquals(
+            listOf(RestTimerState.Paused(Duration.ZERO, 90.seconds), RestTimerState.Finished),
+            recording.states,
+        )
+    }
+
+    @Test
     fun `a non-positive rest duration is rejected`() = runTest {
         val timer = restTimer()
 

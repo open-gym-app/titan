@@ -73,10 +73,52 @@ com.opengym.core.data.repository.SessionRepositoryImpl
 com.opengym.core.data.local.dao.SessionDao
 ```
 
+## Test coverage
+
+`:core:domain` carries coverage floors enforced by JaCoCo. It is the only module that
+does: it is pure business logic with no Android framework escape hatches, so an
+uncovered line there is a rule nobody ran rather than platform glue that a JVM test
+cannot reach.
+
+| Floor | Scope | Minimum |
+| --- | --- | --- |
+| Line | the whole module | 95% |
+| Line | each package except `model` | 95% |
+| Branch | each package except `model` | 75% |
+
+```sh
+./gradlew :core:domain:check                          # runs the tests and the floors
+open core/domain/build/reports/jacoco/test/html/index.html
+```
+
+CI runs the same check and uploads the report as the `core-domain-coverage` artifact, so
+a failed build says which lines went unexercised.
+
+### What the floors do not measure
+
+They are a **ratchet against regression, not a quality bar.** Read them as "nothing large
+went untested in this PR", never as "the domain is tested".
+
+- **A line is not a rule.** Line coverage says a statement executed, not that its outcome
+  was asserted on. The per-package branch floor is the stricter half of the pair, which is
+  why it exists — but a covered branch is still only a branch that ran.
+- **`model` is held to the module line floor and nothing else.** JaCoCo counts the branches
+  in the `equals`/`hashCode` Kotlin generates for a data class, and on a wide one that is
+  most of what it counts — `ActiveSet` alone contributes 72 missed branches. A branch floor
+  over that package would measure how many fields the models carry, not how well they are
+  tested, so the package is excluded rather than the floor lowered to accommodate it.
+- **The module floor alone would not catch much.** At ~630 lines, 95% leaves room for a
+  whole use case nobody tested. That is what the per-package floors are for, and why a new
+  package starts life having to clear them rather than being averaged into a passing
+  module.
+
+Raise a floor when the module has moved past it and stayed there. Lowering one needs a
+reason in the PR description.
+
 ## Pull requests
 
 - **One concern per PR** - keep scope tight so the diff stays readable.
-- **CI must be green** before requesting a review (lint, tests, build).
+- **CI must be green** before requesting a review (lint, tests, build, coverage).
 - **1 approval required** to merge.
 - **Squash & merge** - all commits on the branch are squashed into one on `main`. The squash commit message must follow the Conventional Commits format above.
 - Delete the branch after merging.
