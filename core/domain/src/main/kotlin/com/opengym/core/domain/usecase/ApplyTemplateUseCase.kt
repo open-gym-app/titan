@@ -2,17 +2,22 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExercise
+import com.opengym.core.domain.model.TemplatePlan
 import com.opengym.core.domain.repository.TemplateRepository
 import kotlinx.coroutines.flow.first
 
 /**
- * Reads out the exercise plan a template holds, ordered by position.
+ * Reads out the plan a template holds — its name, and its exercises ordered by
+ * position.
  *
  * **Starts nothing.** No session is created or modified, and no template row is
  * touched — this is a read. A caller wires the result into
  * [StartSessionUseCase] and the session-exercise writes itself, which is what keeps
  * "the user picked a template" and "the user began training" two separate,
- * separately cancellable decisions.
+ * separately cancellable decisions. The name travels with the plan for the same
+ * reason the exercises do: it is what the session is started under
+ * (`startSession(templateId = plan.templateId, name = plan.name)`), and reading it
+ * here saves the caller a second load of a template it has just read.
  *
  * Each returned [TemplateExercise] carries the catalogue `exerciseId` plus the
  * template's defaults — sets, reps, weight, rest, notes — so the session can be
@@ -31,8 +36,8 @@ class ApplyTemplateUseCase(
     private val templateRepository: TemplateRepository,
 ) {
 
-    suspend operator fun invoke(templateId: Long): Result<List<TemplateExercise>> {
-        templateRepository.loadTemplate(templateId)
+    suspend operator fun invoke(templateId: Long): Result<TemplatePlan> {
+        val template = templateRepository.loadTemplate(templateId)
             .getOrElse { return Result.failure(it) }
 
         // Re-sorted rather than trusted: the repository contract orders by position,
@@ -44,7 +49,9 @@ class ApplyTemplateUseCase(
         return if (exercises.isEmpty()) {
             Result.failure(TemplateError.NoExercises)
         } else {
-            Result.success(exercises)
+            Result.success(
+                TemplatePlan(templateId = templateId, name = template.name, exercises = exercises),
+            )
         }
     }
 }

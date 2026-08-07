@@ -42,6 +42,7 @@ class StartSessionUseCaseTest {
             WorkoutSession(
                 id = 1L,
                 templateId = null,
+                name = null,
                 completedAt = null,
                 isInProgress = true,
                 lastActiveAt = 5_000L,
@@ -54,12 +55,23 @@ class StartSessionUseCaseTest {
     }
 
     @Test
-    fun `starting carries the template and notes onto the session`() = runTest {
-        val started = startSession(templateId = 42L, notes = "leg day").getOrThrow()
+    fun `starting carries the template, name and notes onto the session`() = runTest {
+        val started = startSession(templateId = 42L, name = "Leg day", notes = "leg day").getOrThrow()
 
         val stored = sessions.stored(started.sessionId)
         assertEquals(42L, stored?.templateId)
+        assertEquals("Leg day", stored?.name)
         assertEquals("leg day", stored?.notes)
+    }
+
+    @Test
+    fun `starting without a name leaves the session unnamed rather than blank`() = runTest {
+        // "" and null are different states downstream: null is what the date-derived
+        // fallback keys off, and a blank string would render as a session titled with
+        // nothing at all.
+        val started = startSession(templateId = 42L).getOrThrow()
+
+        assertNull(sessions.stored(started.sessionId)?.name)
     }
 
     @Test

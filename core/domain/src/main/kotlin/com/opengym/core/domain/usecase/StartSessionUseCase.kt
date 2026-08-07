@@ -31,8 +31,17 @@ class StartSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
+    /**
+     * @param name what to call the session. A start from a template passes the
+     *   template's name — [ApplyTemplateUseCase] returns it on the plan for exactly
+     *   this — and a quick-start passes nothing, leaving the session genuinely
+     *   unnamed until the user names it. Not defaulted from [templateId] here: this
+     *   use case does not read templates, and a name resolved behind the caller's
+     *   back would be one it could not decline.
+     */
     suspend operator fun invoke(
         templateId: Long? = null,
+        name: String? = null,
         notes: String? = null,
     ): Result<SessionState.Active> = lock.withTransition {
         runningSessionId()?.let {
@@ -43,6 +52,7 @@ class StartSessionUseCase(
         val sessionId = sessionRepository.insert(
             WorkoutSession(
                 templateId = templateId,
+                name = name,
                 isInProgress = true,
                 lastActiveAt = now,
                 notes = notes,

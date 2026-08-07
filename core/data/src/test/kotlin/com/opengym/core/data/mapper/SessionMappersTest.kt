@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.WorkoutSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,6 +25,7 @@ class SessionMappersTest {
         val session = WorkoutSession(
             id = 5,
             templateId = 2,
+            name = "Push Day - Upper",
             completedAt = 1_700_000_100_000,
             isInProgress = false,
             lastActiveAt = 1_700_000_090_000,
@@ -33,6 +35,23 @@ class SessionMappersTest {
         )
         val mapper = SessionMapper()
 
+        assertEquals(session, mapper.toDomain(mapper.toEntity(session)))
+    }
+
+    @Test
+    fun `an unnamed session round trips as unnamed`() {
+        // The null carries meaning of its own — see WorkoutSession.name — so a mapper
+        // that defaulted it to "" would be losing a field, not normalising one.
+        val session = WorkoutSession(
+            id = 6,
+            name = null,
+            lastActiveAt = 1_700_000_000_000,
+            createdAt = 1_700_000_000_000,
+            updatedAt = 1_700_000_000_000,
+        )
+        val mapper = SessionMapper()
+
+        assertNull(mapper.toEntity(session).name)
         assertEquals(session, mapper.toDomain(mapper.toEntity(session)))
     }
 
