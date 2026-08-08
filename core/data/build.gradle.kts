@@ -1,20 +1,15 @@
-import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-
 plugins {
-    alias(libs.plugins.android.library)
-    alias(libs.plugins.hilt)
+    id("opengym.android.library")
+    id("opengym.android.hilt")
+    // Declared here as well as inside the Hilt convention: Room's compiler is the other
+    // KSP processor this module runs, and it should not stop working the day the DI
+    // modules move somewhere else and `opengym.android.hilt` comes off. Applying is
+    // idempotent.
     alias(libs.plugins.ksp)
 }
 
 android {
     namespace = "com.opengym.core.data"
-    compileSdk = 36
-
-    defaultConfig {
-        minSdk = 26
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
 
     sourceSets {
         // Exported Room schemas, so MigrationTestHelper can build historical
@@ -25,13 +20,6 @@ android {
         getByName("androidTest") {
             assets.srcDirs("$projectDir/schemas")
         }
-    }
-
-    lint {
-        abortOnError = true
-        lintConfig = rootProject.file("lint.xml")
-        htmlReport = true
-        xmlReport = true
     }
 
     testOptions {
@@ -48,21 +36,6 @@ ksp {
     arg("room.incremental", "true")
 }
 
-kotlin {
-    jvmToolchain(17)
-}
-
-// Hilt aggregates its test components through javac, which needs a real compiler
-// rather than whichever JVM happens to be running Gradle. Pinned the same way :app
-// pins its own JavaCompile tasks.
-tasks.withType<JavaCompile>().configureEach {
-    javaCompiler.set(
-        javaToolchains.compilerFor {
-            languageVersion.set(JavaLanguageVersion.of(17))
-        },
-    )
-}
-
 dependencies {
     implementation(project(":core:domain"))
 
@@ -70,13 +43,8 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.room.paging)
     ksp(libs.room.compiler)
-    implementation(libs.hilt.android)
-    ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
 
-    testImplementation(libs.junit)
-    testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.junit)

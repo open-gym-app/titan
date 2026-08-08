@@ -1,3 +1,8 @@
+// The `apply false` entries are not dead weight even where no build script names the alias:
+// they are what puts these plugins on the build script classpath for the `opengym.android.*`
+// convention plugins, which declare them `compileOnly` and apply them by id. Removing one as
+// "unused" fails the build at "Plugin with id '...' not found" — see
+// build-logic/convention/build.gradle.kts.
 plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
