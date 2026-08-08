@@ -5,6 +5,8 @@ plugins {
 }
 
 kotlin {
+    // A plain JVM library, so no convention plugin applies: keep in step with
+    // AndroidSdk.JVM_TOOLCHAIN in build-logic.
     jvmToolchain(17)
 }
 

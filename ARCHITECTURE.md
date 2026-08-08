@@ -27,7 +27,10 @@ modules use.
 | `opengym.android.library` | `com.android.library`, the SDK levels, the JVM toolchain, the shared `lint {}` block, and the JVM unit-test dependencies |
 | `opengym.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
 | `opengym.android.hilt` | Hilt and the KSP processor that generates its components |
-| `opengym.android.feature` | The three above, plus `:core:domain` and `:core:ui` — everything a vertical slice needs |
+| `opengym.android.feature` | The three above, plus `:core:domain`, `:core:ui` and the ViewModel-to-Compose bridge — everything a vertical slice needs |
+
+`opengym.android.compose` and `opengym.android.hilt` apply `opengym.android.library`
+themselves, so the order a module lists them in does not matter.
 
 A feature module's build file should be the plugin and a `namespace`, nothing more:
 
@@ -44,7 +47,10 @@ android {
 `:app` and `:core:domain` are deliberately left out: `:app` is an application module with
 signing config and build variants that is not worth generalising for one consumer, and
 `:core:domain` is a plain Kotlin JVM library carrying a JaCoCo coverage floor no other
-module shares. `compileSdk`, `minSdk` and the JVM toolchain are constants in
+module shares. Both therefore keep their own copy of the SDK levels and toolchain, and a
+bump has to be made in all three places — `:app` in particular is the module that ships.
+
+For everything else, `compileSdk`, `minSdk` and the JVM toolchain are constants in
 `build-logic/.../AndroidSdk.kt` rather than catalog entries — the catalog addresses
 artifacts, and an SDK level is not one.
 

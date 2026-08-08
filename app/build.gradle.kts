@@ -18,11 +18,17 @@ private fun prop(envKey: String, fileKey: String): String? =
 
 android {
     namespace = "com.opengym.app"
-    compileSdk = 36
+
+    // :app does not apply a convention plugin, so these are a second copy of the levels in
+    // build-logic/.../AndroidSdk.kt. Bump both together, or the APK ships against an older
+    // platform than the libraries it packages were compiled for.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.opengym.app"
         minSdk = 26
+        // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
+        // runtime behaviour changes, which is a decision that needs its own testing pass.
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"

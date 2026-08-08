@@ -14,9 +14,14 @@ java {
     }
 }
 
-// `compileOnly`: these are the Gradle plugins the conventions *apply*, not libraries
-// they ship. Gradle puts them on the consuming build's classpath when the plugin is
-// applied, so putting them on the runtime classpath here would load them twice.
+// `compileOnly`: these are the Gradle plugins the conventions *apply*, not libraries they
+// ship. Compiling against them is enough because they are already on the consuming build's
+// script classpath — the root `build.gradle.kts` declares each one `apply false`, and that
+// block is what puts them there. It is load-bearing: dropping an entry from it because no
+// build script names the alias any more breaks every convention plugin that applies that id
+// at "Plugin with id '...' not found". Declaring them `implementation` instead would put a
+// second copy of AGP/KGP on the classpath, in a different classloader from the one the
+// modules use.
 dependencies {
     compileOnly(libs.android.gradle.plugin)
     compileOnly(libs.kotlin.gradle.plugin)

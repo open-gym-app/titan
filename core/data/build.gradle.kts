@@ -1,6 +1,11 @@
 plugins {
     id("opengym.android.library")
     id("opengym.android.hilt")
+    // Declared here as well as inside the Hilt convention: Room's compiler is the other
+    // KSP processor this module runs, and it should not stop working the day the DI
+    // modules move somewhere else and `opengym.android.hilt` comes off. Applying is
+    // idempotent.
+    alias(libs.plugins.ksp)
 }
 
 android {

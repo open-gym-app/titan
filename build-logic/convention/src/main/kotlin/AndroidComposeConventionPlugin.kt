@@ -11,9 +11,14 @@ import org.gradle.kotlin.dsl.dependencies
  *
  * Every Compose artifact is resolved through the BOM, so no module names a Compose
  * version and none of them can drift apart.
+ *
+ * Applies `opengym.android.library` itself for the same reason [AndroidHiltConventionPlugin]
+ * does: it configures the `LibraryExtension`, which does not exist until the Android plugin
+ * is applied, and the consumer should not have to know the right order.
  */
 class AndroidComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) = with(target) {
+        pluginManager.apply("opengym.android.library")
         pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
 
         extensions.configure<LibraryExtension> {

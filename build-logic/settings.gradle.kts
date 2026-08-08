@@ -1,3 +1,19 @@
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+    }
+}
+
+// An included build does not inherit the root build's settings plugins, so the toolchain
+// resolver has to be declared here too. Without it, the JDK 17 toolchain that
+// `convention/build.gradle.kts` requests can only be satisfied by a local installation:
+// on a machine running Gradle under a different JDK, every invocation fails at
+// configuration with "Toolchain download repositories have not been configured", before
+// any module is configured. Keep the version in step with the root `settings.gradle.kts`.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 dependencyResolutionManagement {
     repositories {
         google()
