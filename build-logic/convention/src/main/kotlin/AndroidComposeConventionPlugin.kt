@@ -126,7 +126,11 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
  * inside the Robolectric runtime this module already has, so a screenshot test is an ordinary
  * JVM unit test — same source set, same SDK pin, same CI job, and it can capture a state
  * reached by driving the UI rather than only a `@Preview`.
+ *
+ * `compare` and `generateComposePreviewRobolectricTests` are both still experimental, hence
+ * the opt-in on the whole function.
  */
+@OptIn(ExperimentalRoborazziApi::class)
 private fun Project.configureRoborazzi() = extensions.configure<RoborazziExtension> {
     // References are reviewed input, not build output: a diff in `src/` is what makes an
     // unintended visual change visible in a pull request.
@@ -143,7 +147,6 @@ private fun Project.configureRoborazzi() = extensions.configure<RoborazziExtensi
     // scoped to the module's own namespace: the classpath of a `:feature:*` module also
     // holds `:core:ui`, and an unscoped scan would re-capture every shared component once
     // per feature.
-    @OptIn(ExperimentalRoborazziApi::class)
     generateComposePreviewRobolectricTests {
         enable.set(true)
         packages.set(

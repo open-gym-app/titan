@@ -14,6 +14,19 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.theme.OpenGymTheme
 
+/** The state [ExampleScreen] renders. Hand-built by the tests; no ViewModel produces it. */
+data class ExampleUiState(
+    val title: String,
+    val items: List<String>,
+)
+
+sealed interface ExampleEvent {
+    data class ItemClicked(val item: String) : ExampleEvent
+    data object RefreshClicked : ExampleEvent
+}
+
+const val EXAMPLE_EMPTY_MESSAGE = "Nothing logged yet"
+
 /**
  * The template every screen test in this repository is copied from. It lives in `src/test`
  * on purpose: it is a worked example of the testing patterns, not a component anything is
@@ -27,18 +40,6 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * the Roborazzi plugin generates a Robolectric test per preview, so a real screen gets its
  * screenshot coverage from the previews it already carries for the IDE.
  */
-data class ExampleUiState(
-    val title: String,
-    val items: List<String>,
-)
-
-sealed interface ExampleEvent {
-    data class ItemClicked(val item: String) : ExampleEvent
-    data object RefreshClicked : ExampleEvent
-}
-
-const val EXAMPLE_EMPTY_MESSAGE = "Nothing logged yet"
-
 @Composable
 fun ExampleScreen(
     state: ExampleUiState,

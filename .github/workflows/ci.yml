@@ -101,10 +101,11 @@ jobs:
       - name: Verify :core:domain coverage
         run: ./gradlew :core:domain:jacocoTestCoverageVerification
 
-      # Only on a failure, and only for three days. A failure is the one time anybody opens
-      # this report — to see which lines went unexercised — and at ~1.7 MB per run it was
-      # otherwise the largest standing claim on a free-tier private repository's artifact
-      # storage. On a green build the number is in the job log and the HTML is dead weight.
+      # Every run, kept for three days. A failure is the one time anybody opens this report —
+      # to see which lines went unexercised — but uploading unconditionally keeps the step
+      # off the critical path of diagnosing a red build. At ~1.7 MB per run this is the
+      # largest standing claim on a free-tier private repository's artifact storage, so the
+      # short retention, not the condition, is what keeps it bounded.
       #
       # A missing report only warns: the tests are finalized by the report task, so a *test*
       # failure still leaves one behind, and the case where none exists is a compile failure —

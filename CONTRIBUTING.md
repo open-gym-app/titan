@@ -138,9 +138,9 @@ cannot reach.
 open core/domain/build/reports/jacoco/test/html/index.html
 ```
 
-CI runs the same check. On a failure — and only then, since artifact storage is limited —
-it uploads the report as the `core-domain-coverage` artifact with a three-day retention, so
-a red build says which lines went unexercised.
+CI runs the same check and uploads the report as the `core-domain-coverage` artifact on
+every run, with a three-day retention to keep artifact storage bounded. On a red build it
+says which lines went unexercised.
 
 ### What the floors do not measure
 
@@ -173,7 +173,11 @@ unit tests in `src/test`, run by Robolectric, and they come in two kinds:
 | Behaviour | does it render this state, and emit this event? | a test class you write |
 | Screenshot | does it still *look* the same? | mostly a `@Preview`, captured for you |
 
-Both are picked up by `./gradlew test` and by CI's `unit-test` job. Everything they need —
+Both are picked up by `make test` and by CI's `unit-test` job. **Use `make test`, not
+`./gradlew test`:** Roborazzi decides whether to compare from the task graph, so a plain
+`./gradlew test` runs the screenshot tests and captures nothing — they pass without
+verifying anything. `verifyRoborazziDebug` has to be in the same invocation, which is what
+`make test` and CI both do. Everything they need —
 `ui-test-junit4`, Robolectric, Roborazzi, the SDK pin, `isIncludeAndroidResources` — comes
 from the `opengym.android.compose` convention plugin, so a module's build file adds nothing.
 
@@ -183,7 +187,7 @@ to the two-composable convention above. Start there.
 ```sh
 make test                 # behaviour tests + screenshot verification
 make screenshots          # re-record the references after an intended visual change
-make screenshots-verify   # screenshots only
+make screenshots-verify   # verify screenshots, without re-recording (runs the tests too)
 ```
 
 ### How to write a screen test
