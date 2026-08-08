@@ -5,6 +5,11 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    // `:app` declares navigation types of its own — the tab scaffold's graph route and, until
+    // #97 gives settings a module, the settings destination — so it needs the serialization
+    // compiler plugin the way a feature does. The `opengym.android.feature` convention
+    // applies it for the modules that use it; `:app` applies no convention plugin.
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     id("opengym.android.jacoco")
@@ -108,6 +113,14 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
+
+    // Every feature, because `:app` is the composition root: it calls each feature's
+    // `NavGraphBuilder` extension and supplies the lambdas that carry the user across a
+    // module boundary. This is the only module allowed to depend on more than one.
+    implementation(project(":feature:home"))
+    implementation(project(":feature:session"))
+    implementation(project(":feature:history"))
+    implementation(project(":feature:progression"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

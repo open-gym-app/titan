@@ -29,6 +29,12 @@ dependencies {
     compileOnly(libs.ksp.gradle.plugin)
     compileOnly(libs.hilt.gradle.plugin)
     compileOnly(libs.roborazzi.gradle.plugin)
+
+    // `ArchitectureRules` is a pure function over a module graph, so its cases can be stated
+    // as an ordinary unit test rather than as a Gradle build that has to fail on purpose.
+    // The root build's `check` runs this via `checkBuildLogic` — an included build's tests
+    // are not otherwise reached by anything the main build or CI invokes.
+    testImplementation(libs.junit)
 }
 
 // `jacoco` is a Gradle core plugin — no version catalog entry, no `compileOnly`, it is
@@ -55,6 +61,10 @@ gradlePlugin {
         register("androidJacoco") {
             id = "opengym.android.jacoco"
             implementationClass = "AndroidJacocoConventionPlugin"
+        }
+        register("architecture") {
+            id = "opengym.architecture"
+            implementationClass = "ArchitectureConventionPlugin"
         }
     }
 }
