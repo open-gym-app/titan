@@ -63,6 +63,53 @@ class SessionRepo          // abbreviation, inconsistent with the rest
 class CreateSession        // missing UseCase suffix
 ```
 
+### Screens
+
+Every screen is **two** composables, never one.
+
+```kotlin
+// Stateful. Wires the ViewModel and nothing else - no layout lives here.
+@Composable
+fun ExerciseLibraryRoute(
+    onExerciseClick: (exerciseId: Long) -> Unit,
+    viewModel: ExerciseLibraryViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    ExerciseLibraryScreen(
+        state = state,
+        onEvent = viewModel::onEvent,
+        onExerciseClick = onExerciseClick,
+    )
+}
+
+// Stateless. Takes a state object and emits events; knows nothing about Hilt,
+// ViewModels or navigation.
+@Composable
+fun ExerciseLibraryScreen(
+    state: ExerciseLibraryUiState,
+    onEvent: (ExerciseLibraryEvent) -> Unit,
+    onExerciseClick: (exerciseId: Long) -> Unit,
+) { /* ... */ }
+```
+
+This is a **convention, not a suggestion**, because the split is what makes the rest of
+the testing strategy possible:
+
+- `XScreen` can be driven from a Compose test with a hand-built state object, with no
+  ViewModel, no Hilt graph and no database behind it.
+- `XScreen` can carry `@Preview`s for its interesting states — empty, loading, error, full
+  — which is what the screenshot tests render.
+- A state that is awkward to construct by hand is a signal the UI state model is wrong,
+  and the split surfaces that at authoring time rather than at test time.
+
+Only `XRoute` may take a `viewModel` parameter, and it must default to `hiltViewModel()`
+so the composable stays callable from a preview or a test. `XScreen` must never reference
+a ViewModel type.
+
+The `@Serializable` navigation type that reaches this screen is `XDestination`, never
+`XRoute` — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#routes-are-type-safe) for why
+sharing the name silently renders an empty screen.
+
 ### Files and packages
 
 Each class lives in a package that matches its layer and module:

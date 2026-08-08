@@ -17,6 +17,15 @@ internal object AndroidSdk {
     const val COMPILE = 37
     const val MIN = 26
 
+    /**
+     * The SDK level JVM unit tests run against under Robolectric.
+     *
+     * Not [COMPILE]: Robolectric only runs on levels it ships a runtime for, and it fails
+     * outright when the manifest targets a newer one. This trails [COMPILE] on purpose and
+     * moves when Robolectric does, not when the compile level does.
+     */
+    const val ROBOLECTRIC = 34
+
     /** The JDK every module compiles against. */
     const val JVM_TOOLCHAIN = 17
 }

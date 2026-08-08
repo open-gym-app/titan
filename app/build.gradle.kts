@@ -74,6 +74,17 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests {
+            // `createComposeRule()` inflates a real Android view hierarchy, so a Compose
+            // test on the JVM needs the merged resources and a Robolectric runtime behind
+            // it. The SDK pin that goes with this lives in
+            // `src/test/resources/robolectric.properties` — the library modules get both
+            // from `opengym.android.compose`, which :app does not apply.
+            isIncludeAndroidResources = true
+        }
+    }
+
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
@@ -99,12 +110,20 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.material.icons.extended)
+
+    // `:app` owns the NavHost and is the only module that navigates across a feature
+    // boundary, so it is the only non-feature module that needs navigation.
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.hilt.navigation.compose)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
@@ -113,6 +132,12 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.mockk)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // `ui-test-junit4` on the JVM classpath is only half a harness: the Android runtime it
+    // drives comes from Robolectric.
+    testImplementation(libs.robolectric)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
