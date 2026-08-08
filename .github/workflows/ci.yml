@@ -141,3 +141,17 @@ jobs:
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
+
+      # Release is the only variant that runs R8 and resource shrinking, so it is the one
+      # that catches a keep rule the debug build never needs — Room, Hilt and the
+      # serialization plugin all generate code that minification can strip. The `staging`
+      # type is `initWith(release)` plus two name suffixes (app/build.gradle.kts), so it
+      # compiles the same bytecode and cannot fail on its own; it is not built here.
+      #
+      # No KEYSTORE_* secrets are passed: the release signing config only attaches when a
+      # keystore is actually present (app/build.gradle.kts), and pointing KEYSTORE_PATH at
+      # a file that is not in the checkout would fail the build rather than sign anything.
+      # This step verifies that the release variant *assembles*; signing belongs with a
+      # release job that has a keystore to sign with.
+      - name: Assemble release APK
+        run: ./gradlew assembleRelease
