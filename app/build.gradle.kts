@@ -74,6 +74,17 @@ android {
         compose = true
     }
 
+    testOptions {
+        unitTests {
+            // `createComposeRule()` inflates a real Android view hierarchy, so a Compose
+            // test on the JVM needs the merged resources and a Robolectric runtime behind
+            // it. The SDK pin that goes with this lives in
+            // `src/test/resources/robolectric.properties` — the library modules get both
+            // from `opengym.android.compose`, which :app does not apply.
+            isIncludeAndroidResources = true
+        }
+    }
+
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
@@ -123,6 +134,9 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    // `ui-test-junit4` on the JVM classpath is only half a harness: the Android runtime it
+    // drives comes from Robolectric.
+    testImplementation(libs.robolectric)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

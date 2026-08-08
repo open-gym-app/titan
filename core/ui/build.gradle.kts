@@ -12,5 +12,9 @@ dependencies {
     // rather than a parallel UI model per screen. `:core:domain` is pure Kotlin with no
     // Android dependencies, so nothing leaks upward. See docs/ARCHITECTURE.md; the ban on
     // `:core:ui` -> `:core:data` still stands.
-    implementation(project(":core:domain"))
+    //
+    // `api`, not `implementation`: the domain types appear in the public signatures of the
+    // shared components, so a consumer cannot call them without those types on its own
+    // compile classpath.
+    api(project(":core:domain"))
 }

@@ -106,6 +106,10 @@ Only `XRoute` may take a `viewModel` parameter, and it must default to `hiltView
 so the composable stays callable from a preview or a test. `XScreen` must never reference
 a ViewModel type.
 
+The `@Serializable` navigation type that reaches this screen is `XDestination`, never
+`XRoute` — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#routes-are-type-safe) for why
+sharing the name silently renders an empty screen.
+
 ### Files and packages
 
 Each class lives in a package that matches its layer and module:

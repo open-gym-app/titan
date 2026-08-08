@@ -92,6 +92,7 @@ graph TD
     app --> domain
     app --> data
     app --> ui
+    app --> feature
     data --> domain
     ui --> domain
     feature --> domain
@@ -138,7 +139,7 @@ fun NavGraphBuilder.homeGraph(
     onStartEmptySession: () -> Unit,
     onResumeSession: (sessionId: Long) -> Unit,
 ) {
-    composable<HomeRoute> {
+    composable<HomeDestination> {
         HomeRoute(
             onStartEmptySession = onStartEmptySession,
             onResumeSession = onResumeSession,
@@ -149,19 +150,19 @@ fun NavGraphBuilder.homeGraph(
 
 ```kotlin
 // :app — the only module that knows both sides of the edge
-NavHost(navController = navController, startDestination = HomeRoute) {
+NavHost(navController = navController, startDestination = HomeDestination) {
     homeGraph(
-        onStartEmptySession = { navController.navigate(NewSessionRoute) },
-        onResumeSession = { id -> navController.navigate(ActiveSessionRoute(id)) },
+        onStartEmptySession = { navController.navigate(NewSessionDestination) },
+        onResumeSession = { id -> navController.navigate(ActiveSessionDestination(id)) },
     )
     sessionGraph(
-        onSessionFinished = { id -> navController.navigate(SummaryRoute(id)) },
+        onSessionFinished = { id -> navController.navigate(SummaryDestination(id)) },
     )
 }
 ```
 
-**Route types live in the module that owns the destination.** `ActiveSessionRoute` is
-declared in `:feature:session` and `:app` imports it. This is the one direction that
+**Destination types live in the module that owns the screen.** `ActiveSessionDestination`
+is declared in `:feature:session` and `:app` imports it. This is the one direction that
 works: `:app` already depends on every feature, so no new edge is created, and the
 feature that owns a screen owns the shape of its arguments.
 
@@ -172,22 +173,29 @@ destination (`goToSummary`) keeps the feature honest — it is reporting what ha
 ### Routes are type-safe
 
 Destinations are `@Serializable` objects or data classes, navigated with
-`composable<Route>` and read back with `toRoute<Route>()`. No string route templates, no
-`navArgument` declarations, no manual argument parsing — a wrong argument type is a
-compile error rather than a null at runtime.
+`composable<XDestination>` and read back with `toRoute<XDestination>()`. No string route
+templates, no `navArgument` declarations, no manual argument parsing — a wrong argument
+type is a compile error rather than a null at runtime.
 
 ```kotlin
 @Serializable
-data object HomeRoute
+data object HomeDestination
 
 @Serializable
-data class ActiveSessionRoute(val sessionId: Long)
+data class ActiveSessionDestination(val sessionId: Long)
 
-composable<ActiveSessionRoute> { entry ->
-    val route: ActiveSessionRoute = entry.toRoute()
-    ActiveSessionRoute(sessionId = route.sessionId)
+composable<ActiveSessionDestination> { entry ->
+    val destination: ActiveSessionDestination = entry.toRoute()
+    ActiveSessionRoute(sessionId = destination.sessionId)
 }
 ```
+
+**`XDestination` and `XRoute` are different things and must not share a name.**
+`XDestination` is the `@Serializable` navigation argument type; `XRoute` is the stateful
+composable that renders the screen (CONTRIBUTING.md § Screens). Naming both `XRoute` is a
+trap: for a `data object` the screen call fails to compile, and for a `data class` it
+compiles clean and renders an empty screen, because `ActiveSessionRoute(sessionId = ...)`
+resolves to the route constructor and the result is discarded.
 
 The `opengym.android.feature` convention plugin applies the `kotlin-serialization`
 plugin, so a feature module needs no extra setup to declare one.
