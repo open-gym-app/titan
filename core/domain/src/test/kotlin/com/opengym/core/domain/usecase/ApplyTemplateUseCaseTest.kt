@@ -19,8 +19,8 @@ class ApplyTemplateUseCaseTest {
 
         val applied = applyTemplate(id).getOrThrow()
 
-        assertEquals(listOf(3L, 1L, 2L), applied.map { it.exerciseId })
-        assertEquals(listOf(0, 1, 2), applied.map { it.position })
+        assertEquals(listOf(3L, 1L, 2L), applied.exercises.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), applied.exercises.map { it.position })
     }
 
     @Test
@@ -37,8 +37,8 @@ class ApplyTemplateUseCaseTest {
 
         val applied = applyTemplate(id).getOrThrow()
 
-        assertEquals(listOf(3L, 1L, 2L), applied.map { it.exerciseId })
-        assertEquals(listOf(0, 1, 2), applied.map { it.position })
+        assertEquals(listOf(3L, 1L, 2L), applied.exercises.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), applied.exercises.map { it.position })
     }
 
     @Test
@@ -57,7 +57,7 @@ class ApplyTemplateUseCaseTest {
             ),
         )
 
-        val applied = applyTemplate(id).getOrThrow().single()
+        val applied = applyTemplate(id).getOrThrow().exercises.single()
 
         assertEquals(3L, applied.exerciseId)
         assertEquals(5, applied.defaultSets)
@@ -65,6 +65,16 @@ class ApplyTemplateUseCaseTest {
         assertEquals(100_000L, applied.defaultWeight)
         assertEquals(180L, applied.restDuration)
         assertEquals("warm up first", applied.notes)
+    }
+
+    @Test
+    fun `applying carries the name the session is started under`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L)))
+
+        val applied = applyTemplate(id).getOrThrow()
+
+        assertEquals("Push day", applied.name)
+        assertEquals(id, applied.templateId)
     }
 
     @Test

@@ -10,6 +10,7 @@ class SessionMapper @Inject constructor() {
     fun toDomain(entity: WorkoutSessionEntity): WorkoutSession = WorkoutSession(
         id = entity.id,
         templateId = entity.templateId,
+        name = entity.name,
         completedAt = entity.completedAt,
         isInProgress = entity.isInProgress,
         lastActiveAt = entity.lastActiveAt,
@@ -21,6 +22,7 @@ class SessionMapper @Inject constructor() {
     fun toEntity(session: WorkoutSession): WorkoutSessionEntity = WorkoutSessionEntity(
         id = session.id,
         templateId = session.templateId,
+        name = session.name,
         completedAt = session.completedAt,
         isInProgress = session.isInProgress,
         lastActiveAt = session.lastActiveAt,

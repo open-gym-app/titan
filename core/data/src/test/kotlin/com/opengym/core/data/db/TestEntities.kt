@@ -47,11 +47,13 @@ fun templateExercise(
 
 fun session(
     templateId: Long? = null,
+    name: String? = null,
     isInProgress: Boolean = true,
     lastActiveAt: Long = 0,
     createdAt: Long = 0,
 ) = WorkoutSessionEntity(
     templateId = templateId,
+    name = name,
     isInProgress = isInProgress,
     lastActiveAt = lastActiveAt,
     createdAt = createdAt,

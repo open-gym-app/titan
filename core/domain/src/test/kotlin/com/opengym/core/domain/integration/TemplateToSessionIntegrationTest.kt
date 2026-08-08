@@ -13,6 +13,7 @@ import com.opengym.core.domain.usecase.FakeTemplateRepository
 import com.opengym.core.domain.usecase.MutableClock
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartSessionUseCase
+import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.domain.usecase.draft
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.domain.validation.ValidationResult
@@ -30,9 +31,9 @@ import org.junit.Test
  * write is the caller's separate decision — which means the wiring between the two is
  * code no single-use-case test owns. That wiring is what breaks first if either side
  * changes its mind about ordering, and it is what this pins: the plan comes out in
- * template order, the session records which template it came from, the exercises land
- * in the plan's order, and the sets pre-filled from the template's defaults are sets
- * [SetValidator] accepts.
+ * template order, the session records which template it came from and takes its name,
+ * the exercises land in the plan's order, and the sets pre-filled from the template's
+ * defaults are sets [SetValidator] accepts.
  */
 class TemplateToSessionIntegrationTest {
 
@@ -41,6 +42,7 @@ class TemplateToSessionIntegrationTest {
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
     private val createTemplate = CreateTemplateUseCase(templates)
+    private val updateTemplate = UpdateTemplateUseCase(templates)
     private val applyTemplate = ApplyTemplateUseCase(templates)
     private val startSession = StartSessionUseCase(sessions, state, clock, SessionLifecycleLock())
 
@@ -71,9 +73,9 @@ class TemplateToSessionIntegrationTest {
      */
     private suspend fun startFrom(templateId: Long): Pair<SessionState.Active, List<TemplateExercise>> {
         val plan = applyTemplate(templateId).getOrThrow()
-        val started = startSession(templateId = templateId).getOrThrow()
-        plan.forEach { sessions.addExercise(started.sessionId, it.exerciseId) }
-        return started to plan
+        val started = startSession(templateId = templateId, name = plan.name).getOrThrow()
+        plan.exercises.forEach { sessions.addExercise(started.sessionId, it.exerciseId) }
+        return started to plan.exercises
     }
 
     @Test
@@ -86,6 +88,44 @@ class TemplateToSessionIntegrationTest {
         assertEquals(templateId, session?.templateId)
         assertEquals(true, session?.isInProgress)
         assertEquals(started, state.current)
+    }
+
+    @Test
+    fun `a session started from a template is named after it`() = runTest {
+        val templateId = pushDay()
+
+        val (started, _) = startFrom(templateId)
+
+        assertEquals("Push day", sessions.stored(started.sessionId)?.name)
+    }
+
+    @Test
+    fun `renaming the template afterwards leaves the session's name alone`() = runTest {
+        // The name is copied at apply time, not resolved through template_id on read.
+        // A user tidying up their templates in March must not retitle the workouts they
+        // logged in January — and the same copy is what lets them rename this session
+        // without touching the template it came from.
+        val templateId = pushDay()
+        val (started, _) = startFrom(templateId)
+
+        updateTemplate(
+            templateId,
+            name = "Push day (v2)",
+            exercises = listOf(draft(exerciseId = Catalogue.benchPress.id)),
+        ).getOrThrow()
+
+        assertEquals("Push day", sessions.stored(started.sessionId)?.name)
+    }
+
+    @Test
+    fun `a session started without a template is left unnamed`() = runTest {
+        // Quick start: no template, so nothing to take a name from. Null rather than a
+        // fabricated title — the UI has a date-derived fallback for exactly this, and a
+        // placeholder written into the row would be indistinguishable from one the user
+        // chose.
+        val started = startSession().getOrThrow()
+
+        assertNull(requireNotNull(sessions.stored(started.sessionId)).name)
     }
 
     @Test
@@ -185,9 +225,9 @@ class TemplateToSessionIntegrationTest {
         val templateId = pushDay()
         templates.honoursPositionOrder = false
 
-        val (started, plan) = startFrom(templateId)
+        val (started, exercises) = startFrom(templateId)
 
-        assertEquals(listOf(Catalogue.benchPress.id, Catalogue.plank.id), plan.map(TemplateExercise::exerciseId))
+        assertEquals(listOf(Catalogue.benchPress.id, Catalogue.plank.id), exercises.map(TemplateExercise::exerciseId))
         assertEquals(
             listOf(Catalogue.benchPress.id, Catalogue.plank.id),
             sessions.getExercises(started.sessionId).first().map { it.exerciseId },

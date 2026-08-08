@@ -30,6 +30,18 @@ class WorkoutFlowDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `a session keeps its name, and an unnamed one stays null`() = runBlocking {
+        val dao = db.workoutSessionDao()
+        val named = dao.insert(session(name = "Push Day - Upper", createdAt = 200))
+        val unnamed = dao.insert(session(createdAt = 100))
+
+        assertEquals("Push Day - Upper", dao.getById(named).first()?.name)
+        // Null rather than "": the column is what the date-derived fallback keys off,
+        // so a store that normalised it would make an unnamed session unrecoverable.
+        assertNull(requireNotNull(dao.getById(unnamed).first()).name)
+    }
+
+    @Test
     fun `getActive returns the most recently active in-progress session`() = runBlocking {
         val dao = db.workoutSessionDao()
         dao.insert(session(isInProgress = false, lastActiveAt = 500))
@@ -111,7 +123,9 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         val templateId = db.workoutTemplateDao().insert(template())
         val sessionId = db.workoutSessionDao().insert(session(templateId = templateId))
         db.workoutTemplateDao().delete(templateId)
-        assertNull(db.workoutSessionDao().getById(sessionId).first()?.templateId)
+        // Non-null-asserted: SET_NULL has to leave the session standing, so a safe call
+        // here would let a rule that deleted the row pass as "template_id is null".
+        assertNull(requireNotNull(db.workoutSessionDao().getById(sessionId).first()).templateId)
     }
 
     // --- workout_set ------------------------------------------------------

@@ -28,6 +28,9 @@ data class WorkoutSessionEntity(
     val id: Long = 0,
     @ColumnInfo(name = "template_id")
     val templateId: Long? = null,
+    /** Nullable on purpose — see [com.opengym.core.domain.model.WorkoutSession.name]. */
+    @ColumnInfo(name = "name")
+    val name: String? = null,
     @ColumnInfo(name = "completed_at")
     val completedAt: Long? = null,
     @ColumnInfo(name = "is_in_progress", defaultValue = "1")
