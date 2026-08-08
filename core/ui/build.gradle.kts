@@ -1,6 +1,7 @@
 plugins {
     id("opengym.android.library")
     id("opengym.android.compose")
+    id("opengym.android.jacoco")
 }
 
 android {

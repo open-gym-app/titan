@@ -13,6 +13,7 @@ plugins {
     alias(libs.plugins.ksp) apply false
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.detekt)
+    alias(libs.plugins.sonarqube)
 }
 
 detekt {
@@ -31,6 +32,36 @@ dependencies {
     detektPlugins(libs.detekt.formatting)
 }
 
+// `sonar.host.url` and `sonar.token` are deliberately absent here: whoever runs
+// `./gradlew sonar` supplies them, via the `SONAR_HOST_URL`/`SONAR_TOKEN` env vars the
+// scanner reads on its own (or `-Dsonar.host.url=...`/`-Dsonar.token=...`), so no server
+// address or credential for it lives in version control. Coverage and JUnit report paths
+// are not set here either — those are module-specific and live next to what produces them: see
+// `core/domain/build.gradle.kts` and the `subprojects` block below for the Android
+// modules, which all share the same convention plugin and so the same paths.
+sonar {
+    properties {
+        property("sonar.projectKey", "opengym")
+        property("sonar.projectName", "OpenGym")
+        property("sonar.projectDescription", "Open Gym - A fitness app built with Kotlin and Jetpack Compose")
+        property("sonar.sourceEncoding", "UTF-8")
+
+        // Generated code and build output. Sonar only ever scans each module's declared
+        // Kotlin source sets, so this mostly guards against a source set that happens to
+        // point somewhere under `build/` or a `generated/` directory of its own.
+        property("sonar.exclusions", "**/build/**,**/generated/**")
+
+        // One `detekt` task at the root covers every module's sources in a single XML
+        // report (see the `detekt {}` block above), so this is set once, not per module.
+        property("sonar.kotlin.detekt.reportPaths", "$rootDir/build/reports/detekt/detekt.xml")
+
+        property("sonar.links.homepage", "https://github.com/open-gym-app/open-gym")
+        property("sonar.links.ci", "https://github.com/open-gym-app/open-gym/actions")
+        property("sonar.links.issue", "https://github.com/open-gym-app/open-gym/issues")
+        property("sonar.links.scm", "https://github.com/open-gym-app/open-gym.git")
+    }
+}
+
 subprojects {
     afterEvaluate {
         tasks.withType<Test>().configureEach {
@@ -42,5 +73,48 @@ subprojects {
             }
         }
         tasks.findByName("check")?.dependsOn(rootProject.tasks.named("detekt"))
+
+        val isAndroidModule = plugins.hasPlugin("com.android.application") ||
+            plugins.hasPlugin("com.android.library")
+
+        // Every module that opts into coverage — `:core:domain` directly, the other three
+        // through `opengym.android.jacoco` — reports its own JaCoCo XML and JUnit results
+        // to the same Sonar analysis. An Android module's debug unit tests write under
+        // variant-named paths (`jacocoDebugUnitTestReport`, `testDebugUnitTest`); the plain
+        // `jacoco` plugin `:core:domain` applies on its own writes under the source set's
+        // name instead (`test`). Both are fixed by the task names each side registers, not
+        // discovered, so the path is correct whether or not the report has been generated
+        // yet in this invocation — `sonar` only reads it once its own task runs.
+        if (plugins.hasPlugin("jacoco")) {
+            val jacocoXmlReportPath = if (isAndroidModule) {
+                "$projectDir/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml"
+            } else {
+                "$projectDir/build/reports/jacoco/test/jacocoTestReport.xml"
+            }
+            val junitReportPath = if (isAndroidModule) {
+                "$projectDir/build/test-results/testDebugUnitTest"
+            } else {
+                "$projectDir/build/test-results/test"
+            }
+
+            sonar {
+                properties {
+                    property("sonar.coverage.jacoco.xmlReportPaths", jacocoXmlReportPath)
+                    property("sonar.junit.reportPaths", junitReportPath)
+                }
+            }
+        }
+
+        // `lint`/`lintDebug` (already run in CI, see `.github/workflows/ci.yml`) always
+        // writes the debug variant's report to this fixed path — same "debug" variant
+        // JaCoCo and the JUnit results above use, and for the same reason: it is the one
+        // variant CI and Sonar both read.
+        if (isAndroidModule) {
+            sonar {
+                properties {
+                    property("sonar.androidLint.reportPaths", "$projectDir/build/reports/lint-results-debug.xml")
+                }
+            }
+        }
     }
 }

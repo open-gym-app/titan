@@ -6,6 +6,7 @@ plugins {
     // modules move somewhere else and `opengym.android.hilt` comes off. Applying is
     // idempotent.
     alias(libs.plugins.ksp)
+    id("opengym.android.jacoco")
 }
 
 android {

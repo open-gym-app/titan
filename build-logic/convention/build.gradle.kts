@@ -31,6 +31,9 @@ dependencies {
     compileOnly(libs.roborazzi.gradle.plugin)
 }
 
+// `jacoco` is a Gradle core plugin — no version catalog entry, no `compileOnly`, it is
+// always on the Gradle API classpath `AndroidJacocoConventionPlugin` compiles against.
+
 gradlePlugin {
     plugins {
         register("androidLibrary") {
@@ -48,6 +51,10 @@ gradlePlugin {
         register("androidFeature") {
             id = "opengym.android.feature"
             implementationClass = "AndroidFeatureConventionPlugin"
+        }
+        register("androidJacoco") {
+            id = "opengym.android.jacoco"
+            implementationClass = "AndroidJacocoConventionPlugin"
         }
     }
 }

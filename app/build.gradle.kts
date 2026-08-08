@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    id("opengym.android.jacoco")
 }
 
 private val keystoreProperties = Properties().also { props ->
