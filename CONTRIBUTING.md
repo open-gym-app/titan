@@ -138,8 +138,9 @@ cannot reach.
 open core/domain/build/reports/jacoco/test/html/index.html
 ```
 
-CI runs the same check and uploads the report as the `core-domain-coverage` artifact, so
-a failed build says which lines went unexercised.
+CI runs the same check. On a failure — and only then, since artifact storage is limited —
+it uploads the report as the `core-domain-coverage` artifact with a three-day retention, so
+a red build says which lines went unexercised.
 
 ### What the floors do not measure
 
@@ -161,6 +162,139 @@ went untested in this PR", never as "the domain is tested".
 
 Raise a floor when the module has moved past it and stayed there. Lowering one needs a
 reason in the PR description.
+
+## Compose tests
+
+**There is no emulator, and there is no `androidTest/` source set.** Compose tests are JVM
+unit tests in `src/test`, run by Robolectric, and they come in two kinds:
+
+| Kind | Asks | Lives in |
+| --- | --- | --- |
+| Behaviour | does it render this state, and emit this event? | a test class you write |
+| Screenshot | does it still *look* the same? | mostly a `@Preview`, captured for you |
+
+Both are picked up by `./gradlew test` and by CI's `unit-test` job. Everything they need —
+`ui-test-junit4`, Robolectric, Roborazzi, the SDK pin, `isIncludeAndroidResources` — comes
+from the `opengym.android.compose` convention plugin, so a module's build file adds nothing.
+
+`:core:ui`'s `example/` package is a worked copy of both patterns against a screen written
+to the two-composable convention above. Start there.
+
+```sh
+make test                 # behaviour tests + screenshot verification
+make screenshots          # re-record the references after an intended visual change
+make screenshots-verify   # screenshots only
+```
+
+### How to write a screen test
+
+Drive the **stateless** `XScreen(state, onEvent)` half with a hand-built `XUiState`. No
+ViewModel, no Hilt graph, no Room — that is the whole point of the split.
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+class ExerciseLibraryScreenTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private val events = mutableListOf<ExerciseLibraryEvent>()
+
+    @Test
+    fun `emits ExerciseClicked with the exercise that was tapped`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ExerciseLibraryScreen(
+                    state = ExerciseLibraryUiState(exercises = listOf(benchPress)),
+                    onEvent = events::add,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Bench press").performClick()
+
+        assertEquals(listOf(ExerciseLibraryEvent.ExerciseClicked(benchPress.id)), events)
+    }
+}
+```
+
+- Use `createComposeRule()`, not `createAndroidComposeRule<Activity>()` — a stateless screen
+  needs no activity, and asking for one drags in a manifest and a theme.
+- Do **not** add `@Config(sdk = ...)`. The level is pinned once for every module by the
+  generated `robolectric.properties`; a per-class override drifts the day it moves.
+- Wrap the screen in `OpenGymTheme` so it composes against the colours and typography the
+  app actually uses.
+
+### How to add a screenshot test
+
+Usually you do not write one. Add a `@Preview` per interesting state — empty, loading,
+error, full — and the Roborazzi plugin generates a Robolectric test for it. Previews are
+scanned per module, scoped to that module's namespace.
+
+```kotlin
+@Preview(name = "Exercise library - empty", showBackground = true)
+@Composable
+fun ExerciseLibraryScreenEmptyPreview() {
+    OpenGymTheme {
+        ExerciseLibraryScreen(state = ExerciseLibraryUiState(), onEvent = {})
+    }
+}
+```
+
+Then `make screenshots` and commit the new PNGs under the module's `src/test/screenshots`.
+
+Write a capture by hand only for what a preview cannot express — a state reached by
+*driving* the UI, or a single node when the screen around it is noisy:
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)   // required; the legacy renderer records a blank image
+class ExerciseLibraryScreenshotTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    @Test
+    fun `captures the expanded filter sheet`() {
+        composeTestRule.setContent { /* ... */ }
+        composeTestRule.onNodeWithText("Filters").performClick()
+        composeTestRule.onRoot().captureRoboImage("ExerciseLibraryScreen_filters.png")
+    }
+}
+```
+
+The path is resolved against the module's `src/test/screenshots` — see
+`roborazzi.record.filePathStrategy` in `gradle.properties`.
+
+### How to re-record references
+
+Reference images are committed under `src/test/screenshots`, so a visual change shows up as
+an image diff in the pull request. That is the review mechanism: **a re-recorded reference
+is a change someone has to look at.**
+
+```sh
+make screenshots     # ./gradlew recordRoborazziDebug -Proborazzi.cleanupOldScreenshots=true
+git add -A '*/src/test/screenshots'
+```
+
+- Re-record only when the change is intended, and say so in the PR description. Re-recording
+  to make a red build green is how a regression gets committed.
+- `cleanupOldScreenshots` deletes references with no matching test, which is what you want
+  after deleting or renaming a preview. It also means **recording a filtered subset of tests
+  deletes everything else** — always record the whole module.
+- **CI does not upload the diffs** — artifact storage is the scarce resource on a free-tier
+  private repository, and a screenshot diff is cheap to reproduce. The failing test names the
+  reference file; run `make screenshots-verify` locally and open the matching
+  `*_compare.png` under `<module>/build/outputs/roborazzi`, which is a reference / diff /
+  actual triptych of what changed.
+
+### What these tests do not cover
+
+Robolectric runs real composition, measure and layout, so it catches render crashes,
+infinite-constraint errors, missing `CompositionLocal`s, recomposition loops and semantics
+failures. It does **not** faithfully reproduce window insets, real font metrics at large
+font scales, TalkBack behaviour or IME behaviour. Those belong to the accessibility pass on
+a real device (#40), not here — a green screenshot suite is not an accessibility result.
 
 ## Pull requests
 
