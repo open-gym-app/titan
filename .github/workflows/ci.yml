@@ -81,8 +81,19 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Run unit tests
-        run: ./gradlew test testDebugUnitTest --continue
+      # Compose behaviour tests and screenshot tests are both ordinary JVM unit tests under
+      # Robolectric, so this one step covers them and no emulator is needed. Naming
+      # `verifyRoborazziDebug` in the same invocation as `test` puts the debug unit-test task
+      # into screenshot-verification mode rather than running it a second time — asking for
+      # them in two invocations would run every Compose test twice.
+      - name: Run unit tests and verify screenshots
+        run: ./gradlew test verifyRoborazziDebug --continue
+
+      # The diff images this produces are deliberately *not* uploaded. This is a private
+      # repository on a free-tier plan, where artifact storage is the scarce resource, and a
+      # screenshot diff is reproducible on any machine: the failure names the reference file,
+      # and `make screenshots-verify` regenerates the same `*_compare.png` locally. See
+      # CONTRIBUTING.md.
 
       # :core:domain is pure business logic with no Android framework escape hatches,
       # so it carries a hard coverage floor (see core/domain/build.gradle.kts). The
@@ -90,17 +101,23 @@ jobs:
       - name: Verify :core:domain coverage
         run: ./gradlew :core:domain:jacocoTestCoverageVerification
 
-      # Uploaded even on a failure, since a failure is exactly when someone needs to
-      # see which lines went unexercised. A missing report only warns: the tests are
-      # finalized by the report task, so a *test* failure still leaves one behind, and
-      # the case where none exists is a compile failure — already reported above, and
-      # not worth a second red step that says nothing about the cause.
+      # Every run, kept for three days. A failure is the one time anybody opens this report —
+      # to see which lines went unexercised — but uploading unconditionally keeps the step
+      # off the critical path of diagnosing a red build. At ~1.7 MB per run this is the
+      # largest standing claim on a free-tier private repository's artifact storage, so the
+      # short retention, not the condition, is what keeps it bounded.
+      #
+      # A missing report only warns: the tests are finalized by the report task, so a *test*
+      # failure still leaves one behind, and the case where none exists is a compile failure —
+      # already reported above, and not worth a second red step that says nothing about the
+      # cause.
       - name: Upload the :core:domain coverage report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: core-domain-coverage
           path: core/domain/build/reports/jacoco/test
+          retention-days: 3
           if-no-files-found: warn
 
   build:
