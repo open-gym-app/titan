@@ -110,6 +110,34 @@ The `@Serializable` navigation type that reaches this screen is `XDestination`, 
 `XRoute` — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#routes-are-type-safe) for why
 sharing the name silently renders an empty screen.
 
+### Using the design system
+
+A screen should contain **no `Color(...)`, no `TextStyle(...)` and no `dp` literal for
+standard rhythm.** All three come from `:core:ui`'s theme package.
+
+```kotlin
+Text(
+    text = "THIS WEEK",                                     // eyebrows are uppercased by the caller
+    style = OpenGymTheme.typography.eyebrow,                // ours: eyebrow, numeric*
+    color = MaterialTheme.colorScheme.onSurfaceVariant,     // Material: colour, shape, the type roles
+    modifier = Modifier.padding(OpenGymTheme.spacing.md),
+)
+```
+
+- **Material's own tokens stay on `MaterialTheme`** — `colorScheme`, `shapes`, and the
+  Material type roles. There is no wrapper for them; a second way to reach the same value
+  is a second thing to keep in step.
+- **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, and
+  the `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles.
+- **Every number the user reads is a numeric role.** Weights, reps, durations, dates,
+  counts — mono, with tabular figures, so a running timer does not shift the layout.
+- The accent (`colorScheme.primary`) marks *the thing that matters right now* — a PR, the
+  active set, the running timer, the primary action. Spending it on ordinary chrome is what
+  stops it working everywhere else.
+
+`core/ui/src/test/.../theme/ThemeCatalog.kt` renders every token in both schemes; open its
+previews rather than guessing what a token looks like.
+
 ### Files and packages
 
 Each class lives in a package that matches its layer and module:
