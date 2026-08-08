@@ -38,7 +38,7 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         assertEquals("Push Day - Upper", dao.getById(named).first()?.name)
         // Null rather than "": the column is what the date-derived fallback keys off,
         // so a store that normalised it would make an unnamed session unrecoverable.
-        assertNull(dao.getById(unnamed).first()?.name)
+        assertNull(requireNotNull(dao.getById(unnamed).first()).name)
     }
 
     @Test
@@ -123,7 +123,9 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         val templateId = db.workoutTemplateDao().insert(template())
         val sessionId = db.workoutSessionDao().insert(session(templateId = templateId))
         db.workoutTemplateDao().delete(templateId)
-        assertNull(db.workoutSessionDao().getById(sessionId).first()?.templateId)
+        // Non-null-asserted: SET_NULL has to leave the session standing, so a safe call
+        // here would let a rule that deleted the row pass as "template_id is null".
+        assertNull(requireNotNull(db.workoutSessionDao().getById(sessionId).first()).templateId)
     }
 
     // --- workout_set ------------------------------------------------------

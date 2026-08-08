@@ -125,7 +125,7 @@ class TemplateToSessionIntegrationTest {
         // chose.
         val started = startSession().getOrThrow()
 
-        assertNull(sessions.stored(started.sessionId)?.name)
+        assertNull(requireNotNull(sessions.stored(started.sessionId)).name)
     }
 
     @Test

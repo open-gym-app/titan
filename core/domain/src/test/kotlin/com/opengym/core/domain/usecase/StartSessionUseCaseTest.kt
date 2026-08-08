@@ -71,7 +71,26 @@ class StartSessionUseCaseTest {
         // nothing at all.
         val started = startSession(templateId = 42L).getOrThrow()
 
-        assertNull(sessions.stored(started.sessionId)?.name)
+        assertNull(requireNotNull(sessions.stored(started.sessionId)).name)
+    }
+
+    @Test
+    fun `a blank name is stored as unnamed rather than as an empty string`() = runTest {
+        // What a quick-start sheet hands over when the user never touches the name
+        // field. Storing it verbatim would make the session non-null but titled with
+        // nothing, and the date-derived fallback would never fire.
+        val started = startSession(name = "   ").getOrThrow()
+
+        assertNull(requireNotNull(sessions.stored(started.sessionId)).name)
+    }
+
+    @Test
+    fun `a name is trimmed on the way in`() = runTest {
+        // Same rule template names get: " Push day " and "Push day" are one name to a
+        // user, so only one of them is worth storing.
+        val started = startSession(name = " Push day ").getOrThrow()
+
+        assertEquals("Push day", requireNotNull(sessions.stored(started.sessionId)).name)
     }
 
     @Test

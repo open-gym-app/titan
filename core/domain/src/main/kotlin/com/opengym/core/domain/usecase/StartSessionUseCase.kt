@@ -38,6 +38,13 @@ class StartSessionUseCase(
      *   unnamed until the user names it. Not defaulted from [templateId] here: this
      *   use case does not read templates, and a name resolved behind the caller's
      *   back would be one it could not decline.
+     *
+     *   Trimmed, and blank collapses to `null`. The whole design rests on `null`
+     *   and `''` being different states — `null` is what the UI's date-derived
+     *   fallback keys off — so a screen handing over an untouched name field must
+     *   not persist a session titled with nothing at all. Same rule
+     *   [validateTemplate] applies to a template name, minus the refusal: an
+     *   unnamed session is legal, an unnamed template is not.
      */
     suspend operator fun invoke(
         templateId: Long? = null,
@@ -52,7 +59,7 @@ class StartSessionUseCase(
         val sessionId = sessionRepository.insert(
             WorkoutSession(
                 templateId = templateId,
-                name = name,
+                name = name?.trim()?.takeIf(String::isNotEmpty),
                 isInProgress = true,
                 lastActiveAt = now,
                 notes = notes,
