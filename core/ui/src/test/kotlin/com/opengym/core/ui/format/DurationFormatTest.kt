@@ -34,6 +34,25 @@ class DurationFormatTest {
     }
 
     @Test
+    fun `elapsed time always shows its hours field`() {
+        // The difference from `formatAsClock`, and the reason both exist: a session header is
+        // on screen for the whole workout, and a field that grows from `52:14` to `1:00:00`
+        // at the hour mark shoves everything beside it sideways.
+        assertEquals("0:00:07", 7.seconds.formatAsElapsed())
+        assertEquals("0:52:14", (52.minutes + 14.seconds).formatAsElapsed())
+        assertEquals("2:03:00", (2.hours + 3.minutes).formatAsElapsed())
+    }
+
+    @Test
+    fun `a negative duration is signed rather than fielded into nonsense`() {
+        // Not supposed to happen — but "not supposed to" has produced `-1:-30` in every
+        // codebase that assumed it, and a clock skewing backwards mid-session produces it
+        // here. The magnitude is fielded and the sign is put in front of the whole thing.
+        assertEquals("-1:30", (-90).seconds.formatAsClock())
+        assertEquals("-0:01:30", (-90).seconds.formatAsElapsed())
+    }
+
+    @Test
     fun `a part-second is truncated, not rounded`() {
         // A timer with 400 ms left still says one second. Rounding would show `0:00` for the
         // last half-second of every rest, which reads as the timer having finished early.

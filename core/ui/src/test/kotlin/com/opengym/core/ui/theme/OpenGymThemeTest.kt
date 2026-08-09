@@ -130,7 +130,7 @@ class OpenGymThemeTest {
             preference.value = UnitSystem.IMPERIAL
             composeTestRule.waitForIdle()
 
-            composeTestRule.onNodeWithText("44.1 lb").assertIsDisplayed()
+            composeTestRule.onNodeWithText("44.09 lb").assertIsDisplayed()
         } finally {
             Locale.setDefault(previousLocale)
         }

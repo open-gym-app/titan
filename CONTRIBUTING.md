@@ -133,10 +133,31 @@ Text(
   tokens are meant to be used through — `Eyebrow` (which uppercases for you), `OpenGymCard`
   and `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A
   screen that draws its own bordered `Surface` has restated four arguments that will drift.
-- **Never format a number by hand.** `core/ui/.../format/` turns the stored milligrams and
-  `Duration`s into what the user reads — `formatWeight`, `formatAsClock` — in their locale and
-  their unit system. The unit system is ambient (`LocalUnitSystem`), so it is a value to read,
-  not a parameter to thread through five composables.
+- **Never format a number by hand, and never parse one by hand either.**
+  `core/ui/.../format/` turns the stored milligrams, centimetres and `Duration`s into what the
+  user reads, and reads what they type back into the same canonical units:
+
+  | Quantity | Stored as | Read with | Typed back with |
+  | --- | --- | --- | --- |
+  | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
+  | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
+  | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
+  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (session) | — |
+
+  The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
+  thread through five composables: call the overload that takes the canonical value alone and
+  a change to the setting repaints every number on screen without the screen being revisited.
+  Everything goes through `NumberFormat`, so decimal and thousands separators are the device's
+  — `"$value kg"` is wrong in half of Europe before it is anything else.
+- **A parser answers "is this a number", not "is this allowed".** `parseWeightMilligrams`
+  returns null only for malformed input; range is `SetValidator`'s, because it is the one that
+  can say *which* bound was missed. A form does `parse ?: "not a number"`, then validates.
+- **Rounding is reporting, not deciding.** The formatters never snap a value onto a plate
+  increment — a 20 kg bar reads `44.09 lb` and not `45 lb`, because the user has to be able to
+  load what they read. `roundToPlateIncrement` is for the things that *choose* a weight.
+
+`core/ui/src/test/.../format/FormatCatalog.kt` renders every formatter in both unit systems;
+open its previews rather than guessing what a weight or a rest looks like.
 - **Every number the user reads is a numeric role.** Weights, reps, durations, dates,
   counts — mono, with tabular figures, so a running timer does not shift the layout.
 - The accent (`colorScheme.primary`) marks *the thing that matters right now* — a PR, the
