@@ -1,5 +1,6 @@
 package com.opengym.feature.session.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
@@ -62,6 +63,20 @@ fun NavGraphBuilder.sessionGraph(
         }
         composable<ActiveSessionDestination> { entry ->
             val destination: ActiveSessionDestination = entry.toRoute()
+
+            // Hiding the bottom bar makes the workout a mode; this is what makes it one.
+            // Setup was popped inclusive on the way in, so this is the only entry left
+            // inside the graph — an unguarded back gesture pops the graph itself and
+            // abandons the session on its way past, silently, which is the loss the mode
+            // exists to prevent. Swallowing it is the whole guard for now; #26 replaces this
+            // with the discard confirmation, once there are logged sets worth confirming the
+            // loss of. FINISH is the way out until then.
+            //
+            // Here rather than inside [ActiveSessionScreen] because it is a property of the
+            // destination, not of the screen: `BackHandler` needs an
+            // `OnBackPressedDispatcherOwner`, which a `@Preview` does not provide.
+            BackHandler { /* Intentionally inert; see above. */ }
+
             ActiveSessionScreen(
                 sessionId = destination.sessionId,
                 onFinishSession = onSessionFinished,

@@ -4,7 +4,7 @@
     <application
         android:name=".OpenGymApplication"
         android:allowBackup="true"
-        android:label="OpenGym"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGym">
 

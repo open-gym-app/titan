@@ -42,11 +42,22 @@ fun OpenGymNavHost(
     ) {
         navigation<TabsGraphDestination>(startDestination = HomeGraphDestination) {
             homeGraph(
-                onStartSession = { navController.navigate(SessionGraphDestination) },
+                // `launchSingleTop` because the trigger is a full-width primary button. Two
+                // taps dispatched before recomposition would push two nested session graphs,
+                // and [exitSessionFlow] pops only the innermost — so CANCEL, or DONE at the
+                // end of a real workout, would leave the user inside a second copy of the
+                // flow with both bars hidden and no way out but the system back gesture.
+                onStartSession = {
+                    navController.navigate(SessionGraphDestination) { launchSingleTop = true }
+                },
             )
             historyGraph(
+                // Likewise: two taps on a history row are two pushes of the same detail
+                // screen, and the first back press then looks like it did nothing.
                 onSessionClick = { sessionId ->
-                    navController.navigate(SessionDetailDestination(sessionId))
+                    navController.navigate(SessionDetailDestination(sessionId)) {
+                        launchSingleTop = true
+                    }
                 },
                 onBack = { navController.popBackStack() },
             )

@@ -32,30 +32,38 @@ import kotlin.reflect.KClass
  */
 enum class TopLevelDestination(
     val graphDestination: Any,
-    val graphRoute: KClass<*>,
     @param:StringRes val labelRes: Int,
     val selectedIcon: ImageVector,
     val unselectedIcon: ImageVector,
 ) {
     HOME(
         graphDestination = HomeGraphDestination,
-        graphRoute = HomeGraphDestination::class,
         labelRes = R.string.nav_home,
         selectedIcon = Icons.Filled.Home,
         unselectedIcon = Icons.Outlined.Home,
     ),
     SESSIONS(
         graphDestination = HistoryGraphDestination,
-        graphRoute = HistoryGraphDestination::class,
         labelRes = R.string.nav_sessions,
         selectedIcon = Icons.Filled.FitnessCenter,
         unselectedIcon = Icons.Outlined.FitnessCenter,
     ),
     STATS(
         graphDestination = ProgressionGraphDestination,
-        graphRoute = ProgressionGraphDestination::class,
         labelRes = R.string.nav_stats,
         selectedIcon = Icons.Filled.Insights,
         unselectedIcon = Icons.Outlined.Insights,
     ),
+    ;
+
+    /**
+     * The route the bar matches against the current destination's hierarchy.
+     *
+     * Derived, not declared. As a second constructor parameter this was a copy of
+     * [graphDestination] that nothing kept in step: `graphDestination = HistoryGraphDestination`
+     * beside `graphRoute = ProgressionGraphDestination::class` compiles, and yields a tab that
+     * navigates to Sessions while highlighting Stats. There is one fact here, so there is one
+     * place to state it.
+     */
+    val graphRoute: KClass<*> get() = graphDestination::class
 }

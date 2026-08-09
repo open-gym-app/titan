@@ -41,25 +41,33 @@ fun OpenGymApp(
     modifier: Modifier = Modifier,
     appState: OpenGymAppState = rememberOpenGymAppState(),
 ) {
-    val currentTopLevelDestination = appState.currentTopLevelDestination
-    val showBottomBar = appState.shouldShowBottomBar
+    val chrome = appState.chrome
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            currentTopLevelDestination?.takeIf { showBottomBar }?.let { destination ->
-                OpenGymTopBar(
-                    destination = destination,
-                    onSettingsClick = { appState.navController.navigate(SettingsDestination) },
-                )
-            }
+            chrome.currentTopLevelDestination
+                ?.takeIf { chrome.shouldShowBottomBar }
+                ?.let { destination ->
+                    OpenGymTopBar(
+                        destination = destination,
+                        // `launchSingleTop` so a double tap on the gear does not stack a
+                        // second, identical Settings screen behind the first — which reads
+                        // as a back press that did nothing.
+                        onSettingsClick = {
+                            appState.navController.navigate(SettingsDestination) {
+                                launchSingleTop = true
+                            }
+                        },
+                    )
+                }
         },
         bottomBar = {
-            if (showBottomBar) {
+            if (chrome.shouldShowBottomBar) {
                 OpenGymBottomBar(
                     destinations = TopLevelDestination.entries,
-                    currentDestination = currentTopLevelDestination,
+                    currentDestination = chrome.currentTopLevelDestination,
                     onNavigate = appState::navigateToTopLevelDestination,
                 )
             }

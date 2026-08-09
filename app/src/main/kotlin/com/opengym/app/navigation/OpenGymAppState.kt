@@ -1,6 +1,7 @@
 package com.opengym.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
 import androidx.navigation.NavDestination
@@ -23,38 +24,20 @@ import com.opengym.feature.session.navigation.SessionGraphDestination
 @Stable
 class OpenGymAppState(val navController: NavHostController) {
 
-    val currentDestination: NavDestination?
-        @Composable get() = navController.currentBackStackEntryAsState().value?.destination
-
     /**
-     * The tab the user is in, or `null` outside the tab scaffold.
+     * The chrome for wherever the user currently is.
      *
-     * Matched against the whole hierarchy rather than the current destination alone, so a
-     * screen pushed *inside* a tab — a session's detail, an exercise's progression — keeps
-     * that tab looking selected instead of clearing the bar.
+     * One read of the back stack, not three. `currentBackStackEntryAsState()` opens its own
+     * collector and registers its own `OnDestinationChangedListener` on every call, so the
+     * three rules as three `@Composable` getters cost three of each per composition of the
+     * shell — and the third was created and disposed as [ShellChrome.shouldShowBottomBar]'s
+     * `&&` short-circuited. Answering them together is also the stronger reading of "stated
+     * once": they cannot disagree about which destination they were derived from.
      */
-    val currentTopLevelDestination: TopLevelDestination?
-        @Composable get() {
-            val destination = currentDestination ?: return null
-            return TopLevelDestination.entries.firstOrNull { topLevel ->
-                destination.hierarchy.any { it.hasRoute(topLevel.graphRoute) }
-            }
-        }
-
-    /**
-     * The session flow takes the whole screen.
-     *
-     * Phrased as "am I inside the session graph" rather than "am I inside the tab scaffold"
-     * on purpose: those are the same thing today, but onboarding (#96) and settings are
-     * also outside the tabs, and only one of the three should be able to hide the bar by
-     * being a mode. Anything else that ends up bar-less should have to say so here.
-     */
-    val isInSessionFlow: Boolean
-        @Composable get() = currentDestination?.hierarchy
-            ?.any { it.hasRoute(SessionGraphDestination::class) } == true
-
-    val shouldShowBottomBar: Boolean
-        @Composable get() = currentTopLevelDestination != null && !isInSessionFlow
+    val chrome: ShellChrome
+        @Composable get() = ShellChrome.of(
+            navController.currentBackStackEntryAsState().value?.destination,
+        )
 
     /**
      * Switch tabs, preserving what each one had on its stack.
@@ -77,6 +60,44 @@ class OpenGymAppState(val navController: NavHostController) {
             launchSingleTop = true
             restoreState = true
         }
+    }
+}
+
+/**
+ * The questions the shell asks of a destination, answered together from one back-stack read.
+ */
+@Immutable
+data class ShellChrome(
+    /**
+     * The tab the user is in, or `null` outside the tab scaffold.
+     *
+     * Matched against the whole hierarchy rather than the current destination alone, so a
+     * screen pushed *inside* a tab — a session's detail, an exercise's progression — keeps
+     * that tab looking selected instead of clearing the bar.
+     */
+    val currentTopLevelDestination: TopLevelDestination?,
+    /**
+     * The session flow takes the whole screen.
+     *
+     * Phrased as "am I inside the session graph" rather than "am I inside the tab scaffold"
+     * on purpose: those are the same thing today, but onboarding (#96) and settings are
+     * also outside the tabs, and only one of the three should be able to hide the bar by
+     * being a mode. Anything else that ends up bar-less should have to say so here.
+     */
+    val isInSessionFlow: Boolean,
+) {
+    val shouldShowBottomBar: Boolean = currentTopLevelDestination != null && !isInSessionFlow
+
+    companion object {
+        fun of(destination: NavDestination?): ShellChrome = ShellChrome(
+            currentTopLevelDestination = destination?.let { current ->
+                TopLevelDestination.entries.firstOrNull { topLevel ->
+                    current.hierarchy.any { it.hasRoute(topLevel.graphRoute) }
+                }
+            },
+            isInSessionFlow = destination?.hierarchy
+                ?.any { it.hasRoute(SessionGraphDestination::class) } == true,
+        )
     }
 }
 

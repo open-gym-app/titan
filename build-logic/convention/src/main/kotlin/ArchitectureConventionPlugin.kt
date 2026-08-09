@@ -24,10 +24,13 @@ class ArchitectureConventionPlugin : Plugin<Project> {
             group = "verification"
             description = "Asserts the module dependency graph against docs/ARCHITECTURE.md."
 
-            // Resolved lazily: this runs once the task graph is built, by which point every
-            // subproject has been evaluated and its `dependencies {}` block is complete.
-            // Reading it eagerly here would see whichever modules happened to be configured
-            // first, and pass by seeing nothing.
+            // Resolved lazily: Gradle finalizes the task's inputs at the end of the
+            // configuration phase, by which point every subproject has been evaluated and its
+            // `dependencies {}` block is complete. Reading it eagerly here would see whichever
+            // modules happened to be configured first, and pass by seeing nothing.
+            //
+            // End of configuration, not execution — which is why this survives the
+            // configuration cache, where a cross-project read while the task runs would not.
             moduleGraph.set(
                 provider {
                     subprojects
@@ -36,6 +39,10 @@ class ArchitectureConventionPlugin : Plugin<Project> {
                         .filter { it.buildFile.exists() }
                         .associate { it.path to it.projectDependencyPaths() }
                 },
+            )
+
+            acceptedGraph.set(
+                target.layout.buildDirectory.file("reports/architecture/module-graph.txt"),
             )
         }
         Unit

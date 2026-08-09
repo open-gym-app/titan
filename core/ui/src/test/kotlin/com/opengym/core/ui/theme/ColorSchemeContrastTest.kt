@@ -90,7 +90,7 @@ class ColorSchemeContrastTest {
 
     @Test
     fun `negative - the checker rejects a pair that does not meet AA`() {
-        // Mid-grey on white is 2.85:1. If this ever passes, the assertions above prove
+        // Mid-grey on white is 3.45:1. If this ever passes, the assertions above prove
         // nothing, so the guard is worth more than the case it covers.
         assertTrue(contrast(Color(0xFF8A8A8A), Color(0xFFFFFFFF)) < TEXT)
     }

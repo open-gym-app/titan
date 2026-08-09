@@ -1,9 +1,10 @@
 package com.opengym.app.ui
 
+import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -28,8 +29,11 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class OpenGymAppNavigationTest {
 
+    // The Android flavour of the rule rather than `createComposeRule()`, for the activity: the
+    // back gesture is dispatched through its `OnBackPressedDispatcher`, which is what the
+    // session flow's guard registers against.
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
     @Before
     fun setUp() {
@@ -153,6 +157,32 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
+    fun `the back gesture leaves the session flow before the workout starts`() {
+        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        composeTestRule.onNodeWithText(NEW_SESSION).assertIsDisplayed()
+
+        pressBack()
+
+        // Setup is not a mode: nothing has been logged, so backing out is just backing out.
+        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
+    }
+
+    @Test
+    fun `the back gesture does not abandon an active session`() {
+        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        composeTestRule.onNodeWithText(BEGIN).performClick()
+        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+
+        pressBack()
+
+        // Unguarded, this pops the last entry in the session graph and the graph with it,
+        // dropping the user back on Home with the workout silently discarded.
+        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(HOME).assertDoesNotExist()
+    }
+
+    @Test
     fun `negative - a tab the user has not opened holds nothing`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
 
@@ -160,6 +190,20 @@ class OpenGymAppNavigationTest {
         // another tab's stack.
         composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
         composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
+    }
+
+    /**
+     * The system back gesture, as the platform delivers it.
+     *
+     * Through the activity's dispatcher rather than `navController.popBackStack()`, because
+     * the thing under test is whether a `BackHandler` intercepts it — and a direct pop would
+     * bypass the handler and pass whether or not one exists.
+     */
+    private fun pressBack() {
+        composeTestRule.activityRule.scenario.onActivity { activity ->
+            activity.onBackPressedDispatcher.onBackPressed()
+        }
+        composeTestRule.waitForIdle()
     }
 
     private companion object {
