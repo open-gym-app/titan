@@ -1,6 +1,9 @@
 package com.opengym.core.ui.format
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.theme.LocalUnitSystem
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToLong
@@ -26,6 +29,16 @@ import kotlin.math.roundToLong
  * The number is formatted in the device's locale, so a French user sees `22,5` — the
  * numeric type role is monospaced with tabular figures, and a decimal comma occupies the
  * same cell as a decimal point.
+ *
+ * ### The unit system is read, not passed
+ *
+ * Each formatter has a `@Composable` overload that takes the milligrams alone and reads
+ * [LocalUnitSystem] itself, and that is the one a screen should call: the alternative is
+ * every composable between the preference and the number taking a [UnitSystem] it does
+ * nothing with but pass on, and the first one that forgets renders kilograms to an imperial
+ * user with nothing on screen to say so. The explicit overloads remain for the call sites
+ * that genuinely hold a unit system that is not the ambient one — a preview, a test, or the
+ * settings row that is *editing* the preference.
  *
  * **This is the minimum #M4-23 needs, not the whole of #M4-17.** Distances, paces, plate
  * math and the input side (parsing what a user types back into milligrams) land with #91,
@@ -75,6 +88,17 @@ fun formatWeightValue(milligrams: Long, unitSystem: UnitSystem): String {
  */
 fun formatWeight(milligrams: Long, unitSystem: UnitSystem): String =
     "${formatWeightValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+
+/** [milligrams] in the ambient [LocalUnitSystem], with the unit. See the note above. */
+@Composable
+@ReadOnlyComposable
+fun formatWeight(milligrams: Long): String = formatWeight(milligrams, LocalUnitSystem.current)
+
+/** [milligrams] in the ambient [LocalUnitSystem], without the unit. See the note above. */
+@Composable
+@ReadOnlyComposable
+fun formatWeightValue(milligrams: Long): String =
+    formatWeightValue(milligrams, LocalUnitSystem.current)
 
 /**
  * The user's typed weight back into storage: [value] in [unitSystem]'s unit, as milligrams.

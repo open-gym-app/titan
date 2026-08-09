@@ -32,6 +32,10 @@ interface LocalDataRepository {
      * numbers in it. A store that cannot be read reports [DataFootprint] zeroes, which the
      * dialog renders as "nothing to lose"; the delete action stays available regardless,
      * so a wrong zero costs an accurate sentence and nothing else.
+     *
+     * Not failing is not the same as giving up: a store that becomes readable again is
+     * re-read and the real counts published, so a single transient failure costs one
+     * inaccurate rendering rather than every subsequent one.
      */
     fun observeFootprint(): Flow<DataFootprint>
 

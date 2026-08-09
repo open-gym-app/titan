@@ -10,12 +10,14 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.format.formatWeight
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.Locale
 
 /**
  * Also the smoke test for the Compose unit-test harness the `opengym.android.compose`
@@ -102,6 +104,36 @@ class OpenGymThemeTest {
         // The reason `LocalUnitSystem` is a `compositionLocalOf` and not the static variant:
         // a weight on screen has to change unit the moment the setting does.
         assertEquals(UnitSystem.IMPERIAL, captured.value)
+    }
+
+    @Test
+    fun `the formatters read the published unit system without being handed it`() {
+        val preference = mutableStateOf(UnitSystem.METRIC)
+        // Pinned, because the assertions below contain a decimal separator and the formatter
+        // is deliberately locale-aware — see `WeightFormatTest`.
+        val previousLocale = Locale.getDefault()
+        Locale.setDefault(Locale.UK)
+
+        composeTestRule.setContent {
+            val units by preference
+            OpenGymTheme(unitSystem = units) {
+                // No `UnitSystem` argument anywhere: this is the claim the local exists to
+                // make good on, and the thing a screen would otherwise thread through every
+                // composable between the preference and the number.
+                Text(formatWeight(20_000_000))
+            }
+        }
+
+        try {
+            composeTestRule.onNodeWithText("20 kg").assertIsDisplayed()
+
+            preference.value = UnitSystem.IMPERIAL
+            composeTestRule.waitForIdle()
+
+            composeTestRule.onNodeWithText("44.1 lb").assertIsDisplayed()
+        } finally {
+            Locale.setDefault(previousLocale)
+        }
     }
 
     @Test

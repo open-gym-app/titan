@@ -124,6 +124,20 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `a value the store refuses is reported, not thrown at the user`() = runTest {
+        val viewModel = viewModel()
+        collectState(viewModel)
+
+        // `setBarWeight` requires a positive weight, and the dialog converts to milligrams
+        // before it validates — but a rejected write is a rejected write however it is
+        // rejected, and an `IllegalArgumentException` out of `viewModelScope` is a crash.
+        viewModel.onEvent(SettingsEvent.BarWeightSelected(0))
+
+        assertEquals(SettingsMessage.SAVE_FAILED, viewModel.uiState.value.message)
+        assertEquals(UserPreferences().barWeight, viewModel.uiState.value.preferences.barWeight)
+    }
+
+    @Test
     fun `a message is shown once and then dropped`() = runTest {
         preferences.writeFailure = IOException("no space left on device")
         val viewModel = viewModel()

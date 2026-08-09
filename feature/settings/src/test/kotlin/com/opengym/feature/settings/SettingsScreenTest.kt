@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.ThemePreference
@@ -21,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -155,6 +157,41 @@ class SettingsScreenTest {
         assertEquals(listOf(SettingsEvent.BarWeightSelected(20_411_657)), events)
     }
 
+    @Test
+    fun `the dialog opens usable in a locale whose digits are not ASCII`() {
+        // Persian renders 20 as `۲۰`, so the field is seeded with characters `toDouble` does
+        // not accept. Reading it back with the ASCII parser alone left the dialog in its own
+        // error state, on a value the app itself had just written, with Save dead.
+        withLocale(Locale.forLanguageTag("fa")) {
+            setContent(
+                UserPreferences(unitSystem = UnitSystem.METRIC, barWeight = 20_000_000),
+                dialog = SettingsDialog.BAR_WEIGHT,
+            )
+
+            composeTestRule.onNodeWithText("Enter a weight above zero").assertDoesNotExist()
+            composeTestRule.onNodeWithText("Save").assertIsEnabled().performClick()
+
+            // Saving without touching anything stores the weight it opened with.
+            assertEquals(listOf(SettingsEvent.BarWeightSelected(20_000_000)), events)
+        }
+    }
+
+    @Test
+    fun `a weight that rounds away to nothing cannot be saved`() {
+        setContent(
+            UserPreferences(unitSystem = UnitSystem.METRIC, barWeight = 20_000_000),
+            dialog = SettingsDialog.BAR_WEIGHT,
+        )
+
+        // Positive in kilograms, zero in the milligrams it is stored in — and the repository
+        // rejects a bar weight of zero. The field is what has to catch it.
+        composeTestRule.onNode(hasSetTextAction()).performTextClearance()
+        composeTestRule.onNode(hasSetTextAction()).performTextInput("0.0000001")
+
+        composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
     // --- rows that are not available yet ----------------------------------
 
     @Test
@@ -284,6 +321,17 @@ class SettingsScreenTest {
     }
 
     // --- helpers ----------------------------------------------------------
+
+    /** Runs [block] with [locale] as the default, and puts the previous one back. */
+    private fun withLocale(locale: Locale, block: () -> Unit) {
+        val previous = Locale.getDefault()
+        Locale.setDefault(locale)
+        try {
+            block()
+        } finally {
+            Locale.setDefault(previous)
+        }
+    }
 
     /** The dialog has exactly one field, and it is the confirmation. */
     private fun typeConfirmation(text: String) {

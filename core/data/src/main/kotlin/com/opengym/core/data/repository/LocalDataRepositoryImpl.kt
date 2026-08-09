@@ -1,6 +1,8 @@
 package com.opengym.core.data.repository
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
+import androidx.room.withTransaction
 import com.opengym.core.data.db.DatabaseSeed
 import com.opengym.core.data.db.OpenGymDatabase
 import com.opengym.core.data.di.IoDispatcher
@@ -12,14 +14,19 @@ import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.withContext
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The whole of the device's local state, read as counts and erased as one operation.
@@ -55,11 +62,11 @@ import javax.inject.Singleton
  *
  * ### Failure is loud
  *
- * Nothing here catches. A wipe that half-worked and reported success is the one outcome the
- * contract forbids, so a failed table clear or an unwritable settings file propagates and the
- * caller tells the user. The counts in [observeFootprint] are the opposite, and for the usual
- * reason: they exist to draw a dialog, and a dialog that cannot draw is worse than one with
- * zeroes in it.
+ * Nothing in [deleteAll] catches. A wipe that half-worked and reported success is the one
+ * outcome the contract forbids, so a failed table clear or an unwritable settings file
+ * propagates and the caller tells the user. The counts in [observeFootprint] are the opposite,
+ * and for the usual reason: they exist to draw a dialog, and a dialog that cannot draw is
+ * worse than one with zeroes in it.
  */
 @Singleton
 class LocalDataRepositoryImpl @Inject constructor(
@@ -77,6 +84,17 @@ class LocalDataRepositoryImpl @Inject constructor(
      */
     private val localDataDao get() = database.localDataDao()
 
+    /**
+     * The six counts, as one value, and never at the cost of the flow itself.
+     *
+     * [retryWhen] rather than [kotlinx.coroutines.flow.catch], for the reason
+     * `UserPreferencesRepositoryImpl.observe` spells out at length: `catch` emits *and then
+     * completes*, so one transient `SQLITE_BUSY` from any of the six queries would pin the
+     * footprint at zeroes for as long as the ViewModel lives — and zeroes are the value the
+     * dialog renders as "there is nothing logged on this phone yet" to a user with two hundred
+     * sessions. Emitting the zeroes and staying subscribed keeps the interface's "re-emitted as
+     * it changes" true past the first hiccup.
+     */
     override fun observeFootprint(): Flow<DataFootprint> = combine(
         localDataDao.countSessions(),
         localDataDao.countSets(),
@@ -94,19 +112,46 @@ class LocalDataRepositoryImpl @Inject constructor(
             bodyWeightLogs = counts[BODY_WEIGHT_LOGS],
         )
     }
-        // An unreadable database is not a reason to withhold the confirmation dialog. The
-        // delete action stays available either way, so the cost of a wrong zero is one
-        // imprecise sentence rather than a user locked out of erasing their own data.
-        .catch { emit(DataFootprint()) }
+        .retryWhen { cause, attempt ->
+            // Only storage failures. A wrong index in the mapping above is a bug, and
+            // retrying it forever would hide it behind a dialog full of zeroes.
+            if (cause !is SQLiteException && cause !is IOException) return@retryWhen false
+            // An unreadable database is not a reason to withhold the confirmation dialog, so
+            // a collector that has not been handed anything yet still gets its first frame.
+            // The delete action stays available either way, and the cost of a wrong zero is
+            // one imprecise sentence rather than a user locked out of erasing their own data.
+            if (attempt == 0L) emit(DataFootprint())
+            delay(RETRY_DELAY)
+            true
+        }
         .distinctUntilChanged()
         .conflate()
 
+    /**
+     * [NonCancellable], which is the one place in the app that earns it.
+     *
+     * This is called from `viewModelScope`, so the plain version is cancelled when the settings
+     * screen goes away — and every suspension point after [OpenGymDatabase.clearAllTables] is
+     * a step that has to happen *because* the tables were cleared: the catalogue replay and
+     * the settings wipe. Being cancelled between them leaves a device with no exercise
+     * library, or with its history gone and every setting kept, and in both cases with nothing
+     * said to anyone. Every other operation in this class is worth abandoning when its screen
+     * leaves; the irreversible one is not.
+     */
     override suspend fun deleteAll() {
-        withContext(ioDispatcher) {
+        withContext(ioDispatcher + NonCancellable) {
             sessionStateRepository.update(SessionState.Idle)
             inProgressSessionRepository.clear()
             database.clearAllTables()
-            DatabaseSeed.insertInto(database.openHelper.writableDatabase, context.assets)
+            // Through Room's transaction rather than straight at the writable database:
+            // `clearAllTables` notifies the invalidation tracker that the catalogue emptied,
+            // and a raw `beginTransaction` on the support database would not notify it that
+            // the seed came back — leaving any live query over `exercise` (an exercise-library
+            // screen further down the back stack) showing an empty catalogue until some
+            // unrelated write refreshed it.
+            database.withTransaction {
+                DatabaseSeed.insertInto(database.openHelper.writableDatabase, context.assets)
+            }
             userPreferencesRepository.clear()
         }
     }
@@ -117,6 +162,14 @@ class LocalDataRepositoryImpl @Inject constructor(
      * wrong swaps two plausible numbers in a dialog nobody reads twice.
      */
     private companion object {
+
+        /**
+         * How long [observeFootprint] waits before re-reading a database that failed. The same
+         * second `UserPreferencesRepositoryImpl` waits, and for the same reason: a store that
+         * is never going to be readable costs a wakeup a second rather than a busy loop.
+         */
+        val RETRY_DELAY: Duration = 1.seconds
+
         const val SESSIONS = 0
         const val SETS = 1
         const val TEMPLATES = 2

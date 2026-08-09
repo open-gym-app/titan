@@ -16,7 +16,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.IOException
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -40,11 +39,13 @@ import kotlin.time.Duration.Companion.seconds
  * moved and did not save. Here the control does *not* move — it renders the stored value —
  * so the failure has to be said out loud, which is [SettingsMessage.SAVE_FAILED].
  *
- * The wipe catches [Throwable] rather than a type. It runs across four stores and the
- * exception it fails with depends on which one broke, so catching narrowly here would mean
- * the destructive action is the one whose failures reach the user as a crash. Cancellation is
- * re-thrown, as it must be: a cancelled `viewModelScope` is the screen going away, not a
- * wipe that failed.
+ * Both [write] and the wipe catch [Throwable] rather than a type. The store is not the only
+ * thing that can refuse a write — two of the setters validate their argument and throw
+ * [IllegalArgumentException] for a value that got past the dialog — and the wipe runs across
+ * four stores whose failures have four different types. Narrower catches here would mean the
+ * ways a settings screen actually breaks reach the user as a crash instead of a sentence.
+ * Cancellation is re-thrown in both, as it must be: a cancelled `viewModelScope` is the
+ * screen going away, not a write that failed.
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
@@ -110,13 +111,19 @@ class SettingsViewModel @Inject constructor(
      * by the choice landing on disk, so a slow write does not leave the picker up looking
      * unresponsive. If the write then fails the user gets [SettingsMessage.SAVE_FAILED] and
      * the row still shows the stored value, which is the truth.
+     *
+     * "Fails" includes a value the repository *rejects*, not only a store it cannot write:
+     * `setBarWeight` and `setDefaultRestDuration` both `require` a positive argument, and a
+     * setting that will not save is the same event to a user however the write refused it.
      */
     private fun write(block: suspend () -> Unit) {
         dismissDialog()
         viewModelScope.launch {
             try {
                 block()
-            } catch (_: IOException) {
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
                 screenState.update { it.copy(message = SettingsMessage.SAVE_FAILED) }
             }
         }

@@ -24,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -48,6 +50,7 @@ import com.opengym.feature.settings.component.SettingsGroup
 import com.opengym.feature.settings.component.SettingsInfoRow
 import com.opengym.feature.settings.component.SettingsRow
 import com.opengym.feature.settings.component.SettingsSoonRow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -118,11 +121,23 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val message = state.message?.let { stringResource(it.textRes()) }
 
-    LaunchedEffect(message) {
-        if (message != null) {
-            snackbarHostState.showSnackbar(message)
-            onEvent(SettingsEvent.MessageShown)
-        }
+    // The message is marked shown *before* the snackbar is, which is what makes
+    // `SettingsMessage`'s "cannot be shown twice by a rotation" true: `showSnackbar` suspends
+    // for the whole four seconds it is up, so clearing afterwards leaves the message sitting
+    // in the (surviving) ViewModel for a recomposed screen to show a second time.
+    //
+    // Keyed on `Unit` and read through `rememberUpdatedState` rather than keyed on the
+    // message, because clearing it immediately would otherwise re-key this effect and cancel
+    // the `showSnackbar` it is in the middle of — dismissing the snackbar on the same frame
+    // it appeared.
+    val currentMessage by rememberUpdatedState(message)
+    LaunchedEffect(Unit) {
+        snapshotFlow { currentMessage }
+            .filterNotNull()
+            .collect { text ->
+                onEvent(SettingsEvent.MessageShown)
+                snackbarHostState.showSnackbar(text)
+            }
     }
 
     Scaffold(

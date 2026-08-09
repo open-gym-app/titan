@@ -25,6 +25,9 @@ import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.format.weightToMilligrams
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
+import java.text.NumberFormat
+import java.text.ParsePosition
+import java.util.Locale
 
 /**
  * The barbells the presets offer, per unit system.
@@ -68,7 +71,15 @@ fun BarWeightDialog(
     }
 
     val entered = text.parseWeight()
-    val isValid = entered != null && entered > 0.0
+    // Validated in the unit it is *stored* in, not the one it was typed in. A weight can be
+    // positive in kilograms and round to zero milligrams — and `setBarWeight` rejects zero,
+    // so a field that only checked the typed number would hand the ViewModel a value the
+    // repository throws on.
+    val milligrams = entered
+        ?.takeIf { it > 0.0 && it.isFinite() }
+        ?.let { weightToMilligrams(it, unitSystem) }
+        ?.takeIf { it > 0 }
+    val isValid = milligrams != null
 
     AlertDialog(
         modifier = modifier,
@@ -122,7 +133,7 @@ fun BarWeightDialog(
         confirmButton = {
             TextButton(
                 enabled = isValid,
-                onClick = { entered?.let { onConfirm(weightToMilligrams(it, unitSystem)) } },
+                onClick = { milligrams?.let(onConfirm) },
             ) {
                 Text(text = stringResource(R.string.settings_dialog_save))
             }
@@ -142,8 +153,30 @@ private fun formatPreset(value: Double): String =
 /**
  * The typed weight, or null when it is not a number.
  *
- * Both separators are accepted whatever the locale says, because a phone keyboard is not
- * required to agree with the locale — a French user on an English keyboard types `22.5` and
- * means 22.5, and refusing it would be the app being right about something nobody asked.
+ * Two passes, in this order:
+ *
+ * 1. **ASCII, with either separator.** A phone keyboard is not required to agree with the
+ *    locale — a French user on an English keyboard types `22.5` and means 22.5, and refusing
+ *    it would be the app being right about something nobody asked. This pass first is also
+ *    what makes `22.5` mean 22.5 in a locale where `.` groups thousands.
+ * 2. **The locale's own numerals**, which is what the field is *seeded* with:
+ *    `formatWeightValue` renders through the default locale, so in Persian, Arabic-Egyptian,
+ *    Bengali and a dozen others the stored 20 kg arrives as `۲۰` — digits [String.toDouble]
+ *    has never heard of. Without this pass the dialog would open in its own error state with
+ *    Save disabled, on a value the app itself wrote.
  */
-private fun String.parseWeight(): Double? = trim().replace(',', '.').toDoubleOrNull()
+private fun String.parseWeight(): Double? {
+    val trimmed = trim()
+    if (trimmed.isEmpty()) return null
+    return trimmed.replace(',', '.').toDoubleOrNull() ?: trimmed.parseLocalizedNumber()
+}
+
+/**
+ * [NumberFormat] parses leniently — it reads `12abc` as 12 and stops — so the position it
+ * ends at is checked against the length: a partial parse is a typo, not a weight.
+ */
+private fun String.parseLocalizedNumber(): Double? {
+    val position = ParsePosition(0)
+    val parsed = NumberFormat.getInstance(Locale.getDefault()).parse(this, position)
+    return parsed?.toDouble()?.takeIf { position.index == length }
+}
