@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The session flow's strings.
+
+  Only real copy lives here. The placeholder text on the flow's three screens is scaffolding
+  for #25–#27 and is written inline where it can be read next to the layout it labels; this
+  is a sentence the user is actually meant to read and act on, so it is translatable.
+-->
+<resources>
+
+    <!--
+      Shown when the back gesture is swallowed on an active session, so that a press that
+      does nothing at least says why. Replaced by the discard confirmation in #26.
+    -->
+    <string name="session_back_blocked">Finish the session to leave</string>
+
+</resources>

@@ -53,12 +53,30 @@ class OpenGymAppState(val navController: NavHostController) {
      * Drop any one and the bar stops behaving like tabs: without the first the back stack
      * grows without bound as the user browses, without the second every tab resets on every
      * visit.
+     *
+     * **Except when the tab is already the one you are in.** Then the two state flags invert,
+     * and that is the whole of "tap the active tab to go back to the top": saving nothing and
+     * restoring nothing leaves the pop to stand, so a re-tap on Sessions from a session's
+     * detail lands on the list. It has to be *both* flags — save without restore would file
+     * the detail screen away to be silently restored on the next visit from another tab,
+     * which is the same bug wearing a delay.
+     *
+     * This is a deliberate exception to "returning to a tab resumes where you left it",
+     * because they answer different questions. Arriving from elsewhere, the user is coming
+     * back to what they were doing. Pressing the tab they are already on, they are asking for
+     * the one thing that press could otherwise never do.
      */
     fun navigateToTopLevelDestination(topLevelDestination: TopLevelDestination) {
+        val isReselection =
+            ShellChrome.of(navController.currentDestination).currentTopLevelDestination ==
+                topLevelDestination
+
         navController.navigate(topLevelDestination.graphDestination) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = !isReselection
+            }
             launchSingleTop = true
-            restoreState = true
+            restoreState = !isReselection
         }
     }
 }

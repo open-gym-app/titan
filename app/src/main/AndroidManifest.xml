@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:name=".OpenGymApplication"
@@ -8,9 +9,25 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGym">
 
+        <!--
+          Portrait only, on purpose rather than by omission.
+
+          Landscape is not broken today, but supporting it is a commitment every screen from
+          #23 onwards would have to honour — a set row, a rest timer and a summary each laid
+          out twice, screenshot-tested twice — for a use we do not have: the app is used
+          standing over a bench, one-handed, on a phone.
+
+          LockedOrientationActivity is lint telling us this hurts large screens. It is
+          correct, and it is already moot: at our targetSdk of 36, Android 16 ignores
+          orientation restrictions on displays 600dp and wider outright, so this locks phones
+          and nothing else — exactly the scope we mean. Revisit with the tablet layouts, not
+          before.
+        -->
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

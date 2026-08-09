@@ -265,7 +265,9 @@ breaks silently — the tab simply stops looking selected.
 
 Per-tab back stacks come from the standard trio in
 `OpenGymAppState.navigateToTopLevelDestination`: `popUpTo(startDestination) { saveState }`,
-`restoreState`, `launchSingleTop`. Returning to a tab resumes where the user left it.
+`restoreState`, `launchSingleTop`. Returning to a tab resumes where the user left it —
+except when the tab is the one you are already in, where both state flags invert and the pop
+stands, so pressing the active tab returns it to its root.
 
 **The session flow is a mode, not a place.** It sits outside the tab scaffold and hides both
 bars, because offering a tap into Stats mid-set is an invitation to lose the set being
@@ -273,6 +275,27 @@ logged. Onboarding (#96) will sit outside the scaffold the same way.
 
 Three tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
 the top app bar rather than a fifth of the bar given to a destination visited twice.
+
+### Motion follows the same three-way split
+
+The `NavHost` sets all four transitions once, and each asks `NavMotion.motionBetween` what
+the move it is animating *means* rather than which routes it connects:
+
+| Move | Motion | Why |
+| --- | --- | --- |
+| Tab to tab | fast fade | A lateral jump between peers. There is no direction to show. |
+| Within a tab, or one step of the session flow to the next, or out to Settings | horizontal slide with parallax | A push. The slower counter-slide is what reads as one screen over another. |
+| Into or out of the session flow | vertical slide | The one move that is a mode change, so the one that should not look like a push. |
+
+The classification is derived from `ShellChrome` — the same value that decides which tab is
+selected and whether the bars are shown — so a destination added to a tab's graph animates
+correctly without opting in, and there is no second list of routes to keep in step.
+
+**Portrait only.** `MainActivity` declares `screenOrientation="portrait"`. Landscape is a
+surface every screen would have to lay out and screenshot-test twice, for a phone held
+one-handed over a bench. Note that at `targetSdk` 36 Android 16 ignores the restriction on
+displays 600dp and wider, so this is a phone-only lock by construction; revisit with tablet
+layouts.
 
 ## Dependency injection (Hilt)
 

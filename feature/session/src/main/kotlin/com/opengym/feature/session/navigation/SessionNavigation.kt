@@ -1,13 +1,20 @@
 package com.opengym.feature.session.navigation
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import com.opengym.feature.session.ActiveSessionScreen
 import com.opengym.feature.session.NewSessionScreen
+import com.opengym.feature.session.R
 import com.opengym.feature.session.SessionSummaryScreen
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 /**
@@ -64,6 +71,10 @@ fun NavGraphBuilder.sessionGraph(
         composable<ActiveSessionDestination> { entry ->
             val destination: ActiveSessionDestination = entry.toRoute()
 
+            val snackbarHostState = remember { SnackbarHostState() }
+            val scope = rememberCoroutineScope()
+            val blockedMessage = stringResource(R.string.session_back_blocked)
+
             // Hiding the bottom bar makes the workout a mode; this is what makes it one.
             // Setup was popped inclusive on the way in, so this is the only entry left
             // inside the graph — an unguarded back gesture pops the graph itself and
@@ -72,14 +83,31 @@ fun NavGraphBuilder.sessionGraph(
             // with the discard confirmation, once there are logged sets worth confirming the
             // loss of. FINISH is the way out until then.
             //
+            // Swallowed, but not in silence: a back press that does nothing three times in a
+            // row is indistinguishable from a frozen app, and from here the user cannot even
+            // background it. The snackbar costs nothing and names the way out. It goes with
+            // the guard when #26 replaces both.
+            //
             // Here rather than inside [ActiveSessionScreen] because it is a property of the
             // destination, not of the screen: `BackHandler` needs an
             // `OnBackPressedDispatcherOwner`, which a `@Preview` does not provide.
-            BackHandler { /* Intentionally inert; see above. */ }
+            BackHandler {
+                scope.launch {
+                    // Dismiss first: `showSnackbar` suspends until the current one goes away,
+                    // so without this an impatient triple-press queues three and the hint
+                    // outlives the presses by seconds.
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = blockedMessage,
+                        duration = SnackbarDuration.Short,
+                    )
+                }
+            }
 
             ActiveSessionScreen(
                 sessionId = destination.sessionId,
                 onFinishSession = onSessionFinished,
+                snackbarHostState = snackbarHostState,
             )
         }
         composable<SessionSummaryDestination> { entry ->

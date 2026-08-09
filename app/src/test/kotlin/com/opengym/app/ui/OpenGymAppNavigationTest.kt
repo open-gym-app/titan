@@ -91,6 +91,36 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
+    fun `re-tapping the active tab returns it to its root`() {
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
+        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
+
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+
+        // The one thing pressing the tab you are already on can usefully do.
+        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
+        composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsSelected()
+    }
+
+    @Test
+    fun `a tab reset by a re-tap stays reset after switching away and back`() {
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).performClick()
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+
+        // The reset has to drop the saved stack, not just skip restoring it. Saving on a
+        // re-tap files the detail screen away and this visit silently restores it — the same
+        // bug as not resetting at all, delayed by one tab switch.
+        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
+        composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
+    }
+
+    @Test
     fun `entering the session flow hides the bottom bar`() {
         composeTestRule.onNodeWithText(START_SESSION).performClick()
 
@@ -183,13 +213,19 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
-    fun `negative - a tab the user has not opened holds nothing`() {
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+    fun `the blocked back gesture on an active session says why`() {
+        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        composeTestRule.onNodeWithText(BEGIN).performClick()
+        // Not decoration: the guard belongs to the active-session entry and is only armed
+        // once that entry is resumed, which is after the transition into it has finished.
+        // Pressing back before this assertion presses it at the previous screen.
+        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
 
-        // The Sessions tab starts on its list, not on a detail screen left over from
-        // another tab's stack.
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
-        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
+        pressBack()
+
+        // Swallowing the press is the guard; saying so is what keeps it from reading as a
+        // frozen app, since FINISH is the only other way out until #26.
+        composeTestRule.onNodeWithText(BACK_BLOCKED).assertIsDisplayed()
     }
 
     /**
@@ -233,5 +269,8 @@ class OpenGymAppNavigationTest {
         const val DONE = "DONE"
         const val CANCEL = "CANCEL"
         const val BACK = "BACK"
+
+        // Messages. Asserted on the copy the user reads, since that is the whole point of it.
+        const val BACK_BLOCKED = "Finish the session to leave"
     }
 }

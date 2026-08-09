@@ -27,6 +27,12 @@ import com.opengym.feature.session.navigation.sessionGraph
  * fact that this opens a full-screen flow living in `:feature:session` is knowledge that
  * exists here and nowhere else. That is the whole reason features can be built, tested and
  * reasoned about without each other.
+ *
+ * The four transitions are set once, here, rather than per destination. They are not four
+ * preferences: each one asks [motionBetween] what the move it is animating *means* and
+ * answers accordingly, so a tab switch, a push and an entry into the session flow look
+ * different from each other everywhere in the app without any destination having to opt in.
+ * See [NavMotion].
  */
 @Composable
 fun OpenGymNavHost(
@@ -39,6 +45,10 @@ fun OpenGymNavHost(
         navController = navController,
         startDestination = TabsGraphDestination,
         modifier = modifier,
+        enterTransition = { enter() },
+        exitTransition = { exit() },
+        popEnterTransition = { popEnter() },
+        popExitTransition = { popExit() },
     ) {
         navigation<TabsGraphDestination>(startDestination = HomeGraphDestination) {
             homeGraph(
