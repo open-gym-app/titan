@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The window background, and the only place the palette is written twice.
+
+  The window is painted by the platform from the manifest's theme *before* any Compose code
+  runs — it is what the user looks at between tapping the icon and the first frame — so this
+  one colour cannot come from `:core:ui`'s `ColorScheme` the way every other colour does. It
+  is deliberately the same value as `paper` (`background`/`surface`) in each scheme, so the
+  hand-off from window to composition is invisible.
+
+  Change it whenever `PaperLight` / `PaperDark` change in `core/ui/.../theme/Color.kt`; a
+  mismatch shows up as a flash of the wrong shade on every cold start.
+-->
+<resources>
+    <color name="window_background">#FAFAF7</color>
+</resources>

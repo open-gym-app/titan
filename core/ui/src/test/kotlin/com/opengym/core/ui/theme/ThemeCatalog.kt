@@ -26,6 +26,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.component.BadgeTone
+import com.opengym.core.ui.component.Eyebrow
+import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.OpenGymBadge
+import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.format.formatAsClock
+import com.opengym.core.ui.format.formatWeight
+import kotlin.time.Duration.Companion.seconds
 
 /*
  * Every token in the design system, rendered, in both schemes.
@@ -126,6 +136,63 @@ fun LayoutCatalog(modifier: Modifier = Modifier) {
                 ShapeSpecimen("pill", PillShape)
             }
         }
+    }
+}
+
+/**
+ * The primitives built out of the tokens: the box, its dividers, the eyebrow, the badges.
+ *
+ * A fifth sheet rather than a line in the layout one, because these are the things a screen
+ * actually composes with — a token change that looks harmless in isolation shows up here as
+ * a card that no longer reads as a card.
+ */
+@Composable
+fun ComponentCatalog(modifier: Modifier = Modifier) {
+    CatalogSheet(modifier) {
+        CatalogSection("EYEBROW") {
+            Eyebrow("Appearance")
+            Eyebrow("This week", color = MaterialTheme.colorScheme.primary)
+        }
+        CatalogSection("BADGE") {
+            Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
+                OpenGymBadge("PR", tone = BadgeTone.ACCENT)
+                OpenGymBadge("soon")
+                OpenGymBadge("missed", tone = BadgeTone.CRITICAL)
+            }
+        }
+        CatalogSection("CARD") {
+            OpenGymCard(modifier = Modifier.fillMaxWidth()) {
+                CatalogCardRow("Theme", "Auto")
+                HairlineDivider()
+                CatalogCardRow("Default rest", 120.seconds.formatAsClock())
+                HairlineDivider()
+                CatalogCardRow("Bar weight", formatWeight(20_000_000, UnitSystem.METRIC))
+            }
+        }
+    }
+}
+
+/** A card row at the density the settings screen uses it. */
+@Composable
+private fun CatalogCardRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = OpenGymTheme.spacing.xl, vertical = OpenGymTheme.spacing.lg),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = OpenGymTheme.typography.numericSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -243,47 +310,59 @@ private fun ShapeSpecimen(name: String, shape: Shape) {
 @Preview(name = "Catalog - colour - light", widthDp = 360)
 @Composable
 fun ColorCatalogLightPreview() {
-    OpenGymTheme(darkTheme = false) { ColorCatalog() }
+    OpenGymTheme(theme = ThemePreference.LIGHT) { ColorCatalog() }
 }
 
 @Preview(name = "Catalog - colour - dark", widthDp = 360)
 @Composable
 fun ColorCatalogDarkPreview() {
-    OpenGymTheme(darkTheme = true) { ColorCatalog() }
+    OpenGymTheme(theme = ThemePreference.DARK) { ColorCatalog() }
 }
 
 @Preview(name = "Catalog - surfaces - light", widthDp = 360)
 @Composable
 fun SurfaceCatalogLightPreview() {
-    OpenGymTheme(darkTheme = false) { SurfaceCatalog() }
+    OpenGymTheme(theme = ThemePreference.LIGHT) { SurfaceCatalog() }
 }
 
 @Preview(name = "Catalog - surfaces - dark", widthDp = 360)
 @Composable
 fun SurfaceCatalogDarkPreview() {
-    OpenGymTheme(darkTheme = true) { SurfaceCatalog() }
+    OpenGymTheme(theme = ThemePreference.DARK) { SurfaceCatalog() }
 }
 
 @Preview(name = "Catalog - type - light", widthDp = 360)
 @Composable
 fun TypeCatalogLightPreview() {
-    OpenGymTheme(darkTheme = false) { TypeCatalog() }
+    OpenGymTheme(theme = ThemePreference.LIGHT) { TypeCatalog() }
 }
 
 @Preview(name = "Catalog - type - dark", widthDp = 360)
 @Composable
 fun TypeCatalogDarkPreview() {
-    OpenGymTheme(darkTheme = true) { TypeCatalog() }
+    OpenGymTheme(theme = ThemePreference.DARK) { TypeCatalog() }
 }
 
 @Preview(name = "Catalog - layout - light", widthDp = 360)
 @Composable
 fun LayoutCatalogLightPreview() {
-    OpenGymTheme(darkTheme = false) { LayoutCatalog() }
+    OpenGymTheme(theme = ThemePreference.LIGHT) { LayoutCatalog() }
 }
 
 @Preview(name = "Catalog - layout - dark", widthDp = 360)
 @Composable
 fun LayoutCatalogDarkPreview() {
-    OpenGymTheme(darkTheme = true) { LayoutCatalog() }
+    OpenGymTheme(theme = ThemePreference.DARK) { LayoutCatalog() }
+}
+
+@Preview(name = "Catalog - components - light", widthDp = 360)
+@Composable
+fun ComponentCatalogLightPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) { ComponentCatalog() }
+}
+
+@Preview(name = "Catalog - components - dark", widthDp = 360)
+@Composable
+fun ComponentCatalogDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) { ComponentCatalog() }
 }

@@ -5,11 +5,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.UnitSystem
 
 /**
- * The app theme: colour, typography, shape, and the two token sets Material 3 has no slot
- * for ([OpenGymSpacing] and [OpenGymTypography]).
+ * The app theme: colour, typography, shape, and the token sets Material 3 has no slot for
+ * ([OpenGymSpacing] and [OpenGymTypography]).
+ *
+ * It also carries the two *stored* preferences that change how every screen renders — the
+ * colour scheme and the unit system. Both arrive as the domain enums rather than as a
+ * `Boolean` and a formatter argument, and both are provided down the tree, because they are
+ * the same kind of thing: a setting the user changes in one place that must take effect
+ * everywhere, immediately, without a screen having to subscribe to anything. `:app` collects
+ * `UserPreferencesRepository` once at the root and passes them here; a preference write
+ * recomposes the app, and #M4-23's "no restart" criterion is that sentence.
  *
  * ## Dynamic colour is not supported, and that is a decision
  *
@@ -24,25 +35,49 @@ import androidx.compose.runtime.staticCompositionLocalOf
  *
  * Revisit this only alongside a plan for what the accent-carrying elements do instead.
  *
- * @param darkTheme whether to use the dark scheme. Follows the system by default; the
- *   preference store (#90) will pass an explicit override once it exists.
+ * @param theme which colour scheme to render in. [ThemePreference.SYSTEM] follows the device,
+ *   live — see [ThemePreference.isDark].
+ * @param unitSystem the units weights and distances are *displayed* in; nothing stored is
+ *   affected. Reached from a call site through [LocalUnitSystem].
  */
 @Composable
 fun OpenGymTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    theme: ThemePreference = ThemePreference.SYSTEM,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     content: @Composable () -> Unit,
 ) {
     CompositionLocalProvider(
         LocalOpenGymSpacing provides OpenGymSpacing(),
         LocalOpenGymTypography provides OpenGymExtendedTypography,
+        LocalUnitSystem provides unitSystem,
     ) {
         MaterialTheme(
-            colorScheme = if (darkTheme) OpenGymDarkColorScheme else OpenGymLightColorScheme,
+            colorScheme = if (theme.isDark()) OpenGymDarkColorScheme else OpenGymLightColorScheme,
             typography = OpenGymMaterialTypography,
             shapes = OpenGymShapes,
             content = content,
         )
     }
+}
+
+/**
+ * Whether this preference means "dark", *right now*.
+ *
+ * [ThemePreference.SYSTEM] is answered by asking the device on every composition rather than
+ * by resolving it once at startup, which is the whole reason the preference stores three
+ * values instead of a boolean: a user on `SYSTEM` whose phone flips to dark at sunset expects
+ * the app to follow without being reopened.
+ *
+ * Public because `:app` needs the same answer outside the theme — the system bars' icon
+ * colour is set on the window, not in the composition, and it has to agree with what is drawn
+ * under it.
+ */
+@Composable
+@ReadOnlyComposable
+fun ThemePreference.isDark(): Boolean = when (this) {
+    ThemePreference.LIGHT -> false
+    ThemePreference.DARK -> true
+    ThemePreference.SYSTEM -> isSystemInDarkTheme()
 }
 
 /**
@@ -88,3 +123,22 @@ object OpenGymTheme {
  */
 internal val LocalOpenGymSpacing = staticCompositionLocalOf { OpenGymSpacing() }
 internal val LocalOpenGymTypography = staticCompositionLocalOf { OpenGymExtendedTypography }
+
+/**
+ * The units every number the user reads is rendered in.
+ *
+ * A composition local rather than a parameter threaded through the screens, because the
+ * alternative is every composable that shows a weight taking a `UnitSystem` it does nothing
+ * with but pass on — and the first one that forgets renders kilograms on an imperial user's
+ * screen with nothing to indicate it. The formatters read it themselves; see
+ * `com.opengym.core.ui.format`.
+ *
+ * `compositionLocalOf`, unlike the two above, because this one *does* change while the app
+ * is running: flipping the setting has to repaint every weight on screen, and the static
+ * variant's coarser invalidation is exactly the behaviour that would be wrong here.
+ *
+ * Defaulting to [UnitSystem.METRIC] means a preview or a test that skips [OpenGymTheme]
+ * renders in metric rather than crashing, matching [com.opengym.core.domain.model.UserPreferences]'
+ * own default.
+ */
+val LocalUnitSystem = compositionLocalOf { UnitSystem.METRIC }

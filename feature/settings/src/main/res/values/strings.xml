@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Chrome -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
+
+    <!-- Group headers. Rendered uppercase by the eyebrow style; written here in sentence
+         case so a translator is not asked to reproduce a typographic treatment. -->
+    <string name="settings_group_appearance">Appearance</string>
+    <string name="settings_group_workout">Workout</string>
+    <string name="settings_group_data">Data &amp; privacy</string>
+    <string name="settings_group_notifications">Notifications</string>
+    <string name="settings_group_about">About</string>
+
+    <!-- Appearance -->
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">Auto</string>
+    <string name="settings_theme_system_detail">Follows your device</string>
+    <string name="settings_units">Units</string>
+    <string name="settings_units_metric">Metric</string>
+    <string name="settings_units_metric_detail">Kilograms and kilometres</string>
+    <string name="settings_units_imperial">Imperial</string>
+    <string name="settings_units_imperial_detail">Pounds and miles</string>
+    <string name="settings_font_scale">Font scale</string>
+    <string name="settings_font_scale_value">System</string>
+    <string name="settings_font_scale_detail">Follows your device text size</string>
+
+    <!-- Workout -->
+    <string name="settings_rest_timer">Default rest timer</string>
+    <string name="settings_rest_timer_detail">When the exercise has none of its own</string>
+    <string name="settings_bar_weight">Plate calculator bar</string>
+    <string name="settings_bar_weight_detail">The empty bar, before plates</string>
+    <string name="settings_bar_weight_custom">Custom</string>
+    <string name="settings_training_goal">Training goal</string>
+    <string name="settings_goal_strength">Strength</string>
+    <string name="settings_goal_strength_detail">Heavy, low reps, long rests</string>
+    <string name="settings_goal_hypertrophy">Hypertrophy</string>
+    <string name="settings_goal_hypertrophy_detail">Volume and time under tension</string>
+    <string name="settings_goal_endurance">Endurance</string>
+    <string name="settings_goal_endurance_detail">High reps, short rests</string>
+    <string name="settings_goal_custom">Custom</string>
+    <string name="settings_goal_custom_detail">Your own programme</string>
+
+    <!-- Data &amp; privacy -->
+    <string name="settings_backup">Backup &amp; restore</string>
+    <string name="settings_export">Export JSON</string>
+    <string name="settings_health_connect">Health Connect</string>
+    <string name="settings_delete_all">Delete all data</string>
+    <string name="settings_delete_all_detail">Erases everything on this device. No undo.</string>
+
+    <!-- Notifications -->
+    <string name="settings_reminders">Workout reminders</string>
+    <string name="settings_streak_protection">Streak protection</string>
+    <string name="settings_marketplace">Marketplace deals</string>
+
+    <!-- About -->
+    <string name="settings_version">Version</string>
+    <string name="settings_github">Open source · GitHub</string>
+    <string name="settings_github_detail">Read the code, file an issue</string>
+    <string name="settings_donate">Donate</string>
+    <string name="settings_footer">No account. No cloud. Everything stays on this phone.</string>
+
+    <!-- Row affordances -->
+    <string name="settings_soon">Soon</string>
+    <string name="settings_soon_detail">Coming in a later release</string>
+    <string name="settings_opens_externally">Opens in your browser</string>
+
+    <!-- Pickers -->
+    <string name="settings_dialog_cancel">Cancel</string>
+    <string name="settings_dialog_save">Save</string>
+    <string name="settings_bar_weight_field_label">Bar weight (%1$s)</string>
+    <string name="settings_bar_weight_invalid">Enter a weight above zero</string>
+
+    <!-- Delete all data -->
+    <string name="settings_delete_dialog_title">Delete all data</string>
+    <string name="settings_delete_dialog_body">This erases the following from this phone, permanently. There is no backup and no undo.</string>
+    <string name="settings_delete_dialog_body_empty">There is nothing logged on this phone yet. Deleting still puts every setting back to its default.</string>
+    <string name="settings_delete_dialog_settings_line">every setting, back to its defaults</string>
+    <string name="settings_delete_dialog_prompt">Type %1$s to confirm</string>
+    <string name="settings_delete_dialog_word">DELETE</string>
+    <string name="settings_delete_dialog_confirm">Delete everything</string>
+    <string name="settings_delete_in_progress">Deleting…</string>
+    <string name="settings_delete_done">All data deleted</string>
+    <string name="settings_delete_failed">Could not delete everything. Some data may remain — try again.</string>
+    <string name="settings_save_failed">Could not save that setting</string>
+
+    <!-- Counts in the delete dialog. Plurals, not "%d sessions": the dialog's whole job is
+         to be believed, and a sentence with broken grammar is not. -->
+    <plurals name="settings_count_sessions">
+        <item quantity="one">session</item>
+        <item quantity="other">sessions</item>
+    </plurals>
+    <plurals name="settings_count_sets">
+        <item quantity="one">set</item>
+        <item quantity="other">sets</item>
+    </plurals>
+    <plurals name="settings_count_templates">
+        <item quantity="one">template</item>
+        <item quantity="other">templates</item>
+    </plurals>
+    <plurals name="settings_count_personal_records">
+        <item quantity="one">personal record</item>
+        <item quantity="other">personal records</item>
+    </plurals>
+    <plurals name="settings_count_custom_exercises">
+        <item quantity="one">exercise you added</item>
+        <item quantity="other">exercises you added</item>
+    </plurals>
+    <plurals name="settings_count_body_weight_logs">
+        <item quantity="one">body weight entry</item>
+        <item quantity="other">body weight entries</item>
+    </plurals>
+
+</resources>

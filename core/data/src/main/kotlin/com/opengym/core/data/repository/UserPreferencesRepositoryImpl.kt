@@ -154,6 +154,23 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
     }
 
+    /**
+     * Empties the store, which is how every setting returns to its default.
+     *
+     * `clear()` rather than writing each default back, and the difference is what happens to
+     * a key this build does not know about — one written by a newer version the user
+     * downgraded from, or one since renamed. Writing defaults leaves those behind, so the
+     * setting they encode survives a wipe that told the user everything was erased. Removing
+     * every entry is the only version of this that stays true as the store grows, and it
+     * needs no maintenance when a seventh setting is added.
+     *
+     * [toUserPreferences] then reads an empty store exactly as it reads a fresh install,
+     * because to it they are the same thing.
+     */
+    override suspend fun clear() {
+        dataStore.edit { it.clear() }
+    }
+
     private companion object {
 
         /**

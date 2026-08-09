@@ -177,14 +177,3 @@ internal val OpenGymDarkColorScheme: ColorScheme = darkColorScheme(
     outlineVariant = RuleDark,
     scrim = Color(0xFF000000),
 )
-
-/**
- * The weight of a divider drawn *inside* a card — the row separators in a session list, the
- * line under a top app bar.
- *
- * The wireframes carry two hairline weights (`rule` and `rule-soft`) and Material 3 has one
- * slot for both. Rather than spend an extended colour scheme on a single value, the softer
- * weight is the same colour at half alpha, which is what the wireframes' two values are to
- * within a shade in each scheme.
- */
-const val HAIRLINE_SOFT_ALPHA = 0.5f

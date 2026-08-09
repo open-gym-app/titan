@@ -1,6 +1,5 @@
 package com.opengym.app.ui
 
-import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -8,12 +7,17 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.opengym.app.HiltTestActivity
 import com.opengym.core.ui.theme.OpenGymTheme
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.HiltTestApplication
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The shell's behaviour, driven through the real graph.
@@ -23,20 +27,37 @@ import org.robolectric.RobolectricTestRunner
  * is written by the graph, the graph is assembled from four features' extensions. A test
  * against a hand-built two-destination `NavHost` would pass while the app was broken.
  *
- * Screens are identified by their eyebrow label. The placeholder copy under it belongs to
- * #23–#27 and will change; the eyebrow is the section marker and is stable.
+ * Screens are identified by their eyebrow label, or by their title where they have a real top
+ * app bar. The placeholder copy under it belongs to #23–#27 and will change; the marker is
+ * stable.
+ *
+ * ### Why this one needs Hilt
+ *
+ * The graph now contains a real screen — settings — and `hiltViewModel()` resolves its factory
+ * through the activity, which therefore has to be `@AndroidEntryPoint`. That makes the whole
+ * test a Hilt test: `HiltTestApplication` for the component, [HiltTestActivity] for the entry
+ * point, and the real bindings behind both. Nothing is faked, so what settings renders here is
+ * what it renders on a device, reading a real (empty) database and a real preferences file.
  */
+@HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
+@Config(application = HiltTestApplication::class)
 class OpenGymAppNavigationTest {
+
+    // Order matters: the Hilt rule has to have built the component before the activity the
+    // compose rule launches asks it for one.
+    @get:Rule(order = 0)
+    val hilt = HiltAndroidRule(this)
 
     // The Android flavour of the rule rather than `createComposeRule()`, for the activity: the
     // back gesture is dispatched through its `OnBackPressedDispatcher`, which is what the
     // session flow's guard registers against.
-    @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    @get:Rule(order = 1)
+    val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
 
     @Before
     fun setUp() {
+        hilt.inject()
         composeTestRule.setContent {
             OpenGymTheme {
                 OpenGymApp()
@@ -178,10 +199,12 @@ class OpenGymAppNavigationTest {
     fun `the settings action opens settings outside the tab scaffold`() {
         composeTestRule.onNodeWithContentDescription(SETTINGS_ACTION).performClick()
 
-        composeTestRule.onNodeWithText(SETTINGS).assertIsDisplayed()
+        // Settings draws its own bar, so its title is the marker — and the tab bar is gone,
+        // which is the property under test: settings is a place you leave to, not a tab.
+        composeTestRule.onNodeWithText(SETTINGS_GROUP_APPEARANCE).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
 
-        composeTestRule.onNodeWithText(BACK).performClick()
+        composeTestRule.onNodeWithContentDescription(BACK).performClick()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
@@ -259,7 +282,9 @@ class OpenGymAppNavigationTest {
         const val NEW_SESSION = "NEW SESSION"
         const val ACTIVE_SESSION = "ACTIVE · SESSION 1"
         const val SUMMARY = "SUMMARY · SESSION 1"
-        const val SETTINGS = "SETTINGS"
+
+        // Settings' first group header, uppercased by the eyebrow style.
+        const val SETTINGS_GROUP_APPEARANCE = "APPEARANCE"
 
         // Actions.
         const val START_SESSION = "START SESSION"
@@ -268,7 +293,9 @@ class OpenGymAppNavigationTest {
         const val FINISH = "FINISH"
         const val DONE = "DONE"
         const val CANCEL = "CANCEL"
-        const val BACK = "BACK"
+
+        // Settings' navigation icon, by the description a screen reader reads.
+        const val BACK = "Back"
 
         // Messages. Asserted on the copy the user reads, since that is the whole point of it.
         const val BACK_BLOCKED = "Finish the session to leave"

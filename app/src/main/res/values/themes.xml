@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  The platform theme, which exists for exactly one thing: what the window looks like before
+  Compose has drawn. Everything after that comes from `OpenGymTheme`.
+
+  It follows the *system* light/dark setting through the `values-night` variant, not the
+  stored preference — a resource qualifier cannot read DataStore. A user who has chosen Light
+  on a dark device therefore sees a dark window for the moment before the first frame; that is
+  the cost of not blocking startup on a disk read, and it is why `MainActivity` draws nothing
+  at all until the preference has arrived rather than drawing the wrong theme and correcting
+  itself.
+-->
 <resources>
-    <style name="Theme.OpenGym" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.OpenGym" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/window_background</item>
+    </style>
 </resources>

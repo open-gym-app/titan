@@ -14,11 +14,13 @@ open-gym/
     ├── home/               # The dashboard (Home tab)
     ├── session/            # New session -> active session -> summary (not a tab)
     ├── history/            # Session browsing: history, templates, calendar (Sessions tab)
-    └── progression/        # Analytics and gamification (Stats tab)
+    ├── progression/        # Analytics and gamification (Stats tab)
+    └── settings/           # Settings (reached from the top app bar, not a tab)
 ```
 
 Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`,
-`:feature:home`, `:feature:session`, `:feature:history`, `:feature:progression`.
+`:feature:home`, `:feature:session`, `:feature:history`, `:feature:progression`,
+`:feature:settings`.
 
 ## Build logic
 
@@ -88,6 +90,13 @@ has no slot for — the mono `numeric` styles and the `eyebrow` section header �
 through the `OpenGymTheme` object, so a call site always says which vocabulary a value comes
 from. **A screen should need no raw `dp` literal for standard rhythm and no `Color(...)` at
 all.**
+
+`OpenGymTheme` also carries the two *stored* preferences that change how every screen renders
+— the colour scheme and the unit system, as the domain's own `ThemePreference` and
+`UnitSystem`. `:app` collects `UserPreferencesRepository` once at the root (`MainViewModel`)
+and passes both in, so a preference write recomposes the whole app: no screen subscribes to
+the theme, and none has to. The unit system is published as `LocalUnitSystem` for the
+formatters in `core/ui/.../format/` to read.
 
 Two decisions are recorded in the source and worth knowing before writing a screen:
 dynamic colour (Material You) is **not** supported, because the single accent is the app's
@@ -256,6 +265,10 @@ SessionGraphDestination         full screen, no bars
 
 SettingsDestination             full screen, no bars
 ```
+
+Settings is the one non-tab destination that is a *flat* destination rather than a nested
+graph: the graph-per-tab exists so the bottom bar can ask whether a tab's route is anywhere in
+the current destination's hierarchy, and settings has no tab to keep selected.
 
 **Each tab is a nested graph, not a bare destination.** The bottom bar decides which tab is
 selected by asking whether a tab's route appears anywhere in the current destination's

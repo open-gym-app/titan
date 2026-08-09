@@ -129,6 +129,14 @@ Text(
   is a second thing to keep in step.
 - **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, and
   the `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles.
+- **Reach for a component before a style.** `core/ui/.../component/` holds the primitives the
+  tokens are meant to be used through — `Eyebrow` (which uppercases for you), `OpenGymCard`
+  and `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A
+  screen that draws its own bordered `Surface` has restated four arguments that will drift.
+- **Never format a number by hand.** `core/ui/.../format/` turns the stored milligrams and
+  `Duration`s into what the user reads — `formatWeight`, `formatAsClock` — in their locale and
+  their unit system. The unit system is ambient (`LocalUnitSystem`), so it is a value to read,
+  not a parameter to thread through five composables.
 - **Every number the user reads is a numeric role.** Weights, reps, durations, dates,
   counts — mono, with tabular figures, so a running timer does not shift the layout.
 - The accent (`colorScheme.primary`) marks *the thing that matters right now* — a PR, the
@@ -252,6 +260,12 @@ class ExerciseLibraryScreenTest {
 
 - Use `createComposeRule()`, not `createAndroidComposeRule<Activity>()` — a stateless screen
   needs no activity, and asking for one drags in a manifest and a theme.
+- **A test that composes an `XRoute` needs Hilt**, because `hiltViewModel()` resolves its
+  factory through the activity and a plain `ComponentActivity` is not an entry point. That is
+  `@HiltAndroidTest` + `@Config(application = HiltTestApplication::class)` +
+  `createAndroidComposeRule<HiltTestActivity>()`; `:app`'s `OpenGymAppNavigationTest` is the
+  worked example, and `HiltTestActivity` lives in `app/src/debug`. Prefer not needing it: drive
+  the stateless half.
 - Do **not** add `@Config(sdk = ...)`. The level is pinned once for every module by the
   generated `robolectric.properties`; a per-class override drifts the day it moves.
 - Wrap the screen in `OpenGymTheme` so it composes against the colours and typography the
