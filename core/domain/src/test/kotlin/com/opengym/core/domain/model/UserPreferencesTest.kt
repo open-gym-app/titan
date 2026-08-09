@@ -1,0 +1,111 @@
+package com.opengym.core.domain.model
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
+import org.junit.Test
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * The defaults a fresh install reads, and the two values the model refuses.
+ *
+ * The defaults are asserted one by one rather than as a single `assertEquals` against a
+ * hand-built copy, because that form passes when the expectation and the model change
+ * together — which is precisely the change worth catching. Every number here is a
+ * product decision that a screen will show to a user who has never opened settings.
+ */
+class UserPreferencesTest {
+
+    @Test
+    fun `a fresh install reads metric units`() {
+        assertEquals(UnitSystem.METRIC, UserPreferences().unitSystem)
+    }
+
+    @Test
+    fun `a fresh install follows the system theme`() {
+        // Not LIGHT: "follow the device" is the only default that is never wrong.
+        assertEquals(ThemePreference.SYSTEM, UserPreferences().theme)
+    }
+
+    @Test
+    fun `a fresh install rests ninety seconds`() {
+        assertEquals(90.seconds, UserPreferences.DEFAULT_REST_DURATION)
+        assertEquals(90.seconds, UserPreferences().defaultRestDuration)
+    }
+
+    @Test
+    fun `a fresh install assumes a twenty kilo olympic bar`() {
+        // Milligrams, matching WorkoutSet.weight — 20 kg is 20 million of them.
+        assertEquals(20_000_000L, UserPreferences.DEFAULT_BAR_WEIGHT)
+        assertEquals(20_000_000L, UserPreferences().barWeight)
+    }
+
+    @Test
+    fun `a fresh install has a training goal but has not been onboarded`() {
+        assertEquals(TrainingGoal.STRENGTH, UserPreferences().trainingGoal)
+        assertFalse(UserPreferences().onboardingCompleted)
+    }
+
+    @Test
+    fun `a rest duration of zero or less is refused`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = Duration.ZERO)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = (-1).seconds)
+        }
+    }
+
+    @Test
+    fun `an infinite rest duration is refused`() {
+        // Positive, and still not a rest anybody could sit through. The countdown would
+        // never publish a tick, so the sheet would sit at "infinity" forever.
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = Duration.INFINITE)
+        }
+    }
+
+    @Test
+    fun `a bar weight of zero or less is refused`() {
+        assertThrows(IllegalArgumentException::class.java) { UserPreferences(barWeight = 0) }
+        assertThrows(IllegalArgumentException::class.java) { UserPreferences(barWeight = -1) }
+    }
+
+    @Test
+    fun `copy carries every other setting through unchanged`() {
+        // The shape the repository's setters rely on: one field named, five untouched.
+        val stored = UserPreferences(
+            unitSystem = UnitSystem.IMPERIAL,
+            theme = ThemePreference.DARK,
+            defaultRestDuration = 120.seconds,
+            barWeight = 15_000_000,
+            trainingGoal = TrainingGoal.HYPERTROPHY,
+            onboardingCompleted = true,
+        )
+
+        assertEquals(
+            UserPreferences(
+                unitSystem = UnitSystem.METRIC,
+                theme = ThemePreference.DARK,
+                defaultRestDuration = 120.seconds,
+                barWeight = 15_000_000,
+                trainingGoal = TrainingGoal.HYPERTROPHY,
+                onboardingCompleted = true,
+            ),
+            stored.copy(unitSystem = UnitSystem.METRIC),
+        )
+    }
+
+    @Test
+    fun `the enums cover exactly the documented choices`() {
+        // Persisted by name (see UserPreferencesRepositoryImpl), so a rename is a
+        // stored-value migration and not a refactor. This is where that shows up.
+        assertEquals(listOf("METRIC", "IMPERIAL"), UnitSystem.entries.map { it.name })
+        assertEquals(listOf("LIGHT", "DARK", "SYSTEM"), ThemePreference.entries.map { it.name })
+        assertEquals(
+            listOf("STRENGTH", "HYPERTROPHY", "ENDURANCE", "CUSTOM"),
+            TrainingGoal.entries.map { it.name },
+        )
+    }
+}

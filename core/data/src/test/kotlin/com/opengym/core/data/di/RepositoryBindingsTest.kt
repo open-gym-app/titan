@@ -5,11 +5,13 @@ import com.opengym.core.data.repository.InProgressSessionRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.data.repository.TemplateRepositoryImpl
+import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.TemplateRepository
+import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
@@ -65,6 +67,9 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var inProgressSessionRepository: Provider<InProgressSessionRepository>
 
+    @Inject
+    lateinit var userPreferencesRepository: Provider<UserPreferencesRepository>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -77,6 +82,7 @@ class RepositoryBindingsTest {
         assertTrue(templateRepository.get() is TemplateRepositoryImpl)
         assertTrue(sessionStateRepository.get() is SessionStateRepositoryImpl)
         assertTrue(inProgressSessionRepository.get() is InProgressSessionRepositoryImpl)
+        assertTrue(userPreferencesRepository.get() is UserPreferencesRepositoryImpl)
     }
 
     @Test
@@ -89,5 +95,12 @@ class RepositoryBindingsTest {
     @Test
     fun `the draft store is one shared instance, so its write lock is one lock`() {
         assertSame(inProgressSessionRepository.get(), inProgressSessionRepository.get())
+    }
+
+    @Test
+    fun `the preferences store is one shared instance, so there is one DataStore on the file`() {
+        // DataStore refuses two live instances over one file, so an unscoped binding here
+        // would not merely be wasteful — the second injection site would throw.
+        assertSame(userPreferencesRepository.get(), userPreferencesRepository.get())
     }
 }

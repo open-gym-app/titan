@@ -179,6 +179,30 @@ The database is not the only thing the app writes. A workout in progress also ha
 
 Restoring on relaunch is *not* alerting. Nothing reads a database while the process is dead, so a rest that ran out while the app was gone comes back `Finished` without ever having rung. Alerting at the deadline needs an OS-scheduled wake-up (`AlarmManager` plus a notification) and is not built yet.
 
+## The user preferences store
+
+The third thing the app writes, after the schema and the draft: the user's settings - `UserPreferences` in `:core:domain`, held in a **Preferences DataStore** at `user-preferences.preferences_pb` in the app's private storage, implemented by `UserPreferencesRepositoryImpl`.
+
+Outside the schema for the same reason the draft is, from the other direction. A setting is not a record of anything that happened; it is a single-valued fact that is read on the way to the first frame of nearly every screen and written a handful of times in a device's life. A one-row table would buy a migration ladder for a document with six scalar fields and put a database read in front of the first render.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `unit_system` | `UnitSystem` name | `METRIC` |
+| `theme` | `ThemePreference` name | `SYSTEM` |
+| `default_rest_duration_seconds` | int64 seconds | 90 |
+| `bar_weight_milligrams` | int64 milligrams | 20 000 000 (a 20 kg Olympic bar) |
+| `training_goal` | `TrainingGoal` name | `STRENGTH` |
+| `onboarding_completed` | bool | `false` |
+
+- **Preferences DataStore rather than Proto.** Proto would add the protobuf plugin, a `.proto` file and a generated-source directory for six scalars, and the typed document it buys is largely spent again: `UserPreferences` is declared in `:core:domain` where the storage layer cannot reach it, so a mapping step exists either way. Preferences also degrade *per key* where a serialized document is all-or-nothing, and `edit` over one key is a narrower write than `updateData` over a whole document - a new setter physically cannot clobber a sibling by forgetting to copy it through.
+- **Key names and enum names are a persisted format.** Renaming `unit_system`, or renaming `UnitSystem.METRIC`, silently resets that setting for every existing install. `UserPreferencesTest` pins the enum names for exactly this reason; the keys are string literals in one private object rather than derived from anything a refactor would rename.
+- **Units are canonical, as everywhere else.** `bar_weight_milligrams` is milligrams because it is added to and subtracted from set weights, and `unit_system` decides only how a number is *rendered*. Nothing in the store is written in the user's display units - see the note under [Storage assumptions](#storage-assumptions).
+- **Every read falls back to the default, three times over.** A key that is absent (a fresh install), a key holding an enum name this build does not have (a downgrade, or a value since renamed), and a key holding a number the model refuses (a non-positive rest or bar weight, which no setter would have written) all produce the documented default rather than an exception, and an unreadable store produces a whole default object. A settings read is on the path to the first frame; it must not be the thing that throws. Rejection happens on the *write* side, where `require` refuses a bad value before it can be stored.
+- **Emissions are `StateFlow` semantics over a file.** `observe()` delivers the current settings to every new collector immediately, without a write having to happen, then re-emits on change - conflated, latest-wins, and silent when a write changes nothing. That is the contract `SessionStateRepository` documents, and the screens depend on it: `observe().first()` has to return on a fresh install.
+- **The rest duration is stored to the second.** A value finer than that is truncated on the way in, which is the resolution a rest timer is set in anyway - except one that would truncate to *zero*, which is rejected rather than stored, since the reader would then discard it for the default and the setting would silently not take.
+
+The store is not part of the export envelope. Settings describe a device and an install, not a training history, and restoring someone's theme onto a new phone is not what a backup is for.
+
 ## Implications for backup and import/export
 
 - The export envelope must carry the schema version it was written at. An import reads it and refuses (or up-converts) anything it does not understand - the Room migration ladder only upgrades a *database file*, not a JSON document.
