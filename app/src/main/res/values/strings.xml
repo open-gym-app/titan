@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The shell's own strings. A feature's strings live in that feature's module; only chrome
+  that :app draws — the tab labels, the settings action — belongs here.
+-->
+<resources>
+    <string name="app_name">OpenGym</string>
+
+    <!-- Bottom navigation. Also read aloud by TalkBack, together with the selected state. -->
+    <string name="nav_home">Home</string>
+    <string name="nav_sessions">Sessions</string>
+    <string name="nav_stats">Stats</string>
+
+    <string name="action_settings">Settings</string>
+</resources>

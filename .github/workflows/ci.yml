@@ -63,6 +63,13 @@ jobs:
       - name: Run lint
         run: ./gradlew lint --continue
 
+      # The module dependency graph, asserted against docs/ARCHITECTURE.md, plus the unit
+      # tests for the rules themselves. Both are wired into `check`, but no job here runs
+      # `check` — `unit-test` runs `test` and `build` runs `assembleDebug` — so they are
+      # named explicitly rather than left to a lifecycle task nothing invokes.
+      - name: Verify the module dependency graph
+        run: ./gradlew checkArchitecture checkBuildLogic
+
   unit-test:
     name: Unit Tests
     runs-on: ubuntu-latest

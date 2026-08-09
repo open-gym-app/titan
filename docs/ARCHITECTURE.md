@@ -9,11 +9,16 @@ open-gym/
 ├── core/
 │   ├── domain/             # Business logic - pure Kotlin JVM, zero Android deps
 │   ├── data/               # Data access - Room, repositories, Hilt bindings
-│   └── ui/                 # Shared Compose components and theming
-└── feature/                # (placeholder) one sub-module per vertical slice
+│   └── ui/                 # Shared Compose components, design system, theming
+└── feature/                # One sub-module per vertical slice
+    ├── home/               # The dashboard (Home tab)
+    ├── session/            # New session -> active session -> summary (not a tab)
+    ├── history/            # Session browsing: history, templates, calendar (Sessions tab)
+    └── progression/        # Analytics and gamification (Stats tab)
 ```
 
-Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`.
+Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`,
+`:feature:home`, `:feature:session`, `:feature:history`, `:feature:progression`.
 
 ## Build logic
 
@@ -28,6 +33,7 @@ modules use.
 | `opengym.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
 | `opengym.android.hilt` | Hilt and the KSP processor that generates its components |
 | `opengym.android.feature` | The three above, plus `:core:domain`, `:core:ui` and the ViewModel-to-Compose bridge — everything a vertical slice needs |
+| `opengym.architecture` | Root project only. Registers `checkArchitecture`, which asserts the module dependency graph against this document |
 
 `opengym.android.compose` and `opengym.android.hilt` apply `opengym.android.library`
 themselves, so the order a module lists them in does not matter.
@@ -74,6 +80,20 @@ The schema, its migration strategy, and the storage assumptions analytics and im
 Compose screens, ViewModels, and shared UI components.
 ViewModels call domain use cases directly - they do not touch data sources.
 `:core:ui` holds only reusable widgets and the design system; it carries no business logic.
+
+The design system lives in `core/ui/.../theme/` and is four things: a Material 3
+`ColorScheme` per mode, a `Typography` on the wireframes' scale, `OpenGymSpacing` and
+`OpenGymShapes`. Material's own tokens are reached through `MaterialTheme`; the two roles it
+has no slot for — the mono `numeric` styles and the `eyebrow` section header — are reached
+through the `OpenGymTheme` object, so a call site always says which vocabulary a value comes
+from. **A screen should need no raw `dp` literal for standard rhythm and no `Color(...)` at
+all.**
+
+Two decisions are recorded in the source and worth knowing before writing a screen:
+dynamic colour (Material You) is **not** supported, because the single accent is the app's
+only signal and wallpaper-derived colour would make it a different colour on every device;
+and both schemes are held to WCAG AA by `ColorSchemeContrastTest`, which fails the build
+rather than recording a figure that was true once.
 
 ### App (`:app`)
 
@@ -122,6 +142,27 @@ repository. That work belongs to the feature's ViewModel.
 
 Any dependency that violates these rules must be refactored: extract the shared concern into
 `:core:domain` (if it is a contract) or `:core:ui` (if it is a visual primitive).
+
+### The rules are enforced, not just documented
+
+`./gradlew checkArchitecture` reads every module's declared project dependencies and
+asserts them against the two tables above. It is wired into every module's `check`, so
+`./gradlew build` runs it, and CI runs it by name in the `lint` job.
+
+Gradle itself objects only to a *cycle*, so before this task existed the tables held exactly
+as long as everybody remembered them — the first violation would have been caught in review,
+or not at all.
+
+The rules live in `build-logic/.../ArchitectureRules.kt` and are covered by
+`ArchitectureRulesTest`, which is what proves the check can fail: a green run on a legal
+graph is indistinguishable from a check that never fires. `./gradlew checkBuildLogic` runs
+those tests — an included build's `test` task is not otherwise reached by anything the main
+build invokes.
+
+**A module with no rule fails the check.** A new `:core:network` or `:feature:map` has to
+be added to the table above and to `ArchitectureRules` before it may depend on anything.
+The alternative — an unlisted module defaulting to "anything goes" — would make the check
+quietly weaker every time the project grew.
 
 ## Navigation
 
@@ -199,6 +240,62 @@ resolves to the route constructor and the result is discarded.
 
 The `opengym.android.feature` convention plugin applies the `kotlin-serialization`
 plugin, so a feature module needs no extra setup to declare one.
+
+### The shell: a tab scaffold, and modes outside it
+
+`:app` composes one `Scaffold` whose chrome is driven entirely by where the user is.
+
+```text
+TabsGraphDestination            bottom bar + top bar
+├── HomeGraphDestination        -> HomeDestination
+├── HistoryGraphDestination     -> SessionsDestination -> SessionDetailDestination
+└── ProgressionGraphDestination -> StatsDestination
+
+SessionGraphDestination         full screen, no bars
+└── NewSession -> ActiveSession -> SessionSummary
+
+SettingsDestination             full screen, no bars
+```
+
+**Each tab is a nested graph, not a bare destination.** The bottom bar decides which tab is
+selected by asking whether a tab's route appears anywhere in the current destination's
+`hierarchy`. With a graph per tab that question has one answer for every screen the tab will
+ever hold; with a flat destination it works only while the tab is one screen deep, and then
+breaks silently — the tab simply stops looking selected.
+
+Per-tab back stacks come from the standard trio in
+`OpenGymAppState.navigateToTopLevelDestination`: `popUpTo(startDestination) { saveState }`,
+`restoreState`, `launchSingleTop`. Returning to a tab resumes where the user left it —
+except when the tab is the one you are already in, where both state flags invert and the pop
+stands, so pressing the active tab returns it to its root.
+
+**The session flow is a mode, not a place.** It sits outside the tab scaffold and hides both
+bars, because offering a tap into Stats mid-set is an invitation to lose the set being
+logged. Onboarding (#96) will sit outside the scaffold the same way.
+
+Three tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
+the top app bar rather than a fifth of the bar given to a destination visited twice.
+
+### Motion follows the same three-way split
+
+The `NavHost` sets all four transitions once, and each asks `NavMotion.motionBetween` what
+the move it is animating *means* rather than which routes it connects:
+
+| Move | Motion | Why |
+| --- | --- | --- |
+| Tab to tab | fast fade | A lateral jump between peers. There is no direction to show. |
+| Within a tab, or one step of the session flow to the next, or out to Settings | horizontal slide with parallax | A push. The slower counter-slide is what reads as one screen over another. |
+| Into or out of the session flow | vertical slide | The one move that is a mode change, so the one that should not look like a push. |
+
+The classification is derived from `ShellChrome` — the same value that decides which tab is
+selected and whether the bars are shown — so a destination added to a tab's graph animates
+correctly without opting in, and there is no second list of routes to keep in step.
+
+**Portrait only.** `MainActivity` declares `screenOrientation="portrait"`. Landscape is a
+surface every screen would have to lay out and screenshot-test twice, for a phone held
+one-handed over a bench. Note that at `targetSdk` 36 Android 16 ignores the restriction on
+displays 600dp and wider, so this is a phone-only lock by construction; revisit with tablet
+layouts.
 
 ## Dependency injection (Hilt)
 

@@ -14,6 +14,11 @@ plugins {
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.detekt)
     alias(libs.plugins.sonarqube)
+
+    // Registers `checkArchitecture`, wired into `check` below. Applied rather than
+    // `apply false`: unlike the others this one configures the root project itself, because
+    // the module dependency graph is a property of the build and not of any module in it.
+    id("opengym.architecture")
 }
 
 detekt {
@@ -62,6 +67,16 @@ sonar {
     }
 }
 
+// The convention plugins' own unit tests. An included build's `test` task is not reached by
+// anything the main build or CI invokes, so without this wiring `ArchitectureRulesTest` would
+// only ever run when somebody thought to ask for it by name — and the rules it covers are
+// exactly the ones nobody would notice had stopped working.
+val checkBuildLogic by tasks.registering {
+    group = "verification"
+    description = "Runs the build-logic convention plugins' unit tests."
+    dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
+}
+
 subprojects {
     afterEvaluate {
         tasks.withType<Test>().configureEach {
@@ -72,7 +87,11 @@ subprojects {
                 showStackTraces = true
             }
         }
-        tasks.findByName("check")?.dependsOn(rootProject.tasks.named("detekt"))
+        tasks.findByName("check")?.dependsOn(
+            rootProject.tasks.named("detekt"),
+            rootProject.tasks.named("checkArchitecture"),
+            rootProject.tasks.named("checkBuildLogic"),
+        )
 
         val isAndroidModule = plugins.hasPlugin("com.android.application") ||
             plugins.hasPlugin("com.android.library")
