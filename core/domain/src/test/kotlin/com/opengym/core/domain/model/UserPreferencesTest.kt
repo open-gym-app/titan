@@ -5,10 +5,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The defaults a fresh install reads, and the two values the model refuses.
+ * The defaults a fresh install reads, and the values the model refuses.
  *
  * The defaults are asserted one by one rather than as a single `assertEquals` against a
  * hand-built copy, because that form passes when the expectation and the model change
@@ -64,6 +65,23 @@ class UserPreferencesTest {
         assertThrows(IllegalArgumentException::class.java) {
             UserPreferences(defaultRestDuration = Duration.INFINITE)
         }
+    }
+
+    @Test
+    fun `a rest duration that is not whole seconds is refused`() {
+        // The invariant that keeps this class and UserPreferencesRepository in step: the
+        // store's resolution is a second, so a value with a fraction in it is one the
+        // setter cannot persist. Admitting it here would mean a preferences object that
+        // constructs cleanly and then throws on its way back to disk.
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = 500.milliseconds)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            UserPreferences(defaultRestDuration = 90_500.milliseconds)
+        }
+
+        // The boundary on the other side of it: one whole second is a rest.
+        assertEquals(1.seconds, UserPreferences(defaultRestDuration = 1.seconds).defaultRestDuration)
     }
 
     @Test

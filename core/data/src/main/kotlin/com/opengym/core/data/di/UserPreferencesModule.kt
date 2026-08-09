@@ -18,7 +18,22 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+/**
+ * Marks the [DataStore] holding the user's settings.
+ *
+ * `DataStore<Preferences>` is a type the whole app shares, and every preferences store
+ * anyone ever adds — an onboarding scratch pad, a debug-flags file — has exactly it. An
+ * unqualified binding therefore makes the *second* such store a duplicate-binding error,
+ * and, worse, makes any later `@Inject constructor(store: DataStore<Preferences>)`
+ * elsewhere compile cleanly while writing its keys into the settings file. The qualifier
+ * costs a line and makes the graph name a file rather than a type.
+ */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class UserPreferencesStore
 
 /**
  * The user settings store and the repository over it.
@@ -67,6 +82,7 @@ abstract class UserPreferencesModule {
          */
         @Provides
         @Singleton
+        @UserPreferencesStore
         fun provideUserPreferencesDataStore(
             @ApplicationContext context: Context,
             @IoDispatcher ioDispatcher: CoroutineDispatcher,

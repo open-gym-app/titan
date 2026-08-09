@@ -40,7 +40,7 @@ data class UserPreferences(
      *
      * The *default*, not the duration: an exercise carrying its own `defaultRest`
      * overrides it, and the rest timer sheet (#M4-24) may adjust a running countdown
-     * without this changing. Must be positive and finite.
+     * without this changing. Must be a positive, finite, whole number of seconds.
      */
     val defaultRestDuration: Duration = DEFAULT_REST_DURATION,
 
@@ -69,8 +69,17 @@ data class UserPreferences(
     val onboardingCompleted: Boolean = false,
 ) {
     init {
-        require(defaultRestDuration > Duration.ZERO && defaultRestDuration.isFinite()) {
-            "the default rest duration must be positive and finite, was $defaultRestDuration"
+        // Whole seconds, not merely positive and finite. A rest is set in seconds, shown
+        // in seconds and stored in seconds, so 500 ms is not a rest anybody can express —
+        // and admitting it here would make this class disagree with the repository that
+        // has to persist it: `setDefaultRestDuration` refuses anything under a second, so
+        // a value this constructor blessed would throw on its way back to the store. The
+        // model is the one that gets to say what a rest is; the invariant belongs here.
+        require(defaultRestDuration.isFinite() && defaultRestDuration >= 1.seconds) {
+            "the default rest duration must be finite and at least one second, was $defaultRestDuration"
+        }
+        require(defaultRestDuration.inWholeSeconds.seconds == defaultRestDuration) {
+            "the default rest duration must be a whole number of seconds, was $defaultRestDuration"
         }
         require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
     }

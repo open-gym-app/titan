@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import kotlinx.coroutines.flow.Flow
+import java.io.IOException
 import kotlin.time.Duration
 
 /**
@@ -33,6 +34,16 @@ import kotlin.time.Duration
  *   something else by it, a store that cannot be read at all. A settings read is on the
  *   path to the first frame of every screen, so it must not be the thing that throws.
  *
+ * ### Writing can fail, and says so
+ *
+ * Every setter throws [IOException] when the store cannot be written — no space, a
+ * read-only filesystem, a file that cannot be replaced. That is the deliberate opposite
+ * of the read contract above, and the asymmetry is the consequences, not an oversight: a
+ * read that throws takes down a screen over a value the user never asked about, while a
+ * write that is swallowed leaves them looking at a control that moved and did not save.
+ * So a caller doing `viewModelScope.launch { setTheme(DARK) }` has to decide what the
+ * user sees when it fails; it is not a call that can be made and forgotten.
+ *
  * ### Where the implementation lives
  *
  * `:core:data`. Nothing about the storage medium is decided here — no key names, no file,
@@ -43,10 +54,18 @@ interface UserPreferencesRepository {
     /** The current settings, re-emitted on every change. Never empty; see the emission contract. */
     fun observe(): Flow<UserPreferences>
 
-    /** Sets the unit system weights and distances are displayed in. */
+    /**
+     * Sets the unit system weights and distances are displayed in.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
     suspend fun setUnitSystem(unitSystem: UnitSystem)
 
-    /** Sets the colour scheme. */
+    /**
+     * Sets the colour scheme.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
     suspend fun setTheme(theme: ThemePreference)
 
     /**
@@ -56,7 +75,9 @@ interface UserPreferencesRepository {
      * @throws IllegalArgumentException if [duration] is infinite, or is under one whole
      * second. Unlike the enum-valued settings, this one can be handed a value no user
      * could have meant, and storing it would leave every later read falling back to the
-     * default with no indication of why — a setting that silently does not take.
+     * default with no indication of why — a setting that silently does not take. Every
+     * value [UserPreferences.defaultRestDuration] accepts is accepted here unchanged.
+     * @throws IOException if the settings cannot be written.
      */
     suspend fun setDefaultRestDuration(duration: Duration)
 
@@ -64,10 +85,15 @@ interface UserPreferencesRepository {
      * Sets the empty barbell's weight, in milligrams — see [UserPreferences.barWeight].
      *
      * @throws IllegalArgumentException if [barWeight] is not positive.
+     * @throws IOException if the settings cannot be written.
      */
     suspend fun setBarWeight(barWeight: Long)
 
-    /** Sets the training goal. Recorded only; nothing reads it in v1. */
+    /**
+     * Sets the training goal. Recorded only; nothing reads it in v1.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
     suspend fun setTrainingGoal(trainingGoal: TrainingGoal)
 
     /**
@@ -75,6 +101,11 @@ interface UserPreferencesRepository {
      *
      * Writing `true` is what stops the next launch routing back into onboarding, so it
      * belongs at the *end* of the flow, once the answers are saved — not when it starts.
+     * It is also the setter whose [IOException] matters most: onboarding that cannot
+     * record its own completion has to say so rather than move on, or the next launch
+     * asks the same questions again.
+     *
+     * @throws IOException if the settings cannot be written.
      */
     suspend fun setOnboardingCompleted(completed: Boolean)
 }

@@ -7,16 +7,18 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.opengym.core.data.di.UserPreferencesStore
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,24 +67,55 @@ import kotlin.time.Duration.Companion.seconds
  * ### Nothing here throws at a collector
  *
  * A settings read is on the path to the first frame of every screen, so the flow falls
- * back to defaults three times over: [catch] for a store that cannot be read at all,
+ * back to defaults three times over: [retryWhen] for a store that cannot be read at all,
  * [toUserPreferences] for a value stored under a name this build does not know, and the
  * same function again for a value the model's invariants refuse. All three mean "no
  * usable answer for this setting", and the answer to that is the default — the same
  * judgement `InProgressSessionRepository.load` makes when it returns null for a corrupt
  * draft. The setters are where a bad value is *rejected*, before it can be stored; by
  * the time one is being read, refusing it helps nobody.
+ *
+ * Falling back is not the same as giving up, which is why the read failure is handled
+ * with [retryWhen] and not the [kotlinx.coroutines.flow.catch] the androidx samples
+ * reach for — see [observe].
+ *
+ * ### Writes, on the other hand, do throw
+ *
+ * `edit` propagates its [IOException], and the interface says so. A settings *read* that
+ * throws takes a screen down for a value nobody asked for; a settings *write* that fails
+ * silently leaves the user looking at a toggle that flipped and did not save. The two
+ * asymmetric answers are the same judgement applied to different consequences.
  */
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
-    private val dataStore: DataStore<Preferences>,
+    @UserPreferencesStore private val dataStore: DataStore<Preferences>,
 ) : UserPreferencesRepository {
 
+    /**
+     * The settings, re-read on every change and never failing at the collector.
+     *
+     * [retryWhen] rather than [kotlinx.coroutines.flow.catch], which emits and then
+     * *completes* the flow: one transient read — a full disk, an EIO, a failed write
+     * surfacing on [DataStore.data] — would end every live collection for the rest of the
+     * process. The interface promises "re-emitted on every change", and the app-root theme
+     * observer is subscribed for the whole process lifetime, so completing the flow means
+     * later writes land on disk with nothing subscribed left to publish them: settings
+     * appear to save and nothing moves until the next launch.
+     *
+     * The delay before retrying is what stops a store that is *permanently* unreadable
+     * from spinning the IO pool for as long as a screen is open.
+     */
     override fun observe(): Flow<UserPreferences> = dataStore.data
-        .catch { cause ->
+        .retryWhen { cause, attempt ->
             // Only IO: a bug in the mapping below is not something to paper over with a
             // screen full of defaults.
-            if (cause is IOException) emit(emptyPreferences()) else throw cause
+            if (cause !is IOException) return@retryWhen false
+            // Defaults once, so a collector that has not been handed anything yet still
+            // gets its first frame. Past that, retrying in the background is the better
+            // answer than flashing defaults over a value that was good a moment ago.
+            if (attempt == 0L) emit(emptyPreferences())
+            delay(RETRY_DELAY)
+            true
         }
         .map(::toUserPreferences)
         .distinctUntilChanged()
@@ -99,7 +132,9 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     override suspend fun setDefaultRestDuration(duration: Duration) {
         // Whole seconds, not merely positive: the store's resolution is a second, so 500ms
         // would truncate to zero — a value the reader then discards for the default, which
-        // is a setting that silently does not take.
+        // is a setting that silently does not take. This is exactly [UserPreferences]' own
+        // invariant read through the truncation, so every legal model value round-trips
+        // through here and nothing this accepts can produce one the model refuses.
         require(duration.isFinite() && duration.inWholeSeconds > 0) {
             "the default rest duration must be at least one whole second and finite, was $duration"
         }
@@ -117,6 +152,20 @@ class UserPreferencesRepositoryImpl @Inject constructor(
 
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
+    }
+
+    private companion object {
+
+        /**
+         * How long [observe] waits before re-reading a store that failed.
+         *
+         * Long enough that a store which is never going to be readable costs a wakeup a
+         * second rather than a busy loop, short enough that the recoverable case — the
+         * disk that had no space for a moment — is over before a user has finished
+         * noticing. A backoff would buy nothing here: this flow lives as long as the
+         * screen collecting it, and a fixed second is already below that.
+         */
+        val RETRY_DELAY: Duration = 1.seconds
     }
 }
 

@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -12,9 +13,11 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
@@ -304,9 +308,49 @@ class UserPreferencesRepositoryImplTest {
     }
 
     @Test
+    @OptIn(ExperimentalCoroutinesApi::class) // advanceTimeBy(Duration)
+    fun `a store that never becomes readable keeps retrying rather than ending the collection`() = runTest {
+        // The regression that `retryWhen` exists for. `catch` emits the defaults and then
+        // *completes* the flow, so this collector would be finished — and a screen holding
+        // it would sit on the defaults, ignoring every later write, until the process
+        // restarted. Staying subscribed is the contract; the defaults are the stopgap.
+        val repository = UserPreferencesRepositoryImpl(UnreadableDataStore)
+        val seen = mutableListOf<UserPreferences>()
+
+        val collector = launch { repository.observe().toList(seen) }
+        advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
+        val stillCollecting = collector.isActive
+        collector.cancel()
+
+        assertTrue("the collection ended on a read failure instead of retrying", stillCollecting)
+        // Once, not once per retry: distinctUntilChanged, and the defaults are only
+        // published on the first failure in the first place.
+        assertEquals(listOf(UserPreferences()), seen)
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class) // advanceTimeBy(Duration)
+    fun `a store that recovers publishes again, without the collector having resubscribed`() = runTest {
+        // The other side of the same contract: whatever the defaults stood in for, the
+        // real value reaches the collector that was already there when the read failed.
+        val repository = UserPreferencesRepositoryImpl(FlakyDataStore(failures = 1))
+        val seen = mutableListOf<UserPreferences>()
+
+        val collector = launch { repository.observe().toList(seen) }
+        advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
+        collector.cancel()
+
+        assertEquals(
+            listOf(UserPreferences(), UserPreferences(theme = ThemePreference.DARK)),
+            seen,
+        )
+    }
+
+    @Test
     fun `a store that fails for a reason other than IO still throws`() = runTest {
-        // The other half of the `catch`: a mapping bug must not be swallowed into a
-        // screenful of defaults, which is the failure mode of catching Throwable.
+        // The other half of the `retryWhen`: a mapping bug must not be swallowed into a
+        // screenful of defaults — nor retried forever, which is the same failure wearing a
+        // different hat — and neither would happen if the predicate caught Throwable.
         val repository = UserPreferencesRepositoryImpl(BrokenDataStore)
 
         assertThrows(IllegalStateException::class.java) {
@@ -365,15 +409,50 @@ class UserPreferencesRepositoryImplTest {
     private companion object {
         const val TEST_TIMEOUT_MILLIS = 10_000L
         const val YIELDS_PER_QUIESCE = 200
+
+        /**
+         * `UserPreferencesRepositoryImpl.RETRY_DELAY`, which is private to it.
+         *
+         * Duplicated rather than exposed: the retry cadence is an implementation detail
+         * that no caller should be able to read, and the only thing these tests need from
+         * it is a virtual clock long enough to cover several rounds of it. If the two ever
+         * drift, the failure is a test that advances too little and reports a collector
+         * that has not retried yet — visible, not silent.
+         */
+        val RETRY_DELAY: Duration = 1.seconds
+
+        /** Enough rounds that "it retried" cannot be one retry that happened to be in flight. */
+        const val RETRY_ROUNDS = 5
     }
 }
 
-/** A store whose file cannot be read — the case `observe`'s `catch` exists for. */
+/** A store whose file cannot be read — the case `observe`'s `retryWhen` exists for. */
 private object UnreadableDataStore : DataStore<Preferences> {
     override val data: Flow<Preferences> = flow { throw IOException("the file is not readable") }
 
     override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
         throw IOException("the file is not readable")
+}
+
+/**
+ * A store that fails [failures] reads and then works — a full disk that gets emptied.
+ *
+ * [data] is re-collected from the top on every retry, the way `DataStore.data` is, and it
+ * never completes on its own once it has emitted: a settings flow that ends is the thing
+ * under test, so the fake must not end on its own and hand the test a false pass.
+ */
+private class FlakyDataStore(private var failures: Int) : DataStore<Preferences> {
+    override val data: Flow<Preferences> = flow {
+        if (failures > 0) {
+            failures--
+            throw IOException("the file is not readable yet")
+        }
+        emit(preferencesOf(stringPreferencesKey("theme") to ThemePreference.DARK.name))
+        awaitCancellation()
+    }
+
+    override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+        throw UnsupportedOperationException("reads only")
 }
 
 /** A store failing for a reason that is not IO, which must reach the collector. */
