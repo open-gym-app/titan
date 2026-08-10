@@ -117,6 +117,28 @@ class UnitRoundTripTest {
     }
 
     @Test
+    fun `a distance reaches storage as the centimetres its own field shows back`() {
+        // The canonical direction for distances, and the one the short units can fail: a metre
+        // field shows no decimals, so a value that keeps them lands on a different number of
+        // centimetres every time the set is opened and saved untouched. Saving twice has to be
+        // saving once.
+        forEachLocale { locale ->
+            DistanceUnit.entries.forEach { unit ->
+                distancesIn(unit).forEach { distance ->
+                    val centimetres = (distance * unit.centimetres).toLong()
+                    val stored = parseDistanceCentimetres(formatDistanceValue(centimetres, unit), unit)!!
+
+                    assertEquals(
+                        "$distance ${unit.suffix} drifted on the second save in $locale",
+                        stored,
+                        parseDistanceCentimetres(formatDistanceValue(stored, unit), unit),
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun `a volume total shows the whole units it holds, in every locale`() {
         // Volume has no parser, because it has no input field — it is a computed total, and
         // the only round trip that exists for it is that the digits on screen are the whole
@@ -144,16 +166,30 @@ class UnitRoundTripTest {
         withLocale(Locale.UK) {
             assertEquals(4_820_000_000L, parseWeightMilligrams("4,820", UnitSystem.METRIC))
             assertEquals(2_500_000L, parseWeightMilligrams("2,5", UnitSystem.METRIC))
+            // And the ambiguity does not spread to the shapes that have no second reading: a
+            // leading zero is not a thousands group in any locale, so this is an eighth of a
+            // kilo and not 125 kg.
+            assertEquals(125_000L, parseWeightMilligrams("0,125", UnitSystem.METRIC))
         }
         withLocale(Locale.FRANCE) {
             assertEquals(2_500_000L, parseWeightMilligrams("2,500", UnitSystem.METRIC))
             assertEquals(22_500_000L, parseWeightMilligrams("22.5", UnitSystem.METRIC))
+            // France groups with a narrow no-break space, never with a dot — so `1.125` here is
+            // an ASCII keyboard typing a decimal point, a 1.125 kg bar and not a 1125 kg one.
+            assertEquals(1_125_000L, parseWeightMilligrams("1.125", UnitSystem.METRIC))
+            assertEquals(125_000L, parseWeightMilligrams("0.125", UnitSystem.METRIC))
         }
     }
 
-    /** The distances worth checking in [unit] — a short one, a round one, and a long one. */
+    /**
+     * The distances worth checking in [unit] — a short one, a round one, and a long one.
+     *
+     * The short units get a half as well as whole values. Whole ones cannot fail a unit that
+     * shows no decimals, so a list of only those would assert the round trip vacuously for
+     * exactly the units whose round trip is in question.
+     */
     private fun distancesIn(unit: DistanceUnit): List<Double> = when (unit.fractionDigits) {
-        0 -> listOf(0.0, 25.0, 100.0, 400.0, 1_609.0)
+        0 -> listOf(0.0, 25.0, 25.5, 100.0, 400.0, 1_609.0)
         else -> listOf(0.0, 0.25, 1.0, 5.25, 21.1, 42.19)
     }
 

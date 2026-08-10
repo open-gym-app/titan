@@ -1,5 +1,6 @@
 package com.opengym.core.ui.format
 
+import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
@@ -45,6 +46,21 @@ internal fun formatNumber(value: Double, maxFractionDigits: Int, grouping: Boole
     // minus sign on a quantity the user reads as nothing, so both become the plain zero.
     return if (value <= ZERO && formatted == format.format(NEGATIVE_ZERO)) format.format(ZERO) else formatted
 }
+
+/**
+ * [this] rounded to the decimals [formatNumber] would show it to.
+ *
+ * What lets a parser land on a value its own display can hold: a field that shows whole
+ * metres and is handed `25.5` stores 26 m, rather than storing 25.5 m, rendering it as `26`
+ * and reading 26 m back the next time it is opened. Keeping precision the format then rounds
+ * away is not extra fidelity, it is a step of drift per edit — see [parseDistanceCentimetres].
+ *
+ * Rounded through the shortest decimal that round-trips ([Double.toString]) rather than
+ * through the raw binary value, because that is what [java.text.DecimalFormat] rounds through
+ * too: `0.145` has to land on the same side here as it does on screen.
+ */
+internal fun Double.roundToFractionDigits(fractionDigits: Int): Double =
+    BigDecimal(toString()).setScale(fractionDigits, RoundingMode.HALF_UP).toDouble()
 
 /**
  * [text] as a number, or null when it is not one.
@@ -104,21 +120,42 @@ private fun String.parseAsciiDecimal(): Double? {
  *
  * `4,820` is 4820 to a British reader and 4.82 to a French one, and no amount of looking at
  * the string settles it — the two are the same string. So it is settled the only way it can
- * be: **the locale decides, and only for the one shape that is genuinely ambiguous**, a lone
- * separator with exactly three digits behind it.
+ * be: **the locale decides, and only for a string that could actually be a grouped number**.
+ * All three of these have to hold, and the last two are what keep a decimal from being read
+ * as a thousand:
+ *
+ * 1. Exactly three digits behind the separator — the one shape that is genuinely ambiguous.
+ * 2. The separator is the character this locale groups with. Not merely "not the decimal
+ *    separator": French groups with a narrow no-break space, so `1.125` on a French phone is
+ *    not a grouped 1125 in any reading, it is a bar weight typed on an ASCII keyboard.
+ * 3. The digits in front form a leading group — see [hasLeadingGroupBefore]. `0,125` is a
+ *    fraction in every locale on earth; nobody writes 125 as `0,125`.
  *
  * Everything else is read as a decimal point regardless of locale, which is what keeps the
  * generous half of this parser: `22.5` on an English keyboard means 22.5 in France, and
- * `2,5` on a French keyboard means 2.5 in Britain. Neither has three digits behind the
- * separator, so neither reaches this question.
+ * `2,5` on a French keyboard means 2.5 in Britain.
  */
 private fun String.isGroupingSeparatorAt(index: Int): Boolean {
     val isThousandsShaped = length - index - 1 == GROUP_SIZE
-    return isThousandsShaped && this[index] != localeDecimalSeparator()
+    return isThousandsShaped && this[index] == localeGroupingSeparator() && hasLeadingGroupBefore(index)
 }
 
-private fun localeDecimalSeparator(): Char =
-    DecimalFormatSymbols.getInstance(formattingLocale()).decimalSeparator
+/**
+ * Whether the digits before [index] are a group a grouped number can start with: one to three
+ * of them, and not opening with a zero.
+ *
+ * `1234,567` fails the count — a grouped 1234567 is written `1,234,567`, and the parser only
+ * ever sees one separator anyway. `0,125` fails the zero, which is the one that matters: it is
+ * the shape a user types for an eighth of a kilo, and reading it as 125 kg is a thousandfold
+ * error the field has no way to show as wrong.
+ */
+private fun String.hasLeadingGroupBefore(index: Int): Boolean {
+    val start = if (first() == '+' || first() == '-') 1 else 0
+    return index - start in 1..GROUP_SIZE && this[start] != '0'
+}
+
+private fun localeGroupingSeparator(): Char =
+    DecimalFormatSymbols.getInstance(formattingLocale()).groupingSeparator
 
 /**
  * [NumberFormat] parses leniently — it reads `12abc` as 12 and stops — so the position it

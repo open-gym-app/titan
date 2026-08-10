@@ -59,9 +59,16 @@ fun formatDistanceValue(centimetres: Long): String =
  * A user's typed distance back into storage: [text] read as [unit], as centimetres, or
  * null when it is not a number.
  *
- * The inverse of [formatDistanceValue] for the same [unit]. As with
- * [parseWeightMilligrams], null means *malformed* and range is left to `SetValidator`,
- * which is the one that can say which bound was missed.
+ * The inverse of [formatDistanceValue] for the same [unit]. Which is why the typed value is
+ * rounded to what that unit displays before it is scaled: [DistanceUnit.METRE] and
+ * [DistanceUnit.YARD] carry no decimals, so a field showing whole metres that took `25.5`
+ * literally would store 2550 cm, show it back as `26`, and store 2600 cm the next time it was
+ * saved untouched. A field is a fixed point or it drifts a step per edit.
+ *
+ * As with [parseWeightMilligrams], null means *malformed* and range is left to
+ * `SetValidator`, which is the one that can say which bound was missed.
  */
 fun parseDistanceCentimetres(text: String, unit: DistanceUnit): Long? =
-    parseNumber(text)?.let { (it * unit.centimetres).roundToLong() }
+    parseNumber(text)
+        ?.roundToFractionDigits(unit.fractionDigits)
+        ?.let { (it * unit.centimetres).roundToLong() }

@@ -47,11 +47,30 @@ enum class DistanceUnit(
  */
 fun UnitSystem.distanceUnitFor(centimetres: Long): DistanceUnit = when (this) {
     UnitSystem.METRIC ->
-        if (centimetres < DistanceUnit.KILOMETRE.centimetres) DistanceUnit.METRE else DistanceUnit.KILOMETRE
+        if (centimetres.readsUnder(DistanceUnit.KILOMETRE.centimetres, DistanceUnit.METRE)) {
+            DistanceUnit.METRE
+        } else {
+            DistanceUnit.KILOMETRE
+        }
 
     UnitSystem.IMPERIAL ->
-        if (centimetres < DistanceUnit.MILE.centimetres * MILE_THRESHOLD) DistanceUnit.YARD else DistanceUnit.MILE
+        if (centimetres.readsUnder(DistanceUnit.MILE.centimetres * MILE_THRESHOLD, DistanceUnit.YARD)) {
+            DistanceUnit.YARD
+        } else {
+            DistanceUnit.MILE
+        }
 }
+
+/**
+ * Whether [this] many centimetres are still under [threshold] *as [unit] would show them*.
+ *
+ * The rounding has to happen before the comparison, not after, or the two disagree at the
+ * boundary: 999.9 m is under a kilometre but displays as `1000` at the metre's zero decimals,
+ * and `1000 m` is the app spelling out a kilometre in the unit it just decided not to use.
+ * Rounding first sends that value to `1 km`, which is what it reads as anyway.
+ */
+private fun Long.readsUnder(threshold: Double, unit: DistanceUnit): Boolean =
+    (this / unit.centimetres).roundToFractionDigits(unit.fractionDigits) * unit.centimetres < threshold
 
 /** The fraction of a mile under which a distance reads better in yards. */
 private const val MILE_THRESHOLD = 0.5

@@ -30,10 +30,22 @@ class DistanceFormatTest {
 
     @Test
     fun `the unit switches at a kilometre, and at half a mile`() = withLocale(Locale.UK) {
-        assertEquals(DistanceUnit.METRE, UnitSystem.METRIC.distanceUnitFor(99_999))
+        assertEquals(DistanceUnit.METRE, UnitSystem.METRIC.distanceUnitFor(99_000))
         assertEquals(DistanceUnit.KILOMETRE, UnitSystem.METRIC.distanceUnitFor(100_000))
-        assertEquals(DistanceUnit.YARD, UnitSystem.IMPERIAL.distanceUnitFor(80_467 - 1))
+        assertEquals(DistanceUnit.YARD, UnitSystem.IMPERIAL.distanceUnitFor(80_000))
         assertEquals(DistanceUnit.MILE, UnitSystem.IMPERIAL.distanceUnitFor(80_467 + 1))
+    }
+
+    @Test
+    fun `a distance that would round up to the next unit is already shown in it`() = withLocale(Locale.UK) {
+        // 999.9 m is under a kilometre, but the metre carries no decimals — so left in metres
+        // it reads `1000 m`, the app spelling out a kilometre in the unit it just declined to
+        // use. The switch is made on the rounded value, so the short unit never displays a
+        // number that has reached the long one.
+        assertEquals("1 km", formatDistance(99_990, UnitSystem.METRIC))
+        assertEquals("999 m", formatDistance(99_949, UnitSystem.METRIC))
+        assertEquals("0.5 mi", formatDistance(80_422, UnitSystem.IMPERIAL))
+        assertEquals("879 yd", formatDistance(80_421, UnitSystem.IMPERIAL))
     }
 
     @Test
@@ -78,6 +90,16 @@ class DistanceFormatTest {
         assertEquals(520_000L, parseDistanceCentimetres("5.2", DistanceUnit.KILOMETRE))
         assertEquals(40_000L, parseDistanceCentimetres("400", DistanceUnit.METRE))
         assertEquals(160_934L, parseDistanceCentimetres("1", DistanceUnit.MILE))
+    }
+
+    @Test
+    fun `a typed distance is stored as the value its own field will show back`() = withLocale(Locale.UK) {
+        // The short units carry no decimals, so `25.5` in a metre field is 26 m. Storing 2550
+        // cm would show back as `26` and save as 2600 the next time the set was opened and
+        // saved untouched — a step of drift per edit, on a set nobody changed.
+        assertEquals(2_600L, parseDistanceCentimetres("25.5", DistanceUnit.METRE))
+        assertEquals("26", formatDistanceValue(2_600L, DistanceUnit.METRE))
+        assertEquals(2_600L, parseDistanceCentimetres("26", DistanceUnit.METRE))
     }
 
     @Test
