@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the shared workout components.
+
+  Anything a screen reader announces lives here rather than in a feature module: the
+  components are the things being announced, and a content description that lived at the call
+  site would be written once per screen and drift four ways.
+
+  Labels are written in sentence case even where the design draws them uppercase. The
+  `Eyebrow` and `OpenGymBadge` components uppercase for the caller, so a translator is never
+  asked to reproduce a typographic treatment.
+-->
+<resources>
+
+    <!-- ── Set logging ────────────────────────────────────────────────────────────── -->
+
+    <string name="set_log_column_set">Set</string>
+    <string name="set_log_column_previous">Prev</string>
+    <!-- The combined weight-and-reps column: "KG × REPS". The unit is the ambient one. -->
+    <string name="set_log_column_weight_reps">%1$s × reps</string>
+    <string name="set_log_column_rpe">RPE</string>
+
+    <!-- Set types. The marker is the single glyph shown in the set-number cell; the label is
+         what a screen reader says and what a badge spells out. -->
+    <string name="set_type_normal">Working set</string>
+    <string name="set_type_warmup">Warm-up</string>
+    <string name="set_type_warmup_marker">W</string>
+    <string name="set_type_drop">Drop set</string>
+    <string name="set_type_drop_marker">D</string>
+    <string name="set_type_failure">To failure</string>
+    <string name="set_type_failure_marker">F</string>
+    <string name="set_type_interval">Interval</string>
+    <string name="set_type_interval_marker">I</string>
+
+    <!-- Announced for the set-number cell: "Warm-up, set 1". -->
+    <string name="set_log_position">%1$s, set %2$d</string>
+    <string name="set_log_weight_field">Weight, set %1$d</string>
+    <string name="set_log_reps_field">Reps, set %1$d</string>
+    <string name="set_log_rpe_field">Rate of perceived exertion, set %1$d</string>
+    <string name="set_log_rpe_unset">–</string>
+    <string name="set_log_previous_none">–</string>
+    <string name="set_log_previous_value">Previously %1$s</string>
+    <string name="set_log_mark_done">Mark set %1$d done</string>
+    <string name="set_log_mark_not_done">Set %1$d is done. Reopen it</string>
+    <string name="set_log_weight_and_reps">%1$s × %2$d</string>
+    <string name="set_log_reps_only">%1$d reps</string>
+
+    <!-- ── Exercises ──────────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_last_performed">Last %1$s</string>
+    <string name="exercise_never_performed">Not logged yet</string>
+    <!-- Quoted: Android trims unquoted leading and trailing whitespace, which turns
+         "Chest, Triceps" into "Chest,Triceps". -->
+    <string name="exercise_meta_separator">" · "</string>
+
+    <!-- Equipment. Mirrors EquipmentType; OTHER has no label because "Other" beside an
+         exercise name says nothing the name did not. -->
+    <string name="equipment_barbell">Barbell</string>
+    <string name="equipment_dumbbell">Dumbbell</string>
+    <string name="equipment_machine">Machine</string>
+    <string name="equipment_bodyweight">Bodyweight</string>
+    <string name="equipment_cable">Cable</string>
+    <string name="equipment_kettlebell">Kettlebell</string>
+    <string name="equipment_band">Band</string>
+    <string name="equipment_ez_curl_bar">EZ bar</string>
+    <string name="equipment_medicine_ball">Medicine ball</string>
+    <string name="equipment_exercise_ball">Exercise ball</string>
+    <string name="equipment_foam_roll">Foam roller</string>
+
+    <!-- Muscle groups, keyed off the seeded taxonomy in tools/seed/generate_seed.py. A group
+         the seed does not know (a user-authored one) falls back to its own stored name. -->
+    <string name="muscle_abdominals">Abs</string>
+    <string name="muscle_abductors">Abductors</string>
+    <string name="muscle_adductors">Adductors</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_calves">Calves</string>
+    <string name="muscle_chest">Chest</string>
+    <string name="muscle_forearms">Forearms</string>
+    <string name="muscle_glutes">Glutes</string>
+    <string name="muscle_hamstrings">Hamstrings</string>
+    <string name="muscle_lats">Lats</string>
+    <string name="muscle_lower_back">Lower back</string>
+    <string name="muscle_middle_back">Mid back</string>
+    <string name="muscle_neck">Neck</string>
+    <string name="muscle_quadriceps">Quads</string>
+    <string name="muscle_shoulders">Shoulders</string>
+    <string name="muscle_traps">Traps</string>
+    <string name="muscle_triceps">Triceps</string>
+
+    <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
+
+    <string name="rest_timer_running">Rest</string>
+    <string name="rest_timer_paused">Rest paused</string>
+    <string name="rest_timer_finished">Rest complete</string>
+    <string name="rest_timer_idle">No rest running</string>
+    <string name="rest_timer_of_total">of %1$s</string>
+    <string name="rest_timer_remaining">%1$s left</string>
+    <string name="rest_timer_up_next">Next %1$s</string>
+    <string name="rest_timer_shorter_label">−%1$ds</string>
+    <string name="rest_timer_shorter">Shorten the rest by %1$d seconds</string>
+    <string name="rest_timer_longer_label">+%1$ds</string>
+    <string name="rest_timer_longer">Extend the rest by %1$d seconds</string>
+    <string name="rest_timer_pause">Pause the rest</string>
+    <string name="rest_timer_resume">Resume the rest</string>
+    <string name="rest_timer_skip">Skip rest</string>
+    <string name="rest_timer_next_set">Next set</string>
+
+    <!-- ── Stats ──────────────────────────────────────────────────────────────────── -->
+
+    <string name="stat_volume">Volume</string>
+    <string name="stat_sets">Sets</string>
+    <!-- Inside a chip, where it follows the figure in a phrase rather than heading it. -->
+    <string name="stat_sets_short">sets</string>
+    <string name="stat_sets_unit">total</string>
+    <string name="stat_duration">Duration</string>
+    <string name="stat_exercises">Exercises</string>
+    <string name="stat_exercises_unit">done</string>
+    <!-- Announced as one phrase so TalkBack says "Volume, 4,820 kg" rather than reading a
+         label and a number as two unrelated nodes. -->
+    <string name="stat_description">%1$s, %2$s</string>
+
+    <!-- Personal records. PrType's own names, as a lifter would say them. -->
+    <string name="pr_badge">PR</string>
+    <string name="pr_max_weight">Heaviest</string>
+    <string name="pr_max_reps">Most reps</string>
+    <string name="pr_max_volume">Most volume</string>
+    <string name="pr_estimated_1rm">1RM</string>
+    <string name="pr_max_distance">Furthest</string>
+    <string name="pr_best_pace">Best pace</string>
+    <string name="pr_description">Personal record: %1$s</string>
+    <string name="pr_description_short">Personal record</string>
+
+    <!-- ── Body diagram ───────────────────────────────────────────────────────────── -->
+
+    <string name="body_view_front">Front</string>
+    <string name="body_view_back">Back</string>
+    <string name="body_muscles_worked">Muscles worked</string>
+    <string name="body_diagram_none">Body diagram. No muscles highlighted.</string>
+    <string name="body_diagram_primary">Body diagram. Worked directly: %1$s.</string>
+    <string name="body_diagram_primary_and_secondary">Body diagram. Worked directly: %1$s. Also worked: %2$s.</string>
+    <string name="body_diagram_secondary">Body diagram. Worked indirectly: %1$s.</string>
+    <string name="body_muscle_separator">", "</string>
+
+</resources>

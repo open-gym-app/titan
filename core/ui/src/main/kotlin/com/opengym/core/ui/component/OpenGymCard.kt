@@ -24,18 +24,31 @@ import com.opengym.core.ui.theme.HAIRLINE_WIDTH
  *
  * @param shape defaults to `shapes.medium`, the radius the wireframes give a surface holding
  *   other content. Pass `shapes.small` for a card that is a single control.
+ * @param accented draws the border in the accent instead of the hairline shade, for the one
+ *   card on a screen that is *live* — the exercise being worked, the session that can be
+ *   resumed. The fill does not change: an accent-filled card would take the accent away from
+ *   the button inside it, which is the thing the user is meant to press. There should never
+ *   be two of these on one screen; a second one makes both of them ordinary.
  */
 @Composable
 fun OpenGymCard(
     modifier: Modifier = Modifier,
     shape: Shape = MaterialTheme.shapes.medium,
+    accented: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Surface(
         modifier = modifier,
         shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(HAIRLINE_WIDTH, MaterialTheme.colorScheme.outlineVariant),
+        border = BorderStroke(
+            width = HAIRLINE_WIDTH,
+            color = if (accented) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            },
+        ),
         content = { Column(content = content) },
     )
 }

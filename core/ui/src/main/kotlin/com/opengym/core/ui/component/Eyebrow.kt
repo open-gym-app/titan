@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -26,17 +27,23 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   findable without competing with the content under it. The accent is the deliberate
  *   exception — see the note on the accent in CONTRIBUTING.md — and is worth spending on the
  *   one section of a screen that matters right now.
+ * @param maxLines how many lines it may wrap to. One by default, and clipped rather than
+ *   ellipsised: an eyebrow is three or four words in a fixed column, and a heading that
+ *   breaks `SET` across two lines is worse than one that is a pixel short.
  */
 @Composable
 fun Eyebrow(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    maxLines: Int = 1,
 ) {
     Text(
         text = text.uppercase(Locale.current.platformLocale),
         style = OpenGymTheme.typography.eyebrow,
         color = color,
+        maxLines = maxLines,
+        overflow = TextOverflow.Clip,
         modifier = modifier,
     )
 }
