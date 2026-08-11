@@ -1,11 +1,11 @@
 package com.opengym.core.domain.integration
 
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.stats.VolumeCalculator
-import com.opengym.core.domain.timer.RestTimerController
 import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.domain.timer.record
 import com.opengym.core.domain.timer.restTimer
@@ -286,8 +286,8 @@ class FullSessionIntegrationTest {
         /** How long a working set takes to perform. */
         val WORK_SET = 45.seconds
 
-        /** The rest between two sets, the controller's own default. */
-        val REST = RestTimerController.DEFAULT_REST_DURATION
+        /** The rest between two sets, the app's default before the user changes it. */
+        val REST = UserPreferences.DEFAULT_REST_DURATION
 
         /** The break between the two exercises, taken with the session paused. */
         val BREAK = 5.minutes

@@ -2,6 +2,7 @@
 
 package com.opengym.core.domain.timer
 
+import com.opengym.core.domain.model.UserPreferences
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -52,7 +53,7 @@ class RestTimerAccuracyTest {
         val recording = record(timer)
         val startedAt = testScheduler.currentTime
 
-        timer.start()
+        timer.start(UserPreferences.DEFAULT_REST_DURATION)
         runOutTheClock()
 
         assertEquals(RestTimerState.Finished, timer.state.value)
@@ -69,7 +70,7 @@ class RestTimerAccuracyTest {
         val timer = restTimer()
         val recording = record(timer)
 
-        timer.start()
+        timer.start(UserPreferences.DEFAULT_REST_DURATION)
         runOutTheClock()
 
         val remaining = recording.states.filterIsInstance<RestTimerState.Running>().map { it.remaining }
@@ -82,7 +83,7 @@ class RestTimerAccuracyTest {
         val recording = record(timer)
         val startedAt = testScheduler.currentTime
 
-        timer.start()
+        timer.start(UserPreferences.DEFAULT_REST_DURATION)
         runOutTheClock()
 
         assertEquals(

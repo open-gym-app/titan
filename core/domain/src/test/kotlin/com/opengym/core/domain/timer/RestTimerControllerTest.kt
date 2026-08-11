@@ -40,16 +40,6 @@ class RestTimerControllerTest {
     }
 
     @Test
-    fun `start defaults to a ninety second rest`() = runTest {
-        val timer = restTimer()
-
-        timer.start()
-
-        assertEquals(90.seconds, RestTimerController.DEFAULT_REST_DURATION)
-        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), timer.state.value)
-    }
-
-    @Test
     fun `a paused and resumed rest walks idle running paused running finished`() = runTest {
         val timer = restTimer()
         val recording = record(timer)

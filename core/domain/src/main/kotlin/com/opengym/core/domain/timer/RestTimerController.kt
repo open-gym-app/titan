@@ -93,8 +93,14 @@ class RestTimerController(
      * Applies in any state: starting the next set's rest while the previous countdown is
      * still going replaces it, and neither the replaced countdown's remaining ticks nor
      * its `Finished` ever surface.
+     *
+     * [duration] is required rather than defaulted on purpose. How long a rest lasts is
+     * the user's to decide — [com.opengym.core.domain.model.UserPreferences.defaultRestDuration],
+     * overridden by an exercise's own `defaultRest` — and a default here would be a second
+     * answer to that question, one that a caller who forgot to read the setting would get
+     * silently. This class owns the countdown, not the policy.
      */
-    fun start(duration: Duration = DEFAULT_REST_DURATION) {
+    fun start(duration: Duration) {
         require(duration > Duration.ZERO) { "a rest duration must be positive, was $duration" }
         countDownFrom(remaining = duration, total = duration)
     }
@@ -236,9 +242,6 @@ class RestTimerController(
     }
 
     companion object {
-
-        /** The rest a set gets when the caller does not say otherwise. */
-        val DEFAULT_REST_DURATION: Duration = 90.seconds
 
         /** How often a running countdown republishes itself. */
         val DEFAULT_TICK: Duration = 1.seconds
