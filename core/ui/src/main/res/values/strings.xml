@@ -36,8 +36,14 @@
     <string name="set_log_position">%1$s, set %2$d</string>
     <string name="set_log_weight_field">Weight, set %1$d</string>
     <string name="set_log_reps_field">Reps, set %1$d</string>
-    <string name="set_log_rpe_field">Rate of perceived exertion, set %1$d</string>
+    <!-- The RPE cell folds its value into the description, the way every other cell does: a
+         content description replaces the text it is set on rather than adding to it, so a
+         label alone would announce the column and swallow the number. -->
+    <string name="set_log_rpe_value">Rate of perceived exertion, set %1$d, %2$s</string>
+    <string name="set_log_rpe_none">Rate of perceived exertion, set %1$d, not set</string>
     <string name="set_log_rpe_unset">–</string>
+    <!-- Drawn in the previous column when a set has no history, so the columns of one table
+         still line up. Hidden from screen readers: it is a spacer, not a value. -->
     <string name="set_log_previous_none">–</string>
     <string name="set_log_previous_value">Previously %1$s</string>
     <string name="set_log_mark_done">Mark set %1$d done</string>

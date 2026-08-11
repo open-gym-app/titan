@@ -1,9 +1,14 @@
 package com.opengym.core.ui.component
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -13,6 +18,7 @@ import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -95,10 +101,134 @@ class SetLogRowTest {
     }
 
     @Test
+    fun `a set with no history keeps the column, so the rows of one table line up`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                Column {
+                    SetLogRow(
+                        setNumber = 1,
+                        weight = "80",
+                        reps = "5",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        previous = "75 × 6",
+                    )
+                    SetLogRow(
+                        setNumber = 2,
+                        weight = "80",
+                        reps = "5",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        previous = null,
+                    )
+                }
+            }
+        }
+
+        val withHistory = composeTestRule.onNodeWithContentDescription("Weight, set 1")
+            .getUnclippedBoundsInRoot().left
+        val without = composeTestRule.onNodeWithContentDescription("Weight, set 2")
+            .getUnclippedBoundsInRoot().left
+
+        assertEquals(withHistory.value, without.value, HALF_A_PIXEL)
+    }
+
+    @Test
+    fun `a table with no history anywhere drops the column instead of reserving it`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                Column {
+                    SetLogRow(
+                        setNumber = 1,
+                        weight = "80",
+                        reps = "5",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        previous = null,
+                        showPrevious = true,
+                    )
+                    SetLogRow(
+                        setNumber = 2,
+                        weight = "80",
+                        reps = "5",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        previous = null,
+                        showPrevious = false,
+                    )
+                }
+            }
+        }
+
+        val reserved = composeTestRule.onNodeWithContentDescription("Weight, set 1")
+            .getUnclippedBoundsInRoot().left
+        val dropped = composeTestRule.onNodeWithContentDescription("Weight, set 2")
+            .getUnclippedBoundsInRoot().left
+
+        assertTrue(
+            "dropping the column must give its width back to the fields, not hold it empty",
+            dropped.value < reserved.value,
+        )
+    }
+
+    @Test
     fun `an invalid row shows the reason it was refused`() {
         setRow(weight = "80", reps = "0", error = "reps must be within 1..10,000, was 0")
 
         composeTestRule.onNodeWithText("reps must be within 1..10,000, was 0").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the refusal is announced on the fields, which are what a screen reader stops on`() {
+        setRow(weight = "80", reps = "0", error = "reps must be within 1..10,000, was 0")
+
+        // The row's frame is a Column with no text and no role: TalkBack never lands on it,
+        // so an error announced there is an error nobody hears.
+        composeTestRule.onNodeWithContentDescription("Reps, set 3")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Error, "reps must be within 1..10,000, was 0"))
+        composeTestRule.onNodeWithContentDescription("Weight, set 3")
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Error))
+    }
+
+    @Test
+    fun `negative - a valid row puts no error on its fields`() {
+        setRow(weight = "80", reps = "5")
+
+        composeTestRule.onNodeWithContentDescription("Reps, set 3")
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Error))
+    }
+
+    @Test
+    fun `the RPE cell announces the value, not just the name of the column`() {
+        setRow(weight = "80", reps = "5", rpe = 85)
+
+        // A content description replaces the text it is set on. Labelling the cell and
+        // leaving the number to the text means the number is never read.
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 8.5")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `an RPE that was never given says so rather than reading out a dash`() {
+        setRow(weight = "80", reps = "5", rpe = null)
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, not set")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `negative - the multiplication sign is not a stop of its own`() {
+        setRow(weight = "80", reps = "5")
+
+        // Five sets would otherwise be five announcements of "multiplication sign" between
+        // the values it is punctuating.
+        composeTestRule.onNodeWithText("×").assertDoesNotExist()
     }
 
     @Test
@@ -168,6 +298,7 @@ class SetLogRowTest {
         setType: SetType = SetType.NORMAL,
         rpe: Int? = null,
         previous: String? = null,
+        showPrevious: Boolean = true,
         isCompleted: Boolean = false,
         error: String? = null,
         enabled: Boolean = true,
@@ -184,11 +315,18 @@ class SetLogRowTest {
                     setType = setType,
                     rpe = rpe,
                     previous = previous,
+                    showPrevious = showPrevious,
                     isCompleted = isCompleted,
                     error = error,
                     enabled = enabled,
                 )
             }
         }
+    }
+
+    private companion object {
+
+        /** Layout is computed in floating point; a fraction of a pixel is not a misalignment. */
+        const val HALF_A_PIXEL = 0.5f
     }
 }

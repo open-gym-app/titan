@@ -82,11 +82,14 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param rpe the stored RPE (x 10), or null. Tapping the cell calls [onRpeClick], which is
  *   the screen's cue to open a picker — the scale has eleven values and a text field for it
  *   would accept `47`.
- * @param previous what was done on this set last time — `80 kg × 5` — or null to leave the
- *   column empty. Formatted by the caller: which "last time" this is (#101) is the feature's
- *   question, not this row's.
- * @param error the reason the row is refused, shown under it and announced as a semantics
- *   error. Null when the row is fine.
+ * @param previous what was done on this set last time — `80 kg × 5` — or null for a set with
+ *   no history, which still reserves the column so the rows of one table line up. Formatted by
+ *   the caller: which "last time" this is (#101) is the feature's question, not this row's.
+ * @param showPrevious false drops the previous column entirely. A whole-table decision, not a
+ *   per-row one: pass the same value to every row and to [SetLogHeader], or the labels stop
+ *   sitting over the cells they name.
+ * @param error the reason the row is refused, shown under it and announced on the fields it
+ *   refused. Null when the row is fine.
  * @param isActive marks the set the user is on. Tints the row, so a glance mid-session finds
  *   it without reading.
  * @param enabled false makes the fields read-only without changing what they show — a
@@ -105,6 +108,7 @@ fun SetLogRow(
     rpe: Int? = null,
     onRpeClick: (() -> Unit)? = null,
     previous: String? = null,
+    showPrevious: Boolean = true,
     isCompleted: Boolean = false,
     isActive: Boolean = false,
     error: String? = null,
@@ -117,7 +121,7 @@ fun SetLogRow(
         error = error,
     ) {
         SetIndexCell(setNumber = setNumber, setType = setType, isActive = isActive)
-        PreviousCell(previous)
+        PreviousCell(previous = previous, showPrevious = showPrevious)
 
         SetValueField(
             value = weight,
@@ -125,13 +129,17 @@ fun SetLogRow(
             description = stringResource(R.string.set_log_weight_field, setNumber),
             keyboardType = KeyboardType.Decimal,
             enabled = enabled,
-            isError = error != null,
+            error = error,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
         Text(
             text = MULTIPLICATION_SIGN,
             style = OpenGymTheme.typography.numericSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // Decoration between two labelled fields. Left in the tree it is a stop of its
+            // own, and swiping through a five-set exercise hits "multiplication sign" five
+            // times between the values it is punctuating.
+            modifier = Modifier.clearAndSetSemantics { },
         )
         SetValueField(
             value = reps,
@@ -139,7 +147,7 @@ fun SetLogRow(
             description = stringResource(R.string.set_log_reps_field, setNumber),
             keyboardType = KeyboardType.Number,
             enabled = enabled,
-            isError = error != null,
+            error = error,
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
 
@@ -166,6 +174,7 @@ fun LoggedSetRow(
     set: WorkoutSet,
     modifier: Modifier = Modifier,
     previous: String? = null,
+    showPrevious: Boolean = true,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -175,6 +184,7 @@ fun LoggedSetRow(
         rpe = set.rpe,
         isCompleted = set.isCompleted,
         previous = previous,
+        showPrevious = showPrevious,
         modifier = modifier,
     )
 }
@@ -186,6 +196,7 @@ fun LoggedSetRow(
     set: ActiveSet,
     modifier: Modifier = Modifier,
     previous: String? = null,
+    showPrevious: Boolean = true,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -195,6 +206,7 @@ fun LoggedSetRow(
         rpe = set.rpe,
         isCompleted = set.isCompleted,
         previous = previous,
+        showPrevious = showPrevious,
         modifier = modifier,
     )
 }
@@ -206,6 +218,10 @@ fun LoggedSetRow(
  * are a `Column` and the columns line up because both use these widths. Reading the header
  * out to a screen reader would then announce four words with nothing under them, so it is
  * hidden from semantics; each field carries its own label instead.
+ *
+ * @param showPrevious must match what the rows under it were given, since nothing here can
+ *   check: a header that keeps a column the rows dropped is labels sitting over the wrong
+ *   cells.
  */
 @Composable
 fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
@@ -264,7 +280,6 @@ private fun SetRowFrame(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .then(if (error != null) Modifier.semantics { this.error(error) } else Modifier)
             .padding(horizontal = OpenGymTheme.spacing.md, vertical = OpenGymTheme.spacing.sm),
     ) {
         Row(
@@ -312,12 +327,21 @@ private fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
     )
 }
 
+/**
+ * What was done last time, or a dash holding the column open.
+ *
+ * The dash is the point. A set with no history is the ordinary case in a table that has some —
+ * last session was three sets, this one is five — and a cell that collapsed would shift every
+ * cell to its right by the column's width, so two rows of one table would not line up.
+ */
 @Composable
-private fun PreviousCell(previous: String?) {
-    if (previous == null) return
-    val spoken = stringResource(R.string.set_log_previous_value, previous)
+private fun PreviousCell(previous: String?, showPrevious: Boolean) {
+    if (!showPrevious) return
+    val placeholder = stringResource(R.string.set_log_previous_none)
+    val spoken = previous?.let { stringResource(R.string.set_log_previous_value, it) }
+
     Text(
-        text = previous,
+        text = previous ?: placeholder,
         style = OpenGymTheme.typography.numericSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
@@ -326,8 +350,9 @@ private fun PreviousCell(previous: String?) {
             .width(PREVIOUS_COLUMN_WIDTH)
             // Replaced rather than added to: read as text the cell is four unlabelled
             // characters between a set number and a weight field, and a screen reader user
-            // has no column headers to tell them which of the three it was.
-            .clearAndSetSemantics { contentDescription = spoken },
+            // has no column headers to tell them which of the three it was. With nothing to
+            // report it leaves the tree altogether — the dash is spacing, not a value.
+            .clearAndSetSemantics { if (spoken != null) contentDescription = spoken },
     )
 }
 
@@ -338,6 +363,10 @@ private fun PreviousCell(previous: String?) {
  * label, a 56dp minimum height and their own container, and four of them across a 300dp row
  * is not a layout. What is kept is what the field is *for* — a numeric keyboard, a single
  * line, a visible focus and error state, and a label a screen reader can read.
+ *
+ * [error] is carried here rather than on the row's frame because the frame is a `Column` with
+ * no text and no role: TalkBack never stops on it, so an error announced there is an error
+ * nobody hears. On the field it is read out with the value that was refused.
  */
 @Composable
 private fun SetValueField(
@@ -346,11 +375,11 @@ private fun SetValueField(
     description: String,
     keyboardType: KeyboardType,
     enabled: Boolean,
-    isError: Boolean,
+    error: String?,
     modifier: Modifier = Modifier,
 ) {
     val shape = MaterialTheme.shapes.extraSmall
-    val border = if (isError) MaterialTheme.colorScheme.error else Color.Transparent
+    val border = if (error != null) MaterialTheme.colorScheme.error else Color.Transparent
 
     BasicTextField(
         value = value,
@@ -364,7 +393,10 @@ private fun SetValueField(
         ),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = modifier.semantics { contentDescription = description },
+        modifier = modifier.semantics {
+            contentDescription = description
+            if (error != null) this.error(error)
+        },
         decorationBox = { field ->
             Box(
                 modifier = Modifier
@@ -378,10 +410,22 @@ private fun SetValueField(
     )
 }
 
+/**
+ * The RPE, or a dash for one that was never given.
+ *
+ * The description carries the value — "…, set 3, 8.5" — because a content description
+ * *replaces* the text of the node it is set on rather than adding to it. A description of the
+ * column alone would announce what the cell is and never what it holds, which is the one thing
+ * a reader wanted.
+ */
 @Composable
 private fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
-    val spoken = stringResource(R.string.set_log_rpe_field, setNumber)
     val unset = stringResource(R.string.set_log_rpe_unset)
+    val spoken = if (rpe != null) {
+        stringResource(R.string.set_log_rpe_value, setNumber, formatRpe(rpe))
+    } else {
+        stringResource(R.string.set_log_rpe_none, setNumber)
+    }
 
     Text(
         text = rpe?.let(::formatRpe) ?: unset,
@@ -449,6 +493,7 @@ private fun LoggedSetRow(
     rpe: Int?,
     isCompleted: Boolean,
     previous: String?,
+    showPrevious: Boolean,
     modifier: Modifier,
 ) {
     val performed = when {
@@ -462,7 +507,7 @@ private fun LoggedSetRow(
 
     SetRowFrame(modifier = modifier, isActive = false, isCompleted = isCompleted, error = null) {
         SetIndexCell(setNumber = setNumber, setType = setType, isActive = false)
-        PreviousCell(previous)
+        PreviousCell(previous = previous, showPrevious = showPrevious)
         Text(
             text = performed,
             style = OpenGymTheme.typography.numeric,
@@ -597,7 +642,9 @@ private fun SetLogTable() {
             onRepsChange = {},
             onCompletedChange = {},
             setType = SetType.DROP_SET,
-            previous = "60 × 12",
+            // No history: last session stopped at three sets. The column stays, holding the
+            // fields under the ones above them.
+            previous = null,
         )
     }
 }

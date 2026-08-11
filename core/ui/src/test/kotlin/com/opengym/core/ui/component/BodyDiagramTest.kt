@@ -50,6 +50,28 @@ class BodyDiagramTest {
     }
 
     @Test
+    fun `a muscle worked by several exercises is named once, at its highest emphasis`() {
+        // What a caller unioning a push day hands in: chest is the target three times over,
+        // and the triceps that assist the bench are the point of the dips.
+        composeTestRule.setContent {
+            OpenGymTheme {
+                BodyDiagram(
+                    primary = listOf(muscle("CHEST"), muscle("TRICEPS"), muscle("CHEST")),
+                    secondary = listOf(muscle("TRICEPS"), muscle("CHEST"), muscle("SHOULDERS")),
+                )
+            }
+        }
+
+        // Not "Chest, Triceps, Chest … Also worked: Triceps, Chest", which the picture —
+        // which resolves the overlap at `secondary.toRegions() - primaryRegions` — denies.
+        composeTestRule
+            .onNodeWithContentDescription(
+                "Body diagram. Worked directly: Chest, Triceps. Also worked: Shoulders.",
+            )
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun `a diagram with nothing highlighted says so rather than staying silent`() {
         composeTestRule.setContent {
             OpenGymTheme { BodyDiagram(primary = emptyList()) }

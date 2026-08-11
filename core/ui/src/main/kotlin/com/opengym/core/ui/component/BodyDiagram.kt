@@ -202,6 +202,12 @@ private fun Collection<MuscleGroup>.toRegions(): Set<BodyRegion> =
  * Built from the muscle *groups* rather than from the regions they mapped onto, so a group
  * the illustration has no shape for is still announced. That is the case the diagram is
  * least able to convey, and so the one where the description carries the most.
+ *
+ * Deduplicated, and secondaries minus primaries, the same way [BodyDiagram] resolves the
+ * drawing at `secondary.toRegions() - primaryRegions`. Callers union several exercises, where
+ * a chest appears three times over and a triceps is one movement's target and another's
+ * assistor; read out raw that is "Worked directly: Chest, Chest, Chest. Also worked: Chest." —
+ * a sentence the picture then contradicts.
  */
 @Composable
 private fun bodyDiagramDescription(
@@ -209,10 +215,15 @@ private fun bodyDiagramDescription(
     secondary: Collection<MuscleGroup>,
 ): String {
     val separator = stringResource(R.string.body_muscle_separator)
-    // `map` before `joinToString`, not `joinToString { }`: its transform is a nullable
-    // parameter, which makes it non-inlinable and so closes it to a composable call.
-    val primaryNames = primary.map { it.displayName() }.joinToString(separator)
-    val secondaryNames = secondary.map { it.displayName() }.joinToString(separator)
+    // `map` before the rest, not `joinToString { }`: its transform is a nullable parameter,
+    // which makes it non-inlinable and so closes it to a composable call.
+    val primaryLabels = primary.map { it.displayName() }.distinct()
+    val secondaryLabels = secondary.map { it.displayName() }.distinct() - primaryLabels.toSet()
+
+    // By label rather than by group: two rows the user authored as `Chest` and `chest` are one
+    // muscle to everyone but the database, and the sentence is what is being read out.
+    val primaryNames = primaryLabels.joinToString(separator)
+    val secondaryNames = secondaryLabels.joinToString(separator)
 
     return when {
         primaryNames.isNotEmpty() && secondaryNames.isNotEmpty() ->

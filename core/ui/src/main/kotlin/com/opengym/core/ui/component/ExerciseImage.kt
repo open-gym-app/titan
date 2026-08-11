@@ -11,11 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.ui.theme.OpenGymTheme
+import java.text.BreakIterator
 import java.util.Locale
 
 /**
@@ -62,6 +64,10 @@ fun ExerciseImage(
             text = exercise.initial(),
             style = OpenGymTheme.typography.numeric,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // The letter is a drawing of an absent photo, not a word. Left in the tree it
+            // merges into the row that wraps this — "B, Barbell bench press, Barbell" — and
+            // it stays there after the photo has covered it, since it is never removed.
+            modifier = Modifier.clearAndSetSemantics { },
         )
         if (icon != null) {
             AsyncImage(
@@ -86,10 +92,27 @@ object ExerciseImageDefaults {
     val CARD_SIZE: Dp = 60.dp
 }
 
-/** The letter shown when there is no photo. Locale-aware, so `ı` and `İ` come out right. */
-private fun Exercise.initial(): String =
-    name.trim().take(1).uppercase(Locale.getDefault()).ifEmpty { "?" }
+/**
+ * The letter shown when there is no photo.
+ *
+ * The first *grapheme*, not the first `Char`. Exercise names are user-authored, and `🏋️ Bench`
+ * opens with a surrogate pair followed by a variation selector: `take(1)` cuts the pair in
+ * half and draws tofu. [BreakIterator] is the thing that knows where a character ends, and it
+ * is locale-aware, as is the uppercasing — so `ıskele` comes out `I` in most locales and `İ`
+ * in a Turkish one.
+ */
+internal fun Exercise.initial(): String {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty()) return NO_INITIAL
+
+    val graphemes = BreakIterator.getCharacterInstance(Locale.getDefault())
+    graphemes.setText(trimmed)
+    return trimmed.substring(0, graphemes.next()).uppercase(Locale.getDefault())
+}
 
 private fun assetUri(assetPath: String): String = "$ANDROID_ASSET_SCHEME$assetPath"
 
 private const val ANDROID_ASSET_SCHEME = "file:///android_asset/"
+
+/** Shown for a name that is empty or all whitespace, which the domain does not forbid. */
+private const val NO_INITIAL = "?"
