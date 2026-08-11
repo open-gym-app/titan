@@ -6,8 +6,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.navigation
 import com.opengym.app.BuildConfig
+import com.opengym.feature.history.navigation.SELECTED_EXERCISE_IDS_KEY
 import com.opengym.feature.history.navigation.SessionDetailDestination
+import com.opengym.feature.history.navigation.exercisePickerGraph
 import com.opengym.feature.history.navigation.historyGraph
+import com.opengym.feature.history.navigation.libraryGraph
 import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.progression.navigation.progressionGraph
@@ -71,6 +74,9 @@ fun OpenGymNavHost(
                 },
                 onBack = { navController.popBackStack() },
             )
+            // Null until the exercise detail screen exists (#94). A row that navigated
+            // nowhere would still take the tap and look broken; an inert row does not.
+            libraryGraph(onExerciseClick = null)
             progressionGraph()
         }
 
@@ -90,6 +96,20 @@ fun OpenGymNavHost(
                 }
             },
             onSummaryDismissed = { navController.exitSessionFlow() },
+        )
+
+        exercisePickerGraph(
+            onBack = { navController.popBackStack() },
+            // The picker's result goes to whoever opened it, through the previous back stack
+            // entry's saved state — Navigation Compose has no "start for result", and the
+            // feature cannot reach the `NavController` to write it itself. The pop is what
+            // makes the caller current again, so the write has to happen first.
+            onExercisesSelected = { exerciseIds ->
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set(SELECTED_EXERCISE_IDS_KEY, exerciseIds.toLongArray())
+                navController.popBackStack()
+            },
         )
 
         settingsGraph(

@@ -59,6 +59,12 @@
          "Chest, Triceps" into "Chest,Triceps". -->
     <string name="exercise_meta_separator">" · "</string>
 
+    <!-- How an exercise is measured — named after what the user logs, not after the enum
+         constant. Mirrors ExerciseType. -->
+    <string name="exercise_type_strength">Weight &amp; reps</string>
+    <string name="exercise_type_endurance">Distance &amp; time</string>
+    <string name="exercise_type_isometric">Hold</string>
+
     <!-- Equipment. Mirrors EquipmentType; OTHER has no label because "Other" beside an
          exercise name says nothing the name did not. -->
     <string name="equipment_barbell">Barbell</string>
@@ -135,6 +141,18 @@
     <string name="pr_best_pace">Best pace</string>
     <string name="pr_description">Personal record: %1$s</string>
     <string name="pr_description_short">Personal record</string>
+    <!-- A record's figure where the kind has no unit of its own to carry it. -->
+    <plurals name="pr_value_reps">
+        <item quantity="one">%1$d rep</item>
+        <item quantity="other">%1$d reps</item>
+    </plurals>
+    <!-- Announced for a record shown as a bare figure: "Personal record, heaviest, 92 kg". -->
+    <string name="pr_value_description">Personal record, %1$s, %2$s</string>
+
+    <!-- ── Search ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="search_placeholder">Search…</string>
+    <string name="search_clear">Clear the search</string>
 
     <!-- ── Body diagram ───────────────────────────────────────────────────────────── -->
 

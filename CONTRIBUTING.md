@@ -148,14 +148,18 @@ Text(
   | `RestCountdown` / `RestTimerIndicator` | the same countdown alone, and as a header pill | `RestTimerState` |
   | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
   | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |
-  | `PrBadge` | the personal-record tag | `PrType` |
+  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
+  | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
+  | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
+  | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
 
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up
   disagreeing about what a warm-up looks like.
 - **Domain enums are labelled once, in `:core:ui`.** `SetType.label()`, `EquipmentType.labelOrNull()`,
-  `PrType.label()` and `MuscleGroup.displayName()` live in `component/DomainLabels.kt`, because
+  `ExerciseType.label()`, `PrType.label()` and `MuscleGroup.displayName()` live in
+  `component/DomainLabels.kt`, because
   `:core:domain` is a plain Kotlin library that has no business knowing what a string resource
   is, and because more than one feature renders each of them.
 - **Never format a number by hand, and never parse one by hand either.**

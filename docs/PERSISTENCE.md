@@ -161,6 +161,8 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 | `WorkoutSetDao.getVolumeByWeek` / `getVolumeByMuscleGroup` | `workout_set(completed_at)`, `exercise_muscle_group(muscle_group_id)` |
 | `PersonalRecordDao.getRecentRecords` | `personal_record(achieved_at)` |
 | `PersonalRecordDao.getByExercise` | `personal_record(exercise_id, achieved_at)` |
+| `PersonalRecordDao.getHeadlineRecords` | `personal_record(exercise_id, achieved_at)` |
+| `ExerciseDao.getAllMuscleGroupLinks` | `exercise_muscle_group(exercise_id, muscle_group_id)` (the composite primary key) |
 | `BodyWeightLogDao.getAll` / `getLatest` | `body_weight_log(created_at)` |
 
 `LargeHistoryBenchmarkTest` seeds a power-user history (10k sessions, ~30k session exercises, 100k sets, 10k personal records) and asserts each of these stays under 500 ms. The budget is generous on purpose: it catches a dropped index turning a join quadratic, not micro-regressions. Unbounded reads (`getHistoryByExercise`, `getAll`) keep a `PagingSource` variant - screens should use it and leave the `Flow<List<...>>` form to charts and exports.

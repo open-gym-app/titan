@@ -4,11 +4,13 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
 import com.opengym.core.data.db.entity.TagEntity
+import com.opengym.core.data.db.projection.CatalogueMuscleGroupLinkRow
 import com.opengym.core.data.db.projection.ExerciseMuscleGroupLinkRow
 import kotlinx.coroutines.flow.Flow
 
@@ -71,6 +73,52 @@ interface ExerciseDao {
         """,
     )
     fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLinkRow>>
+
+    /**
+     * Every link in the catalogue, in one result set, grouped by exercise and ordered
+     * within each exercise exactly as [getMuscleGroupLinks] orders one.
+     *
+     * For the screens that draw the whole catalogue at once. Running the per-exercise query
+     * 184 times would mean 184 Room observers on the same two tables, all invalidated
+     * together by any write to either.
+     *
+     * `ORDER BY exercise_id` first so the caller can group in one pass over an already
+     * ordered result, rather than sorting a map's values afterwards.
+     */
+    @Query(
+        """
+        SELECT
+            emg.exercise_id AS exercise_id,
+            mg.id AS muscle_group_id,
+            mg.name AS muscle_group_name,
+            mg.icon AS muscle_group_icon,
+            emg.is_primary AS is_primary
+        FROM muscle_group mg
+        INNER JOIN exercise_muscle_group emg ON mg.id = emg.muscle_group_id
+        ORDER BY emg.exercise_id ASC, emg.is_primary DESC, mg.name ASC
+        """,
+    )
+    fun getAllMuscleGroupLinks(): Flow<List<CatalogueMuscleGroupLinkRow>>
+
+    /**
+     * Write an exercise and its muscle links together, or write neither.
+     *
+     * The transaction is the point: a custom exercise whose links did not land is one that
+     * trains nothing — absent from every muscle filter, and contributing nothing to volume
+     * attribution — and the user has no way to tell from looking at it.
+     *
+     * [links] arrive with whatever `exerciseId` the caller had (they cannot know the
+     * generated one), and are re-pointed at the row this actually inserted.
+     */
+    @Transaction
+    suspend fun insertWithMuscleGroups(
+        exercise: ExerciseEntity,
+        links: List<ExerciseMuscleGroupEntity>,
+    ): Long {
+        val exerciseId = insert(exercise)
+        links.forEach { link -> addMuscleGroup(link.copy(exerciseId = exerciseId)) }
+        return exerciseId
+    }
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun addTag(ref: ExerciseTagEntity)

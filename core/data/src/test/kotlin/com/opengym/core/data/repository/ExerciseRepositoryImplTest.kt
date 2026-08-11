@@ -11,8 +11,10 @@ import com.opengym.core.data.mapper.MuscleGroupLinkMapper
 import com.opengym.core.data.mapper.TagMapper
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MechanicType
+import com.opengym.core.domain.model.MuscleGroup
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -31,6 +33,7 @@ class ExerciseRepositoryImplTest : RoomTestBase() {
     private val repository by lazy {
         ExerciseRepositoryImpl(
             exerciseDao = db.exerciseDao(),
+            muscleGroupDao = db.muscleGroupDao(),
             exerciseMapper = ExerciseMapper(),
             tagMapper = TagMapper(),
             muscleGroupLinkMapper = MuscleGroupLinkMapper(),
@@ -159,5 +162,77 @@ class ExerciseRepositoryImplTest : RoomTestBase() {
 
         assertNull(repository.getById(id).first())
         assertTrue(repository.getAll().first().isEmpty())
+    }
+
+    @Test
+    fun `getAllMuscleGroupLinks keys every exercise's links, prime mover first`() = runBlocking {
+        val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+        val triceps = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "TRICEPS"))).single()
+        val bench = repository.insert(Exercise(name = "Bench Press"))
+        val fly = repository.insert(Exercise(name = "Cable Fly", equipmentType = EquipmentType.CABLE))
+        // Inserted secondary-first, so an ordering that merely echoed insertion order would
+        // put the triceps at the head of the bench press.
+        db.exerciseDao().addMuscleGroup(ExerciseMuscleGroupEntity(bench, triceps, isPrimary = false))
+        db.exerciseDao().addMuscleGroup(ExerciseMuscleGroupEntity(bench, chest, isPrimary = true))
+        db.exerciseDao().addMuscleGroup(ExerciseMuscleGroupEntity(fly, chest, isPrimary = true))
+
+        val links = repository.getAllMuscleGroupLinks().first()
+
+        assertEquals(setOf(bench, fly), links.keys)
+        assertEquals(listOf("CHEST", "TRICEPS"), links.getValue(bench).map { it.muscleGroup.name })
+        assertEquals(listOf(true, false), links.getValue(bench).map { it.isPrimary })
+        assertEquals(listOf("CHEST"), links.getValue(fly).map { it.muscleGroup.name })
+    }
+
+    @Test
+    fun `getAllMuscleGroupLinks has no entry for an exercise that trains nothing`() = runBlocking {
+        repository.insert(Exercise(name = "Farmer's Carry"))
+
+        assertTrue(repository.getAllMuscleGroupLinks().first().isEmpty())
+    }
+
+    @Test
+    fun `insert with muscle groups writes the exercise and its links together`() = runBlocking {
+        val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+        val triceps = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "TRICEPS"))).single()
+
+        val id = repository.insert(
+            exercise = Exercise(name = "Hammer Incline Press", isCustom = true),
+            muscleGroups = listOf(
+                ExerciseMuscleGroupLink(MuscleGroup(id = chest, name = "CHEST"), isPrimary = true),
+                ExerciseMuscleGroupLink(MuscleGroup(id = triceps, name = "TRICEPS"), isPrimary = false),
+            ),
+        )
+
+        assertEquals("Hammer Incline Press", repository.getById(id).first()?.name)
+        val links = repository.getMuscleGroupLinks(id).first()
+        assertEquals(listOf("CHEST", "TRICEPS"), links.map { it.muscleGroup.name })
+        assertEquals(listOf(true, false), links.map { it.isPrimary })
+    }
+
+    @Test
+    fun `insert with muscle groups writes nothing when a link cannot be satisfied`() = runBlocking {
+        val failed = runCatching {
+            repository.insert(
+                exercise = Exercise(name = "Ghost Press"),
+                muscleGroups = listOf(
+                    ExerciseMuscleGroupLink(MuscleGroup(id = 404, name = "NOWHERE"), isPrimary = true),
+                ),
+            )
+        }
+
+        assertTrue(failed.isFailure)
+        // The point of the transaction: an exercise that trains nothing would be invisible to
+        // every muscle filter, and the user would have no way to tell from looking at it.
+        assertTrue(repository.getAll().first().isEmpty())
+    }
+
+    @Test
+    fun `getMuscleGroups returns the taxonomy by name`() = runBlocking {
+        db.muscleGroupDao().insertAll(
+            listOf(muscleGroup(name = "TRICEPS"), muscleGroup(name = "CHEST")),
+        )
+
+        assertEquals(listOf("CHEST", "TRICEPS"), repository.getMuscleGroups().first().map { it.name })
     }
 }

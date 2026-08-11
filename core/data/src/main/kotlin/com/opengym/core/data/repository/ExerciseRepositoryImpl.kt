@@ -1,6 +1,8 @@
 package com.opengym.core.data.repository
 
 import com.opengym.core.data.db.dao.ExerciseDao
+import com.opengym.core.data.db.dao.MuscleGroupDao
+import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.mapper.ExerciseMapper
 import com.opengym.core.data.mapper.MuscleGroupLinkMapper
 import com.opengym.core.data.mapper.TagMapper
@@ -8,6 +10,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.repository.ExerciseRepository
 import kotlinx.coroutines.flow.Flow
@@ -25,9 +28,15 @@ import javax.inject.Inject
  *
  * The enum-valued filters ([getByType], [getByEquipmentType]) are passed down as
  * their constant names, which is how the columns store them; see the mapper.
+ *
+ * [MuscleGroupDao] is here rather than behind a repository of its own because the taxonomy is
+ * not a thing anybody browses — it is the vocabulary an exercise's muscle links are drawn
+ * from, so its two callers ([getMuscleGroups] and the muscle filter it feeds) are both
+ * questions about the catalogue.
  */
 class ExerciseRepositoryImpl @Inject constructor(
     private val exerciseDao: ExerciseDao,
+    private val muscleGroupDao: MuscleGroupDao,
     private val exerciseMapper: ExerciseMapper,
     private val tagMapper: TagMapper,
     private val muscleGroupLinkMapper: MuscleGroupLinkMapper,
@@ -51,11 +60,39 @@ class ExerciseRepositoryImpl @Inject constructor(
     override fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLink>> =
         exerciseDao.getMuscleGroupLinks(exerciseId).map { rows -> rows.map(muscleGroupLinkMapper::toDomain) }
 
+    override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> =
+        exerciseDao.getAllMuscleGroupLinks().map { rows ->
+            // `groupBy` preserves encounter order within each group, and the query orders by
+            // exercise then primary-first — so each list arrives with its prime mover at the
+            // head without a second sort here.
+            rows.groupBy(
+                keySelector = { it.exerciseId },
+                valueTransform = { muscleGroupLinkMapper.toDomain(it.link) },
+            )
+        }
+
+    override fun getMuscleGroups(): Flow<List<MuscleGroup>> =
+        muscleGroupDao.getAll().map { rows -> rows.map(muscleGroupLinkMapper::toDomain) }
+
     override fun getTags(exerciseId: Long): Flow<List<Tag>> =
         exerciseDao.getTags(exerciseId).map { rows -> rows.map(tagMapper::toDomain) }
 
     override suspend fun insert(exercise: Exercise): Long =
         exerciseDao.insert(exerciseMapper.toEntity(exercise))
+
+    override suspend fun insert(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>): Long =
+        exerciseDao.insertWithMuscleGroups(
+            exercise = exerciseMapper.toEntity(exercise),
+            // The exercise id is a placeholder: the row does not exist yet, so there is
+            // nothing truthful to put here. The DAO overwrites it with the generated one.
+            links = muscleGroups.map { link ->
+                ExerciseMuscleGroupEntity(
+                    exerciseId = 0,
+                    muscleGroupId = link.muscleGroup.id,
+                    isPrimary = link.isPrimary,
+                )
+            },
+        )
 
     override suspend fun update(exercise: Exercise) =
         exerciseDao.update(exerciseMapper.toEntity(exercise))

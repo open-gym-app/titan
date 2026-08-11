@@ -50,4 +50,46 @@ interface PersonalRecordDao {
      */
     @Query("SELECT * FROM personal_record ORDER BY achieved_at DESC LIMIT :limit")
     fun getRecentRecords(limit: Int): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * One record per exercise — the one worth putting on a list row.
+     *
+     * A row has space for a single figure and an exercise accumulates records of several
+     * kinds off the same sets, so something has to choose. The order below is what a lifter
+     * would quote: what you lifted, then what you lifted it for, then how far or how fast,
+     * and only then the two derived figures — an estimated 1RM is arithmetic over a set that
+     * already has a `MAX_WEIGHT` record, and a volume record is a property of a session
+     * rather than of a lift.
+     *
+     * Ties inside a kind go to the most recent, which is also the best: a record of a given
+     * kind is only written when it beats the one before it.
+     *
+     * The `pr_type` names are spelled out because that is what the column holds — the
+     * persisted form of `PrType`, pinned by the domain's `PersistedEnumTest`, not an
+     * incidental rendering of it. The correlated subquery is served by the
+     * `(exercise_id, achieved_at)` index and runs once per exercise that has any record at
+     * all, which on a real device is a few dozen rows rather than the catalogue.
+     */
+    @Query(
+        """
+        SELECT best.* FROM personal_record best
+        WHERE best.id = (
+            SELECT candidate.id FROM personal_record candidate
+            WHERE candidate.exercise_id = best.exercise_id
+            ORDER BY
+                CASE candidate.pr_type
+                    WHEN 'MAX_WEIGHT' THEN 0
+                    WHEN 'MAX_REPS' THEN 1
+                    WHEN 'MAX_DISTANCE' THEN 2
+                    WHEN 'BEST_PACE' THEN 3
+                    WHEN 'ESTIMATED_1RM' THEN 4
+                    WHEN 'MAX_VOLUME' THEN 5
+                    ELSE 6
+                END ASC,
+                candidate.achieved_at DESC
+            LIMIT 1
+        )
+        """,
+    )
+    fun getHeadlineRecords(): Flow<List<PersonalRecordEntity>>
 }

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the Sessions tab and the exercise library.
+
+  Written in sentence case even where the design draws them uppercase: `Eyebrow`,
+  `OpenGymBadge` and `OpenGymFilterChip` all uppercase for the caller, so a translator is
+  never asked to reproduce a typographic treatment.
+-->
+<resources>
+
+    <!-- ── Exercise library ───────────────────────────────────────────────────────── -->
+
+    <!-- The picker's title. The tab's is the bottom bar's own label, drawn by the shell. -->
+    <string name="library_title_select">Add exercises</string>
+    <string name="library_back">Back</string>
+    <string name="library_new">+ New</string>
+    <!-- The same action as a bare `+`, where the bar has a title to fit too. -->
+    <string name="library_new_description">New exercise</string>
+    <string name="library_search_placeholder">Search exercises…</string>
+
+    <!-- The two icon buttons in the bar. Read aloud by TalkBack; the glyphs carry no text. -->
+    <string name="library_search">Search</string>
+    <string name="library_filters">Filters</string>
+
+    <!-- The filter sheet: one heading per vocabulary, and its way out. The button says what
+         is left rather than "apply", because the filters are already applied. -->
+    <string name="library_filter_muscle">Muscle</string>
+    <string name="library_filter_equipment">Equipment</string>
+    <string name="library_filters_clear">Clear</string>
+    <plurals name="library_filters_done">
+        <item quantity="one">Show %1$d exercise</item>
+        <item quantity="other">Show %1$d exercises</item>
+    </plurals>
+
+    <!-- The count, in whichever bar is drawn. Three phrasings, because the number means three
+         different things: how much there is, how much is left after filtering, how much has
+         been picked. -->
+    <plurals name="library_count">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
+    <string name="library_count_filtered">%1$d of %2$d</string>
+    <plurals name="library_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+
+    <!-- The muscle filter's "no filter" chip. -->
+    <string name="library_filter_all">All</string>
+
+    <!-- Section headings: the muscle group, then how many are under it — "CHEST · 12". One
+         string rather than two drawn side by side, so it is one node to a screen reader. -->
+    <string name="library_section_header">%1$s · %2$d</string>
+    <!-- The section for exercises the catalogue links to no muscle group at all. -->
+    <string name="library_section_unlinked">Other</string>
+
+    <!-- Empty states. The glyphs are drawn text, not icons — the design's marks are
+         typographic throughout. -->
+    <string name="library_glyph_search">⌕</string>
+    <string name="library_glyph_empty">☐</string>
+    <string name="library_no_results_title">Nothing matches</string>
+    <string name="library_no_results_description">No exercise matches your search and filters.</string>
+    <string name="library_clear_filters">Clear filters</string>
+    <string name="library_empty_title">The library is empty</string>
+    <string name="library_empty_description">The bundled exercise catalogue did not load. Reinstalling the app restores it.</string>
+
+    <!-- The picker's confirm bar. -->
+    <string name="library_confirm_none">Select exercises</string>
+    <plurals name="library_confirm">
+        <item quantity="one">Add %1$d exercise</item>
+        <item quantity="other">Add %1$d exercises</item>
+    </plurals>
+
+    <string name="library_exercise_created">Exercise created</string>
+    <string name="library_save_failed">Could not save the exercise</string>
+
+    <!-- ── New exercise form ──────────────────────────────────────────────────────── -->
+
+    <string name="new_exercise_title">New exercise</string>
+    <string name="new_exercise_name">Name</string>
+    <string name="new_exercise_name_duplicate">You already have this exercise with this equipment</string>
+    <!-- "Measured as" rather than "Type": the choice decides what the set row asks for. -->
+    <string name="new_exercise_type">Measured as</string>
+    <string name="new_exercise_equipment">Equipment</string>
+    <string name="new_exercise_primary_muscle">Primary muscle</string>
+    <string name="new_exercise_secondary_muscles">Also works</string>
+    <string name="new_exercise_notes">Notes (optional)</string>
+    <string name="new_exercise_cancel">Cancel</string>
+    <string name="new_exercise_save">Create</string>
+
+</resources>

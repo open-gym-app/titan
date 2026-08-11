@@ -69,11 +69,29 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
             stored[exerciseId].orEmpty().sortedWith(primaryFirst)
         }
 
+    /** The same links, keyed by exercise — the bulk read the exercise library does. */
+    override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> =
+        links.map { stored -> stored.mapValues { (_, value) -> value.sortedWith(primaryFirst) } }
+
+    /** Derived from the links, since this fake has no taxonomy table of its own. */
+    override fun getMuscleGroups(): Flow<List<MuscleGroup>> = links.map { stored ->
+        stored.values.flatten().map { it.muscleGroup }.distinct().sortedBy { it.name }
+    }
+
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = flowOf(emptyList())
 
     override suspend fun insert(exercise: Exercise): Long {
         val id = nextId++
         catalogue.value += id to exercise.copy(id = id)
+        return id
+    }
+
+    override suspend fun insert(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ): Long {
+        val id = insert(exercise)
+        if (muscleGroups.isNotEmpty()) links.value += id to muscleGroups
         return id
     }
 

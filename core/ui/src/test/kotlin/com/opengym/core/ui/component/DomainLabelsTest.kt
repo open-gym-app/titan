@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
@@ -41,6 +42,11 @@ class DomainLabelsTest {
     @Test
     fun `every personal record type has a name`() {
         assertAllLabelled(PrType.entries) { it.label() }
+    }
+
+    @Test
+    fun `every exercise type has a name`() {
+        assertAllLabelled(ExerciseType.entries) { it.label() }
     }
 
     @Test
