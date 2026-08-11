@@ -78,6 +78,10 @@ android {
 
     buildFeatures {
         compose = true
+        // `BuildConfig.VERSION_NAME`, which settings' About group shows. Off by default since
+        // AGP 8, and `:app` is the only module that should ever turn it on: a library's
+        // BuildConfig carries the library's version, not the app's.
+        buildConfig = true
     }
 
     testOptions {
@@ -121,6 +125,7 @@ dependencies {
     implementation(project(":feature:session"))
     implementation(project(":feature:history"))
     implementation(project(":feature:progression"))
+    implementation(project(":feature:settings"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -151,6 +156,13 @@ dependencies {
     // `ui-test-junit4` on the JVM classpath is only half a harness: the Android runtime it
     // drives comes from Robolectric.
     testImplementation(libs.robolectric)
+
+    // The shell's navigation test drives the real graph, and the real graph now contains a
+    // screen with a `@HiltViewModel` behind it. `hiltViewModel()` resolves through the
+    // activity, so the test needs a Hilt-enabled application *and* a Hilt-enabled activity —
+    // see `HiltTestActivity` and `src/debug/AndroidManifest.xml`.
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

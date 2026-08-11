@@ -7,6 +7,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.opengym.core.data.db.dao.BodyWeightLogDao
 import com.opengym.core.data.db.dao.ExerciseDao
+import com.opengym.core.data.db.dao.LocalDataDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
 import com.opengym.core.data.db.dao.SessionExerciseDao
@@ -48,6 +49,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
 abstract class OpenGymDatabase : RoomDatabase() {
 
     abstract fun exerciseDao(): ExerciseDao
+    abstract fun localDataDao(): LocalDataDao
     abstract fun muscleGroupDao(): MuscleGroupDao
     abstract fun tagDao(): TagDao
     abstract fun workoutTemplateDao(): WorkoutTemplateDao

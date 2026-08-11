@@ -162,10 +162,9 @@ data class OpenGymTypography(
      * The section header used throughout the wireframes — `THIS WEEK`, `RESUME · 00:23:14`,
      * `HISTORY`. Small, mono, widely tracked.
      *
-     * **The style does not uppercase for you**; pass text that is already uppercase. Compose
-     * has no text transform in [TextStyle], and doing it in a wrapper composable would put a
-     * component in a module that, at this point, holds only tokens. The `Eyebrow` helper
-     * arrives with the shared components in #28.
+     * **The style does not uppercase for you** — Compose has no text transform in [TextStyle].
+     * Use `com.opengym.core.ui.component.Eyebrow`, which does, in the device's locale; reach
+     * for the raw style only where the text is already uppercase for another reason.
      */
     val eyebrow: TextStyle,
 

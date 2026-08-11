@@ -97,6 +97,25 @@ interface UserPreferencesRepository {
     suspend fun setTrainingGoal(trainingGoal: TrainingGoal)
 
     /**
+     * Puts every setting back to the default a fresh install reads, in one write.
+     *
+     * The one operation that is not "a setter for a named setting", and it earns the
+     * exception by being the only way to express *forget what you knew about me*: settings
+     * are erased as part of the local wipe behind #M4-23's "delete all data", and a wipe
+     * that reset five of six settings would leave the app remembering the sixth about a
+     * user it has been told to forget. Resetting by calling every setter with its default
+     * is that bug waiting for the seventh setting to be added.
+     *
+     * It resets [setOnboardingCompleted] with the rest, which is what makes the next launch
+     * ask the first-run questions again — the correct behaviour for a device the user has
+     * just emptied, and the reason this is not called anywhere a "reset my preferences"
+     * button would be.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun clear()
+
+    /**
      * Records whether onboarding has been completed.
      *
      * Writing `true` is what stops the next launch routing back into onboarding, so it

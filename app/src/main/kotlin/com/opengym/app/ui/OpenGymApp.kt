@@ -20,9 +20,9 @@ import androidx.compose.ui.res.stringResource
 import com.opengym.app.R
 import com.opengym.app.navigation.OpenGymAppState
 import com.opengym.app.navigation.OpenGymNavHost
-import com.opengym.app.navigation.SettingsDestination
 import com.opengym.app.navigation.TopLevelDestination
 import com.opengym.app.navigation.rememberOpenGymAppState
+import com.opengym.feature.settings.navigation.SettingsDestination
 
 /**
  * The app shell: the chrome around the navigation graph.

@@ -4,9 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import com.opengym.app.ui.SettingsPlaceholderScreen
+import com.opengym.app.BuildConfig
 import com.opengym.feature.history.navigation.SessionDetailDestination
 import com.opengym.feature.history.navigation.historyGraph
 import com.opengym.feature.home.navigation.HomeGraphDestination
@@ -17,6 +16,7 @@ import com.opengym.feature.session.navigation.NewSessionDestination
 import com.opengym.feature.session.navigation.SessionGraphDestination
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import com.opengym.feature.session.navigation.sessionGraph
+import com.opengym.feature.settings.navigation.settingsGraph
 
 /**
  * The whole app graph — and the only place in the codebase where two features appear in the
@@ -92,9 +92,13 @@ fun OpenGymNavHost(
             onSummaryDismissed = { navController.exitSessionFlow() },
         )
 
-        composable<SettingsDestination> {
-            SettingsPlaceholderScreen(onBack = { navController.popBackStack() })
-        }
+        settingsGraph(
+            // The version name belongs to the module that ships, and `:app` is it. A feature's
+            // own `BuildConfig` carries the library's version, which is not what a user should
+            // be quoting in a bug report.
+            appVersion = BuildConfig.VERSION_NAME,
+            onBack = { navController.popBackStack() },
+        )
     }
 }
 

@@ -248,6 +248,43 @@ class UserPreferencesRepositoryImplTest {
     }
 
     @Test
+    fun `clear puts every preference back to its default`() = withStore { repository ->
+        repository.setUnitSystem(UnitSystem.IMPERIAL)
+        repository.setTheme(ThemePreference.DARK)
+        repository.setDefaultRestDuration(150.seconds)
+        repository.setBarWeight(15_000_000)
+        repository.setTrainingGoal(TrainingGoal.CUSTOM)
+        repository.setOnboardingCompleted(true)
+
+        repository.clear()
+
+        assertEquals(UserPreferences(), repository.observe().first())
+    }
+
+    @Test
+    fun `clear removes keys this build does not know about, not just the ones it does`() =
+        withRawStore { repository, store ->
+            // The reason `clear` empties the store rather than writing the defaults back: a
+            // key from a later build survives the second approach, so a setting the user was
+            // told had been erased comes back the next time they upgrade.
+            store.edit { it[stringPreferencesKey("shoe_size")] = "44" }
+
+            repository.clear()
+
+            assertTrue(store.data.first().asMap().isEmpty())
+        }
+
+    @Test
+    fun `a cleared store stays cleared across process death`() {
+        withStore { repository ->
+            repository.setTheme(ThemePreference.DARK)
+            repository.clear()
+        }
+
+        withStore { repository -> assertEquals(UserPreferences(), repository.observe().first()) }
+    }
+
+    @Test
     fun `an enum name this build does not know falls back to the default`() = withRawStore { repository, store ->
         // What a downgrade looks like: a value a later build wrote, sitting in the file.
         store.edit { it[stringPreferencesKey("unit_system")] = "NAUTICAL" }

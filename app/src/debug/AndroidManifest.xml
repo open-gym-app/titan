@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The activity the shell's navigation test runs in.
+
+  A Compose test that reaches a screen with a `@HiltViewModel` needs an activity annotated
+  `@AndroidEntryPoint` — `hiltViewModel()` resolves its factory through the activity, and a
+  plain `ComponentActivity` throws. `androidx.compose.ui.test.manifest` contributes a
+  `ComponentActivity` and nothing more, so the Hilt-enabled one is declared here.
+
+  In the debug manifest rather than the main one because it is test scaffolding: it must never
+  reach a release build. Its class lives in `src/debug` for the same reason — the entry and the
+  class have to be in the same variant, and unit tests compile against the debug variant.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.opengym.app.HiltTestActivity"
+            android:exported="false" />
+    </application>
+</manifest>

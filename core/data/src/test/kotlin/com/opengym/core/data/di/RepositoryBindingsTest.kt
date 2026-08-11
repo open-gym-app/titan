@@ -2,12 +2,14 @@ package com.opengym.core.data.di
 
 import com.opengym.core.data.repository.ExerciseRepositoryImpl
 import com.opengym.core.data.repository.InProgressSessionRepositoryImpl
+import com.opengym.core.data.repository.LocalDataRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.data.repository.TemplateRepositoryImpl
 import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.TemplateRepository
@@ -70,6 +72,9 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var userPreferencesRepository: Provider<UserPreferencesRepository>
 
+    @Inject
+    lateinit var localDataRepository: Provider<LocalDataRepository>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -83,6 +88,7 @@ class RepositoryBindingsTest {
         assertTrue(sessionStateRepository.get() is SessionStateRepositoryImpl)
         assertTrue(inProgressSessionRepository.get() is InProgressSessionRepositoryImpl)
         assertTrue(userPreferencesRepository.get() is UserPreferencesRepositoryImpl)
+        assertTrue(localDataRepository.get() is LocalDataRepositoryImpl)
     }
 
     @Test
