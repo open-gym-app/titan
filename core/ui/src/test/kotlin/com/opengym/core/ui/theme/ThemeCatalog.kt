@@ -105,6 +105,7 @@ fun TypeCatalog(modifier: Modifier = Modifier) {
         }
         CatalogSection("TYPE · OPENGYM ROLES") {
             TypeSpecimen("eyebrow", OpenGymTheme.typography.eyebrow, sample = "THIS WEEK")
+            TypeSpecimen("numericDisplay", OpenGymTheme.typography.numericDisplay, sample = "1:23")
             TypeSpecimen("numericLarge", OpenGymTheme.typography.numericLarge, sample = "01:30")
             TypeSpecimen("numeric", OpenGymTheme.typography.numeric, sample = "102.5 kg x 8")
             TypeSpecimen("numericSmall", OpenGymTheme.typography.numericSmall, sample = "11040 kg")

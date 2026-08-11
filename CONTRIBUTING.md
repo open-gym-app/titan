@@ -133,6 +133,31 @@ Text(
   tokens are meant to be used through — `Eyebrow` (which uppercases for you), `OpenGymCard`
   and `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A
   screen that draws its own bordered `Surface` has restated four arguments that will drift.
+
+  The same package holds the shared *workout* components, which are not primitives but whole
+  widgets several screens are built from. All of them are stateless and hoisted — state in,
+  events out — and none makes a repository or use-case call:
+
+  | Component | Draws | Takes |
+  | --- | --- | --- |
+  | `SetLogRow` | the weight/reps/RPE entry row, with set type, tick and inline validation | text for the fields, because a half-typed number is not a number |
+  | `LoggedSetRow` | a set that has already been written, formatted | `WorkoutSet` or `ActiveSet` |
+  | `SetLogHeader` | the column labels above either of the above | — |
+  | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
+  | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
+  | `RestCountdown` / `RestTimerIndicator` | the same countdown alone, and as a header pill | `RestTimerState` |
+  | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
+  | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |
+  | `PrBadge` | the personal-record tag | `PrType` |
+  | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
+
+  **A feature must not reimplement one of these.** If one is close but not right, widen it
+  here rather than forking it into a feature — a second set row is how two screens end up
+  disagreeing about what a warm-up looks like.
+- **Domain enums are labelled once, in `:core:ui`.** `SetType.label()`, `EquipmentType.labelOrNull()`,
+  `PrType.label()` and `MuscleGroup.displayName()` live in `component/DomainLabels.kt`, because
+  `:core:domain` is a plain Kotlin library that has no business knowing what a string resource
+  is, and because more than one feature renders each of them.
 - **Never format a number by hand, and never parse one by hand either.**
   `core/ui/.../format/` turns the stored milligrams, centimetres and `Duration`s into what the
   user reads, and reads what they type back into the same canonical units:

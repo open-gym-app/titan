@@ -83,6 +83,12 @@ Compose screens, ViewModels, and shared UI components.
 ViewModels call domain use cases directly - they do not touch data sources.
 `:core:ui` holds only reusable widgets and the design system; it carries no business logic.
 
+`core/ui/.../component/` holds the widgets more than one feature needs — the set row, the
+exercise card, the rest timer, the stat tile, the body diagram. Every one of them is
+stateless and hoisted, takes `:core:domain` types where a domain type is the natural input,
+and calls no repository or use case; see CONTRIBUTING.md § Using the design system for the
+table and the rule against reimplementing one in a feature.
+
 The design system lives in `core/ui/.../theme/` and is four things: a Material 3
 `ColorScheme` per mode, a `Typography` on the wireframes' scale, `OpenGymSpacing` and
 `OpenGymShapes`. Material's own tokens are reached through `MaterialTheme`; the two roles it

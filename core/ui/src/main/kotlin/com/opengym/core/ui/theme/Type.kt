@@ -168,7 +168,17 @@ data class OpenGymTypography(
      */
     val eyebrow: TextStyle,
 
-    /** Hero figures: the running rest timer, a session's total volume on the summary. */
+    /**
+     * The one figure a screen is *about*, when there is nothing else on it: the rest
+     * countdown filling a bottom sheet, the weight being typed in focus mode.
+     *
+     * Sized to be read at arm's length with a bar in your hands, which is the only reason a
+     * type scale that tops out at 36sp for a display heading has a 56sp numeric role above
+     * it. Reach for [numericLarge] instead the moment a second figure sits beside it.
+     */
+    val numericDisplay: TextStyle,
+
+    /** Hero figures: a stat tile's value, a session's total volume on the summary. */
     val numericLarge: TextStyle,
 
     /** The default for any number in a row — a weight, a rep count, a duration. */
@@ -185,6 +195,14 @@ internal val OpenGymExtendedTypography = OpenGymTypography(
         fontSize = 10.sp,
         lineHeight = 14.sp,
         letterSpacing = 0.12.em,
+    ),
+    numericDisplay = TextStyle(
+        fontFamily = Mono,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 56.sp,
+        lineHeight = 60.sp,
+        letterSpacing = (-0.02).em,
+        fontFeatureSettings = TABULAR_FIGURES,
     ),
     numericLarge = TextStyle(
         fontFamily = Mono,
