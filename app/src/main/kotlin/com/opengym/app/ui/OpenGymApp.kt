@@ -1,6 +1,7 @@
 package com.opengym.app.ui
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -73,9 +74,17 @@ fun OpenGymApp(
             }
         },
     ) { innerPadding ->
+        // Padded *and* consumed. The padding reserves the space; consuming it tells everything
+        // below that the system bars have been dealt with, which is what stops a destination
+        // outside the tabs from insetting itself a second time. Without it, a screen that pads
+        // itself for the navigation bar — the picker's confirm bar, the detail screen's
+        // add-to-session bar — sits a whole navigation bar too high, because the Scaffold has
+        // already spent that space on a destination with no bottom bar of its own.
         OpenGymNavHost(
             appState = appState,
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier
+                .padding(innerPadding)
+                .consumeWindowInsets(innerPadding),
         )
     }
 }

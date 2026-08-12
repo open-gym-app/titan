@@ -270,6 +270,31 @@ class ExerciseDetailViewModelTest {
     }
 
     @Test
+    fun `negative - a duplicate name is refused even when the draft says it is free`() = runTest {
+        val viewModel = viewModel(DETAIL_CUSTOM.id)
+
+        // The submitted draft carries a stale `false` — which is what the form holds when the
+        // submit is dispatched from a keyboard action or a second tap in the same frame as the
+        // keystroke that made the name a collision. The guard has to ask the catalogue itself,
+        // or the write goes to the unique index and comes back as a generic failure.
+        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+        viewModel.onEvent(
+            ExerciseDetailEvent.EditChanged(
+                viewModel.uiState.value.editDraft!!.copy(
+                    name = DETAIL_BENCH.name,
+                    equipment = EquipmentType.BARBELL,
+                    isDuplicateName = false,
+                ),
+            ),
+        )
+        viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
+
+        assertEquals(DETAIL_CUSTOM.name, repository.getById(DETAIL_CUSTOM.id).first()?.name)
+        // Still up, with the collision flagged, so the user is told which field is the problem.
+        assertTrue(viewModel.uiState.value.editDraft?.isDuplicateName == true)
+    }
+
+    @Test
     fun `an edit the store refuses keeps the form up and says so on it`() = runTest {
         val viewModel = viewModel(DETAIL_CUSTOM.id)
         repository.updateFailure = IllegalStateException("unique index")

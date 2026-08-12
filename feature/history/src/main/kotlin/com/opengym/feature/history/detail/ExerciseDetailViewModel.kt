@@ -16,7 +16,6 @@ import com.opengym.feature.history.exercise.resolveMuscleGroups
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -80,11 +79,19 @@ class ExerciseDetailViewModel @Inject constructor(
      * than fetched when the form opens because the duplicate check has to answer *while the
      * user types* — see [ExerciseDraft.isDuplicateIn]. It is a scan of a table the Library tab
      * already keeps open; the cost is one query, re-run when the catalogue changes.
+     *
+     * Held as state rather than left cold because [saveEdit] has to ask it the same question
+     * outside of composition, at the moment of the write.
      */
-    private val vocabulary: Flow<Vocabulary> = combine(
+    private val vocabulary: StateFlow<Vocabulary> = combine(
         exerciseRepository.getMuscleGroups(),
         exerciseRepository.getAll(),
     ) { taxonomy, catalogue -> Vocabulary(taxonomy = taxonomy, catalogue = catalogue) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = Vocabulary(),
+        )
 
     val uiState: StateFlow<ExerciseDetailUiState> = combine(
         loaded,
@@ -179,10 +186,19 @@ class ExerciseDetailViewModel @Inject constructor(
      * enabled by — restated because an event can arrive from a keyboard action or a double tap
      * dispatched before the button disabled itself, and the second write would collide with
      * the unique index rather than being ignored.
+     *
+     * Which is why the duplicate flag is *re-derived here* rather than read off the stored
+     * draft. The stored one carries whatever the form last echoed back — the answer for the
+     * keystroke before this one — and [buildState] stamps the current answer onto the copy the
+     * screen sees, not onto this one. In exactly the race the guard exists for, trusting it
+     * would let a colliding name through to the unique index and report the write as a
+     * generic failure instead of as the duplicate it is.
      */
     private fun saveEdit() {
         val exercise = loaded.value?.exercise ?: return
-        val draft = screenState.value.editDraft ?: return
+        val draft = screenState.value.editDraft
+            ?.let { it.copy(isDuplicateName = it.isDuplicateIn(vocabulary.value.catalogue)) }
+            ?: return
         if (!draft.canSave) return
 
         val links = draft.resolveMuscleGroups(uiState.value.taxonomy)
@@ -292,8 +308,8 @@ class ExerciseDetailViewModel @Inject constructor(
 
     /** The two catalogue-wide reads the edit form needs, as one value. */
     private data class Vocabulary(
-        val taxonomy: List<MuscleGroup>,
-        val catalogue: List<Exercise>,
+        val taxonomy: List<MuscleGroup> = emptyList(),
+        val catalogue: List<Exercise> = emptyList(),
     )
 
     private companion object {

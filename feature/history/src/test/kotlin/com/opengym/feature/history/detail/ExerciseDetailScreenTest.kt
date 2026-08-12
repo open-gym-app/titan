@@ -265,6 +265,17 @@ class ExerciseDetailScreenTest {
     }
 
     @Test
+    fun `negative - the row going with the delete draws nothing, not the not-found page`() {
+        // The state the screen is actually in for the frames between the delete landing and
+        // the pop finishing: the read has re-emitted null, and `isDeleted` is what says that
+        // null is this screen's own doing rather than an id that never existed.
+        setContent(customState().copy(exercise = null, isLoading = false, isDeleted = true))
+
+        composeTestRule.onNodeWithText("Exercise not found").assertDoesNotExist()
+        assertEquals(1, backs)
+    }
+
+    @Test
     fun `the back arrow leaves`() {
         setContent()
 

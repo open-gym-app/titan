@@ -63,28 +63,35 @@ data class ExerciseDetailUiState(
     val canEdit: Boolean
         get() = exercise?.isCustom == true
 
-    /** The muscles the movement is *for*. Drawn in the accent, listed first. */
-    val primaryMuscles: List<MuscleGroup>
-        get() = muscleLinks.filter { it.isPrimary }.map { it.muscleGroup }
+    /**
+     * The muscles the movement is *for*. Drawn in the accent, listed first.
+     *
+     * Split once, at construction, rather than behind a `get()`: the screen reads these while
+     * composing and a getter would re-filter and re-allocate on every read, which is a new
+     * list identity each time for a value that only changes when [muscleLinks] does.
+     */
+    val primaryMuscles: List<MuscleGroup> =
+        muscleLinks.filter { it.isPrimary }.map { it.muscleGroup }
 
     /** The muscles that assist. Drawn in the accent's container tone. */
-    val secondaryMuscles: List<MuscleGroup>
-        get() = muscleLinks.filterNot { it.isPrimary }.map { it.muscleGroup }
+    val secondaryMuscles: List<MuscleGroup> =
+        muscleLinks.filterNot { it.isPrimary }.map { it.muscleGroup }
 
     /**
      * The how-to, one step per line, or empty for an exercise that has none.
      *
      * The seed writes `instructions` as newline-separated steps (PERSISTENCE.md § Seed
      * data) and the screen numbers them, so the split belongs here rather than in
-     * composition where it would re-run on every recomposition. Blank lines are dropped: a
-     * numbered list with an empty item 4 in it looks like a rendering fault.
+     * composition — and is computed once here rather than per read, since the body asks
+     * twice, once to decide whether to draw the section and once for its contents. Blank
+     * lines are dropped: a numbered list with an empty item 4 in it looks like a rendering
+     * fault.
      */
-    val instructionSteps: List<String>
-        get() = exercise?.instructions
-            ?.lines()
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            .orEmpty()
+    val instructionSteps: List<String> = exercise?.instructions
+        ?.lines()
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        .orEmpty()
 }
 
 /**

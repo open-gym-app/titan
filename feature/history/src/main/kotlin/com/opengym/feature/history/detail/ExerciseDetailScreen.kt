@@ -190,12 +190,17 @@ fun ExerciseDetailScreen(
             // flash and the "no such exercise" page under it would be a lie for a frame.
             state.isLoading -> Unit
 
-            exercise == null -> EmptyState(
+            state.isMissing -> EmptyState(
                 glyph = stringResource(R.string.detail_glyph_missing),
                 title = stringResource(R.string.detail_missing_title),
                 description = stringResource(R.string.detail_missing_description),
                 modifier = Modifier.padding(innerPadding),
             )
+
+            // Gone because *this* screen deleted it: `onBack` is already in flight and the
+            // screen is only still composed for the pop animation. Nothing, rather than the
+            // "no longer exists" page flashing up on the way out.
+            exercise == null -> Unit
 
             else -> ExerciseDetailBody(
                 state = state,
@@ -472,8 +477,12 @@ private fun ExerciseDetailTopBar(
  *
  * Pinned because it is why the user is on this screen at all when it is drawn: they opened an
  * exercise from the picker to check it, and the decision they came to make should not be
- * three screens of instructions away. It insets itself for the navigation bar, which nothing
- * else will — the screen is outside the shell that would otherwise have done it.
+ * three screens of instructions away.
+ *
+ * The navigation-bar inset is asked for rather than assumed: under the app shell it resolves
+ * to nothing, because `OpenGymApp` pads the graph for the system bars and consumes them, and
+ * it is the whole inset anywhere this is hosted without that. Asking is what makes the button
+ * clear of the gesture handle in both cases and double-padded in neither.
  */
 @Composable
 private fun AddToSessionBar(onAddToSession: () -> Unit) {
@@ -498,9 +507,11 @@ private fun AddToSessionBar(onAddToSession: () -> Unit) {
  * The confirmation for the one destructive action on this screen.
  *
  * It names the exercise, because a dialog that says "delete this exercise?" is answerable
- * without reading it and this one should not be. What it does *not* promise is that nothing
- * else refers to the exercise: the schema decides whether a delete is allowed and a refusal
- * comes back as a message — see `ExerciseDetailViewModel.delete`.
+ * without reading it and this one should not be. It also says what the schema will and will
+ * not allow: the foreign keys on `session_exercise` and `template_exercise` are `RESTRICT`,
+ * so a movement with history behind it cannot be removed at all, and the dialog says so
+ * rather than promising the history is safe and then refusing — the refusal itself comes back
+ * as a message, see `ExerciseDetailViewModel.delete`.
  */
 @Composable
 private fun DeleteExerciseDialog(

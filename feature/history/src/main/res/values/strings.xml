@@ -146,7 +146,7 @@
     <string name="detail_exercise_save_failed">Could not save the exercise</string>
 
     <string name="detail_delete_title">Delete this exercise?</string>
-    <string name="detail_delete_body">%1$s will be removed from your library. Sessions you have already logged with it are not affected.</string>
+    <string name="detail_delete_body">%1$s will be removed from your library. It can only be deleted while no logged session or template still uses it.</string>
     <string name="detail_delete_confirm">Delete</string>
     <string name="detail_delete_cancel">Cancel</string>
     <string name="detail_delete_failed">Could not delete the exercise</string>

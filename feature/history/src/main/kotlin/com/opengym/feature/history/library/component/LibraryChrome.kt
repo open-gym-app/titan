@@ -245,11 +245,11 @@ private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {
  * Disabled rather than hidden while nothing is selected, so it is clear from the moment the
  * screen opens what it is for and where the way out is.
  *
- * It insets itself for the navigation bar, because nothing else will: a `Scaffold` applies its
- * `contentWindowInsets` to the content slot only, and the picker is a full-screen destination
- * outside the shell that would otherwise have done it. Without this the button sits under the
- * gesture handle on a gesture-navigation device — the shell's own bottom bar pads itself for
- * the same reason.
+ * The navigation-bar inset is asked for rather than assumed: under the app shell it resolves
+ * to nothing, because `OpenGymApp` pads the graph for the system bars and consumes them, and
+ * it is the whole inset anywhere this is hosted without that. Asking is what keeps the button
+ * off the gesture handle in both cases without stacking two navigation bars' worth of space
+ * under it in the first.
  */
 @Composable
 internal fun ConfirmSelectionBar(
