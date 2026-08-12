@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.repository.TemplateRepository
+import com.opengym.core.domain.superset.Supersets
 import kotlinx.coroutines.flow.first
 
 /**
@@ -13,11 +14,18 @@ import kotlinx.coroutines.flow.first
  */
 
 /**
- * Checks name and body, returning the trimmed name to store.
+ * Checks name and body, returning what to store.
  *
  * Trimming is not cosmetic: `" Push day "` and `"Push day"` are the same template to
  * a user, and storing the untrimmed form would defeat the duplicate check for the
  * next caller. A name that is only whitespace trims to empty and is refused.
+ *
+ * The superset grouping is **normalised before it is judged**, so a list handed back
+ * by an edit screen that has just deleted one of a pair carries a group of one, and
+ * that dissolves rather than being refused — see [Supersets.normalize] for why a
+ * removal is the caller's action and the repair is not. What is left after that is
+ * refused with [TemplateError.InvalidSuperset]: a superset split by an exercise that
+ * is not in it needs the exercises moved, which is a decision about the workout.
  *
  * [selfId] is excluded from the duplicate scan so re-saving a template under its own
  * name is not a collision; pass 0 when there is no template yet.
@@ -26,17 +34,38 @@ internal suspend fun TemplateRepository.validateTemplate(
     name: String,
     exercises: List<TemplateExerciseDraft>,
     selfId: Long = 0,
-): Result<String> {
+): Result<ValidTemplate> {
     val trimmed = name.trim()
-    // Ordered, and short-circuiting: the name check is free, the duplicate scan is a
-    // repository read, so a blank name never pays for one.
+    val grouped = exercises.withNormalizedSupersets()
+    val supersetReason = Supersets
+        .validate(grouped.map(TemplateExerciseDraft::supersetGroup))
+        .reasonOrNull()
+
+    // Ordered, and short-circuiting on the one branch where it buys anything: every
+    // check above the last is arithmetic on the arguments, the duplicate scan is a
+    // repository read, so a template refused for any other reason never pays for one.
     val failure = when {
         trimmed.isEmpty() -> TemplateError.EmptyName
         exercises.isEmpty() -> TemplateError.NoExercises
+        supersetReason != null -> TemplateError.InvalidSuperset(supersetReason)
         nameTaken(trimmed, selfId) -> TemplateError.DuplicateName(trimmed)
         else -> null
     }
-    return failure?.let { Result.failure(it) } ?: Result.success(trimmed)
+    return failure?.let { Result.failure(it) }
+        ?: Result.success(ValidTemplate(name = trimmed, exercises = grouped))
+}
+
+/**
+ * The drafts with their grouping in canonical form — undersized groups dissolved,
+ * survivors renumbered — leaving every other field alone.
+ *
+ * A draft's position is its index in the list ([TemplateExerciseDraft]), so the list
+ * order *is* the order [Supersets] reasons about, and the normalised grouping comes
+ * back index for index.
+ */
+private fun List<TemplateExerciseDraft>.withNormalizedSupersets(): List<TemplateExerciseDraft> {
+    val normalized = Supersets.normalize(map(TemplateExerciseDraft::supersetGroup))
+    return mapIndexed { index, draft -> draft.copy(supersetGroup = normalized[index]) }
 }
 
 /**

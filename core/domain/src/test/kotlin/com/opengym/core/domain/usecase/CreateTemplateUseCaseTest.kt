@@ -94,6 +94,65 @@ class CreateTemplateUseCaseTest {
     }
 
     @Test
+    fun `creating stores the superset grouping the drafts carry`() = runTest {
+        val created = createTemplate(
+            "Arms",
+            listOf(
+                draft(exerciseId = 1L),
+                draft(exerciseId = 2L, supersetGroup = 0),
+                draft(exerciseId = 3L, supersetGroup = 0),
+            ),
+        ).getOrThrow()
+
+        assertEquals(listOf(null, 0, 0), templates.storedExercises(created.id).map { it.supersetGroup })
+    }
+
+    @Test
+    fun `a group left with one member is stored as no group at all`() = runTest {
+        // What an edit screen hands back after deleting one of a pair. Refusing it
+        // would make the user repair a state their own removal created; a superset of
+        // one is simply not a superset. See Supersets.normalize.
+        val created = createTemplate(
+            "Arms",
+            listOf(draft(exerciseId = 1L), draft(exerciseId = 2L, supersetGroup = 0)),
+        ).getOrThrow()
+
+        assertEquals(listOf(null, null), templates.storedExercises(created.id).map { it.supersetGroup })
+    }
+
+    @Test
+    fun `surviving groups are renumbered before they are stored`() = runTest {
+        val created = createTemplate(
+            "Arms",
+            listOf(
+                draft(exerciseId = 1L, supersetGroup = 5),
+                draft(exerciseId = 2L, supersetGroup = 5),
+                draft(exerciseId = 3L, supersetGroup = 2),
+                draft(exerciseId = 4L, supersetGroup = 2),
+            ),
+        ).getOrThrow()
+
+        assertEquals(listOf(0, 0, 1, 1), templates.storedExercises(created.id).map { it.supersetGroup })
+    }
+
+    @Test
+    fun `a superset split by another exercise is refused`() = runTest {
+        val result = createTemplate(
+            "Arms",
+            listOf(
+                draft(exerciseId = 1L, supersetGroup = 0),
+                draft(exerciseId = 2L),
+                draft(exerciseId = 3L, supersetGroup = 0),
+            ),
+        )
+
+        val error = result.exceptionOrNull()
+        assertTrue(error is TemplateError.InvalidSuperset)
+        assertTrue((error as TemplateError.InvalidSuperset).reason.contains("split"))
+        assertEquals(0, templates.writeCount)
+    }
+
+    @Test
     fun `a duplicate name is refused`() = runTest {
         templates.seed("Push day")
 

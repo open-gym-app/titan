@@ -1,5 +1,6 @@
 package com.opengym.core.domain.model
 
+import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.timer.RestTimerSnapshot
 import com.opengym.core.domain.timer.RestTimerState
 import kotlinx.serialization.Serializable
@@ -84,6 +85,18 @@ data class ActiveSession(
 
     /** Every set of every exercise the user has ticked off, across the whole draft. */
     val completedSets: List<ActiveSet> get() = exercises.flatMap { it.completedSets }
+
+    /**
+     * Whether a rest belongs after the exercise at [index], which is false between the
+     * members of a superset and true everywhere else — see [Supersets.isRestDueAfter].
+     *
+     * The one thing supersets change about running a session: an exercise that another
+     * one is performed back to back with does not end in a rest, so the screen moves
+     * straight on instead of starting the countdown. [RestTimerSnapshot] and the
+     * controller behind it are unaffected; this is only about when they are asked.
+     */
+    fun isRestDueAfter(index: Int): Boolean =
+        Supersets.isRestDueAfter(exercises.map(ActiveExercise::supersetGroup), index)
 
     /**
      * The lifecycle state this draft restores to, which

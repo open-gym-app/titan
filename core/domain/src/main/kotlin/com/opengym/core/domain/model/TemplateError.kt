@@ -31,6 +31,18 @@ sealed class TemplateError(message: String) : IllegalArgumentException(message) 
         "a template named \"$name\" already exists",
     )
 
+    /**
+     * The superset grouping of the exercise list is not one that can be stored:
+     * a superset is split by an exercise that is not in it. [reason] comes from
+     * [com.opengym.core.domain.superset.Supersets.validate] and names every offending
+     * group, so it can be shown as-is.
+     *
+     * A group left with a single member is *not* this error — that is what removing
+     * one of two exercises does, and it dissolves on the way in rather than being
+     * refused. Only a grouping that needs the exercises moved to repair gets here.
+     */
+    data class InvalidSuperset(val reason: String) : TemplateError(reason)
+
     /** The template being updated, deleted or applied is not in the repository. */
     data class NotFound(val templateId: Long) : TemplateError(
         "template $templateId does not exist",

@@ -118,8 +118,8 @@ class FakeSessionRepository : SessionRepository {
     /** Direct read, bypassing the Flow, for assertions. */
     fun stored(id: Long): WorkoutSession? = sessions.value[id]
 
-    /** Seeds an exercise on [sessionId] and returns its id. */
-    fun addExercise(sessionId: Long, exerciseId: Long = 1L): Long {
+    /** Seeds an exercise on [sessionId], in [supersetGroup] or standalone, and returns its id. */
+    fun addExercise(sessionId: Long, exerciseId: Long = 1L, supersetGroup: Int? = null): Long {
         val id = nextExerciseId++
         val existing = exercises.value[sessionId].orEmpty()
         exercises.value += sessionId to existing + SessionExercise(
@@ -127,6 +127,7 @@ class FakeSessionRepository : SessionRepository {
             sessionId = sessionId,
             exerciseId = exerciseId,
             position = existing.size,
+            supersetGroup = supersetGroup,
             createdAt = 0,
             updatedAt = 0,
         )

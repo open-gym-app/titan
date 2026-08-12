@@ -62,6 +62,7 @@ class SessionMappersTest {
             sessionId = 5,
             exerciseId = 3,
             position = 2,
+            supersetGroup = 1,
             templateExerciseId = 12,
             notes = "swapped for the safety bar",
             createdAt = 1_700_000_000_000,
@@ -69,6 +70,26 @@ class SessionMappersTest {
         )
         val mapper = SessionExerciseMapper()
 
+        assertEquals(sessionExercise, mapper.toDomain(mapper.toEntity(sessionExercise)))
+    }
+
+    @Test
+    fun `a standalone session exercise round trips outside any superset`() {
+        // NULL is what "not part of a superset" is stored as, so a mapper that turned
+        // it into a group id — or a group id into NULL — would silently regroup a
+        // workout. See Supersets for what a group means.
+        val sessionExercise = SessionExercise(
+            id = 10,
+            sessionId = 5,
+            exerciseId = 3,
+            position = 0,
+            supersetGroup = null,
+            createdAt = 1_700_000_000_000,
+            updatedAt = 1_700_000_000_000,
+        )
+        val mapper = SessionExerciseMapper()
+
+        assertNull(mapper.toEntity(sessionExercise).supersetGroup)
         assertEquals(sessionExercise, mapper.toDomain(mapper.toEntity(sessionExercise)))
     }
 

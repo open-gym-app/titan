@@ -21,7 +21,10 @@ import kotlinx.coroutines.flow.first
  *
  * Each returned [TemplateExercise] carries the catalogue `exerciseId` plus the
  * template's defaults — sets, reps, weight, rest, notes — so the session can be
- * pre-filled without a second read. It intentionally does not resolve those ids into
+ * pre-filled without a second read. `supersetGroup` travels with them, which is what
+ * makes a template's supersets the session's supersets: the ids are ordinals within
+ * one list ([com.opengym.core.domain.superset.Supersets]), and the caller copies the
+ * plan's list wholesale, so they carry over unchanged and stay valid. It intentionally does not resolve those ids into
  * [com.opengym.core.domain.model.Exercise] rows: that is
  * [com.opengym.core.domain.repository.ExerciseRepository]'s job, the caller usually
  * has the catalogue loaded already, and pulling it in here would make every

@@ -14,6 +14,12 @@ import kotlinx.serialization.Serializable
  *   that is never null — an exercise the user has not chosen is not on the screen.
  * @property sessionExerciseId the `session_exercise` row this draft entry was read
  *   from, or null for an exercise added to the running session but not yet written.
+ * @property supersetGroup which superset this exercise belongs to, or null when it
+ *   stands alone — mirroring [SessionExercise.supersetGroup]. Carried in the draft
+ *   rather than read back off the rows because the live session needs it on every
+ *   logged set: it is what decides whether a rest is due yet
+ *   ([ActiveSession.isRestDueAfter]), and an exercise added to the running session may
+ *   have no row to read it from at all.
  * @property notes what the user typed against this exercise, or null. Carried in the
  *   draft rather than left to the row it came from because it is edited on the same
  *   screen as the sets and is unsaved for exactly as long as they are.
@@ -24,6 +30,7 @@ import kotlinx.serialization.Serializable
 data class ActiveExercise(
     val exerciseId: Long,
     val sessionExerciseId: Long? = null,
+    val supersetGroup: Int? = null,
     val notes: String? = null,
     val sets: List<ActiveSet> = emptyList(),
 ) {

@@ -9,9 +9,16 @@ package com.opengym.core.domain.model
  * point — `template_exercise` carries a unique `(template_id, position)` index, and
  * a caller that hand-numbers positions is one reorder away from violating it. A
  * list is already ordered; the write path numbers it.
+ *
+ * [supersetGroup] is the one place that ordering matters twice over: a group's members
+ * are contiguous *in this list*, since the list is what the positions are read from.
+ * The write path normalises the grouping before storing it — see
+ * [com.opengym.core.domain.superset.Supersets] — so a caller may hand over a group left
+ * with a single member after a removal without repairing it first.
  */
 data class TemplateExerciseDraft(
     val exerciseId: Long,
+    val supersetGroup: Int? = null,
     val defaultSets: Int? = null,
     val defaultReps: Int? = null,
     /** Milligrams, per [TemplateExercise.defaultWeight]. */

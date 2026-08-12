@@ -44,6 +44,9 @@ data class SessionExerciseEntity(
     val exerciseId: Long,
     @ColumnInfo(name = "position")
     val position: Int,
+    /** The superset this exercise is part of, or NULL when it stands alone. */
+    @ColumnInfo(name = "superset_group")
+    val supersetGroup: Int? = null,
     @ColumnInfo(name = "template_exercise_id")
     val templateExerciseId: Long? = null,
     @ColumnInfo(name = "notes")

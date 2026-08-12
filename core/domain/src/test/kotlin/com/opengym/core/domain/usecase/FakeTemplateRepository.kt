@@ -97,6 +97,7 @@ class FakeTemplateRepository : TemplateRepository {
                 templateId = templateId,
                 exerciseId = draft.exerciseId,
                 position = position,
+                supersetGroup = draft.supersetGroup,
                 defaultSets = draft.defaultSets,
                 defaultReps = draft.defaultReps,
                 defaultWeight = draft.defaultWeight,
@@ -131,6 +132,7 @@ class FakeTemplateRepository : TemplateRepository {
 /** Terse [TemplateExerciseDraft] for tests that only care about identity and order. */
 fun draft(
     exerciseId: Long,
+    supersetGroup: Int? = null,
     defaultSets: Int? = null,
     defaultReps: Int? = null,
     defaultWeight: Long? = null,
@@ -138,6 +140,7 @@ fun draft(
     notes: String? = null,
 ): TemplateExerciseDraft = TemplateExerciseDraft(
     exerciseId = exerciseId,
+    supersetGroup = supersetGroup,
     defaultSets = defaultSets,
     defaultReps = defaultReps,
     defaultWeight = defaultWeight,

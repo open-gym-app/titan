@@ -105,6 +105,38 @@ class UpdateTemplateUseCaseTest {
     }
 
     @Test
+    fun `editing a template into a split superset is refused`() = runTest {
+        // The rule Create enforces, enforced again here: a template must not be
+        // editable into a shape it could not have been created in.
+        val id = templates.seed("Push day")
+
+        val result = updateTemplate(
+            id,
+            "Push day",
+            listOf(
+                draft(exerciseId = 1L, supersetGroup = 0),
+                draft(exerciseId = 2L),
+                draft(exerciseId = 3L, supersetGroup = 0),
+            ),
+        )
+
+        assertTrue(result.exceptionOrNull() is TemplateError.InvalidSuperset)
+        assertEquals(0, templates.writeCount)
+    }
+
+    @Test
+    fun `an edit that drops one of a pair stores the survivor as standalone`() = runTest {
+        val id = templates.seed(
+            "Push day",
+            listOf(draft(exerciseId = 1L, supersetGroup = 0), draft(exerciseId = 2L, supersetGroup = 0)),
+        )
+
+        updateTemplate(id, "Push day", listOf(draft(exerciseId = 1L, supersetGroup = 0))).getOrThrow()
+
+        assertEquals(listOf(null), templates.storedExercises(id).map { it.supersetGroup })
+    }
+
+    @Test
     fun `updating a template that does not exist is refused`() = runTest {
         val result = updateTemplate(404L, "Push day", listOf(draft(exerciseId = 1L)))
 

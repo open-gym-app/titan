@@ -20,6 +20,7 @@ class TemplateExerciseMapper @Inject constructor() {
         templateId = entity.templateId,
         exerciseId = entity.exerciseId,
         position = entity.position,
+        supersetGroup = entity.supersetGroup,
         defaultSets = entity.defaultSets,
         defaultReps = entity.defaultReps,
         defaultWeight = entity.defaultWeight,
@@ -35,6 +36,12 @@ class TemplateExerciseMapper @Inject constructor() {
      * one reorder away from violating it — the same reason [TemplateExerciseDraft]
      * has no position field. Pass `templateId = 0` when the template row does not
      * exist yet; `WorkoutTemplateDao.insertWithExercises` stamps the real id in.
+     *
+     * `supersetGroup` travels as given. Its rules — at least two members, contiguous,
+     * numbered densely — are the domain's
+     * ([com.opengym.core.domain.superset.Supersets]), enforced on the way in by the
+     * template use cases, and re-deriving them here would only give a caller a second,
+     * quieter answer to the same question.
      */
     fun toEntities(templateId: Long, drafts: List<TemplateExerciseDraft>): List<TemplateExerciseEntity> =
         drafts.mapIndexed { position, draft ->
@@ -42,6 +49,7 @@ class TemplateExerciseMapper @Inject constructor() {
                 templateId = templateId,
                 exerciseId = draft.exerciseId,
                 position = position,
+                supersetGroup = draft.supersetGroup,
                 defaultSets = draft.defaultSets,
                 defaultReps = draft.defaultReps,
                 defaultWeight = draft.defaultWeight,
