@@ -6,8 +6,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.navigation
 import com.opengym.app.BuildConfig
+import com.opengym.feature.history.navigation.ADDED_EXERCISE_ID_KEY
+import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import com.opengym.feature.history.navigation.SELECTED_EXERCISE_IDS_KEY
 import com.opengym.feature.history.navigation.SessionDetailDestination
+import com.opengym.feature.history.navigation.exerciseDetailGraph
 import com.opengym.feature.history.navigation.exercisePickerGraph
 import com.opengym.feature.history.navigation.historyGraph
 import com.opengym.feature.history.navigation.libraryGraph
@@ -74,9 +77,7 @@ fun OpenGymNavHost(
                 },
                 onBack = { navController.popBackStack() },
             )
-            // Null until the exercise detail screen exists (#94). A row that navigated
-            // nowhere would still take the tap and look broken; an inert row does not.
-            libraryGraph(onExerciseClick = null)
+            libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
             progressionGraph()
         }
 
@@ -110,6 +111,25 @@ fun OpenGymNavHost(
                     ?.set(SELECTED_EXERCISE_IDS_KEY, exerciseIds.toLongArray())
                 navController.popBackStack()
             },
+            // The same screen as the tab's rows open, with the one difference that matters
+            // here: it offers to add what it is showing to the session being assembled.
+            onExerciseClick = { exerciseId ->
+                navController.openExercise(exerciseId, addToSession = true)
+            },
+        )
+
+        exerciseDetailGraph(
+            onBack = { navController.popBackStack() },
+            // The mirror of the picker's own result, going the other way: the id lands on the
+            // picker's entry — which is the previous one, since the detail is pushed straight
+            // over it — and the pop is what makes the picker read it. Written before the pop,
+            // for the reason above.
+            onAddToSession = { exerciseId ->
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.set(ADDED_EXERCISE_ID_KEY, exerciseId)
+                navController.popBackStack()
+            },
         )
 
         settingsGraph(
@@ -119,6 +139,23 @@ fun OpenGymNavHost(
             appVersion = BuildConfig.VERSION_NAME,
             onBack = { navController.popBackStack() },
         )
+    }
+}
+
+/**
+ * Open an exercise's detail screen.
+ *
+ * One function for both callers, because the destination is one destination: the Library tab
+ * and the picker differ only in whether the screen offers to add what it is showing to a
+ * session — see `ExerciseDetailDestination`.
+ *
+ * `launchSingleTop` for the reason every other push here has it: two taps on a row dispatched
+ * before recomposition are two pushes of the same screen, and the first back press then looks
+ * like it did nothing.
+ */
+private fun NavHostController.openExercise(exerciseId: Long, addToSession: Boolean = false) {
+    navigate(ExerciseDetailDestination(exerciseId = exerciseId, addToSession = addToSession)) {
+        launchSingleTop = true
     }
 }
 

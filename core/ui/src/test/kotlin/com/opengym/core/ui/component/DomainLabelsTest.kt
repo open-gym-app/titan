@@ -5,8 +5,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.opengym.core.domain.model.DifficultyLevel
+import com.opengym.core.domain.model.Discipline
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MechanicType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
@@ -47,6 +50,42 @@ class DomainLabelsTest {
     @Test
     fun `every exercise type has a name`() {
         assertAllLabelled(ExerciseType.entries) { it.label() }
+    }
+
+    @Test
+    fun `every exercise type says what a set of it records`() {
+        assertAllLabelled(ExerciseType.entries) { it.trackedLabel() }
+    }
+
+    @Test
+    fun `every mechanic has a name`() {
+        assertAllLabelled(MechanicType.entries) { it.label() }
+    }
+
+    @Test
+    fun `every difficulty has a name`() {
+        assertAllLabelled(DifficultyLevel.entries) { it.label() }
+    }
+
+    @Test
+    fun `every discipline has a name`() {
+        assertAllLabelled(Discipline.entries) { it.label() }
+    }
+
+    @Test
+    fun `a discipline and an exercise type of the same name are told apart`() {
+        // Both enums have a STRENGTH, and they answer different questions — one is the
+        // tradition, one is how a set is recorded. Labelling them the same way would make the
+        // detail screen's metadata grid read "Type: Strength / Tracked: Strength".
+        val labels = mutableListOf<String>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                labels += Discipline.STRENGTH.label()
+                labels += ExerciseType.STRENGTH.trackedLabel()
+            }
+        }
+
+        assertEquals(listOf("Strength", "Weight, reps, RPE"), labels)
     }
 
     @Test

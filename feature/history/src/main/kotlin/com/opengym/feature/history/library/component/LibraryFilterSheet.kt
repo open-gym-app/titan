@@ -30,6 +30,7 @@ import com.opengym.core.ui.component.displayName
 import com.opengym.core.ui.component.labelOrNull
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
+import com.opengym.feature.history.component.ChipSection
 import com.opengym.feature.history.library.ExerciseLibraryEvent
 import com.opengym.feature.history.library.ExerciseLibraryUiState
 import com.opengym.feature.history.library.SEEDED_CATALOGUE_SIZE
@@ -50,7 +51,7 @@ import com.opengym.feature.history.library.SEEDED_CATALOGUE_SIZE
  *
  * [LibraryFilterPanel] is the part with the layout in it, so a test can drive the filters
  * without a sheet's animation and window behaviour in the way — the same split
- * [NewExerciseSheet] makes.
+ * `ExerciseFormSheet` makes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -40,6 +40,12 @@ class FakeExerciseRepository(
     /** When set, every insert throws it — the write the store refuses. */
     var insertFailure: Throwable? = null
 
+    /** When set, every update throws it. The detail screen's two writes go through here. */
+    var updateFailure: Throwable? = null
+
+    /** When set, every delete throws it — a row the schema will not let go of. */
+    var deleteFailure: Throwable? = null
+
     /**
      * When set, an insert waits on it before doing anything.
      *
@@ -118,10 +124,26 @@ class FakeExerciseRepository(
         return id
     }
 
-    override suspend fun update(exercise: Exercise) =
+    override suspend fun update(exercise: Exercise) {
+        updateFailure?.let { throw it }
         exercises.update { all -> all.map { if (it.id == exercise.id) exercise else it } }
+    }
+
+    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) {
+        update(exercise)
+        // Replaced rather than merged, and dropped rather than stored empty — both are what
+        // the contract says and what `getAllMuscleGroupLinks` depends on.
+        links.update { stored ->
+            if (muscleGroups.isEmpty()) {
+                stored - exercise.id
+            } else {
+                stored + (exercise.id to muscleGroups.sortedByDescending { link -> link.isPrimary })
+            }
+        }
+    }
 
     override suspend fun delete(id: Long) {
+        deleteFailure?.let { throw it }
         exercises.update { all -> all.filterNot { it.id == id } }
         links.update { it - id }
     }

@@ -4,9 +4,9 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
-import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.feature.history.exercise.ExerciseDraft
 
 /**
  * Everything the exercise library draws, as one value.
@@ -39,7 +39,8 @@ import com.opengym.core.domain.model.PersonalRecord
  * @param selection the exercises picked, in the order they were picked — that order becomes
  *   the session's exercise order, so a `Set` would quietly shuffle the workout. Only
  *   meaningful in selection mode.
- * @param draft the custom-exercise form, or null when it is closed.
+ * @param draft the new-exercise form, or null when it is closed. Always a *new* draft here —
+ *   the library authors exercises, and correcting one is the detail screen's job.
  * @param message a one-shot outcome to show and forget.
  */
 @Immutable
@@ -54,7 +55,7 @@ data class ExerciseLibraryUiState(
     val matchCount: Int = 0,
     val isLoading: Boolean = true,
     val selection: List<Long> = emptyList(),
-    val draft: NewExerciseDraft? = null,
+    val draft: ExerciseDraft? = null,
     val message: ExerciseLibraryMessage? = null,
 ) {
 
@@ -106,43 +107,6 @@ data class LibraryExercise(
 )
 
 /**
- * The custom-exercise form, as the single value the form edits.
- *
- * The form reports the whole draft back on every change rather than one event per field.
- * Eleven `NewExerciseXChanged` events would all do the same thing — copy one field — and the
- * ViewModel would still have to re-derive [isDuplicateName] after each of them.
- *
- * @param primaryMuscleGroupId the prime mover. Required, and separate from [secondaryMuscleGroupIds]
- *   because volume attribution weights the two differently: a single "muscles worked" set
- *   would have to guess, and guessing "all primary" credits a triceps for every bench press.
- * @param isDuplicateName the catalogue already holds this name for this equipment. Derived by
- *   the ViewModel from the loaded catalogue rather than discovered when the insert fails,
- *   so the form can say so under the field instead of after the user presses save. The
- *   database's unique index is still the authority; this is the courtesy.
- * @param saveFailed the last write refused. Carried on the draft rather than shown as a
- *   snackbar, because the sheet is drawn *over* the screen that hosts the snackbar: a message
- *   raised behind it would play out and be marked shown without the user ever seeing it. It
- *   clears on the next edit, and does not block retrying the same content unchanged.
- */
-@Immutable
-data class NewExerciseDraft(
-    val name: String = "",
-    val type: ExerciseType = ExerciseType.STRENGTH,
-    val equipment: EquipmentType = EquipmentType.BARBELL,
-    val primaryMuscleGroupId: Long? = null,
-    val secondaryMuscleGroupIds: Set<Long> = emptySet(),
-    val notes: String = "",
-    val isSaving: Boolean = false,
-    val isDuplicateName: Boolean = false,
-    val saveFailed: Boolean = false,
-) {
-
-    /** Whether the form is complete, unique and not already being written. */
-    val canSave: Boolean
-        get() = name.isNotBlank() && primaryMuscleGroupId != null && !isDuplicateName && !isSaving
-}
-
-/**
  * Something that happened and needs saying once.
  *
  * An enum rather than a string, for the reason `SettingsMessage` gives: the ViewModel does
@@ -156,7 +120,7 @@ enum class ExerciseLibraryMessage {
     /**
      * The insert failed **and the form is no longer up** to say so — the user dismissed the
      * sheet while the write was in flight. A failure with the sheet still open is reported on
-     * the draft instead; see [NewExerciseDraft.saveFailed].
+     * the draft instead; see [ExerciseDraft.saveFailed].
      */
     SAVE_FAILED,
 }

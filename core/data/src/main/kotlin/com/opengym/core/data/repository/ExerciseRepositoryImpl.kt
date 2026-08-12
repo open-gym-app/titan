@@ -85,17 +85,30 @@ class ExerciseRepositoryImpl @Inject constructor(
             exercise = exerciseMapper.toEntity(exercise),
             // The exercise id is a placeholder: the row does not exist yet, so there is
             // nothing truthful to put here. The DAO overwrites it with the generated one.
-            links = muscleGroups.map { link ->
-                ExerciseMuscleGroupEntity(
-                    exerciseId = 0,
-                    muscleGroupId = link.muscleGroup.id,
-                    isPrimary = link.isPrimary,
-                )
-            },
+            links = muscleGroups.map(::linkEntity),
         )
 
     override suspend fun update(exercise: Exercise) =
         exerciseDao.update(exerciseMapper.toEntity(exercise))
 
+    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) =
+        exerciseDao.updateWithMuscleGroups(
+            exercise = exerciseMapper.toEntity(exercise),
+            links = muscleGroups.map(::linkEntity),
+        )
+
     override suspend fun delete(id: Long) = exerciseDao.delete(id)
+
+    /**
+     * A domain link as a join row, with the exercise id left for the DAO to fill in.
+     *
+     * Both writes that take links hand the DAO rows it re-points itself — an insert has no id
+     * yet, and an update has one the caller has already put on the exercise — so neither
+     * caller has anything truthful to put here.
+     */
+    private fun linkEntity(link: ExerciseMuscleGroupLink) = ExerciseMuscleGroupEntity(
+        exerciseId = 0,
+        muscleGroupId = link.muscleGroup.id,
+        isPrimary = link.isPrimary,
+    )
 }

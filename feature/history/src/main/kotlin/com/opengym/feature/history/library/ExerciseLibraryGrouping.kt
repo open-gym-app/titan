@@ -95,37 +95,8 @@ internal fun List<Exercise>.equipmentVocabulary(): List<EquipmentType> {
     return EquipmentType.entries.filter { it != EquipmentType.OTHER && it in present }
 }
 
-/** The exercise a completed draft describes. */
-internal fun NewExerciseDraft.toExercise(): Exercise = Exercise(
-    name = name.trim(),
-    type = type,
-    equipmentType = equipment,
-    notes = notes.trim().ifEmpty { null },
-    // The whole point of the flag: a custom exercise is the user's, and a future catalogue
-    // refresh must not overwrite or drop it.
-    isCustom = true,
-    // No bundled image. `ExerciseImage` draws the name's initial, which is the honest
-    // placeholder for an exercise nobody has photographed.
-    icon = null,
-)
-
-/**
- * The draft's muscle selections as domain links, primary first.
- *
- * Resolved against [taxonomy] rather than fabricated from the ids, so a group that has
- * vanished between the form opening and the save is dropped here instead of failing the
- * insert's foreign key. An id selected as both primary and secondary yields one link, the
- * primary one — the form does not allow it, and a link table with a duplicate key would
- * reject the write rather than merge them.
+/*
+ * The draft's own rules — what row it describes, and how its chip selections become muscle
+ * links — live with the draft, in `exercise/ExerciseDraft.kt`. They moved there when the
+ * detail screen started editing the same drafts this screen creates.
  */
-internal fun NewExerciseDraft.resolveMuscleGroups(
-    taxonomy: List<MuscleGroup>,
-): List<ExerciseMuscleGroupLink> {
-    val byId = taxonomy.associateBy { it.id }
-    val primary = primaryMuscleGroupId?.let(byId::get)
-    val secondaries = (secondaryMuscleGroupIds - setOfNotNull(primaryMuscleGroupId))
-        .mapNotNull(byId::get)
-
-    return listOfNotNull(primary?.let { ExerciseMuscleGroupLink(it, isPrimary = true) }) +
-        secondaries.map { ExerciseMuscleGroupLink(it, isPrimary = false) }
-}

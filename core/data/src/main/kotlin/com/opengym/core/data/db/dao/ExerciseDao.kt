@@ -50,6 +50,9 @@ interface ExerciseDao {
     @Query("DELETE FROM exercise_muscle_group WHERE exercise_id = :exerciseId AND muscle_group_id = :muscleGroupId")
     suspend fun removeMuscleGroup(exerciseId: Long, muscleGroupId: Long)
 
+    @Query("DELETE FROM exercise_muscle_group WHERE exercise_id = :exerciseId")
+    suspend fun clearMuscleGroups(exerciseId: Long)
+
     /**
      * The muscle groups [exerciseId] trains, each with the join row's `is_primary`
      * flag, primary first and then by name.
@@ -118,6 +121,28 @@ interface ExerciseDao {
         val exerciseId = insert(exercise)
         links.forEach { link -> addMuscleGroup(link.copy(exerciseId = exerciseId)) }
         return exerciseId
+    }
+
+    /**
+     * Rewrite an exercise and swap its muscle links for [links], or do neither.
+     *
+     * Clear-then-insert rather than a diff: the caller is handing over the whole answer to
+     * "what does this work", and a diff would have this method deciding what it meant that a
+     * group was left out. The transaction is what keeps the gap between the two writes
+     * invisible — see [insertWithMuscleGroups] for why an exercise with no links is worse than
+     * a failed write.
+     *
+     * [links] are re-pointed at [exercise]'s id, so a caller that built them from a form's
+     * chip selection does not have to.
+     */
+    @Transaction
+    suspend fun updateWithMuscleGroups(
+        exercise: ExerciseEntity,
+        links: List<ExerciseMuscleGroupEntity>,
+    ) {
+        update(exercise)
+        clearMuscleGroups(exercise.id)
+        links.forEach { link -> addMuscleGroup(link.copy(exerciseId = exercise.id)) }
     }
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)

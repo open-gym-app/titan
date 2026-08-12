@@ -17,7 +17,7 @@ import org.robolectric.RobolectricTestRunner
 /**
  * The filter sheet's contents, driven directly.
  *
- * The panel rather than `LibraryFilterSheet`, for the reason [NewExerciseFormTest] drives the
+ * The panel rather than `LibraryFilterSheet`, for the reason [com.opengym.feature.history.exercise.ExerciseFormTest] drives the
  * form rather than its sheet: what is under test is which chips are drawn and what tapping one
  * reports, and a `ModalBottomSheet`'s animation and window are neither.
  *

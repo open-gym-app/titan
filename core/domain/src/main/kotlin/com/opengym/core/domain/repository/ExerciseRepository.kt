@@ -70,6 +70,34 @@ interface ExerciseRepository {
 
     /** The muscle group taxonomy, ordered by name — the vocabulary a custom exercise picks from. */
     fun getMuscleGroups(): Flow<List<MuscleGroup>>
+
+    /**
+     * Rewrite [exercise]'s own row, leaving its muscle links alone.
+     *
+     * The form of the write for the fields nothing else depends on — the detail screen saving
+     * the user's [Exercise.notes] is the ordinary caller. Editing what an exercise *trains* is
+     * the other overload's job, because that is the write volume attribution reads.
+     */
     suspend fun update(exercise: Exercise)
+
+    /**
+     * Rewrite [exercise] **and replace its muscle links** with [muscleGroups], atomically.
+     *
+     * The update counterpart of [insert], and transactional for the same reason: the row and
+     * the muscles it works are one fact. A crash between clearing the old links and writing
+     * the new ones would leave an exercise training nothing — invisible to the muscle filters,
+     * contributing nothing to volume attribution, and indistinguishable from a correct one to
+     * anybody looking at it.
+     *
+     * The links are *replaced*, not merged. An edit form hands back the whole answer to "what
+     * does this work", and diffing it here would mean this class deciding what the user meant
+     * by leaving a group out.
+     *
+     * Only [ExerciseMuscleGroupLink.isPrimary] and the group's id are read, as in [insert].
+     * Linking to a group id that does not exist fails the write, as does a name and equipment
+     * pair another exercise already holds.
+     */
+    suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>)
+
     suspend fun delete(id: Long)
 }

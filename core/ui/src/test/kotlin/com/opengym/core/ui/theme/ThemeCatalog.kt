@@ -31,8 +31,11 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.MetaEntry
+import com.opengym.core.ui.component.MetaGrid
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatWeight
 import kotlin.time.Duration.Companion.seconds
@@ -161,6 +164,10 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
                 OpenGymBadge("missed", tone = BadgeTone.CRITICAL)
             }
         }
+        CatalogSection("SECTION HEADING") {
+            SectionHeading(text = "Muscles worked")
+            SectionHeading(text = "Resume", color = MaterialTheme.colorScheme.primary)
+        }
         CatalogSection("CARD") {
             OpenGymCard(modifier = Modifier.fillMaxWidth()) {
                 CatalogCardRow("Theme", "Auto")
@@ -169,6 +176,15 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
                 HairlineDivider()
                 CatalogCardRow("Bar weight", formatWeight(20_000_000, UnitSystem.METRIC))
             }
+        }
+        CatalogSection("META GRID") {
+            MetaGrid(
+                entries = listOf(
+                    MetaEntry(label = "Equipment", value = "Barbell"),
+                    MetaEntry(label = "Difficulty", value = "Intermediate"),
+                    MetaEntry(label = "Tracked", value = "Weight, reps, RPE"),
+                ),
+            )
         }
     }
 }

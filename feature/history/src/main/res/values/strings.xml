@@ -22,6 +22,10 @@
     <string name="library_search">Search</string>
     <string name="library_filters">Filters</string>
 
+    <!-- The picker's per-row secondary action: open the exercise rather than tick it. The row
+         itself is the checkbox there, so this is the only way through to the detail. -->
+    <string name="library_details">Details of %1$s</string>
+
     <!-- The filter sheet: one heading per vocabulary, and its way out. The button says what
          is left rather than "apply", because the filters are already applied. -->
     <string name="library_filter_muscle">Muscle</string>
@@ -74,20 +78,82 @@
     <string name="library_exercise_created">Exercise created</string>
     <string name="library_save_failed">Could not save the exercise</string>
 
-    <!-- ── New exercise form ──────────────────────────────────────────────────────── -->
+    <!-- ── Exercise form ──────────────────────────────────────────────────────────── -->
+    <!-- One form for authoring a custom exercise and for correcting one. Only the heading
+         and the submit button differ between the two. -->
 
-    <string name="new_exercise_title">New exercise</string>
-    <string name="new_exercise_name">Name</string>
-    <string name="new_exercise_name_duplicate">You already have this exercise with this equipment</string>
+    <string name="exercise_form_title_new">New exercise</string>
+    <string name="exercise_form_title_edit">Edit exercise</string>
+    <string name="exercise_form_name">Name</string>
+    <string name="exercise_form_name_duplicate">You already have this exercise with this equipment</string>
     <!-- "Measured as" rather than "Type": the choice decides what the set row asks for. -->
-    <string name="new_exercise_type">Measured as</string>
-    <string name="new_exercise_equipment">Equipment</string>
-    <string name="new_exercise_primary_muscle">Primary muscle</string>
-    <string name="new_exercise_secondary_muscles">Also works</string>
-    <string name="new_exercise_notes">Notes (optional)</string>
-    <string name="new_exercise_cancel">Cancel</string>
-    <string name="new_exercise_save">Create</string>
+    <string name="exercise_form_type">Measured as</string>
+    <string name="exercise_form_equipment">Equipment</string>
+    <string name="exercise_form_primary_muscle">Primary muscle</string>
+    <string name="exercise_form_secondary_muscles">Also works</string>
+    <string name="exercise_form_notes">Notes (optional)</string>
+    <string name="exercise_form_cancel">Cancel</string>
+    <string name="exercise_form_create">Create</string>
+    <string name="exercise_form_save">Save</string>
     <!-- Shown in the sheet itself, not as a snackbar: the sheet covers the snackbar's host. -->
-    <string name="new_exercise_save_failed">Could not save the exercise. Try again.</string>
+    <string name="exercise_form_save_failed">Could not save the exercise. Try again.</string>
+
+    <!-- ── Exercise detail ────────────────────────────────────────────────────────── -->
+
+    <string name="detail_back">Back</string>
+    <string name="detail_edit">Edit exercise</string>
+    <string name="detail_delete">Delete exercise</string>
+
+    <string name="detail_section_muscles">Muscles worked</string>
+    <!-- "How to" rather than "Instructions": it is the bundled dataset's own wording for a
+         list of steps, and the shorter heading leaves room for the rule beside it. -->
+    <string name="detail_section_instructions">How to</string>
+    <!-- Deliberately distinct from the section above. `Exercise.instructions` is the same for
+         everybody; `Exercise.notes` is the user's own. -->
+    <string name="detail_section_notes">Your notes</string>
+
+    <string name="detail_muscles_primary">Primary</string>
+    <string name="detail_muscles_secondary">Secondary</string>
+    <!-- Announced as one phrase: "Primary, Chest" rather than a badge and a list read apart. -->
+    <string name="detail_muscles_description">%1$s, %2$s</string>
+    <!-- Quoted: Android trims unquoted whitespace, which would join the names up. -->
+    <string name="detail_muscle_separator">", "</string>
+
+    <!-- The metadata cells. "Type" for the discipline, because that is the word a lifter uses
+         for what kind of exercise something is; "Tracked" says what a set of it records. -->
+    <string name="detail_meta_discipline">Type</string>
+    <string name="detail_meta_equipment">Equipment</string>
+    <string name="detail_meta_mechanic">Mechanic</string>
+    <string name="detail_meta_difficulty">Difficulty</string>
+    <string name="detail_meta_tracked">Tracked</string>
+
+    <!-- The two jumps off the screen. Neither destination exists yet (#95, M5), so neither
+         button is drawn — the strings land with the screen that draws them. -->
+    <string name="detail_plate_calculator">Plate calculator</string>
+    <string name="detail_progression">Progression</string>
+
+    <string name="detail_add_to_session">Add to session</string>
+
+    <string name="detail_notes_label">Your notes</string>
+    <string name="detail_notes_empty">Add a note about this exercise — a seat setting, a cue, which machine at your gym.</string>
+    <string name="detail_notes_add">Add a note</string>
+    <string name="detail_notes_edit">Edit the note</string>
+    <string name="detail_notes_cancel">Cancel</string>
+    <string name="detail_notes_save">Save</string>
+    <string name="detail_notes_save_failed">Could not save the note</string>
+
+    <string name="detail_exercise_updated">Exercise updated</string>
+    <string name="detail_exercise_save_failed">Could not save the exercise</string>
+
+    <string name="detail_delete_title">Delete this exercise?</string>
+    <string name="detail_delete_body">%1$s will be removed from your library. Sessions you have already logged with it are not affected.</string>
+    <string name="detail_delete_confirm">Delete</string>
+    <string name="detail_delete_cancel">Cancel</string>
+    <string name="detail_delete_failed">Could not delete the exercise</string>
+
+    <!-- The glyph is drawn text, not an icon — the design's marks are typographic. -->
+    <string name="detail_glyph_missing">☐</string>
+    <string name="detail_missing_title">Exercise not found</string>
+    <string name="detail_missing_description">This exercise is no longer in your library.</string>
 
 </resources>
