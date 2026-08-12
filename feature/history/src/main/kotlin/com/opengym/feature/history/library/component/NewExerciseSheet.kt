@@ -200,6 +200,17 @@ fun NewExerciseForm(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         )
 
+        // Above the buttons rather than in a snackbar: this sheet covers the Scaffold that
+        // hosts them, so a snackbar would play out behind it and leave the Create button
+        // quietly re-enabling as the only sign anything happened.
+        if (draft.saveFailed) {
+            Text(
+                text = stringResource(R.string.new_exercise_save_failed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),

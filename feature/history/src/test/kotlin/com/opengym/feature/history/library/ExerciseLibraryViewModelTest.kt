@@ -1,6 +1,7 @@
 package com.opengym.feature.history.library
 
 import com.opengym.core.domain.model.EquipmentType
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -67,6 +68,28 @@ class ExerciseLibraryViewModelTest {
         assertEquals(CATALOGUE.size, state.catalogueSize)
         assertEquals(CATALOGUE.size, state.matchCount)
         assertFalse(state.hasFilters)
+    }
+
+    @Test
+    fun `the library is loading until the catalogue read comes back, not merely empty`() = runTest {
+        // The links, the taxonomy and the records answer while the catalogue is still in
+        // flight — the ordinary case, since they are separate queries and the records table
+        // is empty on a fresh install.
+        exercises.withholdCatalogue()
+        val viewModel = viewModel()
+
+        val loading = viewModel.uiState.value
+        // Without this the screen draws "the bundled exercise catalogue did not load.
+        // Reinstalling the app restores it." over a library that is merely still opening.
+        assertTrue(loading.isLoading)
+        assertTrue(loading.sections.isEmpty())
+        assertEquals(0, loading.catalogueSize)
+
+        exercises.releaseCatalogue()
+
+        val loaded = viewModel.uiState.value
+        assertFalse(loaded.isLoading)
+        assertEquals(CATALOGUE.size, loaded.catalogueSize)
     }
 
     @Test
@@ -360,10 +383,54 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
 
         val state = viewModel.uiState.value
-        assertEquals(ExerciseLibraryMessage.SAVE_FAILED, state.message)
-        assertEquals("Zercher squat", state.draft?.name)
+        val draft = state.draft!!
+        assertEquals("Zercher squat", draft.name)
+        // Said on the draft, not as a snackbar: the sheet covers the snackbar's host, so a
+        // message raised there would play out and be marked shown behind it.
+        assertTrue(draft.saveFailed)
+        assertNull(state.message)
         // Not left spinning: the user has to be able to try again.
-        assertFalse(state.draft!!.isSaving)
+        assertFalse(draft.isSaving)
+    }
+
+    @Test
+    fun `editing after a failed write clears the failure`() = runTest {
+        exercises.insertFailure = IllegalStateException("disk full")
+        val viewModel = viewModel()
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
+        val draft = NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id)
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseChanged(draft))
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
+        assertTrue(viewModel.uiState.value.draft!!.saveFailed)
+
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseChanged(draft.copy(name = "Zercher squats")))
+
+        assertFalse(viewModel.uiState.value.draft!!.saveFailed)
+    }
+
+    @Test
+    fun `a form dismissed while the write is in flight does not come back when it fails`() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        exercises.insertGate = gate
+        exercises.insertFailure = IllegalStateException("disk full")
+        val viewModel = viewModel()
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
+        viewModel.onEvent(
+            ExerciseLibraryEvent.NewExerciseChanged(
+                NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+            ),
+        )
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
+
+        // The sheet is swiped away mid-write — `onDismissRequest` is not gated on `isSaving`.
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseDismissed)
+        gate.complete(Unit)
+
+        val state = viewModel.uiState.value
+        // The form the user threw away stays thrown away...
+        assertNull(state.draft)
+        // ...and with no sheet in the way, the snackbar is where the failure gets said.
+        assertEquals(ExerciseLibraryMessage.SAVE_FAILED, state.message)
     }
 
     @Test

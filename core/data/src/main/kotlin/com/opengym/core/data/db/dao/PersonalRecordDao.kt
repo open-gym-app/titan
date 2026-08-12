@@ -66,28 +66,43 @@ interface PersonalRecordDao {
      *
      * The `pr_type` names are spelled out because that is what the column holds — the
      * persisted form of `PrType`, pinned by the domain's `PersistedEnumTest`, not an
-     * incidental rendering of it. The correlated subquery is served by the
-     * `(exercise_id, achieved_at)` index and runs once per exercise that has any record at
-     * all, which on a real device is a few dozen rows rather than the catalogue.
+     * incidental rendering of it.
+     *
+     * ### Why the query is shaped the way it is
+     *
+     * The obvious spelling — `WHERE best.id = (SELECT … WHERE candidate.exercise_id =
+     * best.exercise_id …)` — is correlated on the *outer row*, so SQLite runs it once per
+     * record rather than once per exercise, and the `ORDER BY` cannot use the
+     * `(exercise_id, achieved_at)` index because its leading key is an expression, so each
+     * evaluation builds a temporary b-tree. That measured **1,263 ms** against
+     * `LargeHistoryBenchmarkTest`'s 10,000-record fixture, over a 500 ms budget.
+     *
+     * Driving it from `SELECT DISTINCT exercise_id` instead pins the subquery to one
+     * evaluation per exercise that has any record at all — a few hundred on a real device —
+     * and turns the outer half into an id lookup. Same rows, same order of preference.
+     * `LargeHistoryBenchmarkTest` holds it to the budget, so this shape is load-bearing.
      */
     @Query(
         """
-        SELECT best.* FROM personal_record best
-        WHERE best.id = (
-            SELECT candidate.id FROM personal_record candidate
-            WHERE candidate.exercise_id = best.exercise_id
-            ORDER BY
-                CASE candidate.pr_type
-                    WHEN 'MAX_WEIGHT' THEN 0
-                    WHEN 'MAX_REPS' THEN 1
-                    WHEN 'MAX_DISTANCE' THEN 2
-                    WHEN 'BEST_PACE' THEN 3
-                    WHEN 'ESTIMATED_1RM' THEN 4
-                    WHEN 'MAX_VOLUME' THEN 5
-                    ELSE 6
-                END ASC,
-                candidate.achieved_at DESC
-            LIMIT 1
+        SELECT * FROM personal_record
+        WHERE id IN (
+            SELECT (
+                SELECT candidate.id FROM personal_record candidate
+                WHERE candidate.exercise_id = present.exercise_id
+                ORDER BY
+                    CASE candidate.pr_type
+                        WHEN 'MAX_WEIGHT' THEN 0
+                        WHEN 'MAX_REPS' THEN 1
+                        WHEN 'MAX_DISTANCE' THEN 2
+                        WHEN 'BEST_PACE' THEN 3
+                        WHEN 'ESTIMATED_1RM' THEN 4
+                        WHEN 'MAX_VOLUME' THEN 5
+                        ELSE 6
+                    END ASC,
+                    candidate.achieved_at DESC
+                LIMIT 1
+            )
+            FROM (SELECT DISTINCT exercise_id FROM personal_record) present
         )
         """,
     )

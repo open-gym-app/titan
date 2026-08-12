@@ -10,8 +10,11 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -37,10 +40,41 @@ class FakeExerciseRepository(
     /** When set, every insert throws it — the write the store refuses. */
     var insertFailure: Throwable? = null
 
+    /**
+     * When set, an insert waits on it before doing anything.
+     *
+     * A real write is slow enough for the user to act while it is in flight — dismissing the
+     * sheet, most importantly — and an insert that resolves the instant it is called cannot
+     * express that. Complete it to let the write finish.
+     */
+    var insertGate: CompletableDeferred<Unit>? = null
+
     /** The next id an insert hands out. Above any fixture's, so ids stay unique. */
     private var nextId = INSERT_ID_BASE
 
-    override fun getAll(): Flow<List<Exercise>> = exercises
+    /**
+     * Whether `getAll()` has anything to say yet.
+     *
+     * The four reads behind the library are four separate queries that answer independently,
+     * and the catalogue is not reliably the first — which is the whole reason the screen has
+     * to tell "not loaded yet" apart from "loaded, and empty". A fake whose catalogue is
+     * always instantly present cannot express the difference.
+     */
+    private val catalogueArrived = MutableStateFlow(true)
+
+    /** Hold `getAll()` silent, as if the query had not come back yet. */
+    fun withholdCatalogue() {
+        catalogueArrived.value = false
+    }
+
+    /** Let the withheld `getAll()` answer. */
+    fun releaseCatalogue() {
+        catalogueArrived.value = true
+    }
+
+    override fun getAll(): Flow<List<Exercise>> =
+        combine(exercises, catalogueArrived) { rows, arrived -> rows.takeIf { arrived } }
+            .filterNotNull()
 
     override fun getById(id: Long): Flow<Exercise?> =
         exercises.map { all -> all.firstOrNull { it.id == id } }
@@ -69,6 +103,7 @@ class FakeExerciseRepository(
         exercise: Exercise,
         muscleGroups: List<ExerciseMuscleGroupLink>,
     ): Long {
+        insertGate?.await()
         insertFailure?.let { throw it }
         val duplicate = exercises.value.any {
             it.name == exercise.name && it.equipmentType == exercise.equipmentType

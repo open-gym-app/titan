@@ -87,5 +87,7 @@
     <string name="new_exercise_notes">Notes (optional)</string>
     <string name="new_exercise_cancel">Cancel</string>
     <string name="new_exercise_save">Create</string>
+    <!-- Shown in the sheet itself, not as a snackbar: the sheet covers the snackbar's host. -->
+    <string name="new_exercise_save_failed">Could not save the exercise. Try again.</string>
 
 </resources>

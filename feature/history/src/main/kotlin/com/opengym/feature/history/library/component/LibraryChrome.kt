@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -243,6 +244,12 @@ private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {
  *
  * Disabled rather than hidden while nothing is selected, so it is clear from the moment the
  * screen opens what it is for and where the way out is.
+ *
+ * It insets itself for the navigation bar, because nothing else will: a `Scaffold` applies its
+ * `contentWindowInsets` to the content slot only, and the picker is a full-screen destination
+ * outside the shell that would otherwise have done it. Without this the button sits under the
+ * gesture handle on a gesture-navigation device — the shell's own bottom bar pads itself for
+ * the same reason.
  */
 @Composable
 internal fun ConfirmSelectionBar(
@@ -250,7 +257,7 @@ internal fun ConfirmSelectionBar(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    Column(modifier = modifier.navigationBarsPadding()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Button(
             onClick = onConfirm,

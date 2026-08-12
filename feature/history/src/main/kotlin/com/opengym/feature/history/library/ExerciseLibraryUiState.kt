@@ -32,8 +32,10 @@ import com.opengym.core.domain.model.PersonalRecord
  *   `LIBRARY · 184`.
  * @param matchCount how many are in [sections]. Equal to [catalogueSize] when nothing is
  *   filtered.
- * @param isLoading no read has come back yet. Distinct from "the catalogue is empty", which
- *   would otherwise flash an empty state on every cold open.
+ * @param isLoading there is no answer for what is on screen yet — either the catalogue read has
+ *   not landed, or the rows in hand are the previous query's. Distinct from "the catalogue is
+ *   empty" and from "nothing matched", both of which would otherwise be drawn over a library
+ *   that is merely still opening, or on the way back from a search that matched nothing.
  * @param selection the exercises picked, in the order they were picked — that order becomes
  *   the session's exercise order, so a `Set` would quietly shuffle the workout. Only
  *   meaningful in selection mode.
@@ -117,6 +119,10 @@ data class LibraryExercise(
  *   the ViewModel from the loaded catalogue rather than discovered when the insert fails,
  *   so the form can say so under the field instead of after the user presses save. The
  *   database's unique index is still the authority; this is the courtesy.
+ * @param saveFailed the last write refused. Carried on the draft rather than shown as a
+ *   snackbar, because the sheet is drawn *over* the screen that hosts the snackbar: a message
+ *   raised behind it would play out and be marked shown without the user ever seeing it. It
+ *   clears on the next edit, and does not block retrying the same content unchanged.
  */
 @Immutable
 data class NewExerciseDraft(
@@ -128,6 +134,7 @@ data class NewExerciseDraft(
     val notes: String = "",
     val isSaving: Boolean = false,
     val isDuplicateName: Boolean = false,
+    val saveFailed: Boolean = false,
 ) {
 
     /** Whether the form is complete, unique and not already being written. */
@@ -146,6 +153,10 @@ enum class ExerciseLibraryMessage {
     /** A custom exercise was created. Worth confirming — the list it joins is 184 rows long. */
     EXERCISE_CREATED,
 
-    /** The insert failed. The form stays open with what was typed still in it. */
+    /**
+     * The insert failed **and the form is no longer up** to say so — the user dismissed the
+     * sheet while the write was in flight. A failure with the sheet still open is reported on
+     * the draft instead; see [NewExerciseDraft.saveFailed].
+     */
     SAVE_FAILED,
 }

@@ -62,8 +62,18 @@ class ExerciseLibraryViewModel @Inject constructor(
     /** What the screen owns, as opposed to what the stores do. */
     private val screenState = MutableStateFlow(ScreenState())
 
-    private val allExercises: StateFlow<List<Exercise>> = exerciseRepository.getAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
+    /**
+     * The catalogue, or **null** until the read comes back.
+     *
+     * Null rather than an empty list because the two are different states and the screen draws
+     * them differently: an empty catalogue means the seed did not run and says so in alarming
+     * terms, which is not a thing to flash at somebody for the few milliseconds before the
+     * rows arrive. The other three reads can and do answer first — they are separate queries
+     * on Room's executor, and `getHeadlineRecords` over an empty table is trivially fast — so
+     * without this the first emission really is a fully-loaded-looking empty library.
+     */
+    private val allExercises: StateFlow<List<Exercise>?> = exerciseRepository.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     private val muscleGroups: StateFlow<List<MuscleGroup>> = exerciseRepository.getMuscleGroups()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
@@ -73,13 +83,26 @@ class ExerciseLibraryViewModel @Inject constructor(
      *
      * Reusing [allExercises] for the empty case rather than calling `getAll()` again keeps
      * the common state to one observed query instead of two identical ones.
+     *
+     * Each result **carries the query it answers**, because the two do not arrive together.
+     * `screenState` reaches the outer combine the moment the query changes, while the rows for
+     * it are still in SQLite; the last result to have arrived is the *previous* query's. That
+     * is fine to keep drawing — stale rows for a few milliseconds read as "nothing has happened
+     * yet" — but it must not be counted as an answer, or clearing a search that matched nothing
+     * would render "the catalogue did not load" on the way back to a full library. [buildState]
+     * compares the two and treats a mismatch as still loading.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val matches: Flow<List<Exercise>> = screenState
+    private val matches: Flow<Matches> = screenState
         .map { it.query.trim() }
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            if (query.isEmpty()) allExercises else exerciseRepository.searchByPartialName(query)
+            val rows = if (query.isEmpty()) {
+                allExercises
+            } else {
+                exerciseRepository.searchByPartialName(query)
+            }
+            rows.map { Matches(query = query, exercises = it) }
         }
 
     private val catalogue: Flow<Catalogue> = combine(
@@ -180,13 +203,24 @@ class ExerciseLibraryViewModel @Inject constructor(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
-                // The draft goes back the way it was, not away: what the user typed is the
-                // only copy of it, and a form that closed on failure would lose it.
-                screenState.update {
-                    it.copy(
-                        draft = draft.copy(isSaving = false),
-                        message = ExerciseLibraryMessage.SAVE_FAILED,
-                    )
+                // Where the failure is *said* depends on whether the form is still up, and the
+                // two places are exclusive. The sheet is drawn over the Scaffold that hosts the
+                // snackbar, so a snackbar raised under an open sheet would run its whole
+                // duration invisible and be marked shown; and a sheet the user swiped away
+                // mid-write must not reappear carrying a draft they already dismissed.
+                //
+                // Hence reading the *current* draft rather than restoring the captured one:
+                // it is the same value (the form is inert while saving) except in the one case
+                // that matters, where it is null.
+                screenState.update { state ->
+                    val open = state.draft
+                    if (open == null) {
+                        state.copy(message = ExerciseLibraryMessage.SAVE_FAILED)
+                    } else {
+                        // The draft goes back the way it was, not away: what the user typed is
+                        // the only copy of it, and a form that closed on failure would lose it.
+                        state.copy(draft = open.copy(isSaving = false, saveFailed = true))
+                    }
                 }
             }
         }
@@ -200,13 +234,16 @@ class ExerciseLibraryViewModel @Inject constructor(
      * should be able to say so. Case-insensitively, because the index is not the thing the
      * user is trying to satisfy; "bench press" beside "Bench Press" is a duplicate to anyone
      * reading the list.
+     *
+     * Editing anything also clears [NewExerciseDraft.saveFailed]: the message is about the
+     * write that failed, and the user changing the form is them acting on it.
      */
     private fun NewExerciseDraft.withDuplicateCheck(): NewExerciseDraft {
         val trimmed = name.trim()
-        val duplicate = trimmed.isNotEmpty() && allExercises.value.any { existing ->
+        val duplicate = trimmed.isNotEmpty() && allExercises.value.orEmpty().any { existing ->
             existing.name.equals(trimmed, ignoreCase = true) && existing.equipmentType == equipment
         }
-        return copy(isDuplicateName = duplicate)
+        return copy(isDuplicateName = duplicate, saveFailed = false)
     }
 
     /**
@@ -221,10 +258,17 @@ class ExerciseLibraryViewModel @Inject constructor(
      */
     private fun buildState(
         catalogue: Catalogue,
-        matches: List<Exercise>,
+        matches: Matches,
         screen: ScreenState,
     ): ExerciseLibraryUiState {
-        val visible = matches.filterBy(
+        // Loading is "no answer for what is on screen yet", not "no read has returned".
+        // Either the catalogue itself has not landed, or the rows in hand answer a query the
+        // user has already moved on from.
+        val isLoading = catalogue.exercises == null ||
+            matches.exercises == null ||
+            matches.query != screen.query.trim()
+
+        val visible = matches.exercises.orEmpty().filterBy(
             muscleGroupId = screen.muscleGroupId,
             equipment = screen.equipment,
             links = catalogue.links,
@@ -234,12 +278,12 @@ class ExerciseLibraryViewModel @Inject constructor(
             query = screen.query,
             muscleGroups = catalogue.taxonomy,
             selectedMuscleGroupId = screen.muscleGroupId,
-            equipmentTypes = catalogue.exercises.equipmentVocabulary(),
+            equipmentTypes = catalogue.exercises.orEmpty().equipmentVocabulary(),
             selectedEquipment = screen.equipment,
             sections = visible.groupIntoSections(catalogue.links, catalogue.records),
-            catalogueSize = catalogue.exercises.size,
+            catalogueSize = catalogue.exercises?.size ?: 0,
             matchCount = visible.size,
-            isLoading = false,
+            isLoading = isLoading,
             selection = screen.selection,
             draft = screen.draft,
             message = screen.message,
@@ -256,12 +300,26 @@ class ExerciseLibraryViewModel @Inject constructor(
         val message: ExerciseLibraryMessage? = null,
     )
 
-    /** The four observed reads, as one value, so the outer combine takes three arguments. */
+    /**
+     * The four observed reads, as one value, so the outer combine takes three arguments.
+     *
+     * @param exercises null until the catalogue read comes back — see [allExercises].
+     */
     private data class Catalogue(
-        val exercises: List<Exercise>,
+        val exercises: List<Exercise>?,
         val links: Map<Long, List<ExerciseMuscleGroupLink>>,
         val taxonomy: List<MuscleGroup>,
         val records: Map<Long, PersonalRecord>,
+    )
+
+    /**
+     * A search result and the query it answers.
+     *
+     * @param exercises null until the read behind [query] comes back.
+     */
+    private data class Matches(
+        val query: String,
+        val exercises: List<Exercise>?,
     )
 
     private companion object {
