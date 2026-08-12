@@ -1,10 +1,13 @@
 package com.opengym.core.data.mapper
 
 import com.opengym.core.data.db.entity.TemplateExerciseEntity
+import com.opengym.core.data.db.entity.WorkoutTemplateEntity
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutTemplate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,9 +18,41 @@ class TemplateMappersTest {
 
     @Test
     fun `template round trips every field`() {
-        val template = WorkoutTemplate(id = 3, name = "Push Day", icon = "dumbbell")
+        val template = WorkoutTemplate(
+            id = 3,
+            name = "Push Day",
+            category = TemplateCategory.HYPERTROPHY,
+            icon = "dumbbell",
+        )
 
         assertEquals(template, templateMapper.toDomain(templateMapper.toEntity(template)))
+    }
+
+    @Test
+    fun `every category round trips`() {
+        TemplateCategory.entries.forEach { category ->
+            val template = WorkoutTemplate(id = 3, name = "Push Day", category = category)
+
+            assertEquals(category, templateMapper.toDomain(templateMapper.toEntity(template)).category)
+        }
+    }
+
+    @Test
+    fun `a template with no category stores no category`() {
+        val entity = templateMapper.toEntity(WorkoutTemplate(id = 3, name = "Push Day"))
+
+        assertNull(entity.category)
+        assertNull(templateMapper.toDomain(entity).category)
+    }
+
+    @Test
+    fun `an unknown category reads as uncategorised rather than making the row unreadable`() {
+        val row = WorkoutTemplateEntity(id = 3, name = "Push Day", category = "PILATES")
+
+        val template = templateMapper.toDomain(row)
+
+        assertNull(template.category)
+        assertEquals("Push Day", template.name)
     }
 
     @Test

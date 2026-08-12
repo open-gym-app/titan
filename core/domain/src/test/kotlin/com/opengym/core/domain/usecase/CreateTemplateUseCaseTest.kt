@@ -1,9 +1,11 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.WorkoutTemplate
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +29,28 @@ class CreateTemplateUseCaseTest {
             .getOrThrow()
 
         assertEquals("arm", templates.stored(created.id)?.icon)
+    }
+
+    @Test
+    fun `creating carries the category onto the template`() = runTest {
+        val created = createTemplate(
+            "Leg day",
+            listOf(draft(exerciseId = 7L)),
+            category = TemplateCategory.HYPERTROPHY,
+        ).getOrThrow()
+
+        assertEquals(TemplateCategory.HYPERTROPHY, created.category)
+        assertEquals(TemplateCategory.HYPERTROPHY, templates.stored(created.id)?.category)
+    }
+
+    @Test
+    fun `a template saved without a category has none`() = runTest {
+        // Not GENERAL: "the user was never asked" and "the user said general" are
+        // different answers, and only one of them puts a chip on the row.
+        val created = createTemplate("Push day", listOf(draft(exerciseId = 7L))).getOrThrow()
+
+        assertNull(created.category)
+        assertNull(templates.stored(created.id)?.category)
     }
 
     @Test

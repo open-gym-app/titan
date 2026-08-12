@@ -37,7 +37,8 @@ fun muscleGroup(name: String = "CHEST", icon: String? = null) =
 fun tag(name: String = "PUSH", isSystem: Boolean = false) =
     TagEntity(name = name, isSystem = isSystem)
 
-fun template(name: String = "Push Day") = WorkoutTemplateEntity(name = name)
+fun template(name: String = "Push Day", category: String? = null) =
+    WorkoutTemplateEntity(name = name, category = category)
 
 fun templateExercise(
     templateId: Long,

@@ -1,9 +1,12 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.WorkoutTemplate
+import com.opengym.core.domain.template.TemplateDuration
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -20,6 +23,49 @@ class UpdateTemplateUseCaseTest {
 
         assertEquals(WorkoutTemplate(id = id, name = "Upper body", icon = null), updated)
         assertEquals("Upper body", templates.stored(id)?.name)
+    }
+
+    @Test
+    fun `updating rewrites the category`() = runTest {
+        val id = templates.seed("Push day", category = TemplateCategory.STRENGTH)
+
+        updateTemplate(
+            id,
+            "Push day",
+            listOf(draft(exerciseId = 1L)),
+            category = TemplateCategory.HYPERTROPHY,
+        ).getOrThrow()
+
+        assertEquals(TemplateCategory.HYPERTROPHY, templates.stored(id)?.category)
+    }
+
+    @Test
+    fun `updating without a category clears the one that was there`() = runTest {
+        // A rewrite, not a patch: an edit screen that dropped the category is how a
+        // user removes one, so a merge with the stored row would make it unremovable.
+        val id = templates.seed("Push day", category = TemplateCategory.STRENGTH)
+
+        updateTemplate(id, "Push day", listOf(draft(exerciseId = 1L))).getOrThrow()
+
+        assertNull(templates.stored(id)?.category)
+    }
+
+    @Test
+    fun `editing the exercises changes the estimated duration without a second write`() = runTest {
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, defaultSets = 3)))
+        val before = TemplateDuration.estimate(templates.storedExercises(id))
+        val writesBefore = templates.writeCount
+
+        updateTemplate(
+            id,
+            "Push day",
+            listOf(draft(exerciseId = 1L, defaultSets = 3), draft(exerciseId = 2L, defaultSets = 4)),
+        ).getOrThrow()
+
+        // One write, the one that stored the new exercise list. Nothing restates the
+        // duration afterwards because no row holds it.
+        assertEquals(writesBefore + 1, templates.writeCount)
+        assertTrue(TemplateDuration.estimate(templates.storedExercises(id)) > before)
     }
 
     @Test

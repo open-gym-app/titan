@@ -1,12 +1,14 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.repository.TemplateRepository
 
 /**
- * Rewrites an existing template: its name, its icon, and its whole exercise list.
+ * Rewrites an existing template: its name, its category, its icon, and its whole
+ * exercise list.
  *
  * Enforces the same rules as [CreateTemplateUseCase] — a template must not be
  * editable into a shape it could not have been created in — plus
@@ -18,6 +20,13 @@ import com.opengym.core.domain.repository.TemplateRepository
  *
  * The exercise list replaces the stored one wholesale; see
  * [TemplateRepository.update] for what that costs.
+ *
+ * **Every field is a rewrite, not a patch.** [category] and [icon] are stored as given,
+ * so omitting one clears what was there — an edit screen hands back the whole template
+ * it is showing, and a use case that merged the omitted fields with the stored row
+ * would leave no way to remove a category at all. The estimated duration is not among
+ * the fields because it is not a field: it follows from the new exercise list without a
+ * write ([com.opengym.core.domain.template.TemplateDuration]).
  */
 class UpdateTemplateUseCase(
     private val templateRepository: TemplateRepository,
@@ -27,6 +36,7 @@ class UpdateTemplateUseCase(
         templateId: Long,
         name: String,
         exercises: List<TemplateExerciseDraft>,
+        category: TemplateCategory? = null,
         icon: String? = null,
     ): Result<WorkoutTemplate> {
         templateRepository.loadTemplate(templateId)
@@ -35,7 +45,12 @@ class UpdateTemplateUseCase(
         val valid = templateRepository.validateTemplate(name, exercises, selfId = templateId)
             .getOrElse { return Result.failure(it) }
 
-        val updated = WorkoutTemplate(id = templateId, name = valid.name, icon = icon)
+        val updated = WorkoutTemplate(
+            id = templateId,
+            name = valid.name,
+            category = category,
+            icon = icon,
+        )
         templateRepository.update(updated, valid.exercises)
         return Result.success(updated)
     }
