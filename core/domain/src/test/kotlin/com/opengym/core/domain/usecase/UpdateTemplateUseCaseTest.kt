@@ -2,6 +2,7 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
+import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.template.TemplateDuration
 import kotlinx.coroutines.test.runTest
@@ -53,7 +54,7 @@ class UpdateTemplateUseCaseTest {
     @Test
     fun `editing the exercises changes the estimated duration without a second write`() = runTest {
         val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, defaultSets = 3)))
-        val before = TemplateDuration.estimate(templates.storedExercises(id))
+        val before = estimatedDuration(id)
         val writesBefore = templates.writeCount
 
         updateTemplate(
@@ -65,7 +66,7 @@ class UpdateTemplateUseCaseTest {
         // One write, the one that stored the new exercise list. Nothing restates the
         // duration afterwards because no row holds it.
         assertEquals(writesBefore + 1, templates.writeCount)
-        assertTrue(TemplateDuration.estimate(templates.storedExercises(id)) > before)
+        assertTrue(estimatedDuration(id) > before)
     }
 
     @Test
@@ -200,4 +201,8 @@ class UpdateTemplateUseCaseTest {
         assertEquals("Push day", templates.stored(id)?.name)
         assertEquals(listOf(1L), templates.storedExercises(id).map { it.exerciseId })
     }
+
+    /** What a screen would render for the stored template, read back from its rows. */
+    private fun estimatedDuration(id: Long) =
+        TemplateDuration.estimate(templates.storedExercises(id), UserPreferences.DEFAULT_REST_DURATION)
 }

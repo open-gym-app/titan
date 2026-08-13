@@ -102,6 +102,17 @@ class PersistedEnumTest {
     }
 
     @Test
+    fun `template category names are the ones workout_template category holds`() {
+        // The column is nullable and null is not GENERAL, so a rename does not fall back
+        // to a neighbouring value — it turns every template categorised under the old
+        // spelling into an uncategorised one, chip and all.
+        assertEquals(
+            setOf("STRENGTH", "HYPERTROPHY", "ENDURANCE", "MOBILITY", "GENERAL"),
+            TemplateCategory.entries.map(TemplateCategory::name).toSet(),
+        )
+    }
+
+    @Test
     fun `pr type names are the ones personal_record pr_type holds`() {
         // Nothing writes these yet — the PR engine is M5-01 — but the column and its
         // `getLatestByType` query already exist, so the vocabulary is already a contract.

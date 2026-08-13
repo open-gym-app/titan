@@ -34,7 +34,10 @@ import kotlin.time.Duration.Companion.seconds
  * rest taken after the group, so a member that is not the last of its group
  * contributes work and no rest at all ([Supersets.isRestDueAfter] is what decides
  * this, so grouping is read the same way here as when the session asks whether a rest
- * is due).
+ * is due). A group whose members plan different set counts runs for as many rounds as
+ * its longest member — the shorter ones simply drop out of the later rounds — so the
+ * group's rest is priced off that count, and the rest itself off the member the group
+ * ends on.
  *
  * ### What it is and is not
  *
@@ -66,46 +69,73 @@ object TemplateDuration {
      * The estimate for [exercises], which must be **in position order** — the order a
      * repository hands them back, and the order a draft list is already in.
      *
-     * [defaultRest] stands in for any exercise with no rest of its own; pass the user's
-     * configured default ([UserPreferences.defaultRestDuration]), which is what it
-     * falls back to. The catalogue's per-exercise `default_rest` is deliberately not
-     * consulted: the template row is the plan, and an estimate that quietly read a
-     * different number from a second table would not match the rest the session
-     * actually runs.
+     * [defaultRest] stands in for any exercise with no rest of its own, and is required
+     * rather than defaulted: it is the user's configured default
+     * ([UserPreferences.defaultRestDuration]), and a parameter that filled itself in
+     * would let a screen price every rest at the shipped constant for a user who has
+     * changed theirs, which reads as correct everywhere except on their phone. The
+     * catalogue's per-exercise `default_rest` is deliberately not consulted: the
+     * template row is the plan, and an estimate that quietly read a different number
+     * from a second table would not match the rest the session actually runs.
      *
      * An empty template estimates [Duration.ZERO], as does one whose exercises all plan
      * zero sets. A negative set count or rest — which nothing writes, but an import
      * can — contributes nothing rather than subtracting time.
      */
-    fun estimate(
-        exercises: List<PlannedExercise>,
-        defaultRest: Duration = UserPreferences.DEFAULT_REST_DURATION,
-    ): Duration {
-        val grouping = exercises.map(PlannedExercise::supersetGroup)
+    fun estimate(exercises: List<PlannedExercise>, defaultRest: Duration): Duration {
+        // An exercise planning no sets is not performed, so it is dropped before the
+        // grouping is read rather than skipped inside the loop: a superset whose last
+        // member plans nothing still takes its rest after the member that *is*
+        // performed, and reading the raw grouping would hand that rest to a member
+        // that never runs and so lose it entirely.
+        val performed = exercises.filter { plannedSets(it) > 0 }
+        val grouping = performed.map(PlannedExercise::supersetGroup)
         val fallbackRest = defaultRest.coerceAtLeast(Duration.ZERO)
 
         var total = Duration.ZERO
         // The rest that would be taken after the final set of the workout, subtracted
-        // once at the end. Tracked as it goes rather than read off the last exercise:
-        // the last exercise may plan no sets, in which case the workout ends on an
-        // earlier one and it is *that* rest which is never taken.
+        // once at the end. Tracked as it goes rather than read off the last exercise,
+        // whose rest may be one nobody reaches.
         var trailingRest = Duration.ZERO
 
-        exercises.forEachIndexed { index, exercise ->
-            val sets = (exercise.defaultSets ?: DEFAULT_SETS).coerceAtLeast(0)
-            if (sets == 0) return@forEachIndexed
-
-            total += WORK_PER_SET * sets
+        performed.forEachIndexed { index, exercise ->
+            total += WORK_PER_SET * plannedSets(exercise)
             if (Supersets.isRestDueAfter(grouping, index)) {
                 val rest = exercise.restDuration
                     ?.seconds
                     ?.coerceAtLeast(Duration.ZERO)
                     ?: fallbackRest
-                total += rest * sets
+                total += rest * rounds(performed, grouping, index)
                 trailingRest = rest
             }
         }
 
         return total - trailingRest
+    }
+
+    /** [exercise]'s planned sets, with [DEFAULT_SETS] for silence and no negatives. */
+    private fun plannedSets(exercise: PlannedExercise): Int =
+        (exercise.defaultSets ?: DEFAULT_SETS).coerceAtLeast(0)
+
+    /**
+     * How many times a rest is taken after the exercise at [last], which is a standalone
+     * exercise or the last member of a superset — its own set count in the first case,
+     * and the longest of its group's in the second, since the group runs until its
+     * longest member is done.
+     *
+     * Walks back over the group rather than looking it up, which is sound for the same
+     * reason [Supersets.isRestDueAfter] may read only the next position: members are
+     * contiguous.
+     */
+    private fun rounds(performed: List<PlannedExercise>, grouping: List<Int?>, last: Int): Int {
+        val group = grouping[last] ?: return plannedSets(performed[last])
+
+        var rounds = 0
+        var index = last
+        while (index >= 0 && grouping[index] == group) {
+            rounds = maxOf(rounds, plannedSets(performed[index]))
+            index--
+        }
+        return rounds
     }
 }

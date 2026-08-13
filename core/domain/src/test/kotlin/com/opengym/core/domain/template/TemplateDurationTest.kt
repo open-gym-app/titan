@@ -1,5 +1,6 @@
 package com.opengym.core.domain.template
 
+import com.opengym.core.domain.model.PlannedExercise
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.UserPreferences
@@ -21,20 +22,20 @@ class TemplateDurationTest {
 
     @Test
     fun `a template with no exercises takes no time`() {
-        assertEquals(Duration.ZERO, TemplateDuration.estimate(emptyList()))
+        assertEquals(Duration.ZERO, estimate(emptyList()))
     }
 
     @Test
     fun `one exercise is its sets of work plus the rests between them`() {
         // Three sets, and the rest after the last one is never taken.
-        val estimate = TemplateDuration.estimate(listOf(exercise(sets = 3, rest = 60)))
+        val estimate = estimate(listOf(exercise(sets = 3, rest = 60)))
 
         assertEquals(work * 3 + 60.seconds * 2, estimate)
     }
 
     @Test
     fun `each exercise carries its own rest`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = 180), exercise(sets = 3, rest = 30)),
         )
 
@@ -43,16 +44,16 @@ class TemplateDurationTest {
 
     @Test
     fun `an exercise with no rest of its own takes the default`() {
-        val estimate = TemplateDuration.estimate(listOf(exercise(sets = 2, rest = null)))
+        val estimate = estimate(listOf(exercise(sets = 2, rest = null)))
 
         assertEquals(work * 2 + defaultRest, estimate)
     }
 
     @Test
     fun `the caller's default rest is what an exercise without one falls back to`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = null)),
-            defaultRest = 10.seconds,
+            rest = 10.seconds,
         )
 
         assertEquals(work * 2 + 10.seconds, estimate)
@@ -60,14 +61,14 @@ class TemplateDurationTest {
 
     @Test
     fun `an exercise with no set count is assumed to plan three`() {
-        val estimate = TemplateDuration.estimate(listOf(exercise(sets = null, rest = 60)))
+        val estimate = estimate(listOf(exercise(sets = null, rest = 60)))
 
         assertEquals(work * TemplateDuration.DEFAULT_SETS + 60.seconds * 2, estimate)
     }
 
     @Test
     fun `the wireframe's eight-exercise template lands under an hour`() {
-        val estimate = TemplateDuration.estimate(List(8) { exercise(sets = 3, rest = null) })
+        val estimate = estimate(List(8) { exercise(sets = 3, rest = null) })
 
         // 24 sets of work, and 23 rests: the 24th is the end of the workout.
         assertEquals(work * 24 + defaultRest * 23, estimate)
@@ -76,7 +77,7 @@ class TemplateDurationTest {
 
     @Test
     fun `a superset's members are worked back to back with no rest between them`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(
                 exercise(sets = 3, rest = 60, group = 0),
                 exercise(sets = 3, rest = 60, group = 0),
@@ -94,15 +95,15 @@ class TemplateDurationTest {
             exercise(sets = 3, rest = 60, group = 0),
         )
 
-        val superset = TemplateDuration.estimate(paired)
-        val separately = TemplateDuration.estimate(paired.map { it.copy(supersetGroup = null) })
+        val superset = estimate(paired)
+        val separately = estimate(paired.map { it.copy(supersetGroup = null) })
 
         assertEquals(60.seconds * 3, separately - superset)
     }
 
     @Test
     fun `only the last member of a superset contributes a rest`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(
                 exercise(sets = 2, rest = 30, group = 0),
                 exercise(sets = 2, rest = 30, group = 0),
@@ -117,8 +118,69 @@ class TemplateDurationTest {
     }
 
     @Test
+    fun `a superset runs for as many rounds as its longest member`() {
+        val estimate = estimate(
+            listOf(
+                exercise(sets = 4, rest = 60, group = 0),
+                exercise(sets = 2, rest = 60, group = 0),
+            ),
+        )
+
+        // Four rounds, the second exercise dropping out after the second; the rest is
+        // taken after each round but the last, so four rests and not the shorter
+        // member's two.
+        assertEquals(work * 6 + 60.seconds * 3, estimate)
+    }
+
+    @Test
+    fun `a superset whose last member plans no sets still rests after the one performed`() {
+        val estimate = estimate(
+            listOf(
+                exercise(sets = 3, rest = 30, group = 0),
+                exercise(sets = 0, rest = 30, group = 0),
+            ),
+        )
+
+        // The empty member is not performed, so this is one exercise for three sets and
+        // the group's rest is due after it, not lost with the member that never runs.
+        assertEquals(work * 3 + 30.seconds * 2, estimate)
+    }
+
+    @Test
+    fun `an empty last member neither loses its group's rest nor drops an earlier one`() {
+        val estimate = estimate(
+            listOf(
+                exercise(sets = 3, rest = 60),
+                exercise(sets = 3, rest = 30, group = 0),
+                exercise(sets = 0, rest = 30, group = 0),
+            ),
+        )
+
+        // The standalone exercise's three rests are all taken — the third is the
+        // transition into the superset — and the workout ends on the group's own last
+        // rest, which is the one dropped.
+        assertEquals(work * 6 + 60.seconds * 3 + 30.seconds * 2, estimate)
+    }
+
+    @Test
+    fun `the rest before an empty superset is one that does get taken`() {
+        val estimate = estimate(
+            listOf(
+                exercise(sets = 3, rest = 60),
+                exercise(sets = 0, rest = 30, group = 0),
+                exercise(sets = 0, rest = 30, group = 0),
+            ),
+        )
+
+        // Neither member of the superset runs, so the workout ends on the standalone
+        // exercise and it is *its* last rest that is dropped — the two before it are
+        // stood through.
+        assertEquals(work * 3 + 60.seconds * 2, estimate)
+    }
+
+    @Test
     fun `an exercise planning no sets adds nothing`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = 60), exercise(sets = 0, rest = 60)),
         )
 
@@ -127,14 +189,14 @@ class TemplateDurationTest {
 
     @Test
     fun `a template of nothing but empty exercises takes no time`() {
-        val estimate = TemplateDuration.estimate(List(3) { exercise(sets = 0, rest = 60) })
+        val estimate = estimate(List(3) { exercise(sets = 0, rest = 60) })
 
         assertEquals(Duration.ZERO, estimate)
     }
 
     @Test
     fun `the rest dropped is the last one actually taken, not the last exercise's`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = 60), exercise(sets = 0, rest = 3_600)),
         )
 
@@ -144,7 +206,7 @@ class TemplateDurationTest {
 
     @Test
     fun `a negative set count contributes nothing rather than subtracting time`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = -4, rest = 60), exercise(sets = 2, rest = 60)),
         )
 
@@ -153,7 +215,7 @@ class TemplateDurationTest {
 
     @Test
     fun `a negative rest is read as no rest at all`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = -90), exercise(sets = 2, rest = 60)),
         )
 
@@ -162,9 +224,9 @@ class TemplateDurationTest {
 
     @Test
     fun `a negative default rest is read as no rest at all`() {
-        val estimate = TemplateDuration.estimate(
+        val estimate = estimate(
             listOf(exercise(sets = 2, rest = null), exercise(sets = 2, rest = null)),
-            defaultRest = (-90).seconds,
+            rest = (-90).seconds,
         )
 
         assertEquals(work * 4, estimate)
@@ -175,7 +237,7 @@ class TemplateDurationTest {
         val before = listOf(exercise(sets = 3, rest = 60))
         val after = before + exercise(sets = 4, rest = 90)
 
-        val added = TemplateDuration.estimate(after) - TemplateDuration.estimate(before)
+        val added = estimate(after) - estimate(before)
 
         // The new exercise's work and rests, plus the rest that the first exercise's
         // final set now does get, having stopped being the end of the workout.
@@ -187,7 +249,7 @@ class TemplateDurationTest {
         val before = listOf(exercise(sets = 3, rest = 120), exercise(sets = 3, rest = 120))
         val after = before.map { it.copy(restDuration = 60) }
 
-        assertEquals(60.seconds * 5, TemplateDuration.estimate(before) - TemplateDuration.estimate(after))
+        assertEquals(60.seconds * 5, estimate(before) - estimate(after))
     }
 
     @Test
@@ -209,8 +271,15 @@ class TemplateDurationTest {
             )
         }
 
-        assertEquals(TemplateDuration.estimate(stored), TemplateDuration.estimate(drafts))
+        assertEquals(estimate(stored), estimate(drafts))
     }
+
+    /**
+     * [TemplateDuration.estimate] with the user's configured default rest, which the
+     * function requires and most cases here do not vary.
+     */
+    private fun estimate(exercises: List<PlannedExercise>, rest: Duration = defaultRest) =
+        TemplateDuration.estimate(exercises, rest)
 
     private fun exercise(sets: Int?, rest: Long? = null, group: Int? = null) = TemplateExercise(
         templateId = 1,
