@@ -3,6 +3,7 @@ package com.opengym.core.ui.format
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.milligramsPerUnit
 import com.opengym.core.ui.theme.LocalUnitSystem
 
 /**
@@ -41,7 +42,7 @@ private const val VOLUME_FRACTION_DIGITS = 0
  */
 fun formatVolumeValue(milligrams: Long, unitSystem: UnitSystem): String =
     formatNumber(
-        value = milligrams / unitSystem.milligramsPerWeightUnit,
+        value = milligrams / unitSystem.milligramsPerUnit,
         maxFractionDigits = VOLUME_FRACTION_DIGITS,
         grouping = true,
     )

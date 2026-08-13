@@ -156,4 +156,38 @@
     <string name="detail_missing_title">Exercise not found</string>
     <string name="detail_missing_description">This exercise is no longer in your library.</string>
 
+    <!-- ── Plate calculator ───────────────────────────────────────────────────────── -->
+
+    <string name="plate_title">Plate calculator</string>
+    <string name="plate_back">Back</string>
+
+    <!-- The big figure. Announced with the weight in it, because the number itself is drawn
+         as digits and a suffix and would otherwise be read as two unrelated nodes. -->
+    <string name="plate_target">Target weight</string>
+    <string name="plate_target_edit">Target weight, %1$s. Tap to type one</string>
+    <string name="plate_target_field_label">Weight (%1$s)</string>
+    <string name="plate_target_invalid">Enter a weight above zero</string>
+
+    <!-- The heading over the barbell. The bar is named here because everything below it is
+         "per side", and a lifter reading the plates needs to know what they are added to. -->
+    <string name="plate_per_side_bar">Per side · bar %1$s</string>
+
+    <!-- The line that keeps the big number honest — see PlateCalculatorScreen. -->
+    <string name="plate_shortfall">Loads to %1$s · %2$s short of your target</string>
+    <string name="plate_below_bar">Lighter than the empty %1$s bar</string>
+
+    <!-- The equipment editor. -->
+    <string name="plate_equipment">Bar &amp; plates</string>
+    <string name="plate_equipment_bar">Bar</string>
+    <string name="plate_equipment_plates">Plates · pairs on the rack</string>
+    <string name="plate_equipment_reset">Use the standard set</string>
+    <string name="plate_bar_lighter">Lighter bar</string>
+    <string name="plate_bar_heavier">Heavier bar</string>
+    <string name="plate_pairs_fewer">One fewer pair of %1$s</string>
+    <string name="plate_pairs_more">One more pair of %1$s</string>
+
+    <string name="plate_dialog_save">Set</string>
+    <string name="plate_dialog_cancel">Cancel</string>
+    <string name="plate_save_failed">Could not save your equipment</string>
+
 </resources>

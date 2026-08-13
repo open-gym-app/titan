@@ -1,7 +1,10 @@
 package com.opengym.core.domain.model
 
+import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.plate.PlateStock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import kotlin.time.Duration
@@ -82,6 +85,34 @@ class UserPreferencesTest {
 
         // The boundary on the other side of it: one whole second is a rest.
         assertEquals(1.seconds, UserPreferences(defaultRestDuration = 1.seconds).defaultRestDuration)
+    }
+
+    @Test
+    fun `a fresh install has said nothing about its plates`() {
+        // Null rather than a rack, which is what makes the derived value below follow the
+        // unit system instead of freezing whichever one happened to be the default.
+        assertNull(UserPreferences().plateInventory)
+    }
+
+    @Test
+    fun `the rack to load from follows the unit system until the user says otherwise`() {
+        assertEquals(PlateInventory.METRIC, UserPreferences().plates)
+        assertEquals(
+            PlateInventory.IMPERIAL,
+            UserPreferences(unitSystem = UnitSystem.IMPERIAL).plates,
+        )
+    }
+
+    @Test
+    fun `a stored rack wins over the unit system's default`() {
+        // The half that matters after an edit: plates are physical, so reading weights in
+        // pounds does not turn a metric gym's 20 kg plates into 45 lb ones.
+        val mine = PlateInventory.of(listOf(PlateStock(weight = 20_000_000, pairs = 2)))
+
+        assertEquals(
+            mine,
+            UserPreferences(unitSystem = UnitSystem.IMPERIAL, plateInventory = mine).plates,
+        )
     }
 
     @Test

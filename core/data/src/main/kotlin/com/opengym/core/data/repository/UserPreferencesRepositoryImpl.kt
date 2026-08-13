@@ -12,6 +12,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -146,6 +148,24 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.BAR_WEIGHT] = barWeight }
     }
 
+    /**
+     * Stores the rack, or removes the key entirely for null.
+     *
+     * `remove` rather than writing an empty string, because the two mean different things to
+     * [toUserPreferences]: an absent key is "never been asked", which derives the standard rack
+     * from the unit system, while an empty inventory is the user telling us they have no plates
+     * at all. Writing a blank to mean the first would make the second unsayable.
+     */
+    override suspend fun setPlateInventory(inventory: PlateInventory?) {
+        dataStore.edit { preferences ->
+            if (inventory == null) {
+                preferences.remove(UserPreferencesKeys.PLATE_INVENTORY)
+            } else {
+                preferences[UserPreferencesKeys.PLATE_INVENTORY] = inventory.encode()
+            }
+        }
+    }
+
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) {
         dataStore.edit { it[UserPreferencesKeys.TRAINING_GOAL] = trainingGoal.name }
     }
@@ -203,6 +223,7 @@ private object UserPreferencesKeys {
     val THEME = stringPreferencesKey("theme")
     val REST_DURATION_SECONDS = longPreferencesKey("default_rest_duration_seconds")
     val BAR_WEIGHT = longPreferencesKey("bar_weight_milligrams")
+    val PLATE_INVENTORY = stringPreferencesKey("plate_inventory_milligrams")
     val TRAINING_GOAL = stringPreferencesKey("training_goal")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
 }
@@ -228,9 +249,56 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
             ?.takeIf { it > Duration.ZERO && it.isFinite() }
             ?: defaults.defaultRestDuration,
         barWeight = stored[UserPreferencesKeys.BAR_WEIGHT]?.takeIf { it > 0 } ?: defaults.barWeight,
+        plateInventory = stored[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull(),
         trainingGoal = stored[UserPreferencesKeys.TRAINING_GOAL].toEnumOrDefault(defaults.trainingGoal),
         onboardingCompleted = stored[UserPreferencesKeys.ONBOARDING_COMPLETED] ?: defaults.onboardingCompleted,
     )
+}
+
+/*
+ * The plate inventory, as one line of text.
+ *
+ * `25000000x6;20000000x4;…` — each size's weight in milligrams, an `x`, and how many pairs of
+ * it, heaviest first. Not JSON, and not a second DataStore file: the value is a short list of
+ * pairs of integers, and the format above is legible in the stored file exactly the way the
+ * `_milligrams` and `_seconds` key suffixes are meant to keep the rest of it legible. A
+ * serialized document would also make the whole rack unreadable over one bad character, where
+ * this degrades the way every other key here does — see [toPlateInventoryOrNull].
+ */
+private const val PLATE_SEPARATOR = ";"
+private const val PAIRS_SEPARATOR = "x"
+
+private fun PlateInventory.encode(): String =
+    stock.joinToString(PLATE_SEPARATOR) { "${it.weight}$PAIRS_SEPARATOR${it.pairs}" }
+
+/**
+ * The stored line as an inventory, or **null** when it is not one.
+ *
+ * Null is the same answer an absent key gives, and deliberately so: a rack that cannot be read
+ * back — a truncated write, a hand-edited file, a size a later build allowed and this one does
+ * not — leaves the user looking at the standard set for their unit system rather than at a
+ * screen that will not draw. That is the file's rule for every other setting; see the note on
+ * "no usable answer" above [toUserPreferences].
+ *
+ * [PlateInventory.of] rather than the constructor, so a line that survived with its sizes out
+ * of order is repaired rather than discarded — the ordering invariant is there to make equality
+ * meaningful, and nothing about a reordered line is ambiguous.
+ */
+private fun String.toPlateInventoryOrNull(): PlateInventory? = try {
+    PlateInventory.of(
+        split(PLATE_SEPARATOR)
+            .filter { it.isNotEmpty() }
+            .map { entry ->
+                val parts = entry.split(PAIRS_SEPARATOR)
+                require(parts.size == 2) { "a plate entry must be <milligrams>x<pairs>, was $entry" }
+                PlateStock(weight = parts[0].toLong(), pairs = parts[1].toInt())
+            },
+    )
+} catch (_: IllegalArgumentException) {
+    // Covers all three ways a line goes bad: `toLong`/`toInt` throw `NumberFormatException`,
+    // the shape check above throws directly, and `PlateStock`/`PlateInventory` throw on a
+    // weight or a count outside what the model admits.
+    null
 }
 
 /**

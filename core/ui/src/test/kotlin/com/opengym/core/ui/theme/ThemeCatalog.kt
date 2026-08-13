@@ -28,7 +28,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.plate.PlateCount
+import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.ui.component.BadgeTone
+import com.opengym.core.ui.component.BarbellDiagram
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.MetaEntry
@@ -46,14 +49,14 @@ import kotlin.time.Duration.Companion.seconds
  * It lives in `src/test` for the same reason `example/ExampleScreen` does: it is
  * documentation of the design system, not a component anything is meant to use, so it must
  * not ship in the library. It is still an ordinary set of `@Preview`s — open this file in
- * Android Studio to read the tokens, and the Roborazzi plugin captures all eight as
- * screenshot references, which turns an accidental token change into a reviewable image
+ * Android Studio to read the tokens, and the Roborazzi plugin captures every one of them as
+ * a screenshot reference, which turns an accidental token change into a reviewable image
  * diff.
  *
- * Four sheets rather than one scroll, because a `@Preview` renders at the device's height
+ * One sheet per family rather than one scroll, because a `@Preview` renders at the device's height
  * and silently clips whatever runs past it — a single catalog captured its colours and lost
  * the type scale and the spacing scale entirely. Splitting also keeps the diffs honest: a
- * change to the type scale re-records the type sheet and leaves the other three untouched.
+ * change to the type scale re-records the type sheet and leaves the others untouched.
  */
 
 /** The accent family and the error family — everything that is not a neutral. */
@@ -88,6 +91,35 @@ fun SurfaceCatalog(modifier: Modifier = Modifier) {
         CatalogSection("COLOUR · LINES") {
             ColorSpecimen("outline · control edge", scheme.outline, scheme.surface)
             ColorSpecimen("outlineVariant · hairline", scheme.outlineVariant, scheme.onSurface)
+        }
+    }
+}
+
+/**
+ * The plate ramp, and the barbell it exists for.
+ *
+ * A sheet of its own because it is the one token set that is neither a Material slot nor a
+ * measurement: seven ordinal tones, each with the label colour that reads on it, plus the
+ * component that spends them. Drawn together so a change to a tone is reviewable as *what a
+ * loaded bar looks like* rather than as seven swatches.
+ */
+@Composable
+fun PlateCatalog(modifier: Modifier = Modifier) {
+    CatalogSheet(modifier) {
+        CatalogSection("COLOUR · PLATES") {
+            OpenGymTheme.plateColors.tones.forEachIndexed { rank, tone ->
+                ColorSpecimen("plate · rank $rank", tone.fill, tone.label)
+            }
+        }
+        CatalogSection("BARBELL") {
+            BarbellDiagram(
+                perSide = listOf(
+                    PlateCount(weight = 25_000_000, count = 2),
+                    PlateCount(weight = 10_000_000, count = 1),
+                    PlateCount(weight = 2_500_000, count = 1),
+                ),
+                denominations = PlateInventory.METRIC.stock.map { it.weight },
+            )
         }
     }
 }
@@ -382,4 +414,16 @@ fun ComponentCatalogLightPreview() {
 @Composable
 fun ComponentCatalogDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { ComponentCatalog() }
+}
+
+@Preview(name = "Catalog - plates - light", widthDp = 360)
+@Composable
+fun PlateCatalogLightPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) { PlateCatalog() }
+}
+
+@Preview(name = "Catalog - plates - dark", widthDp = 360)
+@Composable
+fun PlateCatalogDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) { PlateCatalog() }
 }

@@ -11,6 +11,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.plate.PlateStock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,6 +34,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -79,6 +82,9 @@ class UserPreferencesRepositoryImplTest {
         assertEquals(20_000_000L, preferences.barWeight)
         assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
         assertFalse(preferences.onboardingCompleted)
+        // Null, not the metric rack: the derived `plates` is what follows the unit system,
+        // and it can only do that while nothing has been stored. See `UserPreferences`.
+        assertNull(preferences.plateInventory)
     }
 
     @Test
@@ -94,6 +100,9 @@ class UserPreferencesRepositoryImplTest {
 
         repository.setBarWeight(15_000_000)
         assertEquals(15_000_000L, repository.observe().first().barWeight)
+
+        repository.setPlateInventory(HOME_RACK)
+        assertEquals(HOME_RACK, repository.observe().first().plateInventory)
 
         repository.setTrainingGoal(TrainingGoal.HYPERTROPHY)
         assertEquals(TrainingGoal.HYPERTROPHY, repository.observe().first().trainingGoal)
@@ -214,6 +223,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setTheme(ThemePreference.DARK)
             repository.setDefaultRestDuration(150.seconds)
             repository.setBarWeight(15_000_000)
+            repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
             repository.setOnboardingCompleted(true)
         }
@@ -227,6 +237,7 @@ class UserPreferencesRepositoryImplTest {
                     theme = ThemePreference.DARK,
                     defaultRestDuration = 150.seconds,
                     barWeight = 15_000_000,
+                    plateInventory = HOME_RACK,
                     trainingGoal = TrainingGoal.CUSTOM,
                     onboardingCompleted = true,
                 ),
@@ -253,6 +264,7 @@ class UserPreferencesRepositoryImplTest {
         repository.setTheme(ThemePreference.DARK)
         repository.setDefaultRestDuration(150.seconds)
         repository.setBarWeight(15_000_000)
+        repository.setPlateInventory(HOME_RACK)
         repository.setTrainingGoal(TrainingGoal.CUSTOM)
         repository.setOnboardingCompleted(true)
 
@@ -335,6 +347,78 @@ class UserPreferencesRepositoryImplTest {
         repository.setDefaultRestDuration(90_500.milliseconds)
 
         assertEquals(90.seconds, repository.observe().first().defaultRestDuration)
+    }
+
+    // ─── The plate inventory ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a rack is stored as a line of text and read back whole`() = withRawStore { repository, store ->
+        repository.setPlateInventory(HOME_RACK)
+
+        // Asserted as the stored line as well as as the value, because the encoding is a
+        // persisted format: changing it silently resets the rack for every existing install.
+        assertEquals(
+            "25000000x2;20000000x4;10000000x1",
+            store.data.first()[stringPreferencesKey("plate_inventory_milligrams")],
+        )
+        assertEquals(HOME_RACK, repository.observe().first().plateInventory)
+    }
+
+    @Test
+    fun `a rack with nothing on it is a different answer from never having been asked`() =
+        withStore { repository ->
+            // "I have no plates" has to be storable, or the editor's last row cannot be
+            // switched off — it would spring back to the standard rack.
+            repository.setPlateInventory(PlateInventory(emptyList()))
+
+            val preferences = repository.observe().first()
+            assertEquals(PlateInventory(emptyList()), preferences.plateInventory)
+            assertEquals(PlateInventory(emptyList()), preferences.plates)
+        }
+
+    @Test
+    fun `putting the rack back to null forgets it rather than freezing today's default`() =
+        withRawStore { repository, store ->
+            repository.setPlateInventory(HOME_RACK)
+
+            repository.setPlateInventory(null)
+
+            assertNull(store.data.first()[stringPreferencesKey("plate_inventory_milligrams")])
+            // And so the derived rack follows the unit system again.
+            assertEquals(
+                PlateInventory.METRIC,
+                repository.observe().first().plates,
+            )
+        }
+
+    @Test
+    fun `a rack survives process death`() {
+        withStore { repository -> repository.setPlateInventory(HOME_RACK) }
+
+        withStore { repository -> assertEquals(HOME_RACK, repository.observe().first().plateInventory) }
+    }
+
+    @Test
+    fun `a rack that cannot be read reads as never having been asked`() = withRawStore { repository, store ->
+        // Every way the line goes wrong is the same event to a screen: a truncated write, a
+        // hand-edited file, a size some later build allowed and this one does not.
+        listOf("not a rack", "25000000", "25000000x", "-1x2", "25000000xmany", "1x2").forEach { line ->
+            store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = line }
+
+            assertNull("\"$line\" should not have parsed", repository.observe().first().plateInventory)
+        }
+    }
+
+    @Test
+    fun `a rack stored out of order is repaired rather than discarded`() = withRawStore { repository, store ->
+        // Nothing about a reordered line is ambiguous. The ordering invariant exists to make
+        // two racks holding the same plates compare equal, not to police the file.
+        store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = "10000000x1;25000000x2" }
+
+        assertEquals(
+            listOf(25_000_000L, 10_000_000L),
+            repository.observe().first().plateInventory?.stock?.map { it.weight },
+        )
     }
 
     @Test
@@ -460,6 +544,20 @@ class UserPreferencesRepositoryImplTest {
 
         /** Enough rounds that "it retried" cannot be one retry that happened to be in flight. */
         const val RETRY_ROUNDS = 5
+
+        /**
+         * A rack that is nobody's default: three sizes, uneven counts, in kilos.
+         *
+         * Deliberately not [PlateInventory.METRIC], so a test that reads it back is asserting
+         * that the *stored* rack came back rather than that some default did.
+         */
+        val HOME_RACK = PlateInventory(
+            listOf(
+                PlateStock(weight = 25_000_000, pairs = 2),
+                PlateStock(weight = 20_000_000, pairs = 4),
+                PlateStock(weight = 10_000_000, pairs = 1),
+            ),
+        )
     }
 }
 

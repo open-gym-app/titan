@@ -89,6 +89,35 @@ class ColorSchemeContrastTest {
     }
 
     @Test
+    fun `a plate's stamped weight reads on the plate, in both schemes`() {
+        // The ramp runs from the accent through to a pale grey, so no single text colour works
+        // across it — each tone names its own, and this is what stops a mid-tone being added
+        // later that swallows the number written on it.
+        listOf("light" to OpenGymLightPlateColors, "dark" to OpenGymDarkPlateColors)
+            .forEach { (name, plates) ->
+                val failures = plates.tones.mapIndexedNotNull { rank, tone ->
+                    val ratio = contrast(tone.label, tone.fill)
+                    "plate tone %d = %.2f:1 (needs %.1f:1)".format(rank, ratio, TEXT)
+                        .takeIf { ratio < TEXT }
+                }
+                assertTrue("$name ramp fails WCAG AA:\n" + failures.joinToString("\n"), failures.isEmpty())
+            }
+    }
+
+    @Test
+    fun `a plate is distinguishable from the plate above it in the ramp`() {
+        // Rank is the only thing the ramp encodes, so two adjacent tones that look alike encode
+        // nothing. 1.3:1 is well under a text threshold and is the right question here: these
+        // are big filled shapes side by side, not glyphs.
+        listOf(OpenGymLightPlateColors, OpenGymDarkPlateColors).forEach { plates ->
+            plates.tones.zipWithNext().forEachIndexed { rank, (heavier, lighter) ->
+                val ratio = contrast(heavier.fill, lighter.fill)
+                assertTrue("tones $rank and ${rank + 1} are $ratio:1 apart", ratio >= ADJACENT_PLATES)
+            }
+        }
+    }
+
+    @Test
     fun `negative - the checker rejects a pair that does not meet AA`() {
         // Mid-grey on white is 3.45:1. If this ever passes, the assertions above prove
         // nothing, so the guard is worth more than the case it covers.
@@ -148,6 +177,9 @@ class ColorSchemeContrastTest {
 
         /** WCAG 2.1 §1.4.11, the boundary of a user-interface component. */
         const val CONTROL = 3.0
+
+        /** Not a WCAG figure: two big filled shapes next to each other, told apart. */
+        const val ADJACENT_PLATES = 1.3
 
         fun contrast(a: Color, b: Color): Double {
             val (lighter, darker) = listOf(luminance(a), luminance(b)).sortedDescending()

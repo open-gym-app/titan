@@ -75,10 +75,9 @@ import kotlinx.coroutines.flow.filterNotNull
  *   there is no workout being assembled. Non-null exactly when the screen was reached from
  *   the exercise picker — see `exerciseDetailGraph` — because a button that says "add to
  *   session" in the Library tab has no session to add to.
- * @param onOpenPlateCalculator the shortcut into the plate calculator. **Null until #95
- *   lands**, which draws no button rather than one that goes nowhere.
+ * @param onOpenPlateCalculator the shortcut into the plate calculator (#95).
  * @param onViewProgression the shortcut into this exercise's progression. **Null until M5's
- *   progression screens land**, for the same reason.
+ *   progression screens land**, which draws no button rather than one that goes nowhere.
  */
 @Composable
 fun ExerciseDetailRoute(
@@ -322,11 +321,11 @@ private fun Exercise.metaEntries(): List<MetaEntry> = listOfNotNull(
 /**
  * The two jumps off this screen, drawn only where there is somewhere to jump to.
  *
- * Both destinations are still to be built (#95, and M5's progression screens), so today this
- * draws nothing at all. A disabled "soon" button would be the settings screen's convention —
- * see #M4-23 — and it is the wrong one here: settings ships its whole information
- * architecture so the furniture does not move under people who have learned it, and two
- * greyed-out buttons in the middle of a reading screen are just two things in the way.
+ * The plate calculator is built; the progression screens are M5, so today this draws one button
+ * across the full width. A disabled "soon" button beside it would be the settings screen's
+ * convention — see #M4-23 — and it is the wrong one here: settings ships its whole information
+ * architecture so the furniture does not move under people who have learned it, and a greyed-out
+ * button in the middle of a reading screen is just something in the way.
  */
 @Composable
 private fun ExerciseTools(
@@ -625,8 +624,7 @@ fun ExerciseDetailScreenDarkPreview() {
 @Composable
 fun ExerciseDetailScreenPickingPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
-        // The one shape with a pinned action at the bottom, and the plate calculator wired —
-        // which is what the screen will look like once #95 lands.
+        // The one shape with a pinned action at the bottom, with the plate calculator wired.
         ExerciseDetailScreen(
             state = PREVIEW_BENCH_STATE,
             onEvent = {},

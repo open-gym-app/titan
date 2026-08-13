@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,9 @@ class FakeUserPreferencesRepository(
         require(barWeight > 0) { "invalid bar weight: $barWeight" }
         write { it.copy(barWeight = barWeight) }
     }
+
+    override suspend fun setPlateInventory(inventory: PlateInventory?) =
+        write { it.copy(plateInventory = inventory) }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
         write { it.copy(trainingGoal = trainingGoal) }

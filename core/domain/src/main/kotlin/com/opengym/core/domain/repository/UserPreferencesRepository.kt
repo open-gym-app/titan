@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
 import kotlinx.coroutines.flow.Flow
 import java.io.IOException
 import kotlin.time.Duration
@@ -88,6 +89,19 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setBarWeight(barWeight: Long)
+
+    /**
+     * Records the plates the user can reach, or **null** to go back to the standard rack for
+     * their unit system — see [UserPreferences.plateInventory].
+     *
+     * Null is a real value here rather than a way of saying "leave it alone": the inventory
+     * editor's "use the standard set" is exactly this call, and it has to *forget* the stored
+     * rack, not overwrite it with a copy of today's default that would then stop following a
+     * change of unit system.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setPlateInventory(inventory: PlateInventory?)
 
     /**
      * Sets the training goal. Recorded only; nothing reads it in v1.

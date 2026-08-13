@@ -8,12 +8,15 @@ import androidx.navigation.compose.navigation
 import com.opengym.app.BuildConfig
 import com.opengym.feature.history.navigation.ADDED_EXERCISE_ID_KEY
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
+import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
+import com.opengym.feature.history.navigation.PlateCalculatorDestination
 import com.opengym.feature.history.navigation.SELECTED_EXERCISE_IDS_KEY
 import com.opengym.feature.history.navigation.SessionDetailDestination
 import com.opengym.feature.history.navigation.exerciseDetailGraph
 import com.opengym.feature.history.navigation.exercisePickerGraph
 import com.opengym.feature.history.navigation.historyGraph
 import com.opengym.feature.history.navigation.libraryGraph
+import com.opengym.feature.history.navigation.plateCalculatorGraph
 import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.progression.navigation.progressionGraph
@@ -130,7 +133,12 @@ fun OpenGymNavHost(
                     ?.set(ADDED_EXERCISE_ID_KEY, exerciseId)
                 navController.popBackStack()
             },
+            // No target: an exercise's detail screen knows the movement, not the weight the
+            // user is working up to. The active session (#26) is the caller that has one.
+            onOpenPlateCalculator = { navController.openPlateCalculator() },
         )
+
+        plateCalculatorGraph(onBack = { navController.popBackStack() })
 
         settingsGraph(
             // The version name belongs to the module that ships, and `:app` is it. A feature's
@@ -157,6 +165,20 @@ private fun NavHostController.openExercise(exerciseId: Long, addToSession: Boole
     navigate(ExerciseDetailDestination(exerciseId = exerciseId, addToSession = addToSession)) {
         launchSingleTop = true
     }
+}
+
+/**
+ * Open the plate calculator.
+ *
+ * `launchSingleTop` for the reason every other push here has it: two taps dispatched before
+ * recomposition are two pushes of the same screen, and the first back press then looks like it
+ * did nothing.
+ *
+ * @param target a weight to open on, or [NO_SUGGESTED_TARGET]. The parameter is here for the
+ *   active session's weight entry (#26), which is the one caller that knows a number.
+ */
+private fun NavHostController.openPlateCalculator(target: Long = NO_SUGGESTED_TARGET) {
+    navigate(PlateCalculatorDestination(target)) { launchSingleTop = true }
 }
 
 /**

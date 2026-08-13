@@ -1,6 +1,7 @@
 package com.opengym.core.ui.format
 
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.milligramsPerUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -84,7 +85,7 @@ class UnitRoundTripTest {
             loadableWeights(units).forEach { weight ->
                 val milligrams = weightToMilligrams(weight, units)
                 val viaOther = parseWeightMilligrams(formatWeightValue(milligrams, other), other)!!
-                val drift = (viaOther - milligrams).absoluteValue / units.milligramsPerWeightUnit
+                val drift = (viaOther - milligrams).absoluteValue / units.milligramsPerUnit
 
                 assertTrue(
                     "$weight ${units.weightSuffix} drifted $drift via $other in $locale",
