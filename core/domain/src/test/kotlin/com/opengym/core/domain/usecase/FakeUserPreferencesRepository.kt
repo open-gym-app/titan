@@ -40,6 +40,10 @@ class FakeUserPreferencesRepository(
     override suspend fun setPlateInventory(inventory: PlateInventory?) =
         write { it.copy(plateInventory = inventory) }
 
+    /** Present to satisfy the interface. No use case here reads a rack. */
+    override suspend fun setPlatePairs(weight: Long, pairs: Int) =
+        write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
+
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
         write { it.copy(trainingGoal = trainingGoal) }
 

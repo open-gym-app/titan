@@ -38,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.TemplateCategory
@@ -90,6 +92,20 @@ fun NewSessionRoute(
             viewModel.onEvent(NewSessionEvent.ExercisesSelected(pickedExerciseIds))
             onPickedExercisesHandled()
         }
+    }
+
+    // The picker is pushed over this destination, so this screen being resumed *is* the
+    // picker being gone — and it is the only signal that covers every way out of it. Only
+    // the confirm bar leaves an answer behind; the back arrow, the system gesture and a
+    // predictive-back swipe leave nothing, and a cancel handled through the answer alone
+    // would strand the screen in [NewSessionStep.ExerciseSelection] with its quick-start
+    // action disabled for good.
+    //
+    // Ordering against the effect above does not matter: a plan, once adopted, outranks this
+    // flag in [NewSessionUiState.step], so clearing it either side of a confirmed selection
+    // reads the same.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onEvent(NewSessionEvent.ExerciseSelectionClosed)
     }
 
     LaunchedEffect(state.startedSessionId) {
@@ -487,6 +503,7 @@ private fun NewSessionMessage.labelRes(): Int = when (this) {
     NewSessionMessage.SESSION_ALREADY_ACTIVE -> R.string.new_session_error_already_active
     NewSessionMessage.START_FAILED -> R.string.new_session_error_start_failed
     NewSessionMessage.TEMPLATE_UNAVAILABLE -> R.string.new_session_error_template
+    NewSessionMessage.EXERCISES_UNAVAILABLE -> R.string.new_session_error_exercises_missing
 }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────

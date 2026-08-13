@@ -249,8 +249,10 @@ fun NavGraphBuilder.exercisePickerGraph(
 /**
  * The key the detail screen's "Add to session" hands its exercise back under.
  *
- * The same mechanism as [SELECTED_EXERCISE_IDS_KEY] and a different direction: this one goes
- * *into* the picker rather than out of it. The detail screen is pushed over the picker, so
+ * The picker's own result travels the other way and by other means — see the note above for
+ * why it cannot be a key at all. This one goes *into* the picker rather than out of it, and
+ * both of its ends are in this module, which is what lets it stay a key. The detail screen is
+ * pushed over the picker, so
  * the exercise it adds has to land in the selection the picker is still holding — otherwise
  * the button either loses the four exercises already ticked or has to confirm the whole
  * session on its own.

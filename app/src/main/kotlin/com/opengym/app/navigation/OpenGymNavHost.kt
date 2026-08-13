@@ -66,6 +66,11 @@ fun OpenGymNavHost(
     // `rememberSaveable` because the picker is a screen the user can sit on long enough for
     // the process to be killed behind it, and a selection lost to that is eight exercises
     // the user has to find again.
+    //
+    // Handed to the flow as a *function* rather than as its current value: the graph below is
+    // built once, inside `NavHost`'s own `remember`, so any value read here is read at
+    // build time — before the picker exists, let alone has answered. See
+    // [ExercisePicker.selectedIds].
     var pickedExerciseIds by rememberSaveable { mutableStateOf<LongArray?>(null) }
 
     NavHost(
@@ -111,7 +116,7 @@ fun OpenGymNavHost(
                 open = {
                     navController.navigate(ExercisePickerDestination) { launchSingleTop = true }
                 },
-                selectedIds = pickedExerciseIds?.toList(),
+                selectedIds = { pickedExerciseIds?.toList() },
                 onSelectionHandled = { pickedExerciseIds = null },
             ),
             // Each step replaces the one before it. A workout is a one-way sequence, and

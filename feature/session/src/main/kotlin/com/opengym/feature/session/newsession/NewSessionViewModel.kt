@@ -98,6 +98,9 @@ class NewSessionViewModel @Inject constructor(
             NewSessionEvent.ExerciseSelectionOpened ->
                 screenState.update { it.copy(selectingExercises = true) }
 
+            NewSessionEvent.ExerciseSelectionClosed ->
+                screenState.update { it.copy(selectingExercises = false) }
+
             is NewSessionEvent.TemplateSelected -> planFromTemplate(event.templateId)
             is NewSessionEvent.ExercisesSelected -> planFromExercises(event.exerciseIds)
             is NewSessionEvent.ExerciseRemoved -> removeExercise(event.index)
@@ -134,9 +137,10 @@ class NewSessionViewModel @Inject constructor(
     /**
      * Takes the picker's answer.
      *
-     * An empty list is the picker having been backed out of. It returns the screen to the
-     * template list rather than opening a review panel with nothing on it — the user did not
-     * choose an empty workout, they chose not to choose.
+     * An empty answer is not how a cancel arrives — the picker's confirm bar is disabled
+     * until something is ticked, and a dismissal comes back as
+     * [NewSessionEvent.ExerciseSelectionClosed]. It is handled anyway, as the template list
+     * rather than a review panel with nothing on it.
      */
     private fun planFromExercises(exerciseIds: List<Long>) {
         if (exerciseIds.isEmpty()) {
@@ -151,19 +155,66 @@ class NewSessionViewModel @Inject constructor(
         }
     }
 
-    /** Resolves [session] against the catalogue and puts the screen on the review panel. */
+    /**
+     * Resolves [session] against the catalogue and puts the screen on the review panel.
+     *
+     * A draft whose exercise is not in the catalogue is dropped **from the plan**, not merely
+     * from what is drawn. Dropping it at draw time only was two bugs: the visible rows and
+     * `plan.session.exercises` then disagreed on what index a row was at, so the close button
+     * removed a different exercise than the one it was next to; and the unresolvable draft
+     * survived into START, where `session_exercise.exercise_id` is a foreign key and one bad
+     * row aborts the whole layout. Cutting it here leaves one list, which the panel numbers
+     * and the use case writes.
+     *
+     * Nothing left after that is reported rather than drawn: an empty review panel is a dead
+     * end, and the user needs to know why the template they tapped came back with nothing.
+     */
     private suspend fun adopt(session: SessionPlan, estimatedDuration: Duration?) {
+        val exercises = exerciseRepository.getAll().first().associateBy(Exercise::id)
+        val known = session.exercises.filter { it.exerciseId in exercises }
+
+        if (known.isEmpty()) {
+            screenState.update {
+                it.copy(selectingExercises = false, message = NewSessionMessage.EXERCISES_UNAVAILABLE)
+            }
+            return
+        }
+
         val plan = Plan(
-            session = session,
+            session = session.copy(exercises = known),
             estimatedDuration = estimatedDuration,
-            exercises = exerciseRepository.getAll().first().associateBy(Exercise::id),
+            exercises = exercises,
             muscleGroups = exerciseRepository.getAllMuscleGroupLinks().first(),
         )
-        screenState.update { it.copy(plan = plan, selectingExercises = false) }
+        screenState.update {
+            it.copy(
+                plan = plan,
+                selectingExercises = false,
+                // Said only when something was actually lost. The panel is still worth
+                // showing — six of eight exercises is a workout — but it is not the workout
+                // that was tapped, and silently starting a shorter one is the part a user
+                // would not forgive.
+                message = if (known.size < session.exercises.size) {
+                    NewSessionMessage.EXERCISES_UNAVAILABLE
+                } else {
+                    it.message
+                },
+            )
+        }
     }
 
     /**
      * Drops the exercise at [index], dissolving whatever it leaves behind.
+     *
+     * [index] is a position in the review panel's list, which is the plan's own list: every
+     * draft in it resolved against the catalogue when the plan was adopted, so the two are
+     * numbered alike. See [adopt].
+     *
+     * The estimate goes with the first removal. It was priced against the template's set
+     * counts, and the drafts carry none — there is nothing to recompute it from, so the only
+     * honest options are to drop it or to keep quoting the figure that priced a workout the
+     * user has just changed. "4 exercises · ~55m", where the 55 was for eight, is worse than
+     * "4 exercises".
      *
      * Removing the last one clears the plan, which puts the screen back on the template list.
      * The alternative — a review panel showing nothing, with START disabled — is a state
@@ -178,7 +229,12 @@ class NewSessionViewModel @Inject constructor(
         if (remaining.isEmpty()) {
             state.copy(plan = null)
         } else {
-            state.copy(plan = plan.copy(session = plan.session.copy(exercises = remaining)))
+            state.copy(
+                plan = plan.copy(
+                    session = plan.session.copy(exercises = remaining),
+                    estimatedDuration = null,
+                ),
+            )
         }
     }
 
@@ -230,6 +286,10 @@ class NewSessionViewModel @Inject constructor(
      * The catalogue is carried alongside rather than looked up per row at draw time: a
      * lookup inside a list item is a lookup repeated on every scroll pass, and holding it
      * here is what lets [toStep] be a pure function of this value.
+     *
+     * Every draft in [session] has a row in [exercises] — [adopt] drops the ones that do not
+     * before building this — so the panel's rows and the plan's exercises are one list under
+     * two names, numbered alike.
      */
     private data class Plan(
         val session: SessionPlan,
@@ -250,15 +310,14 @@ class NewSessionViewModel @Inject constructor(
             return NewSessionStep.ReadyToStart(
                 name = session.name,
                 estimatedDuration = estimatedDuration,
-                exercises = session.exercises.mapIndexedNotNull { index, draft ->
-                    // Dropped rather than drawn as a blank row: an id with no catalogue row
-                    // cannot be started either, since `session_exercise.exercise_id` is a
-                    // foreign key, so a row for it would be an offer the START button could
-                    // not keep.
-                    val exercise = exercises[draft.exerciseId] ?: return@mapIndexedNotNull null
-
+                // One row per draft, in order. Unresolvable ids were cut from the plan
+                // itself in [adopt] rather than skipped here, so this cannot drop a row and
+                // leave the panel numbering exercises the plan numbers differently.
+                exercises = session.exercises.mapIndexed { index, draft ->
                     PlannedExerciseRow(
-                        exercise = exercise,
+                        exercise = requireNotNull(exercises[draft.exerciseId]) {
+                            "draft ${draft.exerciseId} has no catalogue row; adopt() should have cut it"
+                        },
                         muscleGroups = muscleGroups[draft.exerciseId].orEmpty(),
                         supersetLabel = labels[index],
                     )

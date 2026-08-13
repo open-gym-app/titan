@@ -56,10 +56,13 @@ sealed interface NewSessionStep {
     /**
      * The exercise picker is open over this screen.
      *
-     * A state rather than nothing, even though the picker covers the screen that holds it:
-     * it is what keeps the quick-start action from pushing a second picker if it is pressed
-     * again through a slow transition, and it is how the screen knows a returning empty
-     * selection means "cancelled" rather than "never asked".
+     * A state rather than nothing, even though the picker covers the screen that holds it: it
+     * is what keeps the quick-start action from pushing a second picker if it is pressed again
+     * through a slow transition.
+     *
+     * It lasts exactly as long as the picker does. Leaving it is not the arrival of an answer
+     * — a cancelled pick brings none back, whichever way the user left — but the screen being
+     * on top again, which is what [NewSessionEvent.ExerciseSelectionClosed] reports.
      */
     data object ExerciseSelection : NewSessionStep
 
@@ -73,10 +76,13 @@ sealed interface NewSessionStep {
      *
      * @param name what the session will be called, or null for one built by hand — which
      *   stays genuinely unnamed until the user names it in the workout (#26).
-     * @param estimatedDuration the template's estimate, or **null** for a hand-picked
-     *   session. Not a missing value: a session with no set counts behind it has nothing to
-     *   pace, and an estimate invented from defaults would be a number the user could not
-     *   act on.
+     * @param estimatedDuration the template's estimate, or **null** for a hand-picked session
+     *   and for one whose plan has been edited. Not a missing value: a session with no set
+     *   counts behind it has nothing to pace, and an estimate invented from defaults would be
+     *   a number the user could not act on. Dropping an exercise puts the panel in exactly
+     *   that position — the figure priced the template, the drafts carry no set counts to
+     *   reprice it from, and "4 exercises · ~55m" where the 55 was for eight is a lie the
+     *   screen would be telling on purpose.
      * @param exercises what will be performed, in order.
      */
     @Immutable
@@ -133,4 +139,14 @@ enum class NewSessionMessage {
 
     /** The template could not be read, so there is nothing to start from. */
     TEMPLATE_UNAVAILABLE,
+
+    /**
+     * Some of the plan's exercises are no longer in the catalogue and were left out.
+     *
+     * An exercise deleted from the library after a template was saved, in practice. The plan
+     * is shown without them rather than refused — six of eight exercises is still a workout —
+     * but not silently: the session about to be started is not the one whose name was tapped,
+     * and a lifter who notices halfway through has already lost the choice.
+     */
+    EXERCISES_UNAVAILABLE,
 }

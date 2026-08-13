@@ -20,6 +20,21 @@ sealed interface NewSessionEvent {
      */
     data object ExerciseSelectionOpened : NewSessionEvent
 
+    /**
+     * The picker is no longer up, however it went away.
+     *
+     * The counterpart of [ExerciseSelectionOpened], and the only thing that clears it. A
+     * confirmed selection arrives as [ExercisesSelected] and would clear it anyway; a
+     * *cancelled* one arrives as nothing at all, because the back arrow, the system gesture
+     * and a predictive-back swipe all just pop the picker. Without this the screen would go on
+     * believing the picker was open, and the quick-start action it disables while that is true
+     * would never come back.
+     *
+     * Reported from the screen being on top again rather than from a cancel button, because
+     * that is the one signal every way out of the picker has in common — see `NewSessionRoute`.
+     */
+    data object ExerciseSelectionClosed : NewSessionEvent
+
     /** A template row was tapped. Reads it out and goes to ready-to-start. */
     data class TemplateSelected(val templateId: Long) : NewSessionEvent
 
@@ -27,8 +42,10 @@ sealed interface NewSessionEvent {
      * The picker's answer: the exercises chosen, in the order they were picked, which
      * becomes the order of the session.
      *
-     * An empty list is the picker having been backed out of, and returns the screen to the
-     * template list rather than to an empty ready-to-start panel.
+     * Never empty in practice — the picker's confirm bar is disabled until something is
+     * ticked, and a cancel arrives as [ExerciseSelectionClosed] rather than as an empty
+     * answer. An empty list is still handled, as the template list rather than a
+     * ready-to-start panel with nothing on it.
      */
     data class ExercisesSelected(val exerciseIds: List<Long>) : NewSessionEvent
 

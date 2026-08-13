@@ -51,7 +51,7 @@ data class SessionSummaryDestination(val sessionId: Long)
  * — so they travel as one parameter rather than as three. That is also what keeps
  * [sessionGraph]'s signature readable as the flow grows.
  *
- * The answer is a plain value rather than a `SavedStateHandle` key, which is how a
+ * The answer travels as a value rather than a `SavedStateHandle` key, which is how a
  * destination usually returns one in Navigation Compose: the picker lives in another feature
  * module, and a key named on both sides of that boundary is an edge the architecture forbids.
  * `:app` holds it instead and hands it over here — see `OpenGymNavHost`.
@@ -59,12 +59,20 @@ data class SessionSummaryDestination(val sessionId: Long)
  * @param open push the picker. What that opens is `:app`'s business.
  * @param selectedIds the exercises chosen, in the order they were picked, or null when the
  *   picker has not answered.
+ *
+ *   **A function, not the list itself, and this is load-bearing.** `NavHost` builds its graph
+ *   inside a `remember` keyed on the builder lambda, so everything this value is constructed
+ *   from is frozen at the moment the graph is first built. A plain `List<Long>?` here is the
+ *   one that was there then — `null`, always, since the picker cannot have answered before it
+ *   has been opened — and no later selection ever reaches the screen. Called from inside the
+ *   destination's own composition, the read lands in a scope that recomposes when the answer
+ *   arrives.
  * @param onSelectionHandled the answer has been applied and should be forgotten, so a
  *   recomposition or a process restore does not apply it twice.
  */
 data class ExercisePicker(
     val open: () -> Unit,
-    val selectedIds: List<Long>?,
+    val selectedIds: () -> List<Long>?,
     val onSelectionHandled: () -> Unit,
 )
 
@@ -96,7 +104,10 @@ fun NavGraphBuilder.sessionGraph(
                 onCancel = onCancelSetup,
                 onSessionStarted = onSessionStarted,
                 onPickExercises = exercisePicker.open,
-                pickedExerciseIds = exercisePicker.selectedIds,
+                // Read here, inside the destination, rather than taken off the graph as it was
+                // built — see [ExercisePicker.selectedIds] for why that distinction is the
+                // difference between the picker working and doing nothing at all.
+                pickedExerciseIds = exercisePicker.selectedIds(),
                 onPickedExercisesHandled = exercisePicker.onSelectionHandled,
             )
         }

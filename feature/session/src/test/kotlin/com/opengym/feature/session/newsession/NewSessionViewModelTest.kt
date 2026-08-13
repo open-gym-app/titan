@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -179,9 +180,24 @@ class NewSessionViewModelTest {
         val viewModel = viewModel()
 
         viewModel.onEvent(NewSessionEvent.ExerciseSelectionOpened)
+        // How a cancel actually arrives: the picker's confirm bar is disabled until something
+        // is ticked, so leaving it any other way brings no answer back at all. The screen
+        // learns it is over from being on top again.
+        viewModel.onEvent(NewSessionEvent.ExerciseSelectionClosed)
+
+        // Not a ready-to-start panel with nothing on it, and — the part that mattered on a
+        // device — not a screen still waiting for a picker that has gone, with the one action
+        // that reopens it disabled for the rest of the flow's life.
+        assertEquals(NewSessionStep.TemplateSelection, viewModel.uiState.value.step)
+    }
+
+    @Test
+    fun `an empty answer from the picker is the template list too`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(NewSessionEvent.ExerciseSelectionOpened)
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(emptyList()))
 
-        // Not a ready-to-start panel with nothing on it: the user chose not to choose.
         assertEquals(NewSessionStep.TemplateSelection, viewModel.uiState.value.step)
     }
 
@@ -208,6 +224,79 @@ class NewSessionViewModelTest {
 
         val labels = viewModel.readyToStart().exercises.map(PlannedExerciseRow::supersetLabel)
         assertEquals(listOf(null, null), labels)
+    }
+
+    @Test
+    fun `dropping an exercise drops the estimate with it`() = runTest {
+        val templateId = seedPushDay()
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+        assertNotNull(viewModel.readyToStart().estimatedDuration)
+
+        viewModel.onEvent(NewSessionEvent.ExerciseRemoved(0))
+
+        // The figure priced the template, and the drafts carry no set counts to reprice it
+        // from. Keeping it would have the panel read "2 exercises · ~30m" over a plan whose
+        // 30 minutes was for three — the one number on the screen a lifter paces against.
+        assertNull(viewModel.readyToStart().estimatedDuration)
+    }
+
+    @Test
+    fun `an exercise deleted from the catalogue is cut from the plan, not just from the list`() =
+        runTest {
+            val templateId = seedPushDay()
+            // The catalogue as it is by the time the template is opened: the middle exercise
+            // has been deleted from the library since it was saved.
+            val viewModel = viewModel(catalogue = FakeExerciseCatalogue(CATALOGUE - INCLINE_ROW))
+
+            viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+            val step = viewModel.readyToStart()
+            assertEquals(listOf("Bench press", "Cable fly"), step.exerciseNames())
+            // Said rather than silently shortened: this is not the workout whose name was
+            // tapped, and finding that out halfway through it is too late to choose again.
+            assertEquals(NewSessionMessage.EXERCISES_UNAVAILABLE, viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `removing from a plan with a deleted exercise removes the one that was tapped`() = runTest {
+        val templateId = seedPushDay()
+        val viewModel = viewModel(catalogue = FakeExerciseCatalogue(CATALOGUE - INCLINE_ROW))
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+        // Index 1 of the panel is "Cable fly" — index 2 of the template, which still holds the
+        // unresolvable draft at 1. Dropping the row from the panel alone would leave the two
+        // numbered differently and remove "Bench press" here.
+        viewModel.onEvent(NewSessionEvent.ExerciseRemoved(1))
+
+        assertEquals(listOf("Bench press"), viewModel.readyToStart().exerciseNames())
+    }
+
+    @Test
+    fun `a plan with a deleted exercise starts without it rather than failing`() = runTest {
+        val templateId = seedPushDay()
+        val viewModel = viewModel(catalogue = FakeExerciseCatalogue(CATALOGUE - INCLINE_ROW))
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        // `session_exercise.exercise_id` is a foreign key, so carrying the unresolvable draft
+        // into the write aborts the whole layout — with START offered, since the button reads
+        // the visible list. Cut from the plan, what is written is what was reviewed.
+        val sessionId = viewModel.uiState.value.startedSessionId!!
+        assertEquals(listOf(BENCH, FLY), sessions.storedExercises(sessionId).map(SessionExercise::exerciseId))
+    }
+
+    @Test
+    fun `a plan whose exercises have all been deleted says so and stays on the list`() = runTest {
+        val templateId = seedPushDay()
+        val viewModel = viewModel(catalogue = FakeExerciseCatalogue(emptyList()))
+
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+        assertEquals(NewSessionMessage.EXERCISES_UNAVAILABLE, viewModel.uiState.value.message)
+        // A review panel with no rows on it is a dead end whose START could not be kept.
+        assertEquals(NewSessionStep.TemplateSelection, viewModel.uiState.value.step)
     }
 
     @Test
@@ -372,9 +461,11 @@ class NewSessionViewModelTest {
         const val INCLINE = 2L
         const val FLY = 3L
 
+        val INCLINE_ROW = Exercise(id = INCLINE, name = "Incline press")
+
         val CATALOGUE = listOf(
             Exercise(id = BENCH, name = "Bench press"),
-            Exercise(id = INCLINE, name = "Incline press"),
+            INCLINE_ROW,
             Exercise(id = FLY, name = "Cable fly"),
         )
     }

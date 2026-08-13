@@ -1,6 +1,7 @@
 package com.opengym.app.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
@@ -238,6 +239,43 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
     }
 
+    /*
+     * The other half of the empty-session path — ticking an exercise and confirming it — is
+     * not driven here, and it is the half that was broken in the real app: the picker's answer
+     * was read as the graph was built rather than inside the destination, so a confirmed
+     * selection never reached the flow that opened it.
+     *
+     * It cannot be driven from this test yet. `ExerciseLibraryScreen`'s state is a combine over
+     * four queries, and under Robolectric it never leaves its initial value — the picker draws
+     * its chrome and no rows, whatever it is given and however long it is waited on. The tab's
+     * own test above passes only because "0 EXERCISES" is what a library that has not loaded
+     * also says. Whatever stalls it is older than this flow and is nothing to do with the
+     * picker's result; until it is fixed there is no row here to tick.
+     */
+
+    @Test
+    fun `backing out of the picker leaves the quick start usable`() {
+        openThePicker()
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        pressBack()
+
+        // A cancel brings no answer back with it, so the screen cannot learn the picker is
+        // gone from one arriving — it learns it from being on top again. Without that, the
+        // flow still believes the picker is up, and the action that opens it is the one it
+        // disables while that is true: the empty-session path is dead for the rest of the
+        // flow's life, and for a user with no templates the screen has nothing else on it.
+        composeTestRule.onNodeWithText(NEW_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(EMPTY_SESSION).assertIsEnabled()
+
+        composeTestRule.onNodeWithText(EMPTY_SESSION).performClick()
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     @Test
     fun `leaving the session flow restores the bar and the tab that was open`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
@@ -347,6 +385,12 @@ class OpenGymAppNavigationTest {
         }
     }
 
+    /** Home to the exercise picker, by the quick-start action rather than a template. */
+    private fun openThePicker() {
+        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        composeTestRule.onNodeWithText(EMPTY_SESSION).performClick()
+    }
+
     /**
      * The seeded template's row, by the sentence it speaks.
      *
@@ -410,6 +454,12 @@ class OpenGymAppNavigationTest {
         const val TEMPLATE = "Push day"
         const val BENCH_PRESS = "Bench press"
         const val START_WORKOUT = "Start workout"
+
+        // The other way into the flow — the quick start — and the picker's confirm bar, which
+        // is the picker's marker here because it is drawn whether or not the list under it has
+        // loaded.
+        const val EMPTY_SESSION = "Empty session"
+        const val CONFIRM_NONE = "Select exercises"
 
         // Navigation icons, by the description a screen reader reads. The new-session bar's
         // arrow says which of its two meanings it carries, so it gets its own name.
