@@ -230,19 +230,21 @@ fun NavGraphBuilder.exercisePickerGraph(
     }
 }
 
-/**
- * The key the picker's result is handed back under.
+/*
+ * The picker's *result* has no key here, deliberately.
  *
- * A `SavedStateHandle` entry on the *previous* back stack entry, which is the standard way a
- * destination returns a value in Navigation Compose — there is no "start for result". The key
- * lives here, next to the destination that produces it, so the flow that reads it and the
- * screen that writes it cannot spell it differently.
+ * It was going to be a `SavedStateHandle` entry on the previous back stack entry, which is
+ * the standard way a destination returns a value in Navigation Compose. That works for
+ * [ADDED_EXERCISE_ID_KEY] below, whose reader is in this module — and does not work here,
+ * because the readers are the new-session flow (#25) and, later, the template editor: the
+ * first is `:feature:session`, which may not depend on this module and so could not name the
+ * key. A constant duplicated on both sides with a comment asking nobody to change one of them
+ * is not a contract.
  *
- * Written by `:app` when the library reports a confirmed selection, since the write needs the
- * `NavController` this module cannot see. Read by the new-session flow (#25) and the template
- * editor (#M4-18).
+ * So `:app` holds the selection instead and hands it to whoever opened the picker as an
+ * ordinary parameter — see `OpenGymNavHost`. It is the one module that knows both sides of
+ * the edge, which is the whole reason it exists.
  */
-const val SELECTED_EXERCISE_IDS_KEY = "com.opengym.feature.history.selectedExerciseIds"
 
 /**
  * The key the detail screen's "Add to session" hands its exercise back under.

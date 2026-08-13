@@ -3,22 +3,31 @@ package com.opengym.app.ui
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.opengym.app.HiltTestActivity
+import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.TemplateExerciseDraft
+import com.opengym.core.domain.model.WorkoutTemplate
+import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.ui.theme.OpenGymTheme
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import javax.inject.Inject
 
 /**
  * The shell's behaviour, driven through the real graph.
@@ -56,9 +65,35 @@ class OpenGymAppNavigationTest {
     @get:Rule(order = 1)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
 
+    /**
+     * The stores the session flow reads, so there is a workout for it to start.
+     *
+     * The flow ends in real rows — `workout_session` plus a `session_exercise` per exercise,
+     * whose `exercise_id` is a foreign key — so a session cannot be started against an empty
+     * database. That is the right constraint, and it means these tests seed one exercise and
+     * one template rather than fake either repository.
+     *
+     * A **template** rather than the exercise picker, even though both reach the same place:
+     * the picker draws the whole catalogue, and the seeded one is 800 rows deep by the time
+     * this runs, which makes finding a particular row in it a test about `LazyColumn`
+     * recycling. One template row sits at the top of the screen and is one tap.
+     */
+    @Inject
+    lateinit var exercises: ExerciseRepository
+
+    @Inject
+    lateinit var templates: TemplateRepository
+
     @Before
     fun setUp() {
         hilt.inject()
+        runBlocking {
+            val benchPress = exercises.insert(Exercise(name = BENCH_PRESS))
+            templates.insert(
+                template = WorkoutTemplate(name = TEMPLATE),
+                exercises = listOf(TemplateExerciseDraft(exerciseId = benchPress)),
+            )
+        }
         composeTestRule.setContent {
             OpenGymTheme {
                 OpenGymApp()
@@ -192,8 +227,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `the bottom bar stays hidden for every step of the session flow`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(BEGIN).performClick()
+        startAWorkout()
 
         composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
@@ -211,7 +245,7 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_HOME).performClick()
 
         composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(CANCEL).performClick()
+        composeTestRule.onNodeWithContentDescription(LEAVE_SETUP).performClick()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
         composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
@@ -223,8 +257,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `finishing the session flow returns to the tab scaffold`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(BEGIN).performClick()
+        startAWorkout()
         composeTestRule.onNodeWithText(FINISH).performClick()
         composeTestRule.onNodeWithText(DONE).performClick()
 
@@ -260,8 +293,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `the back gesture does not abandon an active session`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(BEGIN).performClick()
+        startAWorkout()
         composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
 
         pressBack()
@@ -274,8 +306,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `the blocked back gesture on an active session says why`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(BEGIN).performClick()
+        startAWorkout()
         // Not decoration: the guard belongs to the active-session entry and is only armed
         // once that entry is resumed, which is after the transition into it has finished.
         // Pressing back before this assertion presses it at the previous screen.
@@ -287,6 +318,42 @@ class OpenGymAppNavigationTest {
         // frozen app, since FINISH is the only other way out until #26.
         composeTestRule.onNodeWithText(BACK_BLOCKED).assertIsDisplayed()
     }
+
+    /**
+     * Home to a running workout, the way a user gets there.
+     *
+     * Four taps through three screens in two feature modules, which is exactly why it is
+     * worth driving here: nothing but the assembled graph can tell whether the picker's
+     * result reaches the flow that opened it.
+     */
+    private fun startAWorkout() {
+        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        // The template list is a real Room query on a real background dispatcher, and
+        // Compose's idling does not track it — so the row is waited for, not assumed.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodes(templateRow()).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNode(templateRow()).performClick()
+        // And again for the review panel: reading the template out and resolving its
+        // exercises against the catalogue are two more queries off the main thread.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(START_WORKOUT).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(START_WORKOUT).performClick()
+        // Once more for the commit: the session and its exercises are two writes, and the
+        // navigation into the workout follows the state they produce.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(ACTIVE_SESSION).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /**
+     * The seeded template's row, by the sentence it speaks.
+     *
+     * A substring match on the name: the rest of the description is the derived exercise
+     * count and duration estimate, which belong to `TemplateRow`'s own tests.
+     */
+    private fun templateRow() = hasContentDescription(TEMPLATE, substring = true)
 
     /**
      * The system back gesture, as the platform delivers it.
@@ -317,7 +384,7 @@ class OpenGymAppNavigationTest {
         const val HISTORY = "HISTORY"
         const val PROGRESSION = "PROGRESSION"
         const val SESSION_DETAIL = "SESSION · 1"
-        const val NEW_SESSION = "NEW SESSION"
+        const val NEW_SESSION = "New session"
         const val ACTIVE_SESSION = "ACTIVE · SESSION 1"
         const val SUMMARY = "SUMMARY · SESSION 1"
 
@@ -336,13 +403,18 @@ class OpenGymAppNavigationTest {
         // Actions.
         const val START_SESSION = "START SESSION"
         const val OPEN_A_SESSION = "OPEN A SESSION"
-        const val BEGIN = "BEGIN"
         const val FINISH = "FINISH"
         const val DONE = "DONE"
-        const val CANCEL = "CANCEL"
 
-        // Settings' navigation icon, by the description a screen reader reads.
+        // The new-session flow: the seeded template, and the commit that ends setup.
+        const val TEMPLATE = "Push day"
+        const val BENCH_PRESS = "Bench press"
+        const val START_WORKOUT = "Start workout"
+
+        // Navigation icons, by the description a screen reader reads. The new-session bar's
+        // arrow says which of its two meanings it carries, so it gets its own name.
         const val BACK = "Back"
+        const val LEAVE_SETUP = "Leave without starting"
 
         // Messages. Asserted on the copy the user reads, since that is the whole point of it.
         const val BACK_BLOCKED = "Finish the session to leave"

@@ -1,6 +1,10 @@
 package com.opengym.app.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -8,9 +12,9 @@ import androidx.navigation.compose.navigation
 import com.opengym.app.BuildConfig
 import com.opengym.feature.history.navigation.ADDED_EXERCISE_ID_KEY
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
+import com.opengym.feature.history.navigation.ExercisePickerDestination
 import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
 import com.opengym.feature.history.navigation.PlateCalculatorDestination
-import com.opengym.feature.history.navigation.SELECTED_EXERCISE_IDS_KEY
 import com.opengym.feature.history.navigation.SessionDetailDestination
 import com.opengym.feature.history.navigation.exerciseDetailGraph
 import com.opengym.feature.history.navigation.exercisePickerGraph
@@ -21,6 +25,7 @@ import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.progression.navigation.progressionGraph
 import com.opengym.feature.session.navigation.ActiveSessionDestination
+import com.opengym.feature.session.navigation.ExercisePicker
 import com.opengym.feature.session.navigation.NewSessionDestination
 import com.opengym.feature.session.navigation.SessionGraphDestination
 import com.opengym.feature.session.navigation.SessionSummaryDestination
@@ -49,6 +54,19 @@ fun OpenGymNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = appState.navController
+
+    // The exercise picker's answer, on its way back to whoever opened it.
+    //
+    // Held here rather than on the caller's `SavedStateHandle`, which is the usual way a
+    // destination returns a value in Navigation Compose, because the caller and the picker
+    // are in *different feature modules* and the key would have to be named in both — an
+    // edge the architecture forbids. `:app` already knows both sides of every such edge, so
+    // it holds the value instead and hands it to the caller as an ordinary parameter.
+    //
+    // `rememberSaveable` because the picker is a screen the user can sit on long enough for
+    // the process to be killed behind it, and a selection lost to that is eight exercises
+    // the user has to find again.
+    var pickedExerciseIds by rememberSaveable { mutableStateOf<LongArray?>(null) }
 
     NavHost(
         navController = navController,
@@ -86,6 +104,16 @@ fun OpenGymNavHost(
 
         sessionGraph(
             onCancelSetup = { navController.exitSessionFlow() },
+            exercisePicker = ExercisePicker(
+                // `launchSingleTop` as everywhere else: two taps on the quick-start dispatched
+                // before recomposition are two pushes of the same picker, and the first back
+                // press then looks like it did nothing.
+                open = {
+                    navController.navigate(ExercisePickerDestination) { launchSingleTop = true }
+                },
+                selectedIds = pickedExerciseIds?.toList(),
+                onSelectionHandled = { pickedExerciseIds = null },
+            ),
             // Each step replaces the one before it. A workout is a one-way sequence, and
             // leaving setup on the stack would let the back gesture from an active session
             // land the user in the picker for a session that is already running.
@@ -104,14 +132,12 @@ fun OpenGymNavHost(
 
         exercisePickerGraph(
             onBack = { navController.popBackStack() },
-            // The picker's result goes to whoever opened it, through the previous back stack
-            // entry's saved state — Navigation Compose has no "start for result", and the
-            // feature cannot reach the `NavController` to write it itself. The pop is what
-            // makes the caller current again, so the write has to happen first.
+            // The picker's result goes to whoever opened it, through the state hoisted above
+            // — see the note on it for why this one does not travel on a `SavedStateHandle`
+            // the way the detail screen's answer does. Recorded before the pop so the caller
+            // is holding it by the time it is composed again.
             onExercisesSelected = { exerciseIds ->
-                navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.set(SELECTED_EXERCISE_IDS_KEY, exerciseIds.toLongArray())
+                pickedExerciseIds = exerciseIds.toLongArray()
                 navController.popBackStack()
             },
             // The same screen as the tab's rows open, with the one difference that matters

@@ -156,6 +156,7 @@ Text(
   | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
   | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |
   | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
+  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip | `TemplateSummary` |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
@@ -173,7 +174,7 @@ Text(
 
   | File | Labels |
   | --- | --- |
-  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()` |
+  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()`, `TemplateCategory.label()` |
   | `component/ExerciseLabels.kt` | `EquipmentType.labelOrNull()`, `ExerciseType.label()` / `trackedLabel()`, `MechanicType.label()`, `DifficultyLevel.label()`, `Discipline.label()` |
 
   `ExerciseType.label()` and `ExerciseType.trackedLabel()` are the same fact at two lengths —
@@ -189,7 +190,7 @@ Text(
   | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
-  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (session) | — |
+  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (session), `formatAsEstimate` (`~55m`) | — |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and

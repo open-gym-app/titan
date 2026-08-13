@@ -1,5 +1,6 @@
 package com.opengym.core.data.repository
 
+import android.database.sqlite.SQLiteConstraintException
 import com.opengym.core.data.db.RoomTestBase
 import com.opengym.core.data.db.exercise
 import com.opengym.core.data.db.session
@@ -8,12 +9,14 @@ import com.opengym.core.data.db.workoutSet
 import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
+import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -84,6 +87,119 @@ class SessionRepositoryImplTest : RoomTestBase() {
         db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
 
         assertEquals(listOf(0, 1), repository.getExercises(sessionId).first().map { it.position })
+    }
+
+    @Test
+    fun `insertExercises numbers positions from the order it was given`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        val press = db.exerciseDao().insert(exercise(name = "Press"))
+
+        repository.insertExercises(
+            sessionId = sessionId,
+            exercises = listOf(
+                SessionExerciseDraft(exerciseId = press),
+                SessionExerciseDraft(exerciseId = squat),
+                SessionExerciseDraft(exerciseId = bench),
+            ),
+            createdAt = 7_000,
+        )
+
+        val laidOut = repository.getExercises(sessionId).first()
+        assertEquals(listOf(press, squat, bench), laidOut.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), laidOut.map { it.position })
+    }
+
+    @Test
+    fun `insertExercises returns the new ids in the order the exercises were given`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+
+        val ids = repository.insertExercises(
+            sessionId = sessionId,
+            exercises = listOf(
+                SessionExerciseDraft(exerciseId = squat),
+                SessionExerciseDraft(exerciseId = bench),
+            ),
+            createdAt = 7_000,
+        )
+
+        val laidOut = repository.getExercises(sessionId).first()
+        assertEquals(laidOut.map { it.id }, ids)
+    }
+
+    @Test
+    fun `insertExercises carries the superset grouping and the template link`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+
+        repository.insertExercises(
+            sessionId = sessionId,
+            exercises = listOf(
+                SessionExerciseDraft(exerciseId = squat, supersetGroup = 0, notes = "belt on"),
+                SessionExerciseDraft(exerciseId = bench, supersetGroup = 0),
+            ),
+            createdAt = 7_000,
+        )
+
+        val laidOut = repository.getExercises(sessionId).first()
+        assertEquals(listOf(0, 0), laidOut.map { it.supersetGroup })
+        assertEquals(listOf("belt on", null), laidOut.map { it.notes })
+    }
+
+    @Test
+    fun `insertExercises stamps every row with the timestamp it was given`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+
+        repository.insertExercises(
+            sessionId = sessionId,
+            exercises = listOf(SessionExerciseDraft(exerciseId = exerciseId)),
+            createdAt = 7_000,
+        )
+
+        val laidOut = repository.getExercises(sessionId).first().single()
+        assertEquals(7_000L, laidOut.createdAt)
+        assertEquals(7_000L, laidOut.updatedAt)
+    }
+
+    @Test
+    fun `insertExercises writes nothing for an empty layout`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+
+        val ids = repository.insertExercises(sessionId, exercises = emptyList(), createdAt = 7_000)
+
+        assertEquals(emptyList<Long>(), ids)
+        assertEquals(emptyList<Long>(), repository.getExercises(sessionId).first().map { it.id })
+    }
+
+    @Test
+    fun `a layout that violates the position index writes none of its rows`() = runBlocking {
+        // The transaction is the point: `session_exercise` is uniquely indexed on
+        // (session_id, position), so laying a session out twice collides on the second
+        // call's position 0 — and a per-row loop would leave the first of its rows behind.
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
+
+        assertThrows(SQLiteConstraintException::class.java) {
+            runBlocking {
+                repository.insertExercises(
+                    sessionId = sessionId,
+                    exercises = listOf(
+                        SessionExerciseDraft(exerciseId = bench),
+                        SessionExerciseDraft(exerciseId = squat),
+                    ),
+                    createdAt = 8_000,
+                )
+            }
+        }
+
+        assertEquals(listOf(squat), repository.getExercises(sessionId).first().map { it.exerciseId })
     }
 
     @Test

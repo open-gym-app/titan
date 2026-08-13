@@ -11,9 +11,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import com.opengym.feature.session.ActiveSessionScreen
-import com.opengym.feature.session.NewSessionScreen
 import com.opengym.feature.session.R
 import com.opengym.feature.session.SessionSummaryScreen
+import com.opengym.feature.session.newsession.NewSessionRoute
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -45,6 +45,30 @@ data class ActiveSessionDestination(val sessionId: Long)
 data class SessionSummaryDestination(val sessionId: Long)
 
 /**
+ * The exercise picker, as the session flow is allowed to see it.
+ *
+ * Three things that only make sense together — a way in, the answer, and a way to forget it
+ * — so they travel as one parameter rather than as three. That is also what keeps
+ * [sessionGraph]'s signature readable as the flow grows.
+ *
+ * The answer is a plain value rather than a `SavedStateHandle` key, which is how a
+ * destination usually returns one in Navigation Compose: the picker lives in another feature
+ * module, and a key named on both sides of that boundary is an edge the architecture forbids.
+ * `:app` holds it instead and hands it over here — see `OpenGymNavHost`.
+ *
+ * @param open push the picker. What that opens is `:app`'s business.
+ * @param selectedIds the exercises chosen, in the order they were picked, or null when the
+ *   picker has not answered.
+ * @param onSelectionHandled the answer has been applied and should be forgotten, so a
+ *   recomposition or a process restore does not apply it twice.
+ */
+data class ExercisePicker(
+    val open: () -> Unit,
+    val selectedIds: List<Long>?,
+    val onSelectionHandled: () -> Unit,
+)
+
+/**
  * The session flow.
  *
  * Every one of these is hoisted, including the two that move *within* the flow. The
@@ -54,19 +78,27 @@ data class SessionSummaryDestination(val sessionId: Long)
  * for.
  *
  * @param onCancelSetup the user backed out before the session began.
+ * @param exercisePicker the picker, as this flow is allowed to see it — see [ExercisePicker].
  * @param onSessionStarted setup finished; the id is the session that was created.
  * @param onSessionFinished the workout ended and should be recapped.
  * @param onSummaryDismissed the recap was acknowledged — the flow is over.
  */
 fun NavGraphBuilder.sessionGraph(
     onCancelSetup: () -> Unit,
+    exercisePicker: ExercisePicker,
     onSessionStarted: (sessionId: Long) -> Unit,
     onSessionFinished: (sessionId: Long) -> Unit,
     onSummaryDismissed: () -> Unit,
 ) {
     navigation<SessionGraphDestination>(startDestination = NewSessionDestination) {
         composable<NewSessionDestination> {
-            NewSessionScreen(onCancel = onCancelSetup, onBeginSession = onSessionStarted)
+            NewSessionRoute(
+                onCancel = onCancelSetup,
+                onSessionStarted = onSessionStarted,
+                onPickExercises = exercisePicker.open,
+                pickedExerciseIds = exercisePicker.selectedIds,
+                onPickedExercisesHandled = exercisePicker.onSelectionHandled,
+            )
         }
         composable<ActiveSessionDestination> { entry ->
             val destination: ActiveSessionDestination = entry.toRoute()

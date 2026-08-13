@@ -19,6 +19,8 @@ import kotlin.time.Duration
  * - [formatAsElapsed] for how long a session has been running. Always hours, minutes and
  *   seconds, so the field does not gain a column an hour into a workout and shove the rest
  *   of the row sideways.
+ * - [formatAsEstimate] for how long something is *expected* to take. Not a clock at all —
+ *   see its own note.
  *
  * Unlike the other formatters here there is no unit system to read: a minute is a minute in
  * both. [Locale] still comes into it, because in a dozen locales the digits themselves are
@@ -56,6 +58,65 @@ fun Duration.formatAsClock(): String = with(ClockFields(this)) {
 fun Duration.formatAsElapsed(): String = with(ClockFields(this)) {
     String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
 }
+
+/**
+ * How long something is expected to take: `~55m`, `~1h 05m`, `~5m`.
+ *
+ * The one duration here that is **not** a clock reading, and it is deliberately drawn to
+ * look nothing like one. A template's estimate
+ * ([com.opengym.core.domain.template.TemplateDuration]) is a pacing figure assembled from
+ * a per-set allowance and a default rest; rendered as `55:00` it would read as a measured
+ * time and invite a comparison with the session timer that would then be wrong every time.
+ * The tilde and the unit letters are what say "about".
+ *
+ * **Rounded to the nearest [ESTIMATE_STEP_MINUTES] minutes**, because that is roughly the
+ * precision the underlying formula has and a row reading `~53m` claims more than it knows.
+ * A non-zero estimate never rounds down to nothing: the floor is one step, so a single
+ * exercise reads `~5m` rather than `~0m`. [Duration.ZERO] — an empty template, or one whose
+ * exercises all plan no sets — reads `~0m`, and a caller with nothing to pace should
+ * usually draw no estimate at all rather than that.
+ *
+ * The unit letters are not translated, matching
+ * [com.opengym.core.ui.format.weightSuffix]'s `kg`/`lb`: they are symbols on a figure in a
+ * mono column, and the localization pass (#40) sweeps both together.
+ */
+fun Duration.formatAsEstimate(): String {
+    val minutes = roundedEstimateMinutes()
+    val locale = Locale.getDefault()
+
+    return if (minutes >= MINUTES_PER_HOUR) {
+        String.format(
+            locale,
+            "~%d%s %02d%s",
+            minutes / MINUTES_PER_HOUR,
+            HOUR_SUFFIX,
+            minutes % MINUTES_PER_HOUR,
+            MINUTE_SUFFIX,
+        )
+    } else {
+        String.format(locale, "~%d%s", minutes, MINUTE_SUFFIX)
+    }
+}
+
+/**
+ * This duration in whole minutes, snapped to [ESTIMATE_STEP_MINUTES] and floored at one
+ * step for anything that is not zero. Negative durations — which nothing produces, but an
+ * imported template could — read as zero rather than as time owed.
+ */
+private fun Duration.roundedEstimateMinutes(): Long {
+    val seconds = inWholeSeconds
+    if (seconds <= 0) return 0
+
+    val step = ESTIMATE_STEP_MINUTES * SECONDS_PER_MINUTE
+    val rounded = (seconds + step / 2) / step * ESTIMATE_STEP_MINUTES
+    return rounded.coerceAtLeast(ESTIMATE_STEP_MINUTES.toLong())
+}
+
+/** The granularity an estimate is honest to. See [formatAsEstimate]. */
+private const val ESTIMATE_STEP_MINUTES = 5
+
+private const val HOUR_SUFFIX = "h"
+private const val MINUTE_SUFFIX = "m"
 
 /**
  * A duration split into the fields a clock shows, magnitude and sign kept apart.

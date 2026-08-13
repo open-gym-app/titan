@@ -109,6 +109,10 @@ fun FormatCatalog(modifier: Modifier = Modifier) {
             FormatRow("Rest, final seconds", 7.seconds.formatAsClock())
             FormatRow("Session elapsed", (52.minutes + 14.seconds).formatAsElapsed())
             FormatRow("Long session", (2.hours + 3.minutes).formatAsElapsed())
+            // Deliberately unlike the two above: a template's estimate is a pacing figure,
+            // not a measurement, and the tilde and unit letters are what say so.
+            FormatRow("Template estimate", (53.minutes + 20.seconds).formatAsEstimate())
+            FormatRow("Long template estimate", (1.hours + 34.minutes).formatAsEstimate())
         }
     }
 }

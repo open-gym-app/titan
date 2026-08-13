@@ -58,6 +58,12 @@ class FakeTemplateRepository : TemplateRepository {
             if (honoursPositionOrder) list else list.reversed()
         }
 
+    override fun getAllExercises(): Flow<List<TemplateExercise>> =
+        exercises.map { stored ->
+            val list = stored.values.flatten()
+            if (honoursPositionOrder) list else list.reversed()
+        }
+
     override suspend fun insert(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,

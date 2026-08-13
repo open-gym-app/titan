@@ -127,6 +127,34 @@
     <string name="muscle_traps">Traps</string>
     <string name="muscle_triceps">Triceps</string>
 
+    <!-- ── Templates ──────────────────────────────────────────────────────────────── -->
+
+    <!-- What a saved template trains. Mirrors TemplateCategory; there is no label for the
+         absent category, which means the user was never asked rather than "General". -->
+    <string name="template_category_strength">Strength</string>
+    <string name="template_category_hypertrophy">Hypertrophy</string>
+    <string name="template_category_endurance">Endurance</string>
+    <string name="template_category_mobility">Mobility</string>
+    <string name="template_category_general">General</string>
+
+    <!-- A template row's figures: "8 ex · ~55m". Abbreviated because the line is set in the
+         mono numeric role under the name, where "8 exercises" is twice the width and says
+         nothing more. The spoken forms below are the ones with the words in. -->
+    <plurals name="template_exercise_count">
+        <item quantity="one">%1$d ex</item>
+        <item quantity="other">%1$d ex</item>
+    </plurals>
+    <string name="template_meta">%1$s · %2$s</string>
+
+    <!-- Announced for a template row as one sentence — see TemplateRow. -->
+    <plurals name="template_exercise_count_description">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
+    <string name="template_description_duration">%1$s, about %2$d minutes</string>
+    <string name="template_description">%1$s, %2$s</string>
+    <string name="template_description_category">%1$s, %2$s, %3$s</string>
+
     <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
 
     <string name="rest_timer_running">Rest</string>

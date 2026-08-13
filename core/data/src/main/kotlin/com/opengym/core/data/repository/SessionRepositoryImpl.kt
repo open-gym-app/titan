@@ -7,6 +7,7 @@ import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
@@ -54,6 +55,18 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun insert(session: WorkoutSession): Long =
         sessionDao.insert(sessionMapper.toEntity(session))
+
+    override suspend fun insertExercises(
+        sessionId: Long,
+        exercises: List<SessionExerciseDraft>,
+        createdAt: Long,
+    ): List<Long> = sessionExerciseDao.insertAll(
+        sessionExerciseMapper.toEntities(
+            sessionId = sessionId,
+            drafts = exercises,
+            createdAt = createdAt,
+        ),
+    )
 
     override suspend fun update(session: WorkoutSession) =
         sessionDao.update(sessionMapper.toEntity(session))
