@@ -398,6 +398,65 @@ class UserPreferencesRepositoryImplTest {
         withStore { repository -> assertEquals(HOME_RACK, repository.observe().first().plateInventory) }
     }
 
+    // ─── One size at a time ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a size edited before anything is stored edits the standard rack`() = withStore { repository ->
+        // The rack the editor was showing them: an unset key draws the standard set, so an edit
+        // against it has to start there rather than from an empty rack.
+        repository.setPlatePairs(weight = 20_000_000, pairs = 3)
+
+        val rack = repository.observe().first().plates
+        assertEquals(PlateInventory.METRIC.stock.map { it.weight }, rack.stock.map { it.weight })
+        assertEquals(3, rack.stock.single { it.weight == 20_000_000L }.pairs)
+    }
+
+    @Test
+    fun `a size the stored rack does not list is added to it`() = withStore { repository ->
+        repository.setPlateInventory(HOME_RACK)
+
+        repository.setPlatePairs(weight = 5_000_000, pairs = 2)
+
+        assertEquals(
+            listOf(25_000_000L, 20_000_000L, 10_000_000L, 5_000_000L),
+            repository.observe().first().plateInventory?.stock?.map { it.weight },
+        )
+    }
+
+    @Test
+    fun `a weight or a count the model refuses is rejected rather than stored`() =
+        withRawStore { repository, store ->
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setPlatePairs(weight = 1, pairs = 2) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setPlatePairs(weight = 20_000_000, pairs = -1) }
+            }
+
+            // Nothing was opened, so nothing was half-written: the rack is still unasked.
+            assertNull(store.data.first()[stringPreferencesKey("plate_inventory_milligrams")])
+        }
+
+    @Test
+    fun `concurrent edits to different sizes compose rather than clobbering`() = withStore { repository ->
+        // The reason this method exists at all. A caller doing the read-modify-write itself —
+        // read the rack, copy it with one count changed, write the whole thing back — would keep
+        // whichever of these finished last and silently revert the other three. Editing inside
+        // the store's own transaction is what makes four presses four edits.
+        listOf(
+            async(Dispatchers.IO) { repository.setPlatePairs(20_000_000, 1) },
+            async(Dispatchers.IO) { repository.setPlatePairs(10_000_000, 2) },
+            async(Dispatchers.IO) { repository.setPlatePairs(5_000_000, 3) },
+            async(Dispatchers.IO) { repository.setPlatePairs(2_500_000, 4) },
+        ).awaitAll()
+
+        val rack = repository.observe().first().plates
+        assertEquals(1, rack.stock.single { it.weight == 20_000_000L }.pairs)
+        assertEquals(2, rack.stock.single { it.weight == 10_000_000L }.pairs)
+        assertEquals(3, rack.stock.single { it.weight == 5_000_000L }.pairs)
+        assertEquals(4, rack.stock.single { it.weight == 2_500_000L }.pairs)
+    }
+
     @Test
     fun `a rack that cannot be read reads as never having been asked`() = withRawStore { repository, store ->
         // Every way the line goes wrong is the same event to a screen: a truncated write, a

@@ -84,9 +84,9 @@ data class PlateInventory(val stock: List<PlateStock>) {
          *
          * Two racks rather than one converted rack, for the reason the bar presets in settings
          * give: a plate is a manufactured object stamped in the system it was made for, and
-         * converting the metric set would offer an American lifter a 55.12 lb plate. The
-         * metric set is the IWF sizes down to the 1.25 kg change plate; the imperial set is
-         * what an American commercial gym racks.
+         * converting the metric set would offer an American lifter a 44.09 lb plate. The
+         * metric set is what a European gym racks — the 20 kg plate down to the 1.25 kg change
+         * plate; the imperial set is what an American commercial gym racks.
          *
          * The counts describe a well-stocked commercial gym rather than a garage, because the
          * cost of guessing high is a target the calculator says is reachable when the user's
@@ -99,11 +99,18 @@ data class PlateInventory(val stock: List<PlateStock>) {
             UnitSystem.IMPERIAL -> IMPERIAL
         }
 
-        /** 25 / 20 / 15 / 10 / 5 / 2.5 / 1.25 kg. See [defaultFor]. */
+        /**
+         * 20 / 10 / 5 / 2.5 / 1.25 kg. See [defaultFor].
+         *
+         * No 25 and no 15: both are competition sizes an ordinary gym does not stock, and a
+         * default rack that lists them makes the calculator answer with plates the user then
+         * has to go looking for. The sizes that are here are the ones on every rack, and the
+         * 20 is the heaviest plate most lifters will ever pick up.
+         */
         val METRIC: PlateInventory = rack(
             unitSystem = UnitSystem.METRIC,
             smallest = 1.25,
-            plates = arrayOf(25.0 to 6, 20.0 to 4, 15.0 to 2, 10.0 to 2, 5.0 to 2, 2.5 to 2, 1.25 to 2),
+            plates = arrayOf(20.0 to 8, 10.0 to 10, 5.0 to 10, 2.5 to 10, 1.25 to 10),
         )
 
         /** 45 / 35 / 25 / 10 / 5 / 2.5 lb. See [defaultFor]. */

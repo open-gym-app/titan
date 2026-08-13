@@ -61,8 +61,8 @@ class PlateCalculatorViewModelTest {
         val viewModel = viewModel()
         collectState(viewModel)
 
-        // 20 kg bar, 25 kg the heaviest plate on the default rack.
-        assertEquals(70_000_000L, viewModel.uiState.value.target)
+        // 20 kg bar, 20 kg the heaviest plate on the default rack.
+        assertEquals(60_000_000L, viewModel.uiState.value.target)
     }
 
     @Test
@@ -115,10 +115,10 @@ class PlateCalculatorViewModelTest {
         collectState(viewModel)
 
         viewModel.onEvent(PlateCalculatorEvent.TargetStepped(10_000_000))
-        assertEquals(80_000_000L, viewModel.uiState.value.target)
+        assertEquals(70_000_000L, viewModel.uiState.value.target)
 
         viewModel.onEvent(PlateCalculatorEvent.TargetStepped(-2_500_000))
-        assertEquals(77_500_000L, viewModel.uiState.value.target)
+        assertEquals(67_500_000L, viewModel.uiState.value.target)
     }
 
     @Test
@@ -150,12 +150,14 @@ class PlateCalculatorViewModelTest {
 
         // Untouched: the target is still derived, so it follows the equipment.
         viewModel.onEvent(PlateCalculatorEvent.BarWeightSelected(15_000_000))
-        assertEquals(65_000_000L, viewModel.uiState.value.target)
+        assertEquals(55_000_000L, viewModel.uiState.value.target)
 
-        // Touched: it is the user's number now, and a heavier bar does not move it.
+        // Touched: it is the user's number now, and the bar does not move it. The second bar is
+        // one whose derived weight (50 kg) differs from the stepped target, so the assertion
+        // cannot pass by the two happening to agree.
         viewModel.onEvent(PlateCalculatorEvent.TargetStepped(5_000_000))
-        viewModel.onEvent(PlateCalculatorEvent.BarWeightSelected(20_000_000))
-        assertEquals(70_000_000L, viewModel.uiState.value.target)
+        viewModel.onEvent(PlateCalculatorEvent.BarWeightSelected(10_000_000))
+        assertEquals(60_000_000L, viewModel.uiState.value.target)
     }
 
     // ─── The equipment ──────────────────────────────────────────────────────────────────
@@ -166,12 +168,12 @@ class PlateCalculatorViewModelTest {
         collectState(viewModel)
         assertTrue((viewModel.uiState.value.solution as PlateSolution.Loaded).isExact)
 
-        // Every 25 taken off the rack. 40 a side is now two 20s.
-        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 25_000_000, pairs = 0))
+        // Every 20 taken off the rack. 40 a side is now four 10s.
+        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 20_000_000, pairs = 0))
 
         val loaded = viewModel.uiState.value.solution as PlateSolution.Loaded
         assertTrue(loaded.isExact)
-        assertEquals(listOf(20_000_000L to 2), loaded.perSide.map { it.weight to it.count })
+        assertEquals(listOf(10_000_000L to 4), loaded.perSide.map { it.weight to it.count })
     }
 
     @Test
@@ -179,7 +181,7 @@ class PlateCalculatorViewModelTest {
         val viewModel = viewModel()
         collectState(viewModel)
 
-        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 25_000_000, pairs = 0))
+        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 20_000_000, pairs = 0))
 
         val rack = viewModel.uiState.value.preferences.plates
         assertEquals(PlateInventory.METRIC.stock.size, rack.stock.size)
@@ -190,7 +192,7 @@ class PlateCalculatorViewModelTest {
     fun `resetting forgets the stored rack rather than storing today's default`() = runTest {
         val viewModel = viewModel()
         collectState(viewModel)
-        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 25_000_000, pairs = 0))
+        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 20_000_000, pairs = 0))
 
         viewModel.onEvent(PlateCalculatorEvent.InventoryReset)
 
@@ -198,6 +200,23 @@ class PlateCalculatorViewModelTest {
         // unit system again. See `UserPreferences.plateInventory`.
         assertNull(viewModel.uiState.value.preferences.plateInventory)
         assertEquals(PlateInventory.METRIC, viewModel.uiState.value.preferences.plates)
+    }
+
+    @Test
+    fun `two sizes edited in a row both stick`() = runTest {
+        val viewModel = viewModel()
+        collectState(viewModel)
+
+        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 20_000_000, pairs = 0))
+        viewModel.onEvent(PlateCalculatorEvent.PlatePairsSelected(weight = 10_000_000, pairs = 3))
+
+        // The second edit composes with the first rather than replacing the rack it was working
+        // from. A ViewModel that rebuilt the whole inventory out of its own state would put the
+        // 20s back here, because its state has not been told about the first edit yet — which is
+        // what setting up a rack looks like, two rows in as many seconds.
+        val rack = viewModel.uiState.value.preferences.plates
+        assertEquals(0, rack.stock.single { it.weight == 20_000_000L }.pairs)
+        assertEquals(3, rack.stock.single { it.weight == 10_000_000L }.pairs)
     }
 
     // ─── When the store will not take it ────────────────────────────────────────────────
@@ -216,6 +235,22 @@ class PlateCalculatorViewModelTest {
             UserPreferences.DEFAULT_BAR_WEIGHT,
             viewModel.uiState.value.preferences.barWeight,
         )
+    }
+
+    @Test
+    fun `closing the equipment sheet takes its failure with it`() = runTest {
+        val viewModel = viewModel()
+        collectState(viewModel)
+        viewModel.onEvent(PlateCalculatorEvent.SheetRequested(PlateCalculatorSheet.EQUIPMENT))
+        preferences.writeFailure = IOException("no space")
+        viewModel.onEvent(PlateCalculatorEvent.InventoryReset)
+        assertEquals(PlateCalculatorMessage.SAVE_FAILED, viewModel.uiState.value.message)
+
+        viewModel.onEvent(PlateCalculatorEvent.SheetDismissed)
+
+        // The sheet is where the failure was shown, so closing it is the user having read it.
+        // Left set, it would come back as a snackbar over the screen behind.
+        assertNull(viewModel.uiState.value.message)
     }
 
     @Test

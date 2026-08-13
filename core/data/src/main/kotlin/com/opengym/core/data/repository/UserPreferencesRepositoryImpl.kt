@@ -166,6 +166,32 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * Changes one size's count inside the store's own transaction.
+     *
+     * The read half is [Preferences] as `edit` handed it over, not [observe]'s latest emission,
+     * and that is the entire point of the method — `edit` serialises against every other write
+     * to this store, so two steppers pressed inside one write's round trip compose instead of
+     * the second reverting the first. The same reason `setBarWeight` is a setter and not a
+     * `save(preferences)`; see the interface.
+     *
+     * [PlateStock] is built before the edit so a weight or a count the model refuses is rejected
+     * without opening a transaction — the file's rule that setters reject and readers fall back.
+     */
+    override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+        val edited = PlateStock(weight = weight, pairs = pairs)
+        dataStore.edit { preferences ->
+            val stored = preferences[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull()
+            // The rack the editor was showing them: an unset key draws the standard set, so an
+            // edit against it has to start from that same set rather than from an empty rack.
+            val current = stored ?: PlateInventory.defaultFor(
+                preferences[UserPreferencesKeys.UNIT_SYSTEM].toEnumOrDefault(UserPreferences().unitSystem),
+            )
+            preferences[UserPreferencesKeys.PLATE_INVENTORY] =
+                current.withPairs(edited.weight, edited.pairs).encode()
+        }
+    }
+
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) {
         dataStore.edit { it[UserPreferencesKeys.TRAINING_GOAL] = trainingGoal.name }
     }

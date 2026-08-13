@@ -3,14 +3,15 @@ package com.opengym.core.domain.plate
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.milligramsPerUnit
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
 /**
  * The rack: what it refuses to be, and what the two defaults are.
  *
- * The interesting assertions are the last two. One pins the sizes a user who has never opened
- * the editor sees; the other pins the property [PlateCalculator] quietly depends on and nothing
+ * The interesting assertions are the last few. Some pin the sizes a user who has never opened
+ * the editor sees; the last pins the property [PlateCalculator] quietly depends on and nothing
  * else would notice was broken — that every size is a whole multiple of the smallest.
  */
 class PlateInventoryTest {
@@ -113,11 +114,22 @@ class PlateInventoryTest {
     // ─── The defaults ───────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the default metric rack is the IWF sizes down to the change plate`() {
+    fun `the default metric rack is what an ordinary gym stocks`() {
         assertEquals(
-            listOf(kg(25.0), kg(20.0), kg(15.0), kg(10.0), kg(5.0), kg(2.5), kg(1.25)),
+            listOf(kg(20.0), kg(10.0), kg(5.0), kg(2.5), kg(1.25)),
             PlateInventory.METRIC.stock.map { it.weight },
         )
+    }
+
+    @Test
+    fun `the default metric rack has no competition sizes on it`() {
+        // The 25 and the 15 are the two an IWF rack adds and an ordinary one does not have.
+        // Pinned separately from the list above so that putting either back is a failure that
+        // names what changed rather than a diff of a list of milligram figures.
+        val sizes = PlateInventory.METRIC.stock.map { it.weight }
+
+        assertFalse(kg(25.0) in sizes)
+        assertFalse(kg(15.0) in sizes)
     }
 
     @Test

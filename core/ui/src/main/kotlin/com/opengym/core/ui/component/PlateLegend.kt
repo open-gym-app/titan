@@ -137,7 +137,7 @@ private fun PlateLegendCatalogue() {
     ) {
         PlateLegend(
             perSide = listOf(
-                PlateCount(weight = 25_000_000, count = 2),
+                PlateCount(weight = 20_000_000, count = 2),
                 PlateCount(weight = 10_000_000, count = 1),
                 PlateCount(weight = 1_250_000, count = 1),
             ),

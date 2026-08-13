@@ -114,7 +114,7 @@ fun PlateCatalog(modifier: Modifier = Modifier) {
         CatalogSection("BARBELL") {
             BarbellDiagram(
                 perSide = listOf(
-                    PlateCount(weight = 25_000_000, count = 2),
+                    PlateCount(weight = 20_000_000, count = 2),
                     PlateCount(weight = 10_000_000, count = 1),
                     PlateCount(weight = 2_500_000, count = 1),
                 ),

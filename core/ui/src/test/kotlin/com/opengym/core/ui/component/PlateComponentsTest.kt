@@ -30,7 +30,7 @@ class PlateComponentsTest {
     private val metricRack = PlateInventory.METRIC.stock.map { it.weight }
 
     private val benchLoading = listOf(
-        PlateCount(weight = 25_000_000, count = 2),
+        PlateCount(weight = 20_000_000, count = 2),
         PlateCount(weight = 1_250_000, count = 1),
     )
 
@@ -43,7 +43,7 @@ class PlateComponentsTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription("Barbell loaded with 2 plates of 25 kg, 1 plate of 1.25 kg per side")
+            .onNodeWithContentDescription("Barbell loaded with 2 plates of 20 kg, 1 plate of 1.25 kg per side")
             .assertIsDisplayed()
     }
 
@@ -84,7 +84,7 @@ class PlateComponentsTest {
         composeTestRule.onNodeWithText("PER SIDE").assertIsDisplayed()
         // Each row is one node to a screen reader, and it says what to pick up rather than
         // reading the multiplication sign aloud.
-        composeTestRule.onNodeWithContentDescription("2 plates of 25 kg").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2 plates of 20 kg").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription("1 plate of 1.25 kg").assertIsDisplayed()
     }
 

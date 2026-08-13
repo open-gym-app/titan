@@ -74,16 +74,15 @@ class PlateCalculatorScreenTest {
         composeTestRule.onNodeWithContentDescription(TARGET_100).assertIsDisplayed()
         composeTestRule.onNodeWithText("PER SIDE · BAR 20 KG").assertIsDisplayed()
 
-        // 40 kg a side, which the default rack makes as a 25 and a 15 — the heaviest pair of
-        // plates that does it. The barbell and the legend are asserted separately because
-        // either one can go missing while the other still draws.
+        // 40 kg a side, which the default rack makes as two 20s — the fewest plates that does
+        // it. The barbell and the legend are asserted separately because either one can go
+        // missing while the other still draws.
         composeTestRule
-            .onNodeWithContentDescription("Barbell loaded with 1 plate of 25 kg, 1 plate of 15 kg per side")
+            .onNodeWithContentDescription("Barbell loaded with 2 plates of 20 kg per side")
             .assertIsDisplayed()
-        scrollTo(hasContentDescription("1 plate of 15 kg"))
+        scrollTo(hasContentDescription("2 plates of 20 kg"))
         composeTestRule.onNodeWithText("PER SIDE").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("1 plate of 25 kg").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("1 plate of 15 kg").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2 plates of 20 kg").assertIsDisplayed()
 
         // No line under the target: the caveat's presence is the signal, so its absence has to
         // be asserted rather than assumed.
@@ -104,7 +103,7 @@ class PlateCalculatorScreenTest {
             .assertIsDisplayed()
         // And the barbell shows the loading, not the target.
         composeTestRule
-            .onNodeWithContentDescription("Barbell loaded with 1 plate of 25 kg, 1 plate of 15 kg per side")
+            .onNodeWithContentDescription("Barbell loaded with 2 plates of 20 kg per side")
             .assertIsDisplayed()
     }
 

@@ -41,8 +41,9 @@ import androidx.compose.ui.graphics.Color
 data class OpenGymPlateColors(
 
     /**
-     * The tones, heaviest size first. Seven of them, which is the metric rack's size count —
-     * see [toneFor] for what an eighth size gets.
+     * The tones, heaviest size first. Seven of them, which covers both default racks — five
+     * metric sizes and six imperial — with a tone in hand for a size a later rack adds. See
+     * [toneFor] for what an eighth size gets.
      */
     val tones: List<PlateTone>,
 ) {

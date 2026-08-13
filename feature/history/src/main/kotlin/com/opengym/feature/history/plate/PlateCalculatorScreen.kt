@@ -114,10 +114,17 @@ fun PlateCalculatorScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val message = state.message?.let { stringResource(it.textRes()) }
 
+    // Where a failure is said depends on what is on top of the screen. Every write that can fail
+    // is one of the equipment sheet's, and that sheet is its own window over this one: a snackbar
+    // raised while it is open is drawn *behind* it and timed out before the user closes it — the
+    // one case where the message is most needed is the one where it cannot be seen. So while the
+    // sheet is up the sheet carries the message inline, and the host below takes the rest.
+    val sheetIsOpen = state.sheet == PlateCalculatorSheet.EQUIPMENT
+
     // Marked shown before the snackbar is, and keyed on `Unit` — the settings screen documents
     // both halves: clearing afterwards leaves the message for a recomposed screen to show twice,
     // and re-keying on it cancels the `showSnackbar` it is in the middle of.
-    val currentMessage by rememberUpdatedState(message)
+    val currentMessage by rememberUpdatedState(message.takeIf { !sheetIsOpen })
     LaunchedEffect(Unit) {
         snapshotFlow { currentMessage }
             .filterNotNull()
@@ -180,6 +187,7 @@ fun PlateCalculatorScreen(
         PlateCalculatorSheet.EQUIPMENT -> EquipmentSheet(
             barWeight = state.preferences.barWeight,
             inventory = state.preferences.plates,
+            message = message,
             onBarWeightChange = { onEvent(PlateCalculatorEvent.BarWeightSelected(it)) },
             onPairsChange = { weight, pairs ->
                 onEvent(PlateCalculatorEvent.PlatePairsSelected(weight, pairs))
@@ -375,7 +383,7 @@ private const val LARGE_STEP_MULTIPLE = 4
 /** Tall enough to capture the whole screen; a preview clips at the device height otherwise. */
 private const val FULL_SCREEN_HEIGHT_DP = 1000
 
-/** A hundred kilos: two plates and two change plates a side on the standard metric rack. */
+/** A hundred kilos: two 20s a side on the standard metric rack. */
 private const val PREVIEW_HUNDRED_KILOS = 100_000_000L
 
 /** A kilo above what the rack's 1.25 kg grid can make. */

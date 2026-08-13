@@ -75,7 +75,9 @@ import kotlinx.coroutines.flow.filterNotNull
  *   there is no workout being assembled. Non-null exactly when the screen was reached from
  *   the exercise picker — see `exerciseDetailGraph` — because a button that says "add to
  *   session" in the Library tab has no session to add to.
- * @param onOpenPlateCalculator the shortcut into the plate calculator (#95).
+ * @param onOpenPlateCalculator the shortcut into the plate calculator (#95). Passing it does not
+ *   mean it is drawn: the button appears only on an exercise loaded with plates — see
+ *   [ExerciseTools].
  * @param onViewProgression the shortcut into this exercise's progression. **Null until M5's
  *   progression screens land**, which draws no button rather than one that goes nowhere.
  */
@@ -267,7 +269,12 @@ private fun ExerciseDetailBody(
         MetaGrid(entries = exercise.metaEntries())
 
         ExerciseTools(
-            onOpenPlateCalculator = onOpenPlateCalculator,
+            // Offered on the exercises it is an answer for, and nowhere else — see
+            // [EquipmentType.isPlateLoaded]. The caller supplies the destination; whether this
+            // *movement* has plates to work out is a question about the row on screen, so it is
+            // answered here rather than in the navigation graph.
+            onOpenPlateCalculator = onOpenPlateCalculator
+                ?.takeIf { exercise.equipmentType?.isPlateLoaded == true },
             onViewProgression = onViewProgression,
         )
 
@@ -321,11 +328,17 @@ private fun Exercise.metaEntries(): List<MetaEntry> = listOfNotNull(
 /**
  * The two jumps off this screen, drawn only where there is somewhere to jump to.
  *
- * The plate calculator is built; the progression screens are M5, so today this draws one button
- * across the full width. A disabled "soon" button beside it would be the settings screen's
- * convention — see #M4-23 — and it is the wrong one here: settings ships its whole information
- * architecture so the furniture does not move under people who have learned it, and a greyed-out
- * button in the middle of a reading screen is just something in the way.
+ * The plate calculator is built; the progression screens are M5, so today this draws at most one
+ * button, across the full width. A disabled "soon" button beside it would be the settings
+ * screen's convention — see #M4-23 — and it is the wrong one here: settings ships its whole
+ * information architecture so the furniture does not move under people who have learned it, and a
+ * greyed-out button in the middle of a reading screen is just something in the way.
+ *
+ * The same argument is why the plate calculator is not offered on every exercise. It answers one
+ * question — which discs go on each end of a bar — and on a cable row or a press-up that question
+ * does not exist, so the button is a dead end that has to be visited once to be learned. The
+ * caller decides where the button *goes*; whether it belongs at all is decided from the
+ * exercise's equipment, in [ExerciseDetailBody].
  */
 @Composable
 private fun ExerciseTools(

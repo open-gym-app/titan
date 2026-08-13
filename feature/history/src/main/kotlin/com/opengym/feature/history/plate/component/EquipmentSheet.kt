@@ -69,8 +69,16 @@ import com.opengym.feature.history.R
  * this editor complete without an "add a size" flow: the rack it starts from is the standard set
  * for the user's unit system, and every plate on it is one press away.
  *
+ * ### A failed write is said in here, not behind here
+ *
+ * Every control on this sheet writes to the settings store, so this is where a store that cannot
+ * be written is discovered — and a sheet is its own window, so the screen's snackbar would be
+ * drawn underneath it and time out unseen. [message] is that failure, rendered above the controls
+ * that raised it.
+ *
  * @param barWeight the empty bar, in milligrams.
  * @param inventory the rack as it stands — the stored one, or the standard set.
+ * @param message what went wrong, or **null** when nothing has. See above.
  * @param onReset forget the stored rack. Not "write today's default", which would then stop
  *   following a change of unit system; see `UserPreferences.plateInventory`.
  */
@@ -84,6 +92,7 @@ fun EquipmentSheet(
     onReset: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    message: String? = null,
 ) {
     ModalBottomSheet(
         modifier = modifier,
@@ -99,6 +108,7 @@ fun EquipmentSheet(
             onBarWeightChange = onBarWeightChange,
             onPairsChange = onPairsChange,
             onReset = onReset,
+            message = message,
         )
     }
 }
@@ -118,6 +128,7 @@ fun EquipmentPanel(
     onPairsChange: (weight: Long, pairs: Int) -> Unit,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
+    message: String? = null,
 ) {
     Column(
         modifier = modifier
@@ -127,6 +138,18 @@ fun EquipmentPanel(
             .padding(bottom = OpenGymTheme.spacing.section),
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
     ) {
+        // At the top, where the eye starts, rather than beside the control that failed: the
+        // sheet's writes all fail for the same reason, and a per-row error would have to guess
+        // which press the store was refusing.
+        if (message != null) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
         Eyebrow(text = stringResource(R.string.plate_equipment_bar))
         BarWeightRow(barWeight = barWeight, onChange = onBarWeightChange)
 
@@ -165,7 +188,13 @@ private fun BarWeightRow(barWeight: Long, onChange: (Long) -> Unit) {
         value = formatWeight(barWeight),
         // Never to zero: `setBarWeight` refuses it, so a button that could reach it would be a
         // button that throws. See `UserPreferences.barWeight`.
-        onDecrease = { onChange((barWeight - step).coerceAtLeast(step)) },
+        //
+        // Clamped to the bar's own weight and not to `step`, because Settings can store a bar
+        // lighter than one increment — a 2 kg kids' bar, against a 2.5 kg step — and clamping to
+        // `step` would make "lighter" hand back something *heavier* than what is on screen. The
+        // floor is whichever is smaller, so the press is a no-op at the bottom rather than a
+        // reversal.
+        onDecrease = { onChange((barWeight - step).coerceAtLeast(minOf(barWeight, step))) },
         onIncrease = { onChange(barWeight + step) },
         decreaseDescription = stringResource(R.string.plate_bar_lighter),
         increaseDescription = stringResource(R.string.plate_bar_heavier),
@@ -291,7 +320,7 @@ private fun EquipmentCatalogue() {
     Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
         EquipmentPanel(
             barWeight = PREVIEW_BAR_WEIGHT,
-            // The standard rack with the 15s taken off it, which is what a real gym's editor
+            // The standard rack with the 20s taken off it, which is what a real gym's editor
             // looks like once somebody has been honest about their garage.
             inventory = PlateInventory.METRIC.withPairs(PREVIEW_MISSING_SIZE, 0),
             onBarWeightChange = {},
@@ -313,6 +342,6 @@ fun EquipmentPanelDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { EquipmentCatalogue() }
 }
 
-/** A 20 kg Olympic bar, and the 15 kg plates nobody's garage has. */
+/** A 20 kg Olympic bar, and the 20 kg plates nobody's garage has a pair of. */
 private const val PREVIEW_BAR_WEIGHT = 20_000_000L
-private const val PREVIEW_MISSING_SIZE = 15_000_000L
+private const val PREVIEW_MISSING_SIZE = 20_000_000L

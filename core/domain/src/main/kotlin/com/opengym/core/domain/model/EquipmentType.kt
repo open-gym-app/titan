@@ -25,4 +25,20 @@ enum class EquipmentType {
     EXERCISE_BALL,
     FOAM_ROLL,
     OTHER,
+    ;
+
+    /**
+     * Whether this is a bar the user loads plates onto by hand.
+     *
+     * What the plate calculator is offered from: working out which discs go on each end is a
+     * question about a barbell and about nothing else, so a "plate calculator" button on a
+     * cable stack or a press-up is furniture in the way of the screen it sits on.
+     *
+     * The straight bar and the EZ curl bar, and no others. [MACHINE] is the near miss and is
+     * deliberately excluded: some plate-loaded machines exist, but the seed catalogue's
+     * `MACHINE` is overwhelmingly the selectorised stack — see the `EQUIPMENT` table in
+     * `tools/seed/generate_seed.py` — so including it would put the button on hundreds of
+     * exercises that have no plates and miss none that do.
+     */
+    val isPlateLoaded: Boolean get() = this == BARBELL || this == EZ_CURL_BAR
 }

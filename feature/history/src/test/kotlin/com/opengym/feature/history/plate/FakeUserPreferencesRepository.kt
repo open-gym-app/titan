@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,6 +49,19 @@ class FakeUserPreferencesRepository(
 
     override suspend fun setPlateInventory(inventory: PlateInventory?) =
         write { it.copy(plateInventory = inventory) }
+
+    /**
+     * The rack edited *inside* the update, the way the real one edits inside `edit`.
+     *
+     * Modelled rather than simplified to a `setPlateInventory` of a rack read off the current
+     * value, because the composing is the property under test: a caller that does its own
+     * read-modify-write reverts an edit that has not been published yet, and a fake that read
+     * the rack out here first would agree with it.
+     */
+    override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+        val edited = PlateStock(weight = weight, pairs = pairs)
+        write { it.copy(plateInventory = it.plates.withPairs(edited.weight, edited.pairs)) }
+    }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
         write { it.copy(trainingGoal = trainingGoal) }

@@ -93,9 +93,16 @@ fun BarbellDiagram(
             // eleven separate "20 kg" announcements are not a diagram to anybody.
             .clearAndSetSemantics { contentDescription = description },
     ) {
-        // Wide loadings are drawn narrower rather than clipped. Twelve plates a side is not a
-        // rack anybody has, but it is a rack the inventory editor can describe, and half a
-        // barbell running off the screen is the worse failure.
+        // Wide loadings are drawn narrower rather than clipped. Ten plates a side is not a rack
+        // anybody has, but it is a rack the inventory editor can describe, and half a barbell
+        // running off the screen is the worse failure.
+        //
+        // The factor is applied to *every* horizontal measurement below — the plates, the gaps
+        // between them, the collars and the grip — which is what makes it the factor it claims
+        // to be: laid-out width comes to `natural * squeeze`, so the row fits by construction.
+        // Shrinking only the plates, with the fixed 116dp of collar and grip left at full size,
+        // solves a different equation than the one that decides whether it fits, and overflows
+        // from about eight plates a side.
         val natural = PLATE_WIDTH * plates.size * 2 + GRIP_WIDTH + COLLAR_WIDTH * 2
         val squeeze = if (natural > maxWidth) maxWidth / natural else 1f
 
@@ -115,9 +122,9 @@ fun BarbellDiagram(
             // Reversed on the left so both ends read outwards from the middle: the mirror is
             // the point, and a left stack drawn in list order would be a bar loaded backwards.
             plates.asReversed().forEach { Plate(it, heaviest, squeeze) }
-            Collar()
-            Box(Modifier.width(GRIP_WIDTH))
-            Collar()
+            Collar(squeeze)
+            Box(Modifier.width(GRIP_WIDTH * squeeze))
+            Collar(squeeze)
             plates.forEach { Plate(it, heaviest, squeeze) }
         }
     }
@@ -141,7 +148,9 @@ private fun Plate(plate: LoadedPlate, heaviest: Long, squeeze: Float) {
 
     Surface(
         modifier = Modifier
-            .padding(horizontal = PLATE_GAP)
+            // The gap is squeezed with the disc, so the pair of them is one slot of
+            // `PLATE_WIDTH * squeeze` — see the squeeze in [BarbellDiagram].
+            .padding(horizontal = PLATE_GAP * squeeze)
             .size(width = (PLATE_WIDTH - PLATE_GAP * 2) * squeeze, height = height),
         shape = RoundedCornerShape(PLATE_RADIUS),
         color = tone.fill,
@@ -169,10 +178,12 @@ private fun Plate(plate: LoadedPlate, heaviest: Long, squeeze: Float) {
 
 /** The collar that holds the plates on. Drawn, because a bar without one is a bar being unloaded. */
 @Composable
-private fun Collar() {
+private fun Collar(squeeze: Float) {
     Box(
         modifier = Modifier
-            .size(width = COLLAR_WIDTH, height = COLLAR_HEIGHT)
+            // Width only. The height carries no information about how much is on the bar, so
+            // narrowing a crowded diagram should not also flatten it.
+            .size(width = COLLAR_WIDTH * squeeze, height = COLLAR_HEIGHT)
             .background(MaterialTheme.colorScheme.onSurface),
     )
 }
@@ -211,7 +222,8 @@ private val BAR_THICKNESS = 5.dp
  *
  * Wide enough that the two stacks read as the *ends* of a bar rather than as a pair of towers
  * with a line through them — which is what a narrow grip looks like once there are three plates
- * a side. It is the first thing [BarbellDiagram]'s squeeze gives up on a crowded bar.
+ * a side. It narrows with everything else under [BarbellDiagram]'s squeeze, so a crowded bar is
+ * the same picture drawn smaller rather than a differently proportioned one.
  */
 private val GRIP_WIDTH = 100.dp
 
@@ -244,7 +256,7 @@ private const val QUARTER_TURN = 90f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-/** The metric rack, which is also the ramp: seven sizes, heaviest first. */
+/** The metric rack, which is also the ramp: five sizes, heaviest first. */
 private val PREVIEW_RACK = PlateInventory.METRIC.stock.map { it.weight }
 
 @Composable
@@ -260,8 +272,7 @@ private fun BarbellCatalogue(perSide: List<PlateCount>) {
 
 /** 142.5 kg: the shape the diagram exists for, with a change plate on the outside. */
 private val PREVIEW_HEAVY = listOf(
-    PlateCount(weight = 25_000_000, count = 2),
-    PlateCount(weight = 10_000_000, count = 1),
+    PlateCount(weight = 20_000_000, count = 3),
     PlateCount(weight = 1_250_000, count = 1),
 )
 
@@ -280,12 +291,12 @@ fun BarbellDiagramDarkPreview() {
 @Preview(name = "Barbell - a working set", widthDp = 360)
 @Composable
 fun BarbellDiagramWorkingPreview() {
-    // 100 kg, and the whole ramp is two tones apart — the ordinary case, not the busy one.
+    // 100 kg, and the two sizes are two tones apart — the ordinary case, not the busy one.
     OpenGymTheme(theme = ThemePreference.LIGHT) {
         BarbellCatalogue(
             listOf(
-                PlateCount(weight = 25_000_000, count = 1),
-                PlateCount(weight = 15_000_000, count = 1),
+                PlateCount(weight = 20_000_000, count = 1),
+                PlateCount(weight = 10_000_000, count = 2),
             ),
         )
     }
@@ -300,14 +311,14 @@ fun BarbellDiagramEmptyPreview() {
 @Preview(name = "Barbell - more plates than fit", widthDp = 360)
 @Composable
 fun BarbellDiagramCrowdedPreview() {
-    // Six 25s and three change plates a side. The squeeze, which is the only part of the
-    // layout a preview can go wrong in without anybody noticing.
+    // Ten plates a side, which the default rack can genuinely reach — the squeeze, which is the
+    // only part of the layout a preview can go wrong in without anybody noticing. Nothing may
+    // touch either edge of the frame; that is what this preview is for.
     OpenGymTheme(theme = ThemePreference.LIGHT) {
         BarbellCatalogue(
             listOf(
-                PlateCount(weight = 25_000_000, count = 6),
-                PlateCount(weight = 5_000_000, count = 2),
-                PlateCount(weight = 1_250_000, count = 2),
+                PlateCount(weight = 20_000_000, count = 8),
+                PlateCount(weight = 2_500_000, count = 2),
             ),
         )
     }

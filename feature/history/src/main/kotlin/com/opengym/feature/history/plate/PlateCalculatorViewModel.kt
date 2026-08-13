@@ -79,13 +79,24 @@ class PlateCalculatorViewModel @Inject constructor(
                 screenState.update { it.copy(target = event.milligrams.coerceAtLeast(0), sheet = null) }
 
             is PlateCalculatorEvent.BarWeightSelected -> save { setBarWeight(event.milligrams) }
-            is PlateCalculatorEvent.PlatePairsSelected -> save {
-                setPlateInventory(uiState.value.preferences.plates.withPairs(event.weight, event.pairs))
-            }
+            // The whole rack is never rewritten from here. `setPlatePairs` names the one size
+            // that changed and composes the edit inside the store's transaction; rebuilding the
+            // rack from `uiState` would revert any earlier press that has not round-tripped
+            // through the store yet, which is two steppers pressed in a second. See the
+            // repository.
+            is PlateCalculatorEvent.PlatePairsSelected ->
+                save { setPlatePairs(event.weight, event.pairs) }
+
             PlateCalculatorEvent.InventoryReset -> save { setPlateInventory(null) }
 
             is PlateCalculatorEvent.SheetRequested -> screenState.update { it.copy(sheet = event.sheet) }
-            PlateCalculatorEvent.SheetDismissed -> screenState.update { it.copy(sheet = null) }
+            // The message goes with the sheet: a failure raised by one of the sheet's own
+            // steppers is shown *in* the sheet, so closing it is the user having read it. Left
+            // set, it would resurface as a snackbar over the screen behind, about a press they
+            // have already been told about.
+            PlateCalculatorEvent.SheetDismissed ->
+                screenState.update { it.copy(sheet = null, message = null) }
+
             PlateCalculatorEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -93,13 +104,20 @@ class PlateCalculatorViewModel @Inject constructor(
     /**
      * Move the target by [delta], never below nothing.
      *
-     * Read off [uiState] rather than off [screenState], because until the first press the target
-     * is the derived opening weight and `screenState.target` is still null — stepping from null
-     * would jump the user to `delta` from zero.
+     * The fallback to [openingTarget] is what makes the first press work: until then the target
+     * on screen is the derived opening weight and `screenState.target` is still null, so stepping
+     * from null would jump the user to `delta` from zero.
+     *
+     * Read and written in one [update] rather than through `uiState.value`, because `uiState` is
+     * downstream of a `combine` and does not carry a press until the state has been recomposed
+     * through it. Two taps dispatched inside that window both read the same starting weight, and
+     * the second `+2.5 kg` lands on the same number as the first.
      */
     private fun step(delta: Long) {
-        val stepped = (uiState.value.target + delta).coerceAtLeast(0)
-        screenState.update { it.copy(target = stepped) }
+        val opening = openingTarget(uiState.value.preferences)
+        screenState.update { screen ->
+            screen.copy(target = ((screen.target ?: opening) + delta).coerceAtLeast(0))
+        }
     }
 
     /**
@@ -128,10 +146,10 @@ class PlateCalculatorViewModel @Inject constructor(
     /**
      * What the screen opens on when nobody suggested a weight: a plate a side.
      *
-     * The first working weight in both systems and the one number every lifter recognises — 60
-     * or 70 kg on a metric rack, 135 lb on an imperial one — rather than the empty bar, which is
-     * a correct answer to a question nobody opens a calculator to ask. It follows the equipment,
-     * so a user with a 15 kg bar and no 25s still opens on something they could load.
+     * The first working weight in both systems and the one number every lifter recognises — 60 kg
+     * on a metric rack, 135 lb on an imperial one — rather than the empty bar, which is a correct
+     * answer to a question nobody opens a calculator to ask. It follows the equipment, so a user
+     * with a 15 kg bar and no 20s still opens on something they could load.
      */
     private fun openingTarget(preferences: UserPreferences): Long {
         val heaviest = preferences.plates.available.firstOrNull()?.weight ?: 0L

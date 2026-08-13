@@ -30,11 +30,11 @@ class PlateCalculatorTest {
     // ─── Metric, reachable ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `a hundred kilos is a twenty-five and a fifteen a side`() {
+    fun `a hundred kilos is two twenties a side`() {
         val solution = solve(kg(100.0)) as PlateSolution.Loaded
 
-        // Two twenties weigh the same and use as many plates; the heavier pair wins the tie.
-        assertEquals(listOf(kg(25.0) to 1, kg(15.0) to 1), solution.perSide())
+        // Four tens weigh the same; the loading using fewer plates wins.
+        assertEquals(listOf(kg(20.0) to 2), solution.perSide())
         assertEquals(kg(100.0), solution.achieved)
         assertTrue(solution.isExact)
         assertFalse(solution.isBarOnly)
@@ -46,15 +46,16 @@ class PlateCalculatorTest {
         // smallest plate is the whole reason the target is loadable at all.
         val solution = solve(kg(102.5)) as PlateSolution.Loaded
 
-        assertEquals(listOf(kg(25.0) to 1, kg(15.0) to 1, kg(1.25) to 1), solution.perSide())
+        assertEquals(listOf(kg(20.0) to 2, kg(1.25) to 1), solution.perSide())
         assertEquals(kg(102.5), solution.achieved)
         assertTrue(solution.isExact)
     }
 
     @Test
     fun `a loading is listed heaviest first, the way it goes on the bar`() {
-        // 142.5 kg: 61.25 a side. The order is not incidental — it is the order the plates are
-        // racked in, so a legend read top to bottom is a set of instructions.
+        // 142.5 kg: 61.25 a side, which is three 20s and a change plate. The order is not
+        // incidental — it is the order the plates are racked in, so a legend read top to bottom
+        // is a set of instructions.
         val solution = solve(kg(142.5)) as PlateSolution.Loaded
 
         assertEquals(
@@ -72,7 +73,7 @@ class PlateCalculatorTest {
         // 100 kg and a kilo of shortfall, never 100 kg presented as though it were 101.
         val solution = solve(kg(101.0)) as PlateSolution.Loaded
 
-        assertEquals(listOf(kg(25.0) to 1, kg(15.0) to 1), solution.perSide())
+        assertEquals(listOf(kg(20.0) to 2), solution.perSide())
         assertEquals(kg(100.0), solution.achieved)
         assertEquals(kg(1.0), solution.shortfall)
         assertFalse(solution.isExact)

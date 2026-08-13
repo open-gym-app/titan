@@ -60,7 +60,7 @@ class PlateEditorsTest {
     }
 
     /** The editor's contents, with the sheet around them left out. See the note on this class. */
-    private fun setEquipmentContent(preferences: UserPreferences) {
+    private fun setEquipmentContent(preferences: UserPreferences, message: String? = null) {
         composeTestRule.setContent {
             OpenGymTheme(theme = ThemePreference.LIGHT, unitSystem = preferences.unitSystem) {
                 EquipmentPanel(
@@ -71,6 +71,7 @@ class PlateEditorsTest {
                         events += PlateCalculatorEvent.PlatePairsSelected(weight, pairs)
                     },
                     onReset = { events += PlateCalculatorEvent.InventoryReset },
+                    message = message,
                 )
             }
         }
@@ -179,6 +180,26 @@ class PlateEditorsTest {
         // Clamped rather than disabled, and never to zero — `setBarWeight` refuses that, so a
         // button that could reach it would be a button that throws.
         assertEquals(listOf(PlateCalculatorEvent.BarWeightSelected(2_500_000)), events)
+    }
+
+    @Test
+    fun `a bar lighter than one increment is not made heavier by the lighter button`() {
+        // Settings accepts any positive bar, so a 2 kg kids' bar is storable while the metric
+        // step is 2.5 kg. Clamping to the step would answer "lighter" with a *heavier* bar.
+        setEquipmentContent(threeSizeRack(barWeight = 2_000_000))
+
+        composeTestRule.onNodeWithContentDescription("Lighter bar").performClick()
+
+        assertEquals(listOf(PlateCalculatorEvent.BarWeightSelected(2_000_000)), events)
+    }
+
+    @Test
+    fun `a failed write is said inside the editor`() {
+        // Inside, because the editor is a sheet in a window of its own: the screen's snackbar is
+        // drawn behind it and timed out before it can be read. See `EquipmentSheet`.
+        setEquipmentContent(threeSizeRack(), message = "Could not save your equipment")
+
+        composeTestRule.onNodeWithText("Could not save your equipment").assertIsDisplayed()
     }
 
     @Test
