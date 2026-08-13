@@ -134,12 +134,12 @@
 
     <string name="detail_add_to_session">Add to session</string>
 
+    <!-- The two halves of `NotesCard` a caller supplies. The pencil's description and the
+         two buttons are the component's own, in :core:ui, because they say the same thing
+         wherever a note is written; the prompt below is here because advice about a seat
+         setting says nothing under a workout. -->
     <string name="detail_notes_label">Your notes</string>
     <string name="detail_notes_empty">Add a note about this exercise — a seat setting, a cue, which machine at your gym.</string>
-    <string name="detail_notes_add">Add a note</string>
-    <string name="detail_notes_edit">Edit the note</string>
-    <string name="detail_notes_cancel">Cancel</string>
-    <string name="detail_notes_save">Save</string>
     <string name="detail_notes_save_failed">Could not save the note</string>
 
     <string name="detail_exercise_updated">Exercise updated</string>

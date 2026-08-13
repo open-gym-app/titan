@@ -16,9 +16,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
 /**
  * The Sessions tab — session browsing, which #24 splits into HISTORY / TEMPLATES / CALENDAR.
  *
- * Scaffolding. The one real behaviour is the push onto [SessionDetailScreen], which is what
- * gives this tab depth — and a tab with depth is the only way to show that switching tabs
- * and coming back restores where the user was, rather than resetting to the tab's root.
+ * Scaffolding. The one real behaviour is the push onto a session's recap — the screen
+ * `:feature:session` draws in its historical mode (#27) — which is what gives this tab depth,
+ * and a tab with depth is the only way to show that switching tabs and coming back restores
+ * where the user was rather than resetting to the tab's root.
  */
 @Composable
 fun SessionsScreen(

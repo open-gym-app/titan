@@ -207,9 +207,24 @@ fun SessionStatChips(stats: SessionStats, modifier: Modifier = Modifier) {
  *
  * Two columns rather than four, because a 360dp screen minus its margins gives each tile
  * 160dp and a five-digit volume in `numericLarge` needs most of it.
+ *
+ * @param musclesWorked how many muscle groups the session touched, or **null** to draw the
+ *   duration in that slot instead. Four tiles either way, because a grid with a hole in it is
+ *   not a grid — this chooses which of the five figures the fourth tile carries.
+ *
+ *   The two callers differ in what their header already says. A session summary heads itself
+ *   with `10:14 → 11:06 · 52:14`, so a duration tile under it is the same number twice and the
+ *   muscle count is the figure with nowhere else to go; a stats hub or a live session has no
+ *   such header and wants the clock. Passing the count rather than a flag is what keeps this
+ *   from having to reach for the muscle data itself, which is a different query from the one
+ *   that produced [stats].
  */
 @Composable
-fun SessionStatGrid(stats: SessionStats, modifier: Modifier = Modifier) {
+fun SessionStatGrid(
+    stats: SessionStats,
+    modifier: Modifier = Modifier,
+    musclesWorked: Int? = null,
+) {
     val unitSuffix = LocalUnitSystem.current.weightSuffix
 
     Column(
@@ -223,11 +238,20 @@ fun SessionStatGrid(stats: SessionStats, modifier: Modifier = Modifier) {
                 unit = unitSuffix,
                 modifier = Modifier.weight(1f),
             )
-            StatTile(
-                label = stringResource(R.string.stat_duration),
-                value = stats.durationSeconds.seconds.formatAsElapsed(),
-                modifier = Modifier.weight(1f),
-            )
+            if (musclesWorked == null) {
+                StatTile(
+                    label = stringResource(R.string.stat_duration),
+                    value = stats.durationSeconds.seconds.formatAsElapsed(),
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                StatTile(
+                    label = stringResource(R.string.stat_muscles),
+                    value = musclesWorked.toString(),
+                    unit = stringResource(R.string.stat_muscles_unit),
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
             StatTile(

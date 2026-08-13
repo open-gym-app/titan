@@ -180,5 +180,10 @@ private const val NEGATIVE_ZERO = -0.0
 /**
  * The locale numbers are rendered in, which is not always the one the UI is translated to:
  * a user may read the app in English and still want their own digits and separators.
+ *
+ * `internal` rather than private because [formatSessionDate] renders through it too. A date is
+ * a number the user reads, so it follows the same locale as the weights beside it — two locale
+ * sources in one header is how a screen ends up showing Arabic digits in the weight and Latin
+ * ones in the date.
  */
-private fun formattingLocale(): Locale = Locale.getDefault(Locale.Category.FORMAT)
+internal fun formattingLocale(): Locale = Locale.getDefault(Locale.Category.FORMAT)

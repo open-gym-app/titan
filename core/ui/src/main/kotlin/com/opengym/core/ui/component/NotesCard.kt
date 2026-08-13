@@ -1,4 +1,4 @@
-package com.opengym.feature.history.detail.component
+package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,35 +27,49 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
-import com.opengym.feature.history.R
 
 /**
- * The user's own remarks on an exercise, read and written in the same place.
+ * The user's own remarks on something, read and written in the same place.
  *
- * `Exercise.notes` is deliberately not `Exercise.instructions`: the how-to is the bundled
- * dataset's and is the same for everybody, and this is "seat on 3, left side lags". They are
- * drawn as two sections for that reason, and only this one is editable — on every exercise,
- * including the seeded ones, because a remark about *your* gym's machine is yours whoever
- * wrote the exercise.
+ * Two things carry a note the user writes — an exercise, and a session — and the control is
+ * the same one in both: a line of prose with a pencil on it, which becomes a field when it is
+ * asked for. Only the sentence shown when there is no note yet differs, because "a seat
+ * setting, a cue, which machine at your gym" is advice about an exercise and says nothing
+ * useful under a workout.
  *
  * ### Why it is not simply a text field
  *
  * A permanently open field on a screen the user is mostly *reading* turns a note into a form:
- * an outlined box with a caret in it, and a keyboard one stray tap away, above the
- * instructions they actually came for. Read mode is a line of prose with a pencil on it; the
- * field appears when asked for and closes when the write lands.
+ * an outlined box with a caret in it, and a keyboard one stray tap away, above the content
+ * they actually came for. Read mode is a line of prose; the field appears when asked for and
+ * closes when the write lands.
  *
- * The empty state is the same control, saying what it is for. An exercise with no note draws
- * a prompt rather than an empty card, which is the difference between "nothing here" and
+ * The empty state is the same control, saying what it is for. Something with no note draws a
+ * prompt rather than an empty card, which is the difference between "nothing here" and
  * "nothing here *yet*".
+ *
+ * @param notes what is stored, or null for nothing yet.
+ * @param draft what is in the field, or **null** when the note is not being edited. Null is
+ *   the read state, so a caller asking "is the field open" asks one question. Hoisted rather
+ *   than held here because the ViewModel is what decides when the field closes — on a write
+ *   that landed, and not before.
+ * @param isSaving a write is in flight. The field stays up and inert rather than snapping back
+ *   to read mode, so a failure has somewhere to be reported and the text is still there to
+ *   retry with.
+ * @param emptyPrompt the sentence shown in place of a note that has not been written. The one
+ *   thing a caller must supply, because it is the one thing that is not the same for an
+ *   exercise and a session.
+ * @param fieldLabel the label on the open field.
  */
 @Composable
-internal fun ExerciseNotesCard(
+fun NotesCard(
     notes: String?,
     draft: String?,
     isSaving: Boolean,
+    emptyPrompt: String,
+    fieldLabel: String,
     onEdit: () -> Unit,
     onDraftChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -64,10 +78,11 @@ internal fun ExerciseNotesCard(
 ) {
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
         if (draft == null) {
-            NotesReadRow(notes = notes, onEdit = onEdit)
+            NotesReadRow(notes = notes, emptyPrompt = emptyPrompt, onEdit = onEdit)
         } else {
             NotesEditor(
                 draft = draft,
+                fieldLabel = fieldLabel,
                 isSaving = isSaving,
                 onDraftChange = onDraftChange,
                 onSave = onSave,
@@ -80,17 +95,17 @@ internal fun ExerciseNotesCard(
 /**
  * The note as written, with a pencil.
  *
- * The whole row is the target, not just the icon: a 24dp glyph at the end of a card is a
- * worse thing to hit in a gym than the card itself, and the icon stays because it is what
- * says the row is editable at all.
+ * The whole row is the target, not just the icon: a 24dp glyph at the end of a card is a worse
+ * thing to hit in a gym than the card itself, and the icon stays because it is what says the
+ * row is editable at all.
  */
 @Composable
-private fun NotesReadRow(notes: String?, onEdit: () -> Unit) {
+private fun NotesReadRow(notes: String?, emptyPrompt: String, onEdit: () -> Unit) {
     val hasNote = !notes.isNullOrBlank()
     val action = if (hasNote) {
-        stringResource(R.string.detail_notes_edit)
+        stringResource(R.string.notes_edit)
     } else {
-        stringResource(R.string.detail_notes_add)
+        stringResource(R.string.notes_add)
     }
 
     Row(
@@ -102,7 +117,7 @@ private fun NotesReadRow(notes: String?, onEdit: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = notes?.takeIf { hasNote } ?: stringResource(R.string.detail_notes_empty),
+            text = notes?.takeIf { hasNote } ?: emptyPrompt,
             style = MaterialTheme.typography.bodyMedium,
             color = if (hasNote) {
                 MaterialTheme.colorScheme.onSurface
@@ -125,6 +140,7 @@ private fun NotesReadRow(notes: String?, onEdit: () -> Unit) {
 @Composable
 private fun NotesEditor(
     draft: String,
+    fieldLabel: String,
     isSaving: Boolean,
     onDraftChange: (String) -> Unit,
     onSave: () -> Unit,
@@ -146,7 +162,7 @@ private fun NotesEditor(
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focus),
-            label = { Text(stringResource(R.string.detail_notes_label)) },
+            label = { Text(fieldLabel) },
             shape = MaterialTheme.shapes.small,
             enabled = !isSaving,
             maxLines = NOTES_MAX_LINES,
@@ -162,7 +178,7 @@ private fun NotesEditor(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = stringResource(R.string.detail_notes_cancel),
+                    text = stringResource(R.string.notes_cancel),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -175,7 +191,7 @@ private fun NotesEditor(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = stringResource(R.string.detail_notes_save),
+                    text = stringResource(R.string.notes_save),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -188,56 +204,50 @@ private const val NOTES_MAX_LINES = 6
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Exercise notes", widthDp = 360)
+@Preview(name = "Notes card", widthDp = 360)
 @Composable
-fun ExerciseNotesCardPreview() {
+fun NotesCardPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
-        ExerciseNotesCatalogue()
+        NotesCatalogue()
     }
 }
 
-@Preview(name = "Exercise notes, dark", widthDp = 360)
+@Preview(name = "Notes card, dark", widthDp = 360)
 @Composable
-fun ExerciseNotesCardDarkPreview() {
+fun NotesCardDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
-        ExerciseNotesCatalogue()
+        NotesCatalogue()
     }
 }
 
 @Composable
-private fun ExerciseNotesCatalogue() {
+private fun NotesCatalogue() {
     Column(
         modifier = Modifier
             .background(MaterialTheme.colorScheme.background)
             .padding(OpenGymTheme.spacing.screen),
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
-        ExerciseNotesCard(
+        PreviewNotesCard(
             notes = "Seat on 3. Bar to the nipple line, pause. Left arm lags on the last set.",
             draft = null,
-            isSaving = false,
-            onEdit = {},
-            onDraftChange = {},
-            onSave = {},
-            onCancel = {},
         )
-        ExerciseNotesCard(
-            notes = null,
-            draft = null,
-            isSaving = false,
-            onEdit = {},
-            onDraftChange = {},
-            onSave = {},
-            onCancel = {},
-        )
-        ExerciseNotesCard(
-            notes = "Seat on 3.",
-            draft = "Seat on 3. Elbows tucked",
-            isSaving = false,
-            onEdit = {},
-            onDraftChange = {},
-            onSave = {},
-            onCancel = {},
-        )
+        PreviewNotesCard(notes = null, draft = null)
+        PreviewNotesCard(notes = "Seat on 3.", draft = "Seat on 3. Elbows tucked")
     }
+}
+
+@Composable
+private fun PreviewNotesCard(notes: String?, draft: String?) {
+    NotesCard(
+        notes = notes,
+        draft = draft,
+        isSaving = false,
+        emptyPrompt = "Add a note about this exercise — a seat setting, a cue, which machine at your gym.",
+        fieldLabel = "Your notes",
+        onEdit = {},
+        onDraftChange = {},
+        onSave = {},
+        onCancel = {},
+    )
 }
