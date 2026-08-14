@@ -226,7 +226,7 @@ internal fun PickerTopBar(
 }
 
 /**
- * `184 EXERCISES`, `12 OF 184`, or `3 SELECTED` — the count, in whichever bar is drawn.
+ * `873 EXERCISES`, `12 OF 873`, or `3 SELECTED` — the count, in whichever bar is drawn.
  *
  * Three phrasings because the number means three different things, and one format string with
  * a count in it would leave the reader working out which. It is what tells somebody mid-search

@@ -1,9 +1,12 @@
 package com.opengym.feature.history.library
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -171,6 +174,40 @@ class ExerciseLibraryScreenTest {
         // Otherwise the list stays narrowed with the only thing that could say why now shut.
         assertEquals(listOf(ExerciseLibraryEvent.QueryChanged("")), events)
         composeTestRule.onNodeWithText("Search exercises…").assertDoesNotExist()
+    }
+
+    @Test
+    fun `opening the search box puts the caret in it`() {
+        setContent()
+
+        composeTestRule.onNodeWithContentDescription(SEARCH).performClick()
+
+        // A search control that takes two taps to type into is one the user stops reaching for.
+        composeTestRule.onNodeWithText("Search exercises…").assertIsFocused()
+    }
+
+    @Test
+    fun `coming back to the tab restores the open box without the keyboard`() {
+        val restoration = StateRestorationTester(composeTestRule)
+        restoration.setContent {
+            OpenGymTheme {
+                ExerciseLibraryScreen(state = browsing(), onEvent = events::add)
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription(SEARCH).performClick()
+        composeTestRule.onNodeWithText("Search exercises…").assertIsFocused()
+
+        // Leaving the tab with the search open and coming back to it: `searchExpanded` is
+        // restored, the screen is composed afresh.
+        restoration.emulateSavedInstanceStateRestore()
+
+        // The box comes back because it was open. The keyboard does not, because focus is
+        // what the *tap* asked for — restored state cannot tell "just opened" from "was
+        // already open", and guessing "just opened" covers half the list the user left
+        // showing every time they return to the tab.
+        composeTestRule.onNodeWithText("Search exercises…").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Search exercises…").assertIsNotFocused()
     }
 
     @Test

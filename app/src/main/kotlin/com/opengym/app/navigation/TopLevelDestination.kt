@@ -30,7 +30,7 @@ import kotlin.reflect.KClass
  * Library sits third, between Sessions and Stats, because the bar reads left to right as
  * the shape of a workout: what today holds, what has been done, what there is to do it with,
  * and what it added up to. It is a tab and not a push off Sessions because it is the only
- * way into 184 exercises and the only place a custom one is made — behind a back button at
+ * way into 873 exercises and the only place a custom one is made — behind a back button at
  * the top of that list, the way out is a long scroll from wherever the user is reading.
  *
  * Each entry points at a feature's *graph* rather than a screen, which is what lets the bar

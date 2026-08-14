@@ -68,9 +68,9 @@ fun NavGraphBuilder.historyGraph(
 /**
  * The Library tab.
  *
- * A tab and not a screen you go to and come back from, because it is the only place the 184
+ * A tab and not a screen you go to and come back from, because it is the only place the 873
  * seeded exercises can be read and it is where a custom one is made. Behind a push it was a
- * destination with a back button at the top of a 184-row list, which is a long way from the
+ * destination with a back button at the top of an 873-row list, which is a long way from the
  * way out; as a tab the bottom bar is the way out and it never leaves the screen.
  *
  * Nothing is pushed inside it yet — the exercise detail screen (#94) is the first thing that

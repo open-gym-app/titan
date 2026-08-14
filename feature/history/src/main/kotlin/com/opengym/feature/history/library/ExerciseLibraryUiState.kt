@@ -29,7 +29,7 @@ import com.opengym.core.domain.model.PersonalRecord
  * @param sections the results, grouped by what each exercise primarily trains. Empty when
  *   nothing matches — see [hasFilters] for which of the two empty states that is.
  * @param catalogueSize how many exercises exist, filters or no filters. The top bar's
- *   `LIBRARY · 184`.
+ *   `LIBRARY · 873`.
  * @param matchCount how many are in [sections]. Equal to [catalogueSize] when nothing is
  *   filtered.
  * @param isLoading there is no answer for what is on screen yet — either the catalogue read has
@@ -150,7 +150,7 @@ data class NewExerciseDraft(
  */
 enum class ExerciseLibraryMessage {
 
-    /** A custom exercise was created. Worth confirming — the list it joins is 184 rows long. */
+    /** A custom exercise was created. Worth confirming — the list it joins is 873 rows long. */
     EXERCISE_CREATED,
 
     /**

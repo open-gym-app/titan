@@ -126,8 +126,9 @@ fun ExerciseLibraryRoute(
  *
  * `ExerciseListItem` is documented as a row for a list inside one `OpenGymCard`, and this
  * screen deliberately does not do that: a card per section would have to be one `LazyColumn`
- * item holding all forty of its rows, and composing forty rows and their images to scroll
- * past two is exactly the dropped-frame problem this screen has to avoid with 184 of them.
+ * item holding every one of its rows, and the seeded sections run from eight rows to a
+ * hundred and forty-eight — composing all of a section and its images to scroll past two of
+ * them is exactly the dropped-frame problem this screen has to avoid across 873 exercises.
  * So every row is its own lazy item, separated by the hairline that would have been inside
  * the card. The design's own rule — separate with a line, not with elevation — holds either
  * way.
@@ -154,6 +155,12 @@ fun ExerciseLibraryScreen(
     var filtersOpen by rememberSaveable { mutableStateOf(false) }
     val searchFocus = remember { FocusRequester() }
 
+    // Deliberately *not* saveable, which is the whole of its job: it means "the user just
+    // asked for the box", which is only ever true in the composition that handled the tap.
+    // Coming back to the tab restores `searchExpanded` and starts this false, so the box
+    // returns open with the keyboard left down — see the effect below.
+    var searchFocusRequested by remember { mutableStateOf(false) }
+
     LaunchedEffect(message, messageText) {
         if (messageText != null) {
             snackbarHostState.showSnackbar(messageText)
@@ -163,8 +170,16 @@ fun ExerciseLibraryScreen(
 
     // Opening the box puts the caret in it. A search control that takes two taps to type into
     // is a search control the user stops reaching for.
-    LaunchedEffect(searchExpanded) {
-        if (searchExpanded) searchFocus.requestFocus()
+    //
+    // Keyed on the *asking* rather than on `searchExpanded`, which is restored state and so
+    // cannot tell "just opened" from "was already open". Keyed on that instead, leaving the
+    // tab with the search open and the keyboard dismissed and coming back re-ran this and
+    // threw the keyboard back over the results the user had gone to read.
+    LaunchedEffect(searchFocusRequested) {
+        if (searchFocusRequested) {
+            searchFocus.requestFocus()
+            searchFocusRequested = false
+        }
     }
 
     /*
@@ -180,6 +195,7 @@ fun ExerciseLibraryScreen(
             onEvent(ExerciseLibraryEvent.QueryChanged(""))
         }
         searchExpanded = !searchExpanded
+        searchFocusRequested = searchExpanded
     }
 
     Scaffold(
@@ -287,7 +303,7 @@ private fun LibraryList(
     LazyColumn(modifier = modifier.fillMaxSize()) {
         if (state.sections.isEmpty()) {
             // Nothing is drawn while the first read is in flight: a spinner for a query over
-            // 184 local rows is a flash, and an empty state under it would be a lie.
+            // 873 local rows is a flash, and an empty state under it would be a lie.
             if (!state.isLoading) {
                 item(key = EMPTY_KEY) {
                     LibraryEmptyState(
@@ -475,8 +491,14 @@ private fun previewExercise(
     record = record,
 )
 
-/** What the seed ships, so the preview's eyebrow reads like the real screen's. */
-private const val SEEDED_CATALOGUE_SIZE = 184
+/**
+ * What the seed ships, so the preview's eyebrow reads like the real screen's.
+ *
+ * One constant for every preview in the feature — `LibraryFilterSheet`'s included — because
+ * two copies of a figure that tracks `assets/seed/exercises.sql` is how one of them ends up
+ * being the stale one somebody reasons from.
+ */
+internal const val SEEDED_CATALOGUE_SIZE = 873
 
 private const val BENCH_PR_MILLIGRAMS = 92_000_000L
 private const val INCLINE_PR_MILLIGRAMS = 28_000_000L

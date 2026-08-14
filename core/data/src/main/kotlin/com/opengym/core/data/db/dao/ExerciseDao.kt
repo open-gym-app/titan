@@ -79,8 +79,8 @@ interface ExerciseDao {
      * within each exercise exactly as [getMuscleGroupLinks] orders one.
      *
      * For the screens that draw the whole catalogue at once. Running the per-exercise query
-     * 184 times would mean 184 Room observers on the same two tables, all invalidated
-     * together by any write to either.
+     * once per exercise would mean 873 Room observers on the same two tables — one per
+     * seeded row, before any custom ones — all invalidated together by any write to either.
      *
      * `ORDER BY exercise_id` first so the caller can group in one pass over an already
      * ordered result, rather than sorting a map's values afterwards.

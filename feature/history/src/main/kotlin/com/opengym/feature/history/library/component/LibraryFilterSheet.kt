@@ -32,6 +32,7 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.library.ExerciseLibraryEvent
 import com.opengym.feature.history.library.ExerciseLibraryUiState
+import com.opengym.feature.history.library.SEEDED_CATALOGUE_SIZE
 
 /**
  * Every filter the library has, in a bottom sheet.
@@ -200,8 +201,8 @@ private val PREVIEW_STATE = ExerciseLibraryUiState(
         EquipmentType.KETTLEBELL,
         EquipmentType.BAND,
     ),
-    catalogueSize = 184,
-    matchCount = 184,
+    catalogueSize = SEEDED_CATALOGUE_SIZE,
+    matchCount = SEEDED_CATALOGUE_SIZE,
     isLoading = false,
 )
 

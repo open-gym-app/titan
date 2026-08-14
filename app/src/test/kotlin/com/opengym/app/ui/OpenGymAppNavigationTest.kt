@@ -97,7 +97,7 @@ class OpenGymAppNavigationTest {
 
         // The two properties that make it a tab rather than the push it used to be: the bar
         // it was reached by is still there to leave by, and there is no back arrow above a
-        // 184-row list for the user to hunt for.
+        // 873-row list for the user to hunt for.
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(BACK).assertDoesNotExist()
     }

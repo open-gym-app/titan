@@ -32,13 +32,15 @@ interface ExerciseRepository {
      * Every exercise's muscle group links at once, keyed by exercise id.
      *
      * The bulk form of [getMuscleGroupLinks], for the screens that draw the *whole*
-     * catalogue: the library groups 184 exercises by what they train and labels each row
-     * with it, and doing that through the per-exercise query means 184 observed queries and
-     * 184 Flows to combine. This is one.
+     * catalogue: the library groups 873 seeded exercises by what they train and labels each
+     * row with it, and doing that through the per-exercise query means 873 observed queries
+     * and 873 Flows to combine. This is one.
      *
-     * An exercise with no links has no entry rather than an empty one — the seed leaves a
-     * handful unlinked, and a caller reading `links[id].orEmpty()` reads the same answer
-     * either way while a caller iterating the map is not handed empty groups to draw.
+     * An exercise with no links has no entry rather than an empty one. Nothing produces one
+     * today — the seed gives every exercise a prime mover, and the custom-exercise form
+     * requires one — but the map is a join's output and not a promise that the join is
+     * total: a caller reading `links[id].orEmpty()` reads the same answer either way, while
+     * a caller iterating the map is not handed empty groups to draw.
      *
      * Each list carries the ordering [getMuscleGroupLinks] gives: primary movers first, then
      * by muscle group name. The first entry is therefore the exercise's prime mover, which

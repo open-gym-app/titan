@@ -39,10 +39,12 @@ import kotlin.time.Duration.Companion.seconds
  * query returning rows this class already holds. The three still compose as one intersection,
  * because the second two are applied to the first one's output.
  *
- * There is deliberately **no debounce** on the query. The catalogue is 184 rows and the
- * search is an unindexed `LIKE` scan over them, which is faster than the frame it would be
- * drawn in; a debounce would buy nothing measurable and cost the user a visible lag between
- * typing and seeing.
+ * There is deliberately **no debounce** on the query. The catalogue is the 873 seeded rows
+ * plus whatever the user has added, and the search is an unindexed `LIKE` scan over them —
+ * still comfortably inside the frame it is drawn in, so a debounce would buy nothing
+ * measurable and cost the user a visible lag between typing and seeing. It is the row count
+ * that carries this, not the query: the scan is linear, and a catalogue an order of
+ * magnitude larger is the point at which this is worth measuring again rather than assumed.
  *
  * ### What is read once and what is observed
  *
