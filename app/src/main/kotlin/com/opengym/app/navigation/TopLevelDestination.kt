@@ -5,29 +5,38 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.opengym.app.R
 import com.opengym.feature.history.navigation.HistoryGraphDestination
+import com.opengym.feature.history.navigation.LibraryGraphDestination
 import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.progression.navigation.ProgressionGraphDestination
 import kotlin.reflect.KClass
 
 /**
- * The bottom bar's three tabs.
+ * The bottom bar's four tabs.
  *
- * **Three, not five.** The wireframes draw a five-tab bar including Map and More; Map has
+ * **Four, not five.** The wireframes draw a five-tab bar including Map and More; Map has
  * no content until M8 and a tab that opens an empty screen is worse than no tab, and "More"
  * is a tab that means nothing — its one MVP inhabitant is Settings, which is reachable
  * from the gear in the top bar where a once-a-month destination belongs. Map arrives as a
- * fourth tab in M8, when there is something behind it.
+ * fifth tab in M8, when there is something behind it.
+ *
+ * Library sits third, between Sessions and Stats, because the bar reads left to right as
+ * the shape of a workout: what today holds, what has been done, what there is to do it with,
+ * and what it added up to. It is a tab and not a push off Sessions because it is the only
+ * way into 873 exercises and the only place a custom one is made — behind a back button at
+ * the top of that list, the way out is a long scroll from wherever the user is reading.
  *
  * Each entry points at a feature's *graph* rather than a screen, which is what lets the bar
  * keep a tab looking selected while the user is two screens deep inside it.
  *
- * This enum is the one place that names all three features at once, and it can be: `:app`
+ * This enum is the one place that names all four graphs at once, and it can be: `:app`
  * is the composition root and already depends on every feature. No feature can see it.
  */
 enum class TopLevelDestination(
@@ -47,6 +56,12 @@ enum class TopLevelDestination(
         labelRes = R.string.nav_sessions,
         selectedIcon = Icons.Filled.FitnessCenter,
         unselectedIcon = Icons.Outlined.FitnessCenter,
+    ),
+    LIBRARY(
+        graphDestination = LibraryGraphDestination,
+        labelRes = R.string.nav_library,
+        selectedIcon = Icons.Filled.MenuBook,
+        unselectedIcon = Icons.Outlined.MenuBook,
     ),
     STATS(
         graphDestination = ProgressionGraphDestination,

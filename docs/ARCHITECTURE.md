@@ -264,11 +264,13 @@ plugin, so a feature module needs no extra setup to declare one.
 TabsGraphDestination            bottom bar + top bar
 ├── HomeGraphDestination        -> HomeDestination
 ├── HistoryGraphDestination     -> SessionsDestination -> SessionDetailDestination
+├── LibraryGraphDestination     -> ExerciseLibraryDestination
 └── ProgressionGraphDestination -> StatsDestination
 
 SessionGraphDestination         full screen, no bars
 └── NewSession -> ActiveSession -> SessionSummary
 
+ExercisePickerDestination       full screen, no bars
 SettingsDestination             full screen, no bars
 ```
 
@@ -292,10 +294,18 @@ stands, so pressing the active tab returns it to its root.
 bars, because offering a tap into Stats mid-set is an invitation to lose the set being
 logged. Onboarding (#96) will sit outside the scaffold the same way.
 
-Three tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
+Four tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
 the top app bar rather than a fifth of the bar given to a destination visited twice.
 
-### Motion follows the same three-way split
+**The exercise catalogue is a tab and a modal, and one screen.** `ExerciseLibraryDestination`
+is the Library tab; `ExercisePickerDestination` is the same screen with `selecting` flipped,
+pushed over a workout with the bars gone so a picker cannot offer a jump to Stats. Two
+destinations rather than one with a boolean argument, because a route registered in two graphs
+is ambiguous to the `NavController`, which resolves by route pattern. The screen tells them
+apart by whether it was given an `onBack`: the tab has none, since a back arrow above a tab is
+a control that either does nothing or drops the user out of the tab they just chose.
+
+### Motion follows the same split
 
 The `NavHost` sets all four transitions once, and each asks `NavMotion.motionBetween` what
 the move it is animating *means* rather than which routes it connects:
@@ -305,6 +315,14 @@ the move it is animating *means* rather than which routes it connects:
 | Tab to tab | fast fade | A lateral jump between peers. There is no direction to show. |
 | Within a tab, or one step of the session flow to the next, or out to Settings | horizontal slide with parallax | A push. The slower counter-slide is what reads as one screen over another. |
 | Into or out of the session flow | vertical slide | The one move that is a mode change, so the one that should not look like a push. |
+| A destination replacing itself — re-tapping the active tab | vertical slide, no fade or parallax | Nowhere new is being gone: the screen is being put back to its top, so it is drawn as the flick to the top it stands in for. |
+
+The reset is the one classification that is not a function of `ShellChrome` alone — both ends
+are the same tab, so it takes `initialState.destination.id == targetState.destination.id` as a
+third input. It exists because re-tapping the active tab at its root *does* rebuild the screen:
+`popUpTo` drops the entry and the navigate pushes a fresh one, which is what leaves a long list
+at the top rather than where the user had scrolled to. Drawn as a push from the side, that read
+as arriving somewhere new; drawn as a slide down from above, it reads as the scroll it is.
 
 The classification is derived from `ShellChrome` — the same value that decides which tab is
 selected and whether the bars are shown — so a destination added to a tab's graph animates

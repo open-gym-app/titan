@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
@@ -91,6 +92,25 @@ private fun EquipmentType.labelRes(): Int? = when (this) {
     EquipmentType.EXERCISE_BALL -> R.string.equipment_exercise_ball
     EquipmentType.FOAM_ROLL -> R.string.equipment_foam_roll
     EquipmentType.OTHER -> null
+}
+
+/**
+ * How an exercise is measured: `Weight & reps`, `Distance & time`, `Hold`.
+ *
+ * Named after what the user *logs* rather than after the constant, because that is the
+ * question the label answers wherever it is drawn — a custom-exercise form choosing which set
+ * row to show, a detail screen saying which one it will show. "Endurance" beside a treadmill
+ * does not tell anybody they are about to be asked for a distance.
+ */
+@Composable
+@ReadOnlyComposable
+fun ExerciseType.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun ExerciseType.labelRes(): Int = when (this) {
+    ExerciseType.STRENGTH -> R.string.exercise_type_strength
+    ExerciseType.ENDURANCE -> R.string.exercise_type_endurance
+    ExerciseType.ISOMETRIC -> R.string.exercise_type_isometric
 }
 
 /**

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import com.opengym.app.HiltTestActivity
 import com.opengym.core.ui.theme.OpenGymTheme
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -66,11 +67,12 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
-    fun `opens on Home with the three tabs and a settings action`() {
+    fun `opens on Home with the four tabs and a settings action`() {
         composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsNotSelected()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertIsNotSelected()
         composeTestRule.onNodeWithContentDescription(TAB_STATS).assertIsNotSelected()
         composeTestRule.onNodeWithContentDescription(SETTINGS_ACTION).assertIsDisplayed()
     }
@@ -82,6 +84,40 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithText(PROGRESSION).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_STATS).assertIsSelected()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsNotSelected()
+    }
+
+    @Test
+    fun `the library is a tab, and keeps the bar rather than a way back`() {
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+
+        // The real screen over a real (empty) database, so the count is zero and the empty
+        // state is what it draws — both of which are the library and nothing else.
+        composeTestRule.onNodeWithText(LIBRARY_EMPTY_COUNT).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertIsSelected()
+
+        // The two properties that make it a tab rather than the push it used to be: the bar
+        // it was reached by is still there to leave by, and there is no back arrow above a
+        // 873-row list for the user to hunt for.
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(BACK).assertDoesNotExist()
+    }
+
+    @Test
+    fun `re-tapping the library tab rebuilds it, which is what puts it back to the top`() {
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+        composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
+        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
+        composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
+
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+
+        // The library's root *is* its tab, so there is nothing to pop back to and the re-tap
+        // would look inert. What it actually does is drop the entry and push a fresh one, so
+        // the screen is rebuilt with no scroll position to restore — which is what puts a
+        // long list back at the top. The search box closing on what was typed in it is the
+        // visible half of that same fact.
+        composeTestRule.onNodeWithText(QUERY).assertDoesNotExist()
+        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).assertDoesNotExist()
     }
 
     @Test
@@ -148,6 +184,7 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithText(NEW_SESSION).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription(TAB_STATS).assertDoesNotExist()
         // The tab scaffold's top bar goes with it — a workout draws its own chrome.
         composeTestRule.onNodeWithContentDescription(SETTINGS_ACTION).assertDoesNotExist()
@@ -271,6 +308,7 @@ class OpenGymAppNavigationTest {
         // these tests hold.
         const val TAB_HOME = "Home"
         const val TAB_SESSIONS = "Sessions"
+        const val TAB_LIBRARY = "Library"
         const val TAB_STATS = "Stats"
         const val SETTINGS_ACTION = "Settings"
 
@@ -285,6 +323,15 @@ class OpenGymAppNavigationTest {
 
         // Settings' first group header, uppercased by the eyebrow style.
         const val SETTINGS_GROUP_APPEARANCE = "APPEARANCE"
+
+        // The library's header count. Zero here: the seed does not run against the test
+        // database, and what the tab draws over an empty catalogue is still the tab.
+        const val LIBRARY_EMPTY_COUNT = "0 EXERCISES"
+
+        // The library's search button, the box it opens, and something to type into it.
+        const val LIBRARY_SEARCH = "Search"
+        const val LIBRARY_SEARCH_PLACEHOLDER = "Search exercises…"
+        const val QUERY = "bench"
 
         // Actions.
         const val START_SESSION = "START SESSION"

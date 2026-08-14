@@ -28,6 +28,14 @@ internal enum class NavMotion {
 
     /** Into or out of a mode that owns the whole screen: the session flow. */
     MODAL,
+
+    /**
+     * A destination replacing itself: re-tapping the tab you are already on.
+     *
+     * Nowhere new is being gone. The screen is being put back to its top, and the one honest
+     * way to draw that is as the scroll it stands in for.
+     */
+    RESET,
 }
 
 /**
@@ -42,13 +50,27 @@ internal enum class NavMotion {
  *
  * - crossing the session flow's boundary is a mode change whichever tab it happens from, so
  *   it is decided first and wins over everything else;
+ * - a destination replacing *itself* is the reset, and is asked before the tab comparison
+ *   because both ends are the same tab and it would otherwise read as a push;
  * - two *different* tabs is the lateral case. Both ends must actually be tabs — moving from
  *   a tab to Settings is not lateral, it is a push into somewhere that is not a tab at all;
  * - everything else is movement within one place: a tab to a screen inside it, one step of
  *   the session flow to the next, a tab out to Settings.
+ *
+ * @param sameDestination both ends are the same destination. The only thing that produces
+ *   this is `navigateToTopLevelDestination` re-tapping the active tab at its root: the pop
+ *   drops the entry and the navigate builds a fresh one, so the screen is genuinely torn down
+ *   and rebuilt — which is what puts its list back at the top, and what there is an animation
+ *   to classify at all.
  */
-internal fun motionBetween(from: ShellChrome, to: ShellChrome): NavMotion = when {
+internal fun motionBetween(
+    from: ShellChrome,
+    to: ShellChrome,
+    sameDestination: Boolean = false,
+): NavMotion = when {
     from.isInSessionFlow != to.isInSessionFlow -> NavMotion.MODAL
+
+    sameDestination -> NavMotion.RESET
 
     from.currentTopLevelDestination != to.currentTopLevelDestination &&
         from.currentTopLevelDestination != null &&
@@ -71,6 +93,12 @@ private const val FORWARD_MS = 300
 private const val MODAL_MS = 350
 
 /**
+ * A reset. The pace of a flick back to the top, which is the gesture it replaces — slower and
+ * the user waits on an animation to get somewhere they asked to be already.
+ */
+private const val RESET_MS = 250
+
+/**
  * How far the screen being left behind travels during a push, as a fraction of the width.
  *
  * The two screens moving at different speeds is what reads as one sliding *over* the other;
@@ -82,6 +110,9 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.motion(): NavMotio
     motionBetween(
         from = ShellChrome.of(initialState.destination),
         to = ShellChrome.of(targetState.destination),
+        // The two *entries* always differ here — a reset pops one and pushes another — so the
+        // destination is what says the user is being put back where they already are.
+        sameDestination = initialState.destination.id == targetState.destination.id,
     )
 
 /** Arriving somewhere new. */
@@ -91,6 +122,10 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTra
         NavMotion.FORWARD -> slideInHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeIn(tween(FORWARD_MS))
         NavMotion.MODAL -> slideInVertically(tween(MODAL_MS)) { height -> height }
+        // The screen's top, arriving from above the window — the direction it would come from
+        // if the user had flicked back up to it. No fade: a fade says "different screen",
+        // and this is the same screen at a different scroll position.
+        NavMotion.RESET -> slideInVertically(tween(RESET_MS)) { height -> -height }
     }
 
 /** Leaving somewhere that stays on the back stack, to be returned to. */
@@ -104,9 +139,20 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTrans
         // underneath is where the user is going back to, and it should look like it is still
         // there.
         NavMotion.MODAL -> fadeOut(tween(MODAL_MS))
+        // Downward and out, at the same rate the top arrives — no parallax, because the two
+        // are meant to read as one surface being scrolled rather than two screens moving.
+        NavMotion.RESET -> slideOutVertically(tween(RESET_MS)) { height -> height }
     }
 
-/** Coming back to somewhere that was left on the back stack. The mirror of [exit]. */
+/**
+ * Coming back to somewhere that was left on the back stack. The mirror of [exit].
+ *
+ * [NavMotion.RESET] cannot actually arrive here — a reset pops its own entry and pushes a new
+ * one, and `launchSingleTop` keeps two entries of one destination off the stack everywhere
+ * else, so there is no reset left to go back to. It is mirrored rather than left to a branch
+ * that says it is impossible, because the day something does stack a destination on itself,
+ * mirroring is right and a thrown exception is a crash.
+ */
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition =
     when (motion()) {
         NavMotion.LATERAL -> fadeIn(tween(LATERAL_MS))
@@ -114,6 +160,7 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): Enter
             slideInHorizontally(tween(FORWARD_MS)) { width -> -width / PARALLAX_DIVISOR } +
                 fadeIn(tween(FORWARD_MS))
         NavMotion.MODAL -> fadeIn(tween(MODAL_MS))
+        NavMotion.RESET -> slideInVertically(tween(RESET_MS)) { height -> height }
     }
 
 /** Being popped off the back stack for good. The mirror of [enter]. */
@@ -123,4 +170,5 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTr
         NavMotion.FORWARD -> slideOutHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeOut(tween(FORWARD_MS))
         NavMotion.MODAL -> slideOutVertically(tween(MODAL_MS)) { height -> height }
+        NavMotion.RESET -> slideOutVertically(tween(RESET_MS)) { height -> -height }
     }

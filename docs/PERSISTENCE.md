@@ -161,9 +161,13 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 | `WorkoutSetDao.getVolumeByWeek` / `getVolumeByMuscleGroup` | `workout_set(completed_at)`, `exercise_muscle_group(muscle_group_id)` |
 | `PersonalRecordDao.getRecentRecords` | `personal_record(achieved_at)` |
 | `PersonalRecordDao.getByExercise` | `personal_record(exercise_id, achieved_at)` |
+| `PersonalRecordDao.getHeadlineRecords` | `personal_record(exercise_id, achieved_at)`, **and its query shape** - see below |
+| `ExerciseDao.getAllMuscleGroupLinks` | `exercise_muscle_group(exercise_id, muscle_group_id)` (the composite primary key) |
 | `BodyWeightLogDao.getAll` / `getLatest` | `body_weight_log(created_at)` |
 
 `LargeHistoryBenchmarkTest` seeds a power-user history (10k sessions, ~30k session exercises, 100k sets, 10k personal records) and asserts each of these stays under 500 ms. The budget is generous on purpose: it catches a dropped index turning a join quadratic, not micro-regressions. Unbounded reads (`getHistoryByExercise`, `getAll`) keep a `PagingSource` variant - screens should use it and leave the `Flow<List<...>>` form to charts and exports.
+
+**An index is not always the whole story.** `getHeadlineRecords` picks one record per exercise, which needs a per-exercise "best" and cannot be served by an index alone: its preference order leads on a `CASE` over `pr_type`, and a sort whose leading key is an expression builds a temporary b-tree however the table is indexed. What decides its cost is therefore *how many times that sort runs*. Written the obvious way - a subquery correlated on the outer row - it runs once per record and measures **1,263 ms** on the fixture above; driven from `SELECT DISTINCT exercise_id` it runs once per exercise and measures **6 ms**. The benchmark is what holds it there, so treat the query's shape as load-bearing rather than stylistic, and re-measure rather than reason about it if you rewrite it.
 
 ## The in-progress session draft
 

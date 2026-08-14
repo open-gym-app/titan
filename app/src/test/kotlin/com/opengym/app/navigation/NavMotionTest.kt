@@ -57,12 +57,39 @@ class NavMotionTest {
     }
 
     @Test
+    fun `re-tapping the active tab is a reset`() {
+        // The same destination at both ends, which only the tab re-tap produces. It is the
+        // screen being put back to its top, so it is drawn as the flick it replaces rather
+        // than as a push from the side — which is what it looked like when this branch was
+        // missing and the tab comparison caught it instead.
+        assertEquals(
+            NavMotion.RESET,
+            motionBetween(
+                from = tab(TopLevelDestination.LIBRARY),
+                to = tab(TopLevelDestination.LIBRARY),
+                sameDestination = true,
+            ),
+        )
+    }
+
+    @Test
     fun `negative - a tab and itself is not lateral`() {
         // The guard that keeps a push inside a tab from fading: "different destinations" is
         // not the question, "different tabs" is.
         assertEquals(
             NavMotion.FORWARD,
             motionBetween(tab(TopLevelDestination.STATS), tab(TopLevelDestination.STATS)),
+        )
+    }
+
+    @Test
+    fun `negative - leaving the session flow onto the same destination is still modal`() {
+        // A reset cannot cross the flow's boundary, so the mode change wins. Ordered the
+        // other way this would slide a whole workout out of the way vertically-but-slightly
+        // -differently, for no reason anyone could name.
+        assertEquals(
+            NavMotion.MODAL,
+            motionBetween(sessionFlow(), tab(TopLevelDestination.HOME), sameDestination = true),
         )
     }
 

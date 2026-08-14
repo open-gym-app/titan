@@ -142,6 +142,21 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         assertUnder("getRecentRecords", STRESS_BUDGET_MS) {
             db.personalRecordDao().getRecentRecords(limit = 10).first()
         }
+
+        // The exercise library's two catalogue-wide reads, which run together on every open
+        // of the Library tab.
+        //
+        // `getHeadlineRecords` is the one worth watching: it picks one record per exercise
+        // with a subquery correlated on `exercise_id`, so its cost tracks the size of
+        // `personal_record` rather than the catalogue, and this fixture is the only place
+        // that says by how much.
+        assertUnder("getHeadlineRecords", STRESS_BUDGET_MS) {
+            db.personalRecordDao().getHeadlineRecords().first()
+        }
+
+        assertUnder("getAllMuscleGroupLinks", STRESS_BUDGET_MS) {
+            db.exerciseDao().getAllMuscleGroupLinks().first()
+        }
     }
 
     /**
