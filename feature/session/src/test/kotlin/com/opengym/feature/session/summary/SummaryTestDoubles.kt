@@ -19,8 +19,10 @@ import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.TemplateRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
@@ -97,12 +99,19 @@ class FakeSummarySessionStore(
 class FakeSummaryCatalogue(
     private val exercises: List<Exercise> = emptyList(),
     private val links: Map<Long, List<ExerciseMuscleGroupLink>> = emptyMap(),
+    /**
+     * When set, neither read ever answers — the catalogue that has not come back yet, as
+     * opposed to one that is genuinely empty. The recap must not be able to tell them apart by
+     * drawing the second.
+     */
+    private val unread: Boolean = false,
 ) : ExerciseRepository {
 
-    override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
+    override fun getAll(): Flow<List<Exercise>> =
+        if (unread) emptyFlow() else MutableStateFlow(exercises)
 
     override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> =
-        MutableStateFlow(links)
+        if (unread) emptyFlow() else MutableStateFlow(links)
 
     override fun getById(id: Long): Flow<Exercise?> = unsupported()
 
@@ -164,6 +173,9 @@ class FakeTemplateWriteStore : TemplateRepository {
     /** When set, the insert throws it — the store that cannot be written. */
     var writeFailure: Throwable? = null
 
+    /** When set, the insert waits on it — a write still in flight, for the dialog's guards. */
+    var writeGate: CompletableDeferred<Unit>? = null
+
     override fun getAll(): Flow<List<WorkoutTemplate>> =
         templates.map { stored -> stored.values.sortedBy(WorkoutTemplate::name) }
 
@@ -171,6 +183,7 @@ class FakeTemplateWriteStore : TemplateRepository {
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
     ): Long {
+        writeGate?.await()
         writeFailure?.let { throw it }
 
         val id = nextId++

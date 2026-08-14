@@ -117,8 +117,15 @@ class SessionSummaryViewModel @Inject constructor(
      * All three are bulk reads keyed by exercise id, which is what keeps a per-row lookup from
      * being a per-row query: a session has a handful of exercises, but the alternative is a
      * `Flow` per exercise to combine, re-subscribed whenever the session's exercise list moves.
+     *
+     * Null until the reads come back, for the same reason [loaded] is — and it has to be. An
+     * empty [Catalogue] as the initial value is indistinguishable from a catalogue that
+     * genuinely holds nothing, and the session's own read is the *lighter* of the two: one row
+     * and its sets against every exercise and every muscle link in the app. So it routinely
+     * lands first, and a recap drawn against an empty catalogue is a whole screen of
+     * "Removed from your library" with no muscles and no records, replaced a frame later.
      */
-    private val catalogue: StateFlow<Catalogue> = combine(
+    private val catalogue: StateFlow<Catalogue?> = combine(
         exerciseRepository.getAll(),
         exerciseRepository.getAllMuscleGroupLinks(),
         personalRecordRepository.getHeadlineRecords(),
@@ -128,14 +135,40 @@ class SessionSummaryViewModel @Inject constructor(
             muscleLinks = links,
             headlineRecords = records,
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), Catalogue())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
-    val uiState: StateFlow<SessionSummaryUiState> = combine(
+    /**
+     * Everything the recap draws that is a function of what was *read*.
+     *
+     * Its own flow rather than an arm of the state's combine, because it is the expensive
+     * half: grouping the sets, attributing volume across every muscle link, scanning the
+     * headline records. Combined with [screenState] it would run again on every keystroke in
+     * the note field — the note is a character of local state, and re-attributing a session's
+     * muscles to record one is arithmetic nobody asked for, on the main dispatcher.
+     */
+    private val content: StateFlow<SessionSummaryUiState> = combine(
         loaded,
         catalogue,
+    ) { loaded, catalogue ->
+        buildContent(loaded, catalogue)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = SessionSummaryUiState(mode = mode),
+    )
+
+    /** The read half, with what the user is in the middle of laid over it. */
+    val uiState: StateFlow<SessionSummaryUiState> = combine(
+        content,
         screenState,
-    ) { loaded, catalogue, screen ->
-        buildState(loaded, catalogue, screen)
+    ) { content, screen ->
+        content.copy(
+            notesDraft = screen.noteDraft,
+            isSavingNotes = screen.isSavingNotes,
+            templateName = screen.templateName,
+            isSavingTemplate = screen.isSavingTemplate,
+            message = screen.message,
+        )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -154,8 +187,15 @@ class SessionSummaryViewModel @Inject constructor(
             SessionSummaryEvent.SaveAsTemplateRequested -> openTemplateDialog()
             is SessionSummaryEvent.TemplateNameChanged ->
                 screenState.update { it.copy(templateName = event.name) }
+            // Ignored while the write is in flight, which is the dialog's own rule — it goes
+            // inert rather than closing, so a refusal has somewhere to be reported. Enforced
+            // here as well because clearing the flag on the way out would re-arm the action
+            // and let a second write race the first: two templates, or a name the first one
+            // has just taken.
             SessionSummaryEvent.SaveAsTemplateDismissed ->
-                screenState.update { it.copy(templateName = null, isSavingTemplate = false) }
+                if (!screenState.value.isSavingTemplate) {
+                    screenState.update { it.copy(templateName = null) }
+                }
             SessionSummaryEvent.SaveAsTemplateConfirmed -> saveTemplate()
 
             SessionSummaryEvent.MessageShown -> screenState.update { it.copy(message = null) }
@@ -293,14 +333,18 @@ class SessionSummaryViewModel @Inject constructor(
         }
     }
 
-    /** Assemble what the screen draws. */
-    private fun buildState(
-        loaded: Loaded?,
-        catalogue: Catalogue,
-        screen: ScreenState,
-    ): SessionSummaryUiState {
-        val session = loaded?.session
-            ?: return SessionSummaryUiState(mode = mode, isLoading = loaded == null)
+    /**
+     * Assemble the half of the screen the reads decide.
+     *
+     * The screen-state fields are left at their defaults and laid over this by [uiState]. A
+     * read still outstanding is a loading screen; a read that came back with no row is a
+     * missing one — see [SessionSummaryUiState.isMissing].
+     */
+    private fun buildContent(loaded: Loaded?, catalogue: Catalogue?): SessionSummaryUiState {
+        if (loaded == null || catalogue == null) return SessionSummaryUiState(mode = mode)
+
+        val session = loaded.session
+            ?: return SessionSummaryUiState(mode = mode, isLoading = false)
 
         val records = loaded.recordsSetHere(catalogue.headlineRecords)
         val muscles = loaded.muscleBreakdown(catalogue.muscleLinks)
@@ -334,12 +378,7 @@ class SessionSummaryViewModel @Inject constructor(
                 recordsByExercise = records.associateBy(PersonalRecord::exerciseId),
             ),
             notes = session.notes,
-            notesDraft = screen.noteDraft,
-            isSavingNotes = screen.isSavingNotes,
-            templateName = screen.templateName,
-            isSavingTemplate = screen.isSavingTemplate,
             isLoading = false,
-            message = screen.message,
         )
     }
 
@@ -426,7 +465,15 @@ private class Loaded(
         return headline.values.filter { it.workoutSetId in setIds }
     }
 
-    /** The per-exercise rows, with each exercise's record where it set one. */
+    /**
+     * The per-exercise rows, with each exercise's record where it set one.
+     *
+     * The record is matched to the row by the *set* it was read off and not by the exercise
+     * alone: `session_exercise` is unique on `(session_id, position)` rather than on the
+     * exercise, so a session that opened and closed on the bench is two rows of the same
+     * exercise — and only one of them contains the set that beat anything. Keyed by exercise
+     * alone, both would wear the badge.
+     */
     fun breakdown(
         names: Map<Long, Exercise>,
         recordsByExercise: Map<Long, PersonalRecord>,
@@ -439,7 +486,8 @@ private class Loaded(
             lowestReps = reps.minOrNull(),
             highestReps = reps.maxOrNull(),
             topWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
-            record = recordsByExercise[exercise.exerciseId],
+            record = recordsByExercise[exercise.exerciseId]
+                ?.takeIf { record -> performedSets.any { it.id == record.workoutSetId } },
         )
     }
 

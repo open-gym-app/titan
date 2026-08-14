@@ -592,6 +592,12 @@ private fun PreviewScreen(
  */
 private const val FULL_SCREEN_HEIGHT_DP = 900
 
+/**
+ * How the pinned bar splits between its two actions. See the note at the call site — three
+ * words against one, so the split is not even either.
+ */
+private const val TEMPLATE_BUTTON_WEIGHT = 1.4f
+
 /*
  * Stable keys for the lazy items.
  *
@@ -600,12 +606,6 @@ private const val FULL_SCREEN_HEIGHT_DP = 900
  * card's state on a session that beat nothing. It also keeps the note field's focus and
  * scroll position across the recomposition a saved note causes.
  */
-/**
- * How the pinned bar splits between its two actions. See the note at the call site — three
- * words against one, so the split is not even either.
- */
-private const val TEMPLATE_BUTTON_WEIGHT = 1.4f
-
 private const val SECTION_HEADER = "header"
 private const val SECTION_STATS = "stats"
 private const val SECTION_RECORDS = "records"

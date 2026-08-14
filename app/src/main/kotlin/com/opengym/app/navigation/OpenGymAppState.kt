@@ -45,9 +45,10 @@ class OpenGymAppState(val navController: NavHostController) {
      * The three options are one behaviour, not three preferences:
      *
      * - `popUpTo(start) { saveState = true }` empties the tab being left back down to the
-     *   graph's start, but files its stack away under that tab's id;
-     * - `restoreState = true` puts the arriving tab's filed stack back, so returning to
-     *   Sessions lands on the session that was open rather than on the list;
+     *   graph's start, but files its stack away — and its entries' state with it — under that
+     *   tab's id;
+     * - `restoreState = true` puts the arriving tab's filed stack back, so returning to the
+     *   Library lands on the search the user had open rather than on a fresh list;
      * - `launchSingleTop` stops re-tapping the current tab from stacking a second copy of it.
      *
      * Drop any one and the bar stops behaving like tabs: without the first the back stack
@@ -56,9 +57,9 @@ class OpenGymAppState(val navController: NavHostController) {
      *
      * **Except when the tab is already the one you are in.** Then the two state flags invert,
      * and that is the whole of "tap the active tab to go back to the top": saving nothing and
-     * restoring nothing leaves the pop to stand, so a re-tap on Sessions from a session's
-     * detail lands on the list. It has to be *both* flags — save without restore would file
-     * the detail screen away to be silently restored on the next visit from another tab,
+     * restoring nothing leaves the pop to stand, so a re-tap on the Library from a filtered,
+     * searched list lands on a fresh one. It has to be *both* flags — save without restore
+     * would file that state away to be silently restored on the next visit from another tab,
      * which is the same bug wearing a delay.
      *
      * This is a deliberate exception to "returning to a tab resumes where you left it",
@@ -90,8 +91,10 @@ data class ShellChrome(
      * The tab the user is in, or `null` outside the tab scaffold.
      *
      * Matched against the whole hierarchy rather than the current destination alone, so a
-     * screen pushed *inside* a tab — a session's detail, an exercise's progression — keeps
-     * that tab looking selected instead of clearing the bar.
+     * screen pushed *inside* a tab keeps that tab looking selected instead of clearing the
+     * bar. Nothing in the app is such a screen today — #27 moved the session recap out to the
+     * top level, and it was the last — but #24 gives the Sessions tab three destinations of
+     * its own, and the walk is what keeps two of them from clearing the bar.
      */
     val currentTopLevelDestination: TopLevelDestination?,
     /**

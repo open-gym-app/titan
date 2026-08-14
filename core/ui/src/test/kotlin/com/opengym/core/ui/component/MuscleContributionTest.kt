@@ -72,13 +72,14 @@ class MuscleContributionTest {
     }
 
     @Test
-    fun `a limit keeps the longest bars, since the tail is what a reader learns least from`() {
+    fun `every group is kept, because how many fit is the card's question and not this one's`() {
+        // `SessionMusclesCard` trims to what it has room for and counts the rest as `+3 more`,
+        // which it can only do if it is handed all of them.
         val contributions = muscleContributions(
             volumeByMuscle = linkedMapOf(chest to 900L, shoulders to 600L, triceps to 300L),
             primaryMuscleIds = emptySet(),
-            limit = 2,
         )
 
-        assertEquals(listOf(chest, shoulders), contributions.map { it.muscle })
+        assertEquals(listOf(chest, shoulders, triceps), contributions.map { it.muscle })
     }
 }

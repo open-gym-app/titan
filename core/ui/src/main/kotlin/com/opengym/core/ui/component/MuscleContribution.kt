@@ -78,21 +78,22 @@ data class MuscleContribution(
  * @param primaryMuscleIds the ids of the groups worked as a prime mover by *any* exercise in
  *   the window. Ids rather than [MuscleGroup]s because two reads of the same row — differing
  *   only in an icon changed since — are one muscle to everybody but `equals`.
- * @param limit how many rows to keep, longest bar first, or null for all of them. A leg day
- *   attributes volume to a dozen groups and a card with a dozen bars in it is a table; the
- *   callers that have room for one pass null.
+ *
+ * Every group is kept. A leg day attributes volume to a dozen groups and a card with a dozen
+ * bars in it is a table, but *how many* a given card has room for is that card's own question,
+ * and the one that trims — `SessionMusclesCard` — has to count what it left out to say `+3
+ * more`. So it takes the whole list and slices it, rather than this taking a limit and
+ * throwing away the number the caller needs.
  */
 fun muscleContributions(
     volumeByMuscle: Map<MuscleGroup, Long>,
     primaryMuscleIds: Set<Long>,
-    limit: Int? = null,
 ): List<MuscleContribution> {
     // The map is ordered highest first, so the first value is the top — no max() pass, and no
     // dependence on this function agreeing with the calculator about how ties break.
     val top = volumeByMuscle.values.firstOrNull() ?: return emptyList()
-    val rows = if (limit == null) volumeByMuscle.entries else volumeByMuscle.entries.take(limit)
 
-    return rows.map { (muscle, volume) ->
+    return volumeByMuscle.entries.map { (muscle, volume) ->
         MuscleContribution(
             muscle = muscle,
             volume = volume,

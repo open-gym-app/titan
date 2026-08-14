@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -222,6 +223,25 @@ class SessionSummaryViewModelTest {
     }
 
     @Test
+    fun `a record marks the row whose set beat it, not every row of that exercise`() = runTest {
+        // `session_exercise` is unique on (session_id, position) and not on the exercise, so a
+        // session that opened and closed on the bench is two rows of one movement — and only
+        // one of them holds the set the record was read off.
+        val state = viewModel(
+            exercises = pushDayExercises() +
+                sessionExercise(id = 3, exerciseId = BENCH.id, position = 2),
+            sets = pushDaySets() +
+                workoutSet(id = 6, sessionExerciseId = 3, setNumber = 1, reps = 8, weight = 65_000_000),
+            records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
+        ).uiState.value
+
+        assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
+        assertNull(state.exercises.last().record)
+        // Still one record on the screen: it is one record, shown once in its own card.
+        assertEquals(1, state.records.size)
+    }
+
+    @Test
     fun `a session that beat nothing has no records, which is the ordinary case`() = runTest {
         val state = viewModel(sets = pushDaySets()).uiState.value
 
@@ -355,6 +375,28 @@ class SessionSummaryViewModelTest {
     }
 
     @Test
+    fun `dismissing the dialog mid-write cannot start a second, racing save`() = runTest {
+        // The buttons go inert while the write is in flight, but a back press or a tap outside
+        // reaches the dismiss whatever they look like. Clearing the in-flight flag on the way
+        // out would re-arm the action: two templates, or a name the first write has just taken.
+        val gate = CompletableDeferred<Unit>()
+        templates.writeGate = gate
+        val viewModel = viewModel(sets = pushDaySets())
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateDismissed)
+
+        assertTrue(viewModel.uiState.value.isSavingTemplate)
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+        gate.complete(Unit)
+
+        assertEquals(1, templates.stored().size)
+        assertEquals(SessionSummaryMessage.TEMPLATE_SAVED, viewModel.uiState.value.message)
+    }
+
+    @Test
     fun `a session with nothing performed has no template to save`() = runTest {
         val viewModel = viewModel(sets = emptyList())
 
@@ -377,6 +419,20 @@ class SessionSummaryViewModelTest {
             SessionSummaryMode.HISTORICAL,
             viewModel(sets = pushDaySets(), historical = true).uiState.value.mode,
         )
+    }
+
+    @Test
+    fun `the recap waits for the catalogue instead of drawing a session of deleted exercises`() = runTest {
+        // The session's own read is the lighter of the two and routinely lands first. Treated
+        // as loaded-but-empty, the catalogue would draw a whole recap of "Removed from your
+        // library" with no muscles and no records, replaced a frame later.
+        val state = viewModel(
+            catalogue = FakeSummaryCatalogue(unread = true),
+            sets = pushDaySets(),
+        ).uiState.value
+
+        assertTrue(state.isLoading)
+        assertFalse(state.isMissing)
     }
 
     @Test
