@@ -9,6 +9,10 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.feature.history.exercise.ExerciseDraft
+import com.opengym.feature.history.exercise.isDuplicateIn
+import com.opengym.feature.history.exercise.resolveMuscleGroups
+import com.opengym.feature.history.exercise.toExercise
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -141,8 +145,9 @@ class ExerciseLibraryViewModel @Inject constructor(
             ExerciseLibraryEvent.SearchAndFiltersCleared ->
                 screenState.update { it.copy(query = "", muscleGroupId = null, equipment = emptySet()) }
             is ExerciseLibraryEvent.ExerciseToggled -> toggleSelection(event.exerciseId)
+            is ExerciseLibraryEvent.ExerciseSelected -> select(event.exerciseId)
             ExerciseLibraryEvent.NewExerciseRequested ->
-                screenState.update { it.copy(draft = NewExerciseDraft()) }
+                screenState.update { it.copy(draft = ExerciseDraft()) }
             is ExerciseLibraryEvent.NewExerciseChanged ->
                 screenState.update { it.copy(draft = event.draft.withDuplicateCheck()) }
             ExerciseLibraryEvent.NewExerciseSubmitted -> saveDraft()
@@ -177,9 +182,19 @@ class ExerciseLibraryViewModel @Inject constructor(
     }
 
     /**
+     * Add an exercise to the selection if it is not already there, keeping the picked order.
+     *
+     * Idempotent, which is what separates it from [toggleSelection] — see
+     * [ExerciseLibraryEvent.ExerciseSelected] for the case that made the difference matter.
+     */
+    private fun select(exerciseId: Long) = screenState.update { state ->
+        if (exerciseId in state.selection) state else state.copy(selection = state.selection + exerciseId)
+    }
+
+    /**
      * Write the draft, leaving the form up and inert while the write is in flight.
      *
-     * The guard is [NewExerciseDraft.canSave], which is the same predicate the save button is
+     * The guard is [ExerciseDraft.canSave], which is the same predicate the save button is
      * enabled by — restated here because an event can arrive from a keyboard action or a
      * double tap dispatched before the button disabled itself, and a second insert of the
      * same name would fail on the unique index rather than being ignored.
@@ -229,24 +244,13 @@ class ExerciseLibraryViewModel @Inject constructor(
     }
 
     /**
-     * Flag a name the catalogue already holds *for the same equipment*.
+     * Flag a name the catalogue already holds for the same equipment — see [isDuplicateIn].
      *
-     * Equipment is part of the comparison because it is part of the database's uniqueness
-     * rule — a barbell row and a dumbbell row are two exercises, and a lifter who has both
-     * should be able to say so. Case-insensitively, because the index is not the thing the
-     * user is trying to satisfy; "bench press" beside "Bench Press" is a duplicate to anyone
-     * reading the list.
-     *
-     * Editing anything also clears [NewExerciseDraft.saveFailed]: the message is about the
-     * write that failed, and the user changing the form is them acting on it.
+     * Editing anything also clears [ExerciseDraft.saveFailed]: the message is about the write
+     * that failed, and the user changing the form is them acting on it.
      */
-    private fun NewExerciseDraft.withDuplicateCheck(): NewExerciseDraft {
-        val trimmed = name.trim()
-        val duplicate = trimmed.isNotEmpty() && allExercises.value.orEmpty().any { existing ->
-            existing.name.equals(trimmed, ignoreCase = true) && existing.equipmentType == equipment
-        }
-        return copy(isDuplicateName = duplicate, saveFailed = false)
-    }
+    private fun ExerciseDraft.withDuplicateCheck(): ExerciseDraft =
+        copy(isDuplicateName = isDuplicateIn(allExercises.value.orEmpty()), saveFailed = false)
 
     /**
      * Narrow, group and count — the whole of what the screen is handed.
@@ -298,7 +302,7 @@ class ExerciseLibraryViewModel @Inject constructor(
         val muscleGroupId: Long? = null,
         val equipment: Set<EquipmentType> = emptySet(),
         val selection: List<Long> = emptyList(),
-        val draft: NewExerciseDraft? = null,
+        val draft: ExerciseDraft? = null,
         val message: ExerciseLibraryMessage? = null,
     )
 

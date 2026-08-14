@@ -1,6 +1,7 @@
 package com.opengym.feature.history.library
 
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.feature.history.exercise.ExerciseDraft
 
 /**
  * Everything the exercise library screen can report.
@@ -36,13 +37,23 @@ sealed interface ExerciseLibraryEvent {
     /** A row was tapped in selection mode. Adds or removes it from the selection. */
     data class ExerciseToggled(val exerciseId: Long) : ExerciseLibraryEvent
 
+    /**
+     * Add an exercise to the selection, whether or not it is already in it.
+     *
+     * Not [ExerciseToggled]: this arrives from the detail screen's "Add to session", which is
+     * a statement rather than a switch. A lifter who ticked an exercise, opened it to check
+     * the form notes and pressed the button that says "add" must not find it *removed* on the
+     * way back.
+     */
+    data class ExerciseSelected(val exerciseId: Long) : ExerciseLibraryEvent
+
     /** The `+ NEW` action. Opens an empty draft. */
     data object NewExerciseRequested : ExerciseLibraryEvent
 
     /** A field in the custom-exercise form changed. Carries the whole draft. */
-    data class NewExerciseChanged(val draft: NewExerciseDraft) : ExerciseLibraryEvent
+    data class NewExerciseChanged(val draft: ExerciseDraft) : ExerciseLibraryEvent
 
-    /** Save the draft. Ignored unless [NewExerciseDraft.canSave]. */
+    /** Save the draft. Ignored unless [ExerciseDraft.canSave]. */
     data object NewExerciseSubmitted : ExerciseLibraryEvent
 
     /** The form was dismissed. Whatever was typed is discarded. */

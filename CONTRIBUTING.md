@@ -130,9 +130,10 @@ Text(
 - **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, and
   the `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles.
 - **Reach for a component before a style.** `core/ui/.../component/` holds the primitives the
-  tokens are meant to be used through — `Eyebrow` (which uppercases for you), `OpenGymCard`
-  and `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A
-  screen that draws its own bordered `Surface` has restated four arguments that will drift.
+  tokens are meant to be used through — `Eyebrow` (which uppercases for you), `SectionHeading`
+  (the eyebrow with the rule that makes it read as a section break), `OpenGymCard` and
+  `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A screen
+  that draws its own bordered `Surface` has restated four arguments that will drift.
 
   The same package holds the shared *workout* components, which are not primitives but whole
   widgets several screens are built from. All of them are stateless and hoisted — state in,
@@ -144,10 +145,12 @@ Text(
   | `LoggedSetRow` | a set that has already been written, formatted | `WorkoutSet` or `ActiveSet` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
+  | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
   | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
   | `RestCountdown` / `RestTimerIndicator` | the same countdown alone, and as a header pill | `RestTimerState` |
   | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
   | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |
+  | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
@@ -157,11 +160,19 @@ Text(
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up
   disagreeing about what a warm-up looks like.
-- **Domain enums are labelled once, in `:core:ui`.** `SetType.label()`, `EquipmentType.labelOrNull()`,
-  `ExerciseType.label()`, `PrType.label()` and `MuscleGroup.displayName()` live in
-  `component/DomainLabels.kt`, because
-  `:core:domain` is a plain Kotlin library that has no business knowing what a string resource
-  is, and because more than one feature renders each of them.
+- **Domain enums are labelled once, in `:core:ui`**, because `:core:domain` is a plain Kotlin
+  library that has no business knowing what a string resource is, and because more than one
+  feature renders each of them. Two files, split by subject:
+
+  | File | Labels |
+  | --- | --- |
+  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()` |
+  | `component/ExerciseLabels.kt` | `EquipmentType.labelOrNull()`, `ExerciseType.label()` / `trackedLabel()`, `MechanicType.label()`, `DifficultyLevel.label()`, `Discipline.label()` |
+
+  `ExerciseType.label()` and `ExerciseType.trackedLabel()` are the same fact at two lengths —
+  `Weight & reps` for a chip, `Weight, reps, RPE` where there is room to say what a set
+  records. `Discipline.label()` is *not* the same question: five disciplines are all logged
+  as weight and reps, so neither can be derived from the other.
 - **Never format a number by hand, and never parse one by hand either.**
   `core/ui/.../format/` turns the stored milligrams, centimetres and `Duration`s into what the
   user reads, and reads what they type back into the same canonical units:

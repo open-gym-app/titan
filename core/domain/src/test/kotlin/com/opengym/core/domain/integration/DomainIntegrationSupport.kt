@@ -99,6 +99,17 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
         catalogue.value += exercise.id to exercise
     }
 
+    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) {
+        update(exercise)
+        // Replaced, not merged — the contract's word. Removing the entry rather than storing
+        // an empty list keeps `getAllMuscleGroupLinks` free of empty groups, as the real one is.
+        links.value = if (muscleGroups.isEmpty()) {
+            links.value - exercise.id
+        } else {
+            links.value + (exercise.id to muscleGroups)
+        }
+    }
+
     override suspend fun delete(id: Long) {
         catalogue.value -= id
         links.value -= id

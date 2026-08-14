@@ -289,6 +289,26 @@ class ExerciseLibraryScreenTest {
     }
 
     @Test
+    fun `the picker offers a second way into an exercise, since the row is the checkbox`() {
+        val opened = mutableListOf<Long>()
+        setPicker(onExerciseClick = opened::add)
+
+        composeTestRule.onNodeWithContentDescription("Details of Bench press").performClick()
+
+        // Opening, not ticking: mid-workout, "what does this actually work" is a question the
+        // picker has otherwise spent its only tap on.
+        assertEquals(listOf(BENCH.id), opened)
+        assertEquals(emptyList<ExerciseLibraryEvent>(), events)
+    }
+
+    @Test
+    fun `negative - a picker with nowhere to send the user draws no details button`() {
+        setPicker()
+
+        composeTestRule.onNodeWithContentDescription("Details of Bench press").assertDoesNotExist()
+    }
+
+    @Test
     fun `the confirm bar counts the selection and hands it back in pick order`() {
         val confirmed = mutableListOf<List<Long>>()
         setPicker(

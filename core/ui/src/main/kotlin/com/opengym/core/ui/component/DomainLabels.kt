@@ -4,8 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
-import com.opengym.core.domain.model.EquipmentType
-import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
@@ -23,6 +21,10 @@ import java.util.Locale
  * them — a set type appears in the active session and in the summary, a muscle group in the
  * library, the exercise detail and the stats hub — and the point of `:core:ui` is that the
  * second one does not get to spell it differently.
+ *
+ * How an *exercise* describes itself — its equipment, discipline, mechanic, difficulty and
+ * what a set of it records — is the same rule in `ExerciseLabels.kt`, split off because five
+ * enums about one subject is a file.
  *
  * Every `when` is exhaustive, so a value added to one of these enums is a compile error here
  * rather than a blank chip on three screens.
@@ -66,51 +68,6 @@ private fun SetType.markerRes(): Int? = when (this) {
     SetType.DROP_SET -> R.string.set_type_drop_marker
     SetType.FAILURE -> R.string.set_type_failure_marker
     SetType.INTERVAL -> R.string.set_type_interval_marker
-}
-
-/**
- * The equipment an exercise uses, or null for [EquipmentType.OTHER].
- *
- * Null rather than "Other": the label is drawn beside an exercise's name as a qualifier, and
- * `Push-up · Other` tells a reader nothing the name did not already say.
- */
-@Composable
-@ReadOnlyComposable
-fun EquipmentType.labelOrNull(): String? = labelRes()?.let { stringResource(it) }
-
-@StringRes
-private fun EquipmentType.labelRes(): Int? = when (this) {
-    EquipmentType.BARBELL -> R.string.equipment_barbell
-    EquipmentType.DUMBBELL -> R.string.equipment_dumbbell
-    EquipmentType.MACHINE -> R.string.equipment_machine
-    EquipmentType.BODYWEIGHT -> R.string.equipment_bodyweight
-    EquipmentType.CABLE -> R.string.equipment_cable
-    EquipmentType.KETTLEBELL -> R.string.equipment_kettlebell
-    EquipmentType.BAND -> R.string.equipment_band
-    EquipmentType.EZ_CURL_BAR -> R.string.equipment_ez_curl_bar
-    EquipmentType.MEDICINE_BALL -> R.string.equipment_medicine_ball
-    EquipmentType.EXERCISE_BALL -> R.string.equipment_exercise_ball
-    EquipmentType.FOAM_ROLL -> R.string.equipment_foam_roll
-    EquipmentType.OTHER -> null
-}
-
-/**
- * How an exercise is measured: `Weight & reps`, `Distance & time`, `Hold`.
- *
- * Named after what the user *logs* rather than after the constant, because that is the
- * question the label answers wherever it is drawn — a custom-exercise form choosing which set
- * row to show, a detail screen saying which one it will show. "Endurance" beside a treadmill
- * does not tell anybody they are about to be asked for a distance.
- */
-@Composable
-@ReadOnlyComposable
-fun ExerciseType.label(): String = stringResource(labelRes())
-
-@StringRes
-internal fun ExerciseType.labelRes(): Int = when (this) {
-    ExerciseType.STRENGTH -> R.string.exercise_type_strength
-    ExerciseType.ENDURANCE -> R.string.exercise_type_endurance
-    ExerciseType.ISOMETRIC -> R.string.exercise_type_isometric
 }
 
 /**

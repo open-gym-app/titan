@@ -1,6 +1,7 @@
 package com.opengym.feature.history.library
 
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.feature.history.exercise.ExerciseDraft
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -251,6 +252,19 @@ class ExerciseLibraryViewModelTest {
     }
 
     @Test
+    fun `an exercise added from its detail screen joins the selection without toggling it`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id))
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseSelected(PULL_UP.id))
+        // The case a toggle would get wrong: ticked in the list, opened to be checked, and
+        // then *added* from the detail screen. A toggle would take it back out.
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseSelected(BENCH.id))
+
+        assertEquals(listOf(BENCH.id, PULL_UP.id), viewModel.uiState.value.selection)
+    }
+
+    @Test
     fun `a selection survives the filters that hid it`() = runTest {
         val viewModel = viewModel()
         viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id))
@@ -268,7 +282,7 @@ class ExerciseLibraryViewModelTest {
         val viewModel = viewModel()
 
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
-        assertEquals(NewExerciseDraft(), viewModel.uiState.value.draft)
+        assertEquals(ExerciseDraft(), viewModel.uiState.value.draft)
 
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseDismissed)
         assertNull(viewModel.uiState.value.draft)
@@ -280,7 +294,7 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(
+                ExerciseDraft(
                     name = "Hammer incline press",
                     equipment = EquipmentType.MACHINE,
                     primaryMuscleGroupId = CHEST.id,
@@ -305,7 +319,7 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+                ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
             ),
         )
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
@@ -322,7 +336,7 @@ class ExerciseLibraryViewModelTest {
 
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(
+                ExerciseDraft(
                     name = "bench press",
                     equipment = EquipmentType.BARBELL,
                     primaryMuscleGroupId = CHEST.id,
@@ -345,7 +359,7 @@ class ExerciseLibraryViewModelTest {
 
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(
+                ExerciseDraft(
                     name = "Bench press",
                     equipment = EquipmentType.DUMBBELL,
                     primaryMuscleGroupId = CHEST.id,
@@ -360,7 +374,7 @@ class ExerciseLibraryViewModelTest {
     fun `an incomplete draft is not written`() = runTest {
         val viewModel = viewModel()
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
-        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseChanged(NewExerciseDraft(name = "No muscle")))
+        viewModel.onEvent(ExerciseLibraryEvent.NewExerciseChanged(ExerciseDraft(name = "No muscle")))
 
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
 
@@ -376,7 +390,7 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+                ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
             ),
         )
 
@@ -398,7 +412,7 @@ class ExerciseLibraryViewModelTest {
         exercises.insertFailure = IllegalStateException("disk full")
         val viewModel = viewModel()
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
-        val draft = NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id)
+        val draft = ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id)
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseChanged(draft))
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
         assertTrue(viewModel.uiState.value.draft!!.saveFailed)
@@ -417,7 +431,7 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+                ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
             ),
         )
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
@@ -439,7 +453,7 @@ class ExerciseLibraryViewModelTest {
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
         viewModel.onEvent(
             ExerciseLibraryEvent.NewExerciseChanged(
-                NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+                ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
             ),
         )
         viewModel.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)

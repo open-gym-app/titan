@@ -271,6 +271,7 @@ SessionGraphDestination         full screen, no bars
 └── NewSession -> ActiveSession -> SessionSummary
 
 ExercisePickerDestination       full screen, no bars
+ExerciseDetailDestination       full screen, no bars
 SettingsDestination             full screen, no bars
 ```
 
@@ -304,6 +305,20 @@ destinations rather than one with a boolean argument, because a route registered
 is ambiguous to the `NavController`, which resolves by route pattern. The screen tells them
 apart by whether it was given an `onBack`: the tab has none, since a back arrow above a tab is
 a control that either does nothing or drops the user out of the tab they just chose.
+
+**One exercise's detail screen is a mode too, and one destination.** Both the tab and the
+picker open `ExerciseDetailDestination`, and it sits outside the tab scaffold: it is a
+full-width reading surface with its own bar, and the shell's "Library" title with a settings
+gear is not what somebody looking at a bench press needs. Because it is registered *once*,
+the difference between its two callers is a route argument (`addToSession`) rather than a
+second destination — the opposite trade from the pair above, and for the same reason: one
+route pattern, one registration.
+
+Its "Add to session" hands the exercise back to the picker the way the picker hands its
+selection back to whoever opened it — a value written onto the previous back stack entry's
+`SavedStateHandle` before the pop, since Navigation Compose has no "start for result" and a
+feature cannot reach the `NavController`. The two keys live next to the destinations that
+produce them, in `HistoryNavigation.kt`.
 
 ### Motion follows the same split
 

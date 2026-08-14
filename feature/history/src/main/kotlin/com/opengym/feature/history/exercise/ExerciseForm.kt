@@ -1,4 +1,4 @@
-package com.opengym.feature.history.library.component
+package com.opengym.feature.history.exercise
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,25 +32,26 @@ import com.opengym.core.ui.component.label
 import com.opengym.core.ui.component.labelOrNull
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
-import com.opengym.feature.history.library.NewExerciseDraft
+import com.opengym.feature.history.component.ChipSection
 
 /**
  * The custom-exercise form, in a bottom sheet.
  *
- * A sheet rather than a screen because creating an exercise is something you do *from* the
- * library, on your way to something else — usually mid-workout, having found the machine your
- * gym has and the catalogue does not. Pushing a destination would take the list away and put
- * a back stack entry between the user and the thing they were doing.
+ * A sheet rather than a screen because authoring an exercise is something you do *from*
+ * somewhere else, on your way to something else — usually mid-workout, having found the
+ * machine your gym has and the catalogue does not, or having spotted that you spelled it
+ * wrong. Pushing a destination would take away the list, or the exercise, that the user is
+ * looking at and put a back stack entry between them and what they were doing.
  *
- * The sheet is the wrapper only; [NewExerciseForm] is the part with the layout in it, so a
- * test can drive the form without a sheet's animation and window behaviour in the way.
+ * The sheet is the wrapper only; [ExerciseForm] is the part with the layout in it, so a test
+ * can drive the form without a sheet's animation and window behaviour in the way.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewExerciseSheet(
-    draft: NewExerciseDraft,
+fun ExerciseFormSheet(
+    draft: ExerciseDraft,
     muscleGroups: List<MuscleGroup>,
-    onDraftChange: (NewExerciseDraft) -> Unit,
+    onDraftChange: (ExerciseDraft) -> Unit,
     onSubmit: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
@@ -63,7 +64,7 @@ fun NewExerciseSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        NewExerciseForm(
+        ExerciseForm(
             draft = draft,
             muscleGroups = muscleGroups,
             onDraftChange = onDraftChange,
@@ -76,8 +77,13 @@ fun NewExerciseSheet(
 /**
  * Name, how it is measured, what it is done with, and what it works.
  *
- * Every control writes a whole [NewExerciseDraft] back through [onDraftChange]. The form
- * holds no state of its own — including the text fields, which is deliberate: a field that
+ * One form for both jobs — see [ExerciseDraft]. Only two words differ between writing a new
+ * exercise and correcting an existing one, the heading and the submit button, and both are
+ * read off [ExerciseDraft.isNew] rather than passed in: a caller that could label an edit
+ * "Create" is a caller that eventually does.
+ *
+ * Every control writes a whole [ExerciseDraft] back through [onDraftChange]. The form holds
+ * no state of its own — including the text fields, which is deliberate: a field that
  * remembered its own contents would keep them across a failed save that the caller had
  * already re-emitted the draft for, and the two would then disagree about what the user typed.
  *
@@ -87,10 +93,10 @@ fun NewExerciseSheet(
  * the triceps in full for every bench press.
  */
 @Composable
-fun NewExerciseForm(
-    draft: NewExerciseDraft,
+fun ExerciseForm(
+    draft: ExerciseDraft,
     muscleGroups: List<MuscleGroup>,
-    onDraftChange: (NewExerciseDraft) -> Unit,
+    onDraftChange: (ExerciseDraft) -> Unit,
     onSubmit: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
@@ -104,7 +110,11 @@ fun NewExerciseForm(
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
         Text(
-            text = stringResource(R.string.new_exercise_title),
+            text = if (draft.isNew) {
+                stringResource(R.string.exercise_form_title_new)
+            } else {
+                stringResource(R.string.exercise_form_title_edit)
+            },
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -113,11 +123,11 @@ fun NewExerciseForm(
             value = draft.name,
             onValueChange = { onDraftChange(draft.copy(name = it)) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.new_exercise_name)) },
+            label = { Text(stringResource(R.string.exercise_form_name)) },
             singleLine = true,
             isError = draft.isDuplicateName,
             supportingText = if (draft.isDuplicateName) {
-                { Text(stringResource(R.string.new_exercise_name_duplicate)) }
+                { Text(stringResource(R.string.exercise_form_name_duplicate)) }
             } else {
                 null
             },
@@ -125,7 +135,7 @@ fun NewExerciseForm(
             enabled = !draft.isSaving,
         )
 
-        ChipSection(label = stringResource(R.string.new_exercise_type)) {
+        ChipSection(label = stringResource(R.string.exercise_form_type)) {
             ExerciseType.entries.forEach { type ->
                 OpenGymFilterChip(
                     label = type.label(),
@@ -135,7 +145,7 @@ fun NewExerciseForm(
             }
         }
 
-        ChipSection(label = stringResource(R.string.new_exercise_equipment)) {
+        ChipSection(label = stringResource(R.string.exercise_form_equipment)) {
             EquipmentType.entries.forEach { equipment ->
                 // OTHER has no label by design — see `EquipmentType.labelOrNull` — so it is
                 // not offered. An exercise the user cannot name the kit for is one they can
@@ -149,7 +159,7 @@ fun NewExerciseForm(
             }
         }
 
-        ChipSection(label = stringResource(R.string.new_exercise_primary_muscle)) {
+        ChipSection(label = stringResource(R.string.exercise_form_primary_muscle)) {
             muscleGroups.forEach { group ->
                 OpenGymFilterChip(
                     label = group.displayName(),
@@ -169,7 +179,7 @@ fun NewExerciseForm(
             }
         }
 
-        ChipSection(label = stringResource(R.string.new_exercise_secondary_muscles)) {
+        ChipSection(label = stringResource(R.string.exercise_form_secondary_muscles)) {
             muscleGroups.forEach { group ->
                 if (group.id == draft.primaryMuscleGroupId) return@forEach
                 val selected = group.id in draft.secondaryMuscleGroupIds
@@ -193,7 +203,7 @@ fun NewExerciseForm(
             value = draft.notes,
             onValueChange = { onDraftChange(draft.copy(notes = it)) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.new_exercise_notes)) },
+            label = { Text(stringResource(R.string.exercise_form_notes)) },
             shape = MaterialTheme.shapes.small,
             enabled = !draft.isSaving,
             maxLines = NOTES_MAX_LINES,
@@ -201,11 +211,11 @@ fun NewExerciseForm(
         )
 
         // Above the buttons rather than in a snackbar: this sheet covers the Scaffold that
-        // hosts them, so a snackbar would play out behind it and leave the Create button
+        // hosts them, so a snackbar would play out behind it and leave the save button
         // quietly re-enabling as the only sign anything happened.
         if (draft.saveFailed) {
             Text(
-                text = stringResource(R.string.new_exercise_save_failed),
+                text = stringResource(R.string.exercise_form_save_failed),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -221,7 +231,7 @@ fun NewExerciseForm(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = stringResource(R.string.new_exercise_cancel),
+                    text = stringResource(R.string.exercise_form_cancel),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -232,7 +242,11 @@ fun NewExerciseForm(
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    text = stringResource(R.string.new_exercise_save),
+                    text = if (draft.isNew) {
+                        stringResource(R.string.exercise_form_create)
+                    } else {
+                        stringResource(R.string.exercise_form_save)
+                    },
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -257,12 +271,12 @@ private val PREVIEW_GROUPS = listOf(
     MuscleGroup(id = 5, name = "QUADRICEPS"),
 )
 
-@Preview(name = "New exercise form", showBackground = true, widthDp = 360, heightDp = 900)
+@Preview(name = "Exercise form - new", showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
-fun NewExerciseFormPreview() {
+fun ExerciseFormPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
-        NewExerciseForm(
-            draft = NewExerciseDraft(
+        ExerciseForm(
+            draft = ExerciseDraft(
                 name = "Hammer Strength incline press",
                 equipment = EquipmentType.MACHINE,
                 primaryMuscleGroupId = PREVIEW_CHEST_ID,
@@ -276,16 +290,39 @@ fun NewExerciseFormPreview() {
     }
 }
 
-@Preview(name = "New exercise form - duplicate name", showBackground = true, widthDp = 360, heightDp = 900)
+@Preview(name = "Exercise form - editing", showBackground = true, widthDp = 360, heightDp = 900)
 @Composable
-fun NewExerciseFormDuplicatePreview() {
+fun ExerciseFormEditPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        // The one existing row: a heading that says "Edit exercise" and a button that says
+        // "Save". Everything else about the form is identical, which is the point of it.
+        ExerciseForm(
+            draft = ExerciseDraft(
+                id = 42,
+                name = "Hammer Strength incline press",
+                equipment = EquipmentType.MACHINE,
+                primaryMuscleGroupId = PREVIEW_CHEST_ID,
+                secondaryMuscleGroupIds = setOf(PREVIEW_TRICEPS_ID),
+                notes = "Seat on 3. Left arm lags — pause at the top.",
+            ),
+            muscleGroups = PREVIEW_GROUPS,
+            onDraftChange = {},
+            onSubmit = {},
+            onCancel = {},
+        )
+    }
+}
+
+@Preview(name = "Exercise form - duplicate name", showBackground = true, widthDp = 360, heightDp = 900)
+@Composable
+fun ExerciseFormDuplicatePreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
-        // On `surface`, as `NewExerciseSheet` draws it. `showBackground` is white whatever the
+        // On `surface`, as `ExerciseFormSheet` draws it. `showBackground` is white whatever the
         // theme, and the dark scheme's `onSurface` is near-white — so without this the dark
         // reference is white text on white and catches no dark-theme regression at all.
         Surface(color = MaterialTheme.colorScheme.surface) {
-            NewExerciseForm(
-                draft = NewExerciseDraft(name = "Bench Press", isDuplicateName = true),
+            ExerciseForm(
+                draft = ExerciseDraft(name = "Bench Press", isDuplicateName = true),
                 muscleGroups = PREVIEW_GROUPS,
                 onDraftChange = {},
                 onSubmit = {},

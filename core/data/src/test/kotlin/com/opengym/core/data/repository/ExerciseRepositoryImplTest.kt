@@ -228,6 +228,78 @@ class ExerciseRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `update with muscle groups replaces the links rather than adding to them`() = runBlocking {
+        val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+        val triceps = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "TRICEPS"))).single()
+        val lats = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "LATS"))).single()
+
+        val id = repository.insert(
+            exercise = Exercise(name = "Hammer Incline Press", isCustom = true),
+            muscleGroups = listOf(
+                ExerciseMuscleGroupLink(MuscleGroup(id = chest, name = "CHEST"), isPrimary = true),
+                ExerciseMuscleGroupLink(MuscleGroup(id = triceps, name = "TRICEPS"), isPrimary = false),
+            ),
+        )
+
+        repository.update(
+            exercise = requireNotNull(repository.getById(id).first()).copy(name = "Hammer Press"),
+            muscleGroups = listOf(
+                ExerciseMuscleGroupLink(MuscleGroup(id = lats, name = "LATS"), isPrimary = true),
+            ),
+        )
+
+        assertEquals("Hammer Press", repository.getById(id).first()?.name)
+        // The triceps link is *gone*, not demoted: the caller handed over the whole answer to
+        // "what does this work", and a merge would keep a muscle they took off the form.
+        val links = repository.getMuscleGroupLinks(id).first()
+        assertEquals(listOf("LATS"), links.map { it.muscleGroup.name })
+        assertEquals(listOf(true), links.map { it.isPrimary })
+    }
+
+    @Test
+    fun `update with muscle groups can clear every link`() = runBlocking {
+        val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+        val id = repository.insert(
+            exercise = Exercise(name = "Hammer Incline Press", isCustom = true),
+            muscleGroups = listOf(
+                ExerciseMuscleGroupLink(MuscleGroup(id = chest, name = "CHEST"), isPrimary = true),
+            ),
+        )
+
+        repository.update(requireNotNull(repository.getById(id).first()), muscleGroups = emptyList())
+
+        assertTrue(repository.getMuscleGroupLinks(id).first().isEmpty())
+        // No entry at all rather than an empty one, which is what the bulk read promises.
+        assertTrue(repository.getAllMuscleGroupLinks().first().isEmpty())
+    }
+
+    @Test
+    fun `update with muscle groups keeps the old links when a new one cannot be satisfied`() = runBlocking {
+        val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+        val id = repository.insert(
+            exercise = Exercise(name = "Hammer Incline Press", isCustom = true),
+            muscleGroups = listOf(
+                ExerciseMuscleGroupLink(MuscleGroup(id = chest, name = "CHEST"), isPrimary = true),
+            ),
+        )
+
+        val failed = runCatching {
+            repository.update(
+                exercise = requireNotNull(repository.getById(id).first()).copy(name = "Ghost Press"),
+                muscleGroups = listOf(
+                    ExerciseMuscleGroupLink(MuscleGroup(id = 404, name = "NOWHERE"), isPrimary = true),
+                ),
+            )
+        }
+
+        assertTrue(failed.isFailure)
+        // The transaction's whole point on the update path: the clear is rolled back with the
+        // insert that failed, so the exercise still trains what it did before.
+        assertEquals("Hammer Incline Press", repository.getById(id).first()?.name)
+        assertEquals(listOf("CHEST"), repository.getMuscleGroupLinks(id).first().map { it.muscleGroup.name })
+    }
+
+    @Test
     fun `getMuscleGroups returns the taxonomy by name`() = runBlocking {
         db.muscleGroupDao().insertAll(
             listOf(muscleGroup(name = "TRICEPS"), muscleGroup(name = "CHEST")),

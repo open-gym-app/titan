@@ -65,6 +65,34 @@
     <string name="exercise_type_endurance">Distance &amp; time</string>
     <string name="exercise_type_isometric">Hold</string>
 
+    <!-- The same fact spelled out: the fields a set of this exercise is logged with. RPE is
+         on all three because the set row always offers it, not because a hold is graded the
+         way a heavy triple is. -->
+    <string name="exercise_tracked_strength">Weight, reps, RPE</string>
+    <string name="exercise_tracked_endurance">Distance, time, RPE</string>
+    <string name="exercise_tracked_isometric">Time, RPE</string>
+
+    <!-- Whether the movement is a compound or an isolation. Mirrors MechanicType; the seed
+         leaves the column unset for stretches and carries. -->
+    <string name="mechanic_compound">Compound</string>
+    <string name="mechanic_isolation">Isolation</string>
+
+    <!-- How much practice the movement demands. A grading of the exercise, not of the
+         reader. Mirrors DifficultyLevel. -->
+    <string name="difficulty_beginner">Beginner</string>
+    <string name="difficulty_intermediate">Intermediate</string>
+    <string name="difficulty_expert">Expert</string>
+
+    <!-- The tradition the movement comes from. Mirrors Discipline, which is not the same
+         question as ExerciseType: five of these are all logged as weight and reps. -->
+    <string name="discipline_strength">Strength</string>
+    <string name="discipline_powerlifting">Powerlifting</string>
+    <string name="discipline_olympic_weightlifting">Olympic lifting</string>
+    <string name="discipline_strongman">Strongman</string>
+    <string name="discipline_plyometrics">Plyometrics</string>
+    <string name="discipline_stretching">Stretching</string>
+    <string name="discipline_cardio">Cardio</string>
+
     <!-- Equipment. Mirrors EquipmentType; OTHER has no label because "Other" beside an
          exercise name says nothing the name did not. -->
     <string name="equipment_barbell">Barbell</string>

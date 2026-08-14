@@ -1,4 +1,4 @@
-package com.opengym.feature.history.library
+package com.opengym.feature.history.exercise
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -14,7 +14,9 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.ui.theme.OpenGymTheme
-import com.opengym.feature.history.library.component.NewExerciseForm
+import com.opengym.feature.history.library.CHEST
+import com.opengym.feature.history.library.TAXONOMY
+import com.opengym.feature.history.library.TRICEPS
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -30,18 +32,18 @@ import org.robolectric.RobolectricTestRunner
  * test covers the one thing the sheet is responsible for — that `+ NEW` opens it.
  */
 @RunWith(RobolectricTestRunner::class)
-class NewExerciseFormTest {
+class ExerciseFormTest {
 
     @get:Rule
     val composeTestRule = createComposeRule()
 
-    private val drafts = mutableListOf<NewExerciseDraft>()
+    private val drafts = mutableListOf<ExerciseDraft>()
     private var submits = 0
 
-    private fun setContent(draft: NewExerciseDraft = NewExerciseDraft()) {
+    private fun setContent(draft: ExerciseDraft = ExerciseDraft()) {
         composeTestRule.setContent {
             OpenGymTheme {
-                NewExerciseForm(
+                ExerciseForm(
                     draft = draft,
                     muscleGroups = TAXONOMY,
                     onDraftChange = drafts::add,
@@ -67,7 +69,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `picking a primary muscle reports it`() {
-        setContent(NewExerciseDraft(name = "Zercher squat"))
+        setContent(ExerciseDraft(name = "Zercher squat"))
 
         scrollTo("PRIMARY MUSCLE")
         composeTestRule.onAllNodesWithText("CHEST").onFirst().performClick()
@@ -78,7 +80,7 @@ class NewExerciseFormTest {
     @Test
     fun `picking the prime mover takes it out of the secondaries`() {
         setContent(
-            NewExerciseDraft(name = "Dip", secondaryMuscleGroupIds = setOf(CHEST.id, TRICEPS.id)),
+            ExerciseDraft(name = "Dip", secondaryMuscleGroupIds = setOf(CHEST.id, TRICEPS.id)),
         )
 
         scrollTo("PRIMARY MUSCLE")
@@ -93,7 +95,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `choosing equipment reports it`() {
-        setContent(NewExerciseDraft(name = "Zercher squat"))
+        setContent(ExerciseDraft(name = "Zercher squat"))
 
         scrollTo("EQUIPMENT")
         composeTestRule.onNodeWithText("MACHINE").performClick()
@@ -104,7 +106,7 @@ class NewExerciseFormTest {
     @Test
     fun `a duplicate name is said under the field, and blocks the save`() {
         setContent(
-            NewExerciseDraft(name = "Bench press", primaryMuscleGroupId = CHEST.id, isDuplicateName = true),
+            ExerciseDraft(name = "Bench press", primaryMuscleGroupId = CHEST.id, isDuplicateName = true),
         )
 
         composeTestRule
@@ -116,7 +118,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `a nameless draft cannot be saved`() {
-        setContent(NewExerciseDraft(primaryMuscleGroupId = CHEST.id))
+        setContent(ExerciseDraft(primaryMuscleGroupId = CHEST.id))
 
         scrollTo("Create")
         composeTestRule.onNodeWithText("Create").assertIsNotEnabled()
@@ -124,7 +126,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `a draft with no prime mover cannot be saved`() {
-        setContent(NewExerciseDraft(name = "Zercher squat"))
+        setContent(ExerciseDraft(name = "Zercher squat"))
 
         scrollTo("Create")
         composeTestRule.onNodeWithText("Create").assertIsNotEnabled()
@@ -132,7 +134,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `a complete draft can be saved`() {
-        setContent(NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id))
+        setContent(ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id))
 
         scrollTo("Create")
         composeTestRule.onNodeWithText("Create").assertIsEnabled()
@@ -144,7 +146,7 @@ class NewExerciseFormTest {
     @Test
     fun `a save in flight makes the form inert`() {
         setContent(
-            NewExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id, isSaving = true),
+            ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id, isSaving = true),
         )
 
         scrollTo("Create")
@@ -154,7 +156,7 @@ class NewExerciseFormTest {
 
     @Test
     fun `the prime mover is not offered again as a secondary`() {
-        setContent(NewExerciseDraft(name = "Dip", primaryMuscleGroupId = CHEST.id))
+        setContent(ExerciseDraft(name = "Dip", primaryMuscleGroupId = CHEST.id))
 
         scrollTo("ALSO WORKS")
 

@@ -1,21 +1,22 @@
 package com.opengym.feature.history.library
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
@@ -45,17 +46,17 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ExerciseListItem
-import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymSearchField
 import com.opengym.core.ui.component.PrValue
+import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.displayName
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
+import com.opengym.feature.history.exercise.ExerciseFormSheet
 import com.opengym.feature.history.library.component.ConfirmSelectionBar
 import com.opengym.feature.history.library.component.LibraryFilterSheet
 import com.opengym.feature.history.library.component.LibraryHeader
-import com.opengym.feature.history.library.component.NewExerciseSheet
 import com.opengym.feature.history.library.component.PickerTopBar
 
 /**
@@ -67,10 +68,14 @@ import com.opengym.feature.history.library.component.PickerTopBar
  * @param selecting whether the screen is being used as a *picker*. The library and the
  *   exercise picker are the same screen — see the note on [ExerciseLibraryScreen] — and this
  *   is the only thing that differs between them.
- * @param onExerciseClick open an exercise's detail screen. **Null until #94 lands**, which
- *   draws the rows inert rather than giving them a ripple and a click role that lead nowhere.
+ * @param onExerciseClick open an exercise's detail screen. Null draws the rows inert rather
+ *   than giving them a ripple and a click role that lead nowhere.
  * @param onSelectionConfirmed the picker's result: the chosen ids, in the order they were
  *   picked. Never called outside selection mode.
+ * @param addedExerciseId an exercise the *detail screen* said to add, on the way back from it
+ *   — see `exercisePickerGraph`, which reads it off this destination's saved state. Applied
+ *   once and then handed back through [onAddedExerciseHandled] so it is not re-applied when
+ *   the screen recomposes or the process is restored.
  */
 @Composable
 fun ExerciseLibraryRoute(
@@ -79,9 +84,22 @@ fun ExerciseLibraryRoute(
     selecting: Boolean = false,
     onExerciseClick: ((exerciseId: Long) -> Unit)? = null,
     onSelectionConfirmed: (List<Long>) -> Unit = {},
+    addedExerciseId: Long? = null,
+    onAddedExerciseHandled: () -> Unit = {},
     viewModel: ExerciseLibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Consumed here rather than in the ViewModel because the channel is a *navigation*
+    // result: the id arrives on this destination's `SavedStateHandle`, written by `:app` as
+    // the detail screen pops, and the ViewModel has no business knowing that the back stack
+    // is how the answer got here.
+    LaunchedEffect(addedExerciseId) {
+        if (addedExerciseId != null) {
+            viewModel.onEvent(ExerciseLibraryEvent.ExerciseSelected(addedExerciseId))
+            onAddedExerciseHandled()
+        }
+    }
 
     ExerciseLibraryScreen(
         state = state,
@@ -275,7 +293,7 @@ fun ExerciseLibraryScreen(
 
     val draft = state.draft
     if (draft != null) {
-        NewExerciseSheet(
+        ExerciseFormSheet(
             draft = draft,
             muscleGroups = state.muscleGroups,
             onDraftChange = { onEvent(ExerciseLibraryEvent.NewExerciseChanged(it)) },
@@ -345,11 +363,11 @@ private fun LibraryList(
 }
 
 /**
- * `CHEST · 12`, and a rule running out to the margin.
+ * `CHEST · 12`, with the shared [SectionHeading]'s rule running out to the margin.
  *
- * The rule is what makes a heading in a flat list read as a heading. Without it the eyebrow
- * is a short line of small text above another line of text, and at a glance between sets that
- * is not a section break.
+ * The only thing this adds is the list's own padding, which cannot live in the component:
+ * the heading is drawn edge to edge in a card elsewhere, and here it needs the screen margin
+ * that a `LazyColumn` item does not inherit.
  */
 @Composable
 private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifier) {
@@ -358,24 +376,16 @@ private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifie
     // that read them as two would say "chest" and "dot twelve" three swipes apart.
     val heading = stringResource(R.string.library_section_header, name, section.exercises.size)
 
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                start = OpenGymTheme.spacing.screen,
-                end = OpenGymTheme.spacing.screen,
-                top = OpenGymTheme.spacing.section,
-                bottom = OpenGymTheme.spacing.md,
-            ),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-    ) {
-        Eyebrow(text = heading, color = MaterialTheme.colorScheme.onSurface)
-        HorizontalDivider(
-            modifier = Modifier.weight(1f),
-            color = MaterialTheme.colorScheme.outlineVariant,
-        )
-    }
+    SectionHeading(
+        text = heading,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier.padding(
+            start = OpenGymTheme.spacing.screen,
+            end = OpenGymTheme.spacing.screen,
+            top = OpenGymTheme.spacing.section,
+            bottom = OpenGymTheme.spacing.md,
+        ),
+    )
 }
 
 /**
@@ -384,6 +394,12 @@ private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifie
  * In selection mode the *row* carries the toggle rather than the checkbox: a 44dp-high row is
  * a far better target than a 24dp box at the end of it, and giving the checkbox its own click
  * would leave two overlapping controls saying the same thing to a screen reader.
+ *
+ * The one control that does get its own click there is the info button, and it is not saying
+ * the same thing: browsing opens an exercise by tapping it, and the picker has spent that tap
+ * on selecting, so without a second affordance the detail screen is unreachable from the one
+ * place — mid-workout, choosing between two machines — where "what does this actually work"
+ * is the question being asked.
  */
 @Composable
 private fun ExerciseRow(
@@ -403,7 +419,22 @@ private fun ExerciseRow(
         onClick = if (selecting) null else onClick?.let { { it(item.exercise.id) } },
         trailing = {
             when {
-                selecting -> Checkbox(checked = selected, onCheckedChange = null)
+                selecting -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onClick != null) {
+                        IconButton(onClick = { onClick(item.exercise.id) }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Info,
+                                contentDescription = stringResource(
+                                    R.string.library_details,
+                                    item.exercise.name,
+                                ),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Checkbox(checked = selected, onCheckedChange = null)
+                }
+
                 item.record != null -> PrValue(record = item.record)
             }
         },
@@ -566,7 +597,7 @@ private val PREVIEW_STATE = ExerciseLibraryUiState(
 @Composable
 fun ExerciseLibraryScreenPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
-        ExerciseLibraryScreen(state = PREVIEW_STATE, onEvent = {})
+        ExerciseLibraryScreen(state = PREVIEW_STATE, onEvent = {}, onExerciseClick = {})
     }
 }
 
@@ -574,7 +605,7 @@ fun ExerciseLibraryScreenPreview() {
 @Composable
 fun ExerciseLibraryScreenDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
-        ExerciseLibraryScreen(state = PREVIEW_STATE, onEvent = {})
+        ExerciseLibraryScreen(state = PREVIEW_STATE, onEvent = {}, onExerciseClick = {})
     }
 }
 
@@ -585,9 +616,12 @@ fun ExerciseLibraryScreenSelectingPreview() {
         ExerciseLibraryScreen(
             state = PREVIEW_STATE.copy(selection = listOf(PREVIEW_BENCH_ID, PREVIEW_PULL_UP_ID)),
             onEvent = {},
-            // The picker, which is the one shape that still has a way back at the top of it.
+            // The picker, which is the one shape that still has a way back at the top of it —
+            // and the one where a row carries an info button as well as its checkbox, the row
+            // itself having been spent on selecting.
             onBack = {},
             selecting = true,
+            onExerciseClick = {},
         )
     }
 }
