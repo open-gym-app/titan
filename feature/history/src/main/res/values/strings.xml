@@ -190,4 +190,76 @@
     <string name="plate_dialog_cancel">Cancel</string>
     <string name="plate_save_failed">Could not save your equipment</string>
 
+    <!-- ── Sessions tab ───────────────────────────────────────────────────────────── -->
+
+    <!-- The three tabs. Sentence case; OpenGymTabRow uppercases them. -->
+    <string name="sessions_tab_history">History</string>
+    <string name="sessions_tab_templates">Templates</string>
+    <string name="sessions_tab_calendar">Calendar</string>
+
+    <!-- The header's count, in the three phrasings the number needs: how much there is, how
+         much survived the filters, and — on the calendar — which month is on screen. -->
+    <plurals name="sessions_count">
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
+    </plurals>
+    <string name="sessions_count_filtered">%1$d of %2$d</string>
+    <plurals name="sessions_templates_count">
+        <item quantity="one">%1$d template</item>
+        <item quantity="other">%1$d templates</item>
+    </plurals>
+    <!-- "APRIL 2026 · 13 SESSIONS", as one node so a screen reader does not read the month
+         and the count three swipes apart. -->
+    <string name="sessions_calendar_heading">%1$s · %2$s</string>
+
+    <!-- The header's actions. Read aloud by TalkBack; the glyphs carry no text. -->
+    <string name="sessions_new">+ New</string>
+    <string name="sessions_new_description">New session</string>
+    <string name="sessions_search">Search</string>
+    <string name="sessions_search_placeholder">Search names and notes…</string>
+
+    <!-- Month headings in the history list: "APRIL 2026 · 4". -->
+    <string name="sessions_month_heading">%1$s · %2$d</string>
+
+    <!-- The history's two empty states, which are not the same state: a user who has logged
+         nothing is offered the way to start, and one whose filters matched nothing is offered
+         the way back. -->
+    <string name="sessions_glyph_empty">◇</string>
+    <string name="sessions_glyph_search">⌕</string>
+    <string name="sessions_empty_title">No sessions yet</string>
+    <string name="sessions_empty_description">Every workout you log lands here, with what you lifted and how long it took.</string>
+    <string name="sessions_empty_action">Start a session</string>
+    <string name="sessions_no_results_title">Nothing in that window</string>
+    <string name="sessions_no_results_description">No session matches your search and the dates you picked.</string>
+    <string name="sessions_clear_filters">Clear filters</string>
+
+    <!-- The templates tab. No action on the empty state: authoring is #92, and until it
+         lands the only way to make one is from a finished session — so the description says
+         where they come from rather than offering a button that would not help. -->
+    <string name="sessions_templates_glyph">▤</string>
+    <string name="sessions_templates_empty_title">No templates yet</string>
+    <string name="sessions_templates_empty_description">Finish a workout and save it as a template to start the same session again in one tap.</string>
+
+    <!-- The date sheet. -->
+    <string name="sessions_dates">Dates</string>
+    <string name="sessions_dates_all">All time</string>
+    <plurals name="sessions_dates_last_days">
+        <item quantity="one">Last %1$d day</item>
+        <item quantity="other">Last %1$d days</item>
+    </plurals>
+    <string name="sessions_dates_custom">Pick dates…</string>
+    <string name="sessions_dates_range">%1$s – %2$s</string>
+    <string name="sessions_dates_done">Done</string>
+    <string name="sessions_dates_confirm">Apply</string>
+    <string name="sessions_dates_cancel">Cancel</string>
+
+    <!-- The calendar tab. -->
+    <string name="sessions_calendar_previous">Previous month</string>
+    <string name="sessions_calendar_next">Next month</string>
+    <string name="sessions_calendar_legend">Shade shows the day\'s volume against the month\'s heaviest</string>
+    <string name="sessions_calendar_empty">Nothing logged this month</string>
+    <string name="sessions_calendar_stat_sessions">Sessions</string>
+    <string name="sessions_calendar_stat_time">Time</string>
+    <string name="sessions_calendar_stat_volume">Volume</string>
+
 </resources>

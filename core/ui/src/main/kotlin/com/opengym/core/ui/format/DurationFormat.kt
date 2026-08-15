@@ -99,6 +99,42 @@ fun Duration.formatAsEstimate(): String {
 }
 
 /**
+ * How long something *took*: `52m`, `1h 05m`, `0m`.
+ *
+ * The third duration role, and the one a list row wears. [formatAsElapsed] is a running
+ * clock — it keeps its seconds because it is watched while it moves — and reading a
+ * finished session as `0:52:14` in a row of five puts three fields of precision on a figure
+ * the user is scanning past. This drops the seconds and keeps the tilde off, because unlike
+ * [formatAsEstimate] it is a measurement rather than a guess: a session that ran 52:14 reads
+ * `52m` and not `~50m`.
+ *
+ * **Truncated to the minute, not rounded**, so a session and the sum of its parts cannot
+ * come out a minute apart in opposite directions. A session shorter than a minute reads
+ * `0m`, which is the honest rendering of one somebody opened and closed.
+ *
+ * The unit letters are not translated, matching [formatAsEstimate] and
+ * [com.opengym.core.ui.format.weightSuffix]: the localization pass (#40) sweeps them
+ * together.
+ */
+fun Duration.formatAsLength(): String {
+    val minutes = inWholeMinutes.coerceAtLeast(0)
+    val locale = Locale.getDefault()
+
+    return if (minutes >= MINUTES_PER_HOUR) {
+        String.format(
+            locale,
+            "%d%s %02d%s",
+            minutes / MINUTES_PER_HOUR,
+            HOUR_SUFFIX,
+            minutes % MINUTES_PER_HOUR,
+            MINUTE_SUFFIX,
+        )
+    } else {
+        String.format(locale, "%d%s", minutes, MINUTE_SUFFIX)
+    }
+}
+
+/**
  * This duration in whole minutes, snapped to [ESTIMATE_STEP_MINUTES] and floored at one
  * step for anything that is not zero. Negative durations — which nothing produces, but an
  * imported template could — read as zero rather than as time owed.

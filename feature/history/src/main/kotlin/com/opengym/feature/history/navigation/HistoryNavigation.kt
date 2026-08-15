@@ -6,10 +6,10 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
-import com.opengym.feature.history.SessionsScreen
 import com.opengym.feature.history.detail.ExerciseDetailRoute
 import com.opengym.feature.history.library.ExerciseLibraryRoute
 import com.opengym.feature.history.plate.PlateCalculatorRoute
+import com.opengym.feature.history.sessions.SessionsRoute
 import kotlinx.serialization.Serializable
 
 /** The Sessions tab's graph. Navigating here lands on [SessionsDestination]. */
@@ -102,20 +102,31 @@ data object ExercisePickerDestination
 /**
  * The Sessions tab.
  *
- * One destination, now that a tapped row opens the recap `:feature:session` draws rather than
- * a detail screen of this module's own — see the note above [SessionsDestination]. It stays a
- * graph rather than a bare destination because #24 splits the tab into history, templates and
- * calendar, and a tab that grows a second destination should not have to be converted then.
+ * Still **one** destination after #24, which split the tab into history, templates and
+ * calendar: the three are tabs *within* one screen rather than three destinations, because
+ * they are three readings of the same data and the user moves between them constantly — a day
+ * tapped on the calendar is a filter on the history. As separate destinations that tap would
+ * be a navigation with an argument, and the back stack would fill with screens the user was
+ * only passing through. See [com.opengym.feature.history.sessions.SessionsScreen].
+ *
+ * It remains a graph rather than a bare destination all the same: #92's template editor is a
+ * second destination inside this tab, and a tab that grows one later should not have to be
+ * converted then.
  *
  * @param onSessionClick a row was tapped. Hoisted, like every other navigation action: the
  *   `NavController` belongs to `:app`, and a feature that reaches for it directly is one
  *   refactor away from reaching for another feature's destination through it. Here that is
  *   load-bearing rather than stylistic — the destination this opens is in another module.
+ * @param onStartSession the header's `+ NEW`, and the way out of an empty history. Opens the
+ *   new-session flow, which is `:feature:session`'s — hoisted for the same reason.
  */
-fun NavGraphBuilder.historyGraph(onSessionClick: (sessionId: Long) -> Unit) {
+fun NavGraphBuilder.historyGraph(
+    onSessionClick: (sessionId: Long) -> Unit,
+    onStartSession: () -> Unit,
+) {
     navigation<HistoryGraphDestination>(startDestination = SessionsDestination) {
         composable<SessionsDestination> {
-            SessionsScreen(onSessionClick = onSessionClick)
+            SessionsRoute(onSessionClick = onSessionClick, onStartSession = onStartSession)
         }
     }
 }

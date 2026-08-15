@@ -1,10 +1,14 @@
 package com.opengym.core.ui.format
 
+import java.time.DayOfWeek
 import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
+import java.time.temporal.WeekFields
 import java.util.Locale
 
 /**
@@ -62,8 +66,16 @@ fun formatSessionDate(
     epochMillis: Long,
     zone: ZoneId = ZoneId.systemDefault(),
     locale: Locale = formattingLocale(),
-): String {
-    val date = Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
+): String = formatSessionDate(localDateOf(epochMillis, zone), locale)
+
+/**
+ * The same date, for a caller that already has a [LocalDate] rather than an instant — a
+ * calendar cell, which is a day and never a moment.
+ *
+ * The overload exists so both spell the day the same way: a calendar announcing
+ * `28 April 2026` beside a list saying `Mon 28 Apr 2026` would be two renderings of one fact.
+ */
+fun formatSessionDate(date: LocalDate, locale: Locale = formattingLocale()): String {
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
     val rest = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(date)
 
@@ -85,3 +97,75 @@ fun formatTimeOfDay(
 ): String = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
     .withLocale(locale)
     .format(Instant.ofEpochMilli(epochMillis).atZone(zone))
+
+/*
+ * The three below are the calendar's vocabulary: a month to head it with, a number for each
+ * cell, and the seven letters across the top. All three go through `java.time`'s own
+ * formatter rather than through `toString()` on an `Int`, which is what keeps a Persian or a
+ * Bengali phone drawing its own numerals — `DateTimeFormatter` carries a `DecimalStyle` off
+ * the locale, and `28.toString()` carries nothing.
+ */
+
+/**
+ * The month a calendar page is showing: `April 2026`, `avril 2026`.
+ *
+ * Standalone month name rather than the genitive form some locales use inside a full date,
+ * which is what `LLLL` asks for and what a heading needs — Russian's `апрель` here rather
+ * than the `апреля` of "the 28th of April".
+ *
+ * The join is `month year` in every locale, which is the same provisional simplification
+ * [formatSessionDate] makes about the weekday and is left for the localization pass (#40)
+ * for the same reason.
+ */
+fun formatMonthAndYear(month: YearMonth, locale: Locale = formattingLocale()): String {
+    val name = month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
+    val year = DateTimeFormatter.ofPattern(YEAR_PATTERN, locale).format(month)
+
+    return "$name $year"
+}
+
+/** The number in one calendar cell, and on a session row's date rail: `28`, `٢٨`. */
+fun formatDayOfMonth(date: LocalDate, locale: Locale = formattingLocale()): String =
+    DateTimeFormatter.ofPattern(DAY_PATTERN, locale).format(date)
+
+/**
+ * The short weekday a session row's rail carries under its date: `Mon`, `lun.`.
+ *
+ * Short rather than narrow, unlike [weekdayInitials]: the rail has a whole 44dp column and
+ * one letter under a date reads as a stray glyph, where a calendar's header has seven cells
+ * across 328dp and anything longer than a letter would not fit.
+ */
+fun formatWeekday(date: LocalDate, locale: Locale = formattingLocale()): String =
+    date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
+
+/**
+ * The seven letters across the top of a calendar, starting on the locale's own first day.
+ *
+ * The wireframes draw `M T W T F S S`, which is right in Britain and wrong in the United
+ * States and in most of the Middle East. [WeekFields] answers it per locale, and the grid
+ * below the header is laid out from the same value — see `TrainingCalendar`, which takes the
+ * first day rather than assuming it.
+ */
+fun weekdayInitials(
+    firstDayOfWeek: DayOfWeek,
+    locale: Locale = formattingLocale(),
+): List<String> = (0 until DAYS_PER_WEEK).map { offset ->
+    firstDayOfWeek.plus(offset.toLong()).getDisplayName(TextStyle.NARROW, locale)
+}
+
+/** The first day of the week [locale] writes a calendar from — Monday, Sunday or Saturday. */
+fun firstDayOfWeek(locale: Locale = formattingLocale()): DayOfWeek =
+    WeekFields.of(locale).firstDayOfWeek
+
+/** The day this instant falls on, in [zone]. What groups sessions into calendar days. */
+fun localDateOf(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+    Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
+
+private const val DAYS_PER_WEEK = 7
+
+/*
+ * Single-field patterns, so there is no field order to get wrong in another locale — the
+ * only thing the locale decides here is which digits are drawn.
+ */
+private const val YEAR_PATTERN = "y"
+private const val DAY_PATTERN = "d"

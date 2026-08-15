@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -14,8 +15,10 @@ import androidx.compose.ui.test.performTextInput
 import com.opengym.app.HiltTestActivity
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
+import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.ui.theme.OpenGymTheme
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -85,6 +88,17 @@ class OpenGymAppNavigationTest {
     @Inject
     lateinit var templates: TemplateRepository
 
+    /**
+     * The history the Sessions tab reads.
+     *
+     * Seeded for the same reason the template is: the tab draws rows from the database and
+     * there is no placeholder button on it any more, so opening a recap from the session list
+     * — the one navigation edge that crosses from `:feature:history` into `:feature:session` —
+     * is only reachable if there is a session to tap.
+     */
+    @Inject
+    lateinit var sessions: SessionRepository
+
     @Before
     fun setUp() {
         hilt.inject()
@@ -93,6 +107,16 @@ class OpenGymAppNavigationTest {
             templates.insert(
                 template = WorkoutTemplate(name = TEMPLATE),
                 exercises = listOf(TemplateExerciseDraft(exerciseId = benchPress)),
+            )
+            sessions.insert(
+                WorkoutSession(
+                    name = LOGGED_SESSION,
+                    isInProgress = false,
+                    completedAt = LOGGED_AT + LOGGED_DURATION_MILLIS,
+                    lastActiveAt = LOGGED_AT + LOGGED_DURATION_MILLIS,
+                    createdAt = LOGGED_AT,
+                    updatedAt = LOGGED_AT,
+                ),
             )
         }
         composeTestRule.setContent {
@@ -159,7 +183,14 @@ class OpenGymAppNavigationTest {
     @Test
     fun `opening a logged session leaves the tab scaffold, and back returns to it`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
+        // The row is drawn from a Room read, so it arrives a beat after the tab does.
+        composeTestRule.waitUntil {
+            composeTestRule
+                .onAllNodesWithContentDescription(LOGGED_SESSION, substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeTestRule.onNodeWithContentDescription(LOGGED_SESSION, substring = true).performClick()
 
         // A logged session opens the recap `:feature:session` draws, in its historical mode —
         // the same screen a workout ends on. It is registered outside the tabs, like the
@@ -218,7 +249,7 @@ class OpenGymAppNavigationTest {
     fun `the bottom bar stays hidden for every step of the session flow`() {
         startAWorkout()
 
-        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
 
         composeTestRule.onNodeWithText(FINISH).performClick()
@@ -321,13 +352,13 @@ class OpenGymAppNavigationTest {
     @Test
     fun `the back gesture does not abandon an active session`() {
         startAWorkout()
-        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
 
         pressBack()
 
         // Unguarded, this pops the last entry in the session graph and the graph with it,
         // dropping the user back on Home with the workout silently discarded.
-        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
         composeTestRule.onNodeWithText(HOME).assertDoesNotExist()
     }
 
@@ -337,7 +368,7 @@ class OpenGymAppNavigationTest {
         // Not decoration: the guard belongs to the active-session entry and is only armed
         // once that entry is resumed, which is after the transition into it has finished.
         // Pressing back before this assertion presses it at the previous screen.
-        composeTestRule.onNodeWithText(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
 
         pressBack()
 
@@ -370,7 +401,9 @@ class OpenGymAppNavigationTest {
         // Once more for the commit: the session and its exercises are two writes, and the
         // navigation into the workout follows the state they produce.
         composeTestRule.waitUntil {
-            composeTestRule.onAllNodesWithText(ACTIVE_SESSION).fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(ACTIVE_SESSION, substring = true)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
         }
     }
 
@@ -417,7 +450,11 @@ class OpenGymAppNavigationTest {
         const val HISTORY = "HISTORY"
         const val PROGRESSION = "PROGRESSION"
         const val NEW_SESSION = "New session"
-        const val ACTIVE_SESSION = "ACTIVE · SESSION 1"
+
+        // Matched as a substring, without the id the screen puts after it: which id a new
+        // session gets depends on how many rows the fixtures above have already written, and
+        // a marker that encoded one would break the next time a test seeded anything.
+        const val ACTIVE_SESSION = "ACTIVE · SESSION"
 
         /*
          * The recap, by the chrome each of its two modes draws.
@@ -447,7 +484,12 @@ class OpenGymAppNavigationTest {
 
         // Actions.
         const val START_SESSION = "START SESSION"
-        const val OPEN_A_SESSION = "OPEN A SESSION"
+
+        // The seeded session's name, and when it happened: midday UTC on a fixed day, so the
+        // row lands on the same date in whichever zone the test runs.
+        const val LOGGED_SESSION = "Logged session"
+        const val LOGGED_AT = 1_777_377_600_000L
+        const val LOGGED_DURATION_MILLIS = 3_120_000L
         const val FINISH = "FINISH"
         const val DONE = "Done"
 

@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
+import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -80,6 +81,8 @@ class FakeSummarySessionStore(
     override fun getActive(): Flow<WorkoutSession?> = unsupported()
 
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> = unsupported()
+
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> = unsupported()
 
     override suspend fun insert(session: WorkoutSession): Long = unsupported()
 

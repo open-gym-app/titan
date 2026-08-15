@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.opengym.core.data.db.entity.WorkoutSetEntity
 import com.opengym.core.data.db.projection.MuscleVolumeRow
+import com.opengym.core.data.db.projection.SessionTotalsRow
 import com.opengym.core.data.db.projection.WeeklyVolumeRow
 import kotlinx.coroutines.flow.Flow
 
@@ -45,6 +46,44 @@ interface WorkoutSetDao {
         """,
     )
     fun getBySession(sessionId: Long): Flow<List<WorkoutSetEntity>>
+
+    /**
+     * Every session's set count and volume, one row each.
+     *
+     * The history list's read, and the reason it is an aggregate rather than a
+     * [getBySession] per row: a list of sessions has no upper bound, and a query per row
+     * would put an observer on the database for each of them. Here the `SUM` and `COUNT`
+     * run in SQLite, so what crosses the boundary is two numbers per session however many
+     * sets are behind them.
+     *
+     * Only completed sets count, matching the filter every other aggregate in this file
+     * applies and the one [com.opengym.core.domain.stats.SessionStatsCalculator] applies in
+     * memory — a session row can hold placeholder sets for planned-but-unperformed work
+     * (see PERSISTENCE.md), and counting those would inflate a figure the user reads beside
+     * the recap that does not count them.
+     *
+     * Sets with no `weight` or no `reps` (cardio, timed holds) contribute zero volume rather
+     * than dropping their session from the result: a session of nothing but running has a
+     * set count worth showing and a volume of zero, which is the truth about it.
+     *
+     * A session with no completed sets produces no row at all. `GROUP BY` has nothing to
+     * group for it, and the alternative — an outer join from `workout_session` — would be a
+     * scan of every session to manufacture zeroes the caller already knows how to read as
+     * an absence.
+     */
+    @Query(
+        """
+        SELECT
+            se.session_id AS session_id,
+            COUNT(*) AS total_sets,
+            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        WHERE ws.is_completed = 1
+        GROUP BY se.session_id
+        """,
+    )
+    fun getTotalsBySession(): Flow<List<SessionTotalsRow>>
 
     @Query(
         """

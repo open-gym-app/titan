@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
@@ -90,6 +91,32 @@ class FakeSessionRepository : SessionRepository {
         combine(exercises, sets) { exercisesBySession, setsByExercise ->
             setsForSessionReads++
             exercisesBySession[sessionId].orEmpty().flatMap { setsByExercise[it.id].orEmpty() }
+        }
+
+    /**
+     * The same aggregate the real store computes in SQL, computed here over what is held.
+     *
+     * Derived rather than stubbed so it cannot drift from [getSetsForSession]: a fake whose
+     * totals were set independently of its sets would let a test pass on figures the
+     * database could never produce. Sessions with no completed set are absent, per the
+     * contract.
+     */
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> =
+        combine(exercises, sets) { exercisesBySession, setsByExercise ->
+            exercisesBySession.mapNotNull { (sessionId, sessionExercises) ->
+                val performed = sessionExercises
+                    .flatMap { setsByExercise[it.id].orEmpty() }
+                    .filter(WorkoutSet::isCompleted)
+
+                performed.takeIf { it.isNotEmpty() }?.let {
+                    sessionId to SessionTotals(
+                        totalSets = it.size,
+                        totalVolume = it.sumOf { set ->
+                            (set.weight ?: 0L) * (set.reps ?: 0).toLong()
+                        },
+                    )
+                }
+            }.toMap()
         }
 
     /**
