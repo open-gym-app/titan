@@ -231,6 +231,14 @@ internal fun PickerTopBar(
  * Three phrasings because the number means three different things, and one format string with
  * a count in it would leave the reader working out which. It is what tells somebody mid-search
  * whether their filters are doing anything.
+ *
+ * Unlike `SessionsHeader`, this one keeps drawing while `isLoading` — deliberately, because the
+ * two flags do not mean the same thing. There, loading is "the read has not landed", true once
+ * and never again. Here it also covers "the rows in hand answer a query the user has moved on
+ * from" (see `ExerciseLibraryViewModel.buildState`), which is true for a beat after every
+ * keystroke — and a count that blanked and returned as somebody typed would be worse than a
+ * stale one. The first frames can read `0 EXERCISES` against a catalogue of 873; the seeded
+ * install makes that a frame rather than a state anybody sits in.
  */
 @Composable
 private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {

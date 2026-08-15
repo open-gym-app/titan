@@ -17,6 +17,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.format.formatMonthAndYear
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -80,7 +82,15 @@ internal fun SessionsHeader(
                 }
                 DateFilterButton(filter = state.dateFilter, onClick = onOpenDates)
             }
-            TextButton(onClick = onNewSession) {
+            // "+ New" uppercased is a glyph and a word, and TalkBack reads it as "plus new".
+            // A description on the button says what the control does instead: a merged node
+            // announces its `contentDescription` in place of the text under it, so the label
+            // stays visible and stays out of the announcement.
+            val newSessionDescription = stringResource(R.string.sessions_new_description)
+            TextButton(
+                onClick = onNewSession,
+                modifier = Modifier.semantics { contentDescription = newSessionDescription },
+            ) {
                 Eyebrow(
                     text = stringResource(R.string.sessions_new),
                     color = MaterialTheme.colorScheme.primary,
@@ -119,27 +129,49 @@ private fun DateFilterButton(
     }
 }
 
-/** `24 SESSIONS`, `6 OF 24`, `6 TEMPLATES`, `APRIL 2026 · 13 SESSIONS`. */
+/**
+ * `24 SESSIONS`, `6 OF 24`, `6 TEMPLATES`, `APRIL 2026 · 13 SESSIONS` — and nothing at all
+ * until the read that answers it has landed.
+ *
+ * A count is zero before the query comes back as surely as it is for a user who has logged
+ * nothing, and the header cannot tell the two apart from the number alone. Drawing it anyway
+ * tells somebody with four hundred sessions that they have none, for as long as the read takes
+ * — which is the same lie [com.opengym.feature.history.sessions.component.HistoryList] goes out
+ * of its way not to tell by drawing nothing while `isLoading`. Blank rather than a placeholder:
+ * the row is one line of eyebrow text that fills in a frame later, and a shimmer on it would be
+ * more motion than the fact is worth.
+ *
+ * The calendar keeps its month either way and loses only the count beside it: the month is
+ * what that tab is *about* and is known before any read resolves, so a heading that vanished
+ * would take the one certain fact with it.
+ */
 @Composable
 private fun SessionsUiState.subtitle(): String = when (tab) {
-    SessionsTab.HISTORY -> if (hasFilters) {
-        stringResource(R.string.sessions_count_filtered, matchCount, sessionCount)
-    } else {
-        pluralStringResource(R.plurals.sessions_count, sessionCount, sessionCount)
+    SessionsTab.HISTORY -> when {
+        isLoading -> ""
+        hasFilters -> stringResource(R.string.sessions_count_filtered, matchCount, sessionCount)
+        else -> pluralStringResource(R.plurals.sessions_count, sessionCount, sessionCount)
     }
 
-    SessionsTab.TEMPLATES ->
+    SessionsTab.TEMPLATES -> if (isLoadingTemplates) {
+        ""
+    } else {
         pluralStringResource(R.plurals.sessions_templates_count, templates.size, templates.size)
+    }
 
-    SessionsTab.CALENDAR -> stringResource(
-        R.string.sessions_calendar_heading,
-        formatMonthAndYear(calendar.month),
-        pluralStringResource(
-            R.plurals.sessions_count,
-            calendar.sessionCount,
-            calendar.sessionCount,
-        ),
-    )
+    SessionsTab.CALENDAR -> if (isLoading) {
+        formatMonthAndYear(calendar.month)
+    } else {
+        stringResource(
+            R.string.sessions_calendar_heading,
+            formatMonthAndYear(calendar.month),
+            pluralStringResource(
+                R.plurals.sessions_count,
+                calendar.sessionCount,
+                calendar.sessionCount,
+            ),
+        )
+    }
 }
 
 /** The three tab labels, in the order [SessionsTab] declares them. */

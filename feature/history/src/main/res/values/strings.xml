@@ -260,6 +260,6 @@
     <string name="sessions_calendar_empty">Nothing logged this month</string>
     <string name="sessions_calendar_stat_sessions">Sessions</string>
     <string name="sessions_calendar_stat_time">Time</string>
-    <string name="sessions_calendar_stat_volume">Volume</string>
+    <!-- No "volume" label: that chip labels itself with the unit suffix, kg or lb. -->
 
 </resources>

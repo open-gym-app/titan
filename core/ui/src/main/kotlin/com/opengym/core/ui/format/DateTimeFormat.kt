@@ -6,6 +6,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DecimalStyle
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
@@ -100,10 +101,15 @@ fun formatTimeOfDay(
 
 /*
  * The three below are the calendar's vocabulary: a month to head it with, a number for each
- * cell, and the seven letters across the top. All three go through `java.time`'s own
- * formatter rather than through `toString()` on an `Int`, which is what keeps a Persian or a
- * Bengali phone drawing its own numerals — `DateTimeFormatter` carries a `DecimalStyle` off
- * the locale, and `28.toString()` carries nothing.
+ * cell, and the seven letters across the top. The two that draw digits go through a formatter
+ * carrying [DecimalStyle.of], which is what keeps a Persian or a Bengali phone drawing its own
+ * numerals — `28.toString()` is ASCII whatever the locale, and so is a `DateTimeFormatter`
+ * built without the decimal style, since `ofPattern(pattern, locale)` uses the locale to pick
+ * *text* and leaves [DecimalStyle.STANDARD] in place.
+ *
+ * That matters beside the counts, not on its own: `pluralStringResource` formats its argument
+ * through `DecimalFormatSymbols`, so a row whose set count is in Bengali digits and whose date
+ * rail is in ASCII ones is two numbering systems on one line.
  */
 
 /**
@@ -119,14 +125,14 @@ fun formatTimeOfDay(
  */
 fun formatMonthAndYear(month: YearMonth, locale: Locale = formattingLocale()): String {
     val name = month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
-    val year = DateTimeFormatter.ofPattern(YEAR_PATTERN, locale).format(month)
+    val year = numberFormatter(YEAR_PATTERN, locale).format(month)
 
     return "$name $year"
 }
 
 /** The number in one calendar cell, and on a session row's date rail: `28`, `٢٨`. */
 fun formatDayOfMonth(date: LocalDate, locale: Locale = formattingLocale()): String =
-    DateTimeFormatter.ofPattern(DAY_PATTERN, locale).format(date)
+    numberFormatter(DAY_PATTERN, locale).format(date)
 
 /**
  * The short weekday a session row's rail carries under its date: `Mon`, `lun.`.
@@ -162,6 +168,17 @@ fun localDateOf(epochMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Local
     Instant.ofEpochMilli(epochMillis).atZone(zone).toLocalDate()
 
 private const val DAYS_PER_WEEK = 7
+
+/**
+ * A formatter for a bare number, in the locale's own numerals.
+ *
+ * [DateTimeFormatter.ofPattern] takes a locale but installs [DecimalStyle.STANDARD] regardless
+ * — the locale it is handed decides month and weekday *text*, not digits. The explicit
+ * [DecimalStyle.of] is the only thing that makes a Bengali or an Eastern Arabic phone draw
+ * `২৮` rather than `28`.
+ */
+private fun numberFormatter(pattern: String, locale: Locale): DateTimeFormatter =
+    DateTimeFormatter.ofPattern(pattern, locale).withDecimalStyle(DecimalStyle.of(locale))
 
 /*
  * Single-field patterns, so there is no field order to get wrong in another locale — the

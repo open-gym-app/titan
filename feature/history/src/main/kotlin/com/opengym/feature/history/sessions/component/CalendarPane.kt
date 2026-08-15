@@ -3,6 +3,7 @@ package com.opengym.feature.history.sessions.component
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -151,16 +152,26 @@ private fun MonthNavigation(
 @Composable
 private fun MonthTotals(page: CalendarPage, modifier: Modifier = Modifier) {
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
-        Row(
+        // Wrapping rather than a `Row`: three labelled chips are already within a few dp of
+        // 360, and a month of long sessions ("12h 40m") or a larger font scale puts the last
+        // one past the edge — where it does not shrink, it clips, and `19,500 kg` becomes
+        // `19,500 k`. A second line is the right answer for a card that is context anyway.
+        FlowRow(
             modifier = Modifier.padding(OpenGymTheme.spacing.card),
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
         ) {
             StatChip(
                 value = page.sessionCount.toString(),
                 label = stringResource(R.string.sessions_calendar_stat_sessions),
             )
-            StatChip(value = page.totalDuration.formatAsLength())
             StatChip(
+                value = page.totalDuration.formatAsLength(),
+                label = stringResource(R.string.sessions_calendar_stat_time),
+            )
+            StatChip(
+                // Labelled with the unit rather than the word "volume": the figure is already
+                // a weight, and `19,500 kg` says what `19,500 volume` does not.
                 value = formatVolumeValue(page.totalVolume),
                 label = LocalUnitSystem.current.weightSuffix,
             )

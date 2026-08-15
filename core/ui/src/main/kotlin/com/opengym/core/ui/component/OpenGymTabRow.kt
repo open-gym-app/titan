@@ -1,6 +1,7 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.HorizontalDivider
@@ -61,6 +63,14 @@ fun OpenGymTabRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                // Each tab is sized to its own label (see [TabLabel]) and the row neither
+                // wraps nor distributes, so the strip's width is the sum of three labels in
+                // `sp`. At a large accessibility font scale, or in a locale whose words for
+                // these are longer, that sum passes 360dp and the last tab is laid out past
+                // the edge — clipped, and with nothing to scroll it back. Scrolling here
+                // rather than shrinking the labels, since the alternative is truncating the
+                // one word that says what the tab is.
+                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = OpenGymTheme.spacing.md)
                 .selectableGroup(),
         ) {
