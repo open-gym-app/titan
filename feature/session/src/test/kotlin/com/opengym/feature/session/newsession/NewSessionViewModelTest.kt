@@ -55,6 +55,64 @@ class NewSessionViewModelTest {
     @After
     fun tearDownMainDispatcher() = Dispatchers.resetMain()
 
+    // ─── Naming the session before it starts ────────────────────────────────────────────
+
+    @Test
+    fun `a hand-picked session can be named before it is started`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+        viewModel.onEvent(NewSessionEvent.NameChanged("Leg day"))
+        viewModel.onEvent(NewSessionEvent.NameConfirmed)
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        assertEquals("Leg day", sessions.storedSessions().single().name)
+    }
+
+    @Test
+    fun `the name dialog opens on whatever the plan is called`() = runTest {
+        // A template start seeds it, so this is the name the user is editing rather than a
+        // blank field over a session that already has one.
+        val viewModel = viewModel()
+        val templateId = seedPushDay()
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+
+        assertEquals("Push day", viewModel.uiState.value.nameDraft)
+    }
+
+    @Test
+    fun `cancelling the name dialog leaves the plan alone`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+        viewModel.onEvent(NewSessionEvent.NameChanged("Leg day"))
+        viewModel.onEvent(NewSessionEvent.NameEditCancelled)
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        assertNull(viewModel.uiState.value.nameDraft)
+        assertNull(sessions.storedSessions().single().name)
+    }
+
+    @Test
+    fun `a blank name leaves the session genuinely unnamed`() = runTest {
+        // The rule is `StartSessionUseCase`'s, applied once on the way in rather than here as
+        // well: a plan holding `" "` and a session holding `null` for the same input is exactly
+        // the drift `WorkoutSession.normalizeName` exists to prevent.
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+        viewModel.onEvent(NewSessionEvent.NameChanged("   "))
+        viewModel.onEvent(NewSessionEvent.NameConfirmed)
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        assertNull(sessions.storedSessions().single().name)
+    }
+
     // ─── Starting from a template ───────────────────────────────────────────────────────
 
     @Test

@@ -1,11 +1,22 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
+import com.opengym.core.domain.usecase.DiscardSessionUseCase
+import com.opengym.core.domain.usecase.FinishSessionUseCase
+import com.opengym.core.domain.usecase.LinkSupersetUseCase
+import com.opengym.core.domain.usecase.LogSetUseCase
+import com.opengym.core.domain.usecase.PauseSessionUseCase
+import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
+import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
+import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -65,5 +76,113 @@ object SessionUseCaseModule {
         startSession = startSession,
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
+    )
+
+    @Provides
+    fun providePauseSessionUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): PauseSessionUseCase = PauseSessionUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideResumeSessionUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): ResumeSessionUseCase = ResumeSessionUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideFinishSessionUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+        inProgressSessionRepository: InProgressSessionRepository,
+    ): FinishSessionUseCase = FinishSessionUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        inProgressSessionRepository = inProgressSessionRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideDiscardSessionUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+        inProgressSessionRepository: InProgressSessionRepository,
+    ): DiscardSessionUseCase = DiscardSessionUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        inProgressSessionRepository = inProgressSessionRepository,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    /*
+     * The six below take no lock, because none of them is a lifecycle transition: they edit
+     * what is *inside* a running session rather than moving it between states. See
+     * [LogSetUseCase] for why that is safe.
+     */
+
+    @Provides
+    fun provideAddSessionExercisesUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): AddSessionExercisesUseCase = AddSessionExercisesUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+    )
+
+    @Provides
+    fun provideRemoveSessionExerciseUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): RemoveSessionExerciseUseCase = RemoveSessionExerciseUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+    )
+
+    @Provides
+    fun provideLinkSupersetUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): LinkSupersetUseCase = LinkSupersetUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+    )
+
+    @Provides
+    fun provideUnlinkSupersetUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): UnlinkSupersetUseCase = UnlinkSupersetUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+    )
+
+    /** No state check either — a session logged last March is renamed the same way. */
+    @Provides
+    fun provideRenameSessionUseCase(
+        sessionRepository: SessionRepository,
+    ): RenameSessionUseCase = RenameSessionUseCase(sessionRepository)
+
+    @Provides
+    fun provideLogSetUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): LogSetUseCase = LogSetUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
     )
 }

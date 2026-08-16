@@ -39,13 +39,14 @@ class SessionExerciseMapper @Inject constructor() {
     )
 
     /**
-     * [drafts] as rows of [sessionId], numbered from position 0 in the order given and
-     * stamped with [createdAt].
+     * [drafts] as rows of [sessionId], in the order given and stamped with [createdAt].
      *
-     * The numbering is here rather than at the call site for the reason
-     * [SessionExerciseDraft] has no position field: `session_exercise` carries a unique
-     * `(session_id, position)` index, and a hand-numbered list is one reorder away from
-     * violating it.
+     * The positions written here are provisional and count from zero.
+     * `SessionExerciseDao.appendAll` replaces them with the free range at the end of the
+     * session's layout, inside the transaction that inserts them — reading the next free
+     * position and using it cannot be two steps, or two callers compute the same one and the
+     * second insert aborts on the unique `(session_id, position)` index. What this mapper is
+     * responsible for is the *order*, which is the part a caller supplies.
      *
      * `supersetGroup` travels as given. Its rules are the domain's
      * ([com.opengym.core.domain.superset.Supersets]), applied on the way in by

@@ -1,8 +1,10 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
+import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -16,9 +18,10 @@ class FinishSessionUseCaseTest {
     private val clock = MutableClock(now = 5_000L)
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
+    private val drafts = FakeInProgressSessionRepository()
     private val startSession = StartSessionUseCase(sessions, state, clock)
     private val pauseSession = PauseSessionUseCase(sessions, state, clock)
-    private val finishSession = FinishSessionUseCase(sessions, state, clock)
+    private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock)
 
     /** Starts a session with one exercise carrying [sets] completed sets, and returns its id. */
     private suspend fun startWithSets(sets: Int = 1): Long {
@@ -70,6 +73,29 @@ class FinishSessionUseCaseTest {
         assertEquals(65_000L, stored?.completedAt)
         assertEquals(65_000L, stored?.lastActiveAt)
         assertEquals(65_000L, stored?.updatedAt)
+    }
+
+    @Test
+    fun `finishing clears the in-progress draft`() = runTest {
+        // A draft outliving its session is what makes the next launch offer to resume a
+        // workout that is already over.
+        val sessionId = startWithSets()
+        drafts.save(ActiveSession(sessionId = sessionId, startedAt = 5_000L))
+
+        finishSession().getOrThrow()
+
+        assertNull(drafts.load())
+    }
+
+    @Test
+    fun `a refused finish leaves the draft alone`() = runTest {
+        startSession().getOrThrow()
+        val draft = ActiveSession(sessionId = 1L, startedAt = 5_000L)
+        drafts.save(draft)
+
+        assertTrue(finishSession().isFailure)
+
+        assertEquals(draft, drafts.load())
     }
 
     @Test

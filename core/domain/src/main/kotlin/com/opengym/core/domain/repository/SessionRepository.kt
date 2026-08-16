@@ -45,8 +45,8 @@ interface SessionRepository {
     suspend fun insert(session: WorkoutSession): Long
 
     /**
-     * Lays [exercises] out on [sessionId], numbered from position 0 in the order
-     * given, and returns the ids of the rows written in that same order.
+     * Adds [exercises] to the **end** of [sessionId]'s layout, in the order given, and
+     * returns the ids of the rows written in that same order.
      *
      * One call rather than an insert per exercise, and applied in a single
      * transaction: a session is laid out once, at the moment it starts, and a failure
@@ -58,6 +58,12 @@ interface SessionRepository {
      * index, and a caller that hand-numbers is one reorder away from violating it.
      * **The list must therefore be in the order the exercises will be performed**,
      * which is also the order the superset grouping is read in.
+     *
+     * Appending rather than laying out from zero is what lets an exercise be added to a
+     * session that is already running ([com.opengym.core.domain.usecase.AddSessionExercisesUseCase]).
+     * It is the same operation at the moment a session *starts*, since the session is
+     * empty then — which is why there is one write path here rather than two that would
+     * have to keep agreeing about how a position is chosen.
      *
      * An empty list writes nothing and returns nothing. A session with no exercises is
      * a legal, if unusual, starting point — the user adds them as they go — so it is
@@ -73,6 +79,55 @@ interface SessionRepository {
         exercises: List<SessionExerciseDraft>,
         createdAt: Long,
     ): List<Long>
+
+    /**
+     * Writes [set] against the `session_exercise` row it names, and returns the id of
+     * the row that now holds it.
+     *
+     * One set at a time, unlike [insertExercises], because that is how they arrive: a
+     * session is laid out once and then logged a set at a time over an hour, so there
+     * is no batch to write and nothing for a transaction to make atomic.
+     *
+     * **The bounds are not checked here.** `SetValidator` is a check a caller runs
+     * rather than a gate the write path forces it through — see PERSISTENCE.md — so
+     * anything reaching this must have run it first.
+     * [com.opengym.core.domain.usecase.LogSetUseCase] is the path that does, and is
+     * what a screen should be calling.
+     *
+     * @param set with `id = 0`, the value [WorkoutSet] defaults to: the row does not
+     *   exist yet, and the store assigns its id. `setNumber` is the caller's, unlike
+     *   an exercise's position, because `workout_set` is unique on
+     *   `(session_exercise_id, set_number)` and a set can legitimately be written
+     *   against an exercise that already has some — there is no list here for the
+     *   store to take an order from.
+     */
+    suspend fun insertSet(set: WorkoutSet): Long
+
+    /**
+     * Replaces one `session_exercise` row.
+     *
+     * Narrow on purpose: the only field anything currently edits is `supersetGroup`, which
+     * has to be repaired when a removal leaves a group with a single member. Reordering —
+     * which rewrites `position` across several rows at once — is #100's, and will want a
+     * transactional multi-row write rather than a loop over this.
+     */
+    suspend fun updateExercise(exercise: SessionExercise)
+
+    /**
+     * Removes one exercise from its session, and its sets with it — the schema cascades from
+     * `session_exercise` to `workout_set`.
+     *
+     * That cascade is why the caller checks first.
+     * [com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase] refuses an exercise that
+     * has anything logged against it, because silently deleting sets a user performed is the
+     * one outcome no confirmation makes acceptable; this method is the blunt instrument under
+     * that rule and enforces nothing itself.
+     *
+     * The surviving exercises keep their positions, so a removal leaves a gap. Nothing reads
+     * position as a dense index — everything that cares orders by it — and a renumbering write
+     * across every surviving row would be a second thing to get wrong for no reader's benefit.
+     */
+    suspend fun deleteExercise(sessionExerciseId: Long)
 
     suspend fun update(session: WorkoutSession)
     suspend fun delete(id: Long)

@@ -11,7 +11,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.opengym.app.HiltTestActivity
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -249,13 +251,18 @@ class OpenGymAppNavigationTest {
     fun `the bottom bar stays hidden for every step of the session flow`() {
         startAWorkout()
 
-        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
 
-        composeTestRule.onNodeWithText(FINISH).performClick()
+        logASet()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
 
         // The recap is the end of the flow rather than a step of it — it is pushed as the flow
-        // is popped — but it is still bar-less, because it is outside the tab scaffold.
+        // is popped — but it is still bar-less, because it is outside the tab scaffold. Waited
+        // for, because closing the session out is a write and the navigation follows it.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(DONE).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
     }
@@ -316,7 +323,11 @@ class OpenGymAppNavigationTest {
     @Test
     fun `finishing the session flow returns to the tab scaffold`() {
         startAWorkout()
-        composeTestRule.onNodeWithText(FINISH).performClick()
+        logASet()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
+        }
         composeTestRule.onNodeWithText(DONE).performClick()
 
         composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
@@ -352,29 +363,60 @@ class OpenGymAppNavigationTest {
     @Test
     fun `the back gesture does not abandon an active session`() {
         startAWorkout()
-        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
 
         pressBack()
 
         // Unguarded, this pops the last entry in the session graph and the graph with it,
         // dropping the user back on Home with the workout silently discarded.
-        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
         composeTestRule.onNodeWithText(HOME).assertDoesNotExist()
     }
 
     @Test
-    fun `the blocked back gesture on an active session says why`() {
+    fun `the back gesture on an active session asks which way out is meant`() {
         startAWorkout()
         // Not decoration: the guard belongs to the active-session entry and is only armed
         // once that entry is resumed, which is after the transition into it has finished.
         // Pressing back before this assertion presses it at the previous screen.
-        composeTestRule.onNodeWithText(ACTIVE_SESSION, substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
 
         pressBack()
 
-        // Swallowing the press is the guard; saying so is what keeps it from reading as a
-        // frozen app, since FINISH is the only other way out until #26.
-        composeTestRule.onNodeWithText(BACK_BLOCKED).assertIsDisplayed()
+        // Back means "I want out" and a workout has two ways out, so the gesture raises the
+        // question rather than doing nothing — a press that is silently swallowed is
+        // indistinguishable from a frozen app, and from inside the mode there is nowhere else
+        // to go.
+        composeTestRule.onNodeWithText(DISCARD_TITLE).assertIsDisplayed()
+    }
+
+    @Test
+    fun `keeping the workout after a back press leaves it running`() {
+        startAWorkout()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
+        pressBack()
+
+        composeTestRule.onNodeWithText(KEEP_TRAINING).performClick()
+
+        composeTestRule.onNodeWithText(DISCARD_TITLE).assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
+        composeTestRule.onNodeWithText(HOME).assertDoesNotExist()
+    }
+
+    @Test
+    fun `discarding a workout drops the flow without opening a recap`() {
+        startAWorkout()
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).assertIsDisplayed()
+        pressBack()
+
+        composeTestRule.onNodeWithText(DISCARD_CONFIRM).performClick()
+
+        // Nothing was logged, so there is nothing to recap — the flow is popped and the user
+        // lands back where they started it from, with the tab scaffold restored.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(HOME).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
     /**
@@ -401,9 +443,36 @@ class OpenGymAppNavigationTest {
         // Once more for the commit: the session and its exercises are two writes, and the
         // navigation into the workout follows the state they produce.
         composeTestRule.waitUntil {
-            composeTestRule.onAllNodesWithText(ACTIVE_SESSION, substring = true)
+            composeTestRule.onAllNodesWithContentDescription(ACTIVE_SESSION)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
+        }
+    }
+
+    /**
+     * Logs one set against whatever exercise the workout opened on.
+     *
+     * `FinishSessionUseCase` refuses a session with nothing in it, so a test that means to reach
+     * the recap has to actually log something — which is the contract working, not an obstacle
+     * to route around. The fields are waited for because the workout's own reads are Room
+     * queries on a background dispatcher, the same reason [startAWorkout] waits three times.
+     */
+    private fun logASet() {
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithContentDescription(FIRST_SET_WEIGHT)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        composeTestRule.onNodeWithContentDescription(FIRST_SET_WEIGHT).performTextReplacement("60")
+        composeTestRule.onNodeWithContentDescription(FIRST_SET_REPS).performTextReplacement("8")
+        composeTestRule.onNodeWithText(COMPLETE_FIRST_SET).performScrollTo().performClick()
+        // Waited for, and this is the part that matters: the tick writes a `workout_set` row and
+        // the screen reads it back through Room, so a finish tapped before that round trip lands
+        // is a finish over a session that still has nothing in it — which the use case refuses,
+        // correctly, leaving the test looking at a workout it thought it had ended. The button
+        // renumbering itself is the row having come back.
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText(COMPLETE_SECOND_SET).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -451,10 +520,16 @@ class OpenGymAppNavigationTest {
         const val PROGRESSION = "PROGRESSION"
         const val NEW_SESSION = "New session"
 
-        // Matched as a substring, without the id the screen puts after it: which id a new
-        // session gets depends on how many rows the fixtures above have already written, and
-        // a marker that encoded one would break the next time a test seeded anything.
-        const val ACTIVE_SESSION = "ACTIVE · SESSION"
+        /*
+         * The workout, by its header bar rather than by anything in its body.
+         *
+         * The bar is the `Scaffold`'s `topBar` and is drawn before the session's own reads come
+         * back, which matters here for the same reason the recap's marker is its chrome: this
+         * test runs against real Room queries on a real background dispatcher, and what a screen
+         * draws *while* they are outstanding is the only thing it can rely on. Whether the
+         * workout renders a session is `ActiveSessionScreenTest`'s question.
+         */
+        const val ACTIVE_SESSION = "Finish the session"
 
         /*
          * The recap, by the chrome each of its two modes draws.
@@ -490,7 +565,6 @@ class OpenGymAppNavigationTest {
         const val LOGGED_SESSION = "Logged session"
         const val LOGGED_AT = 1_777_377_600_000L
         const val LOGGED_DURATION_MILLIS = 3_120_000L
-        const val FINISH = "FINISH"
         const val DONE = "Done"
 
         // The new-session flow: the seeded template, and the commit that ends setup.
@@ -509,7 +583,16 @@ class OpenGymAppNavigationTest {
         const val BACK = "Back"
         const val LEAVE_SETUP = "Leave without starting"
 
-        // Messages. Asserted on the copy the user reads, since that is the whole point of it.
-        const val BACK_BLOCKED = "Finish the session to leave"
+        // The discard confirmation the back gesture raises, and the two ways out of it.
+        // Asserted on the copy the user reads, since that is the whole point of it.
+        // The entry row of the workout's first exercise, and the action that writes it.
+        const val FIRST_SET_WEIGHT = "Weight, set 1"
+        const val FIRST_SET_REPS = "Reps, set 1"
+        const val COMPLETE_FIRST_SET = "Complete set 1"
+        const val COMPLETE_SECOND_SET = "Complete set 2"
+
+        const val DISCARD_TITLE = "Discard this workout?"
+        const val DISCARD_CONFIRM = "Discard"
+        const val KEEP_TRAINING = "Keep training"
     }
 }

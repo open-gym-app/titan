@@ -53,6 +53,8 @@ fun OpenGymTheme(
         LocalOpenGymTypography provides OpenGymExtendedTypography,
         LocalOpenGymPlateColors provides
             if (dark) OpenGymDarkPlateColors else OpenGymLightPlateColors,
+        LocalOpenGymSessionChrome provides
+            if (dark) OpenGymDarkSessionChrome else OpenGymLightSessionChrome,
         LocalUnitSystem provides unitSystem,
     ) {
         MaterialTheme(
@@ -119,6 +121,12 @@ object OpenGymTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalOpenGymPlateColors.current
+
+    /** The dark bar the active workout runs under. See [OpenGymSessionChrome]. */
+    val sessionChrome: OpenGymSessionChrome
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOpenGymSessionChrome.current
 }
 
 /*
@@ -143,6 +151,13 @@ internal val LocalOpenGymTypography = staticCompositionLocalOf { OpenGymExtended
  * which is the same trade the two above make.
  */
 internal val LocalOpenGymPlateColors = staticCompositionLocalOf { OpenGymLightPlateColors }
+
+/*
+ * The workout's chrome, on the same terms as the plate ramp above: provided per scheme,
+ * static because the scheme cannot change without this composable recomposing, and defaulted
+ * to the light set so an unwrapped preview still draws the bar.
+ */
+internal val LocalOpenGymSessionChrome = staticCompositionLocalOf { OpenGymLightSessionChrome }
 
 /**
  * The units every number the user reads is rendered in.

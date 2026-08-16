@@ -17,4 +17,23 @@ data class WorkoutSession(
     val notes: String? = null,
     val createdAt: Long,
     val updatedAt: Long,
-)
+) {
+    companion object {
+
+        /**
+         * A name as typed, turned into a name as stored: trimmed, and blank collapsed to
+         * `null`.
+         *
+         * The whole design rests on `null` and `""` being different states — `null` is what
+         * the UI's date-derived fallback keys off — so a screen handing over an untouched
+         * field must not persist a session titled with nothing at all.
+         *
+         * Here rather than in the one use case that first needed it, because the name is set
+         * in three places now: before the session starts
+         * ([com.opengym.core.domain.usecase.StartSessionUseCase]), during it and after it
+         * ([com.opengym.core.domain.usecase.RenameSessionUseCase]). Three copies of one rule
+         * is how a session ends up named `" "` from whichever screen forgot.
+         */
+        fun normalizeName(raw: String?): String? = raw?.trim()?.takeIf(String::isNotEmpty)
+    }
+}

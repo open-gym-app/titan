@@ -1,6 +1,7 @@
 package com.opengym.feature.session.newsession
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -35,6 +36,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -52,6 +55,7 @@ import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.TemplateRow
 import com.opengym.core.ui.format.formatAsEstimate
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -164,6 +168,15 @@ fun NewSessionScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val step = state.step
+    state.nameDraft?.let { draft ->
+        SessionNameDialog(
+            name = draft,
+            onNameChange = { onEvent(NewSessionEvent.NameChanged(it)) },
+            onConfirm = { onEvent(NewSessionEvent.NameConfirmed) },
+            onDismiss = { onEvent(NewSessionEvent.NameEditCancelled) },
+        )
+    }
+
     val message = state.message?.let { stringResource(it.labelRes()) }
 
     LaunchedEffect(message) {
@@ -203,6 +216,7 @@ fun NewSessionScreen(
     ) { innerPadding ->
         when (step) {
             is NewSessionStep.ReadyToStart -> ReadyToStartList(
+                onRename = { onEvent(NewSessionEvent.NameEditRequested) },
                 step = step,
                 onRemove = { index -> onEvent(NewSessionEvent.ExerciseRemoved(index)) },
                 contentPadding = innerPadding,
@@ -381,6 +395,7 @@ private fun NoTemplates(onPickExercises: () -> Unit) {
 /** The review panel: the workout as it will be started. */
 @Composable
 private fun ReadyToStartList(
+    onRename: () -> Unit,
     step: NewSessionStep.ReadyToStart,
     onRemove: (index: Int) -> Unit,
     contentPadding: PaddingValues,
@@ -389,7 +404,7 @@ private fun ReadyToStartList(
         modifier = Modifier.fillMaxSize(),
         contentPadding = contentPadding,
     ) {
-        item { ReadyToStartHeader(step) }
+        item { ReadyToStartHeader(step = step, onRename = onRename) }
 
         itemsIndexed(step.exercises) { index, row ->
             if (index > 0) HairlineDivider()
@@ -430,7 +445,7 @@ private fun ReadyToStartList(
 
 /** What the session will be called, and what it costs. */
 @Composable
-private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart) {
+private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart, onRename: () -> Unit) {
     val count = pluralStringResource(
         R.plurals.new_session_exercise_count,
         step.exercises.size,
@@ -448,12 +463,18 @@ private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart) {
             text = stringResource(R.string.new_session_ready),
             color = MaterialTheme.colorScheme.primary,
         )
+        val rename = stringResource(R.string.new_session_rename)
         Text(
-            // A session built by hand is genuinely unnamed until the user names it in the
-            // workout (#26), so this is a placeholder for a null and not a name being set.
+            // A session built by hand starts out genuinely unnamed, so this is a placeholder
+            // for a null rather than a name being set. Tapping it is where the name comes from
+            // — the earliest of the three moments a session can be titled, the other two being
+            // the workout's own header and the recap.
             text = step.name ?: stringResource(R.string.new_session_unnamed),
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier
+                .clickable(onClick = onRename)
+                .semantics { onClick(label = rename, action = null) },
         )
         Text(
             text = when (val estimate = step.estimatedDuration) {

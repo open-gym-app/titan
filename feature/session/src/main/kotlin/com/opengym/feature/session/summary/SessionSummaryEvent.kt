@@ -45,6 +45,18 @@ sealed interface SessionSummaryEvent {
     /** The dialog was confirmed. This is the one that writes. */
     data object SaveAsTemplateConfirmed : SessionSummaryEvent
 
+    /** Open the rename dialog on whatever the session is called now. */
+    data object NameEditRequested : SessionSummaryEvent
+
+    /** The rename field changed. */
+    data class NameChanged(val text: String) : SessionSummaryEvent
+
+    /** Close the rename dialog without writing. */
+    data object NameEditCancelled : SessionSummaryEvent
+
+    /** Write the name as typed. Blank clears it, which is the only way back to unnamed. */
+    data object NameConfirmed : SessionSummaryEvent
+
     /** The snackbar has been shown, so the message can be forgotten. */
     data object MessageShown : SessionSummaryEvent
 }

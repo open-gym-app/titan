@@ -1,0 +1,227 @@
+package com.opengym.feature.session.active
+
+import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionExerciseDraft
+import com.opengym.core.domain.model.SessionTotals
+import com.opengym.core.domain.model.WorkoutSession
+import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.SessionRepository
+import com.opengym.core.domain.time.Clock
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+
+/**
+ * The stores the active session reads and writes, in memory.
+ *
+ * Hand-written rather than mocked for the reason the domain's own doubles give: this screen is
+ * a sequence of writes over one session, and asserting on what the store ends up holding is
+ * both shorter and stricter than stubbing each read in turn. It also means the set the screen
+ * logs comes back out of the *read* flow, which is what the "stats update immediately" criterion
+ * actually asks for — a stubbed read would pass while the two disagreed.
+ */
+class FakeActiveSessionStore(
+    session: WorkoutSession? = null,
+    exercises: List<SessionExercise> = emptyList(),
+    sets: List<WorkoutSet> = emptyList(),
+) : SessionRepository {
+
+    private val session = MutableStateFlow(session)
+    private val exercises = MutableStateFlow(exercises)
+    private val sets = MutableStateFlow(sets)
+    private var nextSetId = (sets.maxOfOrNull(WorkoutSet::id) ?: 0L) + 1
+    private var nextExerciseId = (exercises.maxOfOrNull(SessionExercise::id) ?: 0L) + 1
+
+    /** Every set written through [insertSet], oldest first. */
+    val logged = mutableListOf<WorkoutSet>()
+
+    /** Thrown by [insertSet] instead of storing, when set. */
+    var insertFailure: Throwable? = null
+
+    override fun getById(id: Long): Flow<WorkoutSession?> = session.map { it?.takeIf { s -> s.id == id } }
+
+    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
+        exercises.map { rows -> rows.filter { it.sessionId == sessionId } }
+
+    override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> =
+        sets.map { rows -> rows.filter { it.sessionExerciseId == sessionExerciseId } }
+
+    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
+        combine(exercises, sets) { exerciseRows, setRows ->
+            val ids = exerciseRows.filter { it.sessionId == sessionId }.mapTo(HashSet()) { it.id }
+            setRows.filter { it.sessionExerciseId in ids }
+        }
+
+    override suspend fun insertSet(set: WorkoutSet): Long {
+        insertFailure?.let { throw it }
+        val stored = set.copy(id = nextSetId++)
+        sets.value += stored
+        logged += stored
+        return stored.id
+    }
+
+    override suspend fun updateExercise(exercise: SessionExercise) {
+        exercises.value = exercises.value.map { if (it.id == exercise.id) exercise else it }
+    }
+
+    override suspend fun deleteExercise(sessionExerciseId: Long) {
+        exercises.value = exercises.value.filterNot { it.id == sessionExerciseId }
+        sets.value = sets.value.filterNot { it.sessionExerciseId == sessionExerciseId }
+    }
+
+    override suspend fun update(session: WorkoutSession) {
+        this.session.value = session
+    }
+
+    override suspend fun delete(id: Long) {
+        val orphaned = exercises.value.filter { it.sessionId == id }.mapTo(HashSet()) { it.id }
+        session.value = session.value?.takeIf { it.id != id }
+        exercises.value = exercises.value.filterNot { it.sessionId == id }
+        sets.value = sets.value.filterNot { it.sessionExerciseId in orphaned }
+    }
+
+    override fun getAll(): Flow<List<WorkoutSession>> = session.map { listOfNotNull(it) }
+
+    override fun getActive(): Flow<WorkoutSession?> = session.map { it?.takeIf(WorkoutSession::isInProgress) }
+
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> = unsupported()
+
+    override suspend fun insert(session: WorkoutSession): Long = unsupported()
+
+    /**
+     * Appends past the highest position in use, matching `SessionExerciseDao.appendAll`.
+     *
+     * Past the *highest* rather than the count, because a removal leaves a gap and numbering
+     * from the count would land on a row that is still there — the exact collision the real
+     * unique index would abort on, and one a fake that counted would hide.
+     */
+    override suspend fun insertExercises(
+        sessionId: Long,
+        exercises: List<SessionExerciseDraft>,
+        createdAt: Long,
+    ): List<Long> {
+        val start = (this.exercises.value.maxOfOrNull(SessionExercise::position) ?: -1) + 1
+        val stored = exercises.mapIndexed { index, draft ->
+            SessionExercise(
+                id = nextExerciseId++,
+                sessionId = sessionId,
+                exerciseId = draft.exerciseId,
+                position = start + index,
+                supersetGroup = draft.supersetGroup,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+            )
+        }
+        this.exercises.value += stored
+        return stored.map(SessionExercise::id)
+    }
+
+    private fun unsupported(): Nothing =
+        throw UnsupportedOperationException("the active session does not lay a workout out")
+}
+
+/**
+ * The in-progress draft, held as the object rather than as its encoded document.
+ *
+ * `:core:domain`'s own fake stores the JSON, so that every test using it exercises
+ * `ActiveSessionFormat` for free. That is the right trade there and the wrong one here: what
+ * these tests assert is *when* the screen saves and what it saved, and a round trip through a
+ * serializer between the two would put a second thing in the failure message.
+ */
+class FakeDraftStore(initial: ActiveSession? = null) : InProgressSessionRepository {
+
+    private var draft: ActiveSession? = initial
+
+    /** Every draft written, oldest first, so a test can assert on when a save happened. */
+    val saves = mutableListOf<ActiveSession>()
+
+    var clearCount = 0
+        private set
+
+    /** Thrown by [save] instead of storing, when set. */
+    var saveFailure: Throwable? = null
+
+    override suspend fun save(session: ActiveSession) {
+        saveFailure?.let { throw it }
+        draft = session
+        saves += session
+    }
+
+    override suspend fun load(): ActiveSession? = draft
+
+    override suspend fun clear() {
+        clearCount++
+        draft = null
+    }
+
+    /** The stored draft, read directly for assertions. */
+    val stored: ActiveSession? get() = draft
+}
+
+/** A clock whose reading only changes when a test says so. */
+class FixedClock(var now: Long = STARTED_AT) : Clock {
+    override fun nowMillis(): Long = now
+
+    fun advance(millis: Long): Long {
+        now += millis
+        return now
+    }
+}
+
+// ─── Fixtures ───────────────────────────────────────────────────────────────────────────
+
+const val ACTIVE_SESSION_ID = 7L
+const val STARTED_AT = 1_700_000_000_000L
+
+val BENCH = Exercise(id = 1L, name = "Bench press")
+val INCLINE = Exercise(id = 2L, name = "Incline dumbbell press")
+val FLY = Exercise(id = 3L, name = "Cable fly")
+val PUSHDOWN = Exercise(id = 4L, name = "Tricep pushdown")
+
+/** The session row as it stands mid-workout: in progress, with no `completedAt`. */
+fun runningSession(name: String? = "Push day · Upper") = WorkoutSession(
+    id = ACTIVE_SESSION_ID,
+    name = name,
+    completedAt = null,
+    isInProgress = true,
+    lastActiveAt = STARTED_AT,
+    createdAt = STARTED_AT,
+    updatedAt = STARTED_AT,
+)
+
+fun activeExercise(
+    id: Long,
+    exerciseId: Long,
+    position: Int,
+    supersetGroup: Int? = null,
+) = SessionExercise(
+    id = id,
+    sessionId = ACTIVE_SESSION_ID,
+    exerciseId = exerciseId,
+    position = position,
+    supersetGroup = supersetGroup,
+    createdAt = STARTED_AT,
+    updatedAt = STARTED_AT,
+)
+
+fun loggedSet(
+    id: Long,
+    sessionExerciseId: Long,
+    setNumber: Int,
+    reps: Int? = 8,
+    weight: Long? = 60_000_000L,
+) = WorkoutSet(
+    id = id,
+    sessionExerciseId = sessionExerciseId,
+    setNumber = setNumber,
+    reps = reps,
+    weight = weight,
+    isCompleted = true,
+    completedAt = STARTED_AT,
+    createdAt = STARTED_AT,
+    updatedAt = STARTED_AT,
+)

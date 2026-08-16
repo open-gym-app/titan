@@ -1,6 +1,7 @@
 package com.opengym.feature.session.summary
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -33,6 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -43,6 +46,7 @@ import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.NotesCard
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionStatGrid
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatSessionDate
@@ -115,6 +119,16 @@ fun SessionSummaryScreen(
             snackbarHostState.showSnackbar(message)
             onEvent(SessionSummaryEvent.MessageShown)
         }
+    }
+
+    state.nameDraft?.let { draft ->
+        SessionNameDialog(
+            name = draft,
+            onNameChange = { onEvent(SessionSummaryEvent.NameChanged(it)) },
+            onConfirm = { onEvent(SessionSummaryEvent.NameConfirmed) },
+            onDismiss = { onEvent(SessionSummaryEvent.NameEditCancelled) },
+            isSaving = state.isSavingName,
+        )
     }
 
     Scaffold(
@@ -222,7 +236,12 @@ private fun SummaryContent(
         contentPadding = contentPadding,
     ) {
         item(key = SECTION_HEADER) {
-            SummaryHeaderBlock(mode = state.mode, header = header, durationSeconds = stats.durationSeconds)
+            SummaryHeaderBlock(
+                mode = state.mode,
+                header = header,
+                durationSeconds = stats.durationSeconds,
+                onRename = { onEvent(SessionSummaryEvent.NameEditRequested) },
+            )
         }
 
         item(key = SECTION_STATS) {
@@ -337,6 +356,7 @@ private fun SummarySection(content: @Composable ColumnScope.() -> Unit) {
  */
 @Composable
 private fun SummaryHeaderBlock(
+    onRename: () -> Unit,
     mode: SessionSummaryMode,
     header: SummaryHeader,
     durationSeconds: Long,
@@ -379,6 +399,7 @@ private fun SummaryHeaderBlock(
                 MaterialTheme.colorScheme.primary
             },
         )
+        val rename = stringResource(R.string.summary_rename)
         Text(
             // A session built by hand and never named is genuinely unnamed; the line under it
             // is what identifies it, so this stands in rather than inventing a title.
@@ -388,6 +409,12 @@ private fun SummaryHeaderBlock(
             textAlign = TextAlign.Center,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            // The title is the affordance, in both modes: a workout is often named after it is
+            // over — the recap is where a user finds out what it turned into — and a session
+            // logged months ago is as renameable as the one that just ended.
+            modifier = Modifier
+                .clickable(onClick = onRename)
+                .semantics { onClick(label = rename, action = null) },
         )
         Text(
             text = formatSessionDate(header.startedAt),
@@ -526,6 +553,7 @@ private fun MissingSession(contentPadding: PaddingValues) {
 
 /** The sentence a message is shown as. */
 private fun SessionSummaryMessage.labelRes(): Int = when (this) {
+    SessionSummaryMessage.NAME_SAVE_FAILED -> R.string.summary_error_rename
     SessionSummaryMessage.NOTES_SAVE_FAILED -> R.string.summary_error_notes
     SessionSummaryMessage.TEMPLATE_SAVED -> R.string.summary_template_saved
     SessionSummaryMessage.TEMPLATE_NAME_TAKEN -> R.string.summary_error_template_taken

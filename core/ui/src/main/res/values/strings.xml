@@ -51,6 +51,46 @@
     <string name="set_log_weight_and_reps">%1$s × %2$d</string>
     <string name="set_log_reps_only">%1$d reps</string>
 
+    <!-- The RPE scale, as a picker rather than a field — see RpeSelector. The cells draw the
+         rating alone; this is what a screen reader says of one, since "8.5" on its own names
+         no quantity. -->
+    <string name="rpe_value">Rate of perceived exertion %1$s</string>
+    <!-- Under the scale. The two anchors are what make the numbers mean anything to somebody
+         meeting them for the first time; the rest of the scale interpolates. -->
+    <string name="rpe_scale_hint">10 is nothing left in the tank, 8 is two more reps.</string>
+
+    <!-- ── The active session's header ────────────────────────────────────────────── -->
+
+    <!-- The running clock, said rather than spelled: read as text it is digits with no noun
+         near them. -->
+    <string name="session_elapsed">Elapsed %1$s</string>
+    <string name="session_elapsed_paused">Paused at %1$s</string>
+    <!-- The progress rail, which is drawn as one sliver per exercise and announced as one
+         sentence — see SessionProgressRail. -->
+    <string name="session_progress">%1$d of %2$d exercises done</string>
+    <string name="session_header_pause">Pause the session</string>
+    <string name="session_header_resume">Resume the session</string>
+    <string name="session_header_discard">Discard the session</string>
+    <string name="session_header_finish">Finish the session</string>
+    <!-- Drawn on the button. Short because the bar holds three controls and a clock. -->
+    <string name="session_header_finish_label">End</string>
+    <!-- The header's name doubles as the way to change it. -->
+    <string name="session_header_rename">Rename this workout</string>
+
+    <!-- ── Naming a session ──────────────────────────────────────────────────────── -->
+
+    <!-- One dialog, used before a session starts, during it and afterwards. -->
+    <string name="session_name_title">Name this workout</string>
+    <!-- The field has no drawn label — the dialog's title is what names it — so this is what
+         a screen reader reads for it. -->
+    <string name="session_name_label">Session name</string>
+    <string name="session_name_placeholder">Push day · Upper</string>
+    <!-- Says that clearing the field is a real answer, since the confirm button stays live
+         on an empty one and would otherwise look broken. -->
+    <string name="session_name_hint">Leave it empty to go by the date instead.</string>
+    <string name="session_name_confirm">Save</string>
+    <string name="session_name_cancel">Cancel</string>
+
     <!-- ── Exercises ──────────────────────────────────────────────────────────────── -->
 
     <string name="exercise_last_performed">Last %1$s</string>

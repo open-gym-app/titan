@@ -39,8 +39,11 @@ import com.opengym.core.ui.component.MetaGrid
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.component.SessionHeaderBar
+import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatWeight
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /*
@@ -119,6 +122,36 @@ fun PlateCatalog(modifier: Modifier = Modifier) {
                     PlateCount(weight = 2_500_000, count = 1),
                 ),
                 denominations = PlateInventory.METRIC.stock.map { it.weight },
+            )
+        }
+    }
+}
+
+/**
+ * The workout's own chrome, which is the one token set that does *not* invert with the scheme.
+ *
+ * Drawn as the header it exists for rather than as swatches, for the same reason the plate ramp
+ * is drawn as a loaded bar: the question these tokens answer is whether the bar still reads as a
+ * distinct dark band against the page behind it, and a column of rectangles cannot show that.
+ * The two previews look nearly alike on purpose — see [OpenGymSessionChrome].
+ */
+@Composable
+fun SessionChromeCatalog(modifier: Modifier = Modifier) {
+    CatalogSheet(modifier) {
+        CatalogSection("COLOUR · SESSION CHROME") {
+            val chrome = OpenGymTheme.sessionChrome
+            ColorSpecimen("chrome · surface", chrome.surface, chrome.onSurface)
+            ColorSpecimen("chrome · surface / variant", chrome.surface, chrome.onSurfaceVariant)
+            ColorSpecimen("chrome · fill", chrome.fill, chrome.onSurface)
+            ColorSpecimen("chrome · accent", chrome.accent, chrome.onAccent)
+            ColorSpecimen("chrome · track", chrome.track, chrome.onSurface)
+        }
+        CatalogSection("SESSION HEADER") {
+            SessionHeaderBar(
+                name = "Push day · Upper",
+                elapsed = 23.minutes + 14.seconds,
+                progress = SessionProgress(completed = 3, total = 8),
+                onDiscard = {},
             )
         }
     }
@@ -414,6 +447,18 @@ fun ComponentCatalogLightPreview() {
 @Composable
 fun ComponentCatalogDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { ComponentCatalog() }
+}
+
+@Preview(name = "Catalog - session chrome - light", widthDp = 360)
+@Composable
+fun SessionChromeCatalogLightPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) { SessionChromeCatalog() }
+}
+
+@Preview(name = "Catalog - session chrome - dark", widthDp = 360)
+@Composable
+fun SessionChromeCatalogDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) { SessionChromeCatalog() }
 }
 
 @Preview(name = "Catalog - plates - light", widthDp = 360)

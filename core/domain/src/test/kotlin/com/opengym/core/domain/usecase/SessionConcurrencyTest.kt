@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -21,9 +22,10 @@ class SessionConcurrencyTest {
     private val clock = MutableClock(now = 5_000L)
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
+    private val drafts = FakeInProgressSessionRepository()
     private val lock = SessionLifecycleLock()
     private val startSession = StartSessionUseCase(sessions, state, clock, lock)
-    private val finishSession = FinishSessionUseCase(sessions, state, clock, lock)
+    private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock, lock)
 
     @Test
     fun `a second start cannot slip in between the first one's check and insert`() = runTest {

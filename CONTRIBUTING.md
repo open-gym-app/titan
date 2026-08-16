@@ -128,7 +128,14 @@ Text(
   Material type roles. There is no wrapper for them; a second way to reach the same value
   is a second thing to keep in step.
 - **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, the
-  `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, and `plateColors`.
+  `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, `plateColors` and
+  `sessionChrome`.
+
+  `sessionChrome` is the one token set that does **not** invert with the scheme: the active
+  workout runs under a solid near-black bar in light *and* dark, because a workout is a mode —
+  the bottom bar is hidden and the back gesture does not simply leave — and a header built from
+  Material's `inverse*` slots would be near-white half the time. See `theme/OpenGymSessionChrome.kt`;
+  every pair in it is held to WCAG AA by the same test that holds the two schemes.
 
   `plateColors` is an *ordinal* ramp — the heaviest size on the user's rack is the accent and
   each lighter one steps down through the neutrals — rather than the competition colour code,
@@ -147,6 +154,11 @@ Text(
   | Component | Draws | Takes |
   | --- | --- | --- |
   | `SetLogRow` | the weight/reps/RPE entry row, with set type, tick and inline validation | text for the fields, because a half-typed number is not a number |
+  | `RpeSelector` | the 6–10 scale in halves, as nine buttons rather than a field | the stored rating (× 10), or null |
+  | `SetTypeSelector` | working / warm-up / drop / failure / interval, as one row of chips | a `SetType` |
+  | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END | a name, an elapsed `Duration`, a `SessionProgress` |
+  | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
+  | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
   | `LoggedSetRow` | a set that has already been written, formatted | `WorkoutSet` or `ActiveSet` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
@@ -173,6 +185,11 @@ Text(
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up
   disagreeing about what a warm-up looks like.
+- **`supersetLabels` turns a grouping into `A1`/`A2`/`B1`,** and lives in `:core:ui` for the same
+  reason the enum labels below do: `Supersets` in `:core:domain` decides what a group *is*, and
+  what it is *called* is presentation. Three screens draw the same marker over the same grouping
+  — the review panel before a workout, the workout itself, and template authoring — so a second
+  implementation is how two of them end up disagreeing about what the third exercise is called.
 - **Domain enums are labelled once, in `:core:ui`**, because `:core:domain` is a plain Kotlin
   library that has no business knowing what a string resource is, and because more than one
   feature renders each of them. Two files, split by subject:

@@ -118,6 +118,49 @@ class ColorSchemeContrastTest {
     }
 
     @Test
+    fun `the workout's chrome reads on its own bar, in both schemes`() {
+        // The header is the one surface that is not part of either colour scheme — it stays
+        // dark in both — so `assertMeetsMinimum` cannot reach it. Everything written on it is
+        // still text on a background, and holds to the same 4.5:1.
+        //
+        // `fill` is absent as a background-vs-bar pair on purpose: it is the ground of the
+        // pause button, whose glyph is `onSurface` and carries the contrast on its own. A
+        // filled control does not owe 3:1 against the surface behind it when what identifies
+        // it is drawn at full strength inside it.
+        listOf("light" to OpenGymLightSessionChrome, "dark" to OpenGymDarkSessionChrome)
+            .forEach { (name, chrome) ->
+                val pairs = listOf(
+                    Triple("onSurface", chrome.onSurface, chrome.surface),
+                    Triple("onSurfaceVariant", chrome.onSurfaceVariant, chrome.surface),
+                    Triple("accent", chrome.accent, chrome.surface),
+                    Triple("onAccent", chrome.onAccent, chrome.accent),
+                    // The pause button's glyph, on the button rather than on the bar.
+                    Triple("onSurface on fill", chrome.onSurface, chrome.fill),
+                )
+                val failures = pairs.mapNotNull { (label, foreground, background) ->
+                    val ratio = contrast(foreground, background)
+                    "%s = %.2f:1 (needs %.1f:1)".format(label, ratio, TEXT).takeIf { ratio < TEXT }
+                }
+                assertTrue(
+                    "$name session chrome fails WCAG AA:\n" + failures.joinToString("\n"),
+                    failures.isEmpty(),
+                )
+            }
+    }
+
+    @Test
+    fun `the progress rail's two states are told apart`() {
+        // The rail encodes one thing — how much of the workout is behind you — and it encodes
+        // it entirely in the difference between these two colours. 3:1 rather than 1.3:1 as
+        // the plate ramp uses: these are 3dp slivers rather than big filled shapes.
+        listOf("light" to OpenGymLightSessionChrome, "dark" to OpenGymDarkSessionChrome)
+            .forEach { (name, chrome) ->
+                val ratio = contrast(chrome.accent, chrome.track)
+                assertTrue("$name rail is only %.2f:1 apart".format(ratio), ratio >= CONTROL)
+            }
+    }
+
+    @Test
     fun `negative - the checker rejects a pair that does not meet AA`() {
         // Mid-grey on white is 3.45:1. If this ever passes, the assertions above prove
         // nothing, so the guard is worth more than the case it covers.

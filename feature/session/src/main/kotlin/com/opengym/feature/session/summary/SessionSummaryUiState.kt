@@ -45,6 +45,9 @@ import com.opengym.core.ui.component.MuscleContribution
  * @param templateName what is in the "save as template" dialog's name field, or **null** when
  *   the dialog is closed. Same shape as [notesDraft] and for the same reason.
  * @param isSavingTemplate the template write is in flight.
+ * @param nameDraft what is in the rename field, or **null** when the dialog is closed. Same
+ *   shape as [notesDraft], and for the same reason.
+ * @param isSavingName a rename write is in flight.
  * @param isLoading the reads have not come back yet.
  * @param message a one-shot outcome to show and forget.
  */
@@ -63,6 +66,8 @@ data class SessionSummaryUiState(
     val isSavingNotes: Boolean = false,
     val templateName: String? = null,
     val isSavingTemplate: Boolean = false,
+    val nameDraft: String? = null,
+    val isSavingName: Boolean = false,
     val isLoading: Boolean = true,
     val message: SessionSummaryMessage? = null,
 ) {
@@ -206,6 +211,9 @@ enum class SessionSummaryMessage {
 
     /** A note could not be written. The field stays open with the text still in it. */
     NOTES_SAVE_FAILED,
+
+    /** The name could not be written. The dialog stays open with the text still in it. */
+    NAME_SAVE_FAILED,
 
     /** The template was written. Said, because what it produced is not on this screen. */
     TEMPLATE_SAVED,

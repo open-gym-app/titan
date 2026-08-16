@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import com.opengym.core.domain.usecase.RenameSessionUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -443,6 +444,65 @@ class SessionSummaryViewModelTest {
         assertTrue(state.isMissing)
     }
 
+    // ─── Naming ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the rename dialog opens on the name the session already has`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+
+        assertEquals("Push Day · Upper", viewModel.uiState.value.nameDraft)
+    }
+
+    @Test
+    fun `renaming writes the name and closes the dialog`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+
+        assertEquals("Leg day", viewModel.uiState.value.header?.name)
+        assertNull(viewModel.uiState.value.nameDraft)
+    }
+
+    @Test
+    fun `clearing the field takes the session back to unnamed`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+        viewModel.onEvent(SessionSummaryEvent.NameChanged("  "))
+        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+
+        assertNull(viewModel.uiState.value.header?.name)
+    }
+
+    @Test
+    fun `a session logged months ago is renamed the same way as the one just finished`() = runTest {
+        // No state check anywhere in this path: the recap is one screen with two modes, and what
+        // the user can still do to a workout does not expire.
+        val viewModel = viewModel(historical = true)
+
+        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+
+        assertEquals("Leg day", viewModel.uiState.value.header?.name)
+    }
+
+    @Test
+    fun `cancelling the dialog leaves the name alone`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+        viewModel.onEvent(SessionSummaryEvent.NameEditCancelled)
+
+        assertNull(viewModel.uiState.value.nameDraft)
+        assertEquals("Push Day · Upper", viewModel.uiState.value.header?.name)
+    }
+
     /**
      * The ViewModel for one session, with its state already flowing.
      *
@@ -467,6 +527,7 @@ class SessionSummaryViewModelTest {
             exerciseRepository = catalogue,
             personalRecordRepository = FakeRecordStore(records),
             createTemplate = CreateTemplateUseCase(templates),
+            renameSession = RenameSessionUseCase(store),
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }

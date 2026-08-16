@@ -175,6 +175,60 @@ object Supersets {
     }
 
     /**
+     * [grouping] with the exercises at [index] and `index + 1` performed back to back.
+     *
+     * The pairwise form of [form], and the one a screen without a reorder can actually
+     * offer: the only thing a user can ask for that is guaranteed to stay contiguous is
+     * "join these two neighbours". Whatever either side already belongs to comes with
+     * it — joining the last member of `A` to the exercise after it *extends* `A` rather
+     * than tearing a member out of it, and joining two existing groups merges them —
+     * which is what makes a three-exercise superset reachable by tapping twice.
+     *
+     * Refused when [index] or its successor is outside [grouping]: the exercise at the
+     * end of a session has nothing to be joined to, and a screen that draws no control
+     * there never asks. The other refusals are [form]'s.
+     */
+    fun join(grouping: List<Int?>, index: Int): Result<List<Int?>> {
+        if (index !in grouping.indices || index + 1 !in grouping.indices) {
+            return failure("nothing to join at position $index of ${grouping.size} exercises")
+        }
+        return form(grouping, membersAt(grouping, index) + membersAt(grouping, index + 1))
+    }
+
+    /**
+     * [grouping] with the exercise at [index] no longer performed back to back with the
+     * one after it, normalised.
+     *
+     * Breaks *one link* rather than dissolving the whole group, which is what a control
+     * sitting between two exercises means: splitting `A = [0, 1, 2]` after position 1
+     * leaves `[0, 1]` a superset and `2` standing alone. Everything from the break
+     * onwards keeps being one group, so a split of a three-member group cannot leave
+     * two orphans; a tail of one dissolves in [normalize] like any other.
+     *
+     * Total, unlike [join]: a link that is not there is nothing to refuse, so an
+     * exercise that stands alone, the last exercise of a session and an index past the
+     * end all answer with the grouping normalised and otherwise unchanged.
+     */
+    fun split(grouping: List<Int?>, index: Int): List<Int?> {
+        val group = grouping.getOrNull(index)
+        if (group == null || grouping.getOrNull(index + 1) != group) return normalize(grouping)
+
+        val fresh = (grouping.filterNotNull().maxOrNull() ?: -1) + 1
+        return normalize(
+            grouping.mapIndexed { at, member -> if (at > index && member == group) fresh else member },
+        )
+    }
+
+    /**
+     * The whole group the exercise at [index] belongs to, or just itself when it stands
+     * alone — the set [join] has to preserve to be an extension rather than a theft.
+     */
+    private fun membersAt(grouping: List<Int?>, index: Int): Set<Int> {
+        val group = grouping[index] ?: return setOf(index)
+        return groups(grouping)[group]?.toSet() ?: setOf(index)
+    }
+
+    /**
      * Whether a rest belongs after the exercise at [index] of [grouping].
      *
      * True for an exercise that stands alone and for the last member of a superset;

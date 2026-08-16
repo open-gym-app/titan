@@ -1,20 +1,17 @@
 package com.opengym.feature.session.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.res.stringResource
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
-import androidx.navigation.toRoute
-import com.opengym.feature.session.ActiveSessionScreen
-import com.opengym.feature.session.R
+import com.opengym.feature.session.active.ActiveSessionEvent
+import com.opengym.feature.session.active.ActiveSessionRoute
+import com.opengym.feature.session.active.ActiveSessionViewModel
 import com.opengym.feature.session.newsession.NewSessionRoute
 import com.opengym.feature.session.summary.SessionSummaryRoute
-import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
 /**
@@ -106,15 +103,22 @@ data class ExercisePicker(
  *
  * @param onCancelSetup the user backed out before the session began.
  * @param exercisePicker the picker, as this flow is allowed to see it — see [ExercisePicker].
+ *   Reached from **two** destinations now: setup opens it to build a plan, and the workout opens
+ *   it to add to one. Only one of the two is ever on the back stack — setup is popped inclusive
+ *   on the way into the workout — so there is no question of both reading the same answer.
  * @param onSessionStarted setup finished; the id is the session that was created.
  * @param onSessionFinished the workout ended and should be recapped. The recap is not in this
  *   graph — see [SessionSummaryDestination] — so this both leaves the flow and opens it.
+ * @param onSessionDiscarded the workout was thrown away. A separate exit from
+ *   [onSessionFinished] rather than the same one with a null id: there is no recap of a session
+ *   that no longer exists, so the two land in different places and only `:app` knows where.
  */
 fun NavGraphBuilder.sessionGraph(
     onCancelSetup: () -> Unit,
     exercisePicker: ExercisePicker,
     onSessionStarted: (sessionId: Long) -> Unit,
     onSessionFinished: (sessionId: Long) -> Unit,
+    onSessionDiscarded: () -> Unit,
 ) {
     navigation<SessionGraphDestination>(startDestination = NewSessionDestination) {
         composable<NewSessionDestination> {
@@ -129,46 +133,37 @@ fun NavGraphBuilder.sessionGraph(
                 onPickedExercisesHandled = exercisePicker.onSelectionHandled,
             )
         }
-        composable<ActiveSessionDestination> { entry ->
-            val destination: ActiveSessionDestination = entry.toRoute()
-
+        composable<ActiveSessionDestination> {
             val snackbarHostState = remember { SnackbarHostState() }
-            val scope = rememberCoroutineScope()
-            val blockedMessage = stringResource(R.string.session_back_blocked)
+            val viewModel: ActiveSessionViewModel = hiltViewModel()
 
             // Hiding the bottom bar makes the workout a mode; this is what makes it one.
-            // Setup was popped inclusive on the way in, so this is the only entry left
-            // inside the graph — an unguarded back gesture pops the graph itself and
-            // abandons the session on its way past, silently, which is the loss the mode
-            // exists to prevent. Swallowing it is the whole guard for now; #26 replaces this
-            // with the discard confirmation, once there are logged sets worth confirming the
-            // loss of. FINISH is the way out until then.
+            // Setup was popped inclusive on the way in, so this is the only entry left inside
+            // the graph — an unguarded back gesture pops the graph itself and abandons the
+            // session on its way past, silently, which is the loss the mode exists to prevent.
             //
-            // Swallowed, but not in silence: a back press that does nothing three times in a
-            // row is indistinguishable from a frozen app, and from here the user cannot even
-            // background it. The snackbar costs nothing and names the way out. It goes with
-            // the guard when #26 replaces both.
+            // It is not swallowed, though. Back means "I want out", and the workout has two
+            // ways out; the gesture raises the question of which, rather than doing nothing
+            // and leaving the user to find END. The dialog's own dismissal is what a second
+            // back press then lands on, so the gesture never becomes inert.
             //
-            // Here rather than inside [ActiveSessionScreen] because it is a property of the
+            // Here rather than inside `ActiveSessionScreen` because it is a property of the
             // destination, not of the screen: `BackHandler` needs an
             // `OnBackPressedDispatcherOwner`, which a `@Preview` does not provide.
             BackHandler {
-                scope.launch {
-                    // Dismiss first: `showSnackbar` suspends until the current one goes away,
-                    // so without this an impatient triple-press queues three and the hint
-                    // outlives the presses by seconds.
-                    snackbarHostState.currentSnackbarData?.dismiss()
-                    snackbarHostState.showSnackbar(
-                        message = blockedMessage,
-                        duration = SnackbarDuration.Short,
-                    )
-                }
+                viewModel.onEvent(ActiveSessionEvent.DiscardRequested)
             }
 
-            ActiveSessionScreen(
-                sessionId = destination.sessionId,
+            ActiveSessionRoute(
                 onFinishSession = onSessionFinished,
+                onDiscardSession = onSessionDiscarded,
+                onPickExercises = exercisePicker.open,
+                // Read here, inside the destination, for the reason [ExercisePicker.selectedIds]
+                // gives: taken off the graph as it was built, this is `null` forever.
+                pickedExerciseIds = exercisePicker.selectedIds(),
+                onPickedExercisesHandled = exercisePicker.onSelectionHandled,
                 snackbarHostState = snackbarHostState,
+                viewModel = viewModel,
             )
         }
     }

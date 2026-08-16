@@ -1,0 +1,640 @@
+package com.opengym.feature.session.active
+
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextReplacement
+import com.opengym.core.domain.model.SessionStats
+import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.ui.component.SessionProgress
+import com.opengym.core.ui.format.formatSessionDate
+import com.opengym.core.ui.theme.OpenGymTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * What the workout screen draws, and what it emits when it is touched.
+ *
+ * Driven through the stateless half with a hand-built state — no ViewModel, no Hilt, no Room —
+ * which is the whole reason the two-composable split exists. What the stores end up holding is
+ * `ActiveSessionViewModelTest`'s question.
+ *
+ * ### Why this class sets a screen size
+ *
+ * Robolectric's default device is 320 x 470 dp, which is smaller than any phone shipped this
+ * decade and is not the screen this layout was designed against: the exercise card alone is
+ * taller than it, so the set-type chips and the button under them are off the bottom before the
+ * test has done anything. A qualifier pinning a mid-range phone is not the same thing as a
+ * `@Config(sdk = ...)` — the SDK level is pinned once for every module and must stay that way,
+ * while the *viewport* is part of what a layout test is asserting about. Pinned rather than
+ * inherited so the assertions do not move when Robolectric's default does.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp")
+class ActiveSessionScreenTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    private val events = mutableListOf<ActiveSessionEvent>()
+
+    // ─── What is on screen ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an exercise is drawn with the sets already logged against it`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the header carries the elapsed clock and the workout's name`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("PUSH DAY · UPPER").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Elapsed 0:23:14").assertIsDisplayed()
+    }
+
+    @Test
+    fun `every exercise of the workout is on the page, whole`() {
+        setScreen(state())
+
+        scrollToText("Bench press").assertIsDisplayed()
+        scrollToText("Incline dumbbell press").assertIsDisplayed()
+        scrollToText("Cable fly").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an exercise other than the first shows every set logged against it`() {
+        // Nothing is tapped first. There is nothing to tap: the fold, and the selection it
+        // existed for, are what this asserts are gone.
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchRow(),
+                    SessionExerciseRow(
+                        sessionExerciseId = FLY_ROW,
+                        position = 1,
+                        exercise = FLY,
+                        sets = listOf(
+                            loggedSet(id = 5, sessionExerciseId = 3, setNumber = 1, reps = 12, weight = 20_000_000L),
+                            loggedSet(id = 6, sessionExerciseId = 3, setNumber = 2, reps = 12, weight = 22_500_000L),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        scrollToText("20 kg × 12").assertIsDisplayed()
+        scrollToText("22.5 kg × 12").assertIsDisplayed()
+    }
+
+    @Test
+    fun `every exercise has a row to type its next set into`() {
+        // The other half of there being no current exercise, and what makes a superset
+        // loggable: two exercises alternated set for set both take sets.
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchRow(),
+                    SessionExerciseRow(
+                        sessionExerciseId = INCLINE_ROW,
+                        position = 1,
+                        exercise = INCLINE,
+                        sets = listOf(loggedSet(id = 5, sessionExerciseId = 2, setNumber = 1)),
+                    ),
+                ),
+            ),
+        )
+
+        scrollToDescription("Weight, set 3").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a superset is drawn with its grouping visible`() {
+        setScreen(state(exercises = supersetExercises()))
+
+        scrollToText("SS A1").assertIsDisplayed()
+        scrollToText("SS A2").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session id that no longer resolves says so instead of drawing an empty workout`() {
+        setScreen(ActiveSessionUiState(isLoading = false))
+
+        composeTestRule.onNodeWithText("This session is gone").assertIsDisplayed()
+    }
+
+    // ─── Logging a set ──────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `typing a weight reports it as text`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").performTextReplacement("82.5")
+
+        assertEquals(listOf(ActiveSessionEvent.WeightChanged(BENCH_ROW, "82.5")), events)
+    }
+
+    @Test
+    fun `typing a rep count reports it`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Reps, set 3").performTextReplacement("5")
+
+        assertEquals(listOf(ActiveSessionEvent.RepsChanged(BENCH_ROW, "5")), events)
+    }
+
+    @Test
+    fun `the complete button logs the set`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")))
+
+        scrollToText("Complete set 3").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetLogged(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `the row's own tick logs the same set`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")))
+
+        composeTestRule.onNodeWithContentDescription("Mark set 3 done").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetLogged(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `an entry with nothing in it cannot be logged`() {
+        setScreen(state(entry = SetEntry()))
+
+        scrollToText("Complete set 3").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a refused entry shows the reason under the row and blocks the button`() {
+        setScreen(
+            state(
+                entry = SetEntry(
+                    weight = "80",
+                    reps = "0",
+                    error = SetEntryError.Refused("reps must be within 1..10,000, was 0"),
+                ),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("reps must be within 1..10,000, was 0").assertIsDisplayed()
+        scrollToText("Complete set 3").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `text that is not a number is refused in the screen's own words`() {
+        setScreen(state(entry = SetEntry(weight = "heavy", error = SetEntryError.WeightNotANumber)))
+
+        scrollToText("That weight is not a number").assertIsDisplayed()
+    }
+
+    // ─── Rating and set type ────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the rating cell opens the scale, and picking one reports it`() {
+        setScreen(state())
+
+        scrollToDescription("Rate of perceived exertion, set 3, not set").performClick()
+        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RpeChanged(BENCH_ROW, 85)), events)
+    }
+
+    @Test
+    fun `tapping the rating that is already set clears it`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5", rpe = 85)))
+
+        scrollToDescription("Rate of perceived exertion, set 3, 8.5").performClick()
+        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RpeChanged(BENCH_ROW, null)), events)
+    }
+
+    @Test
+    fun `picking a set type reports it`() {
+        setScreen(state(entry = SetEntry(weight = "80")))
+
+        scrollToText("WARM-UP").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetTypeChanged(BENCH_ROW, SetType.WARMUP)), events)
+    }
+
+    @Test
+    fun `a warm-up set is marked as one in the row it is being typed into`() {
+        setScreen(state(entry = SetEntry(setType = SetType.WARMUP)))
+
+        composeTestRule
+            .onNodeWithContentDescription("Warm-up, set 3")
+            .assertIsDisplayed()
+    }
+
+    // ─── Notes ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the note field is offered before it is opened`() {
+        setScreen(state(entry = SetEntry(weight = "80")))
+
+        scrollToText("Add a note").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.NotesChanged(BENCH_ROW, "")), events)
+    }
+
+    @Test
+    fun `an open note field reports what is typed into it`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5", notes = "")))
+
+        scrollToText("Note").performTextReplacement("left elbow")
+
+        assertEquals(listOf(ActiveSessionEvent.NotesChanged(BENCH_ROW, "left elbow")), events)
+    }
+
+    // ─── Supersets ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the gap between two exercises offers to pair them up`() {
+        setScreen(state())
+
+        scrollToDescription("Perform Bench press and Incline dumbbell press back to back")
+            .performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SupersetLinked(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `a pair already performed back to back offers to break the join`() {
+        setScreen(state(exercises = supersetExercises()))
+
+        scrollToDescription("Stop performing Incline dumbbell press and Cable fly back to back")
+            .performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SupersetUnlinked(INCLINE_ROW)), events)
+    }
+
+    @Test
+    fun `the last exercise has no join under it, because there is nothing after it`() {
+        setScreen(state())
+        // Scrolled to the end first, so everything under the last card has been composed at all:
+        // a lazy list lays out nothing that is off the bottom, and "not composed" would prove
+        // nothing about what is drawn there.
+        scrollToText("Add more exercises")
+
+        val joinsBelowTheLast = composeTestRule
+            .onAllNodes(hasContentDescription("Cable fly and", substring = true))
+            .fetchSemanticsNodes()
+
+        assertTrue(joinsBelowTheLast.isEmpty())
+    }
+
+    // ─── Editing the layout ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the add action opens the picker and says so`() {
+        var pickerOpened = false
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state(),
+                    onEvent = events::add,
+                    onPickExercises = { pickerOpened = true },
+                )
+            }
+        }
+
+        scrollToText("Add more exercises").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.AddExercisesRequested), events)
+        assertTrue(pickerOpened)
+    }
+
+    @Test
+    fun `each exercise in the list can be cut out`() {
+        setScreen(state())
+
+        scrollToDescription("Remove Cable fly from this workout").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.ExerciseRemoved(sessionExerciseId = 3L)), events)
+    }
+
+    @Test
+    fun `a workout with nothing in it says how to fill it`() {
+        setScreen(state(exercises = emptyList()))
+
+        scrollToText("No exercises yet").assertIsDisplayed()
+        scrollToText("Add more exercises").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an exercise that cannot be cut says why on the page it happened`() {
+        setScreen(state().copy(message = ActiveSessionMessage.EXERCISE_HAS_SETS))
+
+        composeTestRule
+            .onNodeWithText(
+                "That exercise has sets logged against it. " +
+                    "Delete the sets first, or discard the whole workout.",
+            )
+            .assertIsDisplayed()
+    }
+
+    // ─── Naming ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the header's name is the way to change it`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("PUSH DAY · UPPER").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.NameEditRequested), events)
+    }
+
+    /*
+     * What the dialog does once it is up is `SessionNameDialogTest`'s, in `:core:ui`. It cannot
+     * be driven from here: an `AlertDialog` composed over a whole screen does not reach idle
+     * under Robolectric — the dialog and the screen behind it remeasure each other until the
+     * test JVM runs out of heap. What this screen owes is the tap above and the fallback title
+     * below, and both are asserted.
+     */
+
+    @Test
+    fun `a session with no name falls back to the day it happened`() {
+        setScreen(state().copy(header = state().header?.copy(name = null)))
+
+        // The date the fixture's session started, uppercased by the eyebrow.
+        composeTestRule
+            .onNodeWithText(formatSessionDate(STARTED_AT).uppercase(), substring = true)
+            .assertIsDisplayed()
+    }
+
+    // ─── Pause ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the pause control reports the toggle`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Pause the session").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.PauseToggled), events)
+    }
+
+    @Test
+    fun `a paused session offers resume and goes read-only`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = true))
+
+        composeTestRule.onNodeWithContentDescription("Resume the session").assertIsDisplayed()
+        scrollToText("Complete set 3").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a paused clock is announced as paused`() {
+        setScreen(state().copy(isPaused = true))
+
+        composeTestRule.onNodeWithContentDescription("Paused at 0:23:14").assertIsDisplayed()
+    }
+
+    // ─── Finishing ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `END reports the finish`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Finish the session").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
+    }
+
+    @Test
+    fun `a finish refused for having nothing logged is said on the page, not in a snackbar`() {
+        setScreen(
+            state(sets = emptyList()).copy(message = ActiveSessionMessage.NO_SETS_LOGGED),
+        )
+
+        composeTestRule
+            .onNodeWithText("Log at least one set before finishing, or discard the workout.")
+            .assertIsDisplayed()
+        // Still on the screen: the refusal is a state, not an exit.
+        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+    }
+
+    // ─── Discarding ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the discard control asks rather than discarding`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Discard the session").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.DiscardRequested), events)
+    }
+
+    @Test
+    fun `the confirmation says what it costs`() {
+        setScreen(state().copy(confirmingDiscard = true))
+
+        composeTestRule.onNodeWithText("Discard this workout?").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("2 logged sets will be deleted. This cannot be undone.")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a workout with nothing logged says there is nothing to lose`() {
+        setScreen(
+            state(sets = emptyList()).copy(
+                confirmingDiscard = true,
+                stats = SessionStats(
+                    totalSets = 0,
+                    totalVolume = 0,
+                    durationSeconds = 0,
+                    exerciseBreakdown = emptyList(),
+                ),
+            ),
+        )
+
+        composeTestRule
+            .onNodeWithText("Nothing has been logged yet, so nothing will be lost.")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `confirming the discard reports it`() {
+        setScreen(state().copy(confirmingDiscard = true))
+
+        composeTestRule.onNodeWithText("Discard").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.DiscardConfirmed), events)
+    }
+
+    @Test
+    fun `keeping the workout dismisses the confirmation`() {
+        setScreen(state().copy(confirmingDiscard = true))
+
+        composeTestRule.onNodeWithText("Keep training").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.DiscardDismissed), events)
+    }
+
+    // ─── Surviving a configuration change ───────────────────────────────────────────────
+
+    @Test
+    fun `the screen keeps no entry state of its own, so a restore redraws the fields`() {
+        // Rotation is answered in two halves. The ViewModel outlives the activity and is what
+        // holds the fields — `ActiveSessionViewModelTest` covers that half. This is the other:
+        // that the screen puts nothing of the entry into a plain `remember`, which is the way
+        // it *could* still lose a half-typed set across a configuration change. `StateRestorationTester`
+        // recreates the composition the way the framework does, and the fields come back because
+        // they were never here to begin with.
+        val restorationTester = StateRestorationTester(composeTestRule)
+        val entered = state(entry = SetEntry(weight = "82.5", reps = "5", rpe = 85))
+
+        restorationTester.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = entered, onEvent = events::add)
+            }
+        }
+        composeTestRule.onNodeWithText("82.5").assertIsDisplayed()
+
+        restorationTester.emulateSavedInstanceStateRestore()
+
+        composeTestRule.onNodeWithText("82.5").assertIsDisplayed()
+        composeTestRule.onNodeWithText("5").assertIsDisplayed()
+        scrollToText("Complete set 3").assertIsEnabled()
+    }
+
+    // ─── Support ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Brings [matcher]'s node into view before touching it.
+     *
+     * The workout is a scrolling list on a phone-sized screen, so the set-type chips, the note
+     * and the two lists below the card are all off the bottom of a 360x640 viewport — and a node
+     * that is not displayed cannot be clicked or asserted on. Scrolling first is what the user
+     * does, so it is what the test does.
+     *
+     * Two steps, because they do different things. `performScrollToNode` on the outer
+     * `LazyColumn` composes the item the node is in — a lazy list does not lay out what is off
+     * the bottom, so nothing else can find it first. `performScrollTo` on the node itself then
+     * brings the node into view through *every* scrollable above it, which is what the card
+     * being taller than the viewport and the set-type chips being a `LazyRow` both need.
+     */
+    private fun scrollTo(matcher: SemanticsMatcher): SemanticsNodeInteraction {
+        composeTestRule.onAllNodes(hasScrollToNodeAction()).onFirst().performScrollToNode(matcher)
+        return composeTestRule.onNode(matcher).performScrollTo()
+    }
+
+    private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(hasText(text))
+
+    private fun scrollToDescription(description: String): SemanticsNodeInteraction =
+        scrollTo(hasContentDescription(description))
+
+    private fun setScreen(state: ActiveSessionUiState) {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = state, onEvent = events::add)
+            }
+        }
+    }
+
+    /**
+     * A push day two sets into its first exercise, with three exercises in it.
+     *
+     * [sets] and [entry] belong to the *first* exercise, which is the one most of these tests
+     * touch; [exercises] replaces the whole list for the ones that are about the shape of the
+     * workout rather than about logging a set.
+     */
+    private fun state(
+        sets: List<WorkoutSet> = listOf(
+            loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
+            loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
+        ),
+        entry: SetEntry = SetEntry(),
+        exercises: List<SessionExerciseRow> = listOf(
+            benchRow(sets = sets, entry = entry),
+            SessionExerciseRow(sessionExerciseId = INCLINE_ROW, position = 1, exercise = INCLINE),
+            SessionExerciseRow(sessionExerciseId = FLY_ROW, position = 2, exercise = FLY),
+        ),
+        header: ActiveSessionHeader? = ActiveSessionHeader(
+            name = "Push day · Upper",
+            startedAt = STARTED_AT,
+            elapsed = 23.minutes + 14.seconds,
+            progress = SessionProgress(completed = 1, total = 3),
+        ),
+    ) = ActiveSessionUiState(
+        header = header,
+        stats = SessionStats(
+            totalSets = exercises.sumOf { it.setCount },
+            totalVolume = 1_160_000_000L,
+            durationSeconds = 1_394,
+            exerciseBreakdown = emptyList(),
+        ),
+        exercises = exercises,
+        isLoading = false,
+    )
+
+    /** The bench press, first in the workout, two sets in. */
+    private fun benchRow(
+        sets: List<WorkoutSet> = listOf(
+            loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
+            loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
+        ),
+        entry: SetEntry = SetEntry(),
+    ) = SessionExerciseRow(
+        sessionExerciseId = BENCH_ROW,
+        position = 0,
+        exercise = BENCH,
+        sets = sets,
+        entry = entry,
+    )
+
+    /** The same three exercises, with the last two run as a superset. */
+    private fun supersetExercises() = listOf(
+        benchRow(),
+        SessionExerciseRow(
+            sessionExerciseId = INCLINE_ROW,
+            position = 1,
+            exercise = INCLINE,
+            supersetLabel = "A1",
+            isLinkedToNext = true,
+        ),
+        SessionExerciseRow(
+            sessionExerciseId = FLY_ROW,
+            position = 2,
+            exercise = FLY,
+            supersetLabel = "A2",
+        ),
+    )
+
+    private companion object {
+        /** The `session_exercise` ids this fixture writes, in position order. */
+        const val BENCH_ROW = 1L
+        const val INCLINE_ROW = 2L
+        const val FLY_ROW = 3L
+    }
+}
