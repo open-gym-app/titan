@@ -1,5 +1,6 @@
 package com.opengym.core.domain.model
 
+import com.opengym.core.domain.plate.PlateInventory
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -55,6 +56,22 @@ data class UserPreferences(
      */
     val barWeight: Long = DEFAULT_BAR_WEIGHT,
 
+    /**
+     * The plates the user can reach, or **null** while they have never said.
+     *
+     * The one nullable setting, and the null is load-bearing rather than a missing default: what
+     * a fresh install should offer is *the standard rack for the unit system they lift in*, and
+     * that is not a constant, it is a function of [unitSystem]. Storing metric plates as the
+     * default would hand an American user a 1.25 kg change plate; storing nothing and deriving
+     * on read means switching to imperial before ever opening the inventory editor switches the
+     * rack with it. Read it through [plates], which does that derivation.
+     *
+     * Once the user edits the rack it stops tracking [unitSystem], which is correct: plates are
+     * physical objects, and somebody who has said what is in their gym has not changed what is
+     * in it by asking to read weights in pounds.
+     */
+    val plateInventory: PlateInventory? = null,
+
     /** What the user says they are training for. Recorded, not yet acted on — see [TrainingGoal]. */
     val trainingGoal: TrainingGoal = TrainingGoal.STRENGTH,
 
@@ -83,6 +100,15 @@ data class UserPreferences(
         }
         require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
     }
+
+    /**
+     * The rack to load from: what the user said they own, or the standard set for [unitSystem].
+     *
+     * Every reader wants this rather than [plateInventory] — the plate calculator, and anything
+     * later that suggests a next load. The nullable field is for the *editor*, which is the one
+     * caller that needs to tell "I have not been asked" from "this is my rack".
+     */
+    val plates: PlateInventory get() = plateInventory ?: PlateInventory.defaultFor(unitSystem)
 
     companion object {
 

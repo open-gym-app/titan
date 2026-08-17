@@ -127,8 +127,13 @@ Text(
 - **Material's own tokens stay on `MaterialTheme`** — `colorScheme`, `shapes`, and the
   Material type roles. There is no wrapper for them; a second way to reach the same value
   is a second thing to keep in step.
-- **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, and
-  the `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles.
+- **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, the
+  `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, and `plateColors`.
+
+  `plateColors` is an *ordinal* ramp — the heaviest size on the user's rack is the accent and
+  each lighter one steps down through the neutrals — rather than the competition colour code,
+  which would put four saturated hues on a screen in a design that has one accent on purpose.
+  Every tone carries the label colour that reads on it; see `theme/PlateColors.kt`.
 - **Reach for a component before a style.** `core/ui/.../component/` holds the primitives the
   tokens are meant to be used through — `Eyebrow` (which uppercases for you), `SectionHeading`
   (the eyebrow with the rule that makes it read as a section break), `OpenGymCard` and
@@ -156,6 +161,8 @@ Text(
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
+  | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
+  | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
 
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up

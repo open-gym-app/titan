@@ -1,5 +1,7 @@
 package com.opengym.core.ui.format
 
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
+import com.opengym.core.domain.model.MILLIGRAMS_PER_POUND
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.validation.SetValidator

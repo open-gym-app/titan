@@ -46,13 +46,17 @@ fun OpenGymTheme(
     unitSystem: UnitSystem = UnitSystem.METRIC,
     content: @Composable () -> Unit,
 ) {
+    val dark = theme.isDark()
+
     CompositionLocalProvider(
         LocalOpenGymSpacing provides OpenGymSpacing(),
         LocalOpenGymTypography provides OpenGymExtendedTypography,
+        LocalOpenGymPlateColors provides
+            if (dark) OpenGymDarkPlateColors else OpenGymLightPlateColors,
         LocalUnitSystem provides unitSystem,
     ) {
         MaterialTheme(
-            colorScheme = if (theme.isDark()) OpenGymDarkColorScheme else OpenGymLightColorScheme,
+            colorScheme = if (dark) OpenGymDarkColorScheme else OpenGymLightColorScheme,
             typography = OpenGymMaterialTypography,
             shapes = OpenGymShapes,
             content = content,
@@ -109,6 +113,12 @@ object OpenGymTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalOpenGymTypography.current
+
+    /** The ramp a loaded barbell is drawn in. See [OpenGymPlateColors]. */
+    val plateColors: OpenGymPlateColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOpenGymPlateColors.current
 }
 
 /*
@@ -123,6 +133,16 @@ object OpenGymTheme {
  */
 internal val LocalOpenGymSpacing = staticCompositionLocalOf { OpenGymSpacing() }
 internal val LocalOpenGymTypography = staticCompositionLocalOf { OpenGymExtendedTypography }
+
+/*
+ * The plate ramp is the exception to the paragraph above: unlike spacing and type, it *is*
+ * different in the two schemes, so it is provided rather than defaulted-and-forgotten and
+ * `compositionLocalOf` would be the safer choice. It stays static anyway, because the scheme
+ * cannot change without `OpenGymTheme` recomposing and taking everything under it along.
+ * Defaulting to the light ramp keeps an unwrapped preview drawing plates rather than throwing,
+ * which is the same trade the two above make.
+ */
+internal val LocalOpenGymPlateColors = staticCompositionLocalOf { OpenGymLightPlateColors }
 
 /**
  * The units every number the user reads is rendered in.

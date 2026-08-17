@@ -182,6 +182,24 @@
     <string name="search_placeholder">Search…</string>
     <string name="search_clear">Clear the search</string>
 
+    <!-- ── Plates ─────────────────────────────────────────────────────────────────── -->
+
+    <!-- The barbell diagram is announced as one sentence rather than as a dozen plates. -->
+    <string name="plate_diagram_loaded">Barbell loaded with %1$s per side</string>
+    <string name="plate_diagram_empty">Barbell with no plates on it</string>
+    <!-- Quoted: Android trims unquoted whitespace, which runs the two plates together. -->
+    <string name="plate_list_separator">", "</string>
+    <!-- Spelled out rather than announced as "2 times 20 kg": the multiplication sign in the
+         legend is a typographic convention, not something to read aloud. -->
+    <plurals name="plate_count_description">
+        <item quantity="one">%1$d plate of %2$s</item>
+        <item quantity="other">%1$d plates of %2$s</item>
+    </plurals>
+
+    <string name="plate_legend_per_side">Per side</string>
+    <!-- The count beside a legend row's weight. The description carries the words. -->
+    <string name="plate_legend_count">× %1$d</string>
+
     <!-- ── Body diagram ───────────────────────────────────────────────────────────── -->
 
     <string name="body_view_front">Front</string>

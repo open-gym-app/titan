@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
 import kotlinx.coroutines.flow.Flow
 import java.io.IOException
 import kotlin.time.Duration
@@ -88,6 +89,42 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setBarWeight(barWeight: Long)
+
+    /**
+     * Records the plates the user can reach, or **null** to go back to the standard rack for
+     * their unit system — see [UserPreferences.plateInventory].
+     *
+     * Null is a real value here rather than a way of saying "leave it alone": the inventory
+     * editor's "use the standard set" is exactly this call, and it has to *forget* the stored
+     * rack, not overwrite it with a copy of today's default that would then stop following a
+     * change of unit system.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setPlateInventory(inventory: PlateInventory?)
+
+    /**
+     * Records how many pairs of one plate size the user has, leaving every other size alone.
+     *
+     * This is [setPlateInventory]'s whole-rack write reduced to the one thing the inventory
+     * editor's steppers actually change, and it exists for the reason the note at the top of
+     * this file gives: a caller doing the read-modify-write itself — read the inventory off a
+     * screen's state, copy it with one count changed, write the copy back — reverts any edit
+     * that has not round-tripped through [observe] yet. Two rows changed inside the time one
+     * write takes is not a contrived case; it is what setting up a rack looks like. The
+     * read-modify-write still happens, but it happens inside the store's own transaction,
+     * where it is serialised against every other write.
+     *
+     * A size the stored rack does not list is added to it. When nothing is stored yet, the
+     * standard rack for the user's unit system is what gets edited — which is the rack the
+     * editor was showing them.
+     *
+     * @throws IllegalArgumentException if [weight] is not a weight a plate may have, or
+     * [pairs] is not a count one may be held in — see
+     * [com.opengym.core.domain.plate.PlateStock].
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setPlatePairs(weight: Long, pairs: Int)
 
     /**
      * Sets the training goal. Recorded only; nothing reads it in v1.

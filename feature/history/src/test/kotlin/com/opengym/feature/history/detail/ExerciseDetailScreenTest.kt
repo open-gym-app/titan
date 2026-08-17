@@ -39,10 +39,12 @@ class ExerciseDetailScreenTest {
     private val events = mutableListOf<ExerciseDetailEvent>()
     private var backs = 0
     private var addsToSession = 0
+    private var plateCalculators = 0
 
     private fun setContent(
         state: ExerciseDetailUiState = benchState(),
         addToSession: Boolean = false,
+        plateCalculator: Boolean = false,
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -52,6 +54,13 @@ class ExerciseDetailScreenTest {
                     onBack = { backs++ },
                     onAddToSession = if (addToSession) {
                         { addsToSession++ }
+                    } else {
+                        null
+                    },
+                    // Wired, which is not the same as drawn: the screen decides from the
+                    // exercise's equipment whether the button belongs at all.
+                    onOpenPlateCalculator = if (plateCalculator) {
+                        { plateCalculators++ }
                     } else {
                         null
                     },
@@ -66,6 +75,27 @@ class ExerciseDetailScreenTest {
     }
 
     private fun scrollTo(text: String) = scrollTo(hasText(text))
+
+    // ─── The plate calculator, where there are plates ───────────────────────────────────
+
+    @Test
+    fun `a barbell exercise offers the plate calculator`() {
+        setContent(plateCalculator = true)
+
+        scrollTo("Plate calculator")
+        composeTestRule.onNodeWithText("Plate calculator").performClick()
+
+        assertEquals(1, plateCalculators)
+    }
+
+    @Test
+    fun `an exercise with no bar to load does not offer the plate calculator`() {
+        // A machine press: the button would answer a question this exercise does not ask, and a
+        // dead end has to be visited once before it can be learned. The fixture is on a machine.
+        setContent(state = customState(), plateCalculator = true)
+
+        composeTestRule.onNodeWithText("Plate calculator").assertDoesNotExist()
+    }
 
     // ─── A fully-populated exercise ─────────────────────────────────────────────────────
 

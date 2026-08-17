@@ -3,6 +3,7 @@ package com.opengym.core.ui.format
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.milligramsPerUnit
 import com.opengym.core.ui.theme.LocalUnitSystem
 import kotlin.math.roundToLong
 
@@ -52,12 +53,6 @@ import kotlin.math.roundToLong
  * *editing* the preference.
  */
 
-/** One kilogram in milligrams. The unit `WorkoutSet.weight` is stored in. */
-const val MILLIGRAMS_PER_KILOGRAM: Double = 1_000_000.0
-
-/** One pound in milligrams, exactly: a pound is defined as 453.59237 g. */
-const val MILLIGRAMS_PER_POUND: Double = 453_592.37
-
 /** How many decimals a weight is shown to. See the note above. */
 private const val WEIGHT_FRACTION_DIGITS = 2
 
@@ -66,13 +61,6 @@ val UnitSystem.weightSuffix: String
     get() = when (this) {
         UnitSystem.METRIC -> "kg"
         UnitSystem.IMPERIAL -> "lb"
-    }
-
-/** How many milligrams one of this system's display units is. */
-internal val UnitSystem.milligramsPerWeightUnit: Double
-    get() = when (this) {
-        UnitSystem.METRIC -> MILLIGRAMS_PER_KILOGRAM
-        UnitSystem.IMPERIAL -> MILLIGRAMS_PER_POUND
     }
 
 /**
@@ -116,7 +104,7 @@ fun roundToPlateIncrement(
     increment: Double = unitSystem.plateIncrement,
 ): Long {
     require(increment > 0) { "the increment must be positive, was $increment" }
-    val perUnit = unitSystem.milligramsPerWeightUnit
+    val perUnit = unitSystem.milligramsPerUnit
     val steps = (milligrams / perUnit / increment).roundToLong()
     return (steps * increment * perUnit).roundToLong()
 }
@@ -126,7 +114,7 @@ fun roundToPlateIncrement(
  * suffix itself, in its own colour or type role.
  */
 fun formatWeightValue(milligrams: Long, unitSystem: UnitSystem): String =
-    formatNumber(milligrams / unitSystem.milligramsPerWeightUnit, WEIGHT_FRACTION_DIGITS)
+    formatNumber(milligrams / unitSystem.milligramsPerUnit, WEIGHT_FRACTION_DIGITS)
 
 /**
  * [milligrams] in [unitSystem], with the unit: `20 kg`, `44.09 lb`, `2.5 kg`.
@@ -180,7 +168,7 @@ fun parseWeightMilligrams(text: String, unitSystem: UnitSystem): Long? =
  * instead, which is this function with a locale-aware reader in front of it.
  */
 fun weightToMilligrams(value: Double, unitSystem: UnitSystem): Long =
-    (value * unitSystem.milligramsPerWeightUnit).roundToLong()
+    (value * unitSystem.milligramsPerUnit).roundToLong()
 
 /** [text] in the ambient [LocalUnitSystem], as milligrams. See [parseWeightMilligrams]. */
 @Composable

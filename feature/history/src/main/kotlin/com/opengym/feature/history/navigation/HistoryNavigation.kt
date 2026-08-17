@@ -10,6 +10,7 @@ import com.opengym.feature.history.SessionDetailScreen
 import com.opengym.feature.history.SessionsScreen
 import com.opengym.feature.history.detail.ExerciseDetailRoute
 import com.opengym.feature.history.library.ExerciseLibraryRoute
+import com.opengym.feature.history.plate.PlateCalculatorRoute
 import kotlinx.serialization.Serializable
 
 /** The Sessions tab's graph. Navigating here lands on [SessionsDestination]. */
@@ -49,6 +50,35 @@ data object ExerciseLibraryDestination
  */
 @Serializable
 data class ExerciseDetailDestination(val exerciseId: Long, val addToSession: Boolean)
+
+/**
+ * The plate calculator (#95).
+ *
+ * Outside the tab scaffold, like the exercise detail and for the same reasons: it is a
+ * full-screen tool with its own bar, and both of the places it is reached from — an exercise's
+ * detail screen, and the active session while a weight is being entered — are themselves pushed
+ * over whatever the user was doing.
+ *
+ * It lives in this module rather than in `:feature:session` because the exercise detail screen
+ * is the entry point that exists today and a destination is registered once. The session flow
+ * reaches it the way `:app` reaches everything else, by naming this destination.
+ *
+ * @param target a weight to open on, in milligrams, or [NO_SUGGESTED_TARGET] for none. The
+ *   active session passes the weight being typed, so the calculator opens on the number the user
+ *   was already looking at rather than on a default they then have to step away from.
+ */
+@Serializable
+data class PlateCalculatorDestination(val target: Long = NO_SUGGESTED_TARGET)
+
+/**
+ * "Nobody suggested a weight", as a route argument.
+ *
+ * A sentinel rather than a nullable `Long`, which Navigation Compose has no built-in `NavType`
+ * for — a custom one would be a serializer and a registration for a value that has a perfectly
+ * good impossible case. Zero is impossible because a bar weighs something: see
+ * [com.opengym.core.domain.model.UserPreferences.barWeight].
+ */
+const val NO_SUGGESTED_TARGET: Long = 0L
 
 /**
  * The exercise catalogue, used to pick from.
@@ -123,10 +153,14 @@ fun NavGraphBuilder.libraryGraph(
  *   gone; the screen reports that as state and this graph does not have to know.
  * @param onAddToSession the user pressed "Add to session". Handled by `:app`, which writes
  *   the id onto the picker's entry and pops — see [ADDED_EXERCISE_ID_KEY].
+ * @param onOpenPlateCalculator the shortcut into the plate calculator, which lives outside this
+ *   graph — see [plateCalculatorGraph]. Hoisted like every other navigation action: the
+ *   `NavController` belongs to `:app`.
  */
 fun NavGraphBuilder.exerciseDetailGraph(
     onBack: () -> Unit,
     onAddToSession: (exerciseId: Long) -> Unit,
+    onOpenPlateCalculator: () -> Unit,
 ) {
     composable<ExerciseDetailDestination> { entry ->
         val destination: ExerciseDetailDestination = entry.toRoute()
@@ -139,11 +173,23 @@ fun NavGraphBuilder.exerciseDetailGraph(
             } else {
                 null
             },
-            // Both destinations are still to be built — the plate calculator is #95 and the
-            // per-exercise progression is M5 — and the screen draws no button for a null.
-            onOpenPlateCalculator = null,
+            onOpenPlateCalculator = onOpenPlateCalculator,
+            // Still to be built — the per-exercise progression is M5 — and the screen draws no
+            // button for a null.
             onViewProgression = null,
         )
+    }
+}
+
+/**
+ * The plate calculator, registered **once**, outside the tab scaffold.
+ *
+ * @param onBack leave the screen. The only way out: the calculator answers a question and
+ *   returns nothing, so there is no confirm and no result to hand back.
+ */
+fun NavGraphBuilder.plateCalculatorGraph(onBack: () -> Unit) {
+    composable<PlateCalculatorDestination> {
+        PlateCalculatorRoute(onBack = onBack)
     }
 }
 
