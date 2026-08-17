@@ -254,6 +254,43 @@ class SessionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `getTotals keys every session's figures by its id`() = runBlocking {
+        val exerciseId = db.exerciseDao().insert(exercise(name = "Bench press"))
+        val first = db.workoutSessionDao().insert(session(createdAt = 100))
+        val second = db.workoutSessionDao().insert(session(createdAt = 200))
+        val firstExercise = db.sessionExerciseDao()
+            .insert(sessionExercise(first, exerciseId, position = 0))
+        val secondExercise = db.sessionExerciseDao()
+            .insert(sessionExercise(second, exerciseId, position = 0))
+
+        // 100kg x 10 = 1_000_000_000; 50kg x 4 twice = 400_000_000
+        db.workoutSetDao().insert(
+            workoutSet(firstExercise, setNumber = 1, reps = 10, weight = 100_000_000),
+        )
+        db.workoutSetDao().insert(
+            workoutSet(secondExercise, setNumber = 1, reps = 4, weight = 50_000_000),
+        )
+        db.workoutSetDao().insert(
+            workoutSet(secondExercise, setNumber = 2, reps = 4, weight = 50_000_000),
+        )
+
+        val totals = repository.getTotals().first()
+
+        assertEquals(1, totals.getValue(first).totalSets)
+        assertEquals(1_000_000_000L, totals.getValue(first).totalVolume)
+        assertEquals(2, totals.getValue(second).totalSets)
+        assertEquals(400_000_000L, totals.getValue(second).totalVolume)
+    }
+
+    @Test
+    fun `getTotals omits a session that logged nothing`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+
+        // The contract's absence rather than a zeroed entry — see SessionRepository.getTotals.
+        assertNull(repository.getTotals().first()[sessionId])
+    }
+
+    @Test
     fun `update writes the changed fields back`() = runBlocking {
         val id = repository.insert(WorkoutSession(lastActiveAt = 1, createdAt = 1, updatedAt = 1))
         val stored = repository.getById(id).first()!!

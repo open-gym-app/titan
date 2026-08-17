@@ -8,6 +8,7 @@ import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
+import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
@@ -52,6 +53,23 @@ class SessionRepositoryImpl @Inject constructor(
 
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
         setDao.getBySession(sessionId).map { rows -> rows.map(setMapper::toDomain) }
+
+    /**
+     * One grouped query, as the contract requires — see [SessionRepository.getTotals].
+     *
+     * The map is built here rather than being handed over as a list because every caller
+     * looks a session's figures up by id, and the query's `GROUP BY` already guarantees at
+     * most one row per session.
+     */
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> =
+        setDao.getTotalsBySession().map { rows ->
+            rows.associate { row ->
+                row.sessionId to SessionTotals(
+                    totalSets = row.totalSets,
+                    totalVolume = row.totalVolume,
+                )
+            }
+        }
 
     override suspend fun insert(session: WorkoutSession): Long =
         sessionDao.insert(sessionMapper.toEntity(session))

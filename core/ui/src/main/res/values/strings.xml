@@ -263,4 +263,32 @@
     <string name="muscle_contribution_description_primary">%1$s, %2$s, worked directly</string>
     <string name="muscle_contribution_description_secondary">%1$s, %2$s, also worked</string>
 
+    <!-- ── Sessions ──────────────────────────────────────────────────────────────── -->
+
+    <!-- A session row's set count: "12 sets", in the mono line under the name. Abbreviated
+         nowhere — "sets" is already the short word — but kept as a plural so a session with
+         one set does not read "1 sets". -->
+    <plurals name="session_set_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <!-- The same count inside the row's spoken sentence, where "sets" needs no context. -->
+    <plurals name="session_set_count_description">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+
+    <!-- ── Training calendar ─────────────────────────────────────────────────────── -->
+
+    <!-- One cell, announced as its date and what was done on it. The shade is not spoken:
+         it is relative to the month rather than an absolute figure, so "heavy" read aloud
+         would claim a comparison that does not survive turning the page. -->
+    <plurals name="calendar_day_sessions">
+        <item quantity="one">%1$s, %2$d session</item>
+        <item quantity="other">%1$s, %2$d sessions</item>
+    </plurals>
+    <string name="calendar_day_rest">%1$s, rest day</string>
+    <!-- What tapping a trained day does, as the click's own label. -->
+    <string name="calendar_day_open">Show this day</string>
+
 </resources>

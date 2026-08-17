@@ -102,4 +102,25 @@ class DurationFormatTest {
         assertEquals("0:01", 1_400.milliseconds.formatAsClock())
         assertEquals("0:00", 999.milliseconds.formatAsClock())
     }
+
+    @Test
+    fun `a session's length is minutes, and hours once there are some`() {
+        // The row's figure, and the reason it is not `formatAsElapsed`: `0:52:14` in a list
+        // of five rows is three fields of precision on a number the user is scanning past.
+        assertEquals("52m", (52.minutes + 14.seconds).formatAsLength())
+        assertEquals("0m", 45.seconds.formatAsLength())
+        assertEquals("1h 05m", (1.hours + 5.minutes).formatAsLength())
+        assertEquals("2h 00m", 2.hours.formatAsLength())
+    }
+
+    @Test
+    fun `a length is truncated rather than rounded, and never negative`() {
+        // Truncated, so a session and the sum of its parts cannot come out a minute apart in
+        // opposite directions. Unlike `formatAsEstimate` there is no tilde and no five-minute
+        // step: this is a measurement.
+        assertEquals("59m", (59.minutes + 59.seconds).formatAsLength())
+        // A device clock adjusted mid-session is the only thing that produces this, and time
+        // owed is not a reading.
+        assertEquals("0m", (-90).seconds.formatAsLength())
+    }
 }

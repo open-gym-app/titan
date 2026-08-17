@@ -8,6 +8,7 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
@@ -139,6 +140,9 @@ class FakeSessionStore : SessionRepository {
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
     override suspend fun insert(session: WorkoutSession): Long {

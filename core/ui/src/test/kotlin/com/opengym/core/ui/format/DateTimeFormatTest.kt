@@ -4,6 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.util.Locale
 
@@ -77,5 +80,63 @@ class DateTimeFormatTest {
     @Test
     fun `a time of day is read in the zone it is handed`() {
         assertEquals("11:14", formatTimeOfDay(instant, zone = ZoneId.of("Europe/Paris"), locale = uk))
+    }
+
+    @Test
+    fun `a month heading is the standalone month name and the year`() {
+        assertEquals("April 2026", formatMonthAndYear(YearMonth.of(2026, 4), locale = uk))
+    }
+
+    @Test
+    fun `a month heading follows the locale it is handed`() {
+        assertNotEquals(
+            formatMonthAndYear(YearMonth.of(2026, 4), locale = uk),
+            formatMonthAndYear(YearMonth.of(2026, 4), locale = Locale.FRANCE),
+        )
+    }
+
+    @Test
+    fun `a day number and a weekday are what a session row's rail carries`() {
+        val date = LocalDate.of(2026, 4, 28)
+
+        assertEquals("28", formatDayOfMonth(date, locale = uk))
+        assertEquals("Tue", formatWeekday(date, locale = uk))
+    }
+
+    @Test
+    fun `the same date is spelled the same way whether it arrives as an instant or a day`() {
+        // The overload exists so a calendar cell and a list row cannot announce one fact two
+        // ways — see formatSessionDate.
+        assertEquals(
+            formatSessionDate(instant, zone = utc, locale = uk),
+            formatSessionDate(LocalDate.of(2026, 4, 28), locale = uk),
+        )
+    }
+
+    @Test
+    fun `the week starts where the locale says it does`() {
+        assertEquals(DayOfWeek.MONDAY, firstDayOfWeek(uk))
+        assertEquals(DayOfWeek.SUNDAY, firstDayOfWeek(Locale.US))
+    }
+
+    @Test
+    fun `the calendar header is seven initials, opening on the day it is given`() {
+        val monday = weekdayInitials(DayOfWeek.MONDAY, locale = uk)
+        val sunday = weekdayInitials(DayOfWeek.SUNDAY, locale = uk)
+
+        assertEquals(7, monday.size)
+        assertEquals(listOf("M", "T", "W", "T", "F", "S", "S"), monday)
+        // The same seven, rotated — which is the whole reason the grid takes the first day as
+        // a value rather than assuming Monday the way the wireframes do.
+        assertEquals(monday.last(), sunday.first())
+    }
+
+    @Test
+    fun `an instant lands on its day in the zone it is handed`() {
+        assertEquals(LocalDate.of(2026, 4, 28), localDateOf(instant, zone = utc))
+        assertEquals(
+            LocalDate.of(2026, 4, 27),
+            localDateOf(instant, zone = ZoneId.of("Pacific/Honolulu")),
+        )
     }
 }

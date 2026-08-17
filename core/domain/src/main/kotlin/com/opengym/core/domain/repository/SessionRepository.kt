@@ -2,6 +2,7 @@ package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
+import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,22 @@ interface SessionRepository {
      * second query.
      */
     fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>>
+
+    /**
+     * The set count and volume of **every** session, keyed by session id.
+     *
+     * The history list's read. It shows a figure per row and there is no upper bound on how
+     * many rows a user accumulates, so the only shape that works is one aggregate over the
+     * whole table: implementations must satisfy this with a single grouped query, never with
+     * a [getSetsForSession] per session. That fan-out is an observer per row of a list that
+     * grows for the life of the install.
+     *
+     * A session with no completed sets — one abandoned, or one still being logged — has no
+     * entry rather than a zeroed one. The absence is the honest answer for a row whose
+     * figures are not yet a fact, and a caller drawing a list treats it as such; see
+     * [SessionTotals] for why the duration is not here.
+     */
+    fun getTotals(): Flow<Map<Long, SessionTotals>>
 
     suspend fun insert(session: WorkoutSession): Long
 

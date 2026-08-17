@@ -159,6 +159,9 @@ Text(
   | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
   | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
   | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip | `TemplateSummary` |
+  | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
+  | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
+  | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
@@ -194,8 +197,8 @@ Text(
   | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
-  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (session), `formatAsEstimate` (`~55m`) | — |
-  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`) | — (picked, never typed) |
+  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsEstimate` (`~55m`) | — |
+  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and

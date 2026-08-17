@@ -108,6 +108,12 @@ fun OpenGymNavHost(
                         launchSingleTop = true
                     }
                 },
+                // The same move the home screen's primary button makes, and `launchSingleTop`
+                // for the same reason: two taps dispatched before recomposition would push two
+                // nested session graphs, and [exitSessionFlow] pops only the innermost.
+                onStartSession = {
+                    navController.navigate(SessionGraphDestination) { launchSingleTop = true }
+                },
             )
             libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
             progressionGraph()

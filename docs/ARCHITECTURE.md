@@ -263,7 +263,7 @@ plugin, so a feature module needs no extra setup to declare one.
 ```text
 TabsGraphDestination            bottom bar + top bar
 ├── HomeGraphDestination        -> HomeDestination
-├── HistoryGraphDestination     -> SessionsDestination -> SessionDetailDestination
+├── HistoryGraphDestination     -> SessionsDestination
 ├── LibraryGraphDestination     -> ExerciseLibraryDestination
 └── ProgressionGraphDestination -> StatsDestination
 
