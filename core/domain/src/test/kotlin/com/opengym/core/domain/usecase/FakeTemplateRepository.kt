@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutTemplate
@@ -122,8 +123,9 @@ class FakeTemplateRepository : TemplateRepository {
     fun seed(
         name: String,
         drafts: List<TemplateExerciseDraft> = listOf(draft(exerciseId = 1L)),
+        category: TemplateCategory? = null,
         icon: String? = null,
-    ): Long = put(WorkoutTemplate(name = name, icon = icon), drafts)
+    ): Long = put(WorkoutTemplate(name = name, category = category, icon = icon), drafts)
 
     /** Seeds a template whose exercises were removed underneath the use cases. */
     fun seedEmpty(name: String): Long = seed(name, drafts = emptyList())

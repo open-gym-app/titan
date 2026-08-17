@@ -73,6 +73,25 @@ class CatalogDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `a template's category survives the round trip, and no duration is stored beside it`() =
+        runBlocking {
+            val dao = db.workoutTemplateDao()
+            val templateId = dao.insert(template(category = "HYPERTROPHY"))
+
+            val stored = requireNotNull(dao.getById(templateId).first())
+
+            assertEquals("HYPERTROPHY", stored.category)
+            // The estimate is computed from the exercises by TemplateDuration; asserting
+            // the row holds nothing to update is what keeps it that way, since a column
+            // added here would go stale on the next edit.
+            assertEquals(
+                listOf("category", "icon", "id", "name"),
+                db.query("SELECT * FROM workout_template LIMIT 0", emptyArray<Any?>())
+                    .use { it.columnNames.sorted() },
+            )
+        }
+
+    @Test
     fun `deleting a template cascades to its template_exercise rows`() = runBlocking {
         val dao = db.workoutTemplateDao()
         val templateId = dao.insert(template())

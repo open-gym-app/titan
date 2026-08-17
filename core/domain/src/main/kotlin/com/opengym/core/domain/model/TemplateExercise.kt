@@ -13,10 +13,10 @@ data class TemplateExercise(
     val templateId: Long,
     val exerciseId: Long,
     val position: Int,
-    val supersetGroup: Int? = null,
-    val defaultSets: Int? = null,
+    override val supersetGroup: Int? = null,
+    override val defaultSets: Int? = null,
     val defaultReps: Int? = null,
     val defaultWeight: Long? = null,
-    val restDuration: Long? = null,
+    override val restDuration: Long? = null,
     val notes: String? = null,
-)
+) : PlannedExercise
