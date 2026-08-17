@@ -27,6 +27,11 @@ import kotlinx.coroutines.flow.first
  * has the catalogue loaded already, and pulling it in here would make every
  * template-apply pay for a join it may not need.
  *
+ * `supersetGroup` travels with them too, which is what makes a template's supersets
+ * the session's supersets: the ids are ordinals within one list
+ * ([com.opengym.core.domain.superset.Supersets]), and the caller copies the plan's
+ * list wholesale, so they carry over unchanged and stay valid.
+ *
  * Fails with [TemplateError.NotFound] when the template is absent, and with
  * [TemplateError.NoExercises] when it stores none — which the write path refuses to
  * create, so seeing it means the rows were changed underneath (an import, a manual

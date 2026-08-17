@@ -21,13 +21,16 @@ fun maximalSession(): ActiveSession = ActiveSession(
     pausedDuration = 95.seconds,
     pausedAt = STARTED_AT + 600_000,
     exercises = listOf(
+        // The pair is one superset, which is both what makes `supersetGroup` non-null
+        // on every exercise here and the only grouping two exercises can validly have.
         ActiveExercise(
             exerciseId = 12,
             sessionExerciseId = 34,
+            supersetGroup = 0,
             notes = "belt on from set 3",
             sets = listOf(maximalSet(), ActiveSet(reps = 8)),
         ),
-        ActiveExercise(exerciseId = 13, sessionExerciseId = 35),
+        ActiveExercise(exerciseId = 13, sessionExerciseId = 35, supersetGroup = 0),
     ),
     currentExerciseIndex = 1,
     restTimer = RestTimerSnapshot.Running(deadline = STARTED_AT + 700_000, total = 90.seconds),

@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.FakeSessionRepository
@@ -20,6 +21,7 @@ import com.opengym.core.domain.validation.ValidationResult
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -74,7 +76,7 @@ class TemplateToSessionIntegrationTest {
     private suspend fun startFrom(templateId: Long): Pair<SessionState.Active, List<TemplateExercise>> {
         val plan = applyTemplate(templateId).getOrThrow()
         val started = startSession(templateId = templateId, name = plan.name).getOrThrow()
-        plan.exercises.forEach { sessions.addExercise(started.sessionId, it.exerciseId) }
+        plan.exercises.forEach { sessions.addExercise(started.sessionId, it.exerciseId, it.supersetGroup) }
         return started to plan.exercises
     }
 
@@ -232,6 +234,40 @@ class TemplateToSessionIntegrationTest {
             listOf(Catalogue.benchPress.id, Catalogue.plank.id),
             sessions.getExercises(started.sessionId).first().map { it.exerciseId },
         )
+    }
+
+    @Test
+    fun `a template's supersets become the session's supersets`() = runTest {
+        // The grouping is an ordinal within one list, so it only survives the trip
+        // because the whole list travels together and in order. This is the wiring
+        // neither use case owns: the plan carries the group, and the caller copies it
+        // onto the rows it writes.
+        val templateId = createTemplate(
+            name = "Superset day",
+            exercises = listOf(
+                draft(exerciseId = Catalogue.benchPress.id, supersetGroup = 0),
+                draft(exerciseId = Catalogue.plank.id, supersetGroup = 0),
+            ),
+        ).getOrThrow().id
+
+        val (started, plan) = startFrom(templateId)
+
+        assertEquals(listOf(0, 0), plan.map(TemplateExercise::supersetGroup))
+        val exercises = sessions.getExercises(started.sessionId).first()
+        assertEquals(listOf(0, 0), exercises.map { it.supersetGroup })
+        // And the pair is one superset in the session too: no rest between them.
+        assertTrue(Supersets.validate(exercises.map { it.supersetGroup }).isValid)
+        assertFalse(Supersets.isRestDueAfter(exercises.map { it.supersetGroup }, 0))
+    }
+
+    @Test
+    fun `a template with no supersets makes a session with none`() = runTest {
+        val templateId = pushDay()
+
+        val (started, _) = startFrom(templateId)
+
+        val exercises = sessions.getExercises(started.sessionId).first()
+        assertEquals(listOf(null, null), exercises.map { it.supersetGroup })
     }
 
     @Test

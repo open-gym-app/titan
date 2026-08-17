@@ -151,6 +151,28 @@ class ActiveSessionTest {
     }
 
     @Test
+    fun `a rest is due after a standalone exercise but not inside a superset`() {
+        // The draft is what the live session reads, so the grouping has to be legible
+        // from it alone — see ActiveExercise.supersetGroup.
+        val session = minimalSession().copy(
+            exercises = listOf(
+                ActiveExercise(exerciseId = 1, supersetGroup = 0),
+                ActiveExercise(exerciseId = 2, supersetGroup = 0),
+                ActiveExercise(exerciseId = 3),
+            ),
+        )
+
+        assertFalse(session.isRestDueAfter(0))
+        assertTrue(session.isRestDueAfter(1))
+        assertTrue(session.isRestDueAfter(2))
+    }
+
+    @Test
+    fun `a session with no exercises is asked about rest and answers`() {
+        assertTrue(minimalSession().isRestDueAfter(0))
+    }
+
+    @Test
     fun `an exercise without a catalogue entry is refused`() {
         assertThrows(IllegalArgumentException::class.java) { ActiveExercise(exerciseId = 0) }
     }

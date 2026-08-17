@@ -32,11 +32,11 @@ class UpdateTemplateUseCase(
         templateRepository.loadTemplate(templateId)
             .getOrElse { return Result.failure(it) }
 
-        val validName = templateRepository.validateTemplate(name, exercises, selfId = templateId)
+        val valid = templateRepository.validateTemplate(name, exercises, selfId = templateId)
             .getOrElse { return Result.failure(it) }
 
-        val updated = WorkoutTemplate(id = templateId, name = validName, icon = icon)
-        templateRepository.update(updated, exercises)
+        val updated = WorkoutTemplate(id = templateId, name = valid.name, icon = icon)
+        templateRepository.update(updated, valid.exercises)
         return Result.success(updated)
     }
 }

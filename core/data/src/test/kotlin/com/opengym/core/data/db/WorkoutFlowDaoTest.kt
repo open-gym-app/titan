@@ -101,6 +101,23 @@ class WorkoutFlowDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `a superset grouping survives the round trip, and a standalone exercise stays null`() = runBlocking {
+        // NULL and a group id are different states — see Supersets — so this is a
+        // column that has to come back exactly as it went in.
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionId = db.workoutSessionDao().insert(session())
+        val dao = db.sessionExerciseDao()
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 1, supersetGroup = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 2, supersetGroup = 0))
+
+        assertEquals(
+            listOf(null, 0, 0),
+            dao.getBySession(sessionId).first().map { it.supersetGroup },
+        )
+    }
+
+    @Test
     fun `deleting a session cascades to its session_exercise rows`() = runBlocking {
         val exerciseId = db.exerciseDao().insert(exercise())
         val sessionId = db.workoutSessionDao().insert(session())

@@ -43,7 +43,13 @@ fun templateExercise(
     templateId: Long,
     exerciseId: Long,
     position: Int,
-) = TemplateExerciseEntity(templateId = templateId, exerciseId = exerciseId, position = position)
+    supersetGroup: Int? = null,
+) = TemplateExerciseEntity(
+    templateId = templateId,
+    exerciseId = exerciseId,
+    position = position,
+    supersetGroup = supersetGroup,
+)
 
 fun session(
     templateId: Long? = null,
@@ -65,10 +71,12 @@ fun sessionExercise(
     exerciseId: Long,
     position: Int,
     templateExerciseId: Long? = null,
+    supersetGroup: Int? = null,
 ) = SessionExerciseEntity(
     sessionId = sessionId,
     exerciseId = exerciseId,
     position = position,
+    supersetGroup = supersetGroup,
     templateExerciseId = templateExerciseId,
     createdAt = 0,
     updatedAt = 0,

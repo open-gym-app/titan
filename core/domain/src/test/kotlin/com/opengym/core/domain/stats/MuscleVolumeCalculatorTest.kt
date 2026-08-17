@@ -278,6 +278,29 @@ class MuscleVolumeCalculatorTest {
     }
 
     @Test
+    fun `performing the same exercises as a superset attributes the same volume`() {
+        // Attribution is per set, and a superset changes only how the exercises are
+        // paced — the same sets were lifted either way. This is what makes supersets a
+        // change to the session layer alone; if it ever stops holding, the progression
+        // figures have started depending on how a workout was arranged.
+        val linksByExercise = mapOf(
+            70L to listOf(primary(CHEST), secondary(TRICEPS)),
+            71L to listOf(primary(QUADRICEPS)),
+        )
+        val sets = listOf(set(sessionExerciseId = 1), set(sessionExerciseId = 2, weight = 140 * KG))
+        val separate = listOf(
+            sessionExercise(id = 1, exerciseId = 70),
+            sessionExercise(id = 2, exerciseId = 71),
+        )
+        val superset = separate.map { it.copy(supersetGroup = 0) }
+
+        assertEquals(
+            MuscleVolumeCalculator.volumeByMuscle(sets, separate, linksByExercise),
+            MuscleVolumeCalculator.volumeByMuscle(sets, superset, linksByExercise),
+        )
+    }
+
+    @Test
     fun `the overload drops a session exercise whose exercise has no links`() {
         val sessionExercises = listOf(sessionExercise(id = 1, exerciseId = 70))
 

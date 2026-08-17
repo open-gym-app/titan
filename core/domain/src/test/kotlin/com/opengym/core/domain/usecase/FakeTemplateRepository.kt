@@ -97,6 +97,7 @@ class FakeTemplateRepository : TemplateRepository {
                 templateId = templateId,
                 exerciseId = draft.exerciseId,
                 position = position,
+                supersetGroup = draft.supersetGroup,
                 defaultSets = draft.defaultSets,
                 defaultReps = draft.defaultReps,
                 defaultWeight = draft.defaultWeight,
@@ -136,6 +137,7 @@ fun draft(
     defaultWeight: Long? = null,
     restDuration: Long? = null,
     notes: String? = null,
+    supersetGroup: Int? = null,
 ): TemplateExerciseDraft = TemplateExerciseDraft(
     exerciseId = exerciseId,
     defaultSets = defaultSets,
@@ -143,4 +145,5 @@ fun draft(
     defaultWeight = defaultWeight,
     restDuration = restDuration,
     notes = notes,
+    supersetGroup = supersetGroup,
 )

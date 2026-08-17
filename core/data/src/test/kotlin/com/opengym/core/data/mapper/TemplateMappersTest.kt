@@ -27,6 +27,7 @@ class TemplateMappersTest {
             templateId = 3,
             exerciseId = 14,
             position = 1,
+            supersetGroup = 0,
             defaultSets = 4,
             defaultReps = 8,
             defaultWeight = 60_000_000,
@@ -39,6 +40,7 @@ class TemplateMappersTest {
             templateId = 3,
             exerciseId = 14,
             position = 1,
+            supersetGroup = 0,
             defaultSets = 4,
             defaultReps = 8,
             defaultWeight = 60_000_000,
@@ -52,6 +54,7 @@ class TemplateMappersTest {
     fun `a draft carries its defaults onto the row`() {
         val draft = TemplateExerciseDraft(
             exerciseId = 14,
+            supersetGroup = 0,
             defaultSets = 4,
             defaultReps = 8,
             defaultWeight = 60_000_000,
@@ -62,6 +65,7 @@ class TemplateMappersTest {
         val row = exerciseMapper.toEntities(templateId = 3, drafts = listOf(draft)).single()
 
         assertEquals(draft.exerciseId, row.exerciseId)
+        assertEquals(draft.supersetGroup, row.supersetGroup)
         assertEquals(draft.defaultSets, row.defaultSets)
         assertEquals(draft.defaultReps, row.defaultReps)
         assertEquals(draft.defaultWeight, row.defaultWeight)

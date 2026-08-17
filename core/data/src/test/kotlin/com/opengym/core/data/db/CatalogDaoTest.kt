@@ -56,6 +56,23 @@ class CatalogDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `a template's superset grouping survives the round trip`() = runBlocking {
+        // The grouping is what a session inherits when the template is applied, so a
+        // column that lost it would quietly ungroup every workout started from here.
+        val dao = db.workoutTemplateDao()
+        val templateId = dao.insert(template())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        dao.insertExercise(templateExercise(templateId, exerciseId, position = 0))
+        dao.insertExercise(templateExercise(templateId, exerciseId, position = 1, supersetGroup = 0))
+        dao.insertExercise(templateExercise(templateId, exerciseId, position = 2, supersetGroup = 0))
+
+        assertEquals(
+            listOf(null, 0, 0),
+            dao.getExercises(templateId).first().map { it.supersetGroup },
+        )
+    }
+
+    @Test
     fun `deleting a template cascades to its template_exercise rows`() = runBlocking {
         val dao = db.workoutTemplateDao()
         val templateId = dao.insert(template())

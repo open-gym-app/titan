@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "95abfcad853aee2db0a651cc254ce995",
+    "identityHash": "86ce53debd6f86386568b49a97913ac2",
     "entities": [
       {
         "tableName": "exercise",
@@ -388,7 +388,7 @@
       },
       {
         "tableName": "template_exercise",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `default_sets` INTEGER, `default_reps` INTEGER, `default_weight` INTEGER, `rest_duration` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `default_sets` INTEGER, `default_reps` INTEGER, `default_weight` INTEGER, `rest_duration` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -413,6 +413,11 @@
             "columnName": "position",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "supersetGroup",
+            "columnName": "superset_group",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "defaultSets",
@@ -617,7 +622,7 @@
       },
       {
         "tableName": "session_exercise",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `template_exercise_id` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`template_exercise_id`) REFERENCES `template_exercise`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `session_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `template_exercise_id` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`template_exercise_id`) REFERENCES `template_exercise`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
         "fields": [
           {
             "fieldPath": "id",
@@ -642,6 +647,11 @@
             "columnName": "position",
             "affinity": "INTEGER",
             "notNull": true
+          },
+          {
+            "fieldPath": "supersetGroup",
+            "columnName": "superset_group",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "templateExerciseId",
@@ -1072,7 +1082,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '95abfcad853aee2db0a651cc254ce995')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '86ce53debd6f86386568b49a97913ac2')"
     ]
   }
 }
