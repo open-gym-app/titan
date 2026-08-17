@@ -56,10 +56,13 @@ class DiscardSessionUseCase(
         runCatching {
             sessionRepository.delete(sessionId)
             sessionStateRepository.update(SessionState.Idle)
-            // Last, and separately: the draft is a snapshot of a screen, so one left behind
-            // costs an offer to resume a workout that no longer exists rather than any
-            // data. Clearing it before the delete would be the trade the other way round.
-            inProgressSessionRepository.clear()
+            // Last, separately, and best-effort: the draft is a snapshot of a screen, so one
+            // left behind costs an offer to resume a workout that no longer exists rather
+            // than any data. Clearing it before the delete would be the trade the other way
+            // round, and letting its failure escape would be a third: the row is gone by
+            // here, so the caller would report a discard that did not happen over a session
+            // it can no longer discard.
+            runCatching { inProgressSessionRepository.clear() }
             sessionId
         }
     }

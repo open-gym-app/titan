@@ -413,6 +413,16 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a paused session cannot be sent off to add exercises`() {
+        // `AddSessionExercisesUseCase` refuses a session that is not active, so a live button
+        // here would walk the user through the whole picker to refuse what they chose at the
+        // end of it.
+        setScreen(state().copy(isPaused = true))
+
+        scrollToText("Add more exercises").assertIsNotEnabled()
+    }
+
+    @Test
     fun `a paused clock is announced as paused`() {
         setScreen(state().copy(isPaused = true))
 

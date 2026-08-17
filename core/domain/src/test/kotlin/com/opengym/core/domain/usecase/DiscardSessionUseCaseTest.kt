@@ -67,6 +67,21 @@ class DiscardSessionUseCaseTest {
     }
 
     @Test
+    fun `a draft that will not clear does not undo a discard that happened`() = runTest {
+        // The row goes first, so by the clear there is nothing left to report a failure about:
+        // saying the discard failed would leave the caller offering to retry a session that no
+        // longer exists, and the stale draft costs an offer to resume that the restore path
+        // already has to reject.
+        val sessionId = startWithSets()
+        drafts.clearFailure = IllegalStateException("the draft file is not writable")
+
+        assertEquals(sessionId, discardSession().getOrThrow())
+
+        assertNull(sessions.stored(sessionId))
+        assertEquals(SessionState.Idle, state.current)
+    }
+
+    @Test
     fun `discarding puts the state machine back to idle`() = runTest {
         startWithSets()
 

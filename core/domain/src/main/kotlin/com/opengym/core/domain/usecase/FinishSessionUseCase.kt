@@ -97,7 +97,13 @@ class FinishSessionUseCase(
         // an offer to resume that the restore path already has to reject — a draft may
         // legitimately name a session that no longer exists — and the second would be a
         // workout the user could lose their place in.
-        inProgressSessionRepository.clear()
+        //
+        // Best-effort for the same reason: by here the row and the state are already
+        // committed, so a store that refuses the clear must not turn a finish that
+        // happened into a failure the caller reports as "nothing was saved". That answer
+        // would be false, and it would strand the user on a screen whose every other exit
+        // is refused for a session that is no longer open.
+        runCatching { inProgressSessionRepository.clear() }
         return finished
     }
 }

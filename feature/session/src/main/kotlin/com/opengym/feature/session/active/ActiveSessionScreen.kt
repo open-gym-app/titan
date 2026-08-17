@@ -335,7 +335,10 @@ private fun SessionBody(
                     onEvent(ActiveSessionEvent.AddExercisesRequested)
                     onPickExercises()
                 },
-                enabled = !state.isBusy && !state.isAddingExercises,
+                // Gated on the pause like every other control: `AddSessionExercisesUseCase`
+                // refuses a session that is not active, so a live button here would walk the
+                // user through the whole picker to refuse what they chose at the end of it.
+                enabled = enabled && !state.isAddingExercises,
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .fillMaxWidth()

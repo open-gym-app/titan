@@ -8,6 +8,7 @@ import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionPlan
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.toSessionPlan
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.superset.Supersets
@@ -254,9 +255,10 @@ class NewSessionViewModel @Inject constructor(
      * Nothing is written here — the whole flow's premise is that backing out costs nothing to
      * undo — so this is the same decision as picking a template or dropping an exercise, and it
      * travels to `StartSessionUseCase` on `SessionPlan.name` when the user commits. The
-     * blank-means-unnamed rule is applied there, once, rather than here as well: a plan holding
-     * `" "` and a session holding `null` for the same input is exactly the drift
-     * `WorkoutSession.normalizeName` exists to prevent.
+     * blank-means-unnamed rule belongs to `WorkoutSession.normalizeName` rather than to a second
+     * copy of it here: the plan keeps what the user typed, and the two places that have to agree
+     * about what it *means* — the use case on the way to the store, and [Plan.toStep] on the way
+     * to the screen — both ask that one function.
      */
     private fun applyName() = screenState.update { state ->
         val plan = state.plan ?: return@update state.copy(nameDraft = null)
@@ -337,7 +339,12 @@ class NewSessionViewModel @Inject constructor(
             val labels = supersetLabels(grouping)
 
             return NewSessionStep.ReadyToStart(
-                name = session.name,
+                // The same normalisation `StartSessionUseCase` applies on the way to the store,
+                // by the same function, so the panel says "Unnamed session" for exactly the
+                // inputs that will be stored as unnamed. Without it, a user who clears the name
+                // field — which the dialog's own hint invites — confirms their way to a blank
+                // title with no route back to the placeholder.
+                name = WorkoutSession.normalizeName(session.name),
                 estimatedDuration = estimatedDuration,
                 // One row per draft, in order. Unresolvable ids were cut from the plan
                 // itself in [adopt] rather than skipped here, so this cannot drop a row and

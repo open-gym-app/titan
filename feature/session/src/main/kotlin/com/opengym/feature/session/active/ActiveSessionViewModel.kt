@@ -94,6 +94,10 @@ import kotlin.time.Duration.Companion.seconds
  * that is not `Active`, so the screen would come back read-only. [reattach] is what fixes that:
  * on open, a session that is running on disk but not in the state machine is resumed through
  * [ResumeSessionUseCase], which is the transition that exists for exactly this.
+ *
+ * A workout that was *paused* when the process died is the one case where that resume is not the
+ * final answer: the draft remembers the pause and the state machine does not, so [realignPause]
+ * puts the two back on the same side of it before the user can tap anything.
  */
 @HiltViewModel
 /*
@@ -214,8 +218,17 @@ class ActiveSessionViewModel @Inject constructor(
         viewModelScope.launch {
             userPreferencesRepository.observe().collect { unitSystem.value = it.unitSystem }
         }
-        reattach()
-        restoreDraft()
+        // One coroutine, in this order, because each step depends on the one before it. The
+        // settings are read again here rather than waited on from the collection above: the two
+        // are independent reads of the same small document, and [restoreDraft] formats stored
+        // milligrams back into the unit they were typed in — a restore that won the race against
+        // the collection would hand a lifter on pounds their 175 lb set back as `79.4`.
+        viewModelScope.launch {
+            unitSystem.value = userPreferencesRepository.observe().first().unitSystem
+            reattach()
+            restoreDraft()
+            realignPause()
+        }
     }
 
     fun onEvent(event: ActiveSessionEvent) {
@@ -456,7 +469,8 @@ class ActiveSessionViewModel @Inject constructor(
      * rather than on the exercise for exactly that reason.
      */
     private fun addPicked(exerciseIds: List<Long>) {
-        if (exerciseIds.isEmpty() || screenState.value.isAddingExercises) return
+        val state = screenState.value
+        if (exerciseIds.isEmpty() || state.isBusy || state.isAddingExercises) return
         screenState.update { it.copy(isAddingExercises = true, message = null) }
 
         viewModelScope.launch {
@@ -485,19 +499,33 @@ class ActiveSessionViewModel @Inject constructor(
      * Its half-typed row goes with it. Nothing else would ever clear that entry — the card it
      * belonged to is gone — and a `session_exercise` id is not reused, so it would sit in the
      * map for the life of the screen and be written into every draft.
+     *
+     * Guarded per exercise, the way [log] is and for the same reason the rows are keyed at all:
+     * two taps on one card's × dispatched before recomposition would otherwise reach the use
+     * case twice, and the second call — against a row the first one deleted — is refused as
+     * `ExerciseNotInSession` and reported as "it is still in the workout", over an exercise that
+     * has already left. A removal aimed at a *different* card is a different row and still runs.
      */
     private fun remove(sessionExerciseId: Long) {
-        if (screenState.value.isBusy) return
+        val state = screenState.value
+        if (state.isBusy || sessionExerciseId in state.removingExerciseIds) return
+        screenState.update { it.copy(removingExerciseIds = it.removingExerciseIds + sessionExerciseId) }
 
         viewModelScope.launch {
             removeExercise(sessionExerciseId)
                 .onSuccess {
-                    screenState.update { it.copy(entries = it.entries - sessionExerciseId) }
+                    screenState.update {
+                        it.copy(
+                            entries = it.entries - sessionExerciseId,
+                            removingExerciseIds = it.removingExerciseIds - sessionExerciseId,
+                        )
+                    }
                     saveDraft()
                 }
                 .onFailure { failure ->
                     screenState.update {
                         it.copy(
+                            removingExerciseIds = it.removingExerciseIds - sessionExerciseId,
                             message = when (failure) {
                                 is SessionError.ExerciseHasLoggedSets ->
                                     ActiveSessionMessage.EXERCISE_HAS_SETS
@@ -601,12 +629,21 @@ class ActiveSessionViewModel @Inject constructor(
 
     // ─── Lifecycle ──────────────────────────────────────────────────────────────────────
 
+    /**
+     * Suspends the workout, or picks it back up.
+     *
+     * The direction is taken from [ScreenState.pausedAt] — what the control the user tapped is
+     * *drawn* as — rather than from the state machine, so a tap can never do the opposite of what
+     * its label says. [realignPause] is what keeps the two answers the same; this is the half
+     * that makes a disagreement visible as a refusal rather than as a pause the user asked to
+     * end.
+     */
     private fun togglePause() {
         if (screenState.value.isPausing) return
+        val paused = screenState.value.pausedAt != null
         screenState.update { it.copy(isPausing = true) }
 
         viewModelScope.launch {
-            val paused = sessionStateRepository.observe().first() is SessionState.Paused
             val outcome = if (paused) resumeSession() else pauseSession()
 
             outcome
@@ -614,15 +651,7 @@ class ActiveSessionViewModel @Inject constructor(
                     val now = clock.nowMillis()
                     screenState.update { state ->
                         if (paused) {
-                            state.copy(
-                                isPausing = false,
-                                // The stretch just served is banked, so the elapsed clock picks
-                                // up where it stopped rather than jumping by the length of the
-                                // pause.
-                                pausedDuration = state.pausedDuration +
-                                    (now - (state.pausedAt ?: now)).milliseconds,
-                                pausedAt = null,
-                            )
+                            state.bankPause(now).copy(isPausing = false)
                         } else {
                             state.copy(isPausing = false, pausedAt = now)
                         }
@@ -701,7 +730,12 @@ class ActiveSessionViewModel @Inject constructor(
             }
 
             outcome
-                .onSuccess { screenState.update { it.copy(isDiscarded = true) } }
+                // The dialog goes with it: the screen is on its way out, and a confirmation
+                // whose buttons are both inert — `isDiscarding` stays true — would sit over the
+                // whole pop transition.
+                .onSuccess {
+                    screenState.update { it.copy(isDiscarded = true, confirmingDiscard = false) }
+                }
                 .onFailure {
                     screenState.update { state ->
                         state.copy(
@@ -724,7 +758,7 @@ class ActiveSessionViewModel @Inject constructor(
      * after the user has been somewhere else in the app long enough for nothing to be holding
      * the state — see the class note.
      */
-    private fun reattach() = viewModelScope.launch {
+    private suspend fun reattach() {
         val current = sessionStateRepository.observe().first()
         val alreadyAttached = when (current) {
             is SessionState.Active -> current.sessionId == sessionId
@@ -748,9 +782,9 @@ class ActiveSessionViewModel @Inject constructor(
      * should not have been, and deleting somebody's place in a workout to tidy up is the worse
      * of the two mistakes.
      */
-    private fun restoreDraft() = viewModelScope.launch {
+    private suspend fun restoreDraft() {
         val draft = inProgressSessionRepository.load()?.takeIf { it.sessionId == sessionId }
-            ?: return@launch
+            ?: return
 
         // One entry per exercise that was mid-set, from the trailing incomplete set the draft
         // format carries for exactly this. An exercise whose last set is completed was not being
@@ -774,6 +808,40 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
+     * Puts the state machine on the same side of the pause as the restored draft.
+     *
+     * [reattach] and [restoreDraft] answer two halves of a process restart and can disagree
+     * about one thing: the state machine is in-memory, so a workout paused before the kill comes
+     * back `Idle` and is resumed to `Active`, while the draft brings its `pausedAt` back and the
+     * header draws it as paused. Left alone, that is a screen saying "paused" over a session
+     * every write path considers running, and a resume control whose first tap *pauses* —
+     * banking nothing and jumping the clock forward by however long the process was dead.
+     *
+     * The draft wins, because it is the copy that remembers what the user did. A refused
+     * transition is the one case where it cannot: the state machine is what the writes check, so
+     * the screen gives way and banks the stretch rather than showing a pause that is not real.
+     */
+    private suspend fun realignPause() {
+        val pausedOnScreen = screenState.value.pausedAt != null
+        val inDomain = sessionStateRepository.observe().first() as? SessionState.Paused
+        if (pausedOnScreen == (inDomain != null)) return
+
+        val refused = when {
+            pausedOnScreen -> pauseSession().isFailure
+            else -> resumeSession().isFailure
+        }
+        if (!refused) return
+
+        screenState.update { state ->
+            when (inDomain) {
+                null -> state.bankPause(clock.nowMillis())
+                else -> state.copy(pausedAt = inDomain.pausedAt)
+            }
+        }
+        saveDraft()
+    }
+
+    /**
      * Writes the draft, whole.
      *
      * Called after every change rather than on a timer, which is what
@@ -787,6 +855,12 @@ class ActiveSessionViewModel @Inject constructor(
     private fun saveDraft() = viewModelScope.launch {
         val session = loaded.value?.session ?: return@launch
         val state = screenState.value
+        // Nothing is written once the workout is on its way out. The layout actions save in
+        // their coroutine tail, and their in-flight flags are not part of [ScreenState.isBusy],
+        // so an append confirmed just before END returns after `FinishSessionUseCase` has
+        // cleared the draft — and would write a new one naming a session that is over. That is
+        // the draft-outliving-the-session state the use case exists to prevent.
+        if (state.isBusy) return@launch
 
         val draft = ActiveSession(
             sessionId = sessionId,
@@ -888,6 +962,7 @@ private data class ScreenState(
     val isRenaming: Boolean = false,
     val isAddingExercises: Boolean = false,
     val isRegrouping: Boolean = false,
+    val removingExerciseIds: Set<Long> = emptySet(),
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,
     val loggingExerciseId: Long? = null,
@@ -902,6 +977,19 @@ private data class ScreenState(
 
     /** What is typed against one exercise, which for an untouched one is an empty row. */
     fun entryFor(sessionExerciseId: Long): SetEntry = entries[sessionExerciseId] ?: SetEntry()
+
+    /**
+     * The workout running again at [now], with the stretch just served added to the total.
+     *
+     * Banking it is what stops the elapsed clock jumping by the length of the pause when it
+     * picks back up. A no-op on a session that was not paused, which is what makes it safe as
+     * the one way out of [pausedAt] — the realignment on open uses it over a stretch the process
+     * spent dead, and that stretch is exactly as much not-working-out as a deliberate pause is.
+     */
+    fun bankPause(now: Long): ScreenState = copy(
+        pausedDuration = pausedDuration + (now - (pausedAt ?: now)).milliseconds,
+        pausedAt = null,
+    )
 
     /**
      * Whether one exercise's row as it stands can be written: something typed, nothing refused,

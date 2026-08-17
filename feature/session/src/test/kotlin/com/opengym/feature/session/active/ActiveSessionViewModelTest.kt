@@ -59,6 +59,18 @@ import kotlin.time.Duration.Companion.seconds
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
+/*
+ * Over the size threshold on purpose, for the reason the ViewModel it covers is over two of its
+ * own: this is the one screen a workout can be logged, edited, named, paused, finished and
+ * thrown away on, and the tests for those are one subject each — they are already grouped under
+ * headings, and none of the groups is long.
+ *
+ * What a split would cost is the support block at the bottom: `viewModel()` wires seventeen
+ * dependencies over four fakes this class owns as fields, and a second class would either
+ * duplicate that or hoist it into `ActiveSessionTestDoubles` as a factory taking all four back
+ * as parameters. Both are more machinery between a failure and what it means than a heading is.
+ */
+@Suppress("LargeClass")
 class ActiveSessionViewModelTest {
 
     private val clock = FixedClock()
@@ -599,6 +611,39 @@ class ActiveSessionViewModelTest {
         assertEquals(1.minutes, restored.uiState.value.header?.elapsed)
     }
 
+    @Test
+    fun `restoring a paused workout pauses the state machine, not just the header`() = runTest {
+        // The reattach resumes whatever is running on disk, because that is the transition a
+        // process restart needs; the draft then says the workout was paused. Left disagreeing,
+        // the screen would draw "paused" over a session every write path considers running.
+        val viewModel = viewModel()
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        val state = FakeSessionStateStore()
+        viewModel(state = state, drafts = FakeDraftStore(drafts.stored))
+
+        assertTrue(state.current is SessionState.Paused)
+    }
+
+    @Test
+    fun `a pause that outlived the process ends on the first tap, not the second`() = runTest {
+        val viewModel = viewModel()
+        clock.advance(1.minutes.inWholeMilliseconds)
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        val state = FakeSessionStateStore()
+        val restored = viewModel(state = state, drafts = FakeDraftStore(drafts.stored))
+        // Ten minutes with the process dead. None of it is time spent working out, and a tap
+        // that paused instead of resuming would bank none of it.
+        clock.advance(10.minutes.inWholeMilliseconds)
+
+        restored.onEvent(ActiveSessionEvent.PauseToggled)
+
+        assertFalse(restored.uiState.value.isPaused)
+        assertTrue(state.current is SessionState.Active)
+        assertEquals(1.minutes, restored.uiState.value.header?.elapsed)
+    }
+
     // ─── The draft ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -650,6 +695,23 @@ class ActiveSessionViewModelTest {
 
         assertEquals(BENCH, viewModel.uiState.value.exercises.first().exercise)
         assertEquals(SetEntry(), viewModel.uiState.value.entryOf(BENCH_ROW))
+    }
+
+    @Test
+    fun `nothing is written to the draft once the workout is over`() = runTest {
+        // The layout actions save in their coroutine tail, so one still in flight when END was
+        // tapped lands after `FinishSessionUseCase` has cleared the draft — and would write a
+        // new one naming a session that is finished, which is the offer-to-resume-a-workout-
+        // that-is-over state clearing it exists to prevent.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+        viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+        assertNotNull(viewModel.uiState.value.finishedSessionId)
+        assertNull(drafts.stored)
     }
 
     @Test
@@ -726,6 +788,18 @@ class ActiveSessionViewModelTest {
         assertTrue(viewModel.uiState.value.isDiscarded)
         assertEquals(SessionState.Idle, state.current)
         assertEquals(1, drafts.clearCount)
+    }
+
+    @Test
+    fun `a confirmed discard takes the dialog with it`() = runTest {
+        // Both of its buttons are inert once `isDiscarding` is set, so a dialog left up would
+        // sit over the whole pop transition with nothing to offer.
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ActiveSessionEvent.DiscardRequested)
+        viewModel.onEvent(ActiveSessionEvent.DiscardConfirmed)
+
+        assertFalse(viewModel.uiState.value.confirmingDiscard)
     }
 
     @Test

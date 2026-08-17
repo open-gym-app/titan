@@ -88,6 +88,23 @@ class FinishSessionUseCaseTest {
     }
 
     @Test
+    fun `a draft that will not clear does not undo a finish that happened`() = runTest {
+        // By the time the clear runs, the row is closed out and the state is Finished. Letting
+        // an IO failure out here would report "nothing was saved" over a saved session — and
+        // strand the caller, since every other way off the workout screen is refused for a
+        // session that is no longer open.
+        val sessionId = startWithSets()
+        drafts.save(ActiveSession(sessionId = sessionId, startedAt = 5_000L))
+        drafts.clearFailure = IllegalStateException("the draft file is not writable")
+
+        val finished = finishSession().getOrThrow()
+
+        assertEquals(sessionId, finished.summary.sessionId)
+        assertEquals(finished, state.observe().first())
+        assertEquals(false, sessions.loadSession(sessionId).getOrThrow().isInProgress)
+    }
+
+    @Test
     fun `a refused finish leaves the draft alone`() = runTest {
         startSession().getOrThrow()
         val draft = ActiveSession(sessionId = 1L, startedAt = 5_000L)

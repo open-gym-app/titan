@@ -99,9 +99,10 @@ class NewSessionViewModelTest {
 
     @Test
     fun `a blank name leaves the session genuinely unnamed`() = runTest {
-        // The rule is `StartSessionUseCase`'s, applied once on the way in rather than here as
-        // well: a plan holding `" "` and a session holding `null` for the same input is exactly
-        // the drift `WorkoutSession.normalizeName` exists to prevent.
+        // The rule is `WorkoutSession.normalizeName`'s, asked for rather than restated: the plan
+        // keeps what the user typed, and the two places that have to agree about what it means —
+        // the use case on the way to the store, and the review panel on the way to the screen —
+        // both go through that one function.
         val viewModel = viewModel()
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
 
@@ -111,6 +112,24 @@ class NewSessionViewModelTest {
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
 
         assertNull(sessions.storedSessions().single().name)
+    }
+
+    @Test
+    fun `clearing the name puts the panel back on its placeholder`() = runTest {
+        // The dialog's own hint invites it — "leave it empty to go by the date instead" — and
+        // the panel draws its placeholder for a null. An empty string is not one, so without
+        // the same normalisation the title renders as blank space with no way back to it.
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+        viewModel.onEvent(NewSessionEvent.NameChanged("Leg day"))
+        viewModel.onEvent(NewSessionEvent.NameConfirmed)
+
+        viewModel.onEvent(NewSessionEvent.NameEditRequested)
+        viewModel.onEvent(NewSessionEvent.NameChanged(""))
+        viewModel.onEvent(NewSessionEvent.NameConfirmed)
+
+        assertNull(viewModel.readyToStart().name)
     }
 
     // ─── Starting from a template ───────────────────────────────────────────────────────
