@@ -12,10 +12,12 @@ import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
+import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import dagger.Module
 import dagger.Provides
@@ -126,7 +128,7 @@ object SessionUseCaseModule {
     )
 
     /*
-     * The three that rewrite a session's *grouping* take the lock, and the rest do not.
+     * The ones that rewrite a session's *grouping* take the lock, and the rest do not.
      *
      * None of them is a lifecycle transition, but a removal, a link and an unlink are each a
      * read-modify-write over `session_exercise` — read every exercise, compute a grouping from
@@ -159,6 +161,26 @@ object SessionUseCaseModule {
         sessionStateRepository = sessionStateRepository,
         clock = Clock.SYSTEM,
         lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideReorderSessionExercisesUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): ReorderSessionExercisesUseCase = ReorderSessionExercisesUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+    )
+
+    @Provides
+    fun provideSwapSessionExerciseUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): SwapSessionExerciseUseCase = SwapSessionExerciseUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
     )
 
     @Provides

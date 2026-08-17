@@ -106,12 +106,35 @@ interface SessionRepository {
     /**
      * Replaces one `session_exercise` row.
      *
-     * Narrow on purpose: the only field anything currently edits is `supersetGroup`, which
-     * has to be repaired when a removal leaves a group with a single member. Reordering —
-     * which rewrites `position` across several rows at once — is #100's, and will want a
-     * transactional multi-row write rather than a loop over this.
+     * Narrow on purpose: what edits it one row at a time is a change that concerns one row —
+     * a superset repaired after a removal, an exercise swapped for another. A change that
+     * rewrites `position` across the layout is [updateExercises], which is not a loop over
+     * this for the reason its own contract gives.
      */
     suspend fun updateExercise(exercise: SessionExercise)
+
+    /**
+     * Replaces several `session_exercise` rows **atomically**, and safely against the unique
+     * `(session_id, position)` index.
+     *
+     * This is what a reorder is written through. A loop over [updateExercise] cannot express
+     * one: `session_exercise` is unique on `(session_id, position)`, so swapping two exercises
+     * one row at a time puts two rows on the same position at the moment the first is written
+     * and the index aborts — see PERSISTENCE.md § Identity and uniqueness. Implementations
+     * therefore have to move the rows out of the way before writing them back, in one
+     * transaction, and a half-applied reorder must not be observable: unlike a grouping, where
+     * a torn write leaves a group of one that the screens dissolve on sight, a torn *ordering*
+     * is a workout whose exercises are in an order nobody asked for.
+     *
+     * Only the rows that change are handed over — the caller works out which — so an exercise
+     * that stays where it is keeps the `updated_at` it had.
+     *
+     * @param exercises the rows as they should end up, each carrying its new `position`,
+     *   `supersetGroup` and `updatedAt`. Their positions must not collide with each other or
+     *   with a row that is *not* in the list, which is a caller's rule and not something an
+     *   implementation can check without reading the whole layout back.
+     */
+    suspend fun updateExercises(exercises: List<SessionExercise>)
 
     /**
      * Removes one exercise from its session, and its sets with it — the schema cascades from

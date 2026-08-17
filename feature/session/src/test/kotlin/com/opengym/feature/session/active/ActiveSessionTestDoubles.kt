@@ -78,6 +78,25 @@ class FakeActiveSessionStore(
         exercises.value = exercises.value.map { if (it.id == exercise.id) exercise else it }
     }
 
+    /**
+     * Writes several rows at once, refusing what the unique `(session_id, position)` index
+     * would refuse.
+     *
+     * The check is why this is not a loop over [updateExercise]: the real store parks the rows
+     * out of the way before writing them back — `SessionExerciseDao.rewriteLayout` — and a fake
+     * that simply applied the list would let a reorder leaving two exercises on one position
+     * pass here and abort on a device.
+     */
+    override suspend fun updateExercises(exercises: List<SessionExercise>) {
+        val written = exercises.associateBy(SessionExercise::id)
+        this.exercises.value = this.exercises.value.map { written[it.id] ?: it }
+
+        val positions = this.exercises.value.map(SessionExercise::position)
+        check(positions.size == positions.distinct().size) {
+            "two exercises ended up on one position: $positions"
+        }
+    }
+
     override suspend fun deleteExercise(sessionExerciseId: Long) {
         exercises.value = exercises.value.filterNot { it.id == sessionExerciseId }
         sets.value = sets.value.filterNot { it.sessionExerciseId == sessionExerciseId }

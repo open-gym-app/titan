@@ -35,13 +35,18 @@ import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.EmptyState
+import com.opengym.core.ui.component.ReorderState
+import com.opengym.core.ui.component.ReorderableItem
 import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.component.SessionStatChips
+import com.opengym.core.ui.component.rememberReorderState
+import com.opengym.core.ui.component.reorderable
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.active.component.CollapsedExerciseRow
 import com.opengym.feature.session.active.component.DiscardSessionDialog
 import com.opengym.feature.session.active.component.SessionExerciseCard
 import com.opengym.feature.session.active.component.SupersetLink
@@ -59,6 +64,9 @@ import kotlin.time.Duration.Companion.seconds
  * @param onPickExercises push the exercise picker. What that opens lives in another feature
  *   module, so it is `:app`'s to resolve — see `ExercisePicker`.
  * @param pickedExerciseIds what the picker came back with, or null when it has not answered.
+ *   Two things on this screen open it — "add more exercises" and the swap on a card — and which
+ *   of them asked is remembered here rather than in the ViewModel, for the reason the ids
+ *   themselves are consumed here: it is a fact about a navigation in flight.
  * @param onPickedExercisesHandled the answer has been applied and should be forgotten, so a
  *   recomposition or a process restore does not append the same exercises twice.
  */
@@ -75,14 +83,32 @@ fun ActiveSessionRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    // The slot a swap is waiting on, or null when the picker was opened to add to the workout.
+    // Set by whichever control asked, so a picker backed out of and reopened from the other one
+    // cannot answer the wrong question. `rememberSaveable` because the picker is a screen the
+    // user can sit on long enough for the process to be killed behind it, which is the same
+    // reason `:app` saves the answer itself.
+    var swappingExerciseId by rememberSaveable { mutableStateOf<Long?>(null) }
+
     // Consumed here rather than in the ViewModel because the ids are a *navigation* result:
     // `:app` holds them while the picker pops, and the ViewModel has no business knowing that a
     // back stack is how the answer arrived. The same shape the new-session flow uses.
     LaunchedEffect(pickedExerciseIds) {
-        if (pickedExerciseIds != null) {
-            viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(pickedExerciseIds))
-            onPickedExercisesHandled()
+        val picked = pickedExerciseIds ?: return@LaunchedEffect
+        val target = swappingExerciseId
+        val replacement = picked.firstOrNull()
+
+        // A slot holds one exercise, and the picker is a multi-select screen: the first thing
+        // ticked is what goes in it. Appending the rest would turn one deliberate replacement
+        // into an edit of the whole workout, which is what the other control is for.
+        if (target != null && replacement != null) {
+            viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(target, replacement))
+        } else {
+            viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(picked))
         }
+
+        swappingExerciseId = null
+        onPickedExercisesHandled()
     }
 
     // Reported once the state says so, rather than from the ViewModel: the write has landed by
@@ -97,7 +123,20 @@ fun ActiveSessionRoute(
 
     ActiveSessionScreen(
         state = state,
-        onEvent = viewModel::onEvent,
+        onEvent = { event ->
+            // Recorded on the way past rather than handled: the ViewModel has nothing to do with
+            // either of these, and what they change is which question the picker is about to
+            // answer. The add action clears it, so the last control tapped is always the one the
+            // answer belongs to.
+            when (event) {
+                is ActiveSessionEvent.ExerciseSwapRequested ->
+                    swappingExerciseId = event.sessionExerciseId
+
+                ActiveSessionEvent.AddExercisesRequested -> swappingExerciseId = null
+                else -> Unit
+            }
+            viewModel.onEvent(event)
+        },
         onPickExercises = onPickExercises,
         modifier = modifier,
         snackbarHostState = snackbarHostState,
@@ -127,6 +166,25 @@ fun ActiveSessionRoute(
  * superset is made and unmade. The grouping itself is a column on `session_exercise` and the
  * rules over it are `Supersets`'; this screen only ever asks to link two *neighbours*, which is
  * the one request that cannot produce an illegal grouping.
+ *
+ * ### The plan meets the gym
+ *
+ * Two things can be changed about the workout itself, because a plan does not survive contact
+ * with a busy room.
+ *
+ * **The order.** Holding an exercise for a moment picks it up, and the whole page collapses to
+ * one line per exercise while it is held — the session, whole, on one screen — so moving the
+ * sixth exercise above the second is one movement of a thumb rather than a drag into a
+ * scrolling edge. Letting go drops it there and saves. There is no reorder mode to enter or
+ * leave: the finger coming up is the end of it. A superset the drag pulls apart is torn rather
+ * than refused, which is `ReorderSessionExercisesUseCase`'s rule and is why nothing here has to
+ * explain a bounced drop.
+ *
+ * **What is in a slot.** Each card can have its exercise swapped for another, keeping its place
+ * in the order and whatever it is paired with. Refused once sets have been logged against it,
+ * because those sets would otherwise be attributed to a movement nobody performed.
+ *
+ * Both go inert on a paused session, like everything else on the page.
  *
  * ### Where the accent is spent
  *
@@ -173,6 +231,35 @@ fun ActiveSessionScreen(
     // cells tall, and two of them open would push the second exercise's table off the screen.
     var rpeScaleFor by rememberSaveable { mutableStateOf<Long?>(null) }
 
+    // The order as it is being dragged. Screen-local and seeded from the store, which is what
+    // makes it honest: the key is the stored order, so anything that lands — the drag's own
+    // write, an exercise added, a refusal that never changed anything — re-seeds it. Between
+    // gestures the two are the same list.
+    val storedOrder = state.exercises.map(SessionExerciseRow::sessionExerciseId)
+    var order by remember(storedOrder) { mutableStateOf(storedOrder) }
+
+    // Not `rememberSaveable`, unlike the scale above: a held exercise cannot survive the process
+    // that is holding it, and a list that came back collapsed with nothing under the finger
+    // would be a mode with no way out.
+    val reorder = rememberReorderState(
+        itemCount = state.exercises.size,
+        onMove = { from, to -> order = order.toMutableList().apply { add(to, removeAt(from)) } },
+        onCommit = { onEvent(ActiveSessionEvent.ExercisesReordered(order)) },
+        // Nothing to reorder in a workout of one, and a paused workout is read-only —
+        // `ReorderSessionExercisesUseCase` refuses one, so an exercise that could still be
+        // picked up would be a gesture whose only outcome is a refusal. Nor while an order is
+        // being written: a second one computed against the list as it was is the same mistake
+        // the superset control guards against with `isRegrouping`.
+        enabled = state.isEditable && !state.isReordering && state.exercises.size > 1,
+    )
+
+    // Drawn in the order being dragged rather than the stored one, so the page under the finger
+    // is the page the finger is making. `mapNotNull` because the two lists are only briefly
+    // different — an exercise cut elsewhere leaves an id here until the re-seed above.
+    val exercises = order.mapNotNull { id ->
+        state.exercises.firstOrNull { it.sessionExerciseId == id }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
@@ -204,6 +291,8 @@ fun ActiveSessionScreen(
 
             else -> SessionBody(
                 state = state,
+                exercises = exercises,
+                reorder = reorder,
                 inlineMessage = inlineMessage,
                 onEvent = onEvent,
                 onPickExercises = onPickExercises,
@@ -237,6 +326,8 @@ fun ActiveSessionScreen(
 @Composable
 private fun SessionBody(
     state: ActiveSessionUiState,
+    exercises: List<SessionExerciseRow>,
+    reorder: ReorderState,
     inlineMessage: ActiveSessionMessage?,
     onEvent: (ActiveSessionEvent) -> Unit,
     onPickExercises: () -> Unit,
@@ -247,65 +338,101 @@ private fun SessionBody(
     // The entry row goes read-only while the session is suspended or on its way out.
     // `LogSetUseCase` refuses a set logged into a paused session, so a field that still took
     // keystrokes would be collecting them for a write that cannot happen.
-    val enabled = !state.isPaused && !state.isBusy
+    val enabled = state.isEditable
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            // The gesture lives on the list rather than on the cards, because the cards move —
+            // see `Modifier.reorderable`.
+            .reorderable(reorder),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding() + OpenGymTheme.spacing.screen,
             bottom = OpenGymTheme.spacing.section,
             start = OpenGymTheme.spacing.screen,
             end = OpenGymTheme.spacing.screen,
         ),
-        verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+        // Tighter while the workout is collapsed: the gap between two cards is what separates
+        // one exercise's set table from the next, and between two title rows it is only air.
+        verticalArrangement = Arrangement.spacedBy(
+            if (reorder.isActive) OpenGymTheme.spacing.md else OpenGymTheme.spacing.lg,
+        ),
     ) {
-        state.stats?.let { stats ->
-            item(key = "stats") {
-                // Without the duration: the header's clock is directly above it, and the same
-                // number twice on one screen is one of them being ignored.
-                SessionStatChips(stats = stats, showDuration = false)
+        // Everything that is not an exercise goes while one is held. What is left is the
+        // workout as a list of names, which is the shortest a session can be drawn and the
+        // whole reason a drag across it is one movement — see `CollapsedExerciseRow`.
+        if (!reorder.isActive) {
+            state.stats?.let { stats ->
+                item(key = "stats") {
+                    // Without the duration: the header's clock is directly above it, and the
+                    // same number twice on one screen is one of them being ignored.
+                    SessionStatChips(stats = stats, showDuration = false)
+                }
+            }
+
+            if (inlineMessage != null) {
+                item(key = "message") {
+                    Text(
+                        text = stringResource(inlineMessage.labelRes()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+
+            if (exercises.isEmpty()) {
+                item(key = "no-exercises") {
+                    EmptyState(
+                        title = stringResource(R.string.active_no_exercises_title),
+                        description = stringResource(R.string.active_no_exercises_body),
+                    )
+                }
             }
         }
 
-        if (inlineMessage != null) {
-            item(key = "message") {
-                Text(
-                    text = stringResource(inlineMessage.labelRes()),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-
-        if (state.exercises.isEmpty()) {
-            item(key = "no-exercises") {
-                EmptyState(
-                    title = stringResource(R.string.active_no_exercises_title),
-                    description = stringResource(R.string.active_no_exercises_body),
-                )
-            }
-        }
-
-        state.exercises.forEachIndexed { index, row ->
+        exercises.forEachIndexed { index, row ->
             item(key = "exercise-${row.sessionExerciseId}") {
-                SessionExerciseCard(
-                    row = row,
-                    onEvent = onEvent,
-                    onRemove = { onEvent(ActiveSessionEvent.ExerciseRemoved(row.sessionExerciseId)) },
-                    showRpeScale = rpeScaleFor == row.sessionExerciseId,
-                    onRpeToggle = { onRpeToggle(row.sessionExerciseId) },
-                    enabled = enabled,
-                    isLogging = state.loggingExerciseId == row.sessionExerciseId,
-                )
+                ReorderableItem(
+                    state = reorder,
+                    key = row.sessionExerciseId,
+                    index = index,
+                ) { isHeld ->
+                    if (reorder.isActive) {
+                        CollapsedExerciseRow(row = row, position = index, isHeld = isHeld)
+                    } else {
+                        SessionExerciseCard(
+                            row = row,
+                            // The place it is being dragged to rather than the one on the row,
+                            // which is a frame behind while an order is being written.
+                            position = index,
+                            onEvent = onEvent,
+                            onRemove = {
+                                onEvent(ActiveSessionEvent.ExerciseRemoved(row.sessionExerciseId))
+                            },
+                            onSwap = {
+                                onEvent(ActiveSessionEvent.ExerciseSwapRequested(row.sessionExerciseId))
+                                onPickExercises()
+                            },
+                            showRpeScale = rpeScaleFor == row.sessionExerciseId,
+                            onRpeToggle = { onRpeToggle(row.sessionExerciseId) },
+                            // The card whose exercise is being replaced goes read-only with it:
+                            // the fields belong to a movement on its way out of the slot.
+                            enabled = enabled && state.swappingExerciseId != row.sessionExerciseId,
+                            isLogging = state.loggingExerciseId == row.sessionExerciseId,
+                        )
+                    }
+                }
             }
 
             // The join to the exercise below, which is only a thing where there is one. The last
             // exercise has nothing to be performed back to back with, so it gets no control
-            // rather than a disabled one that would have to explain itself.
-            val next = state.exercises.getOrNull(index + 1) ?: return@forEachIndexed
+            // rather than a disabled one that would have to explain itself. Gone while an
+            // exercise is held: it is a control, and nothing on the page can be pressed by a
+            // finger that is already holding something.
+            val next = exercises.getOrNull(index + 1) ?: return@forEachIndexed
+            if (reorder.isActive) return@forEachIndexed
             item(key = "join-${row.sessionExerciseId}") {
                 SupersetLink(
                     isLinked = row.isLinkedToNext,
@@ -329,6 +456,8 @@ private fun SessionBody(
                 )
             }
         }
+
+        if (reorder.isActive) return@LazyColumn
 
         item(key = "add-exercises") {
             // At the bottom, under everything the workout already holds, because that is where
@@ -400,6 +529,9 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.REMOVE_EXERCISE_FAILED -> R.string.active_error_remove
     ActiveSessionMessage.RENAME_FAILED -> R.string.active_error_rename
     ActiveSessionMessage.SUPERSET_FAILED -> R.string.active_error_superset
+    ActiveSessionMessage.REORDER_FAILED -> R.string.active_error_reorder
+    ActiveSessionMessage.SWAP_HAS_SETS -> R.string.active_error_swap_has_sets
+    ActiveSessionMessage.SWAP_FAILED -> R.string.active_error_swap
     ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore
 }
 
@@ -482,7 +614,7 @@ private fun previewState(): ActiveSessionUiState {
             name = "Push day · Upper",
             startedAt = 1_700_000_000_000L,
             elapsed = 23.minutes + 14.seconds,
-            progress = SessionProgress(completed = 2, total = 4),
+            progress = SessionProgress.of(completed = 2, total = 4),
         ),
         stats = SessionStats(
             totalSets = 5,

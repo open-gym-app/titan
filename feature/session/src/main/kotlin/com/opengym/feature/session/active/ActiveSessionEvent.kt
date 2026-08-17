@@ -67,6 +67,36 @@ sealed interface ActiveSessionEvent {
     data class ExercisesPicked(val exerciseIds: List<Long>) : ActiveSessionEvent
 
     /**
+     * Perform the workout's exercises in this order from now on.
+     *
+     * Carries the whole order rather than the one exercise that moved, and by id rather than by
+     * position — the same reason every other edit here names a row. A drag across four exercises
+     * is one of these, emitted when the finger comes up, not four; see `ReorderableItem`.
+     */
+    data class ExercisesReordered(val orderedSessionExerciseIds: List<Long>) : ActiveSessionEvent
+
+    /**
+     * Do a different exercise in this slot — the machine is taken, or it was the wrong pick.
+     *
+     * Like [AddExercisesRequested], this only says that the picker is wanted; what opens is
+     * another feature module's destination and the answer comes back through `:app`. Which of
+     * the two asked is remembered by the screen rather than by the ViewModel, because it is a
+     * fact about a navigation in flight — see `ActiveSessionRoute`.
+     */
+    data class ExerciseSwapRequested(val sessionExerciseId: Long) : ActiveSessionEvent
+
+    /**
+     * The picker came back with what should go in that slot.
+     *
+     * Refused once sets have been logged against the slot: they would stay, attached to a
+     * movement they were not performed on. See `SwapSessionExerciseUseCase`.
+     */
+    data class ExerciseSwapped(
+        val sessionExerciseId: Long,
+        val exerciseId: Long,
+    ) : ActiveSessionEvent
+
+    /**
      * Cut this exercise out of the workout.
      *
      * Refused when sets have been logged against it — the cascade would take them with it — and

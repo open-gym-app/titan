@@ -150,7 +150,7 @@ fun SessionChromeCatalog(modifier: Modifier = Modifier) {
             SessionHeaderBar(
                 name = "Push day · Upper",
                 elapsed = 23.minutes + 14.seconds,
-                progress = SessionProgress(completed = 3, total = 8),
+                progress = SessionProgress.of(completed = 3, total = 8),
                 onDiscard = {},
             )
         }

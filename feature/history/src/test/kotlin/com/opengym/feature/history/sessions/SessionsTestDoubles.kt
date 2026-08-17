@@ -75,6 +75,7 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
 
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
     override suspend fun updateExercise(exercise: SessionExercise) = unsupported()
+    override suspend fun updateExercises(exercises: List<SessionExercise>) = unsupported()
     override suspend fun deleteExercise(sessionExerciseId: Long) = unsupported()
     override suspend fun update(session: WorkoutSession) = unsupported()
     override suspend fun delete(id: Long) = unsupported()

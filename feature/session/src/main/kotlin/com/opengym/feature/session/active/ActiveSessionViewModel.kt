@@ -31,7 +31,9 @@ import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
+import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.component.SessionProgress
@@ -107,8 +109,8 @@ import kotlin.time.Duration.Companion.seconds
  * the app exists for, and it is the one place a workout can be logged, edited, named, paused,
  * finished and thrown away.
  *
- * - **The parameter list.** Seventeen constructor parameters, and every one is a graph edge:
- *   three stores, the catalogue, the settings, ten use cases and a clock. Bundling them into
+ * - **The parameter list.** Nineteen constructor parameters, and every one is a graph edge:
+ *   three stores, the catalogue, the settings, twelve use cases and a clock. Bundling them into
  *   a holder to satisfy a count would put a type in the way of reading what this screen depends
  *   on, which is the one thing the list is good for.
  * - **The function count.** The handlers are already grouped — `onEntryEvent`, `onNameEvent`
@@ -127,6 +129,8 @@ class ActiveSessionViewModel @Inject constructor(
     private val logSet: LogSetUseCase,
     private val addExercises: AddSessionExercisesUseCase,
     private val removeExercise: RemoveSessionExerciseUseCase,
+    private val reorderExercises: ReorderSessionExercisesUseCase,
+    private val swapExercise: SwapSessionExerciseUseCase,
     private val linkSuperset: LinkSupersetUseCase,
     private val unlinkSuperset: UnlinkSupersetUseCase,
     private val renameSession: RenameSessionUseCase,
@@ -481,7 +485,8 @@ class ActiveSessionViewModel @Inject constructor(
     // ─── The layout of the workout ──────────────────────────────────────────────────────
 
     /**
-     * The five events that change the workout's list of exercises, or how they are paced.
+     * The eight events that change the workout's list of exercises, its order, or how it is
+     * paced.
      *
      * Split off [onEvent] for the reason [onEntryEvent] and [onNameEvent] are: one `when` per
      * subject, so none of them branches twenty ways over four unrelated ones.
@@ -492,12 +497,16 @@ class ActiveSessionViewModel @Inject constructor(
         when (event) {
             is ActiveSessionEvent.ExercisesPicked -> addPicked(event.exerciseIds)
             is ActiveSessionEvent.ExerciseRemoved -> remove(event.sessionExerciseId)
+            is ActiveSessionEvent.ExercisesReordered -> reorder(event.orderedSessionExerciseIds)
+            is ActiveSessionEvent.ExerciseSwapped -> swap(event.sessionExerciseId, event.exerciseId)
             is ActiveSessionEvent.SupersetLinked -> regroup(event.sessionExerciseId, linked = true)
             is ActiveSessionEvent.SupersetUnlinked -> regroup(event.sessionExerciseId, linked = false)
-            // Nothing to do: opening the picker is a navigation, and the destination is what
-            // performs it. The event exists so the screen has one thing to emit rather than a
-            // callback threaded past the state.
+            // Nothing to do for either: opening the picker is a navigation, and the destination
+            // is what performs it. They exist so the screen has one thing to emit rather than a
+            // callback threaded past the state — and, for the swap, so that which slot asked is
+            // recorded where the answer will come back to. See `ActiveSessionRoute`.
             ActiveSessionEvent.AddExercisesRequested -> Unit
+            is ActiveSessionEvent.ExerciseSwapRequested -> Unit
             else -> return false
         }
         return true
@@ -574,6 +583,83 @@ class ActiveSessionViewModel @Inject constructor(
                                     ActiveSessionMessage.EXERCISE_HAS_SETS
 
                                 else -> ActiveSessionMessage.REMOVE_EXERCISE_FAILED
+                            },
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Writes the order the exercises will be performed in from now on.
+     *
+     * The whole order, because that is what the event carries and what the use case checks: a
+     * list that is no longer this session's exercises is a screen working from a layout that has
+     * changed under it, and it is refused rather than applied to whichever rows still match.
+     *
+     * Guarded on a flag of its own, the way [regroup] is: what is being written is the session's
+     * layout, and a second drag let through mid-write would have been computed against the order
+     * as it was before. Nothing is written back into [ScreenState] on success — `position` is a
+     * column on `session_exercise`, which is read as a `Flow`, so the new order arrives the same
+     * way a logged set does.
+     */
+    private fun reorder(orderedSessionExerciseIds: List<Long>) {
+        val state = screenState.value
+        if (state.isBusy || state.isReordering) return
+        screenState.update { it.copy(isReordering = true, message = null) }
+
+        viewModelScope.launch {
+            reorderExercises(orderedSessionExerciseIds)
+                .onSuccess { screenState.update { it.copy(isReordering = false) } }
+                .onFailure {
+                    screenState.update {
+                        it.copy(
+                            isReordering = false,
+                            message = ActiveSessionMessage.REORDER_FAILED,
+                        )
+                    }
+                }
+            saveDraft()
+        }
+    }
+
+    /**
+     * Puts a different exercise in one slot of the workout.
+     *
+     * Its half-typed set does not travel with it: a weight standing in the field was typed for
+     * the movement that was there, and carrying it over would log somebody's bench press weight
+     * as their first set of incline. Cleared on success only — a refused swap leaves the slot
+     * holding what it held, entry included.
+     *
+     * The refusal worth explaining is the one that is a rule: a slot with sets logged against it
+     * cannot be swapped, because the sets would stay and be attributed to a movement they were
+     * not performed on. See `SwapSessionExerciseUseCase`.
+     */
+    private fun swap(sessionExerciseId: Long, exerciseId: Long) {
+        val state = screenState.value
+        if (state.isBusy || state.swappingExerciseId != null) return
+        screenState.update { it.copy(swappingExerciseId = sessionExerciseId, message = null) }
+
+        viewModelScope.launch {
+            swapExercise(sessionExerciseId, exerciseId)
+                .onSuccess {
+                    screenState.update {
+                        it.copy(
+                            swappingExerciseId = null,
+                            entries = it.entries - sessionExerciseId,
+                        )
+                    }
+                    saveDraft()
+                }
+                .onFailure { failure ->
+                    screenState.update {
+                        it.copy(
+                            swappingExerciseId = null,
+                            message = when (failure) {
+                                is SessionError.ExerciseHasLoggedSets ->
+                                    ActiveSessionMessage.SWAP_HAS_SETS
+
+                                else -> ActiveSessionMessage.SWAP_FAILED
                             },
                         )
                     }
@@ -998,6 +1084,8 @@ class ActiveSessionViewModel @Inject constructor(
             isRenaming = screen.isRenaming,
             isAddingExercises = screen.isAddingExercises,
             isRegrouping = screen.isRegrouping,
+            isReordering = screen.isReordering,
+            swappingExerciseId = screen.swappingExerciseId,
             isPaused = screen.pausedAt != null,
             loggingExerciseId = screen.loggingExerciseId,
             isFinishing = screen.isFinishing,
@@ -1021,11 +1109,14 @@ class ActiveSessionViewModel @Inject constructor(
                 progress = SessionProgress(
                     // "Done" is at least one *completed* set, which is the rule
                     // `SessionStats.exerciseBreakdown` applies four lines below over the same
-                    // data. Counting the rows instead would let a set that is persisted but
-                    // not ticked fill a sliver of the rail that the recap of the same workout
-                    // leaves empty.
-                    completed = rows.count { it.completedSetCount > 0 },
-                    total = rows.size,
+                    // data. Counting every persisted set instead would let one that is logged
+                    // but not ticked fill a sliver of the rail that the recap of the same
+                    // workout leaves empty.
+                    //
+                    // One flag per exercise rather than a count, in the order they are
+                    // performed, so that a reorder moves the marks with the exercises they are
+                    // about — see [SessionProgress].
+                    exercises = rows.map { it.completedSetCount > 0 },
                 ),
             ),
             stats = SessionStatsCalculator.calculate(
@@ -1099,6 +1190,8 @@ private data class ScreenState(
     val isRenaming: Boolean = false,
     val isAddingExercises: Boolean = false,
     val isRegrouping: Boolean = false,
+    val isReordering: Boolean = false,
+    val swappingExerciseId: Long? = null,
     val removingExerciseIds: Set<Long> = emptySet(),
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +59,9 @@ import com.opengym.feature.session.active.SetEntryError
  * the thing that suffers is reading the workout, which is the whole reason the page is like this.
  *
  * @param row the exercise, its sets and its half-typed set.
+ * @param position where it sits in the workout, from 0 — the *drawn* order rather than
+ *   [SessionExerciseRow.position], which is what is stored and is a frame behind it while a
+ *   reorder is being written.
  * @param enabled false makes the whole card read-only — a paused session, or one being closed
  *   out. The fields keep what they hold, because they are still the user's copy of it.
  *
@@ -76,13 +80,18 @@ import com.opengym.feature.session.active.SetEntryError
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
+ * @param onSwap do a different exercise in this slot, keeping its place in the running order and
+ *   whatever it is paired with. The picker is what answers; the refusal it can meet is the same
+ *   one [onRemove] can, and for a related reason — see `SwapSessionExerciseUseCase`.
  */
 @Composable
 fun SessionExerciseCard(
     row: SessionExerciseRow,
+    position: Int,
     onEvent: (ActiveSessionEvent) -> Unit,
     onRpeToggle: () -> Unit,
     onRemove: () -> Unit,
+    onSwap: () -> Unit,
     modifier: Modifier = Modifier,
     showRpeScale: Boolean = false,
     enabled: Boolean = true,
@@ -95,7 +104,13 @@ fun SessionExerciseCard(
             modifier = Modifier.padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
         ) {
-            ExerciseHeading(row = row, onRemove = onRemove, enabled = enabled)
+            ExerciseHeading(
+                row = row,
+                position = position,
+                onRemove = onRemove,
+                onSwap = onSwap,
+                enabled = enabled,
+            )
 
             SetTable(row = row, onEvent = onEvent, onRpeClick = onRpeToggle, enabled = enabled)
 
@@ -153,9 +168,15 @@ fun SessionExerciseCard(
     }
 }
 
-/** The name, its place in the workout, and the way out of it. */
+/** The name, its place in the workout, and the two ways to change what is in the slot. */
 @Composable
-private fun ExerciseHeading(row: SessionExerciseRow, onRemove: () -> Unit, enabled: Boolean) {
+private fun ExerciseHeading(
+    row: SessionExerciseRow,
+    position: Int,
+    onRemove: () -> Unit,
+    onSwap: () -> Unit,
+    enabled: Boolean,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -163,7 +184,7 @@ private fun ExerciseHeading(row: SessionExerciseRow, onRemove: () -> Unit, enabl
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Eyebrow(
-                text = stringResource(R.string.active_exercise_position, row.position + 1),
+                text = stringResource(R.string.active_exercise_position, position + 1),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
@@ -179,6 +200,19 @@ private fun ExerciseHeading(row: SessionExerciseRow, onRemove: () -> Unit, enabl
             OpenGymBadge(
                 text = stringResource(R.string.active_superset, row.supersetLabel),
                 tone = BadgeTone.ACCENT,
+            )
+        }
+        // Before the ×, because it is the milder of the two: swapping keeps the slot and the
+        // × takes it away, and a thumb reaching past the destructive one to find the reversible
+        // one is the wrong way round.
+        IconButton(onClick = onSwap, enabled = enabled) {
+            Icon(
+                imageVector = Icons.Outlined.SwapHoriz,
+                contentDescription = stringResource(
+                    R.string.active_swap_exercise,
+                    row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
+                ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onRemove, enabled = enabled) {

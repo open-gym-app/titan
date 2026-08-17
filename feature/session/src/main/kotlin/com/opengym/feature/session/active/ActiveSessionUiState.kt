@@ -42,6 +42,13 @@ import kotlin.time.Duration
  * @param isRegrouping a superset is being formed or broken. One flag for the whole screen rather
  *   than one per join: the write is a rewrite of the *session's* grouping, and a second tap
  *   landing on another join mid-write would be computed against the layout as it was before.
+ * @param isReordering the running order is being written. One flag for the same reason
+ *   [isRegrouping] is one: what is being written is the *session's* layout, and a second drag
+ *   let through mid-write would be computed against the order as it was before.
+ * @param swappingExerciseId the slot whose exercise is being replaced, or null. An id rather
+ *   than a flag so the card that is changing is the one that goes inert, matching
+ *   [loggingExerciseId] — but only one at a time, because the picker a swap goes through is a
+ *   whole screen and the user is only ever on one of them.
  * @param isPaused whether the session is suspended. The clocks stop and every entry row goes
  *   read-only; `LogSetUseCase` refuses a set logged into a paused session, so a field that
  *   still accepted typing would be collecting keystrokes for a write that cannot happen.
@@ -73,6 +80,8 @@ data class ActiveSessionUiState(
     val isRenaming: Boolean = false,
     val isAddingExercises: Boolean = false,
     val isRegrouping: Boolean = false,
+    val isReordering: Boolean = false,
+    val swappingExerciseId: Long? = null,
     val isPaused: Boolean = false,
     val loggingExerciseId: Long? = null,
     val isFinishing: Boolean = false,
@@ -89,6 +98,16 @@ data class ActiveSessionUiState(
 
     /** Whether the workout is over, either way. */
     val isFinished: Boolean get() = finishedSessionId != null || isDiscarded
+
+    /**
+     * Whether the workout can be changed at all right now.
+     *
+     * One question asked in three places — the entry rows, the layout controls and the reorder
+     * sheet — and one answer, because the domain gives one: every write path refuses a session
+     * that is not `Active`, so a control still live over a paused or finished workout is a
+     * control whose only outcome is a refusal.
+     */
+    val isEditable: Boolean get() = !isPaused && !isBusy
 
     /**
      * Whether any action on the workout should be inert.
@@ -319,6 +338,22 @@ enum class ActiveSessionMessage {
      * happen" is the whole of what there is to say about a write that changed nothing.
      */
     SUPERSET_FAILED,
+
+    /** The new running order could not be saved. The workout is in the order it was. */
+    REORDER_FAILED,
+
+    /**
+     * The slot has sets logged against it, so what is in it cannot be changed.
+     *
+     * The second refusal on this screen that is a *rule* rather than a failure, and a separate
+     * message from [EXERCISE_HAS_SETS] because the way past it is not the same one: a swap can
+     * also be had by adding the new exercise and leaving the old one where it is, which a
+     * removal has no equivalent of.
+     */
+    SWAP_HAS_SETS,
+
+    /** The exercise could not be swapped. The slot holds what it held. */
+    SWAP_FAILED,
 
     /**
      * Opening the screen could not put it back where the workout was left.

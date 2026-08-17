@@ -180,6 +180,9 @@ class FakeSessionStore : SessionRepository {
     override suspend fun updateExercise(exercise: SessionExercise) =
         throw UnsupportedOperationException("the new-session flow edits no layout")
 
+    override suspend fun updateExercises(exercises: List<SessionExercise>) =
+        throw UnsupportedOperationException("the new-session flow edits no layout")
+
     override suspend fun deleteExercise(sessionExerciseId: Long) =
         throw UnsupportedOperationException("the new-session flow edits no layout")
 

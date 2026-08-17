@@ -66,9 +66,10 @@ internal suspend fun supersetTarget(
  * There is no transaction here, unlike the layout write in
  * [SessionRepository.insertExercises]. A grouping half-applied is still a legal grouping —
  * `Supersets.normalize` is run over what is read back before any label is drawn from it, and the
- * worst a torn write leaves is a group of one, which dissolves on sight. The alternative is a
- * multi-row transactional update that nothing else needs, which is #100's problem to solve when
- * a reorder makes it real.
+ * worst a torn write leaves is a group of one, which dissolves on sight. There *is* now a
+ * transactional multi-row write — [SessionRepository.updateExercises], which a reorder cannot do
+ * without — and this still does not use it: a torn *ordering* is a workout in an order nobody
+ * asked for, while a torn grouping repairs itself on the next read.
  *
  * @param updatedAt stamped on the rows that move. Passed in rather than read off a clock here, as
  *   every other write in this package does it: the use cases own the clock, which is what makes

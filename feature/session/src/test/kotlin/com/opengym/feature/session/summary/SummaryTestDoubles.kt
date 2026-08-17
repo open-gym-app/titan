@@ -86,6 +86,7 @@ class FakeSummarySessionStore(
 
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
     override suspend fun updateExercise(exercise: SessionExercise) = unsupported()
+    override suspend fun updateExercises(exercises: List<SessionExercise>) = unsupported()
     override suspend fun deleteExercise(sessionExerciseId: Long) = unsupported()
     override suspend fun insert(session: WorkoutSession): Long = unsupported()
 

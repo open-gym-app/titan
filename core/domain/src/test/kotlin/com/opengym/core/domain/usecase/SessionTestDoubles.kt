@@ -189,6 +189,26 @@ class FakeSessionRepository : SessionRepository {
                 .map { if (it.id == exercise.id) exercise else it }
     }
 
+    /**
+     * Writes several rows at once, refusing what the unique `(session_id, position)` index
+     * would refuse.
+     *
+     * The check is the whole reason this is not a loop over [updateExercise]. The real store
+     * parks the rows out of the way before writing them back — see
+     * `SessionExerciseDao.rewriteLayout` — and a fake that simply applied the list would let a
+     * reorder that leaves two exercises on one position pass here and abort on a device.
+     */
+    override suspend fun updateExercises(exercises: List<SessionExercise>) {
+        exercises.forEach { updateExercise(it) }
+
+        exercises.map(SessionExercise::sessionId).distinct().forEach { sessionId ->
+            val positions = this.exercises.value[sessionId].orEmpty().map(SessionExercise::position)
+            check(positions.size == positions.distinct().size) {
+                "two exercises of session $sessionId ended up on one position: $positions"
+            }
+        }
+    }
+
     /** Every exercise row rewritten, so a test can assert that only what changed was written. */
     val exerciseUpdates = mutableListOf<SessionExercise>()
 

@@ -76,6 +76,22 @@ sealed class SessionError(message: String) : IllegalStateException(message) {
     )
 
     /**
+     * The order asked for does not name this session's exercises, each exactly once.
+     *
+     * A screen working from a layout that has changed under it — an exercise added or cut
+     * somewhere else since it last read the session. Applying it to whichever rows happened to
+     * match would leave the ones it did not name wherever they were, which is not the order
+     * anybody asked for, so the workout is left exactly as it was.
+     *
+     * Note what is *not* here: an order that separates two members of a superset. That is what
+     * dragging one of them out of it means, and it is repaired rather than refused — see
+     * [com.opengym.core.domain.superset.Supersets.tear].
+     */
+    data class InvalidExerciseOrder(val reason: String) : SessionError(
+        "the exercises cannot be reordered like that: $reason",
+    )
+
+    /**
      * The state machine referenced a session that is not in the repository —
      * a stale state value, e.g. after the underlying row was deleted.
      */

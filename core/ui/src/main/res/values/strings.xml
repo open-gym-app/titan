@@ -266,6 +266,13 @@
     <string name="notes_save">Save</string>
     <string name="notes_cancel">Cancel</string>
 
+    <!-- ── Reordering ─────────────────────────────────────────────────────────────── -->
+
+    <!-- Offered as actions on every item of a reorderable list. A drag is a gesture TalkBack
+         cannot perform, so the same two moves are always reachable without one. -->
+    <string name="reorder_move_up">Move up</string>
+    <string name="reorder_move_down">Move down</string>
+
     <!-- ── Search ─────────────────────────────────────────────────────────────────── -->
 
     <string name="search_placeholder">Search…</string>

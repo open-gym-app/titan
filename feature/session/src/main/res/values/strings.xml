@@ -88,6 +88,10 @@
          "exercises", because the button sits under the ones the session already has. -->
     <string name="active_add_exercises">Add more exercises</string>
     <string name="active_remove_exercise">Remove %1$s from this workout</string>
+    <!-- The other way to change what is in a slot: the machine is taken, so something else goes
+         in its place — at the same point in the workout, in the same superset. -->
+    <string name="active_swap_exercise">Swap %1$s for another exercise</string>
+
 
     <!-- The control in the gap between two exercise cards, in its two states. An eyebrow, so
          both are drawn in caps. The joined one names its group, matching the `SS A1` badges on
@@ -135,6 +139,15 @@
     <string name="active_error_rename">Could not rename the session. Try again.</string>
     <!-- Both directions of the superset control, which is one thing to the user. -->
     <string name="active_error_superset">Could not change that superset. The workout is unchanged.</string>
+    <string name="active_error_reorder">Could not save the new order. The workout is in the order it was.</string>
+    <!-- Read out in place of the whole card while the workout is being reordered, since the
+         rows are then a name and a number and the point of them is where they are. -->
+    <string name="active_reorder_position">%1$d. %2$s</string>
+    <!-- The second refusal here that is a rule rather than a failure. It names a different way
+         past itself than the removal does: a swap can also be had by adding the new exercise and
+         leaving the sets where they are. -->
+    <string name="active_error_swap_has_sets">That exercise has sets logged against it. Delete them first, or add the new exercise instead.</string>
+    <string name="active_error_swap">Could not swap that exercise. The workout is unchanged.</string>
     <!-- Shown on open, when the screen could not be put back where the workout was left. -->
     <string name="active_error_restore">Could not pick the workout back up where you left it. Your logged sets are safe.</string>
 

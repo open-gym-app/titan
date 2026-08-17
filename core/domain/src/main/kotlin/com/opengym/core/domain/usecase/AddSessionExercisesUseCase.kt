@@ -14,16 +14,17 @@ import kotlinx.coroutines.flow.first
  * A plan does not survive contact with a gym. The squat rack is taken, a training partner
  * suggests something, an accessory gets added because there is time — and a session laid out
  * once at the moment it started, never to change, is a log the user has to lie in. This and
- * [RemoveSessionExerciseUseCase] are what make the layout editable; reordering and swapping are
- * #100's.
+ * [RemoveSessionExerciseUseCase] are what make the layout editable; the order it is performed in
+ * is [ReorderSessionExercisesUseCase]'s, and replacing one exercise with another is
+ * [SwapSessionExerciseUseCase]'s.
  *
  * ### Appended, never inserted
  *
  * New exercises go on the end, in the order they were picked, and there is no way to place one
  * in the middle. That is not a limitation so much as the honest shape of the operation: what
  * "the middle" means while a workout is half done is a question about the *order things will be
- * performed in*, which is a reorder — the exact thing #100 exists for — and answering it here
- * with an implicit position would be a second, quieter reorder that nothing tests.
+ * performed in*, which is [ReorderSessionExercisesUseCase]'s — and answering it here with an
+ * implicit position would be a second, quieter reorder that nothing tests.
  *
  * ### They stand alone
  *

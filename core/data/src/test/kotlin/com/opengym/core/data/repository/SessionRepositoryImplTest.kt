@@ -278,6 +278,33 @@ class SessionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `updating several exercises reorders them without tripping the position index`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        repository.insertExercises(
+            sessionId,
+            listOf(SessionExerciseDraft(squat), SessionExerciseDraft(bench)),
+            createdAt = 7_000,
+        )
+        val stored = repository.getExercises(sessionId).first()
+
+        repository.updateExercises(
+            listOf(
+                stored[0].copy(position = 1, updatedAt = 9_000),
+                stored[1].copy(position = 0, updatedAt = 9_000),
+            ),
+        )
+
+        // Two rows changing places is the write `(session_id, position)` would abort halfway
+        // through; the store parks them first — see `SessionExerciseDao.rewriteLayout`.
+        assertEquals(
+            listOf(bench, squat),
+            repository.getExercises(sessionId).first().map { it.exerciseId },
+        )
+    }
+
+    @Test
     fun `getSets is ordered by set number within one exercise`() = runBlocking {
         val sessionId = db.workoutSessionDao().insert(session())
         val exerciseId = db.exerciseDao().insert(exercise())

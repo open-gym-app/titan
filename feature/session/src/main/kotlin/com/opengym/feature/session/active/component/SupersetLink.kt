@@ -36,11 +36,16 @@ import com.opengym.feature.session.R
  *
  * ### Why the control is a gap rather than a menu or a selection mode
  *
- * `Supersets` requires a group's members to occupy consecutive positions, and this screen has no
- * reorder (#100). A control that lives *between two neighbours* can therefore only ever ask for
- * something legal, which is why there is no error state here and no explaining to do: everything
- * it can express is a superset. A three-exercise group is two taps, on two gaps, and the domain
- * absorbs the existing group each time — see `LinkSupersetUseCase`.
+ * `Supersets` requires a group's members to occupy consecutive positions. A control that lives
+ * *between two neighbours* can only ever ask for something legal, which is why there is no error
+ * state here and no explaining to do: everything it can express is a superset. A three-exercise
+ * group is two taps, on two gaps, and the domain absorbs the existing group each time — see
+ * `LinkSupersetUseCase`.
+ *
+ * A drag *can* undo a superset — pulling one member away from the other is what "these are not
+ * back to back any more" looks like, and `ReorderSessionExercisesUseCase` tears the group rather
+ * than bouncing the drop. This control is the way back, and the only way to make one in the
+ * first place.
  *
  * ### Why the linked state is loud and the unlinked one is quiet
  *

@@ -90,6 +90,13 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun updateExercise(exercise: SessionExercise) =
         sessionExerciseDao.update(sessionExerciseMapper.toEntity(exercise))
 
+    /**
+     * One transaction, and never two rows on one position — see
+     * `SessionExerciseDao.rewriteLayout`, which is where both halves of that live.
+     */
+    override suspend fun updateExercises(exercises: List<SessionExercise>) =
+        sessionExerciseDao.rewriteLayout(exercises.map(sessionExerciseMapper::toEntity))
+
     override suspend fun deleteExercise(sessionExerciseId: Long) =
         sessionExerciseDao.delete(sessionExerciseId)
 
