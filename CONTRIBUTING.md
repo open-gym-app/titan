@@ -156,6 +156,8 @@ Text(
   | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
   | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |
   | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
+  | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
+  | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
   | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip | `TemplateSummary` |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
@@ -181,9 +183,11 @@ Text(
   `Weight & reps` for a chip, `Weight, reps, RPE` where there is room to say what a set
   records. `Discipline.label()` is *not* the same question: five disciplines are all logged
   as weight and reps, so neither can be derived from the other.
-- **Never format a number by hand, and never parse one by hand either.**
-  `core/ui/.../format/` turns the stored milligrams, centimetres and `Duration`s into what the
-  user reads, and reads what they type back into the same canonical units:
+- **Never format a number by hand, and never parse one by hand either.** A date is one of
+  these: `28/04/2026` is the fourth of the twenty-eighth to an American reader before it is
+  anything else. `core/ui/.../format/` turns the stored milligrams, centimetres, `Duration`s
+  and epoch millis into what the user reads, and reads what they type back into the same
+  canonical units:
 
   | Quantity | Stored as | Read with | Typed back with |
   | --- | --- | --- | --- |
@@ -191,6 +195,7 @@ Text(
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (session), `formatAsEstimate` (`~55m`) | — |
+  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`) | — (picked, never typed) |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and

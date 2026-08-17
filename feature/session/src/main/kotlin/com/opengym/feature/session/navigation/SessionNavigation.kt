@@ -12,8 +12,8 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
 import com.opengym.feature.session.ActiveSessionScreen
 import com.opengym.feature.session.R
-import com.opengym.feature.session.SessionSummaryScreen
 import com.opengym.feature.session.newsession.NewSessionRoute
+import com.opengym.feature.session.summary.SessionSummaryRoute
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 
@@ -40,9 +40,28 @@ data object NewSessionDestination
 @Serializable
 data class ActiveSessionDestination(val sessionId: Long)
 
-/** The recap shown once the session is finished (#27). */
+/**
+ * A session's recap (#27) — the payoff after a workout, and the record of one in history.
+ *
+ * **Outside the session graph, and outside the tab scaffold**, which is the one thing about
+ * this destination worth reading twice. It is registered by [sessionSummaryGraph] rather than
+ * inside [sessionGraph], because the recap is the *end* of the workout rather than a step of
+ * it: the session has been closed out and its screens popped by the time this is pushed, and
+ * leaving the flow registered around it would keep the user in a mode whose subject no longer
+ * exists.
+ *
+ * That placement is also what lets the session list reach it. The alternative — a second
+ * screen in `:feature:history` drawing the same recap — is a module edge the architecture
+ * forbids and a second copy of a layout that has to keep agreeing with this one.
+ *
+ * @param historical whether this is the record of a past session rather than the result of one
+ *   just finished. A route argument rather than two route types with the same shape, matching
+ *   `ExerciseDetailDestination.addToSession` and for the same reason: a `NavController`
+ *   resolves by route *pattern*, and two of those would be ambiguous. See
+ *   [com.opengym.feature.session.summary.SessionSummaryMode] for what it changes.
+ */
 @Serializable
-data class SessionSummaryDestination(val sessionId: Long)
+data class SessionSummaryDestination(val sessionId: Long, val historical: Boolean = false)
 
 /**
  * The exercise picker, as the session flow is allowed to see it.
@@ -88,15 +107,14 @@ data class ExercisePicker(
  * @param onCancelSetup the user backed out before the session began.
  * @param exercisePicker the picker, as this flow is allowed to see it — see [ExercisePicker].
  * @param onSessionStarted setup finished; the id is the session that was created.
- * @param onSessionFinished the workout ended and should be recapped.
- * @param onSummaryDismissed the recap was acknowledged — the flow is over.
+ * @param onSessionFinished the workout ended and should be recapped. The recap is not in this
+ *   graph — see [SessionSummaryDestination] — so this both leaves the flow and opens it.
  */
 fun NavGraphBuilder.sessionGraph(
     onCancelSetup: () -> Unit,
     exercisePicker: ExercisePicker,
     onSessionStarted: (sessionId: Long) -> Unit,
     onSessionFinished: (sessionId: Long) -> Unit,
-    onSummaryDismissed: () -> Unit,
 ) {
     navigation<SessionGraphDestination>(startDestination = NewSessionDestination) {
         composable<NewSessionDestination> {
@@ -153,9 +171,24 @@ fun NavGraphBuilder.sessionGraph(
                 snackbarHostState = snackbarHostState,
             )
         }
-        composable<SessionSummaryDestination> { entry ->
-            val destination: SessionSummaryDestination = entry.toRoute()
-            SessionSummaryScreen(sessionId = destination.sessionId, onDone = onSummaryDismissed)
-        }
+    }
+}
+
+/**
+ * The session recap, registered **once**, outside every graph — see
+ * [SessionSummaryDestination].
+ *
+ * Both callers land on the same destination and differ only in
+ * [SessionSummaryDestination.historical]: the session flow pushes it as a workout ends, and
+ * the session list pushes it for a workout logged months ago.
+ *
+ * @param onExit the way off the screen. It means two different things and neither of them is
+ *   this feature's to know: after a workout it is the end of the flow, and from the list it is
+ *   a pop back to the list. `:app` resolves that, the same way it resolves every other edge
+ *   between two features.
+ */
+fun NavGraphBuilder.sessionSummaryGraph(onExit: () -> Unit) {
+    composable<SessionSummaryDestination> {
+        SessionSummaryRoute(onExit = onExit)
     }
 }

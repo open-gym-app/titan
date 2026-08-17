@@ -16,9 +16,13 @@ import com.opengym.core.ui.theme.OpenGymTheme
 /**
  * The Sessions tab — session browsing, which #24 splits into HISTORY / TEMPLATES / CALENDAR.
  *
- * Scaffolding. The one real behaviour is the push onto [SessionDetailScreen], which is what
- * gives this tab depth — and a tab with depth is the only way to show that switching tabs
- * and coming back restores where the user was, rather than resetting to the tab's root.
+ * Scaffolding. The one real behaviour is the push onto a session's recap — the screen
+ * `:feature:session` draws in its historical mode (#27).
+ *
+ * That push leaves the tab scaffold rather than adding depth to it: the recap is registered at
+ * the top level, alongside the exercise detail and the plate calculator, so this tab has one
+ * destination until #24 gives it three. What the tab *keeps* across a switch is therefore its
+ * state rather than a stack — see `OpenGymAppState.navigateToTopLevelDestination`.
  */
 @Composable
 fun SessionsScreen(
@@ -59,8 +63,11 @@ fun SessionsScreen(
 }
 
 /**
- * Stands in for the id of a tapped row until #24 renders real ones. It is never read — the
- * detail screen only echoes it — so it carries no meaning beyond "some session".
+ * Stands in for the id of a tapped row until #24 renders real ones.
+ *
+ * The recap it opens does read it, unlike the echoing detail screen this replaced, so on a
+ * device with no session 1 the push lands on "Session not found" — which is the honest thing
+ * for a button that stands in for a row of a list that is not built yet.
  */
 private const val PLACEHOLDER_SESSION_ID = 1L
 

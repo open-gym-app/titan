@@ -2,9 +2,9 @@
 <!--
   The session flow's strings.
 
-  The active session and the summary are still scaffolding (#26, #27) and their placeholder
-  text is written inline where it can be read next to the layout it labels. Everything the
-  user is actually meant to read and act on is here, and translatable.
+  The active session is still scaffolding (#26) and its placeholder text is written inline
+  where it can be read next to the layout it labels. Everything the user is actually meant to
+  read and act on is here, and translatable.
 
   Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
   and `OpenGymBadge` uppercase for the caller, so a translator is never asked to reproduce a
@@ -65,5 +65,80 @@
       does nothing at least says why. Replaced by the discard confirmation in #26.
     -->
     <string name="session_back_blocked">Finish the session to leave</string>
+
+    <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
+
+    <!-- The eyebrow over the header. Which one is shown is the whole of what the two render
+         modes differ in at the top of the screen: one announces a result, the other labels a
+         record. -->
+    <string name="summary_complete">Session complete</string>
+    <string name="summary_logged">Logged session</string>
+    <string name="summary_back">Back to the session list</string>
+    <!-- A session started empty and never named. The date under it is what identifies it, so
+         this stands in for a name rather than inventing one. -->
+    <string name="summary_unnamed">Unnamed session</string>
+    <!-- "10:14 → 11:06 · 52:14", under the day. Every part is a numeric, so the line is set in
+         the mono role and the separators are typographic rather than words. -->
+    <string name="summary_meta">%1$s · %2$s</string>
+    <string name="summary_time_range">%1$s → %2$s</string>
+
+    <!-- The session id no longer resolves to a row — deleted from another screen, in
+         practice. -->
+    <string name="summary_missing_title">Session not found</string>
+    <string name="summary_missing_body">This session is no longer in your history. It may have been deleted.</string>
+
+    <!-- Records. The heading is plural because the section is absent entirely when there are
+         none, so it is never drawn over a single-item list by accident. -->
+    <string name="summary_records">New personal records</string>
+    <string name="summary_records_historical">Personal records</string>
+    <!-- The exercise a record no longer resolves to. The record still stands — it is a thing
+         the user did — so it is titled rather than dropped. -->
+    <string name="summary_record_unknown">Exercise no longer in your library</string>
+
+    <string name="summary_muscles">Muscles worked</string>
+    <!-- The tail of a muscle breakdown too long to draw in full. -->
+    <string name="summary_muscles_more">+%1$d more</string>
+
+    <string name="summary_exercises">Exercises</string>
+    <string name="summary_exercise_unknown">Removed from your library</string>
+    <!-- The figure line under an exercise: "4 × 8-10 · 80 kg max". The set count and the rep
+         range are one part because they are read as one phrase. -->
+    <string name="summary_exercise_sets">%1$d × %2$s</string>
+    <string name="summary_exercise_rep_range">%1$d-%2$d</string>
+    <string name="summary_exercise_top_weight">%1$s max</string>
+    <string name="summary_exercise_meta">%1$s · %2$s</string>
+    <!-- Announced for a breakdown row, which is otherwise read out as an index, a name and a
+         line of abbreviations. These spell out what the row abbreviates: "4 × 8-10" is read
+         as four sets of eight to ten reps. -->
+    <string name="summary_exercise_description_position">%1$d. %2$s</string>
+    <plurals name="summary_exercise_description_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <plurals name="summary_exercise_description_reps">
+        <item quantity="one">%1$d rep</item>
+        <item quantity="other">%1$d reps</item>
+    </plurals>
+    <string name="summary_exercise_description_rep_range">%1$d to %2$d reps</string>
+
+    <string name="summary_notes">Session notes</string>
+    <string name="summary_notes_label">Session notes</string>
+    <string name="summary_notes_empty">Add a note about this session — how it felt, what to change next time.</string>
+
+    <!-- Actions. "Done" ends the flow; it is absent in the historical view, where the back
+         arrow is the way out. -->
+    <string name="summary_save_template">Save as template</string>
+    <string name="summary_done">Done</string>
+
+    <string name="summary_template_title">Save as template</string>
+    <string name="summary_template_body">The exercises you performed, in order, with the sets, reps and weights you hit as their defaults.</string>
+    <string name="summary_template_name">Template name</string>
+    <string name="summary_template_save">Save</string>
+    <string name="summary_template_cancel">Cancel</string>
+
+    <string name="summary_error_notes">Could not save the note</string>
+    <string name="summary_template_saved">Saved as a template</string>
+    <string name="summary_error_template_taken">You already have a template with that name</string>
+    <string name="summary_error_template">Could not save the template</string>
 
 </resources>

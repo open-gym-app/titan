@@ -3,6 +3,7 @@ package com.opengym.core.data.di
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
+import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import dagger.Module
 import dagger.Provides
@@ -10,15 +11,17 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
 /**
- * The template *reads* — listing them for a picker, and reading one out as the plan for
- * a session.
+ * The template use cases the app has a consumer for.
  *
  * Separate from [SessionUseCaseModule] because they are a different concern with a
  * different set of repositories behind them, per ARCHITECTURE.md's rule against a
- * single module of unrelated bindings. The write path (`CreateTemplateUseCase` and its
- * two siblings) has no consumer until template authoring lands (#92) and is deliberately
- * not bound here yet: a binding nothing injects is a compile-time cost and an
- * unverified claim that the wiring works.
+ * single module of unrelated bindings.
+ *
+ * The two reads have been here from the start. [CreateTemplateUseCase] joins them with
+ * #27's "save as template", which is the first caller anything on the write path has had
+ * — the rule being followed is still "a binding nothing injects is an unverified claim
+ * that the wiring works", so `UpdateTemplateUseCase` and `DeleteTemplateUseCase` stay
+ * unbound until template authoring (#92) gives them one.
  *
  * See [SessionUseCaseModule] for why the use cases are wired from `:core:data` at all,
  * and why these are `@Provides` rather than constructor injection.
@@ -31,6 +34,11 @@ object TemplateUseCaseModule {
     fun provideApplyTemplateUseCase(
         templateRepository: TemplateRepository,
     ): ApplyTemplateUseCase = ApplyTemplateUseCase(templateRepository)
+
+    @Provides
+    fun provideCreateTemplateUseCase(
+        templateRepository: TemplateRepository,
+    ): CreateTemplateUseCase = CreateTemplateUseCase(templateRepository)
 
     @Provides
     fun provideGetTemplateSummariesUseCase(

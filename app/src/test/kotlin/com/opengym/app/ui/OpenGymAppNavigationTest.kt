@@ -157,60 +157,48 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
-    fun `a tab stays selected on a screen pushed inside it`() {
+    fun `opening a logged session leaves the tab scaffold, and back returns to it`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
         composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
 
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
-        // The detail screen is not the tab's route, only a descendant of its graph — the
-        // hierarchy walk in `OpenGymAppState` is what keeps this from clearing the bar.
+        // A logged session opens the recap `:feature:session` draws, in its historical mode —
+        // the same screen a workout ends on. It is registered outside the tabs, like the
+        // exercise detail and the plate calculator, so it takes the whole screen and draws its
+        // own way back.
+        composeTestRule.onNodeWithContentDescription(SESSION_RECAP).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertDoesNotExist()
+
+        composeTestRule.onNodeWithContentDescription(SESSION_RECAP).performClick()
+
+        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsSelected()
     }
 
+    /*
+     * There is no test here for a screen pushed *inside* a tab keeping that tab selected, and
+     * none for such a screen surviving a tab switch. Nothing in the app is one any more: the
+     * session recap was the last, and #27 moved it out to the top level alongside the exercise
+     * detail. The rules those tests covered are still in `OpenGymAppState` and are still
+     * exercised — `saveState`/`restoreState` by the tab-state test below, the reselection
+     * inversion by the library's re-tap test above — and #24 gives the Sessions tab three
+     * destinations of its own to put the hierarchy walk back under test.
+     */
+
     @Test
-    fun `each tab keeps its own back stack across a switch`() {
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
+    fun `each tab keeps its own state across a switch`() {
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+        composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
+        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
 
         composeTestRule.onNodeWithContentDescription(TAB_STATS).performClick()
         composeTestRule.onNodeWithText(PROGRESSION).assertIsDisplayed()
 
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
 
-        // Not the sessions list: returning to a tab resumes where the user left it. Without
-        // `saveState`/`restoreState` this lands on the list and the assertion fails.
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
-    }
-
-    @Test
-    fun `re-tapping the active tab returns it to its root`() {
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
-
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-
-        // The one thing pressing the tab you are already on can usefully do.
-        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsSelected()
-    }
-
-    @Test
-    fun `a tab reset by a re-tap stays reset after switching away and back`() {
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-
-        composeTestRule.onNodeWithContentDescription(TAB_HOME).performClick()
-        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-
-        // The reset has to drop the saved stack, not just skip restoring it. Saving on a
-        // re-tap files the detail screen away and this visit silently restores it — the same
-        // bug as not resetting at all, delayed by one tab switch.
-        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertDoesNotExist()
+        // Not a fresh library: returning to a tab resumes where the user left it. Without
+        // `saveState`/`restoreState` the entry is rebuilt, the search box closes, and this
+        // assertion fails — which is the same mechanism a pushed screen would have exercised.
+        composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
     }
 
     @Test
@@ -235,7 +223,9 @@ class OpenGymAppNavigationTest {
 
         composeTestRule.onNodeWithText(FINISH).performClick()
 
-        composeTestRule.onNodeWithText(SUMMARY).assertIsDisplayed()
+        // The recap is the end of the flow rather than a step of it — it is pushed as the flow
+        // is popped — but it is still bar-less, because it is outside the tab scaffold.
+        composeTestRule.onNodeWithText(DONE).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
     }
 
@@ -279,7 +269,6 @@ class OpenGymAppNavigationTest {
     @Test
     fun `leaving the session flow restores the bar and the tab that was open`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(OPEN_A_SESSION).performClick()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).performClick()
 
         composeTestRule.onNodeWithText(START_SESSION).performClick()
@@ -288,9 +277,9 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
         composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
 
-        // And the Sessions tab still holds the screen it was left on.
+        // And the tab the user had been on is still there to go back to.
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
-        composeTestRule.onNodeWithText(SESSION_DETAIL).assertIsDisplayed()
+        composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
     }
 
     @Test
@@ -427,10 +416,22 @@ class OpenGymAppNavigationTest {
         const val HOME = "TODAY"
         const val HISTORY = "HISTORY"
         const val PROGRESSION = "PROGRESSION"
-        const val SESSION_DETAIL = "SESSION · 1"
         const val NEW_SESSION = "New session"
         const val ACTIVE_SESSION = "ACTIVE · SESSION 1"
-        const val SUMMARY = "SUMMARY · SESSION 1"
+
+        /*
+         * The recap, by the chrome each of its two modes draws.
+         *
+         * Its *body* is not a marker here, and cannot be: the screen assembles it from a
+         * combine over three Room queries, and under Robolectric those never leave their
+         * initial value — the same thing that stops the exercise picker drawing rows in the
+         * test below. What each mode draws without reading anything is the marker instead:
+         * the historical view's back arrow, and the just-finished view's DONE. Both are also
+         * the property under test in the two places they are used, which is why that is not a
+         * compromise — whether the recap renders a session is `SessionSummaryScreenTest`'s
+         * question, over a state built by hand.
+         */
+        const val SESSION_RECAP = "Back to the session list"
 
         // Settings' first group header, uppercased by the eyebrow style.
         const val SETTINGS_GROUP_APPEARANCE = "APPEARANCE"
@@ -448,7 +449,7 @@ class OpenGymAppNavigationTest {
         const val START_SESSION = "START SESSION"
         const val OPEN_A_SESSION = "OPEN A SESSION"
         const val FINISH = "FINISH"
-        const val DONE = "DONE"
+        const val DONE = "Done"
 
         // The new-session flow: the seeded template, and the commit that ends setup.
         const val TEMPLATE = "Push day"

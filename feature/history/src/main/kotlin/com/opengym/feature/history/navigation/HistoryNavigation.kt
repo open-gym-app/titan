@@ -6,7 +6,6 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
-import com.opengym.feature.history.SessionDetailScreen
 import com.opengym.feature.history.SessionsScreen
 import com.opengym.feature.history.detail.ExerciseDetailRoute
 import com.opengym.feature.history.library.ExerciseLibraryRoute
@@ -21,9 +20,16 @@ data object HistoryGraphDestination
 @Serializable
 data object SessionsDestination
 
-/** One logged session, in read-only view mode. */
-@Serializable
-data class SessionDetailDestination(val sessionId: Long)
+/*
+ * There is no `SessionDetailDestination` here, and that is deliberate.
+ *
+ * A logged session opens on the recap `:feature:session` draws — the same screen a workout
+ * ends on, with `SessionSummaryDestination.historical` set. A second screen in this module
+ * showing the same stats, records and muscle breakdown would be a copy that has to keep
+ * agreeing with the original, and the module edge that would let this one call the original
+ * is the one the architecture forbids. `:app` owns that edge, so `:app` makes the push; see
+ * `historyGraph`'s `onSessionClick`.
+ */
 
 /** The Library tab's graph. Navigating here lands on [ExerciseLibraryDestination]. */
 @Serializable
@@ -96,22 +102,20 @@ data object ExercisePickerDestination
 /**
  * The Sessions tab.
  *
- * @param onSessionClick a row was tapped. Handled inside this tab, but still hoisted: the
+ * One destination, now that a tapped row opens the recap `:feature:session` draws rather than
+ * a detail screen of this module's own — see the note above [SessionsDestination]. It stays a
+ * graph rather than a bare destination because #24 splits the tab into history, templates and
+ * calendar, and a tab that grows a second destination should not have to be converted then.
+ *
+ * @param onSessionClick a row was tapped. Hoisted, like every other navigation action: the
  *   `NavController` belongs to `:app`, and a feature that reaches for it directly is one
- *   refactor away from reaching for another feature's destination through it.
- * @param onBack leave the detail screen.
+ *   refactor away from reaching for another feature's destination through it. Here that is
+ *   load-bearing rather than stylistic — the destination this opens is in another module.
  */
-fun NavGraphBuilder.historyGraph(
-    onSessionClick: (sessionId: Long) -> Unit,
-    onBack: () -> Unit,
-) {
+fun NavGraphBuilder.historyGraph(onSessionClick: (sessionId: Long) -> Unit) {
     navigation<HistoryGraphDestination>(startDestination = SessionsDestination) {
         composable<SessionsDestination> {
             SessionsScreen(onSessionClick = onSessionClick)
-        }
-        composable<SessionDetailDestination> { entry ->
-            val destination: SessionDetailDestination = entry.toRoute()
-            SessionDetailScreen(sessionId = destination.sessionId, onBack = onBack)
         }
     }
 }

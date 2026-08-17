@@ -15,7 +15,6 @@ import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import com.opengym.feature.history.navigation.ExercisePickerDestination
 import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
 import com.opengym.feature.history.navigation.PlateCalculatorDestination
-import com.opengym.feature.history.navigation.SessionDetailDestination
 import com.opengym.feature.history.navigation.exerciseDetailGraph
 import com.opengym.feature.history.navigation.exercisePickerGraph
 import com.opengym.feature.history.navigation.historyGraph
@@ -30,6 +29,7 @@ import com.opengym.feature.session.navigation.NewSessionDestination
 import com.opengym.feature.session.navigation.SessionGraphDestination
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import com.opengym.feature.session.navigation.sessionGraph
+import com.opengym.feature.session.navigation.sessionSummaryGraph
 import com.opengym.feature.settings.navigation.settingsGraph
 
 /**
@@ -94,14 +94,20 @@ fun OpenGymNavHost(
                 },
             )
             historyGraph(
-                // Likewise: two taps on a history row are two pushes of the same detail
-                // screen, and the first back press then looks like it did nothing.
+                // A logged session opens the recap `:feature:session` draws, in its historical
+                // mode — the same screen a workout ends on. Two features in one expression,
+                // which is what this file is for.
+                //
+                // `launchSingleTop` as everywhere else: two taps on a history row are two
+                // pushes of the same recap, and the first back press then looks like it did
+                // nothing.
                 onSessionClick = { sessionId ->
-                    navController.navigate(SessionDetailDestination(sessionId)) {
+                    navController.navigate(
+                        SessionSummaryDestination(sessionId = sessionId, historical = true),
+                    ) {
                         launchSingleTop = true
                     }
                 },
-                onBack = { navController.popBackStack() },
             )
             libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
             progressionGraph()
@@ -127,13 +133,23 @@ fun OpenGymNavHost(
                     popUpTo<NewSessionDestination> { inclusive = true }
                 }
             },
+            // The recap is not in the session graph — see `SessionSummaryDestination` — so
+            // finishing both leaves the flow and opens it, in one move. Popping the graph
+            // rather than the active session alone is what takes the user out of the mode:
+            // the workout is over, and a bar-less screen for a session that no longer exists
+            // is a mode with nothing left in it.
             onSessionFinished = { sessionId ->
                 navController.navigate(SessionSummaryDestination(sessionId)) {
-                    popUpTo<ActiveSessionDestination> { inclusive = true }
+                    popUpTo<SessionGraphDestination> { inclusive = true }
                 }
             },
-            onSummaryDismissed = { navController.exitSessionFlow() },
         )
+
+        // Registered once, for both callers. `onExit` means the same thing to the recap and
+        // two different things here — the end of a workout, and a step back out of the session
+        // list — and both are the same pop, because the flow above was already dropped on the
+        // way in.
+        sessionSummaryGraph(onExit = { navController.popBackStack() })
 
         exercisePickerGraph(
             onBack = { navController.popBackStack() },

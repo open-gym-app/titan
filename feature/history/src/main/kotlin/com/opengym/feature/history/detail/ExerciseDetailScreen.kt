@@ -55,6 +55,7 @@ import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ExerciseHeroImage
 import com.opengym.core.ui.component.MetaEntry
 import com.opengym.core.ui.component.MetaGrid
+import com.opengym.core.ui.component.NotesCard
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.label
@@ -62,7 +63,6 @@ import com.opengym.core.ui.component.labelOrNull
 import com.opengym.core.ui.component.trackedLabel
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
-import com.opengym.feature.history.detail.component.ExerciseNotesCard
 import com.opengym.feature.history.detail.component.MusclesWorkedCard
 import com.opengym.feature.history.exercise.ExerciseFormSheet
 import kotlinx.coroutines.flow.filterNotNull
@@ -285,10 +285,12 @@ private fun ExerciseDetailBody(
         }
 
         Section(title = stringResource(R.string.detail_section_notes)) {
-            ExerciseNotesCard(
+            NotesCard(
                 notes = exercise.notes,
                 draft = state.notesDraft,
                 isSaving = state.isSavingNotes,
+                emptyPrompt = stringResource(R.string.detail_notes_empty),
+                fieldLabel = stringResource(R.string.detail_notes_label),
                 onEdit = { onEvent(ExerciseDetailEvent.NoteEditRequested) },
                 onDraftChange = { onEvent(ExerciseDetailEvent.NoteChanged(it)) },
                 onSave = { onEvent(ExerciseDetailEvent.NoteSaved) },

@@ -183,6 +183,10 @@
     <string name="stat_duration">Duration</string>
     <string name="stat_exercises">Exercises</string>
     <string name="stat_exercises_unit">done</string>
+    <!-- The tile a session summary shows instead of the duration, which its own header
+         already carries. -->
+    <string name="stat_muscles">Muscles</string>
+    <string name="stat_muscles_unit">worked</string>
     <!-- Announced as one phrase so TalkBack says "Volume, 4,820 kg" rather than reading a
          label and a number as two unrelated nodes. -->
     <string name="stat_description">%1$s, %2$s</string>
@@ -204,6 +208,17 @@
     </plurals>
     <!-- Announced for a record shown as a bare figure: "Personal record, heaviest, 92 kg". -->
     <string name="pr_value_description">Personal record, %1$s, %2$s</string>
+
+    <!-- ── Notes ─────────────────────────────────────────────────────────────────── -->
+
+    <!-- The pencil's description, which says what pressing it does rather than what is under
+         it — and that is not the same for a note that has not been written yet. The prompt
+         shown in place of an absent note is the caller's, because it is the one part that
+         differs between an exercise and a session. -->
+    <string name="notes_add">Add a note</string>
+    <string name="notes_edit">Edit the note</string>
+    <string name="notes_save">Save</string>
+    <string name="notes_cancel">Cancel</string>
 
     <!-- ── Search ─────────────────────────────────────────────────────────────────── -->
 
@@ -238,5 +253,14 @@
     <string name="body_diagram_primary_and_secondary">Body diagram. Worked directly: %1$s. Also worked: %2$s.</string>
     <string name="body_diagram_secondary">Body diagram. Worked indirectly: %1$s.</string>
     <string name="body_muscle_separator">", "</string>
+
+    <!-- ── Muscle contribution ────────────────────────────────────────────────────── -->
+
+    <!-- A bar in the muscle breakdown, announced as one phrase: the muscle, the volume
+         attributed to it, and which of the two tones the bar is drawn in. The bar's *length*
+         is not spoken: it is relative to the hardest-worked muscle rather than a share of
+         anything, and a percentage read aloud would claim a whole that does not exist. -->
+    <string name="muscle_contribution_description_primary">%1$s, %2$s, worked directly</string>
+    <string name="muscle_contribution_description_secondary">%1$s, %2$s, also worked</string>
 
 </resources>
