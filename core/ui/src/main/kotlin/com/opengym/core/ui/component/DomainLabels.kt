@@ -7,6 +7,7 @@ import androidx.compose.ui.res.stringResource
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.ui.R
 import java.util.Locale
 
@@ -88,6 +89,27 @@ internal fun PrType.labelRes(): Int = when (this) {
     PrType.ESTIMATED_1RM -> R.string.pr_estimated_1rm
     PrType.MAX_DISTANCE -> R.string.pr_max_distance
     PrType.BEST_PACE -> R.string.pr_best_pace
+}
+
+/**
+ * What a saved template trains, as the chip on a template row: `Strength`, `Mobility`.
+ *
+ * There is deliberately no label for the absent category. `null` means the user was never
+ * asked — a template saved from a finished session before it had one — and a chip reading
+ * "General" would put words in their mouth that [TemplateCategory.GENERAL] means them to
+ * have chosen. A row draws no chip at all; see [TemplateCategory].
+ */
+@Composable
+@ReadOnlyComposable
+fun TemplateCategory.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun TemplateCategory.labelRes(): Int = when (this) {
+    TemplateCategory.STRENGTH -> R.string.template_category_strength
+    TemplateCategory.HYPERTROPHY -> R.string.template_category_hypertrophy
+    TemplateCategory.ENDURANCE -> R.string.template_category_endurance
+    TemplateCategory.MOBILITY -> R.string.template_category_mobility
+    TemplateCategory.GENERAL -> R.string.template_category_general
 }
 
 /**

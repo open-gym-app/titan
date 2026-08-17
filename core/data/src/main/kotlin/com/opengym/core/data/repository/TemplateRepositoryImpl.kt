@@ -35,6 +35,9 @@ class TemplateRepositoryImpl @Inject constructor(
     override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> =
         templateDao.getExercises(templateId).map { rows -> rows.map(templateExerciseMapper::toDomain) }
 
+    override fun getAllExercises(): Flow<List<TemplateExercise>> =
+        templateDao.getAllExercises().map { rows -> rows.map(templateExerciseMapper::toDomain) }
+
     override suspend fun insert(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,

@@ -26,6 +26,21 @@ interface TemplateRepository {
     fun getExercises(templateId: Long): Flow<List<TemplateExercise>>
 
     /**
+     * Every template's exercises in one read, ordered by template and then by position.
+     *
+     * For the screens that render *all* the templates at once and need something off
+     * each one's body — the exercise count and the derived duration on a template row
+     * ([com.opengym.core.domain.model.TemplateSummary]). The alternative is one
+     * [getExercises] subscription per template, which is a query per row and a set of
+     * flows that has to be rebuilt every time a template is added or deleted.
+     *
+     * Callers group by [TemplateExercise.templateId]. The ordering within a template is
+     * the same contract [getExercises] gives, so a group can be read as a plan without
+     * being re-sorted.
+     */
+    fun getAllExercises(): Flow<List<TemplateExercise>>
+
+    /**
      * Stores [template] and [exercises] together, returning the new template id.
      *
      * [exercises] is stored in list order, numbered from position 0 — see

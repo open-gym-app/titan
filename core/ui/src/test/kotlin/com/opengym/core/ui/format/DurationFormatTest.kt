@@ -2,6 +2,7 @@ package com.opengym.core.ui.format
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -50,6 +51,48 @@ class DurationFormatTest {
         // here. The magnitude is fielded and the sign is put in front of the whole thing.
         assertEquals("-1:30", (-90).seconds.formatAsClock())
         assertEquals("-0:01:30", (-90).seconds.formatAsElapsed())
+    }
+
+    @Test
+    fun `an estimate is drawn as an approximation, not as a clock`() {
+        // The distinction the third format exists for: `55:00` would read as a measured
+        // time next to the session timer, and the figure behind it is a per-set allowance.
+        assertEquals("~55m", 55.minutes.formatAsEstimate())
+        assertEquals("~30m", 30.minutes.formatAsEstimate())
+    }
+
+    @Test
+    fun `an estimate rounds to the nearest five minutes`() {
+        // Roughly the precision the formula has. A row reading `~53m` claims more than
+        // TemplateDuration knows.
+        assertEquals("~55m", (53.minutes + 20.seconds).formatAsEstimate())
+        assertEquals("~50m", (52.minutes + 29.seconds).formatAsEstimate())
+        assertEquals("~55m", (52.minutes + 30.seconds).formatAsEstimate())
+    }
+
+    @Test
+    fun `an estimate gains an hours field, with its minutes padded`() {
+        assertEquals("~1h 00m", 1.hours.formatAsEstimate())
+        assertEquals("~1h 05m", (1.hours + 5.minutes).formatAsEstimate())
+        assertEquals("~1h 35m", (1.hours + 34.minutes).formatAsEstimate())
+        assertEquals("~2h 00m", (1.hours + 58.minutes).formatAsEstimate())
+    }
+
+    @Test
+    fun `a short estimate never rounds down to nothing`() {
+        // One exercise is not a workout of no length. The floor is one step, so the row
+        // says `~5m` rather than `~0m`, which reads as a template that does nothing.
+        assertEquals("~5m", 45.seconds.formatAsEstimate())
+        assertEquals("~5m", 1.seconds.formatAsEstimate())
+    }
+
+    @Test
+    fun `nothing to pace estimates as zero`() {
+        // A template whose exercises were removed underneath it. Distinct from the case
+        // above: there is genuinely nothing, and the row drops the figure rather than
+        // showing this — see TemplateRow.
+        assertEquals("~0m", Duration.ZERO.formatAsEstimate())
+        assertEquals("~0m", (-90).seconds.formatAsEstimate())
     }
 
     @Test

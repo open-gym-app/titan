@@ -2,11 +2,63 @@
 <!--
   The session flow's strings.
 
-  Only real copy lives here. The placeholder text on the flow's three screens is scaffolding
-  for #25–#27 and is written inline where it can be read next to the layout it labels; this
-  is a sentence the user is actually meant to read and act on, so it is translatable.
+  The active session and the summary are still scaffolding (#26, #27) and their placeholder
+  text is written inline where it can be read next to the layout it labels. Everything the
+  user is actually meant to read and act on is here, and translatable.
+
+  Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
+  and `OpenGymBadge` uppercase for the caller, so a translator is never asked to reproduce a
+  typographic treatment.
 -->
 <resources>
+
+    <!-- ── New session (#25) ──────────────────────────────────────────────────────── -->
+
+    <string name="new_session_title">New session</string>
+    <!-- The back arrow means two different things, so it says which. -->
+    <string name="new_session_leave">Leave without starting</string>
+    <string name="new_session_back_to_list">Back to the template list</string>
+
+    <string name="new_session_quick_start">Quick start</string>
+    <string name="new_session_empty">Empty session</string>
+    <string name="new_session_empty_hint">Start blank, pick as you go</string>
+
+    <string name="new_session_templates">Templates</string>
+    <plurals name="new_session_template_count">
+        <item quantity="one">%1$d saved</item>
+        <item quantity="other">%1$d saved</item>
+    </plurals>
+
+    <!-- Before the user has saved a template. It names where templates come from, because
+         nothing on this screen creates one — an empty list with no explanation reads as a
+         broken feature rather than an unused one. -->
+    <string name="new_session_no_templates_title">No templates yet</string>
+    <string name="new_session_no_templates_body">Finish a workout and save it as a template, and it shows up here ready to run again.</string>
+
+    <!-- ── Ready to start ─────────────────────────────────────────────────────────── -->
+
+    <string name="new_session_ready">Ready</string>
+    <!-- Stands in for a session built by hand, which has no name until the workout gives it
+         one. Deliberately the same words as the action that produced it. -->
+    <string name="new_session_unnamed">Empty session</string>
+    <plurals name="new_session_exercise_count">
+        <item quantity="one">%1$d exercise</item>
+        <item quantity="other">%1$d exercises</item>
+    </plurals>
+    <!-- "8 exercises · ~55m". Only a session started from a template has the second half. -->
+    <string name="new_session_ready_meta">%1$s · %2$s</string>
+    <!-- The superset marker on a review row: "SS A1". -->
+    <string name="new_session_superset">SS %1$s</string>
+    <string name="new_session_remove">Remove %1$s</string>
+    <string name="new_session_start">Start workout</string>
+
+    <string name="new_session_error_already_active">A session is already running. Finish it before starting another.</string>
+    <string name="new_session_error_start_failed">Could not start the session. Nothing was saved.</string>
+    <string name="new_session_error_template">That template could not be opened.</string>
+    <!-- Shown when exercises in the plan have been deleted from the library since it was saved. -->
+    <string name="new_session_error_exercises_missing">Some exercises are no longer in your library and were left out.</string>
+
+    <!-- ── Active session (#26) ───────────────────────────────────────────────────── -->
 
     <!--
       Shown when the back gesture is swallowed on an active session, so that a press that

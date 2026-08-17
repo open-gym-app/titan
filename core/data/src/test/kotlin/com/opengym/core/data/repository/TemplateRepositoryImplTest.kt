@@ -228,6 +228,33 @@ class TemplateRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `getAllExercises returns every template's exercises, grouped and in position order`() =
+        runBlocking {
+            val squat = catalogueExercise("Squat")
+            val bench = catalogueExercise("Bench")
+            val press = catalogueExercise("Press")
+            val push = repository.insert(
+                WorkoutTemplate(name = "Push Day"),
+                listOf(bench, press).map { TemplateExerciseDraft(exerciseId = it) },
+            )
+            val legs = repository.insert(
+                WorkoutTemplate(name = "Leg Day"),
+                listOf(TemplateExerciseDraft(exerciseId = squat)),
+            )
+
+            val all = repository.getAllExercises().first()
+
+            assertEquals(listOf(push, push, legs), all.map { it.templateId })
+            assertEquals(listOf(bench, press, squat), all.map { it.exerciseId })
+            assertEquals(listOf(0, 1, 0), all.map { it.position })
+        }
+
+    @Test
+    fun `getAllExercises is empty when no template has been saved`() = runBlocking {
+        assertEquals(emptyList<Long>(), repository.getAllExercises().first().map { it.id })
+    }
+
+    @Test
     fun `delete is a no-op for an id that was never stored`() = runBlocking {
         val squat = catalogueExercise("Squat")
         val id = repository.insert(WorkoutTemplate(name = "Push Day"), listOf(TemplateExerciseDraft(squat)))

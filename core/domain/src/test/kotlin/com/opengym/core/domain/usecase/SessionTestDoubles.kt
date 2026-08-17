@@ -1,6 +1,7 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
@@ -105,6 +106,42 @@ class FakeSessionRepository : SessionRepository {
         return id
     }
 
+    /**
+     * Thrown by [insertExercises] instead of storing, when set. The one way to reach
+     * `StartPlannedSessionUseCase`'s rollback: the layout failing after the session row
+     * is written is a store failure, and there is no argument a caller can pass that
+     * produces one.
+     */
+    var exerciseInsertFailure: Throwable? = null
+
+    override suspend fun insertExercises(
+        sessionId: Long,
+        exercises: List<SessionExerciseDraft>,
+        createdAt: Long,
+    ): List<Long> {
+        exerciseInsertFailure?.let { throw it }
+
+        // Numbered from the order given and appended to whatever the session holds, per
+        // the contract — which is what lets a test assert that the grouping and the
+        // order the user picked survived the trip.
+        val existing = this.exercises.value[sessionId].orEmpty()
+        val stored = exercises.mapIndexed { index, draft ->
+            SessionExercise(
+                id = nextExerciseId++,
+                sessionId = sessionId,
+                exerciseId = draft.exerciseId,
+                position = existing.size + index,
+                supersetGroup = draft.supersetGroup,
+                templateExerciseId = draft.templateExerciseId,
+                notes = draft.notes,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+            )
+        }
+        this.exercises.value += sessionId to existing + stored
+        return stored.map(SessionExercise::id)
+    }
+
     override suspend fun update(session: WorkoutSession) {
         updateCount++
         sessions.value += session.id to session
@@ -117,6 +154,10 @@ class FakeSessionRepository : SessionRepository {
 
     /** Direct read, bypassing the Flow, for assertions. */
     fun stored(id: Long): WorkoutSession? = sessions.value[id]
+
+    /** Direct read of a session's layout, bypassing the Flow, for assertions. */
+    fun storedExercises(sessionId: Long): List<SessionExercise> =
+        exercises.value[sessionId].orEmpty()
 
     /** Seeds an exercise on [sessionId], in [supersetGroup] or standalone, and returns its id. */
     fun addExercise(sessionId: Long, exerciseId: Long = 1L, supersetGroup: Int? = null): Long {

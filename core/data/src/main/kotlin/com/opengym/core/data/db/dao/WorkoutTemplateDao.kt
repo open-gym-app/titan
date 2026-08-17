@@ -41,6 +41,17 @@ interface WorkoutTemplateDao {
     @Query("SELECT * FROM template_exercise WHERE template_id = :templateId ORDER BY position ASC")
     fun getExercises(templateId: Long): Flow<List<TemplateExerciseEntity>>
 
+    /**
+     * Every template's exercises in one query, for the screens that render a row per
+     * template and need something off each one's body — see
+     * `TemplateRepository.getAllExercises`.
+     *
+     * Ordered by template and then by position, so a caller grouping by `template_id`
+     * gets each group already in the order the contract promises.
+     */
+    @Query("SELECT * FROM template_exercise ORDER BY template_id ASC, position ASC")
+    fun getAllExercises(): Flow<List<TemplateExerciseEntity>>
+
     @Query("DELETE FROM template_exercise WHERE template_id = :templateId")
     suspend fun deleteExercises(templateId: Long)
 

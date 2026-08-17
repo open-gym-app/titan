@@ -13,6 +13,7 @@ import com.opengym.core.domain.model.MechanicType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -50,6 +51,11 @@ class DomainLabelsTest {
     @Test
     fun `every exercise type has a name`() {
         assertAllLabelled(ExerciseType.entries) { it.label() }
+    }
+
+    @Test
+    fun `every template category has a name`() {
+        assertAllLabelled(TemplateCategory.entries) { it.label() }
     }
 
     @Test

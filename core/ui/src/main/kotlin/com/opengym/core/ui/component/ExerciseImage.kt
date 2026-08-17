@@ -20,8 +20,6 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.ui.theme.OpenGymTheme
-import java.text.BreakIterator
-import java.util.Locale
 
 /**
  * The photo bundled with an exercise, over the letter it falls back to.
@@ -144,27 +142,9 @@ object ExerciseImageDefaults {
     const val HERO_ASPECT_RATIO = 3f / 2f
 }
 
-/**
- * The letter shown when there is no photo.
- *
- * The first *grapheme*, not the first `Char`. Exercise names are user-authored, and `🏋️ Bench`
- * opens with a surrogate pair followed by a variation selector: `take(1)` cuts the pair in
- * half and draws tofu. [BreakIterator] is the thing that knows where a character ends, and it
- * is locale-aware, as is the uppercasing — so `ıskele` comes out `I` in most locales and `İ`
- * in a Turkish one.
- */
-internal fun Exercise.initial(): String {
-    val trimmed = name.trim()
-    if (trimmed.isEmpty()) return NO_INITIAL
-
-    val graphemes = BreakIterator.getCharacterInstance(Locale.getDefault())
-    graphemes.setText(trimmed)
-    return trimmed.substring(0, graphemes.next()).uppercase(Locale.getDefault())
-}
+/** The letter shown when there is no photo. See [initialGrapheme]. */
+internal fun Exercise.initial(): String = name.initialGrapheme()
 
 private fun assetUri(assetPath: String): String = "$ANDROID_ASSET_SCHEME$assetPath"
 
 private const val ANDROID_ASSET_SCHEME = "file:///android_asset/"
-
-/** Shown for a name that is empty or all whitespace, which the domain does not forbid. */
-private const val NO_INITIAL = "?"

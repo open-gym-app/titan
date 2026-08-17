@@ -314,11 +314,21 @@ the difference between its two callers is a route argument (`addToSession`) rath
 second destination — the opposite trade from the pair above, and for the same reason: one
 route pattern, one registration.
 
-Its "Add to session" hands the exercise back to the picker the way the picker hands its
-selection back to whoever opened it — a value written onto the previous back stack entry's
-`SavedStateHandle` before the pop, since Navigation Compose has no "start for result" and a
-feature cannot reach the `NavController`. The two keys live next to the destinations that
-produce them, in `HistoryNavigation.kt`.
+Its "Add to session" hands the exercise back to the picker as a value written onto the
+previous back stack entry's `SavedStateHandle` before the pop, since Navigation Compose has
+no "start for result" and a feature cannot reach the `NavController`. The key lives next to
+the destination that reads it, in `HistoryNavigation.kt`.
+
+**The picker's own result does not travel that way, and cannot.** Its readers are in *other*
+feature modules — the new-session flow today, the template editor next — so a key would have
+to be named on both sides of an edge the module rules forbid, and a constant duplicated with
+a comment asking nobody to change one copy is not a contract. `:app` holds the selection in
+`rememberSaveable` state instead and hands it to whoever opened the picker as an ordinary
+parameter (`ExercisePicker` in `SessionNavigation.kt`). It is the one module that knows both
+sides of that edge, which is the whole reason it exists.
+
+**A screen's cross-module result is `:app`'s to carry; a screen's result to its own module
+may ride the back stack.** That is the rule the two halves above are instances of.
 
 ### Motion follows the same split
 

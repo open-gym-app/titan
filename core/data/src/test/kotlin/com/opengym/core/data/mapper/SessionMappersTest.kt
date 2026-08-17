@@ -5,6 +5,7 @@ import com.opengym.core.data.db.entity.TagEntity
 import com.opengym.core.data.db.projection.ExerciseMuscleGroupLinkRow
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.WorkoutSession
 import org.junit.Assert.assertEquals
@@ -91,6 +92,47 @@ class SessionMappersTest {
 
         assertNull(mapper.toEntity(sessionExercise).supersetGroup)
         assertEquals(sessionExercise, mapper.toDomain(mapper.toEntity(sessionExercise)))
+    }
+
+    @Test
+    fun `session exercise drafts are numbered from the order they were given`() {
+        val entities = SessionExerciseMapper().toEntities(
+            sessionId = 5,
+            drafts = listOf(
+                SessionExerciseDraft(exerciseId = 7),
+                SessionExerciseDraft(exerciseId = 3),
+                SessionExerciseDraft(exerciseId = 9),
+            ),
+            createdAt = 1_700_000_000_000,
+        )
+
+        assertEquals(listOf(7L, 3L, 9L), entities.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), entities.map { it.position })
+        assertEquals(listOf(5L, 5L, 5L), entities.map { it.sessionId })
+    }
+
+    @Test
+    fun `a session exercise draft carries its grouping, its template link and its note`() {
+        val entity = SessionExerciseMapper().toEntities(
+            sessionId = 5,
+            drafts = listOf(
+                SessionExerciseDraft(
+                    exerciseId = 7,
+                    supersetGroup = 1,
+                    templateExerciseId = 12,
+                    notes = "swapped for the safety bar",
+                ),
+            ),
+            createdAt = 1_700_000_000_000,
+        ).single()
+
+        assertEquals(1, entity.supersetGroup)
+        assertEquals(12L, entity.templateExerciseId)
+        assertEquals("swapped for the safety bar", entity.notes)
+        // One reading stamped on both, because the row was created and last touched by
+        // the same action — see SessionRepository.insertExercises.
+        assertEquals(1_700_000_000_000, entity.createdAt)
+        assertEquals(1_700_000_000_000, entity.updatedAt)
     }
 
     @Test
