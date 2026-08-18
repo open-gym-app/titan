@@ -50,6 +50,7 @@ import com.opengym.feature.session.active.component.CollapsedExerciseRow
 import com.opengym.feature.session.active.component.DiscardSessionDialog
 import com.opengym.feature.session.active.component.SessionExerciseCard
 import com.opengym.feature.session.active.component.SupersetLink
+import kotlinx.coroutines.flow.first
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -98,13 +99,25 @@ fun ActiveSessionRoute(
         val target = swappingExerciseId
         val replacement = picked.firstOrNull()
 
+        // Held until the ViewModel will take it, rather than dispatched and forgotten. Both
+        // `addPicked` and `swap` refuse while a write of their own kind is in flight, and an
+        // answer that lands in that refusal is dropped in silence — while the clearing below
+        // throws away the only copy of what the user picked, with the picker already popped
+        // behind them. A workout on its way out is the one case with nothing to wait for:
+        // nothing can be added to a session that is over.
+        val ready = viewModel.uiState.first {
+            it.isBusy || (!it.isAddingExercises && it.swappingExerciseId == null)
+        }
+
         // A slot holds one exercise, and the picker is a multi-select screen: the first thing
         // ticked is what goes in it. Appending the rest would turn one deliberate replacement
         // into an edit of the whole workout, which is what the other control is for.
-        if (target != null && replacement != null) {
-            viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(target, replacement))
-        } else {
-            viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(picked))
+        if (!ready.isBusy) {
+            if (target != null && replacement != null) {
+                viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(target, replacement))
+            } else {
+                viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(picked))
+            }
         }
 
         swappingExerciseId = null
@@ -270,6 +283,11 @@ fun ActiveSessionScreen(
                 elapsed = state.header?.elapsed ?: Duration.ZERO,
                 progress = state.header?.progress ?: SessionProgress(),
                 isPaused = state.isPaused,
+                // The pause is *not* gated on `isEditable`: coming back from a pause is what
+                // that control is for. What takes the three of them out is a workout already
+                // closing out — a pause landing behind a finish is refused and reported over a
+                // screen on its way to the recap.
+                enabled = !state.isBusy,
                 onPauseToggle = { onEvent(ActiveSessionEvent.PauseToggled) },
                 onFinish = { onEvent(ActiveSessionEvent.FinishRequested) },
                 onDiscard = { onEvent(ActiveSessionEvent.DiscardRequested) },
@@ -420,7 +438,7 @@ private fun SessionBody(
                             // The card whose exercise is being replaced goes read-only with it:
                             // the fields belong to a movement on its way out of the slot.
                             enabled = enabled && state.swappingExerciseId != row.sessionExerciseId,
-                            isLogging = state.loggingExerciseId == row.sessionExerciseId,
+                            isLogging = row.sessionExerciseId in state.loggingExerciseIds,
                         )
                     }
                 }
@@ -518,6 +536,13 @@ private fun SessionExerciseRow.name(): String =
 
 /** The words a message is said in. */
 @StringRes
+/*
+ * One branch per message, which is what the count is measuring. An exhaustive `when` over an
+ * enum has no paths through it to get wrong — the compiler is what checks it is complete — so
+ * the threshold is counting cases rather than complexity. A lookup table keyed by the enum
+ * would satisfy it and would be the same fourteen lines with a map in front of them.
+ */
+@Suppress("CyclomaticComplexMethod")
 private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.NO_SETS_LOGGED -> R.string.active_error_no_sets
     ActiveSessionMessage.FINISH_FAILED -> R.string.active_error_finish

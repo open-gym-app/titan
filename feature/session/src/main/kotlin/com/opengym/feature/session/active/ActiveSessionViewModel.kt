@@ -52,7 +52,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -405,23 +404,31 @@ class ActiveSessionViewModel @Inject constructor(
     /**
      * Writes one exercise's entry as a set.
      *
-     * Guarded on [ScreenState.loggingExerciseId] rather than only by the disabled tick, for the
+     * Guarded on [ScreenState.loggingExerciseIds] rather than only by the disabled tick, for the
      * reason the new-session flow guards START: a double tap dispatched before recomposition
      * would otherwise reach the use case twice and log the set twice, which — unlike a refused
      * second start — the user would not notice until the recap.
      *
      * The guard is per exercise rather than screen-wide, because the rows are independent: a
      * write in flight against one member of a superset must not swallow the tick on the other.
+     * It is a *set* of ids for the other half of that: both really can be in flight at once, and
+     * a single id would be overwritten by the second tick and then cleared by whichever write
+     * came back first — re-arming the other exercise's tick over an insert still running, which
+     * is the double-logged set the guard exists to prevent.
+     *
+     * The entry is also checked against the exercise's logging mode, which is the half
+     * [SetEntry.canLog] cannot see. Refused silently: the tick is not live for a set that fails
+     * it, so reaching here means an event dispatched before the recomposition that disabled it.
      */
     private fun log(sessionExerciseId: Long) {
         val state = screenState.value
-        if (!state.canLogNow(sessionExerciseId)) return
-
         val exercise = exerciseRow(sessionExerciseId) ?: return
         val entry = state.entryFor(sessionExerciseId)
         val exerciseType = catalogue.value?.exercises?.get(exercise.exerciseId)?.type
 
-        screenState.update { it.copy(loggingExerciseId = sessionExerciseId) }
+        if (!state.canLogNow(sessionExerciseId) || !entry.records(exerciseType)) return
+
+        screenState.update { it.copy(loggingExerciseIds = it.loggingExerciseIds + sessionExerciseId) }
 
         viewModelScope.launch {
             val draft = ActiveSet(
@@ -436,7 +443,7 @@ class ActiveSessionViewModel @Inject constructor(
                 .onSuccess {
                     screenState.update { state ->
                         state.copy(
-                            loggingExerciseId = null,
+                            loggingExerciseIds = state.loggingExerciseIds - sessionExerciseId,
                             // Cleared except for the set type, which carries over: a lifter
                             // logging a warm-up is usually about to log another, and re-picking
                             // it every set is the sort of friction that gets a set logged wrong.
@@ -457,7 +464,7 @@ class ActiveSessionViewModel @Inject constructor(
                     screenState.update { state ->
                         val refused = state.entryFor(sessionExerciseId)
                         state.copy(
-                            loggingExerciseId = null,
+                            loggingExerciseIds = state.loggingExerciseIds - sessionExerciseId,
                             // The refused values stay in the fields: they are the only copy of
                             // what the user typed, and a row that cleared on refusal would make
                             // them enter it again to find out what was wrong with it.
@@ -766,9 +773,14 @@ class ActiveSessionViewModel @Inject constructor(
      * its label says. [realignPause] is what keeps the two answers the same; this is the half
      * that makes a disagreement visible as a refusal rather than as a pause the user asked to
      * end.
+     *
+     * Refused over a workout on its way out, the way [finish] and [discard] are. A pause landing
+     * behind a finish is either a transition refused for a session that is over — reported as
+     * "could not change the session" over a screen that is successfully leaving for the recap —
+     * or, if it wins the race, a suspend applied to a session in the middle of being closed out.
      */
     private fun togglePause() {
-        if (screenState.value.isPausing) return
+        if (screenState.value.isBusy || screenState.value.isPausing) return
         val paused = screenState.value.pausedAt != null
         screenState.update { it.copy(isPausing = true) }
 
@@ -1087,7 +1099,7 @@ class ActiveSessionViewModel @Inject constructor(
             isReordering = screen.isReordering,
             swappingExerciseId = screen.swappingExerciseId,
             isPaused = screen.pausedAt != null,
-            loggingExerciseId = screen.loggingExerciseId,
+            loggingExerciseIds = screen.loggingExerciseIds,
             isFinishing = screen.isFinishing,
             isDiscarding = screen.isDiscarding,
             confirmingDiscard = screen.confirmingDiscard,
@@ -1195,7 +1207,7 @@ private data class ScreenState(
     val removingExerciseIds: Set<Long> = emptySet(),
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,
-    val loggingExerciseId: Long? = null,
+    val loggingExerciseIds: Set<Long> = emptySet(),
     val isPausing: Boolean = false,
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,
@@ -1226,7 +1238,7 @@ private data class ScreenState(
      * and no write already in flight against *that* exercise.
      */
     fun canLogNow(sessionExerciseId: Long): Boolean =
-        loggingExerciseId != sessionExerciseId && !isBusy && entryFor(sessionExerciseId).canLog
+        sessionExerciseId !in loggingExerciseIds && !isBusy && entryFor(sessionExerciseId).canLog
 
     /**
      * Whether a write is already in flight or the workout is over.
@@ -1248,7 +1260,7 @@ private data class ScreenState(
      * on the state's own copy for what the race costs.
      */
     val canFinish: Boolean
-        get() = !isBusy && loggingExerciseId == null
+        get() = !isBusy && loggingExerciseIds.isEmpty()
 
     /**
      * Time actually spent working out, at [now].

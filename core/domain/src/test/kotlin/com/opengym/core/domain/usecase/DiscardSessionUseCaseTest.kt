@@ -6,7 +6,9 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -165,6 +167,30 @@ class DiscardSessionUseCaseTest {
         assertEquals(failure, result.exceptionOrNull())
         assertEquals(SessionState.Active(sessionId = sessionId, startedAt = 5_000L), state.current)
         assertEquals(0, drafts.clearCount)
+    }
+
+    @Test
+    fun `a discard cancelled mid-delete still puts the state machine back`() = runTest {
+        // The screen that asked can go away while the delete is in flight, and `runCatching`
+        // cannot tell that cancellation from a store failure. Left to it, the row would be gone
+        // and the state would still name it as the open session — which `StartSessionUseCase`
+        // reads, so nothing could be started again for the life of the process.
+        val sessionId = startWithSets()
+        val deleting = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        sessions.beforeDelete = {
+            deleting.complete(Unit)
+            release.await()
+        }
+
+        val discarding = launch { discardSession() }
+        deleting.await()
+        discarding.cancel()
+        release.complete(Unit)
+        discarding.join()
+
+        assertNull(sessions.stored(sessionId))
+        assertEquals(SessionState.Idle, state.current)
     }
 
     @Test

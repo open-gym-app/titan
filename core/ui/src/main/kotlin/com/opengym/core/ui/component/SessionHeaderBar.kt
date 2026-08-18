@@ -75,11 +75,18 @@ import kotlin.time.Duration.Companion.seconds
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
  *   Null leaves the name inert, which is what a caller with nothing to write wants.
- * @param canFinish whether END is live. False for a caller with a write in flight that the
- *   finish would race — the active session refuses one while a set is being written, because
- *   the set can otherwise land in a session already stamped closed. Drawn inert rather than
- *   hidden: the control is where the user is looking, and one that vanished for a fraction of
- *   a second and came back is worse than one that does not respond for it.
+ * @param enabled false makes the three controls inert, for the one situation that needs it: a
+ *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
+ *   the write takes, and a pause landing behind it either mutates a session being closed out or
+ *   is refused and reported over a screen that is successfully leaving. Note that a *paused*
+ *   session is not that situation — pausing is how a user comes back from it — which is why this
+ *   is not [isPaused] read the other way round.
+ * @param canFinish whether END in particular is live. Narrower than [enabled] and about a
+ *   different wait: a set write in flight is not the workout leaving, but a finish that
+ *   overtook it would land the set in a session already stamped closed. The pause and discard
+ *   controls have no such race and stay live. Drawn inert rather than hidden — the control is
+ *   where the user is looking, and one that vanished for a fraction of a second and came back
+ *   is worse than one that does not respond for it.
  */
 @Composable
 fun SessionHeaderBar(
@@ -88,6 +95,7 @@ fun SessionHeaderBar(
     modifier: Modifier = Modifier,
     progress: SessionProgress = SessionProgress(),
     isPaused: Boolean = false,
+    enabled: Boolean = true,
     canFinish: Boolean = true,
     onPauseToggle: () -> Unit = {},
     onFinish: () -> Unit = {},
@@ -146,6 +154,7 @@ fun SessionHeaderBar(
                     description = stringResource(R.string.session_header_discard),
                     container = chrome.fill,
                     content = chrome.onSurface,
+                    enabled = enabled,
                 ) {
                     Icon(imageVector = Icons.Filled.Close, contentDescription = null)
                 }
@@ -158,6 +167,7 @@ fun SessionHeaderBar(
                 ),
                 container = chrome.fill,
                 content = chrome.onSurface,
+                enabled = enabled,
             ) {
                 Icon(
                     imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
@@ -170,7 +180,7 @@ fun SessionHeaderBar(
                 description = stringResource(R.string.session_header_finish),
                 container = chrome.accent,
                 content = chrome.onAccent,
-                enabled = canFinish,
+                enabled = enabled && canFinish,
                 width = FINISH_WIDTH,
             ) {
                 Eyebrow(

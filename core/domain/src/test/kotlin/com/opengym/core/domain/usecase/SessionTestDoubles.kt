@@ -182,7 +182,15 @@ class FakeSessionRepository : SessionRepository {
         return store(set.sessionExerciseId, set).id
     }
 
+    /**
+     * Thrown by [updateExercise] instead of writing, when set. The only way to fail the
+     * superset repair a removal does on its way out, which is what proves the repair cannot
+     * take the removal down with it.
+     */
+    var exerciseUpdateFailure: Throwable? = null
+
     override suspend fun updateExercise(exercise: SessionExercise) {
+        exerciseUpdateFailure?.let { throw it }
         exerciseUpdates += exercise
         exercises.value += exercise.sessionId to
             exercises.value[exercise.sessionId].orEmpty()
@@ -241,7 +249,15 @@ class FakeSessionRepository : SessionRepository {
      */
     var deleteFailure: Throwable? = null
 
+    /**
+     * Runs inside [delete] before the row is removed. Lets a test park a caller mid-delete and
+     * cancel the coroutine it is running in, which is the window a discard must not be torn in
+     * half by.
+     */
+    var beforeDelete: (suspend () -> Unit)? = null
+
     override suspend fun delete(id: Long) {
+        beforeDelete?.invoke()
         deleteFailure?.let { throw it }
         val orphaned = exercises.value[id].orEmpty().map(SessionExercise::id).toSet()
         sessions.value -= id

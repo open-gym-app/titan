@@ -84,6 +84,13 @@
     <string name="active_weight_not_a_number">That weight is not a number</string>
     <string name="active_reps_not_a_number">That rep count is not a number</string>
 
+    <!-- An exercise whose sets are measured in time — a plank, a row on the erg. The row above
+         this takes a weight and a rep count, so there is nowhere to put the one thing a set of
+         it has to record, and `SetValidator` would refuse every set logged from here. Said on
+         the card rather than left as a tick that does nothing: the dead end is the exercise's,
+         and the way out of it is to take the exercise out of the workout. -->
+    <string name="active_logged_by_duration">Timed exercise. Sets are recorded by duration, which this screen cannot enter yet — swap it out or remove it to keep going.</string>
+
     <!-- The action that opens the picker from inside a running workout. "More" rather than
          "exercises", because the button sits under the ones the session already has. -->
     <string name="active_add_exercises">Add more exercises</string>

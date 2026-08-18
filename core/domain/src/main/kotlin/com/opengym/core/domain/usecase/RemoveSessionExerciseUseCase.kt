@@ -69,7 +69,12 @@ class RemoveSessionExerciseUseCase(
 
         runCatching {
             sessionRepository.deleteExercise(sessionExerciseId)
-            repairSupersets(exercises.filterNot { it.id == sessionExerciseId })
+            // Separately, and best-effort, because by here the exercise is gone: a repair that
+            // failed would otherwise be reported as a removal that did not happen, over a card
+            // the caller can see leaving the list — and the caller's cleanup of what it had
+            // typed against the row would be skipped with it. What a failure costs is a group
+            // left with one member in it, which is the tolerable outcome described above.
+            runCatching { repairSupersets(exercises.filterNot { it.id == sessionExerciseId }) }
             sessionExerciseId
         }
     }
@@ -105,7 +110,8 @@ class RemoveSessionExerciseUseCase(
      *
      * A failure here leaves a group with one member in it, which is worth naming as tolerable
      * rather than papered over: the screens renormalise before reading labels off a grouping,
-     * so what the user sees is already correct, and the next removal repairs the rows.
+     * so what the user sees is already correct, and the next removal repairs the rows. It is
+     * therefore not allowed to fail the removal it follows — see [invoke].
      *
      * The rows it moves are stamped, the way [SupersetTarget]'s own write stamps the rows a
      * link moves: this is the same edit to the same column, and a consumer reading `updatedAt`

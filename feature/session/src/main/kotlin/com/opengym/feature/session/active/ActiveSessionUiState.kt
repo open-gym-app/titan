@@ -3,9 +3,12 @@ package com.opengym.feature.session.active
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.validation.SetDimension
+import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.component.SessionProgress
 import kotlin.time.Duration
 
@@ -47,15 +50,20 @@ import kotlin.time.Duration
  *   let through mid-write would be computed against the order as it was before.
  * @param swappingExerciseId the slot whose exercise is being replaced, or null. An id rather
  *   than a flag so the card that is changing is the one that goes inert, matching
- *   [loggingExerciseId] — but only one at a time, because the picker a swap goes through is a
+ *   [loggingExerciseIds] — but only one at a time, because the picker a swap goes through is a
  *   whole screen and the user is only ever on one of them.
  * @param isPaused whether the session is suspended. The clocks stop and every entry row goes
  *   read-only; `LogSetUseCase` refuses a set logged into a paused session, so a field that
  *   still accepted typing would be collecting keystrokes for a write that cannot happen.
- * @param loggingExerciseId the exercise whose set is being written, or null. An id rather than a
- *   flag because the rows are independent: a slow write against the bench press has no business
- *   disabling the tick on the curls. It does stop the workout being *closed out* — see
- *   [canFinish] — because that is a race the row-level independence does not cover.
+ * @param loggingExerciseIds the exercises whose sets are being written. Ids rather than a flag
+ *   because the rows are independent: a slow write against the bench press has no business
+ *   disabling the tick on the curls. A *set* of them rather than one id for the same reason
+ *   again — a superset is logged by alternating between two exercises, so two writes really can
+ *   be in flight at once, and a single id would have the first one to come back re-arm the tick
+ *   on the other while its own insert was still running.
+ *
+ *   Any of them in flight does stop the workout being *closed out* — see [canFinish] — because
+ *   that is a race the row-level independence does not cover.
  * @param isFinishing the finish is in flight.
  * @param isDiscarding the discard has been confirmed and is in flight.
  * @param confirmingDiscard the discard confirmation is up. A flag rather than a nullable
@@ -83,7 +91,7 @@ data class ActiveSessionUiState(
     val isReordering: Boolean = false,
     val swappingExerciseId: Long? = null,
     val isPaused: Boolean = false,
-    val loggingExerciseId: Long? = null,
+    val loggingExerciseIds: Set<Long> = emptySet(),
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
@@ -115,7 +123,7 @@ data class ActiveSessionUiState(
      * One flag for four situations that all mean "a write is in flight or the session is over",
      * so a screen does not have to re-derive the same conjunction at every button.
      *
-     * [loggingExerciseId] is deliberately not part of it. A set write in flight against one
+     * [loggingExerciseIds] is deliberately not part of it. A set write in flight against one
      * exercise must not disable the tick on another — that independence is why the rows are
      * keyed at all — and folding it in here would also stop the draft being saved for the
      * length of every write. The one action it does have to stop is the finish, which asks
@@ -134,7 +142,7 @@ data class ActiveSessionUiState(
      * Drawn as an inert END rather than as a refusal, because the wait is a fraction of a
      * second and a message about it would outlive what it was about.
      */
-    val canFinish: Boolean get() = !isBusy && loggingExerciseId == null
+    val canFinish: Boolean get() = !isBusy && loggingExerciseIds.isEmpty()
 }
 
 /**
@@ -215,7 +223,49 @@ data class SessionExerciseRow(
 
     /** The number the next set will be shown under, which is its place in the table, from 1. */
     val nextSetNumber: Int get() = sets.size + 1
+
+    /**
+     * Whether the half-typed set can be written as it stands.
+     *
+     * [SetEntry.canLog] is the half about the *values*; this adds the half about the exercise,
+     * which the entry cannot see. `LogSetUseCase` asks `SetValidator` for both, so a tick that
+     * was live on the strength of the values alone is a tick whose set is sometimes refused the
+     * moment it is pressed — see [records].
+     */
+    val canLogEntry: Boolean get() = entry.canLog && entry.records(exercise?.type)
+
+    /**
+     * Whether this exercise's sets are measured in time rather than in reps.
+     *
+     * The one dead end on this screen worth saying out loud: the entry row is a weight and a rep
+     * count, so there is nowhere to put the duration a completed set of it has to record, and
+     * every set logged against it would be refused. The card says so rather than leaving a tick
+     * that does nothing.
+     */
+    val isLoggedByDuration: Boolean
+        get() = exercise?.type?.let(SetValidator::requiredDimension) == SetDimension.DURATION
 }
+
+/**
+ * Whether the entry fills in the dimension an exercise of [exerciseType] is logged in.
+ *
+ * The question `SetValidator` will ask of the written set, asked of the fields it will be built
+ * from — which is what keeps the tick and the write path agreeing about the same set. A missing
+ * dimension is silent rather than an error, exactly as an empty row is: a lifter who has typed a
+ * weight and not yet the reps has not made a mistake, they are half way through typing, and a
+ * red message under the row would say otherwise on every set of every workout.
+ *
+ * Null — an exercise deleted from the library since the session started — is loggable, matching
+ * what `LogSetUseCase` is passed for it: with no catalogue row there is no logging mode to check
+ * against, and the bounds still hold.
+ */
+internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
+    when (exerciseType?.let(SetValidator::requiredDimension)) {
+        SetDimension.REPS -> reps.isNotBlank()
+        // Nothing the user can type on this screen fills this in. See [SessionExerciseRow.isLoggedByDuration].
+        SetDimension.DURATION -> false
+        null -> true
+    }
 
 /**
  * The set being entered, before it is a set.
@@ -262,11 +312,14 @@ data class SetEntry(
 ) {
 
     /**
-     * Whether the tick should be live.
+     * Whether what is typed is enough to log, as far as the values themselves go.
      *
      * A set with nothing typed is not an error — the fields start empty and refusing an empty
      * row before it has been filled in would put a red message under every exercise on the
      * screen — but it is not loggable either.
+     *
+     * Not the whole of whether the tick is live: which dimension the set *has* to record is the
+     * exercise's, not the entry's, so the screen asks [SessionExerciseRow.canLogEntry].
      */
     val canLog: Boolean get() = error == null && (weight.isNotBlank() || reps.isNotBlank())
 

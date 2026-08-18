@@ -114,6 +114,17 @@ fun SessionExerciseCard(
 
             SetTable(row = row, onEvent = onEvent, onRpeClick = onRpeToggle, enabled = enabled)
 
+            // Said once, under the table, for an exercise this screen cannot log at all — see
+            // [SessionExerciseRow.isLoggedByDuration]. Not an entry error: nothing the user
+            // typed is wrong, and the row it would sit under is not the row at fault.
+            if (row.isLoggedByDuration) {
+                Text(
+                    text = stringResource(R.string.active_logged_by_duration),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
             if (showRpeScale) {
                 RpeSelector(
                     rpe = entry.rpe,
@@ -135,8 +146,8 @@ fun SessionExerciseCard(
                     onSelect = {
                         onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 SetNote(
@@ -149,7 +160,7 @@ fun SessionExerciseCard(
 
             Button(
                 onClick = { onEvent(ActiveSessionEvent.SetLogged(row.sessionExerciseId)) },
-                enabled = enabled && entry.canLog && !isLogging,
+                enabled = enabled && row.canLogEntry && !isLogging,
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -273,6 +284,11 @@ private fun SetTable(
             isActive = true,
             error = error,
             enabled = enabled,
+            // The fields stay live while the tick does not: a row with a weight in it and no
+            // reps yet is a set half typed, not a refused one, and an exercise logged by time
+            // is one this screen cannot write at all. Either way the tick would be pressed for
+            // a set `LogSetUseCase` refuses.
+            canComplete = row.canLogEntry,
         )
     }
 }

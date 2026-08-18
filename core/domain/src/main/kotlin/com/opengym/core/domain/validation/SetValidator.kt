@@ -135,6 +135,22 @@ object SetValidator {
     }
 
     /**
+     * Which dimension a completed set of [exerciseType] has to record.
+     *
+     * Public because it is not only a step of [validate]: a screen has to know, *before* it
+     * offers a tick, whether the fields it draws can satisfy the set it is about to write. Asking
+     * here is what keeps that answer and this refusal the same answer — an entry row that
+     * accepted a set the very next check refuses is the disagreement this exists to prevent.
+     *
+     * Distance is not among them, deliberately: a plank has none and a treadmill set logged by
+     * time alone is still a complete record of what was done, so it stays optional everywhere.
+     */
+    fun requiredDimension(exerciseType: ExerciseType): SetDimension = when (exerciseType) {
+        ExerciseType.STRENGTH -> SetDimension.REPS
+        ExerciseType.ENDURANCE, ExerciseType.ISOMETRIC -> SetDimension.DURATION
+    }
+
+    /**
      * The dimension the logging mode is built around must be present once the set
      * is performed. Nothing here forbids the *other* dimensions — timing a set of
      * squats or loading a weighted carry is a legitimate thing to record.
@@ -142,14 +158,10 @@ object SetValidator {
     private fun WorkoutSet.shapeViolations(exerciseType: ExerciseType?): List<String> {
         if (exerciseType == null || !isCompleted) return emptyList()
 
-        return when (exerciseType) {
-            ExerciseType.STRENGTH ->
-                listOfNotNull("a completed ${exerciseType.name} set must record reps".takeIf { reps == null })
-
-            // Distance stays optional: a plank has none, and a treadmill set logged
-            // by time alone is still a complete record of what was done.
-            ExerciseType.ENDURANCE, ExerciseType.ISOMETRIC ->
-                listOfNotNull("a completed ${exerciseType.name} set must record a duration".takeIf { duration == null })
+        val missing = when (requiredDimension(exerciseType)) {
+            SetDimension.REPS -> "reps".takeIf { reps == null }
+            SetDimension.DURATION -> "a duration".takeIf { duration == null }
         }
+        return listOfNotNull(missing?.let { "a completed ${exerciseType.name} set must record $it" })
     }
 }

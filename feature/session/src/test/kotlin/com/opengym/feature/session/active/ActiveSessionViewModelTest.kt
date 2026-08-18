@@ -26,6 +26,7 @@ import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
 import com.opengym.feature.session.newsession.FakeSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -183,6 +184,46 @@ class ActiveSessionViewModelTest {
         )
     }
 
+    @Test
+    fun `a superset's two writes are in flight at once without either logging twice`() = runTest {
+        // How a superset is actually logged: the incline and the fly are alternated set for
+        // set, so two ticks land within a second of each other and both writes are genuinely
+        // open. One flag for the screen — or one id — would have the first write to come back
+        // re-arm the other exercise's tick over an insert still running, and the set behind it
+        // would be written a second time.
+        val store = pushDayStore()
+        val incline = CompletableDeferred<Unit>()
+        val fly = CompletableDeferred<Unit>()
+        store.beforeInsert = { set ->
+            when (set.sessionExerciseId) {
+                INCLINE_ROW -> incline.await()
+                FLY_ROW -> fly.await()
+                else -> Unit
+            }
+        }
+        val viewModel = viewModel(store = store)
+
+        viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
+        viewModel.enter(weight = "20", reps = "15", sessionExerciseId = FLY_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+
+        assertEquals(setOf(INCLINE_ROW, FLY_ROW), viewModel.uiState.value.loggingExerciseIds)
+
+        // The incline's write lands while the fly's is still open, and a tick on the fly in
+        // that window is the double tap the guard is for.
+        // Completing resumes the parked write in place — the dispatcher is unconfined, and the
+        // scheduler must not be advanced here: the elapsed clock's heartbeat is an unending
+        // once-a-second flow, so advancing virtual time until idle never reaches idle.
+        incline.complete(Unit)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+        fly.complete(Unit)
+
+        assertEquals(1, store.logged.count { it.sessionExerciseId == FLY_ROW })
+        assertEquals(1, store.logged.count { it.sessionExerciseId == INCLINE_ROW })
+        assertTrue(viewModel.uiState.value.loggingExerciseIds.isEmpty())
+    }
+
     // ─── Validation ─────────────────────────────────────────────────────────────────────
 
     @Test
@@ -250,23 +291,46 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
-    fun `a set the domain refuses keeps what was typed and says why`() = runTest {
-        // The screen's own check passes — the shape rule is the exercise type's, and only the
-        // use case knows it, since a plank records a duration rather than reps.
-        val store = pushDayStore()
-        val viewModel = viewModel(
-            store = store,
-            catalogue = FakeExerciseCatalogue(
-                exercises = listOf(BENCH.copy(type = ExerciseType.ISOMETRIC)),
-            ),
-        )
+    fun `an exercise logged by duration cannot take a set here, and says so rather than refusing one`() =
+        runTest {
+            // A plank records a duration, and this screen's entry row is a weight and a rep
+            // count — so every set logged against it would be refused by `SetValidator`. The
+            // tick is not live for it at all: the alternative is a control that looks ready on
+            // every set of the exercise and fails on every press of it.
+            val store = pushDayStore()
+            val viewModel = viewModel(
+                store = store,
+                catalogue = FakeExerciseCatalogue(
+                    exercises = listOf(BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                ),
+            )
 
-        viewModel.enter(weight = "80", reps = "5")
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(store.logged.isEmpty())
+            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).isLoggedByDuration)
+            assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+            // Nothing the user typed is wrong, so nothing is marked as wrong. What is typed
+            // stays put, as it does through any other refusal.
+            assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
+            assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+        }
+
+    @Test
+    fun `a strength set with no rep count is not loggable, and is not an error either`() = runTest {
+        // The dimension a completed STRENGTH set has to record is reps, so a row with only a
+        // weight in it is one `LogSetUseCase` would refuse. Half way through typing is not a
+        // mistake, though: the tick simply is not live yet, the way it is not on an empty row.
+        val store = pushDayStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.enter(weight = "80", reps = "")
         viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
         assertTrue(store.logged.isEmpty())
-        assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
-        assertTrue(viewModel.uiState.value.entryOf(BENCH_ROW).error is SetEntryError.Refused)
+        assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+        assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
     }
 
     // ─── The workout on screen ──────────────────────────────────────────────────────────
@@ -1095,6 +1159,26 @@ class ActiveSessionViewModelTest {
         viewModel.onEvent(ActiveSessionEvent.FinishRequested)
 
         assertTrue(state.current is SessionState.Active)
+    }
+
+    @Test
+    fun `pausing is ignored once the workout is on its way out`() = runTest {
+        // The header stays on screen for as long as the finish takes, so a pause can be
+        // dispatched behind one. Landing after it, the transition is refused for a session that
+        // is over and a "could not change the session" snackbar goes up over a screen that is
+        // successfully leaving for the recap; landing before it, it suspends a workout in the
+        // middle of being closed out.
+        val state = FakeSessionStateStore()
+        val viewModel = viewModel(state = state)
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        assertFalse(viewModel.uiState.value.isPaused)
+        assertNull(viewModel.uiState.value.message)
+        assertTrue(state.current is SessionState.Finished)
     }
 
     // ─── Discarding ─────────────────────────────────────────────────────────────────────

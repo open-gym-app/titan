@@ -1,5 +1,8 @@
 package com.opengym.feature.session.active
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
@@ -21,6 +24,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
@@ -56,6 +60,19 @@ import kotlin.time.Duration.Companion.seconds
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp")
+/*
+ * Over the size threshold, for the reason `ActiveSessionViewModelTest` is over its own: this is
+ * the one screen a workout is logged, edited, paced, named, finished and thrown away on, and the
+ * tests for those are one subject each under a heading of its own.
+ *
+ * A split would cost the support block at the bottom, which is what makes the failures readable:
+ * `state()` builds the push day every test starts from, `scrollTo` composes a node inside a lazy
+ * list before touching it, and `hold`/`drag`/`release` carry one gesture across a list that
+ * changes shape underneath it. A second class would either duplicate all of that or hoist it
+ * somewhere both could reach, which is more machinery between a failure and its meaning than a
+ * heading is.
+ */
+@Suppress("LargeClass")
 class ActiveSessionScreenTest {
 
     @get:Rule
@@ -212,6 +229,36 @@ class ActiveSessionScreenTest {
 
         composeTestRule.onNodeWithText("reps must be within 1..10,000, was 0").assertIsDisplayed()
         scrollToText("Complete set 3").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `an exercise logged by duration says so instead of offering a tick that cannot work`() {
+        // A plank's completed set has to record a duration, and this row is a weight and a rep
+        // count. Every set logged against it would come back refused, so neither the tick nor
+        // the button is live and the card says why.
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchRow(sets = emptyList(), entry = SetEntry(weight = "0", reps = "60"))
+                        .copy(exercise = BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                ),
+            ),
+        )
+
+        scrollTo(hasText("Timed exercise", substring = true)).assertIsDisplayed()
+        scrollToText("Complete set 1").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Mark set 1 done").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a set with no rep count yet leaves the fields live and the tick inert`() {
+        // Half way through typing is not a refusal: the weight field is still the user's to
+        // fill in, and `LogSetUseCase` would refuse the set behind the tick.
+        setScreen(state(entry = SetEntry(weight = "80")))
+
+        scrollToText("Complete set 3").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").assertIsEnabled()
     }
 
     @Test
@@ -590,6 +637,39 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a paused session's set-type chips are read-only too`() {
+        // The whole card goes read-only, chips included: `editEntry` saves a draft on every
+        // change and has no pause of its own to check, so a live chip is a paused workout still
+        // taking edits.
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = true))
+
+        scrollToText("WARM-UP").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a rating scale left open across a pause stops taking ratings`() {
+        // The tap that *opens* the scale is withheld while paused, so the only way to be looking
+        // at one on a paused session is to have opened it first — which is what a lifter who is
+        // interrupted mid-set does.
+        var paused by mutableStateOf(false)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = paused),
+                    onEvent = events::add,
+                )
+            }
+        }
+        scrollToDescription("Rate of perceived exertion, set 3, not set").performClick()
+
+        paused = true
+        composeTestRule.waitForIdle()
+        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun `a paused clock is announced as paused`() {
         setScreen(state().copy(isPaused = true))
 
@@ -605,6 +685,18 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithContentDescription("Finish the session").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
+    }
+
+    @Test
+    fun `the header's controls go inert while the workout is being closed out`() {
+        // The bar stays on screen for as long as the write takes. A pause dispatched into that
+        // window either mutates a session being closed out or is refused and reported over a
+        // screen on its way to the recap.
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithContentDescription("Pause the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Discard the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Finish the session").assertIsNotEnabled()
     }
 
     @Test

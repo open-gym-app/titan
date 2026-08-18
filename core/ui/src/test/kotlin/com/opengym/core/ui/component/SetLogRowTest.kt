@@ -261,6 +261,20 @@ class SetLogRowTest {
     }
 
     @Test
+    fun `a row that does not hold a set yet keeps its fields and loses its tick`() {
+        // The narrower half of `enabled`: nothing about the row is read-only, it simply is not
+        // a set until the dimension its exercise is logged in has been filled in — and a tick
+        // that was live for it would be pressed for a set the write path refuses.
+        setRow(weight = "80", reps = "", canComplete = false)
+
+        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").performTextReplacement("82.5")
+
+        assertEquals(listOf("82.5"), weightEdits)
+        assertEquals(emptyList<Boolean>(), completions)
+    }
+
+    @Test
     fun `a logged set is formatted from the domain values, not typed`() {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -302,6 +316,7 @@ class SetLogRowTest {
         isCompleted: Boolean = false,
         error: String? = null,
         enabled: Boolean = true,
+        canComplete: Boolean = true,
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -319,6 +334,7 @@ class SetLogRowTest {
                     isCompleted = isCompleted,
                     error = error,
                     enabled = enabled,
+                    canComplete = canComplete,
                 )
             }
         }

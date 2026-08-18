@@ -330,6 +330,20 @@ class SessionExerciseEditingTest {
     }
 
     @Test
+    fun `a repair that fails does not fail the removal it followed`() = runTest {
+        // The exercise is gone by the time the repair runs, so a failure there is not a removal
+        // that did not happen — and reporting one would tell the user their exercise is still in
+        // the workout while the list it re-emits no longer holds it. What a failure costs is a
+        // group left with one member in it, which the screens renormalise away.
+        val sessionId = startPushDay()
+        val fly = layout(sessionId).last()
+        sessions.exerciseUpdateFailure = IllegalStateException("disk full")
+
+        assertEquals(fly.id, removeExercise(fly.id).getOrThrow())
+        assertEquals(listOf(BENCH, INCLINE), layout(sessionId).map(SessionExercise::exerciseId))
+    }
+
+    @Test
     fun `a delete that fails leaves the exercise where it was`() = runTest {
         val sessionId = startPushDay()
         val failure = IllegalStateException("disk full")
