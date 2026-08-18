@@ -482,6 +482,17 @@ enum class ActiveSessionMessage {
     RESTORE_SET_FAILED,
 
     /**
+     * The deleted set is back, but at the end of its exercise rather than where it was.
+     *
+     * `SessionError.SetTableNotRenumbered`, which is the undo half-landing: the row was written
+     * and the renumbering that would have slotted it back in was not. A separate message from
+     * [RESTORE_SET_FAILED] because the advice in that one — log it again — would have the user
+     * record a set that is already in the table a second time. There is nothing to do about the
+     * order, so this says where the set went and stops there.
+     */
+    SET_RESTORED_AT_END,
+
+    /**
      * Opening the screen could not put it back where the workout was left.
      *
      * The only message here about something the user did not do: reattaching the state machine,

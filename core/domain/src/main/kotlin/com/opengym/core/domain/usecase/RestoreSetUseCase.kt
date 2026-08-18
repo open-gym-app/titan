@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
@@ -28,7 +29,9 @@ import com.opengym.core.domain.time.Clock
  * around it. Doing them in this order is what makes a failure between them survivable — the set
  * is back, at the bottom of its exercise's table, which is a workout with the user's work in it.
  * The other order (shift the table up, then insert) leaves a gap where the set should be if the
- * second write fails, which is a table that has lost a set and says so.
+ * second write fails, which is a table that has lost a set and says so. Survivable, and said:
+ * the failure names itself [SessionError.SetTableNotRenumbered] so a caller can tell it from the
+ * one where nothing was written at all.
  */
 class RestoreSetUseCase(
     private val sessionRepository: SessionRepository,
@@ -46,34 +49,53 @@ class RestoreSetUseCase(
      *   is what happens when sets were logged in the time the undo was on offer.
      *
      * @return the set as it was written, carrying the id the store assigned and the number it
-     *   ended up with.
+     *   ended up with. A failure to renumber after the insert has landed comes back as
+     *   [SessionError.SetTableNotRenumbered], carrying the row as it sits at the end of the
+     *   table — the set is back, and a caller must not offer to log it again.
      */
     suspend operator fun invoke(sessionExerciseId: Long, set: WorkoutSet): Result<WorkoutSet> {
         val current = orderedSetsOf(sessionRepository, sessionStateRepository, sessionExerciseId)
             .getOrElse { return Result.failure(it) }
         val index = (set.setNumber - SetNumbering.FIRST).coerceIn(0, current.size)
-        val now = clock.nowMillis()
+        return reinsert(sessionExerciseId, set, into = current, at = index)
+    }
 
-        return runCatching {
+    /**
+     * The two writes, in the order that makes the failure between them survivable.
+     *
+     * Split off [invoke] so the checks above it and the writes below it are two readable
+     * halves rather than one function of four exits.
+     */
+    private suspend fun reinsert(
+        sessionExerciseId: Long,
+        set: WorkoutSet,
+        into: List<WorkoutSet>,
+        at: Int,
+    ): Result<WorkoutSet> {
+        val now = clock.nowMillis()
+        val restored = runCatching {
             val appended = set.copy(
                 id = 0,
                 sessionExerciseId = sessionExerciseId,
-                setNumber = SetNumbering.FIRST + current.size,
+                setNumber = SetNumbering.FIRST + into.size,
                 updatedAt = now,
             )
-            val restored = appended.copy(id = sessionRepository.insertSet(appended))
+            appended.copy(id = sessionRepository.insertSet(appended))
+        }.getOrElse { return Result.failure(it) }
 
-            // Only from the slot it goes into: everything above it kept its number, and the
-            // ordinary undo — the set that was deleted last is the one put back — moves nothing
-            // at all, because the set is already at the end.
-            val renumbered = SetNumbering.renumber(
-                sets = listOf(restored) + current.drop(index),
-                now = now,
-                from = SetNumbering.FIRST + index,
-            )
-            if (renumbered.isNotEmpty()) sessionRepository.updateSets(renumbered)
-
-            restored.copy(setNumber = SetNumbering.FIRST + index)
-        }
+        // Only from the slot it goes into: everything above it kept its number, and the
+        // ordinary undo — the set that was deleted last is the one put back — moves nothing
+        // at all, because the set is already at the end.
+        //
+        // A failure here is reported as the half-done thing it is rather than as a restore that
+        // did not happen: the set is back, and a caller told "nothing was written" would have
+        // the user log it again and end up with it twice.
+        val renumbered = SetNumbering.renumber(
+            sets = listOf(restored) + into.drop(at),
+            now = now,
+            from = SetNumbering.FIRST + at,
+        )
+        return sessionRepository.applyRenumbering(renumbered, restored)
+            .map { restored.copy(setNumber = SetNumbering.FIRST + at) }
     }
 }

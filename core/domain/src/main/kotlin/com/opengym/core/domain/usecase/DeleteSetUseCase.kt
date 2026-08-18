@@ -47,7 +47,9 @@ class DeleteSetUseCase(
      *
      * @return the set as it stood, carrying the `setNumber` it had before the table closed up.
      *   That is what makes the deletion reversible, and it is why this returns the row rather
-     *   than the id: nothing else holds a deleted set once it is gone.
+     *   than the id: nothing else holds a deleted set once it is gone. A failure to renumber
+     *   after the row has gone carries the same set on
+     *   [SessionError.SetTableNotRenumbered], so the undo can still be offered over it.
      */
     suspend operator fun invoke(sessionExerciseId: Long, setId: Long): Result<WorkoutSet> {
         val sets = orderedSetsOf(sessionRepository, sessionStateRepository, sessionExerciseId)
@@ -55,18 +57,29 @@ class DeleteSetUseCase(
         val deleted = sets.firstOrNull { it.id == setId }
             ?: return Result.failure(SessionError.SetNotInExercise(setId, sessionExerciseId))
 
-        return runCatching {
-            sessionRepository.deleteSet(setId)
-            // After the delete rather than before it, and not best-effort. A renumbering that
-            // failed on its own would leave the table with a gap in it, which is the state this
-            // exists to prevent — so it is reported as a failed deletion, over a set that has in
-            // fact gone. The caller re-reads the exercise either way: the sets are a `Flow`.
-            val renumbered = SetNumbering.renumber(
-                sets = sets.filterNot { it.id == setId },
-                now = clock.nowMillis(),
-            )
-            if (renumbered.isNotEmpty()) sessionRepository.updateSets(renumbered)
-            deleted
-        }
+        return remove(deleted, from = sets)
+    }
+
+    /**
+     * The two writes: the row out, then the numbers the row left behind.
+     *
+     * Split off [invoke] so the checks that stand between the caller and the store are one
+     * half and the writes are the other, rather than one function of five exits.
+     */
+    private suspend fun remove(deleted: WorkoutSet, from: List<WorkoutSet>): Result<WorkoutSet> {
+        runCatching { sessionRepository.deleteSet(deleted.id) }
+            .getOrElse { return Result.failure(it) }
+
+        // After the delete rather than before it, and reported apart from it. A renumbering that
+        // failed on its own leaves the table with a gap in it, which is the state this exists to
+        // prevent, so it is not swallowed — but it is not the same failure as a set that never
+        // went either, and saying so as one would cost the caller the undo. That distinction is
+        // [SessionError.SetTableNotRenumbered], which carries the set that has in fact gone. The
+        // caller re-reads the exercise either way: the sets are a `Flow`.
+        val renumbered = SetNumbering.renumber(
+            sets = from.filterNot { it.id == deleted.id },
+            now = clock.nowMillis(),
+        )
+        return sessionRepository.applyRenumbering(renumbered, deleted).map { deleted }
     }
 }

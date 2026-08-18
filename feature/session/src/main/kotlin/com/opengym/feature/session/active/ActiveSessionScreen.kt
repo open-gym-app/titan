@@ -246,11 +246,18 @@ fun ActiveSessionScreen(
     val transient = state.message?.takeUnless { it == ActiveSessionMessage.NO_SETS_LOGGED }
     val transientText = transient?.let { stringResource(it.labelRes()) }
 
+    // Both of the things this screen puts in the bar take it from whatever is already in it,
+    // rather than queueing behind it. `SnackbarHostState` serialises on one mutex, so a refusal
+    // raised while the undo below is up would otherwise surface as much as ten seconds after the
+    // tap that caused it — by which time it reads as a message about something else. The newest
+    // thing that happened is the one worth saying, so it displaces the older one; an undo cut
+    // short this way is withdrawn rather than delayed, which the effect below reports as the
+    // offer lapsing.
     LaunchedEffect(transientText) {
-        if (transientText != null) {
-            snackbarHostState.showSnackbar(transientText)
-            onEvent(ActiveSessionEvent.MessageShown)
-        }
+        if (transientText == null) return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(transientText)
+        onEvent(ActiveSessionEvent.MessageShown)
     }
 
     // The undo, which is the whole of why deleting a set asks nothing first. Keyed on the set's
@@ -266,8 +273,17 @@ fun ActiveSessionScreen(
     }
     val undoLabel = stringResource(R.string.active_undo)
 
-    LaunchedEffect(state.deletedSet?.id) {
+    // Keyed on [ActiveSessionUiState.isBusy] as well, so the offer is withdrawn the moment the
+    // workout stops taking writes: `RestoreSetUseCase` refuses a session that is not running,
+    // and a snackbar action is the one control on this page that going inert does not reach —
+    // it stays on screen and pressable over a workout the user has already ended.
+    LaunchedEffect(state.deletedSet?.id, state.isBusy) {
         if (deletedSetText == null) return@LaunchedEffect
+        if (state.isBusy) {
+            onEvent(ActiveSessionEvent.SetDeleteDismissed)
+            return@LaunchedEffect
+        }
+        snackbarHostState.currentSnackbarData?.dismiss()
         val result = snackbarHostState.showSnackbar(
             message = deletedSetText,
             actionLabel = undoLabel,
@@ -682,6 +698,7 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.SET_EDIT_REJECTED -> R.string.active_error_set_edit
     ActiveSessionMessage.DELETE_SET_FAILED -> R.string.active_error_delete_set
     ActiveSessionMessage.RESTORE_SET_FAILED -> R.string.active_error_restore_set
+    ActiveSessionMessage.SET_RESTORED_AT_END -> R.string.active_error_restored_at_end
     ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore
 }
 

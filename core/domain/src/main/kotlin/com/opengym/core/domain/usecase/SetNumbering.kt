@@ -1,6 +1,8 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.repository.SessionRepository
 
 /**
  * Keeping one exercise's set numbers contiguous, which is a rule about the *table* rather than
@@ -48,4 +50,29 @@ internal object SetNumbering {
 
     /** One exercise's sets in the order they were performed, which is what the numbers record. */
     fun inOrder(sets: List<WorkoutSet>): List<WorkoutSet> = sets.sortedBy(WorkoutSet::setNumber)
+}
+
+/**
+ * Writes a renumbering back, reporting a failure as the half-done thing it is.
+ *
+ * The second of the two writes [DeleteSetUseCase] and [RestoreSetUseCase] each make, and the
+ * one that can fail after the first has already landed — the set is out of the workout, or back
+ * in it, and only the numbers around it are wrong. Shared for the same reason [SetNumbering] is:
+ * the two have to report that state identically, because a caller tells them apart by nothing
+ * but which one it called.
+ *
+ * @param renumbered the rows that moved, which is empty for the common case — the last set of an
+ *   exercise, deleted or put back — and writes nothing at all.
+ * @param written the row the first write already landed, carried on the refusal so a caller can
+ *   still act over the set that has genuinely moved. See [SessionError.SetTableNotRenumbered].
+ */
+internal suspend fun SessionRepository.applyRenumbering(
+    renumbered: List<WorkoutSet>,
+    written: WorkoutSet,
+): Result<Unit> = when {
+    renumbered.isEmpty() -> Result.success(Unit)
+    else -> runCatching { updateSets(renumbered) }.fold(
+        onSuccess = { Result.success(Unit) },
+        onFailure = { Result.failure(SessionError.SetTableNotRenumbered(written, it)) },
+    )
 }

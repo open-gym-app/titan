@@ -636,7 +636,13 @@ class ActiveSessionViewModel @Inject constructor(
                     val inline = failure.toEntryError()
                     screenState.update { current ->
                         val refused = current.editing?.takeIf { it.setId == open.setId }
-                            ?: return@update current
+                            // The row moved on while the write was out. There is no editor left
+                            // to put an inline refusal under — the one on screen is about
+                            // another set — so it is said once in the bar instead. Silence here
+                            // would be a correction the user believes they made.
+                            ?: return@update current.copy(
+                                message = ActiveSessionMessage.SET_EDIT_REJECTED,
+                            )
                         current.copy(
                             editing = refused.copy(
                                 isSaving = false,
@@ -688,6 +694,15 @@ class ActiveSessionViewModel @Inject constructor(
 
         viewModelScope.launch {
             deleteSet(open.sessionExerciseId, open.setId)
+                // A renumbering that failed over a set that has already gone is still a set that
+                // has gone, and the offer is the only copy of it left — so it goes up exactly as
+                // it would have on success. `DELETE_SET_FAILED` says the set is still in the
+                // workout, which on this branch it is not, and dropping the undo here would lose
+                // it for good. The gap left in the numbers is closed by the next write to that
+                // table; a set nobody was offered back is not.
+                .recoverCatching { failure ->
+                    (failure as? SessionError.SetTableNotRenumbered)?.set ?: throw failure
+                }
                 .onSuccess { deleted ->
                     screenState.update { it.copy(isDeletingSet = false, deletedSet = deleted) }
                     saveDraft()
@@ -713,7 +728,17 @@ class ActiveSessionViewModel @Inject constructor(
     private fun restoreDeletedSet() {
         val state = screenState.value
         val deleted = state.deletedSet ?: return
-        if (state.isBusy || state.isRestoringSet) return
+        // Withdrawn rather than ignored. Every other control on this screen goes inert over a
+        // workout that is finishing, being discarded or over, but the undo is a snackbar action
+        // and nothing disables one — so an offer left standing here would be a button whose only
+        // outcome is nothing happening, over a set `RestoreSetUseCase` would refuse to write
+        // back anyway. The screen withdraws it on sight for the same reason; this is the tap
+        // that beat it by a frame.
+        if (state.isBusy) {
+            screenState.update { it.copy(deletedSet = null) }
+            return
+        }
+        if (state.isRestoringSet) return
         screenState.update { it.copy(isRestoringSet = true, deletedSet = null, message = null) }
 
         viewModelScope.launch {
@@ -722,11 +747,20 @@ class ActiveSessionViewModel @Inject constructor(
                     screenState.update { it.copy(isRestoringSet = false) }
                     saveDraft()
                 }
-                .onFailure {
+                .onFailure { failure ->
                     screenState.update {
                         it.copy(
                             isRestoringSet = false,
-                            message = ActiveSessionMessage.RESTORE_SET_FAILED,
+                            // Two failures with opposite advice in them. `RESTORE_SET_FAILED`
+                            // says to log the set again, which is right only where nothing was
+                            // written; over a set the insert did land for it would have the user
+                            // record it twice.
+                            message = when (failure) {
+                                is SessionError.SetTableNotRenumbered ->
+                                    ActiveSessionMessage.SET_RESTORED_AT_END
+
+                                else -> ActiveSessionMessage.RESTORE_SET_FAILED
+                            },
                         )
                     }
                 }

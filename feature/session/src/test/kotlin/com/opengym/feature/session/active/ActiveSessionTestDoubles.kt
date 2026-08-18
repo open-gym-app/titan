@@ -113,8 +113,18 @@ class FakeActiveSessionStore(
      * renumbering that leaves two sets on one number pass here and be read as "set 2" twice on a
      * device.
      */
+    /**
+     * Thrown by [updateSets] alone, when set.
+     *
+     * The second write of a delete or a restore — the renumbering — which is the one that can
+     * fail *after* the row has already gone or already come back. [editFailure] fails every
+     * write and so only ever reaches the first one; this reaches the window between them.
+     */
+    var renumberFailure: Throwable? = null
+
     override suspend fun updateSets(sets: List<WorkoutSet>) {
         editFailure?.let { throw it }
+        renumberFailure?.let { throw it }
         sets.forEach { updateSet(it) }
 
         sets.map(WorkoutSet::sessionExerciseId).distinct().forEach { sessionExerciseId ->

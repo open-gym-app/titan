@@ -484,6 +484,32 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
+    fun `a correction refused after another row was opened is still reported`() = runTest {
+        val store = benchStore()
+        val write = CompletableDeferred<Unit>()
+        store.beforeUpdate = { write.await() }
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged("9"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        // The user moves on to the next set, and the correction they left behind comes back
+        // refused.
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        store.editFailure = IllegalStateException("disk full")
+        write.complete(Unit)
+
+        // Nowhere to put an inline refusal — the editor on screen is about another set — so it
+        // is said in the bar instead. Silence here would be a correction the user believes they
+        // made, over a set that still holds what it held.
+        assertEquals(ActiveSessionMessage.SET_EDIT_REJECTED, viewModel.uiState.value.message)
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals("the row they moved to is left alone", 2L, editing.setId)
+        assertNull("and takes no refusal that is not about it", editing.entry.error)
+    }
+
+    @Test
     fun `cancelling leaves the set exactly as it was`() = runTest {
         val store = benchStore()
         val viewModel = viewModel(store = store)
@@ -610,6 +636,62 @@ class ActiveSessionViewModelTest {
         assertEquals(ActiveSessionMessage.DELETE_SET_FAILED, viewModel.uiState.value.message)
         assertNull("nothing is offered back, because nothing went", viewModel.uiState.value.deletedSet)
         assertEquals(3, viewModel.uiState.value.rowOf(BENCH_ROW).sets.size)
+    }
+
+    @Test
+    fun `a delete the store half performs still offers the set back`() = runTest {
+        val store = threeSetStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        // The row goes and the renumbering behind it does not — `SetTableNotRenumbered`.
+        store.renumberFailure = IllegalStateException("disk full")
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+
+        // The set is gone either way, and the offer is the only copy of it left. A message
+        // saying it is still in the workout would be untrue, and dropping the undo with it
+        // would cost the user the one way back.
+        val offered = requireNotNull(viewModel.uiState.value.deletedSet)
+        assertEquals(2L, offered.id)
+        assertEquals("the number it had is what puts it back", 2, offered.setNumber)
+        assertNull(viewModel.uiState.value.message)
+        assertEquals(
+            listOf(1L, 3L),
+            viewModel.uiState.value.rowOf(BENCH_ROW).sets.map(WorkoutSet::id),
+        )
+    }
+
+    @Test
+    fun `a restore the store half performs says where the set went`() = runTest {
+        val store = threeSetStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        store.renumberFailure = IllegalStateException("disk full")
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+
+        // The insert landed, so the set is back — at the end of the table rather than between
+        // the two it was between. `RESTORE_SET_FAILED` says to log it again, which over a set
+        // that is already there would have the user record it twice.
+        assertEquals(ActiveSessionMessage.SET_RESTORED_AT_END, viewModel.uiState.value.message)
+        assertEquals(3, viewModel.uiState.value.rowOf(BENCH_ROW).sets.size)
+    }
+
+    @Test
+    fun `an undo over a workout that has ended is withdrawn rather than ignored`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+        // The undo is a snackbar action, which going inert does not reach: it stays on screen
+        // and pressable over a workout that is already over. `RestoreSetUseCase` refuses one, so
+        // the offer is taken away rather than left standing as a button that does nothing.
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+
+        assertNull(viewModel.uiState.value.deletedSet)
     }
 
     @Test

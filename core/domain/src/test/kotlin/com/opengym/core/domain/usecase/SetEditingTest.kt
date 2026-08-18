@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -422,7 +423,7 @@ class SetEditingTest {
     }
 
     @Test
-    fun `a store that cannot renumber reports the deletion as failed`() = runTest {
+    fun `a store that cannot renumber reports the deletion as half done`() = runTest {
         val exerciseId = startWithExercise()
         val sets = logSets(exerciseId, count = 3)
         sessions.setUpdateFailure = IllegalStateException("disk full")
@@ -430,8 +431,70 @@ class SetEditingTest {
         val failure = deleteSet(exerciseId, sets[0].id).exceptionOrNull()
 
         // Reported rather than swallowed: a table with a gap in it is the state the renumbering
-        // exists to prevent, so it is not a detail the caller can be left unaware of.
+        // exists to prevent, so it is not a detail the caller can be left unaware of. Reported
+        // as its own refusal rather than as a failed deletion, because the set has in fact gone
+        // — and the row it carries is the only copy of it there is left to offer back.
+        assertTrue("expected a refusal, was $failure", failure is SessionError.SetTableNotRenumbered)
+        val partial = failure as SessionError.SetTableNotRenumbered
+        assertEquals(sets[0].id, partial.set.id)
+        assertEquals("the number it had is what puts it back", 1, partial.set.setNumber)
+        assertEquals("disk full", partial.cause?.message)
+        assertEquals(listOf(2, 3), numbersOf(exerciseId))
+    }
+
+    @Test
+    fun `a delete the store refuses leaves the set and its numbers alone`() = runTest {
+        val exerciseId = startWithExercise()
+        val sets = logSets(exerciseId, count = 3)
+        sessions.setDeleteFailure = IllegalStateException("disk full")
+
+        val failure = deleteSet(exerciseId, sets[0].id).exceptionOrNull()
+
+        // The other half of the pair above: nothing was written, so this is *not* a
+        // `SetTableNotRenumbered` — a caller that offered the set back here would restore a set
+        // that never went, and end up with it twice.
+        assertFalse(
+            "nothing was written, so nothing is half done",
+            failure is SessionError.SetTableNotRenumbered,
+        )
         assertEquals("disk full", failure?.message)
+        assertEquals(listOf(1, 2, 3), numbersOf(exerciseId))
+    }
+
+    @Test
+    fun `a store that cannot renumber reports the restore as half done`() = runTest {
+        val exerciseId = startWithExercise()
+        val sets = logSets(exerciseId, count = 3)
+        val deleted = deleteSet(exerciseId, sets[0].id).getOrThrow()
+        sessions.setUpdateFailure = IllegalStateException("disk full")
+
+        val failure = restoreSet(exerciseId, deleted).exceptionOrNull()
+
+        // The set is back — at the end of the table, which is what inserting before renumbering
+        // buys — so the refusal has to say so rather than read as a restore that did not happen.
+        // A caller told nothing was written would have the user log the set a second time.
+        assertTrue("expected a refusal, was $failure", failure is SessionError.SetTableNotRenumbered)
+        val partial = failure as SessionError.SetTableNotRenumbered
+        assertEquals(3, partial.set.setNumber)
+        assertEquals(deleted.reps, partial.set.reps)
+        assertEquals("disk full", partial.cause?.message)
+        assertEquals(3, sessions.getSets(exerciseId).first().size)
+    }
+
+    @Test
+    fun `a restore the store refuses writes nothing at all`() = runTest {
+        val exerciseId = startWithExercise()
+        val sets = logSets(exerciseId, count = 3)
+        val deleted = deleteSet(exerciseId, sets[0].id).getOrThrow()
+        sessions.setInsertFailure = IllegalStateException("disk full")
+
+        val failure = restoreSet(exerciseId, deleted).exceptionOrNull()
+
+        assertFalse(
+            "nothing was written, so nothing is half done",
+            failure is SessionError.SetTableNotRenumbered,
+        )
+        assertEquals(2, sessions.getSets(exerciseId).first().size)
     }
 
     private companion object {
