@@ -84,6 +84,54 @@ class FakeActiveSessionStore(
         return stored.id
     }
 
+    /** Every set rewritten through [updateSet] or [updateSets], oldest first. */
+    val updated = mutableListOf<WorkoutSet>()
+
+    /** Thrown by [updateSet], [updateSets] and [deleteSet] instead of writing, when set. */
+    var editFailure: Throwable? = null
+
+    /**
+     * Runs inside [updateSet], before the row is written, with the set being written.
+     *
+     * Lets a test hold a correction open while the user reopens another row — the window in
+     * which a write coming back could close an editor it is not about.
+     */
+    var beforeUpdate: (suspend (WorkoutSet) -> Unit)? = null
+
+    override suspend fun updateSet(set: WorkoutSet) {
+        beforeUpdate?.invoke(set)
+        editFailure?.let { throw it }
+        updated += set
+        sets.value = sets.value.map { if (it.id == set.id) set else it }
+    }
+
+    /**
+     * Writes several sets at once, and checks the invariant the schema does not.
+     *
+     * `workout_set` has no unique index on `(session_exercise_id, set_number)` — the numbers are
+     * kept contiguous by the use cases — so a fake that simply applied the list would let a
+     * renumbering that leaves two sets on one number pass here and be read as "set 2" twice on a
+     * device.
+     */
+    override suspend fun updateSets(sets: List<WorkoutSet>) {
+        editFailure?.let { throw it }
+        sets.forEach { updateSet(it) }
+
+        sets.map(WorkoutSet::sessionExerciseId).distinct().forEach { sessionExerciseId ->
+            val numbers = this.sets.value
+                .filter { it.sessionExerciseId == sessionExerciseId }
+                .map(WorkoutSet::setNumber)
+            check(numbers.size == numbers.distinct().size) {
+                "two sets of exercise $sessionExerciseId ended up on one number: $numbers"
+            }
+        }
+    }
+
+    override suspend fun deleteSet(setId: Long) {
+        editFailure?.let { throw it }
+        sets.value = sets.value.filterNot { it.id == setId }
+    }
+
     override suspend fun updateExercise(exercise: SessionExercise) {
         exercises.value = exercises.value.map { if (it.id == exercise.id) exercise else it }
     }

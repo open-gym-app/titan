@@ -18,8 +18,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -223,6 +225,14 @@ fun ActiveSessionRoute(
  * on this screen rather than in a snackbar that fades.
  */
 @Composable
+/*
+ * Over the complexity threshold, and it is the branching a screen this size has: two dialogs,
+ * four page states, a snackbar that is two different offers, and a list that changes shape while
+ * an exercise is held. Every branch is a state the workout can genuinely be in, and pulling them
+ * into helpers would move the `when` rather than remove it — see `SessionBody`, which is the
+ * split that was worth making.
+ */
+@Suppress("CyclomaticComplexMethod")
 fun ActiveSessionScreen(
     state: ActiveSessionUiState,
     onEvent: (ActiveSessionEvent) -> Unit,
@@ -241,6 +251,34 @@ fun ActiveSessionScreen(
             snackbarHostState.showSnackbar(transientText)
             onEvent(ActiveSessionEvent.MessageShown)
         }
+    }
+
+    // The undo, which is the whole of why deleting a set asks nothing first. Keyed on the set's
+    // id rather than on the value, so deleting a second set while the first offer is still up
+    // cancels that offer and makes a new one — two undos on screen at once would be two buttons
+    // that look identical and mean different sets.
+    //
+    // `Long` rather than `Short`: this is not a notification, it is the window in which a
+    // mistake can be taken back, and four seconds is not long enough to look up from the bar,
+    // read it and decide.
+    val deletedSetText = state.deletedSet?.let {
+        stringResource(R.string.active_set_deleted, it.setNumber)
+    }
+    val undoLabel = stringResource(R.string.active_undo)
+
+    LaunchedEffect(state.deletedSet?.id) {
+        if (deletedSetText == null) return@LaunchedEffect
+        val result = snackbarHostState.showSnackbar(
+            message = deletedSetText,
+            actionLabel = undoLabel,
+            duration = SnackbarDuration.Long,
+        )
+        onEvent(
+            when (result) {
+                SnackbarResult.ActionPerformed -> ActiveSessionEvent.SetDeleteUndone
+                SnackbarResult.Dismissed -> ActiveSessionEvent.SetDeleteDismissed
+            },
+        )
     }
 
     // Which card's rating scale is open, by `session_exercise` id, or null for none. Screen-local
@@ -613,13 +651,18 @@ private fun ActiveSessionHeader?.title(): String = when {
 private fun SessionExerciseRow.name(): String =
     exercise?.name ?: stringResource(R.string.active_exercise_removed)
 
-/** The words a message is said in. */
+/**
+ * The words a message is said in.
+ *
+ * One branch per case of the enum and nothing else: it is a lookup table, and the only way to
+ * make it shorter is to split it into two tables that a reader then has to find both of.
+ */
 @StringRes
 /*
  * One branch per message, which is what the count is measuring. An exhaustive `when` over an
  * enum has no paths through it to get wrong — the compiler is what checks it is complete — so
  * the threshold is counting cases rather than complexity. A lookup table keyed by the enum
- * would satisfy it and would be the same fourteen lines with a map in front of them.
+ * would satisfy it and would be the same lines again with a map in front of them.
  */
 @Suppress("CyclomaticComplexMethod")
 private fun ActiveSessionMessage.labelRes(): Int = when (this) {
@@ -636,6 +679,9 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.REORDER_FAILED -> R.string.active_error_reorder
     ActiveSessionMessage.SWAP_HAS_SETS -> R.string.active_error_swap_has_sets
     ActiveSessionMessage.SWAP_FAILED -> R.string.active_error_swap
+    ActiveSessionMessage.SET_EDIT_REJECTED -> R.string.active_error_set_edit
+    ActiveSessionMessage.DELETE_SET_FAILED -> R.string.active_error_delete_set
+    ActiveSessionMessage.RESTORE_SET_FAILED -> R.string.active_error_restore_set
     ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore
 }
 
@@ -673,6 +719,34 @@ fun ActiveSessionScreenNoSetsPreview() {
                     exerciseBreakdown = emptyList(),
                 ),
                 message = ActiveSessionMessage.NO_SETS_LOGGED,
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(name = "Active session - correcting a set", showBackground = true, heightDp = 1000)
+@Composable
+fun ActiveSessionScreenEditingPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        val base = previewState()
+        ActiveSessionScreen(
+            state = base.copy(
+                exercises = base.exercises.map { row ->
+                    // The second set of the bench press, reopened: the table around it is still
+                    // readable, which is the whole argument for the editor being the row.
+                    if (row.sessionExerciseId != 1L) {
+                        row
+                    } else {
+                        row.copy(
+                            editing = SetEdit(
+                                sessionExerciseId = row.sessionExerciseId,
+                                setId = row.sets[1].id,
+                                entry = SetEntry(weight = "70", reps = "8", rpe = 75),
+                            ),
+                        )
+                    }
+                },
             ),
             onEvent = {},
         )

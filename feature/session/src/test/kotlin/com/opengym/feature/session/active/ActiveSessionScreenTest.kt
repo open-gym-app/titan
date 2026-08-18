@@ -328,6 +328,101 @@ class ActiveSessionScreenTest {
         assertEquals(listOf(ActiveSessionEvent.NotesChanged(BENCH_ROW, "left elbow")), events)
     }
 
+    // ─── Correcting a logged set ────────────────────────────────────────────────────────
+
+    @Test
+    fun `tapping a logged set asks to reopen it`() {
+        setScreen(state())
+
+        scrollToText("70 kg × 8").performClick()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L)),
+            events,
+        )
+    }
+
+    @Test
+    fun `the open row is fields where the set was, with the rest of the table still readable`() {
+        setScreen(state(editing = editingSecondSet()))
+
+        // The set above it is still a row of figures: correcting a weight means comparing it
+        // with the sets around it, which is why the editor is the row rather than a sheet.
+        scrollToText("60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assertIsDisplayed()
+        scrollToDescription("Reps, set 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun `typing over a value reports it against the open row`() {
+        setScreen(state(editing = editingSecondSet()))
+
+        scrollToDescription("Weight, set 2").performTextReplacement("72.5")
+
+        assertEquals(listOf(ActiveSessionEvent.SetEditWeightChanged("72.5")), events)
+    }
+
+    @Test
+    fun `the open row's tick saves, and its two other controls are the ways out`() {
+        setScreen(state(editing = editingSecondSet()))
+
+        scrollToDescription("Save set 2").performClick()
+        scrollToText("Delete set").performClick()
+        scrollToText("Cancel").performClick()
+
+        assertEquals(
+            listOf(
+                ActiveSessionEvent.SetEditConfirmed,
+                ActiveSessionEvent.SetDeleted,
+                ActiveSessionEvent.SetEditCancelled,
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `a refused correction is shown on the row that caused it`() {
+        setScreen(
+            state(
+                editing = editingSecondSet(
+                    entry = SetEntry(
+                        weight = "70",
+                        reps = "0",
+                        error = SetEntryError.Refused("reps must be within 1..10,000, was 0"),
+                    ),
+                ),
+            ),
+        )
+
+        scrollToText("reps must be within 1..10,000, was 0").assertIsDisplayed()
+        scrollToDescription("Save set 2").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a deleted set is offered back rather than announced and forgotten`() {
+        setScreen(
+            state().copy(
+                deletedSet = loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Set 2 deleted").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Undo").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetDeleteUndone), events)
+    }
+
+    @Test
+    fun `negative - a paused workout's logged sets cannot be reopened`() {
+        setScreen(state().copy(isPaused = true))
+
+        scrollToText("70 kg × 8").performClick()
+
+        // Nothing to write into a session that takes no writes, so the row is not a target —
+        // the same rule that takes the entry fields and the tick out.
+        assertEquals(emptyList<ActiveSessionEvent>(), events)
+    }
+
     // ─── Supersets ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -960,8 +1055,9 @@ class ActiveSessionScreenTest {
             loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
         ),
         entry: SetEntry = SetEntry(),
+        editing: SetEdit? = null,
         exercises: List<SessionExerciseRow> = listOf(
-            benchRow(sets = sets, entry = entry),
+            benchRow(sets = sets, entry = entry, editing = editing),
             SessionExerciseRow(sessionExerciseId = INCLINE_ROW, position = 1, exercise = INCLINE),
             SessionExerciseRow(sessionExerciseId = FLY_ROW, position = 2, exercise = FLY),
         ),
@@ -990,11 +1086,20 @@ class ActiveSessionScreenTest {
             loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
         ),
         entry: SetEntry = SetEntry(),
+        editing: SetEdit? = null,
     ) = SessionExerciseRow(
         sessionExerciseId = BENCH_ROW,
         position = 0,
         exercise = BENCH,
         sets = sets,
+        entry = entry,
+        editing = editing,
+    )
+
+    /** The bench's second set, reopened, holding whatever it was logged with. */
+    private fun editingSecondSet(entry: SetEntry = SetEntry(weight = "70", reps = "8")) = SetEdit(
+        sessionExerciseId = BENCH_ROW,
+        setId = 2L,
         entry = entry,
     )
 

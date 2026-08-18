@@ -183,6 +183,15 @@ class FakeSessionStore : SessionRepository {
     override suspend fun insertSet(set: WorkoutSet): Long =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
+    override suspend fun updateSet(set: WorkoutSet) =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
+    override suspend fun updateSets(sets: List<WorkoutSet>) =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
+    override suspend fun deleteSet(setId: Long) =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
     override suspend fun updateExercise(exercise: SessionExercise) =
         throw UnsupportedOperationException("the new-session flow edits no layout")
 

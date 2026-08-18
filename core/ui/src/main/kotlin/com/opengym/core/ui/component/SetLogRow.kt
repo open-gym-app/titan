@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -173,6 +174,11 @@ fun SetLogRow(
  * The weight and reps collapse into one cell — `80 kg × 5` — because nothing here is being
  * typed and two fixed columns for two values that are always read together is width spent on
  * a grid nobody is filling in.
+ *
+ * @param onClick reopens the set for correction, or null for a table that cannot be edited — a
+ *   finished session's recap, a preview. The row itself is the affordance: a pencil per row
+ *   would put a control on every line of a table whose whole job is to be read at a glance,
+ *   and there is nothing else a tap on a logged set could mean.
  */
 @Composable
 fun LoggedSetRow(
@@ -181,6 +187,7 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -191,6 +198,7 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
+        onClick = onClick,
         modifier = modifier,
     )
 }
@@ -203,6 +211,7 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -213,6 +222,7 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
+        onClick = onClick,
         modifier = modifier,
     )
 }
@@ -265,12 +275,21 @@ fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
 
 // ─── Cells ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The ground a set row sits on, its padding, and the error under it.
+ *
+ * Internal rather than private because [SetEditor] is the same row reopened: it draws the same
+ * cells on the same grid, and a frame of its own would be a second set of paddings that drift.
+ * The block of controls an editor puts under the row goes in [footer], inside this `Column`, so
+ * that the whole editor reads as one tinted block rather than as a row with things below it.
+ */
 @Composable
-private fun SetRowFrame(
+internal fun SetRowFrame(
     modifier: Modifier,
     isActive: Boolean,
     isCompleted: Boolean,
     error: String?,
+    footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     // Three grounds, in order of how much they are asking for: the set being worked is
@@ -302,6 +321,7 @@ private fun SetRowFrame(
                 modifier = Modifier.padding(top = OpenGymTheme.spacing.xs),
             )
         }
+        footer?.invoke(this)
     }
 }
 
@@ -313,7 +333,7 @@ private fun SetRowFrame(
  * so. TalkBack gets both — "Warm-up, set 1" — since the letter alone is not a word.
  */
 @Composable
-private fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
+internal fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
     val marker = setType.markerOrNull()
     val spoken = stringResource(R.string.set_log_position, setType.label(), setNumber)
 
@@ -341,7 +361,7 @@ private fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
  * cell to its right by the column's width, so two rows of one table would not line up.
  */
 @Composable
-private fun PreviousCell(previous: String?, showPrevious: Boolean) {
+internal fun PreviousCell(previous: String?, showPrevious: Boolean) {
     if (!showPrevious) return
     val placeholder = stringResource(R.string.set_log_previous_none)
     val spoken = previous?.let { stringResource(R.string.set_log_previous_value, it) }
@@ -375,7 +395,7 @@ private fun PreviousCell(previous: String?, showPrevious: Boolean) {
  * nobody hears. On the field it is read out with the value that was refused.
  */
 @Composable
-private fun SetValueField(
+internal fun SetValueField(
     value: String,
     onValueChange: (String) -> Unit,
     description: String,
@@ -425,7 +445,7 @@ private fun SetValueField(
  * a reader wanted.
  */
 @Composable
-private fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
+internal fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
     val unset = stringResource(R.string.set_log_rpe_unset)
     val spoken = if (rpe != null) {
         stringResource(R.string.set_log_rpe_value, setNumber, formatRpe(rpe))
@@ -500,6 +520,7 @@ private fun LoggedSetRow(
     isCompleted: Boolean,
     previous: String?,
     showPrevious: Boolean,
+    onClick: (() -> Unit)?,
     modifier: Modifier,
 ) {
     val performed = when {
@@ -510,8 +531,25 @@ private fun LoggedSetRow(
         weight != null -> formatWeight(weight)
         else -> stringResource(R.string.set_log_rpe_unset)
     }
+    val editLabel = stringResource(R.string.set_log_edit, setNumber)
 
-    SetRowFrame(modifier = modifier, isActive = false, isCompleted = isCompleted, error = null) {
+    // Merged only when there is something to tap. A row that can be reopened is one target and
+    // has to announce itself as one — four separate stops with a click action hanging off their
+    // parent is a row TalkBack can read and cannot press. A row that cannot be reopened keeps
+    // the per-cell reading it already had, which is what lets a reader hear the RPE of the
+    // third set without hearing the other three cells first.
+    val tap = onClick?.let { click ->
+        Modifier
+            .clickable(onClickLabel = editLabel, onClick = click)
+            .semantics(mergeDescendants = true) { }
+    } ?: Modifier
+
+    SetRowFrame(
+        modifier = modifier.then(tap),
+        isActive = false,
+        isCompleted = isCompleted,
+        error = null,
+    ) {
         SetIndexCell(setNumber = setNumber, setType = setType, isActive = false)
         PreviousCell(previous = previous, showPrevious = showPrevious)
         Text(
@@ -552,15 +590,15 @@ private fun LoggedSetRow(
  * its 48dp target regardless.
  */
 
-private val INDEX_COLUMN_WIDTH: Dp = 24.dp
-private val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
-private val RPE_COLUMN_WIDTH: Dp = 28.dp
-private val TOGGLE_SIZE: Dp = 32.dp
-private const val WEIGHT_COLUMN_WEIGHT = 1.3f
-private const val REPS_COLUMN_WEIGHT = 1f
+internal val INDEX_COLUMN_WIDTH: Dp = 24.dp
+internal val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
+internal val RPE_COLUMN_WIDTH: Dp = 28.dp
+internal val TOGGLE_SIZE: Dp = 32.dp
+internal const val WEIGHT_COLUMN_WEIGHT = 1.3f
+internal const val REPS_COLUMN_WEIGHT = 1f
 
 /** The `×` between the two fields. U+00D7, not the letter x, which is narrower and lower. */
-private const val MULTIPLICATION_SIGN = "×"
+internal const val MULTIPLICATION_SIGN = "×"
 
 /**
  * How much of the fill tone an unlogged row keeps.

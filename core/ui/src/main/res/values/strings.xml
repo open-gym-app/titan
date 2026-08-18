@@ -51,6 +51,16 @@
     <string name="set_log_weight_and_reps">%1$s × %2$d</string>
     <string name="set_log_reps_only">%1$d reps</string>
 
+    <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
+
+    <!-- The click label on a logged row. The row itself is the affordance, so this is the
+         only thing that says a tap does anything at all. -->
+    <string name="set_log_edit">Edit set %1$d</string>
+    <string name="set_edit_save">Save set %1$d</string>
+    <!-- Uppercased by the design, written in sentence case here — see the note at the top. -->
+    <string name="set_edit_delete">Delete set</string>
+    <string name="set_edit_cancel">Cancel</string>
+
     <!-- The RPE scale, as a picker rather than a field — see RpeSelector. The cells draw the
          rating alone; this is what a screen reader says of one, since "8.5" on its own names
          no quantity. -->

@@ -9,7 +9,9 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
+import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
+import com.opengym.core.domain.usecase.EditSetUseCase
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
@@ -17,11 +19,13 @@ import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.opengym.core.domain.usecase.RestoreSetUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
+import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
@@ -331,6 +335,300 @@ class ActiveSessionViewModelTest {
         assertTrue(store.logged.isEmpty())
         assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
         assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
+    }
+
+    // ─── Correcting a logged set ────────────────────────────────────────────────────────
+
+    @Test
+    fun `reopening a set puts its stored values into the editor`() = runTest {
+        val viewModel = viewModel(store = benchStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals(2L, editing.setId)
+        assertEquals("70", editing.entry.weight)
+        assertEquals("8", editing.entry.reps)
+    }
+
+    @Test
+    fun `the editor's weight comes back in the unit the user types in`() = runTest {
+        val viewModel = viewModel(
+            store = benchStore(),
+            settings = FakeSettings(UserPreferences(unitSystem = UnitSystem.IMPERIAL)),
+        )
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+
+        assertEquals(
+            formatWeightValue(60_000_000L, UnitSystem.IMPERIAL),
+            viewModel.uiState.value.rowOf(BENCH_ROW).editing?.entry?.weight,
+        )
+    }
+
+    @Test
+    fun `only one set is open for correction at a time`() = runTest {
+        val viewModel = viewModel(store = benchStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("62.5"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals("the second tap is the set the user now means", 2L, editing.setId)
+        assertEquals("70", editing.entry.weight)
+    }
+
+    @Test
+    fun `saving a correction writes it over the set and closes the editor`() = runTest {
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("72.5"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged("6"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRpeChanged(95))
+        viewModel.onEvent(ActiveSessionEvent.SetEditTypeChanged(SetType.DROP_SET))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        val written = store.updated.single()
+        assertEquals(2L, written.id)
+        assertEquals(72_500_000L, written.weight)
+        assertEquals(6, written.reps)
+        assertEquals(95, written.rpe)
+        assertEquals(SetType.DROP_SET, written.setType)
+        assertNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+    }
+
+    @Test
+    fun `a correction keeps the note the set was logged with`() = runTest {
+        val store = FakeActiveSessionStore(
+            session = runningSession(),
+            exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
+            sets = listOf(loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1).copy(notes = "left elbow")),
+        )
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("62.5"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        // The editor has no note field, so the draft is built from the stored row: a correction
+        // to a weight must not quietly delete what the user wrote about the set.
+        assertEquals("left elbow", store.updated.single().notes)
+    }
+
+    @Test
+    fun `the figures move as soon as a correction is written`() = runTest {
+        val viewModel = viewModel(store = benchStore())
+        assertEquals(1_160_000_000L, viewModel.uiState.value.stats?.totalVolume)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged("5"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        // 60 kg x 5 + 70 kg x 8, straight out of the read flow rather than out of a local tally.
+        assertEquals(860_000_000L, viewModel.uiState.value.stats?.totalVolume)
+        assertEquals(2, viewModel.uiState.value.stats?.totalSets)
+    }
+
+    @Test
+    fun `a correction that breaks a bound is refused before it is written`() = runTest {
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged("0"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertTrue("the row stays open with what was typed", editing.entry.error is SetEntryError.Refused)
+        assertEquals("0", editing.entry.reps)
+        assertEquals("nothing is written", emptyList<WorkoutSet>(), store.updated)
+    }
+
+    @Test
+    fun `a correction that is not a number is refused the same way it is on the entry row`() = runTest {
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("eighty"))
+
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals(SetEntryError.WeightNotANumber, editing.entry.error)
+        assertFalse("the tick is not live for it", viewModel.uiState.value.rowOf(BENCH_ROW).canSaveEdit)
+        assertEquals(emptyList<WorkoutSet>(), store.updated)
+    }
+
+    @Test
+    fun `a correction landing after another row was opened leaves that row alone`() = runTest {
+        val store = benchStore()
+        val write = CompletableDeferred<Unit>()
+        store.beforeUpdate = { write.await() }
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged("9"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        // The user moves on to the next set while the first correction is still being written.
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("72.5"))
+        write.complete(Unit)
+
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals("the write must not close an editor it is not about", 2L, editing.setId)
+        assertEquals("72.5", editing.entry.weight)
+        assertEquals(9, store.updated.single().reps)
+    }
+
+    @Test
+    fun `cancelling leaves the set exactly as it was`() = runTest {
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("999"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditCancelled)
+
+        assertNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals(emptyList<WorkoutSet>(), store.updated)
+    }
+
+    @Test
+    fun `a paused workout takes no correction`() = runTest {
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("62.5"))
+        viewModel.onEvent(ActiveSessionEvent.SetEditConfirmed)
+
+        // The screen stops the tap — a paused card is read-only — and this is the half under it:
+        // `EditSetUseCase` refuses a session that is not running, the same way `LogSetUseCase`
+        // refuses a set logged into one.
+        assertFalse(viewModel.uiState.value.isEditable)
+        assertEquals(emptyList<WorkoutSet>(), store.updated)
+        assertEquals(ActiveSessionMessage.SET_EDIT_REJECTED, viewModel.uiState.value.message)
+    }
+
+    // ─── Deleting a set, and taking it back ─────────────────────────────────────────────
+
+    @Test
+    fun `deleting a set takes it out and closes the numbers up`() = runTest {
+        val store = threeSetStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+
+        val table = viewModel.uiState.value.rowOf(BENCH_ROW).sets
+        assertEquals(listOf(1L, 3L), table.map(WorkoutSet::id))
+        assertEquals(listOf(1, 2), table.map(WorkoutSet::setNumber))
+        assertNull("the editor goes with the row", viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+    }
+
+    @Test
+    fun `the figures move as soon as a set is deleted`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+        assertEquals(3, viewModel.uiState.value.stats?.totalSets)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 3L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+
+        assertEquals(2, viewModel.uiState.value.stats?.totalSets)
+        assertEquals(1_160_000_000L, viewModel.uiState.value.stats?.totalVolume)
+    }
+
+    @Test
+    fun `a deleted set is offered back rather than confirmed away`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+
+        val offered = requireNotNull(viewModel.uiState.value.deletedSet)
+        assertEquals(2L, offered.id)
+        assertEquals("the number it had is what puts it back", 2, offered.setNumber)
+    }
+
+    @Test
+    fun `undoing puts the set back where it was`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+
+        val table = viewModel.uiState.value.rowOf(BENCH_ROW).sets
+        assertEquals(listOf(1, 2, 3), table.map(WorkoutSet::setNumber))
+        assertEquals(
+            "and with the values it was logged with",
+            listOf(60_000_000L, 70_000_000L, 75_000_000L),
+            table.map(WorkoutSet::weight),
+        )
+        assertEquals(3, viewModel.uiState.value.stats?.totalSets)
+    }
+
+    @Test
+    fun `the offer to undo is consumed by taking it`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+        // A second undo, the way a second tap on a snackbar that has not left yet would arrive.
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+
+        assertNull(viewModel.uiState.value.deletedSet)
+        assertEquals(3, viewModel.uiState.value.rowOf(BENCH_ROW).sets.size)
+    }
+
+    @Test
+    fun `an offer that lapses leaves the workout as it is`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteDismissed)
+
+        assertNull(viewModel.uiState.value.deletedSet)
+        assertEquals(2, viewModel.uiState.value.rowOf(BENCH_ROW).sets.size)
+    }
+
+    @Test
+    fun `a delete the store refuses says so and leaves the set alone`() = runTest {
+        val store = threeSetStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
+        store.editFailure = IllegalStateException("disk full")
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+
+        assertEquals(ActiveSessionMessage.DELETE_SET_FAILED, viewModel.uiState.value.message)
+        assertNull("nothing is offered back, because nothing went", viewModel.uiState.value.deletedSet)
+        assertEquals(3, viewModel.uiState.value.rowOf(BENCH_ROW).sets.size)
+    }
+
+    @Test
+    fun `an exercise emptied by deleting its sets can then be removed`() = runTest {
+        // The refusal `RemoveSessionExerciseUseCase` gives names this as the way past it, so it
+        // is worth pinning down that the way past it exists.
+        val store = benchStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseRemoved(BENCH_ROW))
+        assertEquals(ActiveSessionMessage.EXERCISE_HAS_SETS, viewModel.uiState.value.message)
+
+        listOf(1L, 2L).forEach { setId ->
+            viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId))
+            viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        }
+        viewModel.onEvent(ActiveSessionEvent.ExerciseRemoved(BENCH_ROW))
+
+        assertTrue(viewModel.uiState.value.exercises.none { it.sessionExerciseId == BENCH_ROW })
     }
 
     // ─── The workout on screen ──────────────────────────────────────────────────────────
@@ -1362,6 +1660,27 @@ class ActiveSessionViewModelTest {
         sets = sets,
     )
 
+    /** The bench alone, with two sets logged against it: 60 x 10 and 70 x 8. */
+    private fun benchStore() = FakeActiveSessionStore(
+        session = runningSession(),
+        exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
+        sets = listOf(
+            loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 10, weight = 60_000_000L),
+            loggedSet(id = 2L, sessionExerciseId = BENCH_ROW, setNumber = 2, reps = 8, weight = 70_000_000L),
+        ),
+    )
+
+    /** The same, with a third set on the end, so a deletion has a middle to take out of. */
+    private fun threeSetStore() = FakeActiveSessionStore(
+        session = runningSession(),
+        exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
+        sets = listOf(
+            loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 10, weight = 60_000_000L),
+            loggedSet(id = 2L, sessionExerciseId = BENCH_ROW, setNumber = 2, reps = 8, weight = 70_000_000L),
+            loggedSet(id = 3L, sessionExerciseId = BENCH_ROW, setNumber = 3, reps = 6, weight = 75_000_000L),
+        ),
+    )
+
     /** The same push day, with the incline and the fly already run as a superset. */
     private fun supersetStore() = FakeActiveSessionStore(
         session = runningSession(),
@@ -1403,6 +1722,9 @@ class ActiveSessionViewModelTest {
             exerciseRepository = catalogue,
             userPreferencesRepository = settings,
             logSet = LogSetUseCase(store, state, clock),
+            editSet = EditSetUseCase(store, state, clock),
+            deleteSet = DeleteSetUseCase(store, state, clock),
+            restoreSet = RestoreSetUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
             reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),

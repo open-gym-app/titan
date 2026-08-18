@@ -289,7 +289,14 @@ private fun SetTable(
     val error = entry.error?.message()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        LoggedSetTable(sets = row.sets)
+        LoggedSetTable(
+            sets = row.sets,
+            sessionExerciseId = row.sessionExerciseId,
+            onEvent = onEvent,
+            editing = row.editing,
+            canSaveEdit = row.canSaveEdit,
+            enabled = enabled,
+        )
         HairlineDivider()
 
         SetLogRow(
@@ -312,7 +319,10 @@ private fun SetTable(
             // #101 fills this. The column is drawn either way, so adding it later does not move
             // every figure in the table sideways.
             previous = null,
-            isActive = true,
+            // Not while a logged set is open above it. The tint means "this is the row you are
+            // working on", and two tinted rows on one card means it does not — the correction is
+            // what the user is doing, and the next set can wait for it.
+            isActive = row.editing == null,
             error = error,
             enabled = enabled,
             // The fields stay live while the tick does not: a row with a weight in it and no
@@ -376,9 +386,13 @@ private fun SetNote(
  * Two of the three are this screen's own and come out of its resources; the third is
  * `SetValidator`'s, which already names the field, the bound and the value it saw. Paraphrasing
  * that one would be a second copy of a rule that lives in the domain.
+ *
+ * Internal because the same three refusals reach the same user two ways: under the row being
+ * typed, and under the logged row reopened to correct it. `SetValidator` gives one answer about
+ * a set, so the screen says it in one set of words.
  */
 @Composable
-private fun SetEntryError.message(): String = when (this) {
+internal fun SetEntryError.message(): String = when (this) {
     SetEntryError.WeightNotANumber -> stringResource(R.string.active_weight_not_a_number)
     SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
     is SetEntryError.Refused -> reason

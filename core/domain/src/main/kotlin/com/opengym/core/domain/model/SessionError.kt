@@ -64,12 +64,25 @@ sealed class SessionError(message: String) : IllegalStateException(message) {
     )
 
     /**
+     * The set named is not one of that exercise's own.
+     *
+     * The same staleness [ExerciseNotInSession] describes, one level down: a screen holding a
+     * table that has been renumbered under it — by a delete performed elsewhere, or by an undo
+     * that has not reached it yet — names a row that may still exist under another exercise.
+     * Editing it there would correct a set in a workout nobody is looking at.
+     */
+    data class SetNotInExercise(val setId: Long, val sessionExerciseId: Long) : SessionError(
+        "set $setId is not logged against exercise $sessionExerciseId",
+    )
+
+    /**
      * The exercise cannot be removed because sets have been logged against it.
      *
      * `session_exercise` cascades to `workout_set`, so removing it would delete work the user
      * actually performed — the one outcome no confirmation dialog makes acceptable. The way
-     * past it is to delete the sets first (#99), after which the exercise is empty and goes
-     * freely; discarding the whole workout is the other.
+     * past it is to delete the sets first — see
+     * [com.opengym.core.domain.usecase.DeleteSetUseCase] — after which the exercise is empty and
+     * goes freely; discarding the whole workout is the other.
      */
     data class ExerciseHasLoggedSets(val sessionExerciseId: Long, val setCount: Int) : SessionError(
         "exercise $sessionExerciseId has $setCount logged set(s) and cannot be removed",

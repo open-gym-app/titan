@@ -37,6 +37,61 @@ sealed interface ActiveSessionEvent {
     /** Write this exercise's entry row as a set. */
     data class SetLogged(val sessionExerciseId: Long) : ActiveSessionEvent
 
+    /*
+     * ── Correcting a set that is already logged ─────────────────────────────────────────
+     *
+     * Exactly one set on the whole screen is ever open for correction, and which one is part
+     * of the state. So the events that *edit* it name nothing: they are about the open row the
+     * way [NameChanged] is about the open dialog, and an id carried on each of them would be a
+     * second copy of a fact the state already holds — one that can disagree with it after a
+     * table is renumbered under the screen.
+     *
+     * The two that are not about the open row do name what they are about: [SetEditRequested]
+     * is what opens one, and [SetDeleteUndone] answers an offer that outlives the row entirely.
+     */
+
+    /**
+     * Reopen a logged set to correct it.
+     *
+     * Opening a second one closes the first and drops whatever was typed into it. That is the
+     * cost of the row being the affordance — a tap on another set is unambiguous about which
+     * set the user now means — and the alternative, a dialog asking about a set they have just
+     * looked away from, is worse.
+     */
+    data class SetEditRequested(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+
+    /** The open row's weight field changed. Carries text, not a number — see [SetEntry]. */
+    data class SetEditWeightChanged(val text: String) : ActiveSessionEvent
+
+    /** The open row's rep field changed. */
+    data class SetEditRepsChanged(val text: String) : ActiveSessionEvent
+
+    /** The open row's rating changed, or was cleared with null. */
+    data class SetEditRpeChanged(val rpe: Int?) : ActiveSessionEvent
+
+    /** The open row's set type changed. */
+    data class SetEditTypeChanged(val setType: SetType) : ActiveSessionEvent
+
+    /** Close the open row without writing. The set keeps the values it had. */
+    data object SetEditCancelled : ActiveSessionEvent
+
+    /** Write the open row's values over the set. */
+    data object SetEditConfirmed : ActiveSessionEvent
+
+    /**
+     * Take the open row's set out of the workout.
+     *
+     * Not confirmed, and reversible instead: what follows is an offer to undo, which the
+     * screen puts on screen for as long as it stands. See `DeleteSetUseCase`.
+     */
+    data object SetDeleted : ActiveSessionEvent
+
+    /** Put the set that was just deleted back, where it was. */
+    data object SetDeleteUndone : ActiveSessionEvent
+
+    /** The offer to undo has been on screen long enough. Nothing happens to the workout. */
+    data object SetDeleteDismissed : ActiveSessionEvent
+
     /**
      * Perform this exercise back to back with the one after it — make them a superset.
      *

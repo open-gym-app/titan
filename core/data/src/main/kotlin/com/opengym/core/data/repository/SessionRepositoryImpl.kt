@@ -102,6 +102,14 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun insertSet(set: WorkoutSet): Long = setDao.insert(setMapper.toEntity(set))
 
+    override suspend fun updateSet(set: WorkoutSet) = setDao.update(setMapper.toEntity(set))
+
+    /** One transaction, which is Room's own for a multi-row `@Update` — see `WorkoutSetDao`. */
+    override suspend fun updateSets(sets: List<WorkoutSet>) =
+        setDao.updateAll(sets.map(setMapper::toEntity))
+
+    override suspend fun deleteSet(setId: Long) = setDao.delete(setId)
+
     override suspend fun update(session: WorkoutSession) =
         sessionDao.update(sessionMapper.toEntity(session))
 

@@ -82,6 +82,12 @@ import kotlin.time.Duration
  *   out, so this is the last value the screen ever holds.
  * @param isDiscarded the session was thrown away. The other way the screen ends, and a separate
  *   field because it leads somewhere else — there is no recap of a workout that did not happen.
+ * @param deletedSet the set that has just been taken out of the workout, held for as long as the
+ *   offer to undo stands, or null. The whole row rather than its id, because the row is the only
+ *   copy of it left: it is gone from the store, and what puts it back is its values and the
+ *   number it had. Carried in the state rather than pushed down a channel for the reason
+ *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
+ *   event would not.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -105,6 +111,7 @@ data class ActiveSessionUiState(
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
+    val deletedSet: WorkoutSet? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -202,6 +209,10 @@ data class ActiveSessionHeader(
  * @param entry the set being typed into it. Every exercise has one — there is always a next set
  *   to log, and a screen that hid the fields until an "add set" tap would put a tap in front of
  *   the thing the screen exists to do.
+ * @param editing the set of *this* exercise that is open for correction, or null. At most one
+ *   set on the whole screen is ever open, which is why the ViewModel holds one of these and
+ *   hands it to the row it belongs to: a field per row could hold two, and two open editors is
+ *   two half-typed corrections the user has to remember they made.
  */
 @Immutable
 data class SessionExerciseRow(
@@ -214,6 +225,7 @@ data class SessionExerciseRow(
     val isLinkedToNext: Boolean = false,
     val sets: List<WorkoutSet> = emptyList(),
     val entry: SetEntry = SetEntry(),
+    val editing: SetEdit? = null,
 ) {
 
     /** How many sets sit under it, performed or not, which is what the table draws. */
@@ -241,6 +253,17 @@ data class SessionExerciseRow(
      * moment it is pressed — see [records].
      */
     val canLogEntry: Boolean get() = entry.canLog && entry.records(exercise?.type)
+
+    /**
+     * Whether the correction as typed can be written as it stands.
+     *
+     * [canLogEntry]'s counterpart, and the same two halves for the same reason: `EditSetUseCase`
+     * runs `SetValidator` against the corrected set exactly as `LogSetUseCase` runs it against a
+     * new one, so a tick that was live on the values alone would be a tick whose write is
+     * sometimes refused the moment it is pressed.
+     */
+    val canSaveEdit: Boolean
+        get() = editing != null && editing.entry.canLog && editing.entry.records(exercise?.type)
 
     /**
      * Whether this exercise's sets are measured in time rather than in reps.
@@ -343,6 +366,33 @@ data class SetEntry(
 }
 
 /**
+ * A set that is already logged, open to be corrected.
+ *
+ * The values are [SetEntry]'s, whole, rather than a second set of fields that would have to be
+ * validated by a second copy of the same rules: what a user types into a correction is exactly
+ * what they type into a new set, including the states on the way to a number that are not one.
+ * Only the note is unused — the editor has no field for it, and the stored one is carried
+ * through the write untouched; see `SetEditor`.
+ *
+ * @param sessionExerciseId the exercise whose table the open row is in. Carried here rather than
+ *   on every event about the row, so that "which set is open" is one fact in one place.
+ * @param setId the `workout_set` row being corrected. The number it is drawn under is *not*
+ *   carried: that is the row's place in the table, which the table already knows and which a
+ *   deletion elsewhere can change under an open editor.
+ * @param entry the values as they are being typed, validated against `SetValidator` on every
+ *   keystroke exactly as an entry row is.
+ * @param isSaving a write is in flight. The editor stays open and goes inert: it is the only
+ *   copy of what was typed, and a second tick would write the same correction twice.
+ */
+@Immutable
+data class SetEdit(
+    val sessionExerciseId: Long,
+    val setId: Long,
+    val entry: SetEntry = SetEntry(),
+    val isSaving: Boolean = false,
+)
+
+/**
  * Something that happened and needs saying once.
  *
  * An enum rather than a string, matching every other screen in the module: the ViewModel does
@@ -382,7 +432,7 @@ enum class ActiveSessionMessage {
      * The exercise has sets logged against it, so it cannot be cut out.
      *
      * The one refusal on this screen that is a *rule* rather than a failure, and it names the
-     * way past itself: the sets go first (#99), or the whole workout does.
+     * way past itself: the sets go first — tap one and delete it — or the whole workout does.
      */
     EXERCISE_HAS_SETS,
 
@@ -415,6 +465,21 @@ enum class ActiveSessionMessage {
 
     /** The exercise could not be swapped. The slot holds what it held. */
     SWAP_FAILED,
+
+    /** The correction was refused by the domain after passing the screen's own check. */
+    SET_EDIT_REJECTED,
+
+    /** The set could not be deleted. It is still in the workout, exactly as it was. */
+    DELETE_SET_FAILED,
+
+    /**
+     * The deleted set could not be put back.
+     *
+     * The one message on this screen that reports the loss of something the user did, which is
+     * why it says so rather than saying "try again": the offer to undo is gone with it, and what
+     * is left is to log the set over.
+     */
+    RESTORE_SET_FAILED,
 
     /**
      * Opening the screen could not put it back where the workout was left.

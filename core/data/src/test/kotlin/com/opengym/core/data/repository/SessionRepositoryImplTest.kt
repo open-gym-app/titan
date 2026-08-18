@@ -319,6 +319,56 @@ class SessionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `updateSet rewrites the set it names and nothing else`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionExerciseId = db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1, reps = 10))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 2, reps = 8))
+        val second = repository.getSets(sessionExerciseId).first()[1]
+
+        repository.updateSet(second.copy(reps = 6, weight = 82_500_000L, updatedAt = 900L))
+
+        val sets = repository.getSets(sessionExerciseId).first()
+        assertEquals(listOf(10, 6), sets.map { it.reps })
+        assertEquals(listOf(1, 2), sets.map { it.setNumber })
+        assertEquals(82_500_000L, sets[1].weight)
+    }
+
+    @Test
+    fun `deleteSet removes one set and leaves the rest of the table`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionExerciseId = db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1, reps = 10))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 2, reps = 8))
+
+        repository.deleteSet(repository.getSets(sessionExerciseId).first()[0].id)
+
+        assertEquals(listOf(8), repository.getSets(sessionExerciseId).first().map { it.reps })
+    }
+
+    @Test
+    fun `updateSets closes the gap a deletion leaves, in one write`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionExerciseId = db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1, reps = 10))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 2, reps = 8))
+        db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 3, reps = 6))
+
+        val sets = repository.getSets(sessionExerciseId).first()
+        repository.deleteSet(sets[0].id)
+        repository.updateSets(
+            listOf(sets[1].copy(setNumber = 1), sets[2].copy(setNumber = 2)),
+        )
+
+        val renumbered = repository.getSets(sessionExerciseId).first()
+        assertEquals(listOf(1, 2), renumbered.map { it.setNumber })
+        assertEquals("the rows are the same rows", listOf(8, 6), renumbered.map { it.reps })
+    }
+
+    @Test
     fun `getSetsForSession reads every exercise's sets in one pass, in session order`() = runBlocking {
         val sessionId = db.workoutSessionDao().insert(session())
         val squat = db.exerciseDao().insert(exercise(name = "Squat"))

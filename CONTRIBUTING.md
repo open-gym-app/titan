@@ -154,12 +154,13 @@ Text(
   | Component | Draws | Takes |
   | --- | --- | --- |
   | `SetLogRow` | the weight/reps/RPE entry row, with set type, tick and inline validation | text for the fields, because a half-typed number is not a number |
+  | `SetEditor` | a logged set reopened in place: the same grid as fields, the rating scale and type chips open under it, and delete / cancel | the same text the entry row takes |
   | `RpeSelector` | the 6–10 scale in halves, as nine buttons rather than a field | the stored rating (× 10), or null |
   | `SetTypeSelector` | working / warm-up / drop / failure / interval, as one row of chips | a `SetType` |
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END | a name, an elapsed `Duration`, a `SessionProgress` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
-  | `LoggedSetRow` | a set that has already been written, formatted | `WorkoutSet` or `ActiveSet` |
+  | `LoggedSetRow` | a set that has already been written, formatted; the whole row is the tap target that reopens it | `WorkoutSet` or `ActiveSet`, plus an optional `onClick` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
@@ -182,6 +183,12 @@ Text(
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
+
+  `SetLogRow`, `SetEditor` and `LoggedSetRow` are one table in three states and share their
+  column grid, so a caller has to pass the same `showPrevious` to all of them and to
+  `SetLogHeader` or the labels stop sitting over the cells they name. Only one `SetEditor` should
+  ever be open on a screen: it is a tinted block the height of a card, and the accent it spends
+  says "this is the row you are working on", which two of them makes untrue.
 
   The reorder pair is the one with rules attached. The gesture goes on the **list**
   (`Modifier.reorderable`) and never on the items, because the items move: a handler on the row
