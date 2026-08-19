@@ -53,6 +53,11 @@ class ColorSchemeContrastTest {
         ContrastPair("onSurface", "surfaceContainerHighest", TEXT),
         ContrastPair("onSurfaceVariant", "surfaceContainerLow", TEXT),
         ContrastPair("onSurfaceVariant", "surfaceContainer", TEXT),
+        // The two raised fills carry supporting text as well, and one of them carries a single
+        // character: `SetTypeMarker` draws the warm-up's `W` in this pair, where there is no
+        // surrounding word to help a reader who is missing half the contrast.
+        ContrastPair("onSurfaceVariant", "surfaceContainerHigh", TEXT),
+        ContrastPair("onSurfaceVariant", "surfaceContainerHighest", TEXT),
         // The accent used as text — an eyebrow, a PR badge, the "+ NEW" action.
         ContrastPair("primary", "surface", TEXT),
         ContrastPair("primary", "background", TEXT),

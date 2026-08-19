@@ -154,13 +154,14 @@ Text(
   | Component | Draws | Takes |
   | --- | --- | --- |
   | `SetLogRow` | the weight/reps/RPE entry row, with set type, tick and inline validation | text for the fields, because a half-typed number is not a number |
-  | `SetEditor` | a logged set reopened in place: the same grid as fields, the rating scale and type chips open under it, and delete / cancel | the same text the entry row takes |
-  | `RpeSelector` | the 6–10 scale in halves, as nine buttons rather than a field | the stored rating (× 10), or null |
-  | `SetTypeSelector` | working / warm-up / drop / failure / interval, as one row of chips | a `SetType` |
+  | `SetEditor` | a logged set reopened in place: the same grid as fields, with cancel under it | the same text the entry row takes |
+  | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
+  | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
+  | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END | a name, an elapsed `Duration`, a `SessionProgress` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
-  | `LoggedSetRow` | a set that has already been written, formatted; the whole row is the tap target that reopens it | `WorkoutSet` or `ActiveSet`, plus an optional `onClick` |
+  | `LoggedSetRow` | a set that has already been written, formatted; its cells are the tap target that reopens it, and its tick takes the set back out of the count | `WorkoutSet` or `ActiveSet`, plus an optional `onClick` and `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
@@ -187,8 +188,15 @@ Text(
   `SetLogRow`, `SetEditor` and `LoggedSetRow` are one table in three states and share their
   column grid, so a caller has to pass the same `showPrevious` to all of them and to
   `SetLogHeader` or the labels stop sitting over the cells they name. Only one `SetEditor` should
-  ever be open on a screen: it is a tinted block the height of a card, and the accent it spends
-  says "this is the row you are working on", which two of them makes untrue.
+  ever be open on a screen: it is a tinted block, and the accent it spends says "this is the row
+  you are working on", which two of them makes untrue.
+
+  The two pickers are *cells* of that grid rather than blocks under it: the rating is picked from
+  the cell that shows the rating and the type from the cell that shows the type, so neither costs
+  the page any height. That is deliberate and hard-won — the rating scale used to be nine buttons
+  drawn open inside the table, which pushed the sets a rating is judged against off the screen.
+  Deleting a set is `SwipeToDelete` on the row for the mirror-image reason: a destructive action
+  should be the hardest gesture on a row, not the one nearest the thumb.
 
   The reorder pair is the one with rules attached. The gesture goes on the **list**
   (`Modifier.reorderable`) and never on the items, because the items move: a handler on the row

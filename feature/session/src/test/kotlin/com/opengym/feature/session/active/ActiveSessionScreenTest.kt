@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -275,17 +276,19 @@ class ActiveSessionScreenTest {
         setScreen(state())
 
         scrollToDescription("Rate of perceived exertion, set 3, not set").performClick()
-        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+        // Not scrolled to: the menu is a popup, which is the whole reason the scale is one now —
+        // it costs the page no room and pushes nothing off the bottom of it.
+        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 8.5").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.RpeChanged(BENCH_ROW, 85)), events)
     }
 
     @Test
-    fun `tapping the rating that is already set clears it`() {
+    fun `the menu's last item is what clears a rating`() {
         setScreen(state(entry = SetEntry(weight = "80", reps = "5", rpe = 85)))
 
         scrollToDescription("Rate of perceived exertion, set 3, 8.5").performClick()
-        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+        composeTestRule.onNodeWithText("Not rated").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.RpeChanged(BENCH_ROW, null)), events)
     }
@@ -294,7 +297,10 @@ class ActiveSessionScreenTest {
     fun `picking a set type reports it`() {
         setScreen(state(entry = SetEntry(weight = "80")))
 
-        scrollToText("WARM-UP").performClick()
+        // The leading cell is the control: it is where the type is read, so it is where it is
+        // changed. No chips under the row — see `SetTypePicker`.
+        scrollToDescription("Set type, set 3, Standard set").performClick()
+        composeTestRule.onNodeWithText("Warm-up").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SetTypeChanged(BENCH_ROW, SetType.WARMUP)), events)
     }
@@ -304,7 +310,7 @@ class ActiveSessionScreenTest {
         setScreen(state(entry = SetEntry(setType = SetType.WARMUP)))
 
         composeTestRule
-            .onNodeWithContentDescription("Warm-up, set 3")
+            .onNodeWithContentDescription("Set type, set 3, Warm-up")
             .assertIsDisplayed()
     }
 
@@ -363,21 +369,119 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `the open row's tick saves, and its two other controls are the ways out`() {
+    fun `the open row's tick saves, and cancel is the other way out`() {
         setScreen(state(editing = editingSecondSet()))
 
         scrollToDescription("Save set 2").performClick()
-        scrollToText("Delete set").performClick()
         scrollToText("Cancel").performClick()
 
         assertEquals(
             listOf(
                 ActiveSessionEvent.SetEditConfirmed,
-                ActiveSessionEvent.SetDeleted,
                 ActiveSessionEvent.SetEditCancelled,
             ),
             events,
         )
+    }
+
+    @Test
+    fun `negative - the open row offers no way to delete the set`() {
+        setScreen(state(editing = editingSecondSet()))
+
+        // A destructive control one line under the fields, on a panel opened to fix a digit, is
+        // the button that costs somebody a set they had done. It is a drag on the row instead.
+        composeTestRule.onNodeWithText("Delete set").assertDoesNotExist()
+    }
+
+    @Test
+    fun `dragging a logged row off to the left deletes it`() {
+        setScreen(state())
+
+        // Dragged well past the left edge rather than to it: the node the row's text is on is the
+        // group of cells, which is narrower than the row the gesture is measured against. The
+        // component clamps, so overshooting is exactly the "off the screen" the gesture is.
+        scrollToText("70 kg × 8").performTouchInput {
+            down(centerRight)
+            moveBy(Offset(-OFF_THE_SCREEN, 0f))
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L)), events)
+    }
+
+    @Test
+    fun `negative - a drag let go half way across a row deletes nothing`() {
+        setScreen(state())
+
+        scrollToText("70 kg × 8").performTouchInput {
+            down(centerRight)
+            moveTo(center)
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `the tick on a logged row takes the set back out of the count`() {
+        setScreen(state())
+
+        scrollToDescription("Set 2 is done. Un-tick it").performClick()
+
+        assertEquals(
+            listOf(
+                ActiveSessionEvent.SetCompletionToggled(
+                    sessionExerciseId = BENCH_ROW,
+                    setId = 2L,
+                    isCompleted = false,
+                ),
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `an un-ticked row offers the tick back rather than disappearing`() {
+        setScreen(
+            state(
+                sets = listOf(
+                    loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
+                    loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L)
+                        .copy(isCompleted = false),
+                ),
+            ),
+        )
+
+        scrollToText("70 kg × 8").assertIsDisplayed()
+        scrollToDescription("Mark set 2 done").performClick()
+
+        assertEquals(
+            listOf(
+                ActiveSessionEvent.SetCompletionToggled(
+                    sessionExerciseId = BENCH_ROW,
+                    setId = 2L,
+                    isCompleted = true,
+                ),
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `negative - a paused workout's logged rows take neither a tick nor a drag`() {
+        setScreen(state().copy(isPaused = true))
+
+        scrollToText("70 kg × 8").performTouchInput {
+            down(centerRight)
+            moveBy(Offset(-OFF_THE_SCREEN, 0f))
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+        assertTrue(events.isEmpty())
     }
 
     @Test
@@ -790,20 +894,24 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `a paused session's set-type chips are read-only too`() {
-        // The whole card goes read-only, chips included: `editEntry` saves a draft on every
-        // change and has no pause of its own to check, so a live chip is a paused workout still
-        // taking edits.
+    fun `a paused session's set-type menu does not open`() {
+        // The whole card goes read-only, the leading cell included: `editEntry` saves a draft on
+        // every change and has no pause of its own to check, so a live picker is a paused workout
+        // still taking edits.
         setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = true))
 
-        scrollToText("WARM-UP").assertIsNotEnabled()
+        scrollToDescription("Set type, set 3, Standard set").performClick()
+
+        composeTestRule.onNodeWithText("Warm-up").assertDoesNotExist()
+        assertTrue(events.isEmpty())
     }
 
     @Test
-    fun `a rating scale left open across a pause stops taking ratings`() {
-        // The tap that *opens* the scale is withheld while paused, so the only way to be looking
+    fun `a rating menu left open across a pause stops taking ratings`() {
+        // The tap that *opens* the menu is withheld while paused, so the only way to be looking
         // at one on a paused session is to have opened it first — which is what a lifter who is
-        // interrupted mid-set does.
+        // interrupted mid-set does. It shuts rather than staying up over a card that can no
+        // longer be written to.
         var paused by mutableStateOf(false)
         composeTestRule.setContent {
             OpenGymTheme {
@@ -817,8 +925,10 @@ class ActiveSessionScreenTest {
 
         paused = true
         composeTestRule.waitForIdle()
-        scrollToDescription("Rate of perceived exertion 8.5").performClick()
 
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion 8.5")
+            .assertDoesNotExist()
         assertTrue(events.isEmpty())
     }
 
@@ -1015,7 +1125,14 @@ class ActiveSessionScreenTest {
 
     /** The exercises as they are while one is held, in the order they are drawn. */
     private fun reorderableItems(): List<SemanticsNodeInteraction> {
-        val matcher = SemanticsMatcher.keyIsDefined(SemanticsActions.CustomActions)
+        // The moves rather than "anything with a custom action": every logged set row carries one
+        // of its own now — the delete the drag stands in for — so having actions no longer means
+        // being an exercise.
+        val matcher = SemanticsMatcher("has a move action") { node ->
+            node.config.getOrNull(SemanticsActions.CustomActions)
+                .orEmpty()
+                .any { it.label.startsWith("Move ") }
+        }
         val count = composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().size
         return (0 until count).map { composeTestRule.onAllNodes(matcher)[it] }
     }
@@ -1129,6 +1246,12 @@ class ActiveSessionScreenTest {
         const val TOO_SHORT = 200L
 
         /** The `session_exercise` ids this fixture writes, in position order. */
+        /**
+         * Further than any row is wide, for a drag that is meant to take the row off the screen.
+         * `SwipeToDelete` clamps to the row, so overshooting cannot overshoot the threshold.
+         */
+        const val OFF_THE_SCREEN = 3_000f
+
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L
         const val FLY_ROW = 3L

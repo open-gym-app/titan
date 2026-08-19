@@ -11,6 +11,7 @@ import com.opengym.core.domain.usecase.EditSetUseCase
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
+import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
@@ -234,6 +235,16 @@ object SessionUseCaseModule {
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
     ): EditSetUseCase = EditSetUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+    )
+
+    @Provides
+    fun provideMarkSetCompletedUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): MarkSetCompletedUseCase = MarkSetCompletedUseCase(
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
         clock = Clock.SYSTEM,

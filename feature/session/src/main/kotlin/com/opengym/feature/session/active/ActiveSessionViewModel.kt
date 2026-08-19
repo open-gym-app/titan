@@ -31,6 +31,7 @@ import com.opengym.core.domain.usecase.EditSetUseCase
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
+import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
@@ -112,8 +113,8 @@ import kotlin.time.Duration.Companion.seconds
  * the app exists for, and it is the one place a workout can be logged, edited, named, paused,
  * finished and thrown away.
  *
- * - **The parameter list.** Twenty-two constructor parameters, and every one is a graph edge:
- *   three stores, the catalogue, the settings, fifteen use cases and a clock. Bundling them into
+ * - **The parameter list.** Twenty-three constructor parameters, and every one is a graph edge:
+ *   three stores, the catalogue, the settings, sixteen use cases and a clock. Bundling them into
  *   a holder to satisfy a count would put a type in the way of reading what this screen depends
  *   on, which is the one thing the list is good for.
  * - **The function count, and the size that follows from it.** The handlers are already
@@ -134,6 +135,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val editSet: EditSetUseCase,
     private val deleteSet: DeleteSetUseCase,
     private val restoreSet: RestoreSetUseCase,
+    private val markSetCompleted: MarkSetCompletedUseCase,
     private val addExercises: AddSessionExercisesUseCase,
     private val removeExercise: RemoveSessionExerciseUseCase,
     private val reorderExercises: ReorderSessionExercisesUseCase,
@@ -499,12 +501,14 @@ class ActiveSessionViewModel @Inject constructor(
     // ─── Correcting a set that is already logged ────────────────────────────────────────
 
     /**
-     * The ten events about the one set that is open for correction, handled together.
+     * The eleven events about a set that has already been written, handled together.
      *
-     * Split off [onEvent] for the reason [onEntryEvent] is, and it is the same shape: open,
-     * edit, and one of three ways out. The undo belongs here too even though the row it is about
-     * has gone — it is the second half of the delete, and the two have to be read together to
-     * see that neither of them is a confirmation dialog.
+     * Split off [onEvent] for the reason [onEntryEvent] is, and it is the same shape: open, edit,
+     * and one of two ways out. Three of them are about a row rather than about the open editor —
+     * the drag that deletes one, the tick that un-performs one, and the undo, whose row has gone
+     * altogether — and they are here because they are the same subject: a set that is already a
+     * row, being changed by something other than typing. The delete and the undo especially have
+     * to be read together to see that neither of them is a confirmation dialog.
      *
      * @return whether [event] was one of them.
      */
@@ -533,7 +537,11 @@ class ActiveSessionViewModel @Inject constructor(
                 }
 
             ActiveSessionEvent.SetEditConfirmed -> saveEdit()
-            ActiveSessionEvent.SetDeleted -> deleteOpenSet()
+            is ActiveSessionEvent.SetDeleted -> delete(event.sessionExerciseId, event.setId)
+
+            is ActiveSessionEvent.SetCompletionToggled ->
+                toggleCompletion(event.sessionExerciseId, event.setId, event.isCompleted)
+
             ActiveSessionEvent.SetDeleteUndone -> restoreDeletedSet()
             ActiveSessionEvent.SetDeleteDismissed ->
                 screenState.update { it.copy(deletedSet = null) }
@@ -679,21 +687,35 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Takes the open row's set out of the workout, and holds it for the undo.
+     * Takes one set out of the workout, and holds it for the undo.
      *
-     * The editor closes straight away rather than on the write coming back: what it was open on
-     * is on its way out, and an editor sitting over a row that has left the table is a set the
-     * user could still type into. The offer to undo is what covers a mistake, and it goes up
-     * with the set in hand — see [ActiveSessionUiState.deletedSet].
+     * Named rather than taken from the open editor, because what raises it is a drag across a row
+     * — see `SwipeToDelete` — and the row dragged is as likely as not to be one nobody has opened.
+     *
+     * An editor open *on that row* closes straight away rather than on the write coming back: what
+     * it was open on is on its way out, and an editor sitting over a row that has left the table is
+     * a set the user could still type into. One open on another row is left exactly as it is: a
+     * correction being typed into set 4 is not something a deletion of set 2 should throw away.
+     * The offer to undo is what covers a mistake, and it goes up with the set in hand — see
+     * [ActiveSessionUiState.deletedSet].
+     *
+     * One at a time, which [ScreenState.isDeletingSet] is for: two deletions in flight against one
+     * exercise renumber the same table from two readings of it, and the second one to land would
+     * be computed against numbers that have already moved.
      */
-    private fun deleteOpenSet() {
+    private fun delete(sessionExerciseId: Long, setId: Long) {
         val state = screenState.value
-        val open = state.editing ?: return
         if (state.isBusy || state.isDeletingSet) return
-        screenState.update { it.copy(isDeletingSet = true, editing = null, message = null) }
+        screenState.update {
+            it.copy(
+                isDeletingSet = true,
+                editing = it.editing?.takeUnless { open -> open.setId == setId },
+                message = null,
+            )
+        }
 
         viewModelScope.launch {
-            deleteSet(open.sessionExerciseId, open.setId)
+            deleteSet(sessionExerciseId, setId)
                 // A renumbering that failed over a set that has already gone is still a set that
                 // has gone, and the offer is the only copy of it left — so it goes up exactly as
                 // it would have on success. `DELETE_SET_FAILED` says the set is still in the
@@ -765,6 +787,62 @@ class ActiveSessionViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    /**
+     * Ticks a logged set off, or takes the tick back off it.
+     *
+     * The one write on this screen that changes a set without anything being typed, and the only
+     * one that goes *back*: `MarkSetCompletedUseCase` is what un-ticks a set that was ticked by
+     * accident, leaving the row in its table and out of every figure.
+     *
+     * Nothing is held on screen for it. There is no draft of a tick — the row is the record, and
+     * the store re-emits — and there is no undo, because the action is its own undo: the control
+     * that took the tick off is the control that puts it back, in the same place, one tap later.
+     *
+     * The exercise's logging mode travels with it so a set being marked *performed* is held to the
+     * completeness rule every other write path holds it to. Un-ticking is never refused for it —
+     * see `SetValidator`.
+     */
+    private fun toggleCompletion(sessionExerciseId: Long, setId: Long, isCompleted: Boolean) {
+        val state = screenState.value
+        if (state.isBusy || setId in state.togglingSetIds) return
+        val exerciseType = exerciseTypeOf(sessionExerciseId)
+
+        screenState.update {
+            it.copy(togglingSetIds = it.togglingSetIds + setId, message = null)
+        }
+
+        viewModelScope.launch {
+            markSetCompleted(sessionExerciseId, setId, isCompleted, exerciseType)
+                .onSuccess {
+                    screenState.update { it.copy(togglingSetIds = it.togglingSetIds - setId) }
+                    // Rewritten the way it is after every other write to the workout: the draft
+                    // carries the sets as they stand alongside what is being typed, and a tick is
+                    // a change to the first half of that.
+                    saveDraft()
+                }
+                .onFailure {
+                    screenState.update {
+                        it.copy(
+                            togglingSetIds = it.togglingSetIds - setId,
+                            message = ActiveSessionMessage.SET_COMPLETION_FAILED,
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * How one exercise of this session is logged, or null when the catalogue has no row for it.
+     *
+     * Null is a real answer rather than a missing one: an exercise deleted from the library since
+     * the session started still has its sets, and what a set of it must record is a question with
+     * nobody left to answer it. Every use case takes null to mean "check the bounds alone".
+     */
+    private fun exerciseTypeOf(sessionExerciseId: Long): ExerciseType? {
+        val exercise = exerciseRow(sessionExerciseId) ?: return null
+        return catalogue.value?.exercises?.get(exercise.exerciseId)?.type
     }
 
     /**
@@ -1242,8 +1320,16 @@ class ActiveSessionViewModel @Inject constructor(
         // One entry per exercise that was mid-set, from the trailing incomplete set the draft
         // format carries for exactly this. An exercise whose last set is completed was not being
         // typed into and gets nothing rather than an empty row.
+        //
+        // Incomplete is not enough to identify it any more. A logged set can be un-ticked — see
+        // [toggleCompletion] — so the last set of an exercise can be an incomplete *row*, and one
+        // restored into the entry fields would be a set the user could then log a second copy of.
+        // What tells them apart is the id: the draft carries it for a set that is a row, and the
+        // half-typed one has never been written and has none.
         val entries = draft.exercises.mapNotNull { exercise ->
-            val typed = exercise.sets.lastOrNull()?.takeIf { !it.isCompleted } ?: return@mapNotNull null
+            val typed = exercise.sets.lastOrNull()
+                ?.takeIf { !it.isCompleted && it.id == null }
+                ?: return@mapNotNull null
             val id = exercise.sessionExerciseId ?: return@mapNotNull null
             id to typed.toEntry(unitSystem.value)
         }.toMap()
@@ -1395,6 +1481,7 @@ class ActiveSessionViewModel @Inject constructor(
             swappingExerciseId = screen.swappingExerciseId,
             isPaused = screen.pausedAt != null,
             loggingExerciseIds = screen.loggingExerciseIds,
+            togglingSetIds = screen.togglingSetIds,
             isFinishing = screen.isFinishing,
             isDiscarding = screen.isDiscarding,
             confirmingDiscard = screen.confirmingDiscard,
@@ -1514,6 +1601,7 @@ private data class ScreenState(
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,
     val loggingExerciseIds: Set<Long> = emptySet(),
+    val togglingSetIds: Set<Long> = emptySet(),
     val isPausing: Boolean = false,
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,

@@ -34,8 +34,12 @@ import java.util.Locale
 /**
  * What a set type is called: `Warm-up`, `Drop set`.
  *
- * [SetType.NORMAL] has a name (`Working set`) because a screen reader has to say *something*,
- * but nothing draws it — see [SetType.markerOrNull], which is the visual half of this pair.
+ * [SetType.NORMAL] has a name (`Standard set`) because a screen reader has to say *something*, and
+ * because the type menu lists all five — but no *row* draws it: an unmarked set shows its number.
+ * See [SetType.markerOrNull], which is the visual half of this pair.
+ *
+ * `Standard` rather than the `Working set` this said first, which collided with `Warm-up` on the
+ * one letter either of them gets in a set row.
  */
 @Composable
 @ReadOnlyComposable
@@ -54,9 +58,11 @@ internal fun SetType.labelRes(): Int = when (this) {
  * The single glyph a set-number cell shows in place of the number — `W`, `D`, `F`, `I` — or
  * null for [SetType.NORMAL], which shows the number itself.
  *
- * A letter rather than a colour or an icon, because the cell it replaces is 24dp wide and
- * already carries the only other thing that could go there. Null is the *normal* case, so a
- * caller reading `?: setNumber` is reading the rule.
+ * A letter rather than an icon, because the cell it replaces is 28dp wide and already carries the
+ * only other thing that could go there. It is a letter *on a tint* rather than a letter alone —
+ * which tint is `SetTypeMarker`'s, and is what makes four one-character marks tell each other apart
+ * at arm's length. Null is the *normal* case, so a caller reading `?: setNumber` is reading the
+ * rule.
  */
 @Composable
 @ReadOnlyComposable

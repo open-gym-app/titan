@@ -185,6 +185,9 @@
     <!-- The one failure here that costs the user something they did, so it says so. -->
     <string name="active_error_restore_set">Could not put that set back. Log it again to record it.</string>
     <string name="active_error_restored_at_end">Set put back, at the end of the exercise.</string>
+    <!-- The tick, either way round: one sentence for both, because "nothing happened" is the
+         whole of what there is to say and the row still shows what the set says. -->
+    <string name="active_error_set_completion">Could not change that set\'s tick.</string>
 
     <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
 

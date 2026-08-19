@@ -1,7 +1,6 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -30,7 +29,7 @@ import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
- * A set that has already been logged, reopened to be corrected or thrown away.
+ * A set that has already been logged, reopened to be corrected.
  *
  * ### Why it is the row rather than a sheet
  *
@@ -38,31 +37,34 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * *85*, 80 is how you notice the third one is wrong — and a bottom sheet covers exactly those
  * two rows at the moment they are needed. So the row stays where it is in the table and turns
  * into fields in place: the same grid, the same column widths, the same tint the row being typed
- * carries, and the rest of the workout still on screen behind it. It is [SetLogRow] with the
- * controls that would otherwise be a screen of their own folded underneath it.
+ * carries, and the rest of the workout still on screen behind it. It is [SetLogRow] with its
+ * fields already filled in.
  *
- * ### What is under the row, and what is not
+ * ### Everything is in the row
  *
- * The rating and the set type are drawn open rather than behind an affordance, which is the
- * opposite of what the entry row does with them and deliberately so: an entry row is on every
- * exercise of the workout at once and three rows of chrome under each is what makes the page
- * unreadable, while exactly one set is ever open for correction. Having opened it, the user is
- * here to change something, and a rating that costs another tap to reach is a rating that stays
- * wrong.
+ * All four things a correction can change are cells of the row itself. The weight and the reps are
+ * fields; the rating is the rating cell, which opens a menu ([RpePicker]); the set type is the
+ * leading cell, which is where the type is *read* and so is also where it is picked
+ * ([SetTypePicker]). Nothing is stacked underneath.
  *
- * The set's note is *not* here. It is the one field of a set that is prose rather than a
- * quantity, it is written while the set is being logged, and putting a text field in the middle
- * of a table would push the rows this exists to be compared against off the screen. A caller
- * must therefore carry the stored note through the edit rather than dropping it — see
- * `EditSetUseCase`.
+ * That is a deliberate reversal. This used to draw the nine-button rating scale and a scrolling row
+ * of five type chips open below the row — three blocks of chrome, taller together than the table
+ * they were correcting, which pushed the neighbouring sets off the screen at the moment the whole
+ * design rests on their being visible. Both controls are closed vocabularies picked rarely, which
+ * is what a menu is for, and a menu is a popup: it costs no layout at all.
  *
- * ### The three ways out
+ * The set's note is still *not* here. It is the one field of a set that is prose rather than a
+ * quantity, it is written while the set is being logged, and a text field in the middle of a table
+ * would push the rows this exists to be compared against off the screen. A caller must therefore
+ * carry the stored note through the edit rather than dropping it — see `EditSetUseCase`.
  *
- * The tick writes it, DELETE takes the set out of the workout, and CANCEL leaves it as it was.
- * Deleting is offered here rather than as a control on every row of the table for the same
- * reason the fields are: a destructive action on every line of something read at a glance is
- * one that gets pressed by a thumb steadying the phone. There is no confirmation on it — see
- * `DeleteSetUseCase` for why an undo is the better answer to a frequent action.
+ * ### The two ways out
+ *
+ * The tick writes it and CANCEL leaves it as it was. There is deliberately no third: deleting a set
+ * is a *gesture* on the row — dragged off to the left, see [SwipeToDelete] — rather than a word in
+ * this panel. A DELETE the width of a thumb, one line under the fields, on a panel opened to fix a
+ * digit is the button that costs somebody a set they had done; the drag cannot be performed by
+ * accident, and it does not need a panel open to reach.
  *
  * @param setNumber the set's place in its exercise's table, from 1. What every label in here
  *   names, so a screen reader says which set is being corrected.
@@ -71,8 +73,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   [SetLogRow] gives at length.
  * @param reps the rep field's contents.
  * @param rpe the rating as stored (× 10), or null for a set that was never rated.
- * @param onRpeChange the new rating, or null when the selected one is tapped again — see
- *   [RpeSelector].
+ * @param onRpeChange the new rating, or null when the menu's "not rated" is chosen — see
+ *   [RpePicker].
+ * @param setType what kind of set it is.
+ * @param onSetTypeChange the type picked from the leading cell's menu.
  * @param previous what was done on this set last time, formatted by the caller (#101). Kept so
  *   the open row's columns still line up with the rows above and below it.
  * @param showPrevious must match what the rest of the table was given, or the open row's cells
@@ -98,7 +102,6 @@ fun SetEditor(
     setType: SetType,
     onSetTypeChange: (SetType) -> Unit,
     onSave: () -> Unit,
-    onDelete: () -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
     previous: String? = null,
@@ -114,25 +117,15 @@ fun SetEditor(
         isActive = true,
         isCompleted = true,
         error = error,
-        footer = {
-            Column(
-                modifier = Modifier.padding(top = OpenGymTheme.spacing.md),
-                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-            ) {
-                RpeSelector(rpe = rpe, onRpeChange = onRpeChange, enabled = enabled)
-                // No content padding: the chips are inside the row's own inset already, which
-                // is what `SetTypeSelector`'s default is for.
-                SetTypeSelector(
-                    selected = setType,
-                    onSelect = onSetTypeChange,
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                EditorActions(onDelete = onDelete, onCancel = onCancel, enabled = enabled)
-            }
-        },
+        footer = { EditorActions(onCancel = onCancel, enabled = enabled) },
     ) {
-        SetIndexCell(setNumber = setNumber, setType = setType, isActive = true)
+        SetTypeCell(
+            setNumber = setNumber,
+            setType = setType,
+            onSetTypeChange = onSetTypeChange,
+            isActive = true,
+            enabled = enabled,
+        )
         PreviousCell(previous = previous, showPrevious = showPrevious)
 
         SetValueField(
@@ -160,11 +153,12 @@ fun SetEditor(
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
 
-        // Read-only here, unlike on the entry row: the scale it would open is already open
-        // directly underneath, and a cell that opened a picker over its own picker is a control
-        // arguing with itself. It stays in the row because it holds the column, and because the
-        // value being changed below should be visible in the row it belongs to.
-        RpeCell(setNumber = setNumber, rpe = rpe, onClick = null)
+        RpeValueCell(
+            setNumber = setNumber,
+            rpe = rpe,
+            onRpeChange = onRpeChange,
+            enabled = enabled,
+        )
         SaveButton(setNumber = setNumber, onSave = onSave, enabled = enabled && canSave)
     }
 }
@@ -198,33 +192,19 @@ private fun SaveButton(setNumber: Int, onSave: () -> Unit, enabled: Boolean) {
 }
 
 /**
- * DELETE on the left, CANCEL on the right.
+ * The way out that changes nothing.
  *
- * Apart, at the two ends of the row, because one of them takes the set out of the workout and
- * the other changes nothing: side by side they are two words of the same size under a thumb that
- * is in a hurry.
- *
- * Delete carries the error colour and cancel is deliberately neutral rather than accented. Two
- * red words at either end of a red block is two words nobody tells apart at a glance — and the
- * accent is already spent here, on the tint and the tick, which is what it is for.
+ * On the right, under the tick, because those two are the pair: one writes the row and the other
+ * leaves it, and a thumb that has just been in the rep field is already on that side. Deliberately
+ * neutral rather than accented — the accent is spent here on the tint and the tick, which is what
+ * it is for.
  */
 @Composable
-private fun EditorActions(onDelete: () -> Unit, onCancel: () -> Unit, enabled: Boolean) {
+private fun EditorActions(onCancel: () -> Unit, enabled: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.End,
     ) {
-        TextButton(onClick = onDelete, enabled = enabled) {
-            Text(
-                text = stringResource(R.string.set_edit_delete),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (enabled) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.outlineVariant
-                },
-            )
-        }
         TextButton(onClick = onCancel, enabled = enabled) {
             Text(
                 text = stringResource(R.string.set_edit_cancel),
@@ -275,7 +255,6 @@ fun SetEditorInvalidPreview() {
                 setType = SetType.NORMAL,
                 onSetTypeChange = {},
                 onSave = {},
-                onDelete = {},
                 onCancel = {},
                 error = "reps must be within 1..10,000, was 0",
                 canSave = false,
@@ -300,6 +279,7 @@ private fun SetEditorTable() {
                 completedAt = 1,
             ),
             onClick = {},
+            onCompletedChange = {},
         )
         HairlineDivider()
         SetEditor(
@@ -310,10 +290,9 @@ private fun SetEditorTable() {
             onRepsChange = {},
             rpe = 75,
             onRpeChange = {},
-            setType = SetType.NORMAL,
+            setType = SetType.WARMUP,
             onSetTypeChange = {},
             onSave = {},
-            onDelete = {},
             onCancel = {},
         )
         HairlineDivider()
@@ -327,6 +306,7 @@ private fun SetEditorTable() {
                 completedAt = 1,
             ),
             onClick = {},
+            onCompletedChange = {},
         )
     }
 }

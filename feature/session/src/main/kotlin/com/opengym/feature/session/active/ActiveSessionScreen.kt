@@ -297,16 +297,6 @@ fun ActiveSessionScreen(
         )
     }
 
-    // Which card's rating scale is open, by `session_exercise` id, or null for none. Screen-local
-    // and rightly so: whether a scale is open is not a fact about the workout, and a ViewModel
-    // holding it would be a scale that reopened itself on every recomposition of a screen the
-    // user had closed it on. `rememberSaveable` is what carries it across a configuration change,
-    // which is the only thing it does need to survive.
-    //
-    // One at a time, for the same reason the scale is inline rather than in a sheet: it is nine
-    // cells tall, and two of them open would push the second exercise's table off the screen.
-    var rpeScaleFor by rememberSaveable { mutableStateOf<Long?>(null) }
-
     // The order as it is being dragged. Screen-local and seeded from the store, on two keys.
     //
     // The stored order is the obvious one: anything that *changes* the workout — the drag's own
@@ -391,8 +381,6 @@ fun ActiveSessionScreen(
                 inlineMessage = inlineMessage,
                 onEvent = onEvent,
                 onPickExercises = onPickExercises,
-                rpeScaleFor = rpeScaleFor,
-                onRpeToggle = { id -> rpeScaleFor = id.takeIf { it != rpeScaleFor } },
                 contentPadding = innerPadding,
             )
         }
@@ -435,8 +423,6 @@ private fun SessionBody(
     inlineMessage: ActiveSessionMessage?,
     onEvent: (ActiveSessionEvent) -> Unit,
     onPickExercises: (replacing: Boolean) -> Unit,
-    rpeScaleFor: Long?,
-    onRpeToggle: (Long) -> Unit,
     contentPadding: PaddingValues,
 ) {
     // The entry row goes read-only while the session is suspended or on its way out.
@@ -550,8 +536,7 @@ private fun SessionBody(
                                 // one rather than offering a list it would have to trim.
                                 onPickExercises(true)
                             },
-                            showRpeScale = rpeScaleFor == row.sessionExerciseId,
-                            onRpeToggle = { onRpeToggle(row.sessionExerciseId) },
+                            togglingSetIds = state.togglingSetIds,
                             // The card whose exercise is being replaced goes read-only with it:
                             // the fields belong to a movement on its way out of the slot.
                             enabled = enabled && state.swappingExerciseId != row.sessionExerciseId,
@@ -697,6 +682,7 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.SWAP_FAILED -> R.string.active_error_swap
     ActiveSessionMessage.SET_EDIT_REJECTED -> R.string.active_error_set_edit
     ActiveSessionMessage.DELETE_SET_FAILED -> R.string.active_error_delete_set
+    ActiveSessionMessage.SET_COMPLETION_FAILED -> R.string.active_error_set_completion
     ActiveSessionMessage.RESTORE_SET_FAILED -> R.string.active_error_restore_set
     ActiveSessionMessage.SET_RESTORED_AT_END -> R.string.active_error_restored_at_end
     ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore

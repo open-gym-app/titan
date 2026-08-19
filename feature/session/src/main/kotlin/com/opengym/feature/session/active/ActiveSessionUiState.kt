@@ -62,6 +62,11 @@ import kotlin.time.Duration
  * @param isPaused whether the session is suspended. The clocks stop and every entry row goes
  *   read-only; `LogSetUseCase` refuses a set logged into a paused session, so a field that
  *   still accepted typing would be collecting keystrokes for a write that cannot happen.
+ * @param togglingSetIds the sets whose tick is being written, either way. Ids rather than a flag
+ *   for the reason [loggingExerciseIds] is a set: the rows are independent, and a slow write
+ *   against one set has no business freezing the tick on the four above it. What it buys is the
+ *   second tap: a tick pressed twice in the time one write takes would otherwise send the same
+ *   row both ways, and which of the two landed last decides what the set ends up saying.
  * @param loggingExerciseIds the exercises whose sets are being written. Ids rather than a flag
  *   because the rows are independent: a slow write against the bench press has no business
  *   disabling the tick on the curls. A *set* of them rather than one id for the same reason
@@ -106,6 +111,7 @@ data class ActiveSessionUiState(
     val swappingExerciseId: Long? = null,
     val isPaused: Boolean = false,
     val loggingExerciseIds: Set<Long> = emptySet(),
+    val togglingSetIds: Set<Long> = emptySet(),
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
@@ -471,6 +477,15 @@ enum class ActiveSessionMessage {
 
     /** The set could not be deleted. It is still in the workout, exactly as it was. */
     DELETE_SET_FAILED,
+
+    /**
+     * The tick could not be written. The set is however it was before the tap.
+     *
+     * One message for both directions, because there is one thing to say about a write that
+     * changed nothing — and because the row itself is the other half of the answer: it is still
+     * drawn as whatever the store says it is.
+     */
+    SET_COMPLETION_FAILED,
 
     /**
      * The deleted set could not be put back.

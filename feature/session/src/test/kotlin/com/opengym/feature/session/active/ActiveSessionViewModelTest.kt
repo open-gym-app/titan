@@ -1,7 +1,9 @@
 package com.opengym.feature.session.active
 
 import androidx.lifecycle.SavedStateHandle
+import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SetType
@@ -15,6 +17,7 @@ import com.opengym.core.domain.usecase.EditSetUseCase
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
+import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
@@ -548,7 +551,7 @@ class ActiveSessionViewModelTest {
         val viewModel = viewModel(store = store)
 
         viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
 
         val table = viewModel.uiState.value.rowOf(BENCH_ROW).sets
         assertEquals(listOf(1L, 3L), table.map(WorkoutSet::id))
@@ -561,8 +564,7 @@ class ActiveSessionViewModelTest {
         val viewModel = viewModel(store = threeSetStore())
         assertEquals(3, viewModel.uiState.value.stats?.totalSets)
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 3L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 3L))
 
         assertEquals(2, viewModel.uiState.value.stats?.totalSets)
         assertEquals(1_160_000_000L, viewModel.uiState.value.stats?.totalVolume)
@@ -572,8 +574,7 @@ class ActiveSessionViewModelTest {
     fun `a deleted set is offered back rather than confirmed away`() = runTest {
         val viewModel = viewModel(store = threeSetStore())
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
 
         val offered = requireNotNull(viewModel.uiState.value.deletedSet)
         assertEquals(2L, offered.id)
@@ -584,8 +585,7 @@ class ActiveSessionViewModelTest {
     fun `undoing puts the set back where it was`() = runTest {
         val viewModel = viewModel(store = threeSetStore())
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
 
         val table = viewModel.uiState.value.rowOf(BENCH_ROW).sets
@@ -602,8 +602,7 @@ class ActiveSessionViewModelTest {
     fun `the offer to undo is consumed by taking it`() = runTest {
         val viewModel = viewModel(store = threeSetStore())
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
         // A second undo, the way a second tap on a snackbar that has not left yet would arrive.
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
@@ -616,8 +615,7 @@ class ActiveSessionViewModelTest {
     fun `an offer that lapses leaves the workout as it is`() = runTest {
         val viewModel = viewModel(store = threeSetStore())
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
         viewModel.onEvent(ActiveSessionEvent.SetDeleteDismissed)
 
         assertNull(viewModel.uiState.value.deletedSet)
@@ -629,9 +627,8 @@ class ActiveSessionViewModelTest {
         val store = threeSetStore()
         val viewModel = viewModel(store = store)
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
         store.editFailure = IllegalStateException("disk full")
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
 
         assertEquals(ActiveSessionMessage.DELETE_SET_FAILED, viewModel.uiState.value.message)
         assertNull("nothing is offered back, because nothing went", viewModel.uiState.value.deletedSet)
@@ -643,10 +640,9 @@ class ActiveSessionViewModelTest {
         val store = threeSetStore()
         val viewModel = viewModel(store = store)
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
         // The row goes and the renumbering behind it does not — `SetTableNotRenumbered`.
         store.renumberFailure = IllegalStateException("disk full")
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
 
         // The set is gone either way, and the offer is the only copy of it left. A message
         // saying it is still in the workout would be untrue, and dropping the undo with it
@@ -666,8 +662,7 @@ class ActiveSessionViewModelTest {
         val store = threeSetStore()
         val viewModel = viewModel(store = store)
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
         store.renumberFailure = IllegalStateException("disk full")
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
 
@@ -682,8 +677,7 @@ class ActiveSessionViewModelTest {
     fun `an undo over a workout that has ended is withdrawn rather than ignored`() = runTest {
         val viewModel = viewModel(store = threeSetStore())
 
-        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L))
-        viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
         viewModel.onEvent(ActiveSessionEvent.FinishRequested)
 
         // The undo is a snackbar action, which going inert does not reach: it stays on screen
@@ -692,6 +686,95 @@ class ActiveSessionViewModelTest {
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
 
         assertNull(viewModel.uiState.value.deletedSet)
+    }
+
+    @Test
+    fun `deleting one set leaves a correction being typed into another alone`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 3L))
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged("77.5"))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 1L))
+
+        // The drag is on a row of its own, so it is not a way out of the editor: a correction
+        // half typed into set 3 is not something deleting set 1 should throw away.
+        val editing = requireNotNull(viewModel.uiState.value.rowOf(BENCH_ROW).editing)
+        assertEquals(3L, editing.setId)
+        assertEquals("77.5", editing.entry.weight)
+    }
+
+    // ─── Un-ticking a set ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `un-ticking a set leaves it in the table and takes it out of the figures`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = false),
+        )
+
+        val table = viewModel.uiState.value.rowOf(BENCH_ROW).sets
+        assertEquals("this is not a deletion", listOf(1L, 2L, 3L), table.map(WorkoutSet::id))
+        assertFalse(table.single { it.id == 2L }.isCompleted)
+        assertEquals(2, viewModel.uiState.value.stats?.totalSets)
+    }
+
+    @Test
+    fun `the tick goes back on the same way it came off`() = runTest {
+        val viewModel = viewModel(store = threeSetStore())
+
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = false),
+        )
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = true),
+        )
+
+        // The action is its own undo, which is why there is no offer to undo it: one tap back.
+        assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single { it.id == 2L }.isCompleted)
+        assertEquals(3, viewModel.uiState.value.stats?.totalSets)
+    }
+
+    @Test
+    fun `an un-ticked set is not mistaken for the row being typed when the draft comes back`() = runTest {
+        // A draft whose last set is a written row that has been un-ticked, which is the shape the
+        // format could not previously tell from a half-typed set: both are incomplete, and both
+        // are last.
+        val draft = ActiveSession(
+            sessionId = ACTIVE_SESSION_ID,
+            startedAt = STARTED_AT,
+            exercises = listOf(
+                ActiveExercise(
+                    exerciseId = BENCH.id,
+                    sessionExerciseId = BENCH_ROW,
+                    sets = listOf(
+                        ActiveSet(id = 1L, reps = 10, weight = 60_000_000L, isCompleted = true, completedAt = 1L),
+                        ActiveSet(id = 2L, reps = 8, weight = 70_000_000L, isCompleted = false),
+                    ),
+                ),
+            ),
+        )
+
+        val restored = viewModel(store = threeSetStore(), drafts = FakeDraftStore(draft))
+
+        // Told apart by the id: a written row has one, and a set that has only been typed does
+        // not. Without that, reopening the screen would put the un-ticked set's values into the
+        // entry fields and invite the user to log a second copy of it.
+        assertEquals(SetEntry(), restored.uiState.value.entryOf(BENCH_ROW))
+    }
+
+    @Test
+    fun `a tick the store refuses says so and leaves the set as it was`() = runTest {
+        val store = threeSetStore()
+        val viewModel = viewModel(store = store)
+        store.editFailure = IllegalStateException("disk full")
+
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = false),
+        )
+
+        assertEquals(ActiveSessionMessage.SET_COMPLETION_FAILED, viewModel.uiState.value.message)
+        assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single { it.id == 2L }.isCompleted)
     }
 
     @Test
@@ -705,8 +788,7 @@ class ActiveSessionViewModelTest {
         assertEquals(ActiveSessionMessage.EXERCISE_HAS_SETS, viewModel.uiState.value.message)
 
         listOf(1L, 2L).forEach { setId ->
-            viewModel.onEvent(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId))
-            viewModel.onEvent(ActiveSessionEvent.SetDeleted)
+            viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId))
         }
         viewModel.onEvent(ActiveSessionEvent.ExerciseRemoved(BENCH_ROW))
 
@@ -1807,6 +1889,7 @@ class ActiveSessionViewModelTest {
             editSet = EditSetUseCase(store, state, clock),
             deleteSet = DeleteSetUseCase(store, state, clock),
             restoreSet = RestoreSetUseCase(store, state, clock),
+            markSetCompleted = MarkSetCompletedUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
             reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),

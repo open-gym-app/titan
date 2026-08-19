@@ -7,6 +7,8 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -29,9 +31,8 @@ import org.robolectric.annotation.Config
  * Driven stateless like [SetLogRowTest], which is the same contract in the same grid — the test
  * supplies the text and asserts on the change reported, because the fields hold nothing.
  *
- * A phone-sized viewport rather than Robolectric's 320 × 470 default: the editor is a row plus
- * a nine-cell rating scale plus a row of chips, and on a screen no phone has shipped with this
- * decade the actions under it are off the bottom before the test has touched anything.
+ * A phone-sized viewport rather than Robolectric's 320 × 470 default, so the menus the two picker
+ * cells open have somewhere to be drawn.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp")
@@ -45,15 +46,14 @@ class SetEditorTest {
     private val ratings = mutableListOf<Int?>()
     private val types = mutableListOf<SetType>()
     private var saves = 0
-    private var deletes = 0
     private var cancels = 0
 
     @Test
     fun `the set's stored values are what is in the fields`() {
         setEditor(weight = "70", reps = "8", rpe = 75)
 
-        // Asserted through the field's own label rather than by its contents: the rating scale
-        // under the row draws the digits 6 to 10, so "the node whose text is 8" is two nodes.
+        // Asserted through each cell's own label rather than by its contents: three cells of this
+        // row hold digits, so "the node whose text is 8" is not one node.
         composeTestRule.onNodeWithContentDescription("Weight, set 2").assert(hasText("70"))
         composeTestRule.onNodeWithContentDescription("Reps, set 2").assert(hasText("8"))
         composeTestRule
@@ -81,30 +81,35 @@ class SetEditorTest {
     }
 
     @Test
-    fun `the rating is picked off the scale rather than typed`() {
+    fun `the rating is picked off a menu rather than typed`() {
         setEditor(weight = "70", reps = "8", rpe = 75)
 
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 2, 7.5")
+            .performClick()
         composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 9").performClick()
 
         assertEquals(listOf(90), ratings)
     }
 
     @Test
-    fun `tapping the rating that is already set clears it`() {
+    fun `the menu's last item is the way back to an unrated set`() {
         setEditor(weight = "70", reps = "8", rpe = 75)
 
-        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 7.5").performClick()
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 2, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithText("Not rated").performClick()
 
         assertEquals(listOf<Int?>(null), ratings)
     }
 
     @Test
-    fun `the set type is changed from the chips under the row`() {
+    fun `the set type is picked from the cell that shows it`() {
         setEditor(weight = "70", reps = "8")
 
-        // Uppercased by the chip, not by the resource: `OpenGymFilterChip` does the typographic
-        // treatment so a translator never has to reproduce one.
-        composeTestRule.onNodeWithText("WARM-UP").performClick()
+        composeTestRule.onNodeWithContentDescription("Set type, set 2, Standard set").performClick()
+        composeTestRule.onNodeWithText("Warm-up").performClick()
 
         assertEquals(listOf(SetType.WARMUP), types)
     }
@@ -116,19 +121,26 @@ class SetEditorTest {
         composeTestRule.onNodeWithContentDescription("Save set 2").performClick()
 
         assertEquals(1, saves)
-        assertEquals("saving is not deleting", 0, deletes)
     }
 
     @Test
-    fun `delete and cancel are the other two ways out`() {
+    fun `cancel is the other way out, and writes nothing`() {
         setEditor(weight = "70", reps = "8")
 
-        composeTestRule.onNodeWithText("Delete set").performClick()
         composeTestRule.onNodeWithText("Cancel").performClick()
 
-        assertEquals(1, deletes)
         assertEquals(1, cancels)
-        assertEquals("neither of them writes the values", 0, saves)
+        assertEquals("cancelling is not saving", 0, saves)
+    }
+
+    @Test
+    fun `negative - there is no delete under the fields`() {
+        setEditor(weight = "70", reps = "8")
+
+        // Deleting a set is a drag across the row — see `SwipeToDelete`. A word here, one line
+        // under the fields and the width of a thumb, is the button that costs somebody a set they
+        // had done.
+        composeTestRule.onNodeWithText("Delete set").assertDoesNotExist()
     }
 
     @Test
@@ -160,17 +172,22 @@ class SetEditorTest {
 
     @Test
     fun `a read-only editor takes nothing, not even a rating`() {
-        setEditor(weight = "70", reps = "8", enabled = false)
+        setEditor(weight = "70", reps = "8", rpe = 75, enabled = false)
 
         composeTestRule.onNodeWithContentDescription("Save set 2").assertIsNotEnabled()
-        composeTestRule.onNodeWithText("Delete set").assertIsNotEnabled()
         composeTestRule.onNodeWithText("Cancel").assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 9").performClick()
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 2, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithContentDescription("Set type, set 2, Standard set").performClick()
 
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Warm-up").assertDoesNotExist()
         assertEquals(emptyList<Int?>(), ratings)
+        assertEquals(emptyList<SetType>(), types)
     }
 
-    // ─── Reopening a logged row ─────────────────────────────────────────────────────────
+    // ─── Reopening a logged row, and un-ticking one ─────────────────────────────────────
 
     @Test
     fun `a logged row reports the tap that reopens it`() {
@@ -218,6 +235,84 @@ class SetEditorTest {
             .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.OnClick))
     }
 
+    @Test
+    fun `the tick on a logged row takes the set back out of the count`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet(),
+                    onClick = {},
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it")
+            .assertIsOn()
+            .performClick()
+
+        assertEquals(listOf(false), completions)
+    }
+
+    @Test
+    fun `an un-ticked row offers the tick back, and stays in the table`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet().copy(isCompleted = false, completedAt = null),
+                    onClick = {},
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        // The values are still there — this is not a deletion — and the tick is the way back.
+        composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Mark set 2 done")
+            .assertIsOff()
+            .performClick()
+
+        assertEquals(listOf(true), completions)
+    }
+
+    @Test
+    fun `the tick is its own target, so reopening the set and un-ticking it are two actions`() {
+        var opened = 0
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet(),
+                    onClick = { opened++ },
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        // A row merged whole would swallow the tick's own click: TalkBack would be able to reopen
+        // the set and unable to un-tick it, and a thumb aiming at the tick would open the editor.
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").performClick()
+
+        assertEquals(listOf(false), completions)
+        assertEquals("un-ticking is not editing", 0, opened)
+    }
+
+    @Test
+    fun `negative - a read-only table draws the tick as a mark rather than a control`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(setNumber = 2, set = loggedSet(), onCompletedChange = null)
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+    }
+
     private fun loggedSet() = ActiveSet(
         reps = 8,
         weight = 70_000_000,
@@ -248,7 +343,6 @@ class SetEditorTest {
                     setType = setType,
                     onSetTypeChange = types::add,
                     onSave = { saves++ },
-                    onDelete = { deletes++ },
                     onCancel = { cancels++ },
                     error = error,
                     enabled = enabled,

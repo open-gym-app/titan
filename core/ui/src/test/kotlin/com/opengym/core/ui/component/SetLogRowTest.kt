@@ -23,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The set row, driven stateless. The fields hold no state of their own — the test supplies
@@ -31,8 +32,13 @@ import org.robolectric.RobolectricTestRunner
  * Cells are found by their content description rather than by their contents: a weight field
  * and a rep field both show digits, and "the node whose text is 80" stops being unambiguous
  * the moment a set is 80 reps.
+ *
+ * A phone-sized viewport rather than Robolectric's 320 × 470 default: two cells of this row open
+ * menus, and on a screen no phone has shipped with this decade the bottom of the rating scale is
+ * off the display before the test has touched anything.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp")
 class SetLogRowTest {
 
     @get:Rule
@@ -41,6 +47,8 @@ class SetLogRowTest {
     private val weightEdits = mutableListOf<String>()
     private val repEdits = mutableListOf<String>()
     private val completions = mutableListOf<Boolean>()
+    private val types = mutableListOf<SetType>()
+    private val ratings = mutableListOf<Int?>()
 
     @Test
     fun `renders the values it is given`() {
@@ -93,7 +101,7 @@ class SetLogRowTest {
     fun `a completed row offers to reopen the set rather than to complete it`() {
         setRow(weight = "80", reps = "5", isCompleted = true)
 
-        composeTestRule.onNodeWithContentDescription("Set 3 is done. Reopen it")
+        composeTestRule.onNodeWithContentDescription("Set 3 is done. Un-tick it")
             .assertIsOn()
             .performClick()
 
@@ -239,17 +247,46 @@ class SetLogRowTest {
     }
 
     @Test
-    fun `a set type replaces the number with its marker and says so to a screen reader`() {
+    fun `the leading cell announces the type it is showing, and which set it is`() {
         setRow(weight = "60", reps = "12", setType = SetType.WARMUP)
 
-        composeTestRule.onNodeWithContentDescription("Warm-up, set 3").assertIsDisplayed()
+        // The cell draws one letter. A screen reader gets the word, and the number the letter
+        // replaced — neither of which is recoverable from a `W`.
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Warm-up").assertIsDisplayed()
     }
 
     @Test
-    fun `a normal set keeps its number`() {
+    fun `the set type is picked from the cell that shows it`() {
         setRow(weight = "60", reps = "12")
 
-        composeTestRule.onNodeWithContentDescription("Working set, set 3").assertExists()
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Standard set").performClick()
+        composeTestRule.onNodeWithText("Warm-up").performClick()
+
+        assertEquals(listOf(SetType.WARMUP), types)
+    }
+
+    @Test
+    fun `the rating is picked from the cell that shows it, off a closed scale`() {
+        setRow(weight = "80", reps = "5", rpe = 75)
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 9").performClick()
+
+        assertEquals(listOf(90), ratings)
+    }
+
+    @Test
+    fun `the rating menu's way out is what clears a rating`() {
+        setRow(weight = "80", reps = "5", rpe = 75)
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithText("Not rated").performClick()
+
+        assertEquals(listOf<Int?>(null), ratings)
     }
 
     @Test
@@ -258,6 +295,21 @@ class SetLogRowTest {
 
         composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
         assertEquals(emptyList<Boolean>(), completions)
+    }
+
+    @Test
+    fun `negative - a disabled row's menus do not open`() {
+        setRow(weight = "80", reps = "5", rpe = 75, enabled = false)
+
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Standard set").performClick()
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+
+        composeTestRule.onNodeWithText("Warm-up").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        assertEquals(emptyList<SetType>(), types)
+        assertEquals(emptyList<Int?>(), ratings)
     }
 
     @Test
@@ -296,6 +348,28 @@ class SetLogRowTest {
     }
 
     @Test
+    fun `a logged set's leading cell is a label rather than a control`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 1,
+                    set = ActiveSet(
+                        reps = 10,
+                        weight = 60_000_000,
+                        setType = SetType.WARMUP,
+                        isCompleted = true,
+                        completedAt = 1,
+                    ),
+                )
+            }
+        }
+
+        // "Warm-up, set 1" rather than the picker's "Set type, …": nothing about a written row's
+        // type can be changed from the row, so announcing it as a control would be a lie.
+        composeTestRule.onNodeWithContentDescription("Warm-up, set 1").assertIsDisplayed()
+    }
+
+    @Test
     fun `a logged set with no weight reads as reps alone`() {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -328,7 +402,9 @@ class SetLogRowTest {
                     onRepsChange = repEdits::add,
                     onCompletedChange = completions::add,
                     setType = setType,
+                    onSetTypeChange = types::add,
                     rpe = rpe,
+                    onRpeChange = ratings::add,
                     previous = previous,
                     showPrevious = showPrevious,
                     isCompleted = isCompleted,
