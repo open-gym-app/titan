@@ -1,2 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      For the buzz at the end of a rest — see `RestExpiryAlert`, which is the only thing in the
+      app that vibrates. Install-time and not prompted for, and declared here rather than in
+      `:app` so that the permission travels with the component that needs it: a module that
+      stops vibrating should take its permission with it.
+    -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+</manifest>

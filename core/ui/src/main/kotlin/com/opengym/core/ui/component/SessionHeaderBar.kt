@@ -76,10 +76,11 @@ import kotlin.time.Duration.Companion.seconds
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
  *   Null leaves the name inert, which is what a caller with nothing to write wants.
- * @param restTimer the rest between two sets, which the bar carries as a pill beside the
- *   progress rail while it is running or paused. Idle and finished draw nothing: the pill is
- *   the *only* thing on this screen that is changing on its own, and one that sat there
- *   reading `0:00` between sets would spend the accent on a clock nobody is waiting for.
+ * @param restTimer the rest between two sets, which the bar carries as a pill and a bar of its
+ *   own — above the exercise rail, not beside it — while it is running or paused. Idle and
+ *   finished draw nothing, taking the line back with them: the pill is the *only* thing on this
+ *   screen that is changing on its own, and one that sat there reading `0:00` between sets would
+ *   spend the accent on a clock nobody is waiting for.
  * @param onRestTimerClick brings the rest sheet back up. The sheet is swiped away to get at
  *   the workout underneath — see the active session screen — so the pill is the way back into
  *   it, and a bar with no sheet to reopen passes null and gets an inert readout.
@@ -200,26 +201,52 @@ fun SessionHeaderBar(
             }
         }
 
-        // The rest pill and the rail share a line, and the line is the one the rail already
-        // had: the rail is 4dp of a row that is otherwise air, and the countdown is the other
-        // half of "where am I in this workout" — how far through the exercises, and how long
-        // until the next set. Neither present means no line at all, which is the bar as it was.
+        // Two facts, two lines, because they are counting different things and sharing a line
+        // made them look like one thing counted badly. The rest gets the pill and a bar that
+        // fills as the seconds go; the workout gets the rail, which is segmented because it is
+        // per-exercise and does not move at all while a rest runs. Put end to end, the rail
+        // read as the pill's own progress — a countdown chopped into pieces that sat still —
+        // which is the opposite of both facts. Neither present means no line at all, which is
+        // the bar as it was.
         val resting = restTimer is RestTimerState.Running || restTimer is RestTimerState.Paused
         if (resting || progress.total > 0) {
-            Row(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
             ) {
                 if (resting) {
-                    RestTimerIndicator(
-                        state = restTimer,
-                        onClick = onRestTimerClick,
-                        colors = RestTimerDefaults.sessionChromeIndicatorColors(),
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RestTimerIndicator(
+                            state = restTimer,
+                            onClick = onRestTimerClick,
+                            colors = RestTimerDefaults.sessionChromeIndicatorColors(),
+                        )
+                        RestProgressBar(
+                            state = restTimer,
+                            // Cleared rather than labelled: the pill beside it already speaks
+                            // the remaining time, and a progress node here would be the same
+                            // fact read a second time as a percentage.
+                            modifier = Modifier
+                                .weight(1f)
+                                .clearAndSetSemantics {},
+                            // The accent means time is passing, so a paused rest does not get
+                            // it — the same rule the pill and the sheet's figure follow.
+                            color = if (restTimer is RestTimerState.Running) {
+                                chrome.accent
+                            } else {
+                                chrome.onSurfaceVariant
+                            },
+                            trackColor = chrome.track,
+                            height = RAIL_HEIGHT,
+                        )
+                    }
                 }
                 if (progress.total > 0) {
-                    SessionProgressRail(progress = progress, modifier = Modifier.weight(1f))
+                    SessionProgressRail(progress = progress, modifier = Modifier.fillMaxWidth())
                 }
             }
         }
@@ -426,12 +453,21 @@ private fun SessionHeaderCatalogue() {
             progress = SessionProgress(listOf(false, true, false, true, false)),
         )
         // Mid-rest, with the sheet swiped away: the pill is the countdown and the way back
-        // into it, and it is the only thing on the bar wearing the accent besides END.
+        // into it, and it is the only thing on the bar wearing the accent besides END. The bar
+        // beside it is the rest filling up; the segmented rail below is the workout.
         SessionHeaderBar(
             name = "Leg day",
             elapsed = 31.minutes + 40.seconds,
             progress = SessionProgress.of(completed = 2, total = 5),
             restTimer = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+            onRestTimerClick = {},
+        )
+        // The same rest, frozen. Pill and bar both drop the accent together.
+        SessionHeaderBar(
+            name = "Leg day",
+            elapsed = 31.minutes + 40.seconds,
+            progress = SessionProgress.of(completed = 2, total = 5),
+            restTimer = RestTimerState.Paused(remaining = 83.seconds, total = 120.seconds),
             onRestTimerClick = {},
         )
     }

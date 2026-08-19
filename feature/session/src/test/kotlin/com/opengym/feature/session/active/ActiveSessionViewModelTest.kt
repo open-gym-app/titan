@@ -43,6 +43,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -1890,6 +1891,29 @@ class ActiveSessionViewModelTest {
         // the screen asking the user to wait for something that is already over.
         assertEquals(RestTimerState.Finished, restored.uiState.value.rest)
         assertFalse(restored.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `a rest started while the draft was still being read is not restored over`() = runTest {
+        // The read is held open, which is the window the bug lived in: `isLoading` clears on the
+        // session store's first emission, so the screen takes taps well before the draft comes
+        // back off disk.
+        val gated = FakeDraftStore(restingDraft(deadline = STARTED_AT + 90_000)).apply { holdLoad() }
+        clock.now = STARTED_AT + 30_000
+        val viewModel = viewModel(drafts = gated)
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        val started = viewModel.uiState.value.rest
+
+        gated.releaseLoad()
+        runCurrent()
+
+        // A fresh 90 of 90, not the draft's 60 of 90. The one the user is watching wins: a
+        // restore landing on top of it would cancel the countdown and take its sheet down.
+        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), started)
+        assertEquals(started, viewModel.uiState.value.rest)
+        assertTrue(viewModel.uiState.value.isRestSheetOpen)
     }
 
     @Test

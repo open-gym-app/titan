@@ -1694,14 +1694,26 @@ class ActiveSessionViewModel @Inject constructor(
             id to typed.toEntry(unitSystem.value)
         }.toMap()
 
+        // A rest already running is one this process started, and it is newer than anything on
+        // disk. The screen goes interactive on `reattach`'s first emission, which is before this
+        // read comes back, so a set logged in that window starts a countdown — and restoring
+        // over it would cancel a rest the user is watching and pull the sheet out from under it.
+        // The same rule the entries follow below, for the same reason: the draft is the older
+        // copy of everything it carries.
+        val live = restTimer.state.value !is RestTimerState.Idle
+
         // The rest, resolved against the clock as it is *now*: what was written down is a
         // deadline, so a draft read ten minutes after it was saved restores a rest that is over
         // rather than one with ten minutes still on it. That resolution is
         // `RestTimerSnapshot.toStateAt`'s, and it is the whole reason the draft stores an
         // instant. Restoring a finished rest rings nothing — see `RestExpiryAlert`.
         val rest = draft.restTimerStateAt(clock.nowMillis())
-        restTimer.restore(rest)
+        if (!live) restTimer.restore(rest)
         val resting = rest is RestTimerState.Running || rest is RestTimerState.Paused
+        val restedExerciseId = draft.exercises
+            .getOrNull(draft.currentExerciseIndex)
+            ?.sessionExerciseId
+            ?.takeIf { resting }
 
         screenState.update { state ->
             state.copy(
@@ -1714,12 +1726,10 @@ class ActiveSessionViewModel @Inject constructor(
                 // Straight back up over the workout, because that is where the user was: a rest
                 // is the one thing on this screen that goes on happening while the app is not
                 // running, and coming back to a workout mid-rest with nothing saying so would
-                // hide the only fact that changed while they were gone.
-                isRestSheetOpen = resting,
-                restExerciseId = draft.exercises
-                    .getOrNull(draft.currentExerciseIndex)
-                    ?.sessionExerciseId
-                    ?.takeIf { resting },
+                // hide the only fact that changed while they were gone. Left alone where a rest
+                // is already running, which is the sheet the countdown above put up.
+                isRestSheetOpen = if (live) state.isRestSheetOpen else resting,
+                restExerciseId = if (live) state.restExerciseId else restedExerciseId,
             )
         }
         captureRest()

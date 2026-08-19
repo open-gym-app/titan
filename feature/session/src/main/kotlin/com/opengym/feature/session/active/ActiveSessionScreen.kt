@@ -413,9 +413,7 @@ fun ActiveSessionScreen(
     // the sheet is the half the user swipes away.
     RestExpiryAlert(state = state.rest)
 
-    if (state.isRestSheetOpen) {
-        RestSheet(state = state, onEvent = onEvent)
-    }
+    RestSheet(state = state, onEvent = onEvent)
 
     if (state.confirmingDiscard) {
         DiscardSessionDialog(
@@ -444,24 +442,46 @@ fun ActiveSessionScreen(
  * in front of it. So the swipe hides the sheet and leaves the countdown running — the header's
  * pill says so, and tapping it brings this back. Ending the rest is the button that says so.
  *
- * ### It comes down when the rest is over, and nothing here has to notice
+ * ### It comes down when the rest is over, and nothing here has to decide that
  *
  * A countdown that reaches zero takes the sheet with it — the rest is finished, and the answer
- * to "what now" is the workout, not a panel saying it is done. That is not an effect watching
- * for the transition: `isRestSheetOpen` is only true over a rest that is still live, so the
- * sheet leaves the composition with the state that put it there. See
+ * to "what now" is the workout, not a panel saying it is done. Whether the sheet is up is
+ * `isRestSheetOpen`'s answer and nothing else's: it is only true over a rest that is still
+ * live, and it survives a process restart, which a `SheetState` could not. See
  * `ActiveSessionViewModel.build`.
+ *
+ * What this *does* own is the way down. Material animates a swipe out itself and calls
+ * `onDismissRequest` afterwards, but the two commonest endings — the skip button and the
+ * countdown running out — flip the flag from the ViewModel's side, and a sheet dropped straight
+ * out of composition there takes itself and its scrim off in a single frame. So the flag going
+ * false starts a `hide()`, and the sheet stays composed until that animation is done. The state
+ * is hoisted for exactly that reason and no other: `hide()` has to reach the sheet that is on
+ * screen.
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun RestSheet(state: ActiveSessionUiState, onEvent: (ActiveSessionEvent) -> Unit) {
+    val sheetState = rememberModalBottomSheetState()
+    // Composed while the sheet is up *or* on its way down, which is the one thing the screen
+    // state cannot say: it went false the moment the rest ended.
+    var onScreen by remember { mutableStateOf(state.isRestSheetOpen) }
+
+    LaunchedEffect(state.isRestSheetOpen) {
+        if (state.isRestSheetOpen) {
+            onScreen = true
+        } else if (onScreen) {
+            // Best-effort: a sheet asked to hide before it has been laid out has nothing to
+            // animate, and a rest that ends in the same frame it began is not worth a crash.
+            runCatching { sheetState.hide() }
+            onScreen = false
+        }
+    }
+
+    if (!onScreen) return
+
     ModalBottomSheet(
         onDismissRequest = { onEvent(ActiveSessionEvent.RestSheetDismissed) },
-        // Remembered inside the `if`, so each showing gets a state that starts hidden and
-        // rises. Hoisting it would carry the last dismissal's position into the next rest —
-        // and there is nothing to hoist it *for*: whether the sheet is up is the screen state's
-        // answer, and it survives a process restart, which a `SheetState` could not.
-        sheetState = rememberModalBottomSheetState(),
+        sheetState = sheetState,
         // A step up from the page rather than the scheme's default `surfaceContainerLow`, so
         // the sheet reads as a card lifted off the workout instead of as a lighter patch of it.
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,

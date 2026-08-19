@@ -1235,6 +1235,26 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a rest that ends takes the sheet off screen, and does not strand it there`() {
+        // The sheet is not dropped straight out of composition any more — it is asked to hide
+        // and stays composed until the animation is done, which is what makes a skip and an
+        // expiry slide down instead of blinking out. This is the other half of that: a hide
+        // that never completed would leave a panel sitting over the workout for good.
+        val state = mutableStateOf(resting())
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = state.value, onEvent = events::add)
+            }
+        }
+
+        state.value = state.value.copy(rest = RestTimerState.Finished, isRestSheetOpen = false)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds")
+            .assertDoesNotExist()
+    }
+
+    @Test
     fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
         setScreen(resting().copy(isRestSheetOpen = false))
 
