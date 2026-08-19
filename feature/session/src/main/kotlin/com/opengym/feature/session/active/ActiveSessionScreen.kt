@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
@@ -1004,5 +1005,3 @@ private fun previewSet(
  */
 private fun previously(weightKg: Double, reps: Int) =
     PreviousSet(weight = (weightKg * MILLIGRAMS_PER_KILOGRAM).toLong(), reps = reps)
-
-private const val MILLIGRAMS_PER_KILOGRAM = 1_000_000

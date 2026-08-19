@@ -49,6 +49,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -490,6 +491,13 @@ internal fun PreviousCell(previous: PreviousSet?, showPrevious: Boolean) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         maxLines = 1,
+        // Ellipsis rather than the default clip, because the column is a fixed width in `dp`
+        // and its text is in `sp`: at a large system font scale, or for a metric-entered
+        // weight read in pounds (`132.28×10`), the value is wider than the cell. Clipped, that
+        // renders as `132.28×1` — a different set, and a plausible one. Ellipsised it renders
+        // as a value that visibly did not fit, which is the only honest thing a cell this
+        // narrow can say.
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .width(PREVIOUS_COLUMN_WIDTH)
             // Replaced rather than added to: read as text the cell is four unlabelled

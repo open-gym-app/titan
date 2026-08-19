@@ -2147,7 +2147,7 @@ private class Loaded(
     val session: WorkoutSession?,
     exercises: List<SessionExercise>,
     val sets: List<WorkoutSet>,
-    private val previous: Map<Long, List<WorkoutSet>> = emptyMap(),
+    private val previous: Map<Long, List<WorkoutSet>>,
 ) {
 
     /** The session's exercises in the order they are performed, which is the `position` column. */
