@@ -14,6 +14,7 @@ import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
@@ -24,6 +25,9 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.timer.RestTimerController
+import com.opengym.core.domain.timer.RestTimerSnapshot
+import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -68,6 +72,7 @@ import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * The workout itself: what has been logged, what is being typed, and the four ways out.
@@ -152,9 +157,33 @@ class ActiveSessionViewModel @Inject constructor(
     private val finishSession: FinishSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
     private val clock: Clock,
+    timeSource: TimeSource,
 ) : ViewModel() {
 
     private val sessionId: Long = savedStateHandle.toRoute<ActiveSessionDestination>().sessionId
+
+    /**
+     * The rest between two sets, counting down.
+     *
+     * On [viewModelScope], so the countdown stops when the screen is finally let go of and not
+     * a moment before — a rest survives the activity being recreated for the same reason the
+     * half-typed sets do. What it does *not* survive is the process, which is
+     * [ScreenState.restSnapshot]'s job.
+     *
+     * [timeSource] is injected rather than defaulted because the default is wrong twice over:
+     * `TimeSource.Monotonic` stops while an Android device sleeps, which is most of a rest with
+     * the phone in a pocket, and a test needs virtual time. See `ElapsedRealtimeTimeSource`.
+     */
+    private val restTimer = RestTimerController(scope = viewModelScope, timeSource = timeSource)
+
+    /**
+     * How long a rest lasts when the exercise has no opinion of its own.
+     *
+     * Read off the settings rather than defaulted here, which is what `RestTimerController.start`
+     * requires a duration for: a second default at this level is one a user who changed the
+     * setting would silently keep getting.
+     */
+    private var defaultRest: Duration = UserPreferences.DEFAULT_REST_DURATION
 
     /** What the user is in the middle of, which no store has an opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
@@ -299,6 +328,10 @@ class ActiveSessionViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             userPreferencesRepository.observe().collect { preferences ->
+                // Read before the return below, which is about the *unit system* changing: the
+                // rest a set gets is a second setting off the same document, and a lifter who
+                // lengthens their rests without also switching to pounds must still get them.
+                defaultRest = preferences.defaultRestDuration
                 if (preferences.unitSystem == unitSystem.value) return@collect
                 unitSystem.value = preferences.unitSystem
                 // Every correction half-typed into a logged row was seeded from the store in the
@@ -316,6 +349,18 @@ class ActiveSessionViewModel @Inject constructor(
                 screenState.update { it.copy(setEdits = emptyMap()) }
             }
         }
+        // The countdown, published into the screen's state so the sheet and the header's pill
+        // are drawn from the same value. Only the transitions are written down — the snapshot
+        // the draft carries is a *deadline*, which a tick does not move — so this does not put
+        // the store under a write a second. See [captureRest].
+        viewModelScope.launch {
+            restTimer.state.collect { rest ->
+                screenState.update { it.copy(rest = rest) }
+                // The one transition nothing commanded: a rest that simply ran out. Everything
+                // else that lands here is captured by the command that caused it.
+                if (rest is RestTimerState.Finished) captureRest()
+            }
+        }
         // One coroutine, in this order, because each step depends on the one before it. The
         // settings are read again here rather than waited on from the collection above: the two
         // are independent reads of the same small document, and [restoreDraft] formats stored
@@ -329,7 +374,9 @@ class ActiveSessionViewModel @Inject constructor(
         // — and that is a screen the user can still act on.
         viewModelScope.launch {
             try {
-                unitSystem.value = userPreferencesRepository.observe().first().unitSystem
+                val preferences = userPreferencesRepository.observe().first()
+                unitSystem.value = preferences.unitSystem
+                defaultRest = preferences.defaultRestDuration
                 reattach()
                 restoreDraft()
                 realignPause()
@@ -373,7 +420,8 @@ class ActiveSessionViewModel @Inject constructor(
      * subject", and the subjects are the four `when`s below.
      */
     private fun handledBySubject(event: ActiveSessionEvent): Boolean =
-        onEntryEvent(event) || onSetEditEvent(event) || onNameEvent(event) || onLayoutEvent(event)
+        onEntryEvent(event) || onSetEditEvent(event) || onNameEvent(event) ||
+            onLayoutEvent(event) || onRestEvent(event)
 
     /**
      * The five events that only change the row being typed, handled together.
@@ -537,7 +585,9 @@ class ActiveSessionViewModel @Inject constructor(
                                 ),
                         )
                     }
-                    saveDraft()
+                    // Before the save, which it makes redundant: [startRest] writes the draft
+                    // itself, and it is the same draft with the countdown in it.
+                    startRest(sessionExerciseId)
                 }
                 .onFailure { failure ->
                     // A refusal about the *set* is shown under the row, where the value that
@@ -957,10 +1007,19 @@ class ActiveSessionViewModel @Inject constructor(
             markSetCompleted(sessionExerciseId, setId, isCompleted, exerciseType)
                 .onSuccess {
                     screenState.update { it.copy(togglingSetIds = it.togglingSetIds - setId) }
-                    // Rewritten the way it is after every other write to the workout: the draft
-                    // carries the sets as they stand alongside what is being typed, and a tick is
-                    // a change to the first half of that.
-                    saveDraft()
+                    if (isCompleted) {
+                        // The same event [log] raises it on: a set has been marked done, and
+                        // what follows a set that is done is a rest. A set being *un*-ticked is
+                        // not the opposite — it is a correction to a row logged some time ago,
+                        // and cancelling a rest the user is in the middle of because of it would
+                        // be the screen reading a typo as a decision.
+                        startRest(sessionExerciseId)
+                    } else {
+                        // Rewritten the way it is after every other write to the workout: the
+                        // draft carries the sets as they stand alongside what is being typed,
+                        // and a tick is a change to the first half of that.
+                        saveDraft()
+                    }
                 }
                 .onFailure {
                     screenState.update {
@@ -995,6 +1054,145 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun exerciseRow(sessionExerciseId: Long): SessionExercise? =
         loaded.value?.ordered?.firstOrNull { it.id == sessionExerciseId }
+
+    // ─── The rest between two sets ──────────────────────────────────────────────────────
+
+    /**
+     * The five events about the countdown, handled together.
+     *
+     * Split off [onEvent] for the reason the other four groups are, and they belong together
+     * for a reason of their own: three of them command the timer and two only say whether the
+     * sheet is on screen, and the whole design of this feature is that those are separate
+     * questions. A swipe that cancelled the rest, or a skip that only hid the sheet, would each
+     * be one line's confusion between the two halves.
+     *
+     * @return whether [event] was one of them.
+     */
+    private fun onRestEvent(event: ActiveSessionEvent): Boolean {
+        when (event) {
+            is ActiveSessionEvent.RestAdjusted -> {
+                restTimer.adjust(event.delta)
+                captureRest()
+            }
+
+            ActiveSessionEvent.RestPauseToggled -> {
+                // Read off the timer rather than off what the button was drawn as, which is
+                // safe here in a way the *session's* pause is not: the two answers cannot
+                // disagree, because nothing but this object writes the countdown.
+                if (restTimer.state.value is RestTimerState.Running) {
+                    restTimer.pause()
+                } else {
+                    restTimer.resume()
+                }
+                captureRest()
+            }
+
+            ActiveSessionEvent.RestSkipped -> skipRest()
+
+            // The countdown is untouched by both of these. What the sheet is doing on screen
+            // and what the timer is doing are two facts, and the header's pill exists because
+            // of it.
+            ActiveSessionEvent.RestSheetDismissed ->
+                screenState.update { it.copy(isRestSheetOpen = false) }
+
+            ActiveSessionEvent.RestSheetRequested ->
+                screenState.update { it.copy(isRestSheetOpen = true) }
+
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * Starts the rest that follows a set on [sessionExerciseId], and raises the sheet over it.
+     *
+     * Called from the two places a set becomes *done* — [log] and the ticking half of
+     * [toggleCompletion] — rather than from an event of its own, because starting a rest is not
+     * something a lifter asks for. It is what finishing a set means.
+     *
+     * ### Where no rest is started
+     *
+     * After the first exercise of a superset. Its members are alternated set for set, so what
+     * follows a set on `A1` is a set on `A2` and not a pause — `Supersets.isRestDueAfter` is the
+     * same rule `ActiveSession` states, asked here of the session as it stands on disk. The rest
+     * comes after the *last* member of the group, where this returns true again.
+     *
+     * ### How long
+     *
+     * The exercise's own `defaultRest` if it carries one, and the user's setting otherwise. In
+     * seconds, per PERSISTENCE.md's units table. A stored rest of zero or less is treated as no
+     * opinion rather than as an instant rest: the column is the user's to fill in and a zero in
+     * it is far likelier to be an empty answer than a request for no rest at all.
+     */
+    private fun startRest(sessionExerciseId: Long) {
+        val duration = restAfter(sessionExerciseId)
+        if (duration == null) {
+            // No rest here, but a set was still logged: the draft is written either way, since
+            // what changed is the entry row this screen has just cleared. [captureRest] is the
+            // same save with the countdown in it.
+            saveDraft()
+            return
+        }
+
+        restTimer.start(duration)
+        screenState.update { it.copy(isRestSheetOpen = true, restExerciseId = sessionExerciseId) }
+        captureRest()
+    }
+
+    /**
+     * How long the rest after a set on [sessionExerciseId] should be, or **null** where there
+     * is no rest to start.
+     *
+     * Null covers the two of them: an exercise this session does not have — a set logged
+     * against a slot cut out from under it, which is a race rather than a state — and the first
+     * member of a superset, which is the one that matters. See [startRest].
+     */
+    private fun restAfter(sessionExerciseId: Long): Duration? {
+        val ordered = loaded.value?.ordered ?: return null
+        val index = ordered.indexOfFirst { it.id == sessionExerciseId }
+        if (index < 0) return null
+        if (!Supersets.isRestDueAfter(ordered.map(SessionExercise::supersetGroup), index)) return null
+
+        return catalogue.value?.exercises?.get(ordered[index].exerciseId)
+            ?.defaultRest
+            ?.takeIf { it > 0 }
+            ?.seconds
+            ?: defaultRest
+    }
+
+    /**
+     * Ends the rest early, which is the user saying they are back under the bar.
+     *
+     * `cancel` rather than letting it fall through to finished, per `RestTimerController`: a
+     * rest that was dismissed did not run out, and the alert on the screen rings for one and
+     * not the other.
+     */
+    private fun skipRest() {
+        restTimer.cancel()
+        screenState.update { it.copy(isRestSheetOpen = false, restExerciseId = null) }
+        captureRest()
+    }
+
+    /**
+     * Writes down where the rest is now, as the deadline the draft carries.
+     *
+     * Called after every command and on the one transition no command causes — see the collector
+     * in `init`. Never on a tick, which is the whole point of persisting an *instant*: the
+     * deadline of a rest that is counting down does not change as it counts, so a draft written
+     * once at the start of it is still right ninety seconds later.
+     *
+     * The reading is taken from the controller rather than from [ScreenState.rest], and taken
+     * *now*: a command publishes its new state before it returns, so this sees the exact
+     * remainder — including the fraction of a second the last tick has not caught up with —
+     * while the copy in the screen's state is at most one tick behind. Deriving the deadline
+     * from that copy would push it out by up to a second every time the draft was written, and
+     * the draft is written on every keystroke.
+     */
+    private fun captureRest() {
+        val snapshot = RestTimerSnapshot.of(restTimer.state.value, clock.nowMillis())
+        screenState.update { it.copy(restSnapshot = snapshot) }
+        saveDraft()
+    }
 
     // ─── The layout of the workout ──────────────────────────────────────────────────────
 
@@ -1374,7 +1572,14 @@ class ActiveSessionViewModel @Inject constructor(
                 // isFinishing stays true: the screen is on its way out, and re-enabling the
                 // button for the frame before the pop invites a second finish.
                 .onSuccess { finished ->
-                    screenState.update { it.copy(finishedSessionId = finished.summary.sessionId) }
+                    // The rest goes with the workout. Not to tidy up — `viewModelScope` would
+                    // take the countdown with it either way — but so that the sheet is not still
+                    // over the screen for the frame or two it takes the recap to open, and so
+                    // that nothing rings for a rest between two sets of a session that is over.
+                    restTimer.cancel()
+                    screenState.update {
+                        it.copy(finishedSessionId = finished.summary.sessionId, isRestSheetOpen = false)
+                    }
                 }
                 .onFailure { failure ->
                     screenState.update {
@@ -1415,7 +1620,12 @@ class ActiveSessionViewModel @Inject constructor(
                 // whose buttons are both inert — `isDiscarding` stays true — would sit over the
                 // whole pop transition.
                 .onSuccess {
-                    screenState.update { it.copy(isDiscarded = true, confirmingDiscard = false) }
+                    // As on the way out through the recap: no rest outlives the workout it was
+                    // in the middle of. See [finish].
+                    restTimer.cancel()
+                    screenState.update {
+                        it.copy(isDiscarded = true, confirmingDiscard = false, isRestSheetOpen = false)
+                    }
                 }
                 .onFailure {
                     screenState.update { state ->
@@ -1484,6 +1694,15 @@ class ActiveSessionViewModel @Inject constructor(
             id to typed.toEntry(unitSystem.value)
         }.toMap()
 
+        // The rest, resolved against the clock as it is *now*: what was written down is a
+        // deadline, so a draft read ten minutes after it was saved restores a rest that is over
+        // rather than one with ten minutes still on it. That resolution is
+        // `RestTimerSnapshot.toStateAt`'s, and it is the whole reason the draft stores an
+        // instant. Restoring a finished rest rings nothing — see `RestExpiryAlert`.
+        val rest = draft.restTimerStateAt(clock.nowMillis())
+        restTimer.restore(rest)
+        val resting = rest is RestTimerState.Running || rest is RestTimerState.Paused
+
         screenState.update { state ->
             state.copy(
                 pausedDuration = draft.pausedDuration,
@@ -1492,8 +1711,18 @@ class ActiveSessionViewModel @Inject constructor(
                 // between the screen opening and this read coming back is the user's, and the
                 // draft is only ever the older copy of it.
                 entries = entries + state.entries,
+                // Straight back up over the workout, because that is where the user was: a rest
+                // is the one thing on this screen that goes on happening while the app is not
+                // running, and coming back to a workout mid-rest with nothing saying so would
+                // hide the only fact that changed while they were gone.
+                isRestSheetOpen = resting,
+                restExerciseId = draft.exercises
+                    .getOrNull(draft.currentExerciseIndex)
+                    ?.sessionExerciseId
+                    ?.takeIf { resting },
             )
         }
+        captureRest()
     }
 
     /**
@@ -1600,11 +1829,20 @@ class ActiveSessionViewModel @Inject constructor(
                 entries = state.entries,
                 unitSystem = unitSystem.value,
             ).orEmpty(),
-            // Zero, always. The field records which exercise the user was looking at, and this
-            // screen no longer has an answer to that — every exercise is on the page and every
-            // one of them takes sets. What was being typed is not lost with it: each entry
-            // travels on its own exercise, as an incomplete set.
-            currentExerciseIndex = 0,
+            // The exercise the rest belongs to, and zero when there is no rest.
+            //
+            // The field asks which exercise the user was on, and for most of this screen there
+            // is no answer — every exercise is on the page and every one of them takes sets.
+            // Between two sets there *is* one: the user has just logged a set on an exercise
+            // and is about to log another, which is exactly what the field means and what
+            // [ActiveSessionUiState.restTarget] needs back after a restart. Nothing else is
+            // lost by it — each half-typed entry travels on its own exercise, as an incomplete
+            // set.
+            currentExerciseIndex = state.restExerciseId
+                ?.let { id -> loaded.value?.ordered?.indexOfFirst { it.id == id } }
+                ?.takeIf { it >= 0 }
+                ?: 0,
+            restTimer = state.restSnapshot,
         )
 
         // Best-effort: the draft is a snapshot of a screen, and a save that fails costs the
@@ -1640,6 +1878,13 @@ class ActiveSessionViewModel @Inject constructor(
             finishedSessionId = screen.finishedSessionId,
             isDiscarded = screen.isDiscarded,
             deletedSet = screen.deletedSet,
+            rest = screen.rest,
+            // The flag says the sheet was raised and not since dismissed; whether there is
+            // anything to *look* at is the timer's answer. Reading them together here is what
+            // makes the sheet come down of its own accord when the countdown reaches zero,
+            // without anything having to remember to lower a flag — and what stops a sheet
+            // being restored over a rest that ended while the process was dead.
+            isRestSheetOpen = screen.isRestSheetOpen && screen.rest.isLive,
             message = screen.message,
         )
 
@@ -1678,6 +1923,13 @@ class ActiveSessionViewModel @Inject constructor(
                 endedAt = now,
             ),
             exercises = rows,
+            // The set just logged against the exercise being rested from — see [RestTarget].
+            // Derived from the store on every rebuild rather than captured when the rest
+            // started, so a set corrected mid-rest corrects what the sheet says is coming.
+            restTarget = screen.restExerciseId
+                ?.takeIf { screen.rest.isLive }
+                ?.let { loaded.setsOf(it).lastOrNull() }
+                ?.let { RestTarget(weight = it.weight, reps = it.reps) },
             isLoading = false,
         )
     }
@@ -1746,6 +1998,15 @@ class ActiveSessionViewModel @Inject constructor(
  *   has no business freezing the fields of set 3.
  * @param deletedSet the set behind the offer to undo, held until the offer is taken or lapses.
  *   The store no longer has it, so this is the only copy — see [ActiveSessionUiState.deletedSet].
+ * @param rest the countdown as the controller last published it, ticked into here so the whole
+ *   screen is built from one value. Read-only from this side: what moves it is the controller.
+ * @param restSnapshot the same rest as the *deadline* the draft carries, which is a different
+ *   type on purpose — see `RestTimerSnapshot`. Updated on the transitions and never on a tick.
+ * @param restExerciseId the exercise the current rest follows, or null when nothing is resting.
+ *   What the sheet's "up next" is read from, and the one thing about a rest that neither the
+ *   controller nor its snapshot carries.
+ * @param isRestSheetOpen whether the sheet has been raised and not since swiped away. Not the
+ *   whole of whether it is drawn — see [ActiveSessionViewModel.build].
  */
 private data class ScreenState(
     val entries: Map<Long, SetEntry> = emptyMap(),
@@ -1753,6 +2014,10 @@ private data class ScreenState(
     val savingSetIds: Set<Long> = emptySet(),
     val isDeletingSet: Boolean = false,
     val deletedSet: WorkoutSet? = null,
+    val rest: RestTimerState = RestTimerState.Idle,
+    val restSnapshot: RestTimerSnapshot = RestTimerSnapshot.Idle,
+    val restExerciseId: Long? = null,
+    val isRestSheetOpen: Boolean = false,
     val isRestoringSet: Boolean = false,
     val nameDraft: String? = null,
     val isRenaming: Boolean = false,
@@ -1969,6 +2234,16 @@ private class Field<T> private constructor(val value: T?, val isMalformed: Boole
 }
 
 /** Which [SetEntryError] a refused write is, if it is one the row can show. */
+/**
+ * Whether there is a rest to look at: one counting down, or one held part way through.
+ *
+ * Finished and idle are both "no", and they are two different noes — a rest that ran out is
+ * distinguishable from one that was called off, and `RestExpiryAlert` and the draft both depend
+ * on it — but neither is a countdown, and everything on screen that draws one asks this.
+ */
+private val RestTimerState.isLive: Boolean
+    get() = this is RestTimerState.Running || this is RestTimerState.Paused
+
 private fun Throwable.toEntryError(): SetEntryError? =
     (this as? SessionError.SetRejected)?.let { SetEntryError.Refused(it.reason) }
 

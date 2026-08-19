@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -23,6 +25,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,9 +43,12 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ReorderState
 import com.opengym.core.ui.component.ReorderableItem
+import com.opengym.core.ui.component.RestExpiryAlert
+import com.opengym.core.ui.component.RestTimerSheet
 import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionProgress
@@ -50,6 +56,7 @@ import com.opengym.core.ui.component.SessionStatChips
 import com.opengym.core.ui.component.rememberReorderState
 import com.opengym.core.ui.component.reorderable
 import com.opengym.core.ui.format.formatSessionDate
+import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.component.CollapsedExerciseRow
@@ -348,6 +355,11 @@ fun ActiveSessionScreen(
                 elapsed = state.header?.elapsed ?: Duration.ZERO,
                 progress = state.header?.progress ?: SessionProgress(),
                 isPaused = state.isPaused,
+                // The countdown, and the way back into a sheet that has been swiped away. It
+                // is the only thing on this screen that changes on its own, so it lives on the
+                // one surface that is never scrolled off.
+                restTimer = state.rest,
+                onRestTimerClick = { onEvent(ActiveSessionEvent.RestSheetRequested) },
                 // The pause is *not* gated on `isEditable`: coming back from a pause is what
                 // that control is for. What takes the three of them out is a workout already
                 // closing out — a pause landing behind a finish is refused and reported over a
@@ -395,12 +407,73 @@ fun ActiveSessionScreen(
         )
     }
 
+    // Rung once, on a countdown that ran out while somebody was looking at this screen — and
+    // deliberately not on a rest restored as finished, nor on one that was skipped. See
+    // `RestExpiryAlert`, which draws nothing and is here rather than inside the sheet because
+    // the sheet is the half the user swipes away.
+    RestExpiryAlert(state = state.rest)
+
+    if (state.isRestSheetOpen) {
+        RestSheet(state = state, onEvent = onEvent)
+    }
+
     if (state.confirmingDiscard) {
         DiscardSessionDialog(
             loggedSets = state.stats?.totalSets ?: 0,
             onConfirm = { onEvent(ActiveSessionEvent.DiscardConfirmed) },
             onDismiss = { onEvent(ActiveSessionEvent.DiscardDismissed) },
             isDiscarding = state.isDiscarding,
+        )
+    }
+}
+
+/**
+ * The rest, over the workout it is a rest from.
+ *
+ * ### Why a sheet rather than a bar under the exercise
+ *
+ * This screen used to specify an inline `RestTimerBar` pinned under the active exercise. The
+ * wireframes have a sheet, and they are right: mid-rest the countdown is the only thing on the
+ * screen the user cares about, and a bar inside a list as long as a workout is a bar that
+ * scrolls off. A sheet also dims what is behind it, which is the honest picture of the ninety
+ * seconds where there is nothing to do.
+ *
+ * ### Swiping it away does not cancel anything
+ *
+ * The one thing a lifter reliably wants mid-rest is the set they logged wrong, and the sheet is
+ * in front of it. So the swipe hides the sheet and leaves the countdown running — the header's
+ * pill says so, and tapping it brings this back. Ending the rest is the button that says so.
+ *
+ * ### It comes down when the rest is over, and nothing here has to notice
+ *
+ * A countdown that reaches zero takes the sheet with it — the rest is finished, and the answer
+ * to "what now" is the workout, not a panel saying it is done. That is not an effect watching
+ * for the transition: `isRestSheetOpen` is only true over a rest that is still live, so the
+ * sheet leaves the composition with the state that put it there. See
+ * `ActiveSessionViewModel.build`.
+ */
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RestSheet(state: ActiveSessionUiState, onEvent: (ActiveSessionEvent) -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = { onEvent(ActiveSessionEvent.RestSheetDismissed) },
+        // Remembered inside the `if`, so each showing gets a state that starts hidden and
+        // rises. Hoisting it would carry the last dismissal's position into the next rest —
+        // and there is nothing to hoist it *for*: whether the sheet is up is the screen state's
+        // answer, and it survives a process restart, which a `SheetState` could not.
+        sheetState = rememberModalBottomSheetState(),
+        // A step up from the page rather than the scheme's default `surfaceContainerLow`, so
+        // the sheet reads as a card lifted off the workout instead of as a lighter patch of it.
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+    ) {
+        RestTimerSheet(
+            state = state.rest,
+            onAdjust = { onEvent(ActiveSessionEvent.RestAdjusted(it)) },
+            onSkip = { onEvent(ActiveSessionEvent.RestSkipped) },
+            onTogglePause = { onEvent(ActiveSessionEvent.RestPauseToggled) },
+            // What the set that ends this rest is expected to be. Formatted here rather than in
+            // the ViewModel because the unit is the ambient one and the "×" is a word.
+            nextSet = state.restTarget?.let { formatSet(it.weight, it.reps) },
         )
     }
 }
@@ -753,6 +826,23 @@ fun ActiveSessionScreenEditingPreview() {
                         )
                     }
                 },
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+@Preview(name = "Active session - resting", showBackground = true)
+@Composable
+fun ActiveSessionScreenRestingPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        // The sheet swiped away with the rest still running, which is the state the header's
+        // pill exists for. The sheet itself is a window of its own and does not render in a
+        // preview; `RestTimerSheet`'s own previews in `:core:ui` are where its body is drawn.
+        ActiveSessionScreen(
+            state = previewState().copy(
+                rest = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+                restTarget = RestTarget(weight = 80_000_000L, reps = 5),
             ),
             onEvent = {},
         )

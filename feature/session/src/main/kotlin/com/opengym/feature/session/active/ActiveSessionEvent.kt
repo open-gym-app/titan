@@ -1,6 +1,7 @@
 package com.opengym.feature.session.active
 
 import com.opengym.core.domain.model.SetType
+import kotlin.time.Duration
 
 /**
  * Everything the user can do to a workout in progress.
@@ -211,6 +212,52 @@ sealed interface ActiveSessionEvent {
 
     /** Suspend the session, or put it back into play. */
     data object PauseToggled : ActiveSessionEvent
+
+    /*
+     * ── The rest between two sets ──────────────────────────────────────────────────────
+     *
+     * None of these names an exercise. There is one rest at a time — it is the gap between the
+     * set that has just been logged and the next one, whichever exercise that turns out to be —
+     * and `RestTimerController` holds exactly one countdown to match.
+     *
+     * Nothing here *starts* a rest either. That is not something the user asks for: a rest
+     * begins because a set was marked done, which is [SetLogged] and [SetCompletionToggled]
+     * doing their own jobs. What is left for this group is the three things a lifter does to a
+     * countdown already running, plus the two about whether the sheet is on screen.
+     */
+
+    /**
+     * Move the countdown by [delta] — `+15s` from the extend button, `-15s` from the shorten
+     * one.
+     *
+     * Signed, and one event rather than two, for the reason `RestTimerSheet` raises it that
+     * way: what happens to the timer is the same call either way, and a second event would be a
+     * second place to get the sign wrong.
+     */
+    data class RestAdjusted(val delta: Duration) : ActiveSessionEvent
+
+    /** Hold the countdown where it is, or set it going again. */
+    data object RestPauseToggled : ActiveSessionEvent
+
+    /**
+     * The rest is over now — the user is back under the bar.
+     *
+     * Distinct from letting it run out: this returns the timer to idle and rings nothing, which
+     * is what `RestTimerController.cancel` is for.
+     */
+    data object RestSkipped : ActiveSessionEvent
+
+    /**
+     * The sheet was swiped away, and the countdown carries on behind it.
+     *
+     * The gesture is how a lifter gets at the set they logged wrong two minutes ago without
+     * throwing away the rest they are in the middle of. The header's pill is what says the
+     * timer is still running, and [RestSheetRequested] is the way back.
+     */
+    data object RestSheetDismissed : ActiveSessionEvent
+
+    /** Bring the sheet back up on a rest that is still going. */
+    data object RestSheetRequested : ActiveSessionEvent
 
     /** End the workout and go to the recap. */
     data object FinishRequested : ActiveSessionEvent

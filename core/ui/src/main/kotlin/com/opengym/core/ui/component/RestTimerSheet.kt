@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -222,27 +224,38 @@ fun RestCountdown(
  *
  * The one place the accent is spent on something small. A running rest is the only thing on
  * the active-session screen that is *changing*, and it has to be findable without the sheet
- * being open.
+ * being open — which is what makes this the way back into a sheet the user swiped away.
+ *
+ * @param onClick reopens the sheet. Null draws the pill inert, which is what a header with
+ *   nowhere to go wants; where it is given, the pill announces itself as the way back rather
+ *   than as four digits that happen to be tappable.
+ * @param colors which two pairs it is drawn in. Defaulted to the colour scheme and overridden
+ *   by the one caller that is not on it — the active workout's header, which is a near-black
+ *   band in both schemes and would swallow a `primaryContainer` pill. See
+ *   [RestTimerDefaults.sessionChromeIndicatorColors].
  */
 @Composable
 fun RestTimerIndicator(
     state: RestTimerState,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    colors: RestTimerIndicatorColors = RestTimerDefaults.indicatorColors(),
 ) {
     val remaining = state.remaining()
     val running = state is RestTimerState.Running
     val spoken = spokenRemaining(remaining)
+    val reopen = stringResource(R.string.rest_timer_reopen)
 
     Row(
         modifier = modifier
-            .clearAndSetSemantics { contentDescription = spoken }
+            // One stop in the traversal order, reading the time and — where there is one — what
+            // pressing it does. The digits on their own are a number with no noun near them.
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                if (onClick != null) onClick(label = reopen, action = null)
+            }
             .background(
-                color = if (running) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
+                color = if (running) colors.runningContainer else colors.restingContainer,
                 shape = PillShape,
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -253,14 +266,28 @@ fun RestTimerIndicator(
         Text(
             text = remaining.formatAsClock(),
             style = OpenGymTheme.typography.numeric,
-            color = if (running) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (running) colors.runningContent else colors.restingContent,
         )
     }
 }
+
+/**
+ * The two pairs [RestTimerIndicator] is drawn in: one for a countdown that is moving, one for
+ * a countdown that is not.
+ *
+ * A pair each rather than a single container and content, because the difference between them
+ * is the whole of what the pill communicates from across a room — the accent means the clock is
+ * running, and a paused rest wearing it would be the header saying time is passing when it is
+ * not. That is the same rule [RestCountdown] applies to the big figure, stated once for each
+ * ground the pill can sit on.
+ */
+@Immutable
+data class RestTimerIndicatorColors(
+    val runningContainer: Color,
+    val runningContent: Color,
+    val restingContainer: Color,
+    val restingContent: Color,
+)
 
 /** Defaults for the rest timer components. */
 object RestTimerDefaults {
@@ -273,6 +300,33 @@ object RestTimerDefaults {
      * presses is the common case of "give me another half minute".
      */
     val ADJUST_STEP: Duration = 15.seconds
+
+    /** [RestTimerIndicator] on the colour scheme, which is where any ordinary screen puts it. */
+    @Composable
+    fun indicatorColors(): RestTimerIndicatorColors = RestTimerIndicatorColors(
+        runningContainer = MaterialTheme.colorScheme.primaryContainer,
+        runningContent = MaterialTheme.colorScheme.onPrimaryContainer,
+        restingContainer = MaterialTheme.colorScheme.surfaceContainer,
+        restingContent = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    /**
+     * [RestTimerIndicator] on the active workout's own near-black band.
+     *
+     * The header does not invert with the scheme — see
+     * [com.opengym.core.ui.theme.OpenGymSessionChrome] — so a pill built from the scheme's
+     * containers would be a light chip on a dark bar in one scheme and invisible in the other.
+     * Both pairs here are ones the chrome already carries and the contrast test already holds.
+     */
+    @Composable
+    fun sessionChromeIndicatorColors(): RestTimerIndicatorColors = with(OpenGymTheme.sessionChrome) {
+        RestTimerIndicatorColors(
+            runningContainer = accent,
+            runningContent = onAccent,
+            restingContainer = fill,
+            restingContent = onSurface,
+        )
+    }
 }
 
 // ─── State, read four ways ──────────────────────────────────────────────────────────────

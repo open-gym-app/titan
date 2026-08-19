@@ -228,6 +228,129 @@ class RestTimerControllerTest {
         )
     }
 
+    // ─── Adjusting a rest in flight ─────────────────────────────────────────────────────
+
+    @Test
+    fun `extending adds to the remainder and keeps the total`() = runTest {
+        val timer = restTimer()
+
+        timer.start(90.seconds)
+        advanceTimeTo(30.seconds)
+        timer.adjust(15.seconds)
+
+        // 60 left of 90 became 75 left of 90: the bar goes back by the fifteen seconds that
+        // were added and by nothing else, which is the whole point of keeping the total.
+        assertEquals(RestTimerState.Running(75.seconds, 90.seconds), timer.state.value)
+    }
+
+    @Test
+    fun `shortening takes off the remainder and keeps the total`() = runTest {
+        val timer = restTimer()
+
+        timer.start(90.seconds)
+        advanceTimeTo(30.seconds)
+        timer.adjust((-15).seconds)
+
+        assertEquals(RestTimerState.Running(45.seconds, 90.seconds), timer.state.value)
+    }
+
+    @Test
+    fun `an adjusted rest finishes at the moved deadline`() = runTest {
+        val timer = restTimer()
+        val recording = record(timer)
+
+        timer.start(90.seconds)
+        advanceTimeTo(30.seconds)
+        timer.adjust(15.seconds)
+        runOutTheClock()
+
+        // 30s in, 75s left: 105s from the start rather than the 90s it was started with.
+        assertEquals(105_000L, recording.instantOf(RestTimerState.Finished))
+    }
+
+    @Test
+    fun `adjusting takes the fraction of a second since the last tick with it`() = runTest {
+        // The reason this is the controller's job rather than the screen's: half a second past
+        // the tick, the published state still says 60s and the truth is 59.5s. An adjustment
+        // computed from what was published would hand the user back the half second.
+        val timer = restTimer()
+
+        timer.start(90.seconds)
+        advanceTimeTo(30.seconds + 500.milliseconds)
+        timer.adjust(15.seconds)
+
+        assertEquals(RestTimerState.Running(74.5.seconds, 90.seconds), timer.state.value)
+    }
+
+    @Test
+    fun `extending past the total grows the total to the new remainder`() = runTest {
+        val timer = restTimer()
+
+        timer.start(90.seconds)
+        advanceTimeTo(5.seconds)
+        timer.adjust(15.seconds)
+
+        // 85 + 15 is 100, which no `Running` of 90 can hold. The total is the thing that
+        // gives, and by exactly as much as it has to.
+        assertEquals(RestTimerState.Running(100.seconds, 100.seconds), timer.state.value)
+    }
+
+    @Test
+    fun `shortening past zero finishes the rest rather than leaving it running`() = runTest {
+        val timer = restTimer()
+        val recording = record(timer)
+
+        timer.start(90.seconds)
+        advanceTimeTo(80.seconds)
+        timer.adjust((-15).seconds)
+
+        // Finished, not Idle: the user asked for the rest to be over, which is a rest that
+        // ran out early rather than one that was called off.
+        assertEquals(RestTimerState.Finished, timer.state.value)
+        assertEquals(80_000L, recording.instantOf(RestTimerState.Finished))
+
+        // And the countdown it cut short publishes nothing further, so the ten seconds it
+        // still had do not tick away underneath a finished rest.
+        runOutTheClock()
+        assertEquals(RestTimerState.Finished, recording.states.last())
+        assertEquals(1, recording.instantsOf { it == RestTimerState.Finished }.size)
+    }
+
+    @Test
+    fun `adjusting a paused rest leaves it paused`() = runTest {
+        val timer = restTimer()
+
+        timer.start(90.seconds)
+        advanceTimeTo(30.seconds)
+        timer.pause()
+        timer.adjust(15.seconds)
+        advanceTimeTo(60.seconds) // parked: an adjustment is not a resume
+
+        assertEquals(RestTimerState.Paused(75.seconds, 90.seconds), timer.state.value)
+    }
+
+    @Test
+    fun `shortening a paused rest past zero finishes it`() = runTest {
+        val timer = restTimer()
+
+        timer.restore(RestTimerState.Paused(10.seconds, 90.seconds))
+        timer.adjust((-15).seconds)
+
+        assertEquals(RestTimerState.Finished, timer.state.value)
+    }
+
+    @Test
+    fun `adjust is a no-op when there is no rest to adjust`() = runTest {
+        val timer = restTimer()
+        val recording = record(timer)
+
+        timer.adjust(15.seconds)
+        timer.restore(RestTimerState.Finished)
+        timer.adjust(15.seconds)
+
+        assertEquals(listOf(RestTimerState.Idle, RestTimerState.Finished), recording.states)
+    }
+
     @Test
     fun `a non-positive rest duration is rejected`() = runTest {
         val timer = restTimer()

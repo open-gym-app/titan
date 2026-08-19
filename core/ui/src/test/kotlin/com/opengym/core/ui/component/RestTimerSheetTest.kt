@@ -1,8 +1,13 @@
 package com.opengym.core.ui.component
 
+import androidx.compose.ui.semantics.AccessibilityAction
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -138,6 +143,32 @@ class RestTimerSheetTest {
         }
 
         composeTestRule.onNodeWithContentDescription("1:23 left").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the indicator says what pressing it does, and stays quiet where it does nothing`() {
+        var reopens = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                RestTimerIndicator(
+                    state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+                    onClick = { reopens++ },
+                )
+            }
+        }
+
+        // One stop in the traversal order, carrying the time and what a press is for. Four
+        // digits announced as "one twenty-three" name nothing at all.
+        composeTestRule.onNode(
+            hasContentDescription("1:23 left") and
+                hasClickAction() and
+                SemanticsMatcher.expectValue(
+                    SemanticsActions.OnClick,
+                    AccessibilityAction("Show the rest timer", null),
+                ),
+        ).performClick()
+
+        assertEquals(1, reopens)
     }
 
     private fun setSheet(state: RestTimerState) {
