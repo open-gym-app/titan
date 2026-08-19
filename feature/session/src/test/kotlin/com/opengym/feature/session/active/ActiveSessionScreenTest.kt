@@ -8,6 +8,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -25,10 +26,10 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
-import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -88,8 +89,13 @@ class ActiveSessionScreenTest {
         setScreen(state())
 
         composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
-        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
-        composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
+
+        // Each logged set is a row of fields with its values already in them: there is no editor
+        // to open, so what is drawn is what can be typed into. See `LoggedSetTable`.
+        scrollToField("Weight, set 1", "60").assertIsDisplayed()
+        scrollToField("Reps, set 1", "10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
+        scrollToDescription("Reps, set 2").assert(hasText("8"))
     }
 
     @Test
@@ -122,16 +128,16 @@ class ActiveSessionScreenTest {
                         position = 1,
                         exercise = FLY,
                         sets = listOf(
-                            loggedSet(id = 5, sessionExerciseId = 3, setNumber = 1, reps = 12, weight = 20_000_000L),
-                            loggedSet(id = 6, sessionExerciseId = 3, setNumber = 2, reps = 12, weight = 22_500_000L),
+                            loggedRow(id = 5, weight = "20", reps = "12"),
+                            loggedRow(id = 6, weight = "22.5", reps = "12"),
                         ),
                     ),
                 ),
             ),
         )
 
-        scrollToText("20 kg × 12").assertIsDisplayed()
-        scrollToText("22.5 kg × 12").assertIsDisplayed()
+        scrollToField("Weight, set 1", "20").assertIsDisplayed()
+        scrollToField("Weight, set 2", "22.5").assertIsDisplayed()
     }
 
     @Test
@@ -146,14 +152,18 @@ class ActiveSessionScreenTest {
                         sessionExerciseId = INCLINE_ROW,
                         position = 1,
                         exercise = INCLINE,
-                        sets = listOf(loggedSet(id = 5, sessionExerciseId = 2, setNumber = 1)),
+                        sets = listOf(loggedRow(id = 5)),
                     ),
                 ),
             ),
         )
 
-        scrollToDescription("Weight, set 3").assertIsDisplayed()
-        scrollToDescription("Weight, set 2").assertIsDisplayed()
+        // Asserted on each card's own button rather than on a field: every row of every table is
+        // a field now, so "Weight, set 2" is on the bench's second logged set as well as on the
+        // incline's next one. The button names the set the card is *waiting* for, which is the
+        // question here.
+        scrollToText("Complete set 3").assertIsDisplayed()
+        scrollToText("Complete set 2").assertIsDisplayed()
     }
 
     @Test
@@ -335,72 +345,178 @@ class ActiveSessionScreenTest {
     }
 
     // ─── Correcting a logged set ────────────────────────────────────────────────────────
+    //
+    // There is nothing to open. Every logged row is already the row it is corrected in, so what
+    // these assert is the typing itself, and what the row does when it is left.
 
     @Test
-    fun `tapping a logged set asks to reopen it`() {
+    fun `typing over a logged value reports it against that row`() {
         setScreen(state())
 
-        scrollToText("70 kg × 8").performClick()
+        scrollToDescription("Weight, set 2").performTextReplacement("72.5")
 
         assertEquals(
-            listOf(ActiveSessionEvent.SetEditRequested(BENCH_ROW, setId = 2L)),
+            listOf(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 2L, text = "72.5")),
             events,
         )
     }
 
     @Test
-    fun `the open row is fields where the set was, with the rest of the table still readable`() {
-        setScreen(state(editing = editingSecondSet()))
+    fun `each logged row reports against its own set`() {
+        setScreen(state())
 
-        // The set above it is still a row of figures: correcting a weight means comparing it
-        // with the sets around it, which is why the editor is the row rather than a sheet.
-        scrollToText("60 kg × 10").assertIsDisplayed()
-        scrollToDescription("Weight, set 2").assertIsDisplayed()
-        scrollToDescription("Reps, set 2").assertIsDisplayed()
+        scrollToField("Reps, set 1", "10").performTextReplacement("9")
+        scrollToDescription("Reps, set 2").performTextReplacement("7")
+
+        // The old editor could hold one row, so the events named none. They all name one now,
+        // because all of them are live at once. Asserted by membership rather than as the whole
+        // list: the rows are driven from outside, so a field whose state does not follow what was
+        // typed reports its way back to what it was told to show.
+        val reported = events.filterIsInstance<ActiveSessionEvent.SetEditRepsChanged>()
+        assertTrue(ActiveSessionEvent.SetEditRepsChanged(BENCH_ROW, 1L, "9") in reported)
+        assertTrue(ActiveSessionEvent.SetEditRepsChanged(BENCH_ROW, 2L, "7") in reported)
     }
 
     @Test
-    fun `typing over a value reports it against the open row`() {
-        setScreen(state(editing = editingSecondSet()))
+    fun `leaving a logged row is what writes it`() {
+        setScreen(state())
 
         scrollToDescription("Weight, set 2").performTextReplacement("72.5")
+        // Focus moved off the row, which is the gesture: a tap on another set, on the entry row,
+        // or anywhere off the fields.
+        scrollToField("Weight, set 1", "60").requestFocus()
+        composeTestRule.waitForIdle()
 
-        assertEquals(listOf(ActiveSessionEvent.SetEditWeightChanged("72.5")), events)
+        assertTrue(
+            ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 2L) in events,
+        )
     }
 
     @Test
-    fun `the open row's tick saves, and cancel is the other way out`() {
-        setScreen(state(editing = editingSecondSet()))
+    fun `negative - moving between the two fields of one row does not write it`() {
+        setScreen(state())
 
-        scrollToDescription("Save set 2").performClick()
-        scrollToText("Cancel").performClick()
+        scrollToDescription("Weight, set 2").requestFocus()
+        scrollToDescription("Reps, set 2").requestFocus()
+        composeTestRule.waitForIdle()
+
+        // What has been left is a field, not the row. A commit per field would write the same
+        // correction twice on the way across it.
+        assertTrue(events.none { it is ActiveSessionEvent.SetEditCommitted })
+    }
+
+    @Test
+    fun `a row taken out of the composition with typing in it is written on its way out`() {
+        // The case focus does not cover. The workout is a lazy list and it collapses to its
+        // titles for a reorder, so a card can be taken out of the composition with a half-typed
+        // correction still in it — and a row that leaves that way never reports losing focus.
+        val corrected = state(
+            sets = listOf(
+                loggedRow(id = 1L, weight = "60", reps = "10"),
+                loggedRow(id = 2L, weight = "72.5", reps = "8").copy(isEdited = true),
+            ),
+        )
+        var present by mutableStateOf(true)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = if (present) corrected else corrected.copy(exercises = emptyList()),
+                    onEvent = events::add,
+                )
+            }
+        }
+
+        present = false
+        composeTestRule.waitForIdle()
+
+        assertTrue(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 2L) in events)
+    }
+
+    @Test
+    fun `negative - a table of untouched rows leaving the composition writes nothing`() {
+        val untouched = state()
+        var present by mutableStateOf(true)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = if (present) untouched else untouched.copy(exercises = emptyList()),
+                    onEvent = events::add,
+                )
+            }
+        }
+
+        present = false
+        composeTestRule.waitForIdle()
+
+        // A table nobody has typed into leaves the composition several times in an ordinary
+        // workout — every scroll, every reorder — and none of those is a correction.
+        assertTrue(events.none { it is ActiveSessionEvent.SetEditCommitted })
+    }
+
+    @Test
+    fun `a logged row's rating is picked from the cell that shows it`() {
+        setScreen(state(sets = listOf(loggedRow(id = 1L), loggedRow(id = 2L, rpe = 75))))
+
+        scrollToDescription("Rate of perceived exertion, set 2, 7.5").performClick()
+        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 9").performClick()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.SetEditRpeChanged(BENCH_ROW, setId = 2L, rpe = 90)),
+            events,
+        )
+    }
+
+    @Test
+    fun `a logged row's set type is picked from the cell that shows it`() {
+        setScreen(state())
+
+        scrollToDescription("Set type, set 2, Standard set").performClick()
+        composeTestRule.onNodeWithText("Warm-up").performClick()
 
         assertEquals(
             listOf(
-                ActiveSessionEvent.SetEditConfirmed,
-                ActiveSessionEvent.SetEditCancelled,
+                ActiveSessionEvent.SetEditTypeChanged(
+                    sessionExerciseId = BENCH_ROW,
+                    setId = 2L,
+                    setType = SetType.WARMUP,
+                ),
             ),
             events,
         )
     }
 
     @Test
-    fun `negative - the open row offers no way to delete the set`() {
-        setScreen(state(editing = editingSecondSet()))
+    fun `the sets around the one being corrected are still readable, and still live`() {
+        setScreen(state())
 
-        // A destructive control one line under the fields, on a panel opened to fix a digit, is
-        // the button that costs somebody a set they had done. It is a drag on the row instead.
+        // The whole argument for there being no editor: a mistyped weight is *noticed* against
+        // the sets above and below it — 60, 70, 85, 80 — and nothing on this screen ever covers
+        // them or takes them out of reach.
+        scrollToField("Weight, set 1", "60").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
+        scrollToDescription("Weight, set 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun `negative - there is no save, no cancel and no delete on a logged row`() {
+        setScreen(state())
+
+        // The three words the editor put under the fields. Saving is leaving the row, the way
+        // back from a correction is typing the old number in, and deleting is a drag.
+        composeTestRule.onNodeWithText("Cancel").assertDoesNotExist()
         composeTestRule.onNodeWithText("Delete set").assertDoesNotExist()
+        assertMissing(hasContentDescription("Save set 2"))
     }
 
     @Test
     fun `dragging a logged row off to the left deletes it`() {
         setScreen(state())
 
-        // Dragged well past the left edge rather than to it: the node the row's text is on is the
-        // group of cells, which is narrower than the row the gesture is measured against. The
-        // component clamps, so overshooting is exactly the "off the screen" the gesture is.
-        scrollToText("70 kg × 8").performTouchInput {
+        // Started on the row's leading cell rather than on a value: the two value cells are
+        // fields, and a drag across a field is how a cursor gets moved. Dragged well past the
+        // left edge — the component clamps, so overshooting is exactly the "off the screen" the
+        // gesture is.
+        scrollToDescription("Set type, set 2, Standard set").performTouchInput {
             down(centerRight)
             moveBy(Offset(-OFF_THE_SCREEN, 0f))
             up()
@@ -414,14 +530,14 @@ class ActiveSessionScreenTest {
     fun `negative - a drag let go half way across a row deletes nothing`() {
         setScreen(state())
 
-        scrollToText("70 kg × 8").performTouchInput {
+        scrollToDescription("Set type, set 2, Standard set").performTouchInput {
             down(centerRight)
-            moveTo(center)
+            moveBy(Offset(-HALF_WAY, 0f))
             up()
         }
         composeTestRule.waitForIdle()
 
-        assertTrue(events.isEmpty())
+        assertTrue(events.none { it is ActiveSessionEvent.SetDeleted })
     }
 
     @Test
@@ -447,14 +563,14 @@ class ActiveSessionScreenTest {
         setScreen(
             state(
                 sets = listOf(
-                    loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
-                    loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L)
-                        .copy(isCompleted = false),
+                    loggedRow(id = 1L, weight = "60", reps = "10"),
+                    loggedRow(id = 2L, weight = "70", reps = "8", isCompleted = false),
                 ),
             ),
         )
 
-        scrollToText("70 kg × 8").assertIsDisplayed()
+        // The values are still there — this is not a deletion — and the tick is the way back.
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
         scrollToDescription("Mark set 2 done").performClick()
 
         assertEquals(
@@ -470,17 +586,21 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `negative - a paused workout's logged rows take neither a tick nor a drag`() {
+    fun `negative - a paused workout's logged rows take neither typing nor a tick nor a drag`() {
         setScreen(state().copy(isPaused = true))
 
-        scrollToText("70 kg × 8").performTouchInput {
+        scrollToDescription("Set type, set 2, Standard set").performTouchInput {
             down(centerRight)
             moveBy(Offset(-OFF_THE_SCREEN, 0f))
             up()
         }
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+        // The values stay on screen, because they are still the user's copy of them, and nothing
+        // about the row can be written: `EditSetUseCase` refuses a session that is not running,
+        // so a field that still took keystrokes would be collecting them for a refusal.
+        scrollToDescription("Weight, set 2").assert(hasText("70")).assertIsNotEnabled()
+        scrollToDescription("Set 2 is done. Un-tick it").assertIsNotEnabled()
         assertTrue(events.isEmpty())
     }
 
@@ -488,18 +608,25 @@ class ActiveSessionScreenTest {
     fun `a refused correction is shown on the row that caused it`() {
         setScreen(
             state(
-                editing = editingSecondSet(
-                    entry = SetEntry(
-                        weight = "70",
-                        reps = "0",
-                        error = SetEntryError.Refused("reps must be within 1..10,000, was 0"),
+                sets = listOf(
+                    loggedRow(id = 1L, weight = "60", reps = "10"),
+                    LoggedSet(
+                        id = 2L,
+                        entry = SetEntry(
+                            weight = "70",
+                            reps = "0",
+                            error = SetEntryError.Refused("reps must be within 1..10,000, was 0"),
+                        ),
+                        isCompleted = true,
                     ),
                 ),
             ),
         )
 
         scrollToText("reps must be within 1..10,000, was 0").assertIsDisplayed()
-        scrollToDescription("Save set 2").assertIsNotEnabled()
+        // And what was typed is still in the row: it is the only copy of it, and dropping it
+        // would silently undo a correction the moment the user looked away from a typo.
+        scrollToDescription("Reps, set 2").assert(hasText("0"))
     }
 
     @Test
@@ -514,17 +641,6 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithText("Undo").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SetDeleteUndone), events)
-    }
-
-    @Test
-    fun `negative - a paused workout's logged sets cannot be reopened`() {
-        setScreen(state().copy(isPaused = true))
-
-        scrollToText("70 kg × 8").performClick()
-
-        // Nothing to write into a session that takes no writes, so the row is not a target —
-        // the same rule that takes the entry fields and the tick out.
-        assertEquals(emptyList<ActiveSessionEvent>(), events)
     }
 
     // ─── Supersets ──────────────────────────────────────────────────────────────────────
@@ -651,7 +767,7 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithContentDescription("1. Bench press").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription("2. Incline dumbbell press").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription("3. Cable fly").assertIsDisplayed()
-        assertMissing(hasText("60 kg × 10"))
+        assertMissing(hasContentDescription("Weight, set 2"))
         assertMissing(hasText("Add more exercises"))
         assertMissing(hasText("5 sets"))
     }
@@ -663,7 +779,7 @@ class ActiveSessionScreenTest {
         hold("Bench press")
         release()
 
-        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
         assertTrue(events.isEmpty())
     }
 
@@ -678,7 +794,7 @@ class ActiveSessionScreenTest {
         }
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
         assertTrue(events.isEmpty())
     }
 
@@ -772,7 +888,7 @@ class ActiveSessionScreenTest {
 
         // Still the whole card: a paused session is read-only, and `ReorderSessionExercisesUseCase`
         // would refuse the write anyway.
-        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
     }
 
     @Test
@@ -781,7 +897,7 @@ class ActiveSessionScreenTest {
 
         hold("Bench press")
 
-        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Weight, set 2").assert(hasText("70"))
     }
 
     @Test
@@ -1151,6 +1267,17 @@ class ActiveSessionScreenTest {
     private fun scrollToDescription(description: String): SemanticsNodeInteraction =
         scrollTo(hasContentDescription(description))
 
+    /**
+     * The field called [description] that currently holds [value].
+     *
+     * A set is named by its number *within its exercise* — "Weight, set 1" — and this screen holds
+     * the whole workout, so the low numbers are not unique: an exercise with nothing logged
+     * against it puts its entry row under the same name as the first card's first set. Naming the
+     * value as well is what picks one out, and it is what these tests mean anyway.
+     */
+    private fun scrollToField(description: String, value: String): SemanticsNodeInteraction =
+        scrollTo(hasContentDescription(description) and hasText(value))
+
     private fun setScreen(state: ActiveSessionUiState) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -1167,14 +1294,13 @@ class ActiveSessionScreenTest {
      * workout rather than about logging a set.
      */
     private fun state(
-        sets: List<WorkoutSet> = listOf(
-            loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
-            loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
+        sets: List<LoggedSet> = listOf(
+            loggedRow(id = 1L, weight = "60", reps = "10"),
+            loggedRow(id = 2L, weight = "70", reps = "8"),
         ),
         entry: SetEntry = SetEntry(),
-        editing: SetEdit? = null,
         exercises: List<SessionExerciseRow> = listOf(
-            benchRow(sets = sets, entry = entry, editing = editing),
+            benchRow(sets = sets, entry = entry),
             SessionExerciseRow(sessionExerciseId = INCLINE_ROW, position = 1, exercise = INCLINE),
             SessionExerciseRow(sessionExerciseId = FLY_ROW, position = 2, exercise = FLY),
         ),
@@ -1198,25 +1324,16 @@ class ActiveSessionScreenTest {
 
     /** The bench press, first in the workout, two sets in. */
     private fun benchRow(
-        sets: List<WorkoutSet> = listOf(
-            loggedSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000L),
-            loggedSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 8, weight = 70_000_000L),
+        sets: List<LoggedSet> = listOf(
+            loggedRow(id = 1L, weight = "60", reps = "10"),
+            loggedRow(id = 2L, weight = "70", reps = "8"),
         ),
         entry: SetEntry = SetEntry(),
-        editing: SetEdit? = null,
     ) = SessionExerciseRow(
         sessionExerciseId = BENCH_ROW,
         position = 0,
         exercise = BENCH,
         sets = sets,
-        entry = entry,
-        editing = editing,
-    )
-
-    /** The bench's second set, reopened, holding whatever it was logged with. */
-    private fun editingSecondSet(entry: SetEntry = SetEntry(weight = "70", reps = "8")) = SetEdit(
-        sessionExerciseId = BENCH_ROW,
-        setId = 2L,
         entry = entry,
     )
 
@@ -1251,6 +1368,9 @@ class ActiveSessionScreenTest {
          * `SwipeToDelete` clamps to the row, so overshooting cannot overshoot the threshold.
          */
         const val OFF_THE_SCREEN = 3_000f
+
+        /** Short of `SwipeToDelete`'s commit fraction on any row this screen draws. */
+        const val HALF_WAY = 200f
 
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L

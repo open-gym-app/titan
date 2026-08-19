@@ -1,12 +1,18 @@
+/*
+ * The table's cells are one small composable each, on purpose: the grid is the contract between
+ * the row with fields and the row that is a record, and a column drawn twice is a column that
+ * drifts. Counting them is not a measure of anything.
+ */
+@file:Suppress("TooManyFunctions")
+
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -23,15 +30,22 @@ import androidx.compose.material3.IconToggleButtonColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,11 +66,15 @@ import com.opengym.core.ui.theme.OpenGymTheme
 /*
  * One set, as a row in the table under an exercise.
  *
- * Two composables, because logging a set and reading one back are different jobs:
+ * Two composables, because a set being written and a set being read back are different jobs:
  *
- * - [SetLogRow] is the entry row. Weight and reps are *text*, not numbers, and that is
- *   deliberate — see the note on its parameters.
- * - [LoggedSetRow] is the record. It takes a domain set, formats it, and cannot be typed in.
+ * - [SetLogRow] is the row with fields in it. Weight and reps are *text*, not numbers, and that
+ *   is deliberate — see the note on its parameters. It draws the set being typed *and* every set
+ *   already logged against an exercise the user can still change: there is no third component
+ *   for "a logged set opened for correction", because a logged set is never closed. See
+ *   [onCommit].
+ * - [LoggedSetRow] is the record: a domain set, formatted, that cannot be typed in. What a table
+ *   nobody can write to is made of — a finished workout's recap, a preview.
  *
  * They share a column grid so a screen can put one above the other — a summary listing
  * finished sets above the one still being worked — and have the digits line up. [SetLogHeader]
@@ -105,6 +123,16 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   exercise is logged in may not be filled in — and a tick that is live for a set the write
  *   path refuses is the one thing this row must not do. The fields stay live either way, since
  *   filling them in is the way out of it.
+ * @param onCommit the fields have been left: focus has gone from the row altogether, or the
+ *   keyboard's DONE was pressed. Null for a row whose text is not written until something else
+ *   says so — the entry row, whose tick is that something.
+ *
+ *   This is what a set already logged is corrected through. There is no save button and no
+ *   cancel, because there is no panel to have them: the row *is* the editor, it is live from the
+ *   moment the table is drawn, and a correction is written when the user looks away from it. The
+ *   two closed vocabularies are not covered by this and do not need to be — a rating and a set
+ *   type are picked from a menu, which is an answer rather than a keystroke, so their callbacks
+ *   fire once and the caller can write on the spot.
  */
 @Composable
 fun SetLogRow(
@@ -126,9 +154,20 @@ fun SetLogRow(
     error: String? = null,
     enabled: Boolean = true,
     canComplete: Boolean = true,
+    onCommit: (() -> Unit)? = null,
 ) {
+    val focusManager = LocalFocusManager.current
+    // Cleared on DONE so the key that *looks* like it finishes the row actually does: dismissing
+    // the keyboard leaves the field focused, and a correction nobody committed is a correction
+    // the user believes they made. Clearing focus is the same event as tapping away, so both
+    // ways out arrive here as one.
+    val onDone = onCommit?.let { { focusManager.clearFocus() } }
+
     SetRowFrame(
-        modifier = modifier,
+        // Watched on the frame rather than on each field, so moving between the weight and the
+        // reps of one row is not a write: what has been left is the row, and the row is what
+        // gets written.
+        modifier = modifier.commitOnFocusLoss(onCommit),
         isActive = isActive,
         isCompleted = isCompleted,
         error = error,
@@ -149,6 +188,7 @@ fun SetLogRow(
             keyboardType = KeyboardType.Decimal,
             enabled = enabled,
             error = error,
+            onDone = onDone,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
         Text(
@@ -167,6 +207,7 @@ fun SetLogRow(
             keyboardType = KeyboardType.Number,
             enabled = enabled,
             error = error,
+            onDone = onDone,
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
 
@@ -192,18 +233,13 @@ fun SetLogRow(
  * typed and two fixed columns for two values that are always read together is width spent on
  * a grid nobody is filling in.
  *
- * @param onClick reopens the set for correction, or null for a table that cannot be edited — a
- *   finished session's recap, a preview. The cells are the affordance: a pencil per row would put
- *   a control on every line of a table whose whole job is to be read at a glance, and there is
- *   nothing else a tap on a logged set's values could mean. The tick is *not* part of that target
- *   — see [onCompletedChange].
+ * There is nothing to tap. A logged set is corrected in the row it is already in, by typing into
+ * it — that is [SetLogRow], which is what a screen that can still be written to draws for every
+ * set in the table. This one is for the tables that cannot: a finished session's recap, a
+ * preview, a template's plan.
+ *
  * @param onCompletedChange takes the tick off the set, or puts it back. Null draws the tick as
  *   the plain mark it used to be, for a table that cannot be written to.
- *
- *   Here rather than only in the editor because a tick pressed by accident is the commonest
- *   mistake a set row produces, and the correction for it should not be four taps deep: the
- *   control that made the mistake is the control that undoes it. An un-ticked set stays in the
- *   table, under the number it had, and stops counting — see `MarkSetCompletedUseCase`.
  */
 @Composable
 fun LoggedSetRow(
@@ -212,7 +248,6 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
-    onClick: (() -> Unit)? = null,
     onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
     LoggedSetRow(
@@ -224,7 +259,6 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
-        onClick = onClick,
         onCompletedChange = onCompletedChange,
         modifier = modifier,
     )
@@ -238,7 +272,6 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
-    onClick: (() -> Unit)? = null,
     onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
     LoggedSetRow(
@@ -250,7 +283,6 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
-        onClick = onClick,
         onCompletedChange = onCompletedChange,
         modifier = modifier,
     )
@@ -307,10 +339,9 @@ fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
 /**
  * The ground a set row sits on, its padding, and the error under it.
  *
- * Internal rather than private because [SetEditor] is the same row reopened: it draws the same
- * cells on the same grid, and a frame of its own would be a second set of paddings that drift.
- * The block of controls an editor puts under the row goes in [footer], inside this `Column`, so
- * that the whole editor reads as one tinted block rather than as a row with things below it.
+ * Internal rather than private because both rows in this file are it: the row with fields and the
+ * row that is a record draw the same cells on the same grid, and a frame each would be two sets
+ * of paddings that drift.
  */
 @Composable
 internal fun SetRowFrame(
@@ -318,7 +349,6 @@ internal fun SetRowFrame(
     isActive: Boolean,
     isCompleted: Boolean,
     error: String?,
-    footer: (@Composable ColumnScope.() -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     // Three grounds, in order of how much they are asking for: the set being worked is
@@ -350,7 +380,6 @@ internal fun SetRowFrame(
                 modifier = Modifier.padding(top = OpenGymTheme.spacing.xs),
             )
         }
-        footer?.invoke(this)
     }
 }
 
@@ -378,9 +407,9 @@ internal fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
 /**
  * The leading cell of a row whose type can be changed, or of one whose cannot.
  *
- * The branch is here rather than at each call site because both rows that have it — the entry row
- * and the editor — have to draw the *same* cell either way: a table whose leading column changed
- * width when a session was paused would relayout every figure in it.
+ * The branch is here rather than at each call site because a row has to draw the *same* cell
+ * either way: a table whose leading column changed width when a session was paused would relayout
+ * every figure in it.
  */
 @Composable
 internal fun SetTypeCell(
@@ -470,6 +499,9 @@ internal fun PreviousCell(previous: String?, showPrevious: Boolean) {
  * [error] is carried here rather than on the row's frame because the frame is a `Column` with
  * no text and no role: TalkBack never stops on it, so an error announced there is an error
  * nobody hears. On the field it is read out with the value that was refused.
+ *
+ * [onDone] turns the keyboard's action key into DONE and is what it does. Null leaves the key
+ * whatever the platform would have made it, which is what a field nobody has to leave wants.
  */
 @Composable
 internal fun SetValueField(
@@ -480,6 +512,7 @@ internal fun SetValueField(
     enabled: Boolean,
     error: String?,
     modifier: Modifier = Modifier,
+    onDone: (() -> Unit)? = null,
 ) {
     val shape = MaterialTheme.shapes.extraSmall
     val border = if (error != null) MaterialTheme.colorScheme.error else Color.Transparent
@@ -494,7 +527,11 @@ internal fun SetValueField(
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         ),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
+        ),
+        keyboardActions = KeyboardActions(onDone = onDone?.let { { it() } }),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier.semantics {
             contentDescription = description
@@ -602,7 +639,6 @@ private fun LoggedSetRow(
     isCompleted: Boolean,
     previous: String?,
     showPrevious: Boolean,
-    onClick: (() -> Unit)?,
     onCompletedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
 ) {
@@ -614,18 +650,6 @@ private fun LoggedSetRow(
         weight != null -> formatWeight(weight)
         else -> stringResource(R.string.set_log_rpe_unset)
     }
-    val editLabel = stringResource(R.string.set_log_edit, setNumber)
-
-    // Merged only when there is something to tap. A row that can be reopened is one target and
-    // has to announce itself as one — four separate stops with a click action hanging off their
-    // parent is a row TalkBack can read and cannot press. A row that cannot be reopened keeps
-    // the per-cell reading it already had, which is what lets a reader hear the RPE of the
-    // third set without hearing the other three cells first.
-    val tap = onClick?.let { click ->
-        Modifier
-            .clickable(onClickLabel = editLabel, onClick = click)
-            .semantics(mergeDescendants = true) { }
-    } ?: Modifier
 
     SetRowFrame(
         modifier = modifier,
@@ -633,13 +657,11 @@ private fun LoggedSetRow(
         isCompleted = isCompleted,
         error = null,
     ) {
-        // The cells are the tap target, and the tick is outside it. Two actions on one row have to
-        // be two nodes: with the whole row merged, the tick's own click is swallowed by the
-        // parent's and a screen reader is left able to reopen the set and unable to un-tick it —
-        // while a thumb aiming at the tick would open the editor instead. The grid is unaffected,
-        // because the group takes the width the tick does not: see the note on the columns below.
+        // Kept as a group of its own even with nothing to tap, because the grid depends on it:
+        // the group takes the width the tick does not, which is what lands its cells on exactly
+        // the columns a row of fields puts them on. See the note on the columns below.
         Row(
-            modifier = Modifier.weight(1f).then(tap),
+            modifier = Modifier.weight(1f),
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -676,6 +698,31 @@ private fun LoggedSetRow(
     }
 }
 
+/**
+ * Calls [onCommit] when focus leaves the subtree this is applied to, and not before.
+ *
+ * The guard is the whole of it. `onFocusChanged` fires once on composition with nothing focused,
+ * so a naive "not focused, therefore left" writes every row of the table the first time the
+ * screen is drawn — and again on every recomposition that remounts one. What is wanted is the
+ * *edge*: focus was in here, and now it is not.
+ *
+ * The `focusGroup` under it is what makes "the subtree" a thing to ask about at all. Without it
+ * the row has two independent focus targets below one observer, which reports each of them in
+ * turn — so moving from the weight to the reps would read as a departure and write the row twice
+ * on the way across it. Grouped, the observer sees one state, and `hasFocus` is true for as long
+ * as the focus is anywhere in the row.
+ */
+@Composable
+private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
+    if (onCommit == null) return this
+    var wasFocused by remember { mutableStateOf(false) }
+
+    return onFocusChanged { state ->
+        if (wasFocused && !state.hasFocus) onCommit()
+        wasFocused = state.hasFocus
+    }.focusGroup()
+}
+
 // ─── The grid ───────────────────────────────────────────────────────────────────────────
 
 /*
@@ -698,7 +745,7 @@ private fun LoggedSetRow(
  * they are sized to be hit rather than to fit their contents. Eight dp between them is what that
  * costs the value columns, which is a character of a rep count nobody logs.
  *
- * A logged row groups every cell except the tick into one tap target, and the grid survives that
+ * A logged row groups every cell except the tick under one parent, and the grid survives that
  * because the group takes the width the tick does not: with one gap between them, the group's own
  * cells land on exactly the columns a flat row puts them on.
  */
@@ -763,6 +810,81 @@ fun SetLogRowInvalidPreview() {
     }
 }
 
+@Preview(name = "Set log - a table being corrected", widthDp = 360)
+@Composable
+fun SetLogCorrectionPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        CorrectableTable()
+    }
+}
+
+@Preview(name = "Set log - a table being corrected, dark", widthDp = 360)
+@Composable
+fun SetLogCorrectionDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) {
+        CorrectableTable()
+    }
+}
+
+/**
+ * What an exercise of a running workout looks like: every row live, the next one accented.
+ *
+ * The point of the picture is that the second set — the one being corrected from 70 to 72.5 —
+ * is not a mode. It is the same row it was a moment ago, with the sets above and below it still
+ * on screen, which is exactly what a mistyped weight is checked against.
+ */
+@Composable
+private fun CorrectableTable() {
+    OpenGymCard(modifier = Modifier.fillMaxWidth().padding(OpenGymTheme.spacing.screen)) {
+        SetLogHeader()
+        HairlineDivider()
+        LiveRow(setNumber = 1, weight = "60", reps = "10", rpe = 60, setType = SetType.WARMUP)
+        HairlineDivider()
+        LiveRow(setNumber = 2, weight = "72.5", reps = "8", rpe = 75)
+        HairlineDivider()
+        LiveRow(setNumber = 3, weight = "75", reps = "6", rpe = 85)
+        HairlineDivider()
+        SetLogRow(
+            setNumber = 4,
+            weight = "",
+            reps = "",
+            onWeightChange = {},
+            onRepsChange = {},
+            onCompletedChange = {},
+            onSetTypeChange = {},
+            onRpeChange = {},
+            previous = "75 × 6",
+            isActive = true,
+        )
+    }
+}
+
+/** One set already logged, still typeable. `onCommit` is what writes it — see [SetLogRow]. */
+@Composable
+private fun LiveRow(
+    setNumber: Int,
+    weight: String,
+    reps: String,
+    rpe: Int,
+    setType: SetType = SetType.NORMAL,
+) {
+    SetLogRow(
+        setNumber = setNumber,
+        weight = weight,
+        reps = reps,
+        onWeightChange = {},
+        onRepsChange = {},
+        onCompletedChange = {},
+        setType = setType,
+        onSetTypeChange = {},
+        rpe = rpe,
+        onRpeChange = {},
+        previous = null,
+        isCompleted = true,
+        onCommit = {},
+    )
+}
+
 @Composable
 private fun SetLogTable() {
     OpenGymCard(modifier = Modifier.fillMaxWidth().padding(OpenGymTheme.spacing.screen)) {
@@ -779,7 +901,6 @@ private fun SetLogTable() {
                 completedAt = 1,
             ),
             previous = "60 × 10",
-            onClick = {},
             onCompletedChange = {},
         )
         HairlineDivider()
@@ -789,7 +910,6 @@ private fun SetLogTable() {
             setNumber = 2,
             set = ActiveSet(reps = 8, weight = 70_000_000, rpe = 75, isCompleted = false),
             previous = "70 × 8",
-            onClick = {},
             onCompletedChange = {},
         )
         HairlineDivider()

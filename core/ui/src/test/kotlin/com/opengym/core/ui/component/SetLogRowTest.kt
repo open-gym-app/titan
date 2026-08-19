@@ -1,6 +1,9 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -11,9 +14,11 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -380,6 +385,143 @@ class SetLogRowTest {
         composeTestRule.onNodeWithText("12 reps").assertIsDisplayed()
     }
 
+    @Test
+    fun `the tick on a logged set takes it back out of the count`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet(),
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it")
+            .assertIsOn()
+            .performClick()
+
+        assertEquals(listOf(false), completions)
+    }
+
+    @Test
+    fun `an un-ticked logged set offers the tick back, and stays in the table`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet().copy(isCompleted = false, completedAt = null),
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        // The values are still there — this is not a deletion — and the tick is the way back.
+        composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Mark set 2 done")
+            .assertIsOff()
+            .performClick()
+
+        assertEquals(listOf(true), completions)
+    }
+
+    @Test
+    fun `negative - a read-only table draws the tick as a mark rather than a control`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(setNumber = 2, set = loggedSet(), onCompletedChange = null)
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+    }
+
+    // ─── Leaving a row, which is what writes a logged one ───────────────────────────────
+
+    @Test
+    fun `leaving the row reports it`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                Column {
+                    SetLogRow(
+                        setNumber = 1,
+                        weight = "70",
+                        reps = "8",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        onCommit = { commits++ },
+                    )
+                    // Somewhere else to put the focus, which is what leaving the row is.
+                    BasicTextField(value = "", onValueChange = {}, modifier = Modifier.testTag(ELSEWHERE))
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 1").requestFocus()
+        composeTestRule.onNodeWithTag(ELSEWHERE).requestFocus()
+
+        assertEquals(1, commits)
+    }
+
+    @Test
+    fun `negative - moving between the two fields of one row is not leaving it`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 1,
+                    weight = "70",
+                    reps = "8",
+                    onWeightChange = {},
+                    onRepsChange = {},
+                    onCompletedChange = {},
+                    onCommit = { commits++ },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 1").requestFocus()
+        composeTestRule.onNodeWithContentDescription("Reps, set 1").requestFocus()
+
+        // What has been left is a field, not the row. A commit per field would write the same
+        // correction twice on the way across it.
+        assertEquals(0, commits)
+    }
+
+    @Test
+    fun `negative - a row nobody has focused reports nothing`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 1,
+                    weight = "70",
+                    reps = "8",
+                    onWeightChange = {},
+                    onRepsChange = {},
+                    onCompletedChange = {},
+                    onCommit = { commits++ },
+                )
+            }
+        }
+
+        // `onFocusChanged` fires once on composition with nothing focused. Read as "not focused,
+        // therefore left", that writes every row of the table the first time it is drawn.
+        assertEquals(0, commits)
+    }
+
+    private fun loggedSet() = ActiveSet(
+        reps = 8,
+        weight = 70_000_000,
+        rpe = 75,
+        isCompleted = true,
+        completedAt = 1,
+    )
+
     private fun setRow(
         weight: String,
         reps: String,
@@ -420,5 +562,8 @@ class SetLogRowTest {
 
         /** Layout is computed in floating point; a fraction of a pixel is not a misalignment. */
         const val HALF_A_PIXEL = 0.5f
+
+        /** A field outside the row, so focus has somewhere to go that counts as leaving. */
+        const val ELSEWHERE = "elsewhere"
     }
 }

@@ -40,7 +40,6 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ReorderState
 import com.opengym.core.ui.component.ReorderableItem
@@ -736,17 +735,21 @@ fun ActiveSessionScreenEditingPreview() {
         ActiveSessionScreen(
             state = base.copy(
                 exercises = base.exercises.map { row ->
-                    // The second set of the bench press, reopened: the table around it is still
-                    // readable, which is the whole argument for the editor being the row.
+                    // The second set of the bench press, half corrected: 70 typed back to 72.5,
+                    // not yet left. Nothing about the table has changed shape — the sets around it
+                    // are still readable and still typeable, which is the whole argument for there
+                    // being no editor at all.
                     if (row.sessionExerciseId != 1L) {
                         row
                     } else {
                         row.copy(
-                            editing = SetEdit(
-                                sessionExerciseId = row.sessionExerciseId,
-                                setId = row.sets[1].id,
-                                entry = SetEntry(weight = "70", reps = "8", rpe = 75),
-                            ),
+                            sets = row.sets.mapIndexed { index, set ->
+                                if (index == 1) {
+                                    set.copy(entry = set.entry.copy(weight = "72.5"))
+                                } else {
+                                    set
+                                }
+                            },
                         )
                     }
                 },
@@ -771,23 +774,19 @@ private fun previewState(): ActiveSessionUiState {
     val fly = Exercise(id = 3L, name = "Cable fly")
     val pushdown = Exercise(id = 4L, name = "Tricep pushdown")
 
+    // A logged set as the row it is drawn in: the values already in the fields, because every row
+    // of the table is live — see `LoggedSetTable`. The weight is text in the ambient unit, which
+    // is what the ViewModel formats it into.
     fun set(
         number: Int,
-        weight: Long,
+        weight: String,
         reps: Int,
         rpe: Int,
         sessionExerciseId: Long = 1L,
-    ) = WorkoutSet(
+    ) = LoggedSet(
         id = number.toLong() + sessionExerciseId * 100,
-        sessionExerciseId = sessionExerciseId,
-        setNumber = number,
-        reps = reps,
-        weight = weight,
-        rpe = rpe,
+        entry = SetEntry(weight = weight, reps = reps.toString(), rpe = rpe),
         isCompleted = true,
-        completedAt = 1L,
-        createdAt = 1L,
-        updatedAt = 1L,
     )
 
     return ActiveSessionUiState(
@@ -809,9 +808,9 @@ private fun previewState(): ActiveSessionUiState {
                 position = 0,
                 exercise = bench,
                 sets = listOf(
-                    set(number = 1, weight = 60_000_000L, reps = 10, rpe = 60),
-                    set(number = 2, weight = 70_000_000L, reps = 8, rpe = 75),
-                    set(number = 3, weight = 75_000_000L, reps = 6, rpe = 85),
+                    set(number = 1, weight = "60", reps = 10, rpe = 60),
+                    set(number = 2, weight = "70", reps = 8, rpe = 75),
+                    set(number = 3, weight = "75", reps = 6, rpe = 85),
                 ),
             ),
             SessionExerciseRow(
@@ -819,8 +818,8 @@ private fun previewState(): ActiveSessionUiState {
                 position = 1,
                 exercise = incline,
                 sets = listOf(
-                    set(number = 1, weight = 26_000_000L, reps = 12, rpe = 70, sessionExerciseId = 2L),
-                    set(number = 2, weight = 28_000_000L, reps = 10, rpe = 80, sessionExerciseId = 2L),
+                    set(number = 1, weight = "26", reps = 12, rpe = 70, sessionExerciseId = 2L),
+                    set(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
                 ),
                 // Mid-set, which is what brings the set-type chips and the note out.
                 entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),

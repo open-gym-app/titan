@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionTotals
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
@@ -38,6 +39,15 @@ class FakeActiveSessionStore(
 
     /** Every set written through [insertSet], oldest first. */
     val logged = mutableListOf<WorkoutSet>()
+
+    /**
+     * The `workout_set` rows as they now stand.
+     *
+     * The screen reads a set as the row it is drawn in — a set number is its place in the table,
+     * and the weight is text in the user's unit — so the stored numbering is a thing only the
+     * store can be asked about. That is what a renumbering after a deletion is asserted against.
+     */
+    val stored: List<WorkoutSet> get() = sets.value
 
     /** Thrown by [insertSet] instead of storing, when set. */
     var insertFailure: Throwable? = null
@@ -304,6 +314,26 @@ fun activeExercise(
     supersetGroup = supersetGroup,
     createdAt = STARTED_AT,
     updatedAt = STARTED_AT,
+)
+
+/**
+ * One logged set as the screen draws it: the values already in the fields.
+ *
+ * The row a screen test works with, as against [loggedSet], which is the row a *store* holds. The
+ * two are different shapes on purpose — every row of the table is live, so what reaches the screen
+ * is text in the user's own unit rather than milligrams. See `LoggedSet`.
+ */
+fun loggedRow(
+    id: Long,
+    weight: String = "60",
+    reps: String = "8",
+    rpe: Int? = null,
+    setType: SetType = SetType.NORMAL,
+    isCompleted: Boolean = true,
+) = LoggedSet(
+    id = id,
+    entry = SetEntry(weight = weight, reps = reps, rpe = rpe, setType = setType),
+    isCompleted = isCompleted,
 )
 
 /**

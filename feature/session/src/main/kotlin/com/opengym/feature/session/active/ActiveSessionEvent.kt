@@ -40,53 +40,67 @@ sealed interface ActiveSessionEvent {
     /*
      * ── Correcting a set that is already logged ─────────────────────────────────────────
      *
-     * Exactly one set on the whole screen is ever open for correction, and which one is part
-     * of the state. So the events that *edit* it name nothing: they are about the open row the
-     * way [NameChanged] is about the open dialog, and an id carried on each of them would be a
-     * second copy of a fact the state already holds — one that can disagree with it after a
-     * table is renumbered under the screen.
+     * There is no open row, so every one of these names its own. A logged set is corrected by
+     * typing into the row it is already in — all of them are live, all of the time, and there is
+     * no editor to open or to close. What used to be "the open row" is now as many half-typed
+     * corrections as the user has started, which is at most one per row and usually none.
      *
-     * The three that are not about the open row do name what they are about: [SetEditRequested]
-     * is what opens one, [SetDeleted] and [SetCompletionToggled] are gestures on a row that is
-     * *not* open — the whole point of both — and [SetDeleteUndone] answers an offer that outlives
-     * the row entirely.
+     * The four that carry values do not write. What writes is [SetEditCommitted], raised when
+     * the row is left — the two picked off a menu are the exception and say why below.
      */
+
+    /** A logged row's weight field changed. Carries text, not a number — see [SetEntry]. */
+    data class SetEditWeightChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /** A logged row's rep field changed. */
+    data class SetEditRepsChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
 
     /**
-     * Reopen a logged set to correct it.
+     * A logged row's rating changed, or was cleared with null.
      *
-     * Opening a second one closes the first and drops whatever was typed into it. That is the
-     * cost of the row being the affordance — a tap on another set is unambiguous about which
-     * set the user now means — and the alternative, a dialog asking about a set they have just
-     * looked away from, is worse.
+     * Written on the spot rather than waiting for [SetEditCommitted]. A rating is picked off a
+     * closed scale of nine in a menu — see `RpePicker` — so the pick *is* the answer: there are
+     * no half-typed states to pass through and nothing to leave the row to finish. A menu that
+     * shut without writing would be a change the user watched happen and would not find later.
      */
-    data class SetEditRequested(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+    data class SetEditRpeChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val rpe: Int?,
+    ) : ActiveSessionEvent
 
-    /** The open row's weight field changed. Carries text, not a number — see [SetEntry]. */
-    data class SetEditWeightChanged(val text: String) : ActiveSessionEvent
+    /** A logged row's set type changed. Written on the spot, for [SetEditRpeChanged]'s reason. */
+    data class SetEditTypeChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val setType: SetType,
+    ) : ActiveSessionEvent
 
-    /** The open row's rep field changed. */
-    data class SetEditRepsChanged(val text: String) : ActiveSessionEvent
-
-    /** The open row's rating changed, or was cleared with null. */
-    data class SetEditRpeChanged(val rpe: Int?) : ActiveSessionEvent
-
-    /** The open row's set type changed. */
-    data class SetEditTypeChanged(val setType: SetType) : ActiveSessionEvent
-
-    /** Close the open row without writing. The set keeps the values it had. */
-    data object SetEditCancelled : ActiveSessionEvent
-
-    /** Write the open row's values over the set. */
-    data object SetEditConfirmed : ActiveSessionEvent
+    /**
+     * The user has finished with a logged row: its fields lost focus, or the keyboard's DONE was
+     * pressed. Write what is in it.
+     *
+     * This is the whole of "saving a correction". There is no confirm button and no cancel,
+     * because there is no panel to put them on — see `LoggedSetTable`. A row whose values are
+     * unchanged writes nothing, and one whose values `SetValidator` refuses keeps them, with the
+     * reason under it, until they are a set again.
+     */
+    data class SetEditCommitted(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
 
     /**
      * Take one set out of the workout.
      *
-     * Names its set, because what raises it is a drag across a row in the table rather than a
-     * button in the open editor — there need not be an editor open at all, and if there is, it is
-     * as likely to be over another set. Deleting used to be a word under the fields; it is a
-     * gesture now, for the reason `SwipeToDelete` gives.
+     * Names its set, because what raises it is a drag across a row in the table. Deleting used to
+     * be a word under an editor's fields; it is a gesture now, for the reason `SwipeToDelete`
+     * gives.
      *
      * Not confirmed, and reversible instead: what follows is an offer to undo, which the
      * screen puts on screen for as long as it stands. See `DeleteSetUseCase`.
@@ -97,8 +111,8 @@ sealed interface ActiveSessionEvent {
      * Tick a logged set off, or take the tick back off it.
      *
      * The tick is the control a set is written with, and it is therefore the control that gets
-     * pressed by accident — so it is also the way back, from the row itself rather than from four
-     * taps inside an editor. Carries the state it should end up in rather than "toggle": the tap
+     * pressed by accident — so it is also the way back, and it is the same control in the same
+     * cell. Carries the state it should end up in rather than "toggle": the tap
      * was on a control that was already showing an answer, and a flip computed against whatever
      * the row holds when the event lands is not what the user pressed.
      *

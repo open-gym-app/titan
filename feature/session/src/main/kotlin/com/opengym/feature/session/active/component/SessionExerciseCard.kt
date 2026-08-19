@@ -254,6 +254,10 @@ private fun ExerciseHeading(
  * added here is the row being typed, which every exercise also has: a superset is logged by
  * alternating between its members, and a row that only existed on one of them would make that
  * impossible.
+ *
+ * Every row of both halves takes typing. What tells them apart is not whether they can be edited
+ * — they all can — but what writes them: a logged row is written by being left, and this one by
+ * its tick, because it is not a set until somebody says it is.
  */
 @Composable
 private fun SetTable(
@@ -270,8 +274,6 @@ private fun SetTable(
             sets = row.sets,
             sessionExerciseId = row.sessionExerciseId,
             onEvent = onEvent,
-            editing = row.editing,
-            canSaveEdit = row.canSaveEdit,
             togglingSetIds = togglingSetIds,
             enabled = enabled,
         )
@@ -300,10 +302,11 @@ private fun SetTable(
             // #101 fills this. The column is drawn either way, so adding it later does not move
             // every figure in the table sideways.
             previous = null,
-            // Not while a logged set is open above it. The tint means "this is the row you are
-            // working on", and two tinted rows on one card means it does not — the correction is
-            // what the user is doing, and the next set can wait for it.
-            isActive = row.editing == null,
+            // The one accented row on the card, always. Every row above it is live too — a
+            // logged set is corrected where it sits, see [LoggedSetTable] — so what the tint is
+            // left to mean is the only thing worth marking from arm's length: this is where the
+            // next number goes.
+            isActive = true,
             error = error,
             enabled = enabled,
             // The fields stay live while the tick does not: a row with a weight in it and no
@@ -368,9 +371,9 @@ private fun SetNote(
  * `SetValidator`'s, which already names the field, the bound and the value it saw. Paraphrasing
  * that one would be a second copy of a rule that lives in the domain.
  *
- * Internal because the same three refusals reach the same user two ways: under the row being
- * typed, and under the logged row reopened to correct it. `SetValidator` gives one answer about
- * a set, so the screen says it in one set of words.
+ * Internal because the same three refusals reach the same user under any row of the table:
+ * `SetValidator` gives one answer about a set, whether it is being logged or being corrected, so
+ * the screen says it in one set of words.
  */
 @Composable
 internal fun SetEntryError.message(): String = when (this) {

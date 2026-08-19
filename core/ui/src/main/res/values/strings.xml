@@ -59,12 +59,9 @@
 
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
-    <!-- The click label on a logged row. The row itself is the affordance, so this is the
-         only thing that says a tap does anything at all. -->
-    <string name="set_log_edit">Edit set %1$d</string>
-    <string name="set_edit_save">Save set %1$d</string>
-    <!-- Uppercased by the design, written in sentence case here — see the note at the top. -->
-    <string name="set_edit_cancel">Cancel</string>
+    <!-- Nothing here names an editor, a save or a cancel: a logged set is corrected by typing
+         into the row it is already in, and the correction is written when the row is left. -->
+
     <!-- The accessibility action that stands in for the swipe, since a gesture is not an
          affordance a screen reader can reach. Names the set, because a table of five would
          otherwise offer five identical actions. -->

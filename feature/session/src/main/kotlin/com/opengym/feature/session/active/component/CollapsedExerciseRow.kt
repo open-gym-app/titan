@@ -27,14 +27,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.DragHandle
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.active.LoggedSet
 import com.opengym.feature.session.active.SessionExerciseRow
+import com.opengym.feature.session.active.SetEntry
 import com.opengym.core.ui.R as CoreR
 
 /**
@@ -243,17 +244,11 @@ private fun previewRows(): List<SessionExerciseRow> = listOf(
     ),
 )
 
-private fun previewSets(sessionExerciseId: Long, count: Int): List<WorkoutSet> =
+private fun previewSets(sessionExerciseId: Long, count: Int): List<LoggedSet> =
     (1..count).map { number ->
-        WorkoutSet(
+        LoggedSet(
             id = sessionExerciseId * 100 + number,
-            sessionExerciseId = sessionExerciseId,
-            setNumber = number,
-            reps = 8,
-            weight = 60_000_000L,
+            entry = SetEntry(weight = "60", reps = "8"),
             isCompleted = true,
-            completedAt = 1L,
-            createdAt = 1L,
-            updatedAt = 1L,
         )
     }

@@ -211,14 +211,14 @@ data class ActiveSessionHeader(
  *   exercise that stands alone. Carried beside [supersetLabel] rather than read back out of it:
  *   the label's format is `SupersetLabels`' own, and the one caller that wants the group by
  *   itself is the join under this card, which names it.
- * @param sets the sets logged against it, in set-number order.
+ * @param sets the sets logged against it, in set-number order, each as the fields it is drawn
+ *   in. Text rather than the stored `WorkoutSet`, for the reason [SetEntry] gives at length:
+ *   every one of these rows is live — a logged set is corrected by typing into the row it is
+ *   already in — and a field being typed into does not hold a number.
  * @param entry the set being typed into it. Every exercise has one — there is always a next set
  *   to log, and a screen that hid the fields until an "add set" tap would put a tap in front of
- *   the thing the screen exists to do.
- * @param editing the set of *this* exercise that is open for correction, or null. At most one
- *   set on the whole screen is ever open, which is why the ViewModel holds one of these and
- *   hands it to the row it belongs to: a field per row could hold two, and two open editors is
- *   two half-typed corrections the user has to remember they made.
+ *   the thing the screen exists to do. Separate from [sets] because it is the one row that is
+ *   not a set yet: what writes it is a tick, and what writes the others is leaving them.
  */
 @Immutable
 data class SessionExerciseRow(
@@ -229,9 +229,8 @@ data class SessionExerciseRow(
     val supersetLabel: String? = null,
     val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
-    val sets: List<WorkoutSet> = emptyList(),
+    val sets: List<LoggedSet> = emptyList(),
     val entry: SetEntry = SetEntry(),
-    val editing: SetEdit? = null,
 ) {
 
     /** How many sets sit under it, performed or not, which is what the table draws. */
@@ -245,7 +244,7 @@ data class SessionExerciseRow(
      * are the same number only while nothing incomplete is ever persisted, which is not a
      * property this screen has: a set can be logged and left unticked.
      */
-    val completedSetCount: Int get() = sets.count(WorkoutSet::isCompleted)
+    val completedSetCount: Int get() = sets.count(LoggedSet::isCompleted)
 
     /** The number the next set will be shown under, which is its place in the table, from 1. */
     val nextSetNumber: Int get() = sets.size + 1
@@ -259,17 +258,6 @@ data class SessionExerciseRow(
      * moment it is pressed — see [records].
      */
     val canLogEntry: Boolean get() = entry.canLog && entry.records(exercise?.type)
-
-    /**
-     * Whether the correction as typed can be written as it stands.
-     *
-     * [canLogEntry]'s counterpart, and the same two halves for the same reason: `EditSetUseCase`
-     * runs `SetValidator` against the corrected set exactly as `LogSetUseCase` runs it against a
-     * new one, so a tick that was live on the values alone would be a tick whose write is
-     * sometimes refused the moment it is pressed.
-     */
-    val canSaveEdit: Boolean
-        get() = editing != null && editing.entry.canLog && editing.entry.records(exercise?.type)
 
     /**
      * Whether this exercise's sets are measured in time rather than in reps.
@@ -372,29 +360,41 @@ data class SetEntry(
 }
 
 /**
- * A set that is already logged, open to be corrected.
+ * A set that is already written, as the row it is drawn in.
  *
- * The values are [SetEntry]'s, whole, rather than a second set of fields that would have to be
- * validated by a second copy of the same rules: what a user types into a correction is exactly
- * what they type into a new set, including the states on the way to a number that are not one.
- * Only the note is unused — the editor has no field for it, and the stored one is carried
- * through the write untouched; see `SetEditor`.
+ * ### Why a logged set carries text
  *
- * @param sessionExerciseId the exercise whose table the open row is in. Carried here rather than
- *   on every event about the row, so that "which set is open" is one fact in one place.
- * @param setId the `workout_set` row being corrected. The number it is drawn under is *not*
- *   carried: that is the row's place in the table, which the table already knows and which a
- *   deletion elsewhere can change under an open editor.
- * @param entry the values as they are being typed, validated against `SetValidator` on every
- *   keystroke exactly as an entry row is.
- * @param isSaving a write is in flight. The editor stays open and goes inert: it is the only
- *   copy of what was typed, and a second tick would write the same correction twice.
+ * Because it is still being typed into. There is no separate editor and no mode: every row of
+ * every table on this screen is live from the moment it is drawn, and a correction is written
+ * when the user leaves the row — see `LoggedSetTable`. So a logged set needs exactly what the
+ * unwritten one needs, which is [SetEntry]: the field contents as typed, and the reason they
+ * would be refused. `8.` and `` are states a user passes through on the way to a number, and a
+ * `WorkoutSet` cannot hold either of them.
+ *
+ * The values are seeded from what is stored — the weight formatted back into the unit it will be
+ * typed in, the way a restored draft is — until the user touches the row, after which what they
+ * typed is what is shown. Only [SetEntry.notes] is unused: the table has no column for prose, and
+ * the stored note is carried through the write untouched; see `EditSetUseCase`.
+ *
+ * @param id the `workout_set` row. The number it is drawn under is *not* carried: that is its
+ *   place in the table, which the table already knows and which a deletion elsewhere changes.
+ * @param entry the values as they stand, validated against `SetValidator` on every keystroke
+ *   exactly as an entry row is.
+ * @param isCompleted whether it counts. Kept out of [entry] because it is the one thing about a
+ *   logged set that is not typed: the tick writes it on its own, straight away.
+ * @param isEdited whether [entry] is the user's typing rather than the stored row read out. False
+ *   for almost every row almost always, and what a screen checks before writing one on its way
+ *   out: the workout is a lazy list, so a card scrolled far enough away is taken out of the
+ *   composition, and a row that leaves that way never reports losing focus. See `LoggedSetTable`.
+ * @param isSaving a correction to this row is in flight. The row goes inert — it is the only
+ *   copy of what was typed, and a second write of the same correction is a race with itself.
  */
 @Immutable
-data class SetEdit(
-    val sessionExerciseId: Long,
-    val setId: Long,
+data class LoggedSet(
+    val id: Long,
     val entry: SetEntry = SetEntry(),
+    val isCompleted: Boolean = false,
+    val isEdited: Boolean = false,
     val isSaving: Boolean = false,
 )
 
