@@ -64,6 +64,17 @@ import com.opengym.feature.session.active.SetEntryError
  * [SetEntry.isStarted]. Not a fold: nothing logged is ever hidden, and a note is prose, which is
  * the one thing a table cell cannot be.
  *
+ * ### What last time is worth
+ *
+ * Every row carries a `PREV` cell, which is what turns the table from a log into a decision: the
+ * number a lifter is choosing a weight against is the one they hit last week, and on the entry
+ * row it reads as a target. It is filled per row rather than per card, because which reference a
+ * row gets depends on the types of the rows above it — see [SessionExerciseRow].
+ *
+ * The one thing the column cannot say is that there *is* no last time. A card of dashes reads as
+ * a fault rather than as a first attempt, so an exercise with no history says so once, under its
+ * name, and the cells stay as they are for every other card on the screen.
+ *
  * @param row the exercise, its sets and its half-typed set.
  * @param position where it sits in the workout, from 0 — the *drawn* order rather than
  *   [SessionExerciseRow.position], which is what is stored and is a frame behind it while a
@@ -214,6 +225,25 @@ private fun ExerciseHeading(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = OpenGymTheme.spacing.xs),
             )
+            // The one thing the PREV column cannot say for itself. Its cells hold a dash for a
+            // set with no history, which is the right answer for the fourth set of an exercise
+            // that was three sets last time and the wrong one for an exercise nobody has ever
+            // done — a whole column of dashes reads as a fault rather than as a fact. Said
+            // once, here, rather than repeated down the column.
+            //
+            // Under the name rather than beside the eyebrow, because the line above it is not
+            // this column's to spend: the superset marker and the two slot controls sit to the
+            // right of it, and on a 360dp screen what is left over is not a badge's width.
+            //
+            // Neutral rather than accent: a first attempt is worth marking and is not worth
+            // looking at before the weight being typed two rows below it. See `BadgeTone`.
+            if (!row.hasHistory) {
+                OpenGymBadge(
+                    text = stringResource(R.string.active_first_time),
+                    tone = BadgeTone.NEUTRAL,
+                    modifier = Modifier.padding(top = OpenGymTheme.spacing.sm),
+                )
+            }
         }
         if (row.supersetLabel != null) {
             OpenGymBadge(
@@ -299,9 +329,10 @@ private fun SetTable(
             },
             rpe = entry.rpe,
             onRpeChange = { onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it)) },
-            // #101 fills this. The column is drawn either way, so adding it later does not move
-            // every figure in the table sideways.
-            previous = null,
+            // What the next set was last time, which is the one row where that is a
+            // prediction rather than a comparison — and the reason the column is worth its
+            // width: it is the number a lifter is deciding against with a bar in their hands.
+            previous = row.entryPrevious,
             // The one accented row on the card, always. Every row above it is live too — a
             // logged set is corrected where it sits, see [LoggedSetTable] — so what the tint is
             // left to mean is the only thing worth marking from arm's length: this is where the

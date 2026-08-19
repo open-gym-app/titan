@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Update
 import com.opengym.core.data.db.entity.WorkoutSetEntity
 import com.opengym.core.data.db.projection.MuscleVolumeRow
+import com.opengym.core.data.db.projection.PreviousSetRow
 import com.opengym.core.data.db.projection.SessionTotalsRow
 import com.opengym.core.data.db.projection.WeeklyVolumeRow
 import kotlinx.coroutines.flow.Flow
@@ -63,6 +64,71 @@ interface WorkoutSetDao {
         """,
     )
     fun getBySession(sessionId: Long): Flow<List<WorkoutSetEntity>>
+
+    /**
+     * The last set table performed for each exercise [sessionId] holds, from any session but
+     * that one — the `PREV` column of the active workout, for the whole screen, in one read.
+     *
+     * ### One query, ten exercises
+     *
+     * The exercises are a sub-select rather than a parameter, so a workout of ten reads the
+     * same way a workout of one does. The alternative — the caller holding the layout and
+     * asking per exercise — is the fan-out [getBySession] exists to avoid, made worse: each of
+     * those lookups is a `Flow`, so a ten-exercise session would hold eleven observers open on
+     * `workout_set` for the length of a workout.
+     *
+     * ### How "the last one" is chosen
+     *
+     * Per `session_exercise` row, not per session. The correlated sub-select picks the newest
+     * slot for that exercise — by the session's `created_at`, then by position within it, then
+     * by row id so two sessions stamped in the same millisecond still resolve to one answer —
+     * among the slots that have a qualifying set, and the outer query returns that slot's sets.
+     * Choosing a *session* instead would merge the two slots of a workout that held the
+     * exercise twice into one table numbered `1, 2, 1, 2`.
+     *
+     * The session's own rows are excluded on both sides. Without it every exercise's "last
+     * time" would be the set the user logged a minute ago on the row above.
+     *
+     * ### Which sets count
+     *
+     * `is_completed = 1`, matching every other aggregate here, and `set_type <> 'WARMUP'` — the
+     * decision is stated in full on [com.opengym.core.domain.repository.SessionRepository.getPreviousSets].
+     * The same filter appears in the `EXISTS` guard, so a slot whose only sets are warm-ups is
+     * not picked as "the last time" and then returned empty.
+     *
+     * Ordered by exercise and then by `set_number`, so the caller groups a list that is already
+     * in the order the sets were performed.
+     */
+    @Query(
+        """
+        SELECT ws.*, se.exercise_id AS exercise_id
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        WHERE se.session_id <> :sessionId
+            AND ws.is_completed = 1
+            AND ws.set_type <> 'WARMUP'
+            AND se.exercise_id IN (
+                SELECT exercise_id FROM session_exercise WHERE session_id = :sessionId
+            )
+            AND se.id = (
+                SELECT prev.id
+                FROM session_exercise prev
+                INNER JOIN workout_session s ON s.id = prev.session_id
+                WHERE prev.exercise_id = se.exercise_id
+                    AND prev.session_id <> :sessionId
+                    AND EXISTS (
+                        SELECT 1 FROM workout_set pws
+                        WHERE pws.session_exercise_id = prev.id
+                            AND pws.is_completed = 1
+                            AND pws.set_type <> 'WARMUP'
+                    )
+                ORDER BY s.created_at DESC, prev.position DESC, prev.id DESC
+                LIMIT 1
+            )
+        ORDER BY se.exercise_id ASC, ws.set_number ASC
+        """,
+    )
+    fun getPreviousSetsForSession(sessionId: Long): Flow<List<PreviousSetRow>>
 
     /**
      * Every session's set count and volume, one row each.

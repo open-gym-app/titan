@@ -27,6 +27,54 @@ interface SessionRepository {
     fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>>
 
     /**
+     * What was done, last time, for every exercise [sessionId] holds — keyed by **catalogue**
+     * exercise id, each list in set order.
+     *
+     * The reference the active session draws in its `PREV` column, and the reason it is one
+     * query rather than a lookup per exercise: a workout is ten exercises and the screen wants
+     * all ten at once, which is the same shape argument [getSetsForSession] makes and the same
+     * fan-out it exists to avoid. Implementations must satisfy this with a single query — the
+     * session's own exercises are a sub-select over `session_exercise`, not a list the caller
+     * loops over.
+     *
+     * Keyed by catalogue id rather than by `session_exercise` id because that is what "the same
+     * exercise" means across two sessions; a session holding one exercise twice reads the same
+     * reference against both slots, which is the truth about it.
+     *
+     * ### What counts as "last time"
+     *
+     * The most recent `session_exercise` row for that exercise, **excluding [sessionId]'s own**,
+     * that has at least one qualifying set. A row rather than a session, so that a workout which
+     * held the exercise twice contributes the later of its two slots instead of the two of them
+     * merged into a table numbered `1, 2, 1, 2`.
+     *
+     * ### What counts as a set
+     *
+     * Completed, and not a warm-up.
+     *
+     * *Completed* is the filter every aggregate in this codebase applies: a `workout_set` row can
+     * hold planned-but-unperformed work (see PERSISTENCE.md), and a reference built from those
+     * would quote a weight nobody lifted.
+     *
+     * *Not a warm-up* is this method's own decision, and it is the one worth stating. `SetType`
+     * carries five values and only [com.opengym.core.domain.model.SetType.WARMUP] names work
+     * that is not the work: a warm-up is chosen to be easy, so showing last week's 40 kg against
+     * today's first working set answers a question nobody asked and, worse, answers it low.
+     * `DROP_SET`, `FAILURE` and `INTERVAL` all stay — each of those is a set the lifter actually
+     * performed to some standard, and dropping them would silently shorten the reference for
+     * anybody who trains that way.
+     *
+     * ### Absence means never
+     *
+     * An exercise with no qualifying set anywhere in the user's history has **no entry**, rather
+     * than an empty list. The two are one thing here — there is nothing to show either way — but
+     * the caller has to draw a "first time" state for it and not a blank column, so the absence
+     * is what it reads. An exercise whose entire history is warm-ups reads as never performed,
+     * which is what it is.
+     */
+    fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>>
+
+    /**
      * The set count and volume of **every** session, keyed by session id.
      *
      * The history list's read. It shows a figure per row and there is no upper bound on how

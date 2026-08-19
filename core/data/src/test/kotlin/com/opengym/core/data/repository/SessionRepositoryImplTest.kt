@@ -369,6 +369,30 @@ class SessionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
+    fun `getPreviousSets groups the last session's work under the catalogue exercise`() = runBlocking {
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        val fly = db.exerciseDao().insert(exercise(name = "Fly"))
+        val last = db.workoutSessionDao().insert(session(isInProgress = false, createdAt = 100))
+        val slot = db.sessionExerciseDao().insert(sessionExercise(last, bench, position = 0))
+        db.workoutSetDao().insert(workoutSet(slot, setNumber = 1, weight = 80_000_000, reps = 5))
+        db.workoutSetDao().insert(workoutSet(slot, setNumber = 2, weight = 85_000_000, reps = 3))
+
+        val today = db.workoutSessionDao().insert(session(createdAt = 200))
+        db.sessionExerciseDao().insert(sessionExercise(today, bench, position = 0))
+        db.sessionExerciseDao().insert(sessionExercise(today, fly, position = 1))
+
+        val previous = repository.getPreviousSets(today).first()
+
+        // Keyed by the catalogue id, because the `session_exercise` id on those rows belongs
+        // to a workout the caller is holding nothing about — see the contract.
+        assertEquals(setOf(bench), previous.keys)
+        assertEquals(listOf(80_000_000L, 85_000_000L), previous.getValue(bench).map { it.weight })
+        // And absent, not empty, for an exercise with nothing behind it: the screen draws a
+        // "first time" state off exactly that difference.
+        assertNull(previous[fly])
+    }
+
+    @Test
     fun `getSetsForSession reads every exercise's sets in one pass, in session order`() = runBlocking {
         val sessionId = db.workoutSessionDao().insert(session())
         val squat = db.exerciseDao().insert(exercise(name = "Squat"))

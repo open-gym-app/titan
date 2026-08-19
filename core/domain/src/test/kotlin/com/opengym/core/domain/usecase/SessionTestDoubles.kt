@@ -94,6 +94,14 @@ class FakeSessionRepository : SessionRepository {
         }
 
     /**
+     * Nothing. No use case reads the previous session's sets — it is the active screen's
+     * reference column and nothing in the domain compares against it — so a fake that answered
+     * would be a second, unexercised implementation of a query with real rules in it.
+     */
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> =
+        throw UnsupportedOperationException("no use case reads previous performance")
+
+    /**
      * The same aggregate the real store computes in SQL, computed here over what is held.
      *
      * Derived rather than stubbed so it cannot drift from [getSetsForSession]: a fake whose

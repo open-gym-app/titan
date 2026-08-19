@@ -82,6 +82,8 @@ class FakeSummarySessionStore(
 
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> = unsupported()
 
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> = unsupported()
+
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = unsupported()
 
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()

@@ -13,6 +13,7 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSession
@@ -45,6 +46,7 @@ import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
+import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
@@ -239,8 +241,15 @@ class ActiveSessionViewModel @Inject constructor(
         sessionRepository.getById(sessionId),
         sessionRepository.getExercises(sessionId),
         sessionRepository.getSetsForSession(sessionId),
-    ) { session, exercises, sets ->
-        Loaded(session = session, exercises = exercises, sets = sets)
+        // The fourth read, and the one that is about a workout other than this one: what each
+        // of these exercises did last time. One query for the whole session rather than a
+        // lookup per exercise — see `SessionRepository.getPreviousSets` — and combined in here
+        // rather than collected on its own so the reference and the sets it sits beside are
+        // one value. A screen built from two flows would draw a `PREV` column for an exercise
+        // that had already been swapped out of the slot.
+        sessionRepository.getPreviousSets(sessionId),
+    ) { session, exercises, sets, previous ->
+        Loaded(session = session, exercises = exercises, sets = sets, previous = previous)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     /** The catalogue rows the session's exercises are drawn from. */
@@ -2128,11 +2137,17 @@ private data class Catalogue(
  *
  * @param session null until the read comes back **and** for an id that no longer resolves. The
  *   two are told apart one level up, by whether this value exists at all.
+ * @param previous what each of the session's exercises did last time, keyed by *catalogue*
+ *   exercise id — the key both sessions share, since the `session_exercise` rows behind it
+ *   belong to workouts this screen knows nothing else about. An exercise with no entry has
+ *   never been performed, which is a different state from an entry holding fewer sets than
+ *   today's table; see [rows].
  */
 private class Loaded(
     val session: WorkoutSession?,
     exercises: List<SessionExercise>,
     val sets: List<WorkoutSet>,
+    private val previous: Map<Long, List<WorkoutSet>> = emptyMap(),
 ) {
 
     /** The session's exercises in the order they are performed, which is the `position` column. */
@@ -2169,6 +2184,38 @@ private class Loaded(
         val groupNames = supersetGroupNames(grouping)
 
         return ordered.mapIndexed { index, exercise ->
+            val history = previous[exercise.exerciseId]
+            // Today's table and last time's, walked in step. A running count rather than a row
+            // index, because the two lists do not line up by position: warm-ups are left out of
+            // the reference (see `SessionRepository.getPreviousSets`) and skipped over on this
+            // side too, so "the third set today" is compared against the third *working* set of
+            // the last session and not against whatever its third row happened to be.
+            var working = 0
+            val entry = entries[exercise.id] ?: SetEntry()
+
+            // Every logged set as the fields it is drawn in: what has been typed over it if
+            // anything has, and otherwise the stored row read out into text. The fallback is
+            // the reason an untouched table costs no state at all — see [ScreenState.setEdits].
+            val sets = setsOf(exercise.id).map { set ->
+                val typed = setEdits[set.id]
+                // The type as *shown* rather than as stored, so a row retyped as a warm-up
+                // gives up its reference the moment the menu is answered rather than when the
+                // correction lands.
+                val shown = typed ?: set.toEntry(unitSystem)
+                val isWarmUp = shown.setType == SetType.WARMUP
+                val reference = if (isWarmUp) null else history?.getOrNull(working)
+                if (!isWarmUp) working++
+
+                LoggedSet(
+                    id = set.id,
+                    entry = shown,
+                    isCompleted = set.isCompleted,
+                    isEdited = typed != null,
+                    isSaving = set.id in savingSetIds,
+                    previous = reference?.toPreviousSet(),
+                )
+            }
+
             SessionExerciseRow(
                 sessionExerciseId = exercise.id,
                 position = index,
@@ -2181,20 +2228,15 @@ private class Loaded(
                 // can. The last exercise is linked to nothing by construction.
                 isLinkedToNext = grouping[index] != null &&
                     grouping[index] == grouping.getOrNull(index + 1),
-                // Every logged set as the fields it is drawn in: what has been typed over it if
-                // anything has, and otherwise the stored row read out into text. The fallback is
-                // the reason an untouched table costs no state at all — see [ScreenState.setEdits].
-                sets = setsOf(exercise.id).map { set ->
-                    val typed = setEdits[set.id]
-                    LoggedSet(
-                        id = set.id,
-                        entry = typed ?: set.toEntry(unitSystem),
-                        isCompleted = set.isCompleted,
-                        isEdited = typed != null,
-                        isSaving = set.id in savingSetIds,
-                    )
-                },
-                entry = entries[exercise.id] ?: SetEntry(),
+                sets = sets,
+                entry = entry,
+                entryPrevious = history
+                    ?.takeIf { entry.setType != SetType.WARMUP }
+                    ?.getOrNull(working)
+                    ?.toPreviousSet(),
+                // The exercise has been performed before, which is not the same as any row of
+                // it having something to compare against — see [SessionExerciseRow.hasHistory].
+                hasHistory = history != null,
             )
         }
     }
@@ -2332,6 +2374,15 @@ private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(
     setType = setType,
     notes = notes,
 )
+
+/**
+ * A set from an earlier session as the reference the `PREV` column draws.
+ *
+ * Only the two dimensions that column has room for. What is dropped is not lost — the set is
+ * still whole on the history screen — and carrying its rating or its note into a 52dp cell
+ * would be carrying it nowhere.
+ */
+private fun WorkoutSet.toPreviousSet(): PreviousSet = PreviousSet(weight = weight, reps = reps)
 
 /** A stored set as the draft's own, which is the same values without the row's identity. */
 private fun WorkoutSet.toActiveSet(): ActiveSet = ActiveSet(

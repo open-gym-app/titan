@@ -60,7 +60,7 @@ class SetLogRowTest {
 
     @Test
     fun `renders the values it is given`() {
-        setRow(weight = "80", reps = "5", rpe = 85, previous = "75 × 6")
+        setRow(weight = "80", reps = "5", rpe = 85, previous = PreviousSet(weight = 75_000_000, reps = 6))
 
         composeTestRule.onNodeWithText("80").assertIsDisplayed()
         composeTestRule.onNodeWithText("5").assertIsDisplayed()
@@ -69,9 +69,12 @@ class SetLogRowTest {
 
     @Test
     fun `the previous column is announced as a sentence rather than as four characters`() {
-        setRow(weight = "80", reps = "5", previous = "75 × 6")
+        setRow(weight = "80", reps = "5", previous = PreviousSet(weight = 75_000_000, reps = 6))
 
-        composeTestRule.onNodeWithContentDescription("Previously 75 × 6").assertIsDisplayed()
+        // Spelled out, with the unit, where the cell itself draws `75×6`: the column is 52dp
+        // between two fields and a sentence is not, which is the whole reason the row takes the
+        // quantities rather than the text of them.
+        composeTestRule.onNodeWithContentDescription("Previously 75 kg × 6").assertIsDisplayed()
     }
 
     @Test
@@ -128,7 +131,7 @@ class SetLogRowTest {
                         onWeightChange = {},
                         onRepsChange = {},
                         onCompletedChange = {},
-                        previous = "75 × 6",
+                        previous = PreviousSet(weight = 75_000_000, reps = 6),
                     )
                     SetLogRow(
                         setNumber = 2,
@@ -565,7 +568,7 @@ class SetLogRowTest {
         reps: String,
         setType: SetType = SetType.NORMAL,
         rpe: Int? = null,
-        previous: String? = null,
+        previous: PreviousSet? = null,
         showPrevious: Boolean = true,
         isCompleted: Boolean = false,
         error: String? = null,

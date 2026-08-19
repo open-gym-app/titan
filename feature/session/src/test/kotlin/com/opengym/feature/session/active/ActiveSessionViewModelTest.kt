@@ -2203,6 +2203,116 @@ class ActiveSessionViewModelTest {
         assertNotNull(viewModel.uiState.value.header)
     }
 
+    // ─── Previous performance ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `each set is shown against the same set of the last session that had this exercise`() = runTest {
+        val store = benchStore()
+        store.setPreviousSets(mapOf(BENCH.id to previousSets(60_000_000L to 10, 70_000_000L to 8)))
+
+        val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+        assertEquals(
+            listOf(60_000_000L to 10, 70_000_000L to 8),
+            row.sets.map { it.previous?.weight to it.previous?.reps },
+        )
+    }
+
+    @Test
+    fun `the entry row is shown what the next set was last time`() = runTest {
+        // The one row where the column is a prediction rather than a comparison, and the reason
+        // it is worth its width: it is the number a lifter decides against before loading a bar.
+        val store = benchStore()
+        store.setPreviousSets(
+            mapOf(BENCH.id to previousSets(60_000_000L to 10, 70_000_000L to 8, 75_000_000L to 6)),
+        )
+
+        val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+        assertEquals(75_000_000L, row.entryPrevious?.weight)
+        assertEquals(6, row.entryPrevious?.reps)
+    }
+
+    @Test
+    fun `an exercise never performed says so rather than drawing an empty column`() = runTest {
+        val store = benchStore()
+
+        val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+        assertFalse(row.hasHistory)
+        assertTrue(row.sets.all { it.previous == null })
+        assertNull(row.entryPrevious)
+    }
+
+    @Test
+    fun `history and a short reference are two different states`() = runTest {
+        // Two sets today against one last time. The second row has nothing to show and the
+        // exercise still has history — a card that reported "first time" here would be telling
+        // the user they have never benched on the strength of one extra set.
+        val store = benchStore()
+        store.setPreviousSets(mapOf(BENCH.id to previousSets(60_000_000L to 10)))
+
+        val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+        assertTrue(row.hasHistory)
+        assertEquals(60_000_000L, row.sets[0].previous?.weight)
+        assertNull(row.sets[1].previous)
+        assertNull(row.entryPrevious)
+    }
+
+    @Test
+    fun `a warm-up takes no reference, and the working sets keep theirs`() = runTest {
+        // Today's set 1 is a warm-up, so today's set 2 is the *first* working set and reads
+        // against last session's first working set. Aligning by row number instead would show
+        // last week's opener beside a warm-up and last week's second set beside today's first.
+        val store = FakeActiveSessionStore(
+            session = runningSession(),
+            exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
+            sets = listOf(
+                loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 12, weight = 40_000_000L)
+                    .copy(setType = SetType.WARMUP),
+                loggedSet(id = 2L, sessionExerciseId = BENCH_ROW, setNumber = 2, reps = 10, weight = 80_000_000L),
+            ),
+        )
+        store.setPreviousSets(mapOf(BENCH.id to previousSets(75_000_000L to 10, 80_000_000L to 8)))
+
+        val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+        assertNull(row.sets[0].previous)
+        assertEquals(75_000_000L, row.sets[1].previous?.weight)
+        assertEquals(80_000_000L, row.entryPrevious?.weight)
+    }
+
+    @Test
+    fun `retyping a row as a warm-up gives up its reference straight away`() = runTest {
+        val store = benchStore()
+        store.setPreviousSets(mapOf(BENCH.id to previousSets(60_000_000L to 10, 70_000_000L to 8)))
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditTypeChanged(BENCH_ROW, 1L, SetType.WARMUP))
+
+        val row = viewModel.uiState.value.rowOf(BENCH_ROW)
+        assertNull(row.sets[0].previous)
+        // And the set below it moves up onto the reference the warm-up gave back.
+        assertEquals(60_000_000L, row.sets[1].previous?.weight)
+    }
+
+    @Test
+    fun `a ten-exercise workout reads its history once, not once per exercise`() = runTest {
+        val store = FakeActiveSessionStore(
+            session = runningSession(),
+            exercises = (1..10).map { activeExercise(id = it.toLong(), exerciseId = it.toLong(), position = it - 1) },
+        )
+
+        val state = viewModel(store = store).uiState.value
+
+        // The whole point of the query's shape. One lookup per exercise would also be ten
+        // `Flow`s held open on `workout_set` for the length of a workout, which is the failure
+        // this number is standing in for.
+        assertEquals(10, state.exercises.size)
+        assertEquals(1, store.previousSetsReads)
+    }
+
     // ─── Reattaching ────────────────────────────────────────────────────────────────────
 
     @Test
@@ -2265,6 +2375,24 @@ class ActiveSessionViewModelTest {
     /** What is half-typed against one exercise. */
     private fun ActiveSessionUiState.entryOf(sessionExerciseId: Long): SetEntry =
         rowOf(sessionExerciseId).entry
+
+    /**
+     * What an exercise did last time, as the store hands it over: completed working sets in
+     * the order they were performed, numbered from 1.
+     *
+     * The `session_exercise` id on them is a workout this screen knows nothing else about,
+     * which is exactly the point of the reference being keyed by catalogue id.
+     */
+    private fun previousSets(vararg sets: Pair<Long, Int>): List<WorkoutSet> =
+        sets.mapIndexed { index, (weight, reps) ->
+            loggedSet(
+                id = 100L + index,
+                sessionExerciseId = PREVIOUS_ROW,
+                setNumber = index + 1,
+                reps = reps,
+                weight = weight,
+            )
+        }
 
     /** Bench, incline and fly, in that order, with whatever has been logged so far. */
     private fun pushDayStore(sets: List<WorkoutSet> = emptyList()) = FakeActiveSessionStore(
@@ -2414,6 +2542,9 @@ class ActiveSessionViewModelTest {
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L
         const val FLY_ROW = 3L
+
+        /** A `session_exercise` row of some earlier workout, which this screen never resolves. */
+        const val PREVIOUS_ROW = 99L
 
         /**
          * Long enough for the debounced draft save to fire, short enough not to reach a tick.

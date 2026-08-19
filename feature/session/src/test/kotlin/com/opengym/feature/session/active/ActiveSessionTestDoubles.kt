@@ -30,11 +30,13 @@ class FakeActiveSessionStore(
     session: WorkoutSession? = null,
     exercises: List<SessionExercise> = emptyList(),
     sets: List<WorkoutSet> = emptyList(),
+    previousSets: Map<Long, List<WorkoutSet>> = emptyMap(),
 ) : SessionRepository {
 
     private val session = MutableStateFlow(session)
     private val exercises = MutableStateFlow(exercises)
     private val sets = MutableStateFlow(sets)
+    private val previousSets = MutableStateFlow(previousSets)
     private var nextSetId = (sets.maxOfOrNull(WorkoutSet::id) ?: 0L) + 1
     private var nextExerciseId = (exercises.maxOfOrNull(SessionExercise::id) ?: 0L) + 1
 
@@ -85,6 +87,34 @@ class FakeActiveSessionStore(
             val ids = exerciseRows.filter { it.sessionId == sessionId }.mapTo(HashSet()) { it.id }
             setRows.filter { it.sessionExerciseId in ids }
         }
+
+    /**
+     * How many times the previous-performance read has been asked for.
+     *
+     * Held rather than derived because it is the assertion itself: the contract is one query
+     * for the whole workout, and the failure it exists to catch — a lookup per exercise — is
+     * invisible in the *values* and obvious in the count. Sessions are laid out with ten
+     * exercises in the test that reads this.
+     */
+    var previousSetsReads = 0
+        private set
+
+    /**
+     * Held rather than derived from what this fake stores, which is the one read here that
+     * cannot honestly be: "last time" is a query over sessions this store does not hold — it
+     * holds the one being logged. What a test supplies is therefore the answer, and the rules
+     * behind it (warm-ups out, most recent slot, absence means never) are asserted where they
+     * live, against a real database, in `PreviousPerformanceDaoTest`.
+     */
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> {
+        previousSetsReads++
+        return previousSets
+    }
+
+    /** Rewrites what the exercises did last time, as a later read would come back with it. */
+    fun setPreviousSets(previous: Map<Long, List<WorkoutSet>>) {
+        previousSets.value = previous
+    }
 
     override suspend fun insertSet(set: WorkoutSet): Long {
         beforeInsert?.invoke(set)

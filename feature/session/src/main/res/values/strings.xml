@@ -88,6 +88,10 @@
     <!-- The superset marker on an exercise: "SS A1". The same wording as the review panel
          before the session started, because it is the same grouping. -->
     <string name="active_superset">SS %1$s</string>
+    <!-- An exercise with nothing behind it: the PREV column has nothing to put in any of its
+         cells, and a column of dashes reads as a fault rather than as a first attempt. Said
+         once beside the name rather than repeated down the column. -->
+    <string name="active_first_time">First time</string>
 
     <string name="active_complete_set">Complete set %1$d</string>
     <string name="active_add_note">Add a note</string>

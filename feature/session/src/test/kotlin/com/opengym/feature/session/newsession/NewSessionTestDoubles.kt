@@ -148,6 +148,9 @@ class FakeSessionStore : SessionRepository {
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
         sets.map { it[sessionId].orEmpty() }
 
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
     override fun getTotals(): Flow<Map<Long, SessionTotals>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 

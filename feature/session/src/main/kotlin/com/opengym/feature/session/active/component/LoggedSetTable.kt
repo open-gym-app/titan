@@ -192,8 +192,10 @@ private fun LoggedSetRow(
         onRpeChange = {
             onEvent(ActiveSessionEvent.SetEditRpeChanged(sessionExerciseId, set.id, it))
         },
-        // #101 fills this, here and on the entry row below.
-        previous = null,
+        // What this set number did last time, aligned by the ViewModel rather than by this
+        // table: which reference a row gets depends on the *types* of the rows above it, which
+        // is a fact about the exercise and not about the row. See [SessionExerciseRow].
+        previous = set.previous,
         isCompleted = set.isCompleted,
         // The accent stays on the entry row. A logged set being typed into is not "where the next
         // number goes", which is the one thing the tint is for, and a table that lit up under
