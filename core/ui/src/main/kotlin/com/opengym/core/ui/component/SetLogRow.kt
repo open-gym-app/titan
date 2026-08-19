@@ -714,8 +714,11 @@ private fun LoggedSetRow(
  */
 @Composable
 private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
-    if (onCommit == null) return this
+    // Remembered above the null check, not below it. A `remember` behind an early return claims a
+    // slot on some compositions and not others, so the first caller to make `onCommit` conditional
+    // would leave this reading whatever composable took the slot instead.
     var wasFocused by remember { mutableStateOf(false) }
+    if (onCommit == null) return this
 
     return onFocusChanged { state ->
         if (wasFocused && !state.hasFocus) onCommit()

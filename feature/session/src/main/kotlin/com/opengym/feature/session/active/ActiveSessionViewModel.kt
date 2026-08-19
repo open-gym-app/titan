@@ -49,6 +49,7 @@ import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -59,7 +60,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -154,6 +158,46 @@ class ActiveSessionViewModel @Inject constructor(
 
     /** What the user is in the middle of, which no store has an opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
+
+    /**
+     * The correction being written for each row, so the next one can queue behind it.
+     *
+     * Kept here rather than in [ScreenState] because it is not state the screen has a use for —
+     * what a row *draws* while a correction is out is [ScreenState.savingSetIds]. These are the
+     * handles, and there are two things done with them: waiting, in [enqueueSetEdit], and waiting
+     * for all of them at once, in [flushSetEdits]. A plain map is enough because every touch of
+     * it is on the main dispatcher, which is where `viewModelScope` puts them.
+     */
+    private val setEditWrites = mutableMapOf<Long, Job>()
+
+    /**
+     * What the last correction to each row actually wrote, for as long as the read is behind it.
+     *
+     * The store is the answer to "is there anything to write", and for a moment after a write it
+     * is out of date: Room re-emits a query in its own time, so a correction queued behind one
+     * that has just landed would look at a row still holding the old values and write the same
+     * thing over again. This is what it is compared against instead. It goes the moment the read
+     * catches up, which is the same moment the draft does — see [writeSetEdit].
+     */
+    private val setEditWritten = mutableMapOf<Long, ActiveSet>()
+
+    /**
+     * One renumbering of a set table at a time, deletions and undos together.
+     *
+     * Both [delete] and [restoreDeletedSet] read an exercise's table and then write numbers
+     * computed from that reading, so two of them overlapping renumber one table from two
+     * readings, and whichever lands second is computed against numbers that have already moved —
+     * duplicate or gapped `set_number`s in a table nobody typed into. The in-flight flags each
+     * one carries are what keep a *second tap* out; they say nothing about the other action, and
+     * the pairing is reachable: an undo offer stands for several seconds, which is long enough
+     * to swipe a second set away and then think better of the first.
+     *
+     * A lock rather than a third flag, because the undo is a snackbar action and a refused one
+     * would be a tap that dismisses the offer and does nothing — the set the user asked for back
+     * would simply be gone. Made to wait, it lands a moment later against a table that has
+     * settled.
+     */
+    private val setTableWrites = Mutex()
 
     /**
      * The session as it stands on disk: the row, its exercises, and every set logged against it.
@@ -259,12 +303,17 @@ class ActiveSessionViewModel @Inject constructor(
                 unitSystem.value = preferences.unitSystem
                 // Every correction half-typed into a logged row was seeded from the store in the
                 // unit that has just stopped being the unit. Left alone, a row the user touched
-                // would keep showing `70` next to rows that had become `154`. They go, and the
-                // rows fall back to reading themselves off the store — except the ones being
-                // written, whose only copy this is.
-                screenState.update { state ->
-                    state.copy(setEdits = state.setEdits.filterKeys { it in state.savingSetIds })
-                }
+                // would keep showing `70` next to rows that had become `154`. They all go, and
+                // the rows fall back to reading themselves off the store.
+                //
+                // The ones being *written* go too, though this is the only copy of them: a write
+                // already out carries its own values — it was handed a draft, not this map — so
+                // what is dropped here is a number in the old unit that nothing needs any more.
+                // Keeping it is worse than losing it, twice over: the row would go on drawing
+                // `100` under a header that now says lb, and the next commit would read that
+                // `100` back as pounds and quietly write 45.4 kg over a 100 kg set.
+                setEditWritten.clear()
+                screenState.update { it.copy(setEdits = emptyMap()) }
             }
         }
         // One coroutine, in this order, because each step depends on the one before it. The
@@ -614,13 +663,60 @@ class ActiveSessionViewModel @Inject constructor(
      * of the set from what it is handed, so the draft is built from the *stored* row with the four
      * edited fields laid over it — anything else would quietly clear the note the user typed when
      * they logged it, and the rest a set can carry.
+     *
+     * Those cases are decided in [writeSetEdit], which is where the write actually is; this is
+     * the gate in front of it. Reached through [enqueueSetEdit], so that two corrections to one
+     * row take turns rather than race. Refused outright over a workout on its way out, which
+     * [finish] makes safe by flushing what is held before it closes the session.
      */
     private fun commitSet(sessionExerciseId: Long, setId: Long) {
         val state = screenState.value
-        val entry = state.setEdits[setId]
-            ?.takeUnless { state.isBusy || setId in state.savingSetIds }
-            ?: return
+        if (state.isBusy || setId !in state.setEdits) return
+        enqueueSetEdit(sessionExerciseId, setId)
+    }
 
+    /**
+     * Puts one row's correction behind whatever is already being written for that row.
+     *
+     * Queued rather than dropped, which is the difference between a slow write and a lost one.
+     * The two menus write on the pick — see [ActiveSessionEvent.SetEditRpeChanged] — so a rating
+     * and a set type chosen one after the other are two commits a hundred milliseconds apart, and
+     * the second one lands while the first is still out. Refusing it there would leave the row
+     * *showing* the type the user picked, from a draft, over a store that never heard about it.
+     *
+     * Per row, because that is the width of the hazard: the writes race only with each other, and
+     * two rows being corrected have nothing to say to one another. What is queued is the row, not
+     * the values — [writeSetEdit] reads the draft when its turn comes, so a queue three deep on
+     * one row collapses into one write of what the row finally says, and the rest find it already
+     * written and clear the draft.
+     */
+    private fun enqueueSetEdit(sessionExerciseId: Long, setId: Long) {
+        val previous = setEditWrites[setId]
+        // Started only once it is in the map, so a write that gets all the way through without
+        // suspending cannot tidy away an entry that has not been made yet.
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                previous?.join()
+                writeSetEdit(sessionExerciseId, setId)
+            } finally {
+                setEditWrites.remove(setId, coroutineContext.job)
+            }
+        }
+        setEditWrites[setId] = job
+        job.start()
+    }
+
+    /**
+     * Writes what the row says *now* over the set it was read from, if there is anything to write.
+     *
+     * The draft is read here rather than handed in because this can have waited: see
+     * [enqueueSetEdit]. By the time a queued write runs, the row may have been typed into again,
+     * corrected back to what it was, deleted, or emptied by a switch of units — and every one of
+     * those is answered by asking the state again instead of writing what was true when the user
+     * left the row.
+     */
+    private suspend fun writeSetEdit(sessionExerciseId: Long, setId: Long) {
+        val entry = screenState.value.setEdits[setId] ?: return
         val target = editTarget(sessionExerciseId, setId, entry) ?: return
         val draft = target.stored.toActiveSet().copy(
             weight = weightField(entry.weight).value,
@@ -630,44 +726,76 @@ class ActiveSessionViewModel @Inject constructor(
         )
         if (draft.matches(target.stored)) {
             screenState.update { it.copy(setEdits = it.setEdits - setId) }
+            setEditWritten.remove(setId)
             return
         }
+        // Already written, by the commit this one queued behind, and the read has not come round
+        // yet. The draft stays: it is still what the row draws until the store agrees with it.
+        if (setEditWritten[setId]?.let(draft::matches) == true) return
+
         screenState.update { it.copy(savingSetIds = it.savingSetIds + setId, message = null) }
 
-        viewModelScope.launch {
-            editSet(sessionExerciseId, setId, draft, target.exerciseType)
-                // The draft is *kept* on success rather than dropped. What it holds is what was
-                // just written, so it draws the same row either way — and dropping it here would
-                // fall back to the store for the frame or two before the read comes round with
-                // the new values, which is the old weight flashing back under the user's thumb.
-                // The next commit finds it unchanged and clears it.
-                .onSuccess {
-                    screenState.update { it.copy(savingSetIds = it.savingSetIds - setId) }
-                    saveDraft()
+        editSet(sessionExerciseId, setId, draft, target.exerciseType)
+            // The draft is *kept* on success rather than dropped. What it holds is what was
+            // just written, so it draws the same row either way — and dropping it here would
+            // fall back to the store for the frame or two before the read comes round with
+            // the new values, which is the old weight flashing back under the user's thumb.
+            // The next commit finds it unchanged and clears it.
+            .onSuccess {
+                setEditWritten[setId] = draft
+                screenState.update { it.copy(savingSetIds = it.savingSetIds - setId) }
+                saveDraft()
+            }
+            .onFailure { failure ->
+                val inline = failure.toEntryError()
+                screenState.update { current ->
+                    // The row can have gone while the write was out — deleted, or its
+                    // exercise removed. There is nothing left to put an inline refusal
+                    // under, so it is said once in the bar instead; silence would be a
+                    // correction the user believes they made.
+                    val refused = current.setEdits[setId] ?: return@update current.copy(
+                        savingSetIds = current.savingSetIds - setId,
+                        message = ActiveSessionMessage.SET_EDIT_REJECTED,
+                    )
+                    current.copy(
+                        savingSetIds = current.savingSetIds - setId,
+                        setEdits = current.setEdits +
+                            (setId to refused.copy(error = inline ?: refused.error)),
+                        message = if (inline == null) {
+                            ActiveSessionMessage.SET_EDIT_REJECTED
+                        } else {
+                            null
+                        },
+                    )
                 }
-                .onFailure { failure ->
-                    val inline = failure.toEntryError()
-                    screenState.update { current ->
-                        // The row can have gone while the write was out — deleted, or its
-                        // exercise removed. There is nothing left to put an inline refusal
-                        // under, so it is said once in the bar instead; silence would be a
-                        // correction the user believes they made.
-                        val refused = current.setEdits[setId] ?: return@update current.copy(
-                            savingSetIds = current.savingSetIds - setId,
-                            message = ActiveSessionMessage.SET_EDIT_REJECTED,
-                        )
-                        current.copy(
-                            savingSetIds = current.savingSetIds - setId,
-                            setEdits = current.setEdits +
-                                (setId to refused.copy(error = inline ?: refused.error)),
-                            message = if (inline == null) {
-                                ActiveSessionMessage.SET_EDIT_REJECTED
-                            } else {
-                                null
-                            },
-                        )
-                    }
-                }
+            }
+    }
+
+    /**
+     * Writes every correction still held on screen, and does not come back until they have landed.
+     *
+     * The one caller is [finish], and what it needs is the *store* right — the recap it opens is
+     * built from what `FinishSessionUseCase` reads, so a correction still in the map when that
+     * read happens is a set the user watched themselves change and will not find. Waiting is
+     * therefore the point rather than an implementation detail.
+     *
+     * It goes through [enqueueSetEdit] like every other commit, so a row already being written
+     * is not written twice over — it is joined. The loop is what covers the queue growing while
+     * it drains: a row waiting behind a slow write is not in the map yet when the round it
+     * belongs to begins, and a job takes itself out of the map before its `join` returns, so an
+     * empty map is the honest end of it. Rows whose values `SetValidator` refuses write nothing
+     * and hold nothing up, exactly as they do when the row is left — the session closes on what
+     * is stored, which for those rows is what was there before.
+     */
+    private suspend fun flushSetEdits() {
+        screenState.value.setEdits.keys.forEach { setId ->
+            val exerciseId = loaded.value?.setById(setId)?.sessionExerciseId ?: return@forEach
+            enqueueSetEdit(exerciseId, setId)
+        }
+        while (true) {
+            val pending = setEditWrites.values.toList()
+            if (pending.isEmpty()) return
+            pending.forEach { it.join() }
         }
     }
 
@@ -706,11 +834,13 @@ class ActiveSessionViewModel @Inject constructor(
      *
      * One at a time, which [ScreenState.isDeletingSet] is for: two deletions in flight against one
      * exercise renumber the same table from two readings of it, and the second one to land would
-     * be computed against numbers that have already moved.
+     * be computed against numbers that have already moved. An undo is the same write from the
+     * other end and is held apart from this one by [setTableWrites].
      */
     private fun delete(sessionExerciseId: Long, setId: Long) {
         val state = screenState.value
         if (state.isBusy || state.isDeletingSet) return
+        setEditWritten.remove(setId)
         screenState.update {
             it.copy(
                 isDeletingSet = true,
@@ -720,7 +850,7 @@ class ActiveSessionViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            deleteSet(sessionExerciseId, setId)
+            setTableWrites.withLock { deleteSet(sessionExerciseId, setId) }
                 // A renumbering that failed over a set that has already gone is still a set that
                 // has gone, and the offer is the only copy of it left — so it goes up exactly as
                 // it would have on success. `DELETE_SET_FAILED` says the set is still in the
@@ -751,6 +881,11 @@ class ActiveSessionViewModel @Inject constructor(
      * The offer is consumed on the way in rather than on the way back, because it is an offer
      * rather than a record: a second tap on an undo that is still on screen would restore the
      * set twice, and the user would have to delete one of them to find out.
+     *
+     * Taken straight away and written when the table is free — see [setTableWrites]. A deletion
+     * still in flight is a renumbering of the same table, so the two are made to take turns
+     * rather than to race; from the user's side the offer is accepted the moment it is tapped
+     * either way.
      */
     private fun restoreDeletedSet() {
         val state = screenState.value
@@ -769,7 +904,7 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(isRestoringSet = true, deletedSet = null, message = null) }
 
         viewModelScope.launch {
-            restoreSet(deleted.sessionExerciseId, deleted)
+            setTableWrites.withLock { restoreSet(deleted.sessionExerciseId, deleted) }
                 .onSuccess {
                     screenState.update { it.copy(isRestoringSet = false) }
                     saveDraft()
@@ -1202,6 +1337,14 @@ class ActiveSessionViewModel @Inject constructor(
      * A refusal for having logged nothing is shown inline and goes no further —
      * `SessionError.NoSetsLogged` is not an error the user made, it is the screen saying there
      * is nothing to save yet, and the way past it is either a set or the discard action.
+     *
+     * Every correction still on screen is written first. A correction is written by *leaving* the
+     * row — see [commitSet] — and tapping END does not leave it: a Material button does not take
+     * focus off a text field, so a lifter who types `72.5` over their last set and reaches
+     * straight for END has made a change that nothing has yet asked to be saved. The departure
+     * `LoggedSetTable` reports as the screen comes down arrives after [ScreenState.isFinishing]
+     * is set and is refused for it, which is right — a write must not start behind a session
+     * being closed out — so this is that write, done in front of it instead.
      */
     private fun finish() {
         // The set write is the one in-flight write a finish has to wait for. `LogSetUseCase`
@@ -1214,6 +1357,8 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(isFinishing = true, message = null) }
 
         viewModelScope.launch {
+            flushSetEdits()
+
             val outcome = try {
                 finishSession()
             } catch (cancellation: CancellationException) {
@@ -1886,6 +2031,13 @@ private fun ActiveSet.matches(stored: WorkoutSet): Boolean =
         reps == stored.reps &&
         rpe == stored.rpe &&
         setType == stored.setType
+
+/** The same four dimensions, against a correction rather than against a stored row. */
+private fun ActiveSet.matches(other: ActiveSet): Boolean =
+    weight == other.weight &&
+        reps == other.reps &&
+        rpe == other.rpe &&
+        setType == other.setType
 
 /** A restored half-typed set as the fields it was typed into. */
 private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(

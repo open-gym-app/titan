@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +79,15 @@ fun RpePicker(
     enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
+
+    // `enabled` closes the menu as well as withholding it. A menu is a popup, so one opened just
+    // before the workout was paused would otherwise stay up over a card that can no longer be
+    // written to — and take a value out of the one gap in the read-only state. It is *closed*
+    // rather than hidden: leaving the flag set behind a hidden popup is a menu that springs back
+    // open over a row nobody touched, the moment the workout resumes.
+    LaunchedEffect(enabled) {
+        if (!enabled) expanded = false
+    }
     val spoken = if (rpe != null) {
         stringResource(R.string.set_log_rpe_value, setNumber, formatRpe(rpe))
     } else {
@@ -116,10 +126,7 @@ fun RpePicker(
             maxLines = 1,
         )
 
-        // `enabled` closes it as well as withholding it. A menu is a popup, so one opened
-        // just before the workout was paused would otherwise stay up over a card that can no
-        // longer be written to — and take a value out of the one gap in the read-only state.
-        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             // The vocabulary, kept from the grid this replaced. It is the one thing the nine
             // buttons said that a list of numbers does not, and it is read once — when a user is
             // deciding what the scale means — which is exactly when the menu is open.

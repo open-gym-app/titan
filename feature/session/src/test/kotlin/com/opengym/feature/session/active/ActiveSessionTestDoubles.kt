@@ -147,7 +147,16 @@ class FakeActiveSessionStore(
         }
     }
 
+    /**
+     * Runs inside [deleteSet], before the row goes, with the id being removed.
+     *
+     * Lets a test hold a deletion open across another write to the same table — a swipe and the
+     * undo of an earlier swipe are seconds apart on this screen, and both renumber the exercise.
+     */
+    var beforeDelete: (suspend (Long) -> Unit)? = null
+
     override suspend fun deleteSet(setId: Long) {
+        beforeDelete?.invoke(setId)
         editFailure?.let { throw it }
         sets.value = sets.value.filterNot { it.id == setId }
     }

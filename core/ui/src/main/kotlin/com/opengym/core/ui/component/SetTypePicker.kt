@@ -18,6 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -83,6 +84,15 @@ fun SetTypePicker(
     enabled: Boolean = true,
 ) {
     var expanded by remember { mutableStateOf(false) }
+
+    // `enabled` closes the menu as well as withholding it. A menu is a popup, so one opened just
+    // before the workout was paused would otherwise stay up over a card that can no longer be
+    // written to — and take a value out of the one gap in the read-only state. It is *closed*
+    // rather than hidden: leaving the flag set behind a hidden popup is a menu that springs back
+    // open over a row nobody touched, the moment the workout resumes.
+    LaunchedEffect(enabled) {
+        if (!enabled) expanded = false
+    }
     val spoken = stringResource(R.string.set_type_field, setNumber, selected.label())
 
     Box(
@@ -117,10 +127,7 @@ fun SetTypePicker(
             SetMarker(setNumber = setNumber, setType = selected, isActive = isActive)
         }
 
-        // `enabled` closes it as well as withholding it. A menu is a popup, so one opened
-        // just before the workout was paused would otherwise stay up over a card that can no
-        // longer be written to — and take a value out of the one gap in the read-only state.
-        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             SetType.entries.forEach { type ->
                 DropdownMenuItem(
                     text = { Text(text = type.label(), style = MaterialTheme.typography.bodyLarge) },

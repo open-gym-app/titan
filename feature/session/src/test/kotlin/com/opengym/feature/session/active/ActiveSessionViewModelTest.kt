@@ -534,6 +534,28 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
+    fun `a pick made while the row is being written is queued rather than dropped`() = runTest {
+        val store = benchStore()
+        val write = CompletableDeferred<Unit>()
+        store.beforeUpdate = { write.await() }
+        val viewModel = viewModel(store = store)
+
+        // Two menu picks a moment apart. Both write on the pick — there is nothing to leave the
+        // row to finish — so the second lands while the first is still out.
+        viewModel.onEvent(ActiveSessionEvent.SetEditRpeChanged(BENCH_ROW, setId = 1L, rpe = 80))
+        viewModel.onEvent(
+            ActiveSessionEvent.SetEditTypeChanged(BENCH_ROW, setId = 1L, setType = SetType.WARMUP),
+        )
+        write.complete(Unit)
+
+        // Refusing the second would leave the row showing the type the user picked over a store
+        // that never heard about it, until the row was left again.
+        val stored = store.stored.first { it.id == 1L }
+        assertEquals(80, stored.rpe)
+        assertEquals(SetType.WARMUP, stored.setType)
+    }
+
+    @Test
     fun `a correction to one row leaves what is being typed into another alone`() = runTest {
         val store = benchStore()
         val write = CompletableDeferred<Unit>()
@@ -585,6 +607,33 @@ class ActiveSessionViewModelTest {
             viewModel.uiState.value.rowOf(BENCH_ROW).sets[0].entry.weight,
         )
     }
+
+    @Test
+    fun `a correction still being written when the units change is not read back in the new unit`() =
+        runTest {
+            val settings = FakeSettings()
+            val store = benchStore()
+            val write = CompletableDeferred<Unit>()
+            store.beforeUpdate = { write.await() }
+            val viewModel = viewModel(store = store, settings = settings)
+
+            // `100` typed in kilograms, and still being written when the switch lands.
+            viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 1L, text = "100"))
+            viewModel.onEvent(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 1L))
+            settings.setUnitSystem(UnitSystem.IMPERIAL)
+            write.complete(Unit)
+            // The row left again, the way it is as the user moves down the table.
+            viewModel.onEvent(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 1L))
+
+            // Kept over the switch, that `100` would be drawn under a header saying lb and then
+            // read back *as* pounds — 45.4 kg written over a set the user last touched as 100.
+            assertEquals(100_000_000L, store.stored.first { it.id == 1L }.weight)
+            assertEquals("one write, and it is the one the user made", 1, store.updated.size)
+            assertEquals(
+                formatWeightValue(100_000_000L, UnitSystem.IMPERIAL),
+                viewModel.uiState.value.rowOf(BENCH_ROW).sets[0].entry.weight,
+            )
+        }
 
     @Test
     fun `a paused workout takes no correction`() = runTest {
@@ -749,6 +798,30 @@ class ActiveSessionViewModelTest {
         viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
 
         assertNull(viewModel.uiState.value.deletedSet)
+    }
+
+    @Test
+    fun `an undo taken over a deletion still in flight waits for it`() = runTest {
+        val store = threeSetStore()
+        val write = CompletableDeferred<Unit>()
+        val viewModel = viewModel(store = store)
+
+        // The last set swiped away, with the offer to put it back still up ...
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 3L))
+        // ... when the first one is swiped away too, and the offer taken before that write lands.
+        store.beforeDelete = { write.await() }
+        viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 1L))
+        viewModel.onEvent(ActiveSessionEvent.SetDeleteUndone)
+        write.complete(Unit)
+
+        // Both renumber the same table. Overlapped, the deletion closes the gap it left against
+        // a reading taken before the restore, and the set that came back is left stranded on a
+        // number nothing leads up to — a table reading 1, 3.
+        assertEquals(
+            "the restored set is back on the end, and the table reads 1, 2",
+            listOf(1 to "70", 2 to "75"),
+            store.stored.sortedBy(WorkoutSet::setNumber).map { it.setNumber to it.weightText() },
+        )
     }
 
     @Test
@@ -1699,6 +1772,30 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
+    fun `ending the workout writes the correction the user never left the row to save`() = runTest {
+        val store = benchStore()
+        val write = CompletableDeferred<Unit>()
+        store.beforeUpdate = { write.await() }
+        val viewModel = viewModel(store = store)
+
+        // Typed and not left: END is a button, and tapping one does not take focus off a field,
+        // so nothing has asked for this correction to be written.
+        viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 1L, text = "72.5"))
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+        assertNull(
+            "the session is not closed out over a correction still going in",
+            viewModel.uiState.value.finishedSessionId,
+        )
+        write.complete(Unit)
+
+        // The recap is built from what the store holds, so a correction left behind here is one
+        // the user watched themselves make and would not find.
+        assertEquals(72_500_000L, store.stored.first { it.id == 1L }.weight)
+        assertNotNull(viewModel.uiState.value.finishedSessionId)
+    }
+
+    @Test
     fun `finishing with nothing logged is refused inline and goes nowhere`() = runTest {
         val viewModel = viewModel()
 
@@ -1865,6 +1962,11 @@ class ActiveSessionViewModelTest {
         onEvent(ActiveSessionEvent.RepsChanged(sessionExerciseId, reps))
         scheduler.advanceTimeBy(DRAFT_SETTLED)
     }
+
+    /** A stored set's weight as the table draws it, so a renumbering reads as sets rather
+     *  than as milligrams. */
+    private fun WorkoutSet.weightText(): String =
+        weight?.let { formatWeightValue(it, UnitSystem.METRIC) }.orEmpty()
 
     /** The exercise's row on screen. Fails the test rather than returning null: every one of
      *  these fixtures has the exercise it asks about. */

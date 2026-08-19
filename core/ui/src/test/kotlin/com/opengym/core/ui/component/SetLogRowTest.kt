@@ -2,6 +2,9 @@ package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -314,6 +317,41 @@ class SetLogRowTest {
         composeTestRule.onNodeWithText("Warm-up").assertDoesNotExist()
         composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
         assertEquals(emptyList<SetType>(), types)
+        assertEquals(emptyList<Int?>(), ratings)
+    }
+
+    @Test
+    fun `a menu the row went read-only under does not spring back open`() {
+        var enabled by mutableStateOf(true)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 3,
+                    weight = "80",
+                    reps = "5",
+                    onWeightChange = weightEdits::add,
+                    onRepsChange = repEdits::add,
+                    onCompletedChange = completions::add,
+                    onSetTypeChange = types::add,
+                    rpe = 75,
+                    onRpeChange = ratings::add,
+                    enabled = enabled,
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithText("Not rated").assertIsDisplayed()
+
+        // The workout is paused under the open menu, and then picked back up. Withholding the
+        // popup without closing it leaves the menu up over a row nobody has touched since.
+        enabled = false
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        enabled = true
+
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
         assertEquals(emptyList<Int?>(), ratings)
     }
 
