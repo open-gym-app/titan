@@ -85,9 +85,6 @@
     <!-- An exercise deleted from the library since the session started. The sets logged
          against it still happened, so it keeps its place rather than vanishing mid-workout. -->
     <string name="active_exercise_removed">Removed from your library</string>
-    <!-- The superset marker on an exercise: "SS A1". The same wording as the review panel
-         before the session started, because it is the same grouping. -->
-    <string name="active_superset">SS %1$s</string>
     <!-- An exercise with nothing behind it: the PREV column has nothing to put in any of its
          cells, and a column of dashes reads as a fault rather than as a first attempt. Said
          once beside the name rather than repeated down the column. -->
@@ -119,17 +116,6 @@
          in its place — at the same point in the workout, in the same superset. -->
     <string name="active_swap_exercise">Swap %1$s for another exercise</string>
 
-
-    <!-- The control in the gap between two exercise cards, in its two states. An eyebrow, so
-         both are drawn in caps. The joined one names its group, matching the `SS A1` badges on
-         the cards either side; the offer cannot, since there is no group yet. -->
-    <string name="active_superset_link_label">Superset</string>
-    <string name="active_superset_linked_label">Superset %1$s</string>
-    <!-- Read out in place of the control, which is a hairline and a word: where it sits is what
-         says which two exercises it joins, and a screen reader has no "where". -->
-    <string name="active_superset_link">Perform %1$s and %2$s back to back</string>
-    <string name="active_superset_break">Stop performing %1$s and %2$s back to back</string>
-
     <!-- A session started empty, before any exercise has been added to it. -->
     <string name="active_no_exercises_title">No exercises yet</string>
     <string name="active_no_exercises_body">This session was started empty. Add the first exercise below and start logging.</string>
@@ -156,9 +142,6 @@
     <!-- Both directions of the superset control, which is one thing to the user. -->
     <string name="active_error_superset">Could not change that superset. The workout is unchanged.</string>
     <string name="active_error_reorder">Could not save the new order. The workout is in the order it was.</string>
-    <!-- Read out in place of the whole card while the workout is being reordered, since the
-         rows are then a name and a number and the point of them is where they are. -->
-    <string name="active_reorder_position">%1$d. %2$s</string>
     <!-- The second refusal here that is a rule rather than a failure. It names a different way
          past itself than the removal does: a swap can also be had by adding the new exercise and
          leaving the sets where they are. -->
@@ -249,16 +232,19 @@
     <string name="summary_save_template">Save as template</string>
     <string name="summary_done">Done</string>
 
+    <!-- The dialog behind "Save as template". Its field, its category chips and its cancel are
+         `TemplateNameDialog`'s own — this screen supplies only what is specific to saving a
+         workout you have just finished. -->
     <string name="summary_template_title">Save as template</string>
     <string name="summary_template_body">The exercises you performed, in order, with the sets, reps and weights you hit as their defaults.</string>
-    <string name="summary_template_name">Template name</string>
     <string name="summary_template_save">Save</string>
-    <string name="summary_template_cancel">Cancel</string>
+    <!-- Drawn under the name field, not in the snackbar: the dialog is still up with the name
+         the user typed in it, and that is the thing they have to change. -->
+    <string name="summary_template_name_taken">You already have a template with that name</string>
 
     <string name="summary_error_notes">Could not save the note</string>
     <string name="summary_error_rename">Could not rename the session</string>
     <string name="summary_template_saved">Saved as a template</string>
-    <string name="summary_error_template_taken">You already have a template with that name</string>
     <string name="summary_error_template">Could not save the template</string>
 
 </resources>

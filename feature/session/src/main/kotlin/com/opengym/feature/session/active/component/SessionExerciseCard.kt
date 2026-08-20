@@ -31,6 +31,7 @@ import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SetLogRow
+import com.opengym.core.ui.component.SupersetBadge
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.ActiveSessionEvent
@@ -246,10 +247,7 @@ private fun ExerciseHeading(
             }
         }
         if (row.supersetLabel != null) {
-            OpenGymBadge(
-                text = stringResource(R.string.active_superset, row.supersetLabel),
-                tone = BadgeTone.ACCENT,
-            )
+            SupersetBadge(label = row.supersetLabel)
         }
         // Before the ×, because it is the milder of the two: swapping keeps the slot and the
         // × takes it away, and a thumb reaching past the destructive one to find the reversible

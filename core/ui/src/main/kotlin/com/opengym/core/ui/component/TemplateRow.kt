@@ -40,10 +40,18 @@ import kotlin.time.Duration.Companion.minutes
  * what it trains.
  *
  * ```text
- * ┌────┐  Push Day · Upper
- * │ P  │  8 EX · ~55M                    STRENGTH
+ * ┌────┐  Push Day · Upper                    ⋮
+ * │ P  │  8 EX · ~55M   STRENGTH
  * └────┘
  * ```
+ *
+ * ### Why the chip is on the second line rather than out to the right
+ *
+ * Because the name has to survive a narrow screen. On 320dp — the narrowest Android still runs
+ * on — a row with the mark, a chip reading `HYPERTROPHY` and an overflow button out to the right
+ * leaves about fifty points for the name, and "Full Body Beginner" arrives as "Full Body …". The
+ * chip qualifies the figures beside it as much as it qualifies the title above them, so it costs
+ * nothing to put it there, and what it buys is a row whose subject is readable.
  *
  * Shared rather than owned by a screen because three of them render it — the new-session
  * picker (#25), the templates tab (#24) and the template editor's header (#92) — and the
@@ -88,7 +96,10 @@ fun TemplateRow(
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = OpenGymTheme.spacing.card, vertical = OpenGymTheme.spacing.lg),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+        // Tight, because the row is four things wide on a 320dp screen — the mark, the name, the
+        // chip and whatever the caller puts in [trailing] — and every point spent between them
+        // comes off the estimate at the end of the second line.
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The semantics are cleared over *this* block rather than over the whole row, so a
@@ -99,12 +110,15 @@ fun TemplateRow(
             modifier = Modifier
                 .weight(1f)
                 .clearAndSetSemantics { contentDescription = description },
-            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TemplateMark(name = summary.template.name)
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+            ) {
                 Text(
                     text = summary.template.name,
                     style = MaterialTheme.typography.titleSmall,
@@ -112,18 +126,28 @@ fun TemplateRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = summary.meta(),
-                    style = OpenGymTheme.typography.numericSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-
-            // No chip for a template nobody has categorised — see TemplateCategory, where
-            // the null is explicitly not GENERAL.
-            if (category != null) {
-                OpenGymBadge(text = category.label())
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = summary.meta(),
+                        style = OpenGymTheme.typography.numericSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        // Weighted so that where the two do not both fit — a long estimate next
+                        // to `HYPERTROPHY` on a 320dp screen — it is the figures that give way
+                        // and not the chip. `fill = false` so a short estimate does not push the
+                        // chip out to the margin.
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // No chip for a template nobody has categorised — see TemplateCategory,
+                    // where the null is explicitly not GENERAL.
+                    if (category != null) {
+                        OpenGymBadge(text = category.label())
+                    }
+                }
             }
         }
 

@@ -161,6 +161,9 @@ Text(
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
   | `DiscardSessionDialog` | the question a workout is thrown away through, with the count of what it costs in it. Asked from the workout itself and from Home's resume banner | how many sets go with it |
+  | `TemplateNameDialog` | what to call a *template*, and what it trains — saving one out of a workout, renaming one, retitling one in the editor | the name and the category, hoisted, plus the refusal to draw under the field |
+  | `TemplateCategoryPicker` | the six answers to "what does this train", `None` among them | a `TemplateCategory?` |
+  | `ChipSection` | an eyebrow over a wrapping row of chips — a closed vocabulary shown whole rather than scrolled | a label and the chips |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
@@ -174,7 +177,7 @@ Text(
   | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
   | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
   | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
-  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip | `TemplateSummary` |
+  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip, with a slot for whatever the screen puts on the right | `TemplateSummary` |
   | `TemplateCard` | the same template as a fixed-width card, for a strip that scrolls sideways. Shares the row's figures, so the two cannot disagree | `TemplateSummary` |
   | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
@@ -185,9 +188,17 @@ Text(
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
   | `ReorderableItem` / `Modifier.reorderable` / `DragHandle` | a list whose items are picked up by holding one, dragged, and dropped by letting go; the glyph that marks a row as movable | the list, hoisted, plus `onMove` per crossing and `onCommit` per gesture |
+  | `CollapsedReorderRow` | what every item of such a list shrinks to while one is held: its place, its name, one fact and its superset | a position and a name |
+  | `SupersetLink` | the join in the gap between two exercises, where a superset is made and unmade | whether the two are already one |
+  | `SupersetBadge` | the `SS A1` an exercise in a superset wears | the marker from `supersetLabels` |
+  | `OpenGymValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it | the text, hoisted, and an error |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
+
+  `SetLogRow` is built from `OpenGymValueField`s and so is the template editor's per-exercise
+  defaults row, which is the point of the component: the weight a template plans and the weight
+  it becomes are the same cell.
 
   `SetLogRow` and `LoggedSetRow` are one table in two states and share their column grid, so a
   caller has to pass the same `showPrevious` to both and to `SetLogHeader` or the labels stop

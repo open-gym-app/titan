@@ -239,12 +239,44 @@
     <string name="sessions_no_results_description">No session matches your search and the dates you picked.</string>
     <string name="sessions_clear_filters">Clear filters</string>
 
-    <!-- The templates tab. No action on the empty state: authoring is #92, and until it
-         lands the only way to make one is from a finished session — so the description says
-         where they come from rather than offering a button that would not help. -->
+    <!-- The templates tab. The empty state's action starts a session rather than opening a
+         blank form: a template is saved out of a workout you have just done, with the sets and
+         weights you actually hit as its defaults. -->
     <string name="sessions_templates_glyph">▤</string>
     <string name="sessions_templates_empty_title">No templates yet</string>
     <string name="sessions_templates_empty_description">Finish a workout and save it as a template to start the same session again in one tap.</string>
+    <string name="sessions_templates_empty_action">Start a session</string>
+
+    <!-- A template row's overflow menu, and the two dialogs behind it. -->
+    <string name="sessions_template_actions">More for %1$s</string>
+    <string name="sessions_template_rename">Rename</string>
+    <string name="sessions_template_duplicate">Duplicate</string>
+    <string name="sessions_template_delete">Delete</string>
+    <!-- What a copy is offered as. Only a proposal: the dialog is what makes it the user's. -->
+    <string name="sessions_template_copy_name">%1$s (copy)</string>
+    <string name="sessions_template_rename_title">Rename template</string>
+    <string name="sessions_template_rename_confirm">Rename</string>
+    <string name="sessions_template_duplicate_title">Duplicate template</string>
+    <string name="sessions_template_duplicate_body">The same exercises, in the same order, with the same defaults. Give the copy a name of its own.</string>
+    <string name="sessions_template_duplicate_confirm">Duplicate</string>
+    <!-- Drawn under the name field, not in the snackbar: the dialog is still up with the name
+         the user typed in it, and that is the thing they have to change. -->
+    <string name="sessions_template_name_taken">You already have a template with that name</string>
+
+    <!-- Deleting one. The question names it, because "delete this template?" is a different
+         question when the answer is a plan built up over a month — and it says what is *not*
+         lost, since the workouts already done from it are the thing a user would fear for. -->
+    <string name="sessions_template_delete_title">Delete “%1$s”?</string>
+    <string name="sessions_template_delete_body">The sessions you have already logged from it stay exactly where they are.</string>
+    <string name="sessions_template_delete_confirm">Delete</string>
+    <string name="sessions_template_delete_cancel">Cancel</string>
+
+    <!-- One-shot outcomes. There is none for a rename: the row redrawing under its new name
+         is the confirmation. -->
+    <string name="sessions_template_duplicated">Template duplicated</string>
+    <string name="sessions_template_deleted">Template deleted</string>
+    <string name="sessions_template_gone">That template is no longer there</string>
+    <string name="sessions_template_failed">Could not change the template</string>
 
     <!-- The date sheet. -->
     <string name="sessions_dates">Dates</string>
@@ -267,5 +299,59 @@
     <string name="sessions_calendar_stat_sessions">Sessions</string>
     <string name="sessions_calendar_stat_time">Time</string>
     <!-- No "volume" label: that chip labels itself with the unit suffix, kg or lb. -->
+
+    <!-- ── Template editor ────────────────────────────────────────────────────────── -->
+
+    <string name="template_editor_title">Edit template</string>
+    <string name="template_editor_back">Back</string>
+    <string name="template_editor_save">Save</string>
+    <string name="template_editor_exercises">Exercises</string>
+    <string name="template_editor_add_exercises">Add exercises</string>
+
+    <!-- The header row doubles as the way to rename, so the dialog it opens says both things
+         it edits rather than only the name. -->
+    <string name="template_editor_name_title">Name and category</string>
+    <string name="template_editor_name_confirm">Apply</string>
+    <string name="template_editor_name_taken">You already have a template with that name</string>
+
+    <!-- An exercise deleted from the library since the template was saved. It keeps its place:
+         the plan is the user's, and a line silently dropped is a workout that got shorter. -->
+    <string name="template_exercise_removed">Removed from your library</string>
+    <string name="template_remove_exercise">Remove %1$s from this template</string>
+
+    <!-- The four figures a template line carries. Captions are drawn under the cells, so they
+         are as short as the boxes they name; the descriptions are what a screen reader hears. -->
+    <string name="template_field_sets">Sets</string>
+    <string name="template_field_reps">Reps</string>
+    <string name="template_field_rest">Rest</string>
+    <string name="template_field_sets_description">Sets for %1$s</string>
+    <string name="template_field_reps_description">Reps for %1$s</string>
+    <!-- The unit is in the description because the caption under the cell is cleared from
+         the semantics tree: without it a screen reader hears a number and no unit. -->
+    <string name="template_field_weight_description">Weight for %1$s in %2$s</string>
+    <string name="template_field_rest_description">Rest in seconds for %1$s</string>
+    <!-- Said of the field itself, which is where a screen reader will hear it. The bounds are
+         not spelled out: what is wrong is nearly always a stray character. -->
+    <string name="template_field_invalid">Not a number this can plan</string>
+
+    <!-- A template edited down to nothing. Not an error — the user is mid-edit — but the save
+         is inert until something is back in it, and this says why. -->
+    <string name="template_editor_empty_title">Nothing in this template</string>
+    <string name="template_editor_empty_body">Add at least one exercise before saving.</string>
+
+    <!-- Opened on a template that is not there, or deleted from the list while this was open. -->
+    <string name="template_editor_missing_title">No such template</string>
+    <string name="template_editor_missing_body">It has been deleted. The sessions you logged from it are still in your history.</string>
+    <string name="template_editor_missing_action">Back to templates</string>
+
+    <!-- Leaving with unsaved edits. -->
+    <string name="template_editor_discard_title">Leave without saving?</string>
+    <string name="template_editor_discard_body">The template stays exactly as it was. The changes you just made are lost.</string>
+    <string name="template_editor_discard_confirm">Discard</string>
+    <string name="template_editor_discard_cancel">Keep editing</string>
+
+    <!-- One-shot outcomes. There is none for a save that worked: the screen closes on it. -->
+    <string name="template_editor_exercises_unavailable">Some of those exercises are no longer in your library and were left out</string>
+    <string name="template_editor_save_failed">Could not save the template</string>
 
 </resources>

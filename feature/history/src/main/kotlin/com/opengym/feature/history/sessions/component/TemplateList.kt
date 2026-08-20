@@ -4,17 +4,34 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.TemplateRow
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
+import com.opengym.feature.history.sessions.SessionsEvent
 import com.opengym.feature.history.sessions.SessionsUiState
 
 /**
@@ -27,17 +44,27 @@ import com.opengym.feature.history.sessions.SessionsUiState
  * here in a way it is not over an unbounded history. It is also what makes the two tabs read
  * as different *kinds* of list rather than as one list with different rows in it.
  *
- * ### The rows do nothing yet, and that is the honest shape
+ * ### A tap opens it, and the three things you can do *to* it are behind the ⋮
  *
- * Template authoring is #92. Until it lands there is nothing for a tap to open — starting a
- * workout from a template is the new-session flow's own picker, which is one tap away in the
- * `+ NEW` above — so the rows are drawn inert rather than given a ripple that leads nowhere.
- * #92 adds the tap and the overflow, in the slot [TemplateRow] already carries for it.
+ * Tapping a row opens the editor, because reading what a template contains is the commonest
+ * reason to touch one and it is also the way to change it. Rename, duplicate and delete sit in
+ * an overflow menu rather than on the row: they are three controls per row on a list whose
+ * whole job is to be scanned, and two of them are things a user does once in the life of a
+ * template.
+ *
+ * The menu's own state is local. Which row has its menu open is not something anything outside
+ * this list acts on, and a ViewModel holding it would be carrying an id it could never use.
+ *
+ * @param onTemplateClick open a template's editor. Hoisted through the screen, because the
+ *   destination is `:app`'s to name — see `historyGraph`.
  */
 @Composable
 internal fun TemplateList(
     state: SessionsUiState,
     listState: LazyListState,
+    onEvent: (SessionsEvent) -> Unit,
+    onTemplateClick: (templateId: Long) -> Unit,
+    onStartSession: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -51,7 +78,7 @@ internal fun TemplateList(
             // an empty state flashed over a list that is merely still opening tells a user
             // with six templates that they have none.
             if (!state.isLoadingTemplates) {
-                item(key = EMPTY_KEY) { TemplatesEmptyState() }
+                item(key = EMPTY_KEY) { TemplatesEmptyState(onStartSession = onStartSession) }
             }
             return@LazyColumn
         }
@@ -67,7 +94,11 @@ internal fun TemplateList(
             OpenGymCard {
                 state.templates.forEachIndexed { index, summary ->
                     if (index > 0) HairlineDivider()
-                    TemplateRow(summary = summary)
+                    TemplateRow(
+                        summary = summary,
+                        onClick = { onTemplateClick(summary.template.id) },
+                        trailing = { TemplateMenu(summary = summary, onEvent = onEvent) },
+                    )
                 }
             }
         }
@@ -79,22 +110,89 @@ internal fun TemplateList(
 }
 
 /**
- * What the tab says with nothing in it.
+ * The ⋮ on a template row, and what is under it.
  *
- * No action, deliberately. The only way to make a template today is to finish a workout and
- * save it as one (#27), which is not a thing a button here can do — so the description says
- * where they come from rather than offering a way out that would not help. #92 gives this
- * state its `+ NEW`.
+ * Delete is last and drawn in `error`, which is the only place this screen spends that colour:
+ * it is the one item in the menu that cannot be taken back by pressing the same thing again.
+ * It still asks first — see `TemplateAction.Deleting` — because a template is a plan the user
+ * built rather than a row of data, and the undo an immediate delete would need is a whole
+ * template held in memory until a snackbar times out.
  */
 @Composable
-private fun TemplatesEmptyState(modifier: Modifier = Modifier) {
+private fun TemplateMenu(summary: TemplateSummary, onEvent: (SessionsEvent) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val templateId = summary.template.id
+    // Resolved here rather than in the ViewModel, which has no `Context` — see
+    // `SessionsEvent.TemplateDuplicateRequested`.
+    val copyName = stringResource(R.string.sessions_template_copy_name, summary.template.name)
+
+    // Narrower than Material's 48dp default, which on a 320dp screen is a sixth of the row: the
+    // glyph is 18dp and what it costs the line beside it is the template's estimate. The touch
+    // target stays a comfortable 36dp square with the row's own padding around it.
+    IconButton(onClick = { expanded = true }, modifier = Modifier.size(MENU_SIZE)) {
+        Icon(
+            imageVector = Icons.Outlined.MoreVert,
+            contentDescription = stringResource(
+                R.string.sessions_template_actions,
+                summary.template.name,
+            ),
+            modifier = Modifier.size(MENU_GLYPH_SIZE),
+        )
+    }
+
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.sessions_template_rename)) },
+            onClick = {
+                expanded = false
+                onEvent(SessionsEvent.TemplateRenameRequested(templateId))
+            },
+        )
+        DropdownMenuItem(
+            text = { Text(stringResource(R.string.sessions_template_duplicate)) },
+            onClick = {
+                expanded = false
+                onEvent(SessionsEvent.TemplateDuplicateRequested(templateId, copyName))
+            },
+        )
+        DropdownMenuItem(
+            text = {
+                Text(
+                    text = stringResource(R.string.sessions_template_delete),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            },
+            onClick = {
+                expanded = false
+                onEvent(SessionsEvent.TemplateDeleteRequested(templateId))
+            },
+        )
+    }
+}
+
+/**
+ * What the tab says with nothing in it.
+ *
+ * The action starts a session rather than opening a blank editor, because that is genuinely
+ * where templates come from: one is saved out of a workout you have just done, with the sets
+ * and weights you actually hit as its defaults. A "new template" button here would open an
+ * empty form and ask a user with no history to type a plan they have not performed.
+ */
+@Composable
+private fun TemplatesEmptyState(onStartSession: () -> Unit, modifier: Modifier = Modifier) {
     EmptyState(
         glyph = stringResource(R.string.sessions_templates_glyph),
         title = stringResource(R.string.sessions_templates_empty_title),
         description = stringResource(R.string.sessions_templates_empty_description),
+        actionLabel = stringResource(R.string.sessions_templates_empty_action),
+        action = onStartSession,
         modifier = modifier,
     )
 }
+
+/** The overflow's square, and the glyph in it. See [TemplateMenu]. */
+private val MENU_SIZE: Dp = 36.dp
+private val MENU_GLYPH_SIZE: Dp = 18.dp
 
 /* Stable keys for the four items, none of which is a row — the rows are inside [LIST_KEY]. */
 private const val EMPTY_KEY = "empty"

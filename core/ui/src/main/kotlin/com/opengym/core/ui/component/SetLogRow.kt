@@ -8,7 +8,6 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,9 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -39,14 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +56,6 @@ import com.opengym.core.ui.format.formatRpe
 import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.format.formatSetCompact
 import com.opengym.core.ui.format.weightSuffix
-import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.LocalUnitSystem
 import com.opengym.core.ui.theme.OpenGymTheme
 
@@ -185,7 +178,7 @@ fun SetLogRow(
         )
         PreviousCell(previous = previous, showPrevious = showPrevious)
 
-        SetValueField(
+        OpenGymValueField(
             value = weight,
             onValueChange = onWeightChange,
             description = stringResource(R.string.set_log_weight_field, setNumber),
@@ -204,7 +197,7 @@ fun SetLogRow(
             // times between the values it is punctuating.
             modifier = Modifier.clearAndSetSemantics { },
         )
-        SetValueField(
+        OpenGymValueField(
             value = reps,
             onValueChange = onRepsChange,
             description = stringResource(R.string.set_log_reps_field, setNumber),
@@ -505,68 +498,6 @@ internal fun PreviousCell(previous: PreviousSet?, showPrevious: Boolean) {
             // has no column headers to tell them which of the three it was. With nothing to
             // report it leaves the tree altogether — the dash is spacing, not a value.
             .clearAndSetSemantics { if (spoken != null) contentDescription = spoken },
-    )
-}
-
-/**
- * A weight or rep field.
- *
- * [BasicTextField] rather than `OutlinedTextField`: Material's text fields carry a floating
- * label, a 56dp minimum height and their own container, and four of them across a 300dp row
- * is not a layout. What is kept is what the field is *for* — a numeric keyboard, a single
- * line, a visible focus and error state, and a label a screen reader can read.
- *
- * [error] is carried here rather than on the row's frame because the frame is a `Column` with
- * no text and no role: TalkBack never stops on it, so an error announced there is an error
- * nobody hears. On the field it is read out with the value that was refused.
- *
- * [onDone] turns the keyboard's action key into DONE and is what it does. Null leaves the key
- * whatever the platform would have made it, which is what a field nobody has to leave wants.
- */
-@Composable
-internal fun SetValueField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    description: String,
-    keyboardType: KeyboardType,
-    enabled: Boolean,
-    error: String?,
-    modifier: Modifier = Modifier,
-    onDone: (() -> Unit)? = null,
-) {
-    val shape = MaterialTheme.shapes.extraSmall
-    val border = if (error != null) MaterialTheme.colorScheme.error else Color.Transparent
-
-    BasicTextField(
-        value = value,
-        onValueChange = onValueChange,
-        enabled = enabled,
-        readOnly = !enabled,
-        singleLine = true,
-        textStyle = OpenGymTheme.typography.numeric.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
-        ),
-        keyboardOptions = KeyboardOptions(
-            keyboardType = keyboardType,
-            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
-        ),
-        keyboardActions = KeyboardActions(onDone = onDone?.let { { it() } }),
-        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        modifier = modifier.semantics {
-            contentDescription = description
-            if (error != null) this.error(error)
-        },
-        decorationBox = { field ->
-            Box(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
-                    .border(HAIRLINE_WIDTH, border, shape)
-                    .padding(vertical = OpenGymTheme.spacing.md),
-                contentAlignment = Alignment.Center,
-                content = { field() },
-            )
-        },
     )
 }
 

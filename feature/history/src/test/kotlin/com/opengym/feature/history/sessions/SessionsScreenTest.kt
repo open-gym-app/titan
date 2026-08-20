@@ -34,6 +34,7 @@ class SessionsScreenTest {
 
     private val events = mutableListOf<SessionsEvent>()
     private val opened = mutableListOf<Long>()
+    private val openedTemplates = mutableListOf<Long>()
     private var started = 0
 
     // ─── The history tab ────────────────────────────────────────────────────────────────
@@ -170,7 +171,9 @@ class SessionsScreenTest {
         setContent(populated(tab = SessionsTab.TEMPLATES))
 
         composeTestRule.onNodeWithText("1 TEMPLATE").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Push Day", substring = true)
+        // The row's own sentence, not a substring: the overflow button beside it also names the
+        // template, and matching loosely would find both.
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
             .assertIsDisplayed()
     }
 
@@ -179,6 +182,112 @@ class SessionsScreenTest {
         setContent(populated(tab = SessionsTab.TEMPLATES).copy(templates = emptyList()))
 
         composeTestRule.onNodeWithText("No templates yet").assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping a template row opens its editor`() {
+        setContent(populated(tab = SessionsTab.TEMPLATES))
+
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+            .performClick()
+
+        assertEquals(listOf(1L), openedTemplates)
+    }
+
+    @Test
+    fun `the row's overflow offers rename, duplicate and delete`() {
+        setContent(populated(tab = SessionsTab.TEMPLATES))
+
+        composeTestRule.onNodeWithContentDescription("More for Push Day").performClick()
+        composeTestRule.onNodeWithText("Rename").performClick()
+
+        assertEquals(listOf(SessionsEvent.TemplateRenameRequested(1)), events)
+    }
+
+    @Test
+    fun `duplicating proposes a name the ViewModel could not have worded`() {
+        setContent(populated(tab = SessionsTab.TEMPLATES))
+
+        composeTestRule.onNodeWithContentDescription("More for Push Day").performClick()
+        composeTestRule.onNodeWithText("Duplicate").performClick()
+
+        assertEquals(
+            listOf(SessionsEvent.TemplateDuplicateRequested(1, "Push Day (copy)")),
+            events,
+        )
+    }
+
+    @Test
+    fun `deleting from the overflow asks rather than deleting`() {
+        setContent(populated(tab = SessionsTab.TEMPLATES))
+
+        composeTestRule.onNodeWithContentDescription("More for Push Day").performClick()
+        composeTestRule.onNodeWithText("Delete").performClick()
+
+        assertEquals(listOf(SessionsEvent.TemplateDeleteRequested(1)), events)
+    }
+
+    @Test
+    fun `the delete dialog names the template and says the history survives`() {
+        setContent(
+            populated(tab = SessionsTab.TEMPLATES).copy(
+                templateAction = TemplateAction.Deleting(templateId = 1, name = "Push Day"),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Delete “Push Day”?").assertIsDisplayed()
+        composeTestRule.onNodeWithText(
+            "The sessions you have already logged from it stay exactly where they are.",
+        ).assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Delete").performClick()
+        assertEquals(listOf(SessionsEvent.TemplateDeleteConfirmed), events)
+    }
+
+    @Test
+    fun `the rename dialog draws the name and reports what is typed into it`() {
+        setContent(
+            populated(tab = SessionsTab.TEMPLATES).copy(
+                templateAction = TemplateAction.Naming(
+                    templateId = 1,
+                    kind = TemplateNaming.RENAME,
+                    name = "Push Day",
+                ),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Rename template").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Template name").performTextInput("!")
+
+        // The caret opens at the start of the field, so the character lands there.
+        assertEquals(listOf(SessionsEvent.TemplateNameChanged("!Push Day")), events)
+    }
+
+    @Test
+    fun `a name already in use is drawn under the field`() {
+        setContent(
+            populated(tab = SessionsTab.TEMPLATES).copy(
+                templateAction = TemplateAction.Naming(
+                    templateId = 1,
+                    kind = TemplateNaming.DUPLICATE,
+                    name = "Pull Day",
+                    nameTaken = true,
+                ),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("You already have a template with that name")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the empty templates tab offers the only way to make one`() {
+        setContent(populated(tab = SessionsTab.TEMPLATES).copy(templates = emptyList()))
+
+        composeTestRule.onNodeWithText("No templates yet").assertIsDisplayed()
+        composeTestRule.onNodeWithText("START A SESSION").performClick()
+
+        assertEquals(1, started)
     }
 
     @Test
@@ -258,6 +367,7 @@ class SessionsScreenTest {
                     onEvent = events::add,
                     onSessionClick = opened::add,
                     onStartSession = { started++ },
+                    onTemplateClick = openedTemplates::add,
                 )
             }
         }

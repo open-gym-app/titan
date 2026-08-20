@@ -10,6 +10,7 @@ import com.opengym.feature.history.detail.ExerciseDetailRoute
 import com.opengym.feature.history.library.ExerciseLibraryRoute
 import com.opengym.feature.history.plate.PlateCalculatorRoute
 import com.opengym.feature.history.sessions.SessionsRoute
+import com.opengym.feature.history.template.TemplateEditorRoute
 import kotlinx.serialization.Serializable
 
 /** The Sessions tab's graph. Navigating here lands on [SessionsDestination]. */
@@ -30,6 +31,21 @@ data object SessionsDestination
  * is the one the architecture forbids. `:app` owns that edge, so `:app` makes the push; see
  * `historyGraph`'s `onSessionClick`.
  */
+
+/**
+ * One saved template, opened to be changed (#92).
+ *
+ * **Inside the Sessions tab**, unlike the exercise detail and the plate calculator, which are
+ * modes pushed over everything. A template is read and edited *from the list of templates*, and
+ * the list is a tab: the bottom bar stays, the back arrow goes back to the tab it came from, and
+ * nothing about editing a plan is the kind of thing the session flow's chrome-less mode is for.
+ * It is the second destination in that graph, which is why the graph existed before it did.
+ *
+ * @param templateId the template to edit. An id that no longer resolves draws the dead end
+ *   rather than an empty editor — see `TemplateEditorViewModel`.
+ */
+@Serializable
+data class TemplateEditorDestination(val templateId: Long)
 
 /** The Library tab's graph. Navigating here lands on [ExerciseLibraryDestination]. */
 @Serializable
@@ -107,6 +123,43 @@ const val NO_SUGGESTED_TARGET: Long = 0L
 data class ExercisePickerDestination(val replacing: Boolean = false)
 
 /**
+ * The template editor, as the Sessions tab is allowed to see it.
+ *
+ * Five things that only make sense together — a way in, a way out, and the exercise picker's
+ * three halves — so they travel as one parameter rather than as five. That is also what keeps
+ * [historyGraph]'s signature readable as the tab grows.
+ *
+ * Every one of them is hoisted even though the editor is *this* module's own screen and the
+ * picker's destination is declared a few lines above: the `NavController` belongs to `:app`, and
+ * a feature that reaches for it to make one push is one refactor away from reaching for another
+ * feature's destination through it.
+ *
+ * @param open a template row was tapped; the id is the template to edit.
+ * @param onExit the editor is done with — saved, discarded, or opened on a template that is not
+ *   there. One way out rather than three, because all three are the same pop and the screen has
+ *   already said which of them happened.
+ * @param openExercisePicker push the picker over the editor. Its destination is in this module,
+ *   but it is registered *outside* the tab scaffold, so the push is `:app`'s.
+ * @param pickedExerciseIds what the picker came back with, or null when it has not answered.
+ *
+ *   **A function, not the list itself, and this is load-bearing.** `NavHost` builds its graph
+ *   inside a `remember`, so a plain `List<Long>?` here is the one that was there when the graph
+ *   was built — `null`, always, since the picker cannot have answered before it has been opened.
+ *   Called from inside the destination's own composition, the read lands in a scope that
+ *   recomposes when the answer arrives. Same shape, and same reason, as `ExercisePicker` in
+ *   `:feature:session`.
+ * @param onPickedExercisesHandled the answer has been applied and should be forgotten, so a
+ *   recomposition or a process restore does not append the same exercises twice.
+ */
+data class TemplateEditor(
+    val open: (templateId: Long) -> Unit,
+    val onExit: () -> Unit,
+    val openExercisePicker: () -> Unit,
+    val pickedExerciseIds: () -> List<Long>?,
+    val onPickedExercisesHandled: () -> Unit,
+)
+
+/**
  * The Sessions tab.
  *
  * Still **one** destination after #24, which split the tab into history, templates and
@@ -126,14 +179,33 @@ data class ExercisePickerDestination(val replacing: Boolean = false)
  *   load-bearing rather than stylistic — the destination this opens is in another module.
  * @param onStartSession the header's `+ NEW`, and the way out of an empty history. Opens the
  *   new-session flow, which is `:feature:session`'s — hoisted for the same reason.
+ * @param templateEditor the second destination in this tab, and everything it needs to be
+ *   reached and left — see [TemplateEditor].
  */
 fun NavGraphBuilder.historyGraph(
     onSessionClick: (sessionId: Long) -> Unit,
     onStartSession: () -> Unit,
+    templateEditor: TemplateEditor,
 ) {
     navigation<HistoryGraphDestination>(startDestination = SessionsDestination) {
         composable<SessionsDestination> {
-            SessionsRoute(onSessionClick = onSessionClick, onStartSession = onStartSession)
+            SessionsRoute(
+                onSessionClick = onSessionClick,
+                onStartSession = onStartSession,
+                onTemplateClick = templateEditor.open,
+            )
+        }
+
+        composable<TemplateEditorDestination> {
+            TemplateEditorRoute(
+                onExit = templateEditor.onExit,
+                onPickExercises = templateEditor.openExercisePicker,
+                // Read here, inside the destination, rather than taken off the graph as it was
+                // built — see [TemplateEditor.pickedExerciseIds] for why that distinction is the
+                // difference between the picker working and doing nothing at all.
+                pickedExerciseIds = templateEditor.pickedExerciseIds(),
+                onPickedExercisesHandled = templateEditor.onPickedExercisesHandled,
+            )
         }
     }
 }

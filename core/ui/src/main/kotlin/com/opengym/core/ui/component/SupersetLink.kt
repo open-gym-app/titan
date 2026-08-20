@@ -1,4 +1,4 @@
-package com.opengym.feature.session.active.component
+package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,8 +25,8 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
-import com.opengym.feature.session.R
 
 /**
  * The join between one exercise and the one performed after it.
@@ -43,8 +43,9 @@ import com.opengym.feature.session.R
  * `LinkSupersetUseCase`.
  *
  * A drag *can* undo a superset — pulling one member away from the other is what "these are not
- * back to back any more" looks like, and `ReorderSessionExercisesUseCase` tears the group rather
- * than bouncing the drop. This control is the way back, and the only way to make one in the
+ * back to back any more" looks like, and both screens tear the group rather than bouncing the
+ * drop (`ReorderSessionExercisesUseCase`, and [com.opengym.core.domain.superset.Supersets.tear]
+ * for a template's draft). This control is the way back, and the only way to make one in the
  * first place.
  *
  * ### Why the linked state is loud and the unlinked one is quiet
@@ -52,8 +53,15 @@ import com.opengym.feature.session.R
  * A workout has one fewer gap than it has exercises, and most of them are not supersets. An
  * affordance drawn at full strength in every one of them would be a page of controls with a
  * workout somewhere behind it, so the offer is a hairline and a small label, and the *fact* — a
- * pair that is joined — is a filled pill on the accent, matching the `SS A1` badges on the two
+ * pair that is joined — is a filled pill on the accent, matching the [SupersetBadge]s on the two
  * cards it sits between.
+ *
+ * ### Why it is shared
+ *
+ * Two screens make supersets and they are the same control over the same rules: the workout
+ * itself, and the template editor (#92), where the grouping being edited is the one a session
+ * started from the template will be laid out with. A second copy is how the two end up
+ * disagreeing about what a tap on the gap does.
  *
  * @param isLinked whether the two exercises either side are already one superset.
  * @param groupLabel the letter of the group they are in, for the pill to name when [isLinked].
@@ -73,7 +81,7 @@ fun SupersetLink(
     enabled: Boolean = true,
 ) {
     val description = stringResource(
-        if (isLinked) R.string.active_superset_break else R.string.active_superset_link,
+        if (isLinked) R.string.superset_break else R.string.superset_link,
         exerciseName,
         nextExerciseName,
     )
@@ -122,9 +130,9 @@ fun SupersetLink(
                     // badges on the cards either side — and an offer when it is not.
                     text = when {
                         isLinked && groupLabel != null ->
-                            stringResource(R.string.active_superset_linked_label, groupLabel)
+                            stringResource(R.string.superset_linked_label, groupLabel)
 
-                        else -> stringResource(R.string.active_superset_link_label)
+                        else -> stringResource(R.string.superset_link_label)
                     },
                     style = OpenGymTheme.typography.eyebrow,
                     maxLines = 1,

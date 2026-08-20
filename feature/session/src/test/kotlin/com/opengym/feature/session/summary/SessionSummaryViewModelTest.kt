@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
@@ -355,10 +356,34 @@ class SessionSummaryViewModelTest {
         viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
         val state = viewModel.uiState.value
-        assertEquals(SessionSummaryMessage.TEMPLATE_NAME_TAKEN, state.message)
+        // Reported under the field rather than in the snackbar, which is where the name the user
+        // has to change actually is.
+        assertTrue(state.templateNameTaken)
+        assertNull(state.message)
         // Still open, with the name still in it: the fix is a word, not the whole thing again.
         assertEquals("Push Day · Upper", state.templateName)
         assertEquals(1, templates.stored().size)
+    }
+
+    @Test
+    fun `the category chosen in the dialog is what the template is saved with`() = runTest {
+        val viewModel = viewModel(sets = pushDaySets())
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.TemplateCategoryChanged(TemplateCategory.HYPERTROPHY))
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+        assertEquals(TemplateCategory.HYPERTROPHY, templates.stored().single().category)
+    }
+
+    @Test
+    fun `a template saved without being asked has no category, which is not GENERAL`() = runTest {
+        val viewModel = viewModel(sets = pushDaySets())
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+        assertNull(templates.stored().single().category)
     }
 
     @Test

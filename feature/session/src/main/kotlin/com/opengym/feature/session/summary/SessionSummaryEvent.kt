@@ -1,5 +1,7 @@
 package com.opengym.feature.session.summary
 
+import com.opengym.core.domain.model.TemplateCategory
+
 /**
  * Everything the session recap can report.
  *
@@ -36,8 +38,17 @@ sealed interface SessionSummaryEvent {
      */
     data object SaveAsTemplateRequested : SessionSummaryEvent
 
-    /** The template name field changed. */
+    /** The template name field changed. Also clears a name-already-taken refusal. */
     data class TemplateNameChanged(val name: String) : SessionSummaryEvent
+
+    /**
+     * A category chip was chosen, or `null` for the `None` chip.
+     *
+     * Asked here rather than left to the editor, because this is the one moment the user has the
+     * workout in front of them: a template categorised on the way out of the gym is one whose
+     * chip means something, and one categorised in a list a week later is a guess.
+     */
+    data class TemplateCategoryChanged(val category: TemplateCategory?) : SessionSummaryEvent
 
     /** The dialog was dismissed. Nothing was written. */
     data object SaveAsTemplateDismissed : SessionSummaryEvent

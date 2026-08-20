@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -25,10 +27,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.OpenGymSearchField
 import com.opengym.core.ui.component.OpenGymTabRow
+import com.opengym.core.ui.component.TemplateNameDialog
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.sessions.component.CalendarPane
 import com.opengym.feature.history.sessions.component.DateFilterSheet
+import com.opengym.feature.history.sessions.component.DeleteTemplateDialog
 import com.opengym.feature.history.sessions.component.HistoryList
 import com.opengym.feature.history.sessions.component.SessionsHeader
 import com.opengym.feature.history.sessions.component.TemplateList
@@ -41,11 +45,14 @@ import com.opengym.feature.history.sessions.component.sessionsTabLabels
  *   this is hoisted all the way to `:app` — see `historyGraph`.
  * @param onStartSession the `+ NEW` action and the empty state's way out. Opens the
  *   new-session flow, which is also another module's.
+ * @param onTemplateClick a template row was tapped. The editor is this module's own, but the
+ *   push is still `:app`'s — the `NavController` belongs to it.
  */
 @Composable
 fun SessionsRoute(
     onSessionClick: (sessionId: Long) -> Unit,
     onStartSession: () -> Unit,
+    onTemplateClick: (templateId: Long) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SessionsViewModel = hiltViewModel(),
 ) {
@@ -56,6 +63,7 @@ fun SessionsRoute(
         onEvent = viewModel::onEvent,
         onSessionClick = onSessionClick,
         onStartSession = onStartSession,
+        onTemplateClick = onTemplateClick,
         modifier = modifier,
     )
 }
@@ -91,7 +99,19 @@ fun SessionsScreen(
     onSessionClick: (sessionId: Long) -> Unit,
     onStartSession: () -> Unit,
     modifier: Modifier = Modifier,
+    onTemplateClick: (templateId: Long) -> Unit = {},
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val message = state.message
+    val messageText = message?.let { stringResource(it.labelRes()) }
+
+    LaunchedEffect(message, messageText) {
+        if (messageText != null) {
+            snackbarHostState.showSnackbar(messageText)
+            onEvent(SessionsEvent.MessageShown)
+        }
+    }
+
     // Which controls are open is the screen's own business — nothing outside it acts on the
     // answer, and the ViewModel would be carrying two booleans it could never do anything
     // with. `rememberSaveable` is what makes them survive a rotation anyway.
@@ -133,6 +153,7 @@ fun SessionsScreen(
         // for the system bars and padded the `NavHost` by it. Asking again would push the
         // header down twice.
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             Column {
                 SessionsHeader(
@@ -181,6 +202,9 @@ fun SessionsScreen(
             SessionsTab.TEMPLATES -> TemplateList(
                 state = state,
                 listState = templateListState,
+                onEvent = onEvent,
+                onTemplateClick = onTemplateClick,
+                onStartSession = onStartSession,
                 modifier = content,
             )
 
@@ -201,6 +225,65 @@ fun SessionsScreen(
             onDismiss = { datesOpen = false },
         )
     }
+
+    TemplateActionDialogs(action = state.templateAction, onEvent = onEvent)
+}
+
+/**
+ * Whichever of the two dialogs a template row's overflow menu opened.
+ *
+ * Rename and duplicate are one `TemplateNameDialog` with different words on it, because they
+ * ask the same question and refuse the same way — see [TemplateAction]. Delete is its own,
+ * because it asks whether rather than what.
+ */
+@Composable
+private fun TemplateActionDialogs(action: TemplateAction?, onEvent: (SessionsEvent) -> Unit) {
+    when (action) {
+        null -> Unit
+
+        is TemplateAction.Naming -> TemplateNameDialog(
+            name = action.name,
+            onNameChange = { onEvent(SessionsEvent.TemplateNameChanged(it)) },
+            onConfirm = { onEvent(SessionsEvent.TemplateNameConfirmed) },
+            onDismiss = { onEvent(SessionsEvent.TemplateActionDismissed) },
+            title = stringResource(
+                when (action.kind) {
+                    TemplateNaming.RENAME -> R.string.sessions_template_rename_title
+                    TemplateNaming.DUPLICATE -> R.string.sessions_template_duplicate_title
+                },
+            ),
+            confirmLabel = stringResource(
+                when (action.kind) {
+                    TemplateNaming.RENAME -> R.string.sessions_template_rename_confirm
+                    TemplateNaming.DUPLICATE -> R.string.sessions_template_duplicate_confirm
+                },
+            ),
+            category = action.category,
+            onCategoryChange = { onEvent(SessionsEvent.TemplateCategoryChanged(it)) },
+            // Only the copy says anything: a rename is self-evident, and a line of prose over a
+            // field the user opened to fix a typo is one more thing to read past.
+            body = stringResource(R.string.sessions_template_duplicate_body)
+                .takeIf { action.kind == TemplateNaming.DUPLICATE },
+            error = stringResource(R.string.sessions_template_name_taken)
+                .takeIf { action.nameTaken },
+            isSaving = action.isSaving,
+        )
+
+        is TemplateAction.Deleting -> DeleteTemplateDialog(
+            name = action.name,
+            isDeleting = action.isDeleting,
+            onConfirm = { onEvent(SessionsEvent.TemplateDeleteConfirmed) },
+            onDismiss = { onEvent(SessionsEvent.TemplateActionDismissed) },
+        )
+    }
+}
+
+/** The sentence a message is shown as. */
+private fun SessionsMessage.labelRes(): Int = when (this) {
+    SessionsMessage.TEMPLATE_DUPLICATED -> R.string.sessions_template_duplicated
+    SessionsMessage.TEMPLATE_DELETED -> R.string.sessions_template_deleted
+    SessionsMessage.TEMPLATE_GONE -> R.string.sessions_template_gone
+    SessionsMessage.TEMPLATE_ACTION_FAILED -> R.string.sessions_template_failed
 }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────

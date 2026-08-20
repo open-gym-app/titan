@@ -15,6 +15,8 @@ import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import com.opengym.feature.history.navigation.ExercisePickerDestination
 import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
 import com.opengym.feature.history.navigation.PlateCalculatorDestination
+import com.opengym.feature.history.navigation.TemplateEditor
+import com.opengym.feature.history.navigation.TemplateEditorDestination
 import com.opengym.feature.history.navigation.exerciseDetailGraph
 import com.opengym.feature.history.navigation.exercisePickerGraph
 import com.opengym.feature.history.navigation.historyGraph
@@ -130,7 +132,30 @@ fun OpenGymNavHost(
                 },
                 // The same move Home's template action makes, through the same helper: the
                 // session list has no template in hand either, so the flow opens on its list.
+                // `openSetup` is what dedupes two taps dispatched in one frame, which is why
+                // this no longer navigates to the graph itself.
                 onStartSession = { navController.openSetup() },
+                templateEditor = TemplateEditor(
+                    // Inside the tab, unlike everything else pushed from here: a template is
+                    // edited from the list of templates, and the list is a tab.
+                    // `launchSingleTop` as everywhere else — two taps on a row are two pushes of
+                    // the same editor, and the first back press then looks like it did nothing.
+                    open = { templateId ->
+                        navController.navigate(TemplateEditorDestination(templateId)) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onExit = { navController.popBackStack() },
+                    // The same picker the session flow opens, and the same held answer. Only one
+                    // of the two callers can be on the back stack at a time — the editor is
+                    // inside the tabs and the flow is a mode over them — so there is no question
+                    // of both reading it.
+                    openExercisePicker = {
+                        navController.navigate(ExercisePickerDestination) { launchSingleTop = true }
+                    },
+                    pickedExerciseIds = { pickedExerciseIds?.toList() },
+                    onPickedExercisesHandled = { pickedExerciseIds = null },
+                ),
             )
             libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
             progressionGraph()

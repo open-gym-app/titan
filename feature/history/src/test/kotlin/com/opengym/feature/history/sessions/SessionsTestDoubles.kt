@@ -18,6 +18,7 @@ import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -109,35 +110,88 @@ fun recordAt(exerciseId: Long, achievedAt: Long): PersonalRecord = PersonalRecor
     achievedAt = achievedAt,
 )
 
-/** The saved templates. Only the two reads `GetTemplateSummariesUseCase` makes are real. */
+/**
+ * The saved templates, in memory, with the writes the tab's row actions make.
+ *
+ * A real little store rather than a stub, because the tab's actions are *round trips*: a rename
+ * reads a template's exercises, hands them back to `UpdateTemplateUseCase`, and the list is
+ * expected to redraw from what was stored. Stubbing each of those in turn would assert on the
+ * calls rather than on the outcome, and the outcome is the whole question.
+ *
+ * @param writeFailure thrown by every write, for the "the store could not be written at all"
+ *   path — which is the one the use cases do not return and so cannot be reached any other way.
+ */
 class FakeTemplateStore(
     templates: List<WorkoutTemplate> = emptyList(),
     exercises: List<TemplateExercise> = emptyList(),
+    var writeFailure: Throwable? = null,
 ) : TemplateRepository {
 
     private val stored = MutableStateFlow(templates)
     private val body = MutableStateFlow(exercises)
+    private var nextId: Long = (templates.maxOfOrNull(WorkoutTemplate::id) ?: 0L) + 1
 
     override fun getAll(): Flow<List<WorkoutTemplate>> = stored
 
     override fun getAllExercises(): Flow<List<TemplateExercise>> = body
 
-    override fun getById(id: Long): Flow<WorkoutTemplate?> = unsupported()
-    override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> = unsupported()
+    override fun getById(id: Long): Flow<WorkoutTemplate?> =
+        stored.map { templates -> templates.firstOrNull { it.id == id } }
+
+    override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> =
+        body.map { rows -> rows.filter { it.templateId == templateId }.sortedBy(TemplateExercise::position) }
+
     override suspend fun insert(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
-    ): Long = unsupported()
+    ): Long {
+        writeFailure?.let { throw it }
+        val id = nextId++
+        stored.value += template.copy(id = id)
+        body.value += exercises.rowsFor(id)
+        return id
+    }
 
     override suspend fun update(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
-    ) = unsupported()
+    ) {
+        writeFailure?.let { throw it }
+        stored.value = stored.value.map { if (it.id == template.id) template else it }
+        // Replaced wholesale, which is the contract — see `TemplateRepository.update`.
+        body.value = body.value.filterNot { it.templateId == template.id } +
+            exercises.rowsFor(template.id)
+    }
 
-    override suspend fun delete(id: Long) = unsupported()
+    override suspend fun delete(id: Long) {
+        writeFailure?.let { throw it }
+        stored.value = stored.value.filterNot { it.id == id }
+        body.value = body.value.filterNot { it.templateId == id }
+    }
 
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("the templates tab only lists")
+    /** What the store holds now, for a test that wants to assert on the write rather than the read. */
+    fun templates(): List<WorkoutTemplate> = stored.value
+
+    /** [templateId]'s body as it is stored, in position order. */
+    fun exercisesOf(templateId: Long): List<TemplateExercise> =
+        body.value.filter { it.templateId == templateId }.sortedBy(TemplateExercise::position)
+
+    /** The drafts as rows, numbered from position 0 — the numbering the contract requires. */
+    private fun List<TemplateExerciseDraft>.rowsFor(templateId: Long): List<TemplateExercise> =
+        mapIndexed { position, draft ->
+            TemplateExercise(
+                id = nextId++,
+                templateId = templateId,
+                exerciseId = draft.exerciseId,
+                position = position,
+                supersetGroup = draft.supersetGroup,
+                defaultSets = draft.defaultSets,
+                defaultReps = draft.defaultReps,
+                defaultWeight = draft.defaultWeight,
+                restDuration = draft.restDuration,
+                notes = draft.notes,
+            )
+        }
 }
 
 /** A template with a name and a category, and nothing else the row draws. */

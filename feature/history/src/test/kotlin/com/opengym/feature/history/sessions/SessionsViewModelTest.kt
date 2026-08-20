@@ -1,6 +1,12 @@
 package com.opengym.feature.history.sessions
 
+import com.opengym.core.domain.model.TemplateCategory
+import com.opengym.core.domain.model.TemplateExercise
+import com.opengym.core.domain.model.WorkoutTemplate
+import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import com.opengym.core.domain.usecase.DeleteTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.ui.component.TrainingLoad
 import com.opengym.feature.history.plate.FakeUserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -434,6 +440,183 @@ class SessionsViewModelTest {
         assertFalse(state.isLoadingTemplates)
     }
 
+    // ─── The templates tab's row actions ────────────────────────────────────────────────
+
+    @Test
+    fun `renaming keeps the template's exercises and its category`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateRenameRequested(1))
+        viewModel.onEvent(SessionsEvent.TemplateNameChanged("Push Day · Heavy"))
+        viewModel.onEvent(SessionsEvent.TemplateNameConfirmed)
+
+        assertEquals(
+            listOf("Push Day · Heavy", "Pull Day"),
+            templates.templates().map(WorkoutTemplate::name),
+        )
+        assertEquals(TemplateCategory.STRENGTH, templates.templates().first().category)
+        // The body survives the rename: it is handed straight back to the use case, which is
+        // the only way to write a name at all.
+        assertEquals(listOf(10L, 11L), templates.exercisesOf(1).map(TemplateExercise::exerciseId))
+        assertNull(viewModel.uiState.value.templateAction)
+    }
+
+    @Test
+    fun `the rename dialog opens on the template's own name and category`() = runTest {
+        val viewModel = viewModel(templates = templateStore())
+
+        viewModel.onEvent(SessionsEvent.TemplateRenameRequested(1))
+
+        val naming = viewModel.uiState.value.templateAction as TemplateAction.Naming
+        assertEquals(TemplateNaming.RENAME, naming.kind)
+        assertEquals("Push Day", naming.name)
+        assertEquals(TemplateCategory.STRENGTH, naming.category)
+    }
+
+    @Test
+    fun `duplicating writes a second template with the same body`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDuplicateRequested(1, "Push Day (copy)"))
+        viewModel.onEvent(SessionsEvent.TemplateNameConfirmed)
+
+        val copy = templates.templates().single { it.name == "Push Day (copy)" }
+        assertEquals(TemplateCategory.STRENGTH, copy.category)
+        assertEquals(
+            listOf(10L, 11L),
+            templates.exercisesOf(copy.id).map(TemplateExercise::exerciseId),
+        )
+        // The original is untouched, which is the whole difference from a rename.
+        assertEquals(listOf(10L, 11L), templates.exercisesOf(1).map(TemplateExercise::exerciseId))
+        assertEquals(SessionsMessage.TEMPLATE_DUPLICATED, viewModel.uiState.value.message)
+    }
+
+    @Test
+    fun `a name already in use is reported under the field and the dialog stays up`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDuplicateRequested(1, "Pull Day"))
+        viewModel.onEvent(SessionsEvent.TemplateNameConfirmed)
+
+        val naming = viewModel.uiState.value.templateAction as TemplateAction.Naming
+        assertTrue(naming.nameTaken)
+        assertEquals("Pull Day", naming.name)
+        assertNull(viewModel.uiState.value.message)
+        // Nothing was written: two templates went in, two are still there.
+        assertEquals(2, templates.templates().size)
+    }
+
+    @Test
+    fun `typing again clears the name-already-taken refusal`() = runTest {
+        val viewModel = viewModel(templates = templateStore())
+
+        viewModel.onEvent(SessionsEvent.TemplateDuplicateRequested(1, "Pull Day"))
+        viewModel.onEvent(SessionsEvent.TemplateNameConfirmed)
+        viewModel.onEvent(SessionsEvent.TemplateNameChanged("Pull Day · Volume"))
+
+        val naming = viewModel.uiState.value.templateAction as TemplateAction.Naming
+        assertFalse(naming.nameTaken)
+    }
+
+    @Test
+    fun `deleting asks first, and the template is still there until it is confirmed`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDeleteRequested(1))
+
+        val deleting = viewModel.uiState.value.templateAction as TemplateAction.Deleting
+        assertEquals("Push Day", deleting.name)
+        assertEquals(2, templates.templates().size)
+    }
+
+    @Test
+    fun `a confirmed delete removes the template and says so`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDeleteRequested(1))
+        viewModel.onEvent(SessionsEvent.TemplateDeleteConfirmed)
+
+        assertEquals(listOf("Pull Day"), templates.templates().map(WorkoutTemplate::name))
+        assertEquals(emptyList<TemplateExercise>(), templates.exercisesOf(1))
+        assertEquals(SessionsMessage.TEMPLATE_DELETED, viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.templateAction)
+    }
+
+    @Test
+    fun `deleting a template leaves the sessions logged from it exactly where they are`() = runTest {
+        // The guarantee `DeleteTemplateUseCase` makes and the delete dialog promises out loud:
+        // `workout_session.template_id` is SET NULL, so the history survives the plan it was run
+        // from. Asserted at this level because it is what the user is being told here.
+        sessions.setSessions(
+            listOf(
+                loggedSession(1, APRIL_28, name = "Push Day · Upper"),
+                loggedSession(2, APRIL_10, name = "Pull Day"),
+            ),
+        )
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDeleteRequested(1))
+        viewModel.onEvent(SessionsEvent.TemplateDeleteConfirmed)
+
+        val history = viewModel.uiState.value.months.flatMap(SessionMonth::sessions)
+        assertEquals(listOf("Push Day · Upper", "Pull Day"), history.map(HistorySession::name))
+        assertEquals(2, viewModel.uiState.value.sessionCount)
+    }
+
+    @Test
+    fun `acting on a template that has gone reports it rather than writing`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDeleteRequested(1))
+        // Deleted from somewhere else while the confirmation was up.
+        templates.delete(1)
+        viewModel.onEvent(SessionsEvent.TemplateDeleteConfirmed)
+
+        assertEquals(SessionsMessage.TEMPLATE_GONE, viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.templateAction)
+    }
+
+    @Test
+    fun `a store that cannot be written closes the dialog and says so`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(SessionsEvent.TemplateDeleteRequested(1))
+        templates.writeFailure = IllegalStateException("disk full")
+        viewModel.onEvent(SessionsEvent.TemplateDeleteConfirmed)
+
+        assertEquals(SessionsMessage.TEMPLATE_ACTION_FAILED, viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.templateAction)
+    }
+
+    @Test
+    fun `a row action on a template the list no longer holds does nothing`() = runTest {
+        val viewModel = viewModel(templates = templateStore())
+
+        viewModel.onEvent(SessionsEvent.TemplateRenameRequested(404))
+
+        assertNull(viewModel.uiState.value.templateAction)
+    }
+
+    /** Two templates, the first of them with a body and a category. */
+    private fun templateStore() = FakeTemplateStore(
+        templates = listOf(
+            namedTemplate(1, "Push Day", TemplateCategory.STRENGTH),
+            namedTemplate(2, "Pull Day"),
+        ),
+        exercises = listOf(
+            TemplateExercise(id = 100, templateId = 1, exerciseId = 10, position = 0, defaultSets = 4),
+            TemplateExercise(id = 101, templateId = 1, exerciseId = 11, position = 1, defaultSets = 3),
+        ),
+    )
+
     private fun TestScope.viewModel(
         sessions: FakeSessionStore = this@SessionsViewModelTest.sessions,
         records: FakePersonalRecordStore = this@SessionsViewModelTest.records,
@@ -446,6 +629,10 @@ class SessionsViewModelTest {
                 templateRepository = templates,
                 userPreferencesRepository = FakeUserPreferencesRepository(),
             ),
+            templateRepository = templates,
+            createTemplate = CreateTemplateUseCase(templates),
+            updateTemplate = UpdateTemplateUseCase(templates),
+            deleteTemplate = DeleteTemplateUseCase(templates),
             clock = FixedClock(middayOn(TODAY)),
         )
         // Unconfined *on the test scheduler*, so the flow is started and has emitted by the

@@ -24,13 +24,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.ui.component.ChipSection
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymFilterChip
 import com.opengym.core.ui.component.displayName
 import com.opengym.core.ui.component.labelOrNull
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
-import com.opengym.feature.history.component.ChipSection
 import com.opengym.feature.history.library.ExerciseLibraryEvent
 import com.opengym.feature.history.library.ExerciseLibraryUiState
 import com.opengym.feature.history.library.SEEDED_CATALOGUE_SIZE

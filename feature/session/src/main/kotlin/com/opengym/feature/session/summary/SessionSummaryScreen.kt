@@ -48,6 +48,7 @@ import com.opengym.core.ui.component.NotesCard
 import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionStatGrid
+import com.opengym.core.ui.component.TemplateNameDialog
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.formatTimeOfDay
@@ -55,7 +56,6 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.summary.component.ExerciseBreakdownCard
 import com.opengym.feature.session.summary.component.NewRecordsCard
-import com.opengym.feature.session.summary.component.SaveAsTemplateDialog
 import com.opengym.feature.session.summary.component.SessionMusclesCard
 import kotlin.time.Duration.Companion.seconds
 
@@ -170,12 +170,21 @@ fun SessionSummaryScreen(
     }
 
     if (state.templateName != null) {
-        SaveAsTemplateDialog(
+        TemplateNameDialog(
             name = state.templateName,
-            isSaving = state.isSavingTemplate,
             onNameChange = { onEvent(SessionSummaryEvent.TemplateNameChanged(it)) },
             onConfirm = { onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed) },
             onDismiss = { onEvent(SessionSummaryEvent.SaveAsTemplateDismissed) },
+            title = stringResource(R.string.summary_template_title),
+            confirmLabel = stringResource(R.string.summary_template_save),
+            category = state.templateCategory,
+            onCategoryChange = { onEvent(SessionSummaryEvent.TemplateCategoryChanged(it)) },
+            // What is about to be saved. "Save as template" on a screen full of figures is
+            // genuinely ambiguous about whether the weights come with it, and they do.
+            body = stringResource(R.string.summary_template_body),
+            error = stringResource(R.string.summary_template_name_taken)
+                .takeIf { state.templateNameTaken },
+            isSaving = state.isSavingTemplate,
         )
     }
 }
@@ -556,7 +565,6 @@ private fun SessionSummaryMessage.labelRes(): Int = when (this) {
     SessionSummaryMessage.NAME_SAVE_FAILED -> R.string.summary_error_rename
     SessionSummaryMessage.NOTES_SAVE_FAILED -> R.string.summary_error_notes
     SessionSummaryMessage.TEMPLATE_SAVED -> R.string.summary_template_saved
-    SessionSummaryMessage.TEMPLATE_NAME_TAKEN -> R.string.summary_error_template_taken
     SessionSummaryMessage.TEMPLATE_SAVE_FAILED -> R.string.summary_error_template
 }
 
