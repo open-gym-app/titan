@@ -183,10 +183,15 @@ fun NewSessionScreen(
     // A refused start, asked rather than reported — see [ResumeSessionDialog]. It is drawn
     // over whichever face is showing, because the refusal is about the workout the user is
     // already in rather than about the plan they were assembling.
-    if (state.runningSessionId != null) {
+    state.runningWorkout?.let { running ->
         ResumeSessionDialog(
+            workout = running,
             onConfirm = { onEvent(NewSessionEvent.ResumeRequested) },
+            onDiscard = { onEvent(NewSessionEvent.RunningSessionDiscarded) },
             onDismiss = { onEvent(NewSessionEvent.ResumeDismissed) },
+            // The discard writes, and it is the one control here that must not be pressed
+            // twice — the second press would be answered by a session that is already gone.
+            isBusy = state.isStarting,
         )
     }
 
@@ -535,6 +540,7 @@ private fun StartBar(enabled: Boolean, onStart: () -> Unit) {
 /** The sentence a message is shown as. */
 private fun NewSessionMessage.labelRes(): Int = when (this) {
     NewSessionMessage.START_FAILED -> R.string.new_session_error_start_failed
+    NewSessionMessage.DISCARD_FAILED -> R.string.new_session_error_discard
     NewSessionMessage.TEMPLATE_UNAVAILABLE -> R.string.new_session_error_template
     NewSessionMessage.EXERCISES_UNAVAILABLE -> R.string.new_session_error_exercises_missing
 }

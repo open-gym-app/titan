@@ -82,6 +82,19 @@ sealed interface NewSessionEvent {
     data object ResumeRequested : NewSessionEvent
 
     /**
+     * Throw the workout that is in the way away, and start the planned one in its place.
+     *
+     * The other answer to the same refusal, for the workout nobody means to go back to — the
+     * one left behind by a process that died, or abandoned in a gym two days ago. It deletes
+     * that session and everything logged in it, which is what makes it worth spelling out on
+     * the control rather than hiding behind a word like "clear".
+     *
+     * It starts the planned session straight after, because that is the sentence the user is
+     * in the middle of: they pressed START, and this is what was in the way.
+     */
+    data object RunningSessionDiscarded : NewSessionEvent
+
+    /**
      * The offer was declined. Leaves the plan on screen and START asks again.
      *
      * Not a way to start the second session — nothing here can grant that — but a way to say

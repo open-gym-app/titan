@@ -5,12 +5,16 @@ import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
+import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
+import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
+import com.opengym.feature.session.active.FakeDraftStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -44,6 +48,7 @@ class NewSessionViewModelTest {
     private val sessions = FakeSessionStore()
     private val sessionState = FakeSessionStateStore()
     private val settings = FakeSettings()
+    private val drafts = FakeDraftStore()
 
     @Before
     fun setUpMainDispatcher() {
@@ -430,7 +435,16 @@ class NewSessionViewModelTest {
 
     @Test
     fun `starting while a session is already running offers that session back`() = runTest {
-        sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
+        val running = sessions.insert(
+            WorkoutSession(
+                name = "Push day",
+                isInProgress = true,
+                lastActiveAt = 1L,
+                createdAt = 1L,
+                updatedAt = 1L,
+            ),
+        )
+        sessions.seedSets(running, count = 11)
         val viewModel = viewModel()
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
 
@@ -438,17 +452,23 @@ class NewSessionViewModelTest {
 
         // Named rather than described: the workout in the way is the only thing that can be
         // done about the refusal, and nothing else in the app can reach it.
-        assertEquals(99L, viewModel.uiState.value.runningSessionId)
+        assertEquals(running, viewModel.uiState.value.runningWorkout?.sessionId)
         assertNull(viewModel.uiState.value.message)
         assertNull(viewModel.uiState.value.openSessionId)
-        // Refused, not half-done: no row was left behind, and START is pressable again.
-        assertEquals(emptyList<Any>(), sessions.storedSessions())
+        // What it is and what is in it, which is what the offer has to show for the question
+        // to be answerable — see `RunningWorkout`.
+        assertEquals("Push day", viewModel.uiState.value.runningWorkout?.name)
+        assertEquals(11, viewModel.uiState.value.runningWorkout?.loggedSets)
+        // Refused, not half-done: nothing was written over it, and START is pressable again.
+        assertEquals(listOf(running), sessions.storedSessions().map { it.id })
         assertFalse(viewModel.uiState.value.isStarting)
     }
 
     @Test
     fun `picking the running session back up opens it`() = runTest {
-        sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
+        val running = sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 1L, createdAt = 1L, updatedAt = 1L),
+        )
         val viewModel = viewModel()
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
@@ -458,15 +478,59 @@ class NewSessionViewModelTest {
         // The same landing as a start, and still no second session written: the plan on
         // screen is dropped with the flow, which is what it was always going to be until the
         // running workout is closed out.
-        assertEquals(99L, viewModel.uiState.value.openSessionId)
-        assertNull(viewModel.uiState.value.runningSessionId)
+        assertEquals(running, viewModel.uiState.value.openSessionId)
+        assertNull(viewModel.uiState.value.runningWorkout)
         assertTrue(viewModel.uiState.value.isStarting)
-        assertEquals(emptyList<Any>(), sessions.storedSessions())
+        assertEquals(listOf(running), sessions.storedSessions().map { it.id })
+    }
+
+    @Test
+    fun `discarding the running workout starts the planned one in its place`() = runTest {
+        // In progress on disk with the state machine none the wiser, which is the case that
+        // strands somebody here: a process restart leaves exactly this behind.
+        sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 1L, createdAt = 1L, updatedAt = 1L),
+        )
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        viewModel.onEvent(NewSessionEvent.RunningSessionDiscarded)
+
+        // The workout in the way is gone, and the one the user asked for is the only one left.
+        val started = sessions.storedSessions().single()
+        assertTrue(started.isInProgress)
+        assertEquals(started.id, viewModel.uiState.value.openSessionId)
+        assertNull(viewModel.uiState.value.runningWorkout)
+        assertEquals(listOf(BENCH), sessions.storedExercises(started.id).map { it.exerciseId })
+    }
+
+    @Test
+    fun `a discard that fails leaves the offer up`() = runTest {
+        val running = sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 1L, createdAt = 1L, updatedAt = 1L),
+        )
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+        sessions.deleteFailure = IOException("the store is gone")
+
+        viewModel.onEvent(NewSessionEvent.RunningSessionDiscarded)
+
+        assertEquals(NewSessionMessage.DISCARD_FAILED, viewModel.uiState.value.message)
+        // Still offered, because the workout is still in the way — and nothing was started
+        // over the top of it.
+        assertEquals(running, viewModel.uiState.value.runningWorkout?.sessionId)
+        assertNull(viewModel.uiState.value.openSessionId)
+        assertFalse(viewModel.uiState.value.isStarting)
+        assertEquals(listOf(running), sessions.storedSessions().map { it.id })
     }
 
     @Test
     fun `declining the offer leaves the plan where it was`() = runTest {
-        sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
+        sessions.insert(
+            WorkoutSession(isInProgress = true, lastActiveAt = 1L, createdAt = 1L, updatedAt = 1L),
+        )
         val viewModel = viewModel()
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
@@ -476,7 +540,7 @@ class NewSessionViewModelTest {
         // Nothing is opened and nothing is lost: START asks again, and is refused again until
         // the running workout is ended.
         assertNull(viewModel.uiState.value.openSessionId)
-        assertNull(viewModel.uiState.value.runningSessionId)
+        assertNull(viewModel.uiState.value.runningWorkout)
         assertTrue(viewModel.uiState.value.step is NewSessionStep.ReadyToStart)
     }
 
@@ -540,7 +604,19 @@ class NewSessionViewModelTest {
                 sessionRepository = sessions,
                 sessionStateRepository = sessionState,
             ),
+            resumeSession = ResumeSessionUseCase(
+                sessionRepository = sessions,
+                sessionStateRepository = sessionState,
+                lock = SessionLifecycleLock(),
+            ),
+            discardSession = DiscardSessionUseCase(
+                sessionRepository = sessions,
+                sessionStateRepository = sessionState,
+                inProgressSessionRepository = drafts,
+                lock = SessionLifecycleLock(),
+            ),
             exerciseRepository = catalogue,
+            sessionRepository = sessions,
         )
         // Unconfined *on the test scheduler*, so the flow is started and has emitted by the
         // time this returns — `backgroundScope`'s own dispatcher would queue the collection

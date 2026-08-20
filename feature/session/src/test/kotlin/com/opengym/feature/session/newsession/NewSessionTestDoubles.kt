@@ -119,11 +119,15 @@ class FakeSessionStore : SessionRepository {
 
     private val sessions = MutableStateFlow<Map<Long, WorkoutSession>>(emptyMap())
     private val exercises = MutableStateFlow<Map<Long, List<SessionExercise>>>(emptyMap())
+    private val sets = MutableStateFlow<Map<Long, List<WorkoutSet>>>(emptyMap())
     private var nextSessionId = 1L
     private var nextExerciseId = 1L
 
     /** When set, laying a session out throws it — the store that cannot be written. */
     var layoutFailure: Throwable? = null
+
+    /** When set, deleting a session throws it — the workout that cannot be thrown away. */
+    var deleteFailure: Throwable? = null
 
     override fun getAll(): Flow<List<WorkoutSession>> = sessions.map { it.values.toList() }
 
@@ -139,8 +143,10 @@ class FakeSessionStore : SessionRepository {
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
+    // Read, not written: the flow logs nothing, but the offer to pick a running workout back
+    // up shows how much is in it — see `NewSessionUiState.RunningWorkout`.
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
-        throw UnsupportedOperationException("the new-session flow logs nothing")
+        sets.map { it[sessionId].orEmpty() }
 
     override fun getTotals(): Flow<Map<Long, SessionTotals>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
@@ -191,8 +197,30 @@ class FakeSessionStore : SessionRepository {
     }
 
     override suspend fun delete(id: Long) {
+        deleteFailure?.let { throw it }
         sessions.update { it - id }
         exercises.update { it - id }
+    }
+
+    /** [count] completed sets against [sessionId], for the workout that is already running. */
+    fun seedSets(sessionId: Long, count: Int) {
+        sets.update {
+            it + (
+                sessionId to (1..count).map { number ->
+                    WorkoutSet(
+                        id = number.toLong(),
+                        sessionExerciseId = sessionId,
+                        setNumber = number,
+                        reps = 8,
+                        weight = 60_000_000L,
+                        isCompleted = true,
+                        completedAt = 1L,
+                        createdAt = 1L,
+                        updatedAt = 1L,
+                    )
+                }
+                )
+        }
     }
 
     /** Direct reads, bypassing the Flows, for assertions. */

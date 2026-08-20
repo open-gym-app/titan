@@ -34,7 +34,7 @@ import kotlin.time.Duration
  *   Carried in the state rather than pushed down a channel because there is nothing to race:
  *   the destination is popped on the way into the workout, so this is the last value this
  *   screen ever holds.
- * @param runningSessionId the workout that refused the start, or null. `StartSessionUseCase`
+ * @param runningWorkout the workout that refused the start, or null. `StartSessionUseCase`
  *   turns down a second session while one is in progress and names the one in the way, and
  *   this screen offers it back rather than reporting the refusal: the running session is not in
  *   the history list — which shows only what has been finished — so a user told "one is already
@@ -51,9 +51,34 @@ data class NewSessionUiState(
     val step: NewSessionStep = NewSessionStep.TemplateSelection,
     val isStarting: Boolean = false,
     val openSessionId: Long? = null,
-    val runningSessionId: Long? = null,
+    val runningWorkout: RunningWorkout? = null,
     val nameDraft: String? = null,
     val message: NewSessionMessage? = null,
+)
+
+/**
+ * The workout in the way, as much of it as the offer to pick it back up has to show.
+ *
+ * Read once, when the start is refused, rather than observed: it describes a session the user
+ * is being asked about, and a set count that changed underneath the question would be a
+ * different question. Nothing on this screen can change it either — the only two answers both
+ * leave the screen.
+ *
+ * @param name what the user called it, or **null** for one started unnamed, which the dialog
+ *   falls back to the date for exactly as the workout's own header does.
+ * @param startedAt when it was opened, which is what that fallback is built from.
+ * @param loggedSets how much is in it. The one figure that decides the question: a workout with
+ *   nothing logged is a mistap to be rid of, and one with eleven sets in it is an afternoon.
+ *   It is shown rather than described for the reason `DiscardSessionDialog` gives — "discard
+ *   this workout" is a different question when the answer costs eleven sets, and the user is
+ *   the only one who knows which of the two they are being asked.
+ */
+@Immutable
+data class RunningWorkout(
+    val sessionId: Long,
+    val name: String? = null,
+    val startedAt: Long = 0L,
+    val loggedSets: Int = 0,
 )
 
 /**
@@ -145,6 +170,14 @@ enum class NewSessionMessage {
      * [NewSessionUiState.runningSessionId]. Said in a snackbar it faded, leaving the user
      * holding a plan they could not start and no longer able to read why.
      */
+
+    /**
+     * The workout in the way could not be thrown away, so nothing was started.
+     *
+     * The offer stays on screen when this happens: the session is still there, still blocking,
+     * and picking it back up is still the other way out.
+     */
+    DISCARD_FAILED,
 
     /** The session could not be written. Nothing was left behind — see the use case. */
     START_FAILED,

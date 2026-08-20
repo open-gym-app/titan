@@ -56,12 +56,22 @@
 
     <!-- The refused start, which is the one refusal here that asks something rather than
          reporting it: the workout in the way is offered back. See ResumeSessionDialog. -->
-    <string name="new_session_resume_title">A workout is already running</string>
-    <string name="new_session_resume_body">One was started earlier and never finished. Pick it back up to log the rest of it, or to end it — a second workout cannot be started while it is open.</string>
+    <string name="new_session_resume_eyebrow">Still running</string>
+    <!-- What is in the workout being offered back, which is the figure the choice turns on. -->
+    <plurals name="new_session_resume_sets">
+        <item quantity="one">%1$d set logged</item>
+        <item quantity="other">%1$d sets logged</item>
+    </plurals>
+    <string name="new_session_resume_nothing_logged">Nothing logged yet</string>
+    <string name="new_session_resume_body">Only one workout runs at a time.</string>
     <string name="new_session_resume_confirm">Pick it back up</string>
+    <!-- Says both halves of what it does: the workout in the way is deleted, and the planned
+         one is started in its place. -->
+    <string name="new_session_resume_discard">Discard it and start</string>
     <string name="new_session_resume_dismiss">Not now</string>
 
     <string name="new_session_error_start_failed">Could not start the session. Nothing was saved.</string>
+    <string name="new_session_error_discard">Could not discard the running workout. It is still there.</string>
     <string name="new_session_error_template">That template could not be opened.</string>
     <!-- Shown when exercises in the plan have been deleted from the library since it was saved. -->
     <string name="new_session_error_exercises_missing">Some exercises are no longer in your library and were left out.</string>
