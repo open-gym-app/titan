@@ -369,13 +369,13 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the add action opens the picker and says so`() {
-        var pickerOpened = false
+        val opened = mutableListOf<Boolean>()
         composeTestRule.setContent {
             OpenGymTheme {
                 ActiveSessionScreen(
                     state = state(),
                     onEvent = events::add,
-                    onPickExercises = { pickerOpened = true },
+                    onPickExercises = opened::add,
                 )
             }
         }
@@ -383,7 +383,8 @@ class ActiveSessionScreenTest {
         scrollToText("Add more exercises").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.AddExercisesRequested), events)
-        assertTrue(pickerOpened)
+        // Adding to the workout, which takes as many exercises as the user ticks.
+        assertEquals(listOf(false), opened)
     }
 
     @Test
@@ -397,13 +398,13 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the swap on a card opens the picker and says which slot asked`() {
-        var pickerOpened = false
+        val opened = mutableListOf<Boolean>()
         composeTestRule.setContent {
             OpenGymTheme {
                 ActiveSessionScreen(
                     state = state(),
                     onEvent = events::add,
-                    onPickExercises = { pickerOpened = true },
+                    onPickExercises = opened::add,
                 )
             }
         }
@@ -414,7 +415,9 @@ class ActiveSessionScreenTest {
             listOf(ActiveSessionEvent.ExerciseSwapRequested(sessionExerciseId = 3L)),
             events,
         )
-        assertTrue(pickerOpened)
+        // Replacing: the slot holds one exercise, and the picker is opened asking for one
+        // rather than for a list it would come back from with an answer to spare.
+        assertEquals(listOf(true), opened)
     }
 
     @Test

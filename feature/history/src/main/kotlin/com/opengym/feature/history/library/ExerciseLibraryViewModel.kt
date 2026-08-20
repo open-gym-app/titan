@@ -144,8 +144,10 @@ class ExerciseLibraryViewModel @Inject constructor(
                 screenState.update { it.copy(muscleGroupId = null, equipment = emptySet()) }
             ExerciseLibraryEvent.SearchAndFiltersCleared ->
                 screenState.update { it.copy(query = "", muscleGroupId = null, equipment = emptySet()) }
-            is ExerciseLibraryEvent.ExerciseToggled -> toggleSelection(event.exerciseId)
-            is ExerciseLibraryEvent.ExerciseSelected -> select(event.exerciseId)
+            is ExerciseLibraryEvent.ExerciseToggled ->
+                toggleSelection(event.exerciseId, exclusive = event.exclusive)
+            is ExerciseLibraryEvent.ExerciseSelected ->
+                select(event.exerciseId, exclusive = event.exclusive)
             ExerciseLibraryEvent.NewExerciseRequested ->
                 screenState.update { it.copy(draft = ExerciseDraft()) }
             is ExerciseLibraryEvent.NewExerciseChanged ->
@@ -171,12 +173,17 @@ class ExerciseLibraryViewModel @Inject constructor(
      * Appending rather than inserting matters: the selection becomes the new session's
      * exercise order, so a lifter who taps squat, then bench, gets a session in that order
      * rather than in whatever order the library happened to list them.
+     *
+     * [exclusive] is the other question the same screen asks — which exercise goes in *this*
+     * slot — and there the tap moves the choice rather than adding to it. Not a cap that
+     * refuses the second tap: a picker that ignored it would leave the user tapping an
+     * exercise that never ticks, with the one blocking it somewhere up a list of 873.
      */
-    private fun toggleSelection(exerciseId: Long) = screenState.update { state ->
-        val next = if (exerciseId in state.selection) {
-            state.selection - exerciseId
-        } else {
-            state.selection + exerciseId
+    private fun toggleSelection(exerciseId: Long, exclusive: Boolean) = screenState.update { state ->
+        val next = when {
+            exerciseId in state.selection -> state.selection - exerciseId
+            exclusive -> listOf(exerciseId)
+            else -> state.selection + exerciseId
         }
         state.copy(selection = next)
     }
@@ -187,8 +194,12 @@ class ExerciseLibraryViewModel @Inject constructor(
      * Idempotent, which is what separates it from [toggleSelection] — see
      * [ExerciseLibraryEvent.ExerciseSelected] for the case that made the difference matter.
      */
-    private fun select(exerciseId: Long) = screenState.update { state ->
-        if (exerciseId in state.selection) state else state.copy(selection = state.selection + exerciseId)
+    private fun select(exerciseId: Long, exclusive: Boolean) = screenState.update { state ->
+        when {
+            exerciseId in state.selection -> state
+            exclusive -> state.copy(selection = listOf(exerciseId))
+            else -> state.copy(selection = state.selection + exerciseId)
+        }
     }
 
     /**

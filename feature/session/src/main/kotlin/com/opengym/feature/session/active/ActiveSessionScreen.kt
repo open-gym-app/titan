@@ -62,8 +62,10 @@ import kotlin.time.Duration.Companion.seconds
  * @param onDiscardSession the workout was thrown away. A different exit from [onFinishSession]
  *   and not a special case of it: there is no recap of a session that no longer exists, so the
  *   two land in different places and `:app` resolves both.
- * @param onPickExercises push the exercise picker. What that opens lives in another feature
- *   module, so it is `:app`'s to resolve — see `ExercisePicker`.
+ * @param onPickExercises push the exercise picker, saying which of the two questions it is
+ *   being opened with: `replacing` for the swap on a card, which fills one slot and so takes
+ *   one exercise, and false for the button that adds to the workout. What that opens lives in
+ *   another feature module, so it is `:app`'s to resolve — see `ExercisePicker`.
  * @param pickedExerciseIds what the picker came back with, or null when it has not answered.
  *   Two things on this screen open it — "add more exercises" and the swap on a card — and which
  *   of them asked is remembered here rather than in the ViewModel, for the reason the ids
@@ -75,7 +77,7 @@ import kotlin.time.Duration.Companion.seconds
 fun ActiveSessionRoute(
     onFinishSession: (sessionId: Long) -> Unit,
     onDiscardSession: () -> Unit,
-    onPickExercises: () -> Unit,
+    onPickExercises: (replacing: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     pickedExerciseIds: List<Long>? = null,
     onPickedExercisesHandled: () -> Unit = {},
@@ -109,9 +111,11 @@ fun ActiveSessionRoute(
             it.isBusy || (!it.isAddingExercises && it.swappingExerciseId == null)
         }
 
-        // A slot holds one exercise, and the picker is a multi-select screen: the first thing
-        // ticked is what goes in it. Appending the rest would turn one deliberate replacement
-        // into an edit of the whole workout, which is what the other control is for.
+        // A slot holds one exercise, and a picker opened for a swap is drawn as a single
+        // choice — see `ExercisePickerDestination.replacing` — so the list is one id long.
+        // Read as the first of it all the same: this is the one place that would otherwise
+        // turn a second answer into an edit of the whole workout, silently, and it costs a
+        // `firstOrNull` to make that unrepresentable rather than merely unlikely.
         if (!ready.isBusy) {
             if (target != null && replacement != null) {
                 viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(target, replacement))
@@ -218,7 +222,7 @@ fun ActiveSessionScreen(
     state: ActiveSessionUiState,
     onEvent: (ActiveSessionEvent) -> Unit,
     modifier: Modifier = Modifier,
-    onPickExercises: () -> Unit = {},
+    onPickExercises: (replacing: Boolean) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     // Which of the two the message is drawn as. The zero-sets refusal is a state of the screen
@@ -357,7 +361,7 @@ private fun SessionBody(
     reorder: ReorderState,
     inlineMessage: ActiveSessionMessage?,
     onEvent: (ActiveSessionEvent) -> Unit,
-    onPickExercises: () -> Unit,
+    onPickExercises: (replacing: Boolean) -> Unit,
     rpeScaleFor: Long?,
     onRpeToggle: (Long) -> Unit,
     contentPadding: PaddingValues,
@@ -440,7 +444,9 @@ private fun SessionBody(
                             },
                             onSwap = {
                                 onEvent(ActiveSessionEvent.ExerciseSwapRequested(row.sessionExerciseId))
-                                onPickExercises()
+                                // Replacing: the slot holds one exercise, and the picker takes
+                                // one rather than offering a list it would have to trim.
+                                onPickExercises(true)
                             },
                             showRpeScale = rpeScaleFor == row.sessionExerciseId,
                             onRpeToggle = { onRpeToggle(row.sessionExerciseId) },
@@ -493,7 +499,7 @@ private fun SessionBody(
             OutlinedButton(
                 onClick = {
                     onEvent(ActiveSessionEvent.AddExercisesRequested)
-                    onPickExercises()
+                    onPickExercises(false)
                 },
                 // Gated on the pause like every other control: `AddSessionExercisesUseCase`
                 // refuses a session that is not active, so a live button here would walk the

@@ -1,6 +1,10 @@
 package com.opengym.feature.history.library
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotFocused
@@ -58,12 +62,18 @@ class ExerciseLibraryScreenTest {
         }
     }
 
-    /** The same screen as the picker: its own top bar, a way back, and a confirm bar. */
+    /**
+     * The same screen as the picker: its own top bar, a way back, and a confirm bar.
+     *
+     * [singleSelection] is the swap on a session card, which fills one slot rather than adding
+     * to the workout — the other question the same screen asks.
+     */
     private fun setPicker(
         state: ExerciseLibraryUiState = browsing(),
         onExerciseClick: ((Long) -> Unit)? = null,
         onSelectionConfirmed: (List<Long>) -> Unit = {},
         onBack: () -> Unit = {},
+        singleSelection: Boolean = false,
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -72,6 +82,7 @@ class ExerciseLibraryScreenTest {
                     onEvent = events::add,
                     onBack = onBack,
                     selecting = true,
+                    singleSelection = singleSelection,
                     onExerciseClick = onExerciseClick,
                     onSelectionConfirmed = onSelectionConfirmed,
                 )
@@ -335,6 +346,50 @@ class ExerciseLibraryScreenTest {
 
         composeTestRule.onNodeWithText("Add exercises").assertIsDisplayed()
         composeTestRule.onNodeWithText("1 SELECTED").assertIsDisplayed()
+    }
+
+    // ─── Filling one slot ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a picker filling one slot asks for one exercise`() {
+        setPicker(singleSelection = true)
+
+        composeTestRule.onNodeWithText("Bench press").performClick()
+
+        // Exclusive: whatever was picked before gives up its place, rather than the slot
+        // collecting a second answer it would have to throw away on the way back.
+        assertEquals(
+            listOf(ExerciseLibraryEvent.ExerciseToggled(BENCH.id, exclusive = true)),
+            events,
+        )
+    }
+
+    @Test
+    fun `filling one slot says it is a swap rather than an addition`() {
+        setPicker(state = browsing().copy(selection = listOf(BENCH.id)), singleSelection = true)
+
+        composeTestRule.onNodeWithText("Swap exercise").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Swap it in").assertIsEnabled()
+        // The other mode's words, on a screen that would not do that.
+        composeTestRule.onNodeWithText("Add exercises").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Add 1 exercise").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a slot with nothing chosen for it yet cannot be confirmed`() {
+        setPicker(singleSelection = true)
+
+        composeTestRule.onNodeWithText("Select a replacement").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the rows of a one-slot picker are a single choice`() {
+        setPicker(state = browsing().copy(selection = listOf(BENCH.id)), singleSelection = true)
+
+        // The role is what a screen reader says before the row is tapped, and it is the
+        // difference between "one of these" and "as many as you like".
+        val radio = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton)
+        composeTestRule.onNode(hasText("Bench press") and radio).assertIsDisplayed()
     }
 
     @Test

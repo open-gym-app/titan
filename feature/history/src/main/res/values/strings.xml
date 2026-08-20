@@ -10,8 +10,11 @@
 
     <!-- ── Exercise library ───────────────────────────────────────────────────────── -->
 
-    <!-- The picker's title. The tab's is the bottom bar's own label, drawn by the shell. -->
+    <!-- The picker's title. The tab's is the bottom bar's own label, drawn by the shell.
+         Two of them, because the picker asks two different questions: it adds to a workout, or
+         it fills one slot on an exercise already in one. -->
     <string name="library_title_select">Add exercises</string>
+    <string name="library_title_replace">Swap exercise</string>
     <string name="library_back">Back</string>
     <string name="library_new">+ New</string>
     <!-- The same action as a bare `+`, where the bar has a title to fit too. -->
@@ -68,12 +71,15 @@
     <string name="library_empty_title">The library is empty</string>
     <string name="library_empty_description">The bundled exercise catalogue did not load. Reinstalling the app restores it.</string>
 
-    <!-- The picker's confirm bar. -->
+    <!-- The picker's confirm bar. No plural on the swap pair: a slot takes one exercise, so
+         the count is one or none and the button says which of the two it is. -->
     <string name="library_confirm_none">Select exercises</string>
     <plurals name="library_confirm">
         <item quantity="one">Add %1$d exercise</item>
         <item quantity="other">Add %1$d exercises</item>
     </plurals>
+    <string name="library_confirm_replace_none">Select a replacement</string>
+    <string name="library_confirm_replace">Swap it in</string>
 
     <string name="library_exercise_created">Exercise created</string>
     <string name="library_save_failed">Could not save the exercise</string>

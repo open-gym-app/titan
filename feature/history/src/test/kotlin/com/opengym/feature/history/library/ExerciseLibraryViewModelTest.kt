@@ -265,6 +265,42 @@ class ExerciseLibraryViewModelTest {
     }
 
     @Test
+    fun `an exclusive pick moves the choice rather than adding to it`() = runTest {
+        val viewModel = viewModel()
+
+        // The swap on a session card: the slot holds one exercise, so the second tap replaces
+        // the first rather than leaving an answer behind for the screen to trim.
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id, exclusive = true))
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(PULL_UP.id, exclusive = true))
+
+        assertEquals(listOf(PULL_UP.id), viewModel.uiState.value.selection)
+    }
+
+    @Test
+    fun `unticking the exclusive pick empties the selection`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id, exclusive = true))
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id, exclusive = true))
+
+        // How somebody backs out of a swap without leaving the screen. A radio group could
+        // not express it, which is why the row stays a toggle.
+        assertEquals(emptyList<Long>(), viewModel.uiState.value.selection)
+    }
+
+    @Test
+    fun `an exclusive add from the detail screen replaces the pick too`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id, exclusive = true))
+        // Opened to be checked, then added from the detail screen — the same question the
+        // picker was opened with, so the same one answer.
+        viewModel.onEvent(ExerciseLibraryEvent.ExerciseSelected(PULL_UP.id, exclusive = true))
+
+        assertEquals(listOf(PULL_UP.id), viewModel.uiState.value.selection)
+    }
+
+    @Test
     fun `a selection survives the filters that hid it`() = runTest {
         val viewModel = viewModel()
         viewModel.onEvent(ExerciseLibraryEvent.ExerciseToggled(BENCH.id))

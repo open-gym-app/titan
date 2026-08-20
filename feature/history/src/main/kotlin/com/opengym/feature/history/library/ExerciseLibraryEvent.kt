@@ -34,8 +34,20 @@ sealed interface ExerciseLibraryEvent {
     /** The way out of a no-results state: drops the query and both filters together. */
     data object SearchAndFiltersCleared : ExerciseLibraryEvent
 
-    /** A row was tapped in selection mode. Adds or removes it from the selection. */
-    data class ExerciseToggled(val exerciseId: Long) : ExerciseLibraryEvent
+    /**
+     * A row was tapped in selection mode. Adds or removes it from the selection.
+     *
+     * @param exclusive whether picking this one unpicks everything else, because the screen is
+     *   filling a slot rather than building a list — see [ExerciseLibraryScreen]'s
+     *   `singleSelection`. The rule is applied here rather than by the caller for the reason
+     *   the selection lives here at all: a screen that dropped the others itself would be
+     *   holding an order the ViewModel is the owner of. Unticking the picked one still empties
+     *   the selection, which is how somebody changes their mind about swapping at all.
+     */
+    data class ExerciseToggled(
+        val exerciseId: Long,
+        val exclusive: Boolean = false,
+    ) : ExerciseLibraryEvent
 
     /**
      * Add an exercise to the selection, whether or not it is already in it.
@@ -44,8 +56,15 @@ sealed interface ExerciseLibraryEvent {
      * a statement rather than a switch. A lifter who ticked an exercise, opened it to check
      * the form notes and pressed the button that says "add" must not find it *removed* on the
      * way back.
+     *
+     * @param exclusive as on [ExerciseToggled]. The detail screen is reachable from the picker
+     *   in both modes, so the button on it answers whichever question the picker was opened
+     *   with.
      */
-    data class ExerciseSelected(val exerciseId: Long) : ExerciseLibraryEvent
+    data class ExerciseSelected(
+        val exerciseId: Long,
+        val exclusive: Boolean = false,
+    ) : ExerciseLibraryEvent
 
     /** The `+ NEW` action. Opens an empty draft. */
     data object NewExerciseRequested : ExerciseLibraryEvent
