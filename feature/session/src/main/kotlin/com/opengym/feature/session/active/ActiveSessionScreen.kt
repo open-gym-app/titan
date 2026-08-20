@@ -1,6 +1,10 @@
 package com.opengym.feature.session.active
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
@@ -355,6 +360,14 @@ fun ActiveSessionScreen(
 }
 
 @Composable
+/*
+ * One branch per thing the page draws or leaves out, which is what the count is measuring: the
+ * stats, the inline refusal, the empty state, the join between each pair of cards, the add
+ * action — and, over all of them, whether an exercise is being held. Splitting the list into
+ * per-section composables would move the branches rather than remove them, and it would put the
+ * `LazyListScope` this all belongs to behind five signatures.
+ */
+@Suppress("CyclomaticComplexMethod")
 private fun SessionBody(
     state: ActiveSessionUiState,
     exercises: List<SessionExerciseRow>,
@@ -371,6 +384,11 @@ private fun SessionBody(
     // keystrokes would be collecting them for a write that cannot happen.
     val enabled = state.isEditable
 
+    val gap by animateDpAsState(
+        targetValue = if (reorder.isActive) OpenGymTheme.spacing.md else OpenGymTheme.spacing.lg,
+        label = "reorder gap",
+    )
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -386,9 +404,9 @@ private fun SessionBody(
         ),
         // Tighter while the workout is collapsed: the gap between two cards is what separates
         // one exercise's set table from the next, and between two title rows it is only air.
-        verticalArrangement = Arrangement.spacedBy(
-            if (reorder.isActive) OpenGymTheme.spacing.md else OpenGymTheme.spacing.lg,
-        ),
+        // Animated, because it is the whole page closing up at once — stepped, the collapse
+        // reads as the screen being replaced rather than the workout folding into itself.
+        verticalArrangement = Arrangement.spacedBy(gap),
     ) {
         // Everything that is not an exercise goes while one is held. What is left is the
         // workout as a list of names, which is the shortest a session can be drawn and the
@@ -398,7 +416,16 @@ private fun SessionBody(
                 item(key = "stats") {
                     // Without the duration: the header's clock is directly above it, and the
                     // same number twice on one screen is one of them being ignored.
-                    SessionStatChips(stats = stats, showDuration = false)
+                    //
+                    // Faded rather than cut, here and on every other item that leaves when an
+                    // exercise is picked up: what the collapse is *for* is the workout folding
+                    // down to its order, and half the page vanishing between two frames reads
+                    // as a screen that broke.
+                    SessionStatChips(
+                        stats = stats,
+                        showDuration = false,
+                        modifier = Modifier.animateItem(),
+                    )
                 }
             }
 
@@ -408,7 +435,9 @@ private fun SessionBody(
                         text = stringResource(inlineMessage.labelRes()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem(),
                     )
                 }
             }
@@ -418,6 +447,7 @@ private fun SessionBody(
                     EmptyState(
                         title = stringResource(R.string.active_no_exercises_title),
                         description = stringResource(R.string.active_no_exercises_body),
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -425,10 +455,22 @@ private fun SessionBody(
 
         exercises.forEachIndexed { index, row ->
             item(key = "exercise-${row.sessionExerciseId}") {
+                val isHeldItem = reorder.heldKey == row.sessionExerciseId
+
                 ReorderableItem(
                     state = reorder,
                     key = row.sessionExerciseId,
                     index = index,
+                    // The exercises the held one is passing slide into the place it left,
+                    // rather than being somewhere else the next frame. It is the same
+                    // information either way; it is only legible when the eye can follow it.
+                    //
+                    // **Never the held one.** Its own place is where the finger is, and that
+                    // is computed from where it has been measured — an animated slot would be
+                    // arithmetic chasing an animation that is chasing the arithmetic.
+                    modifier = Modifier.animateItem(
+                        placementSpec = if (isHeldItem) null else REFLOW,
+                    ),
                 ) { isHeld ->
                     if (reorder.isActive) {
                         CollapsedExerciseRow(row = row, position = index, isHeld = isHeld)
@@ -486,6 +528,7 @@ private fun SessionBody(
                         )
                     },
                     enabled = enabled && !state.isRegrouping,
+                    modifier = Modifier.animateItem(),
                 )
             }
         }
@@ -508,7 +551,8 @@ private fun SessionBody(
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = OpenGymTheme.spacing.md),
+                    .padding(top = OpenGymTheme.spacing.md)
+                    .animateItem(),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
@@ -524,6 +568,19 @@ private fun SessionBody(
         }
     }
 }
+
+/**
+ * How an exercise travels to the place the held one left.
+ *
+ * A spring rather than a duration, and a soft one: the distance is a whole card in a laid-out
+ * workout and a single line in a collapsed one, and a spec that reads well over one of those
+ * reads wrong over the other. `StiffnessMediumLow` settles in about a third of a second over
+ * either. No bounce — the rows that are *not* being dragged should not draw attention.
+ */
+private val REFLOW = spring<IntOffset>(
+    stiffness = Spring.StiffnessMediumLow,
+    visibilityThreshold = IntOffset.VisibilityThreshold,
+)
 
 /**
  * The session's title: what the user called it, or the day it happened.

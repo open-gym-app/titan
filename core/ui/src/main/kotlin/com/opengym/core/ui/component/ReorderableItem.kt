@@ -104,10 +104,24 @@ fun ReorderableItem(
     val moveUp = stringResource(R.string.reorder_move_up)
     val moveDown = stringResource(R.string.reorder_move_down)
 
-    // The moment it lifts, and nothing else: a tick under the thumb is what tells somebody
-    // looking at the exercise rather than at the list that the hold has taken.
+    // Both ends of the gesture, under the thumb, for somebody looking at the exercise rather
+    // than at the list: the tick that says the hold has taken, and the one that says the drop
+    // landed. The second is the quieter of the two and is only fired for an item that was
+    // actually held — every other row in the list also passes through `false` here, and a
+    // list that ticked once per item on every drop would buzz for as long as the workout is.
+    var wasHeld by remember { mutableStateOf(false) }
     LaunchedEffect(isHeld) {
-        if (isHeld) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        when {
+            isHeld -> {
+                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                wasHeld = true
+            }
+
+            wasHeld -> {
+                haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                wasHeld = false
+            }
+        }
     }
 
     // Its place goes with it. A list this long is a workout, and an exercise cut out of one
@@ -375,10 +389,10 @@ class ReorderState internal constructor(
  *   [ReorderState.lastIndex].
  * @param enabled false makes the whole list inert — a workout that is paused, or one exercise
  *   long.
- * @param holdDuration how long the finger has to stay still before the item lifts. Longer than
- *   the platform's own long-press by default: the rows this was built for are full of things to
- *   press, and a reorder that started as easily as a menu does would fire on somebody steadying
- *   their thumb to type a weight.
+ * @param holdDuration how long the finger has to stay still before the item lifts. A little
+ *   longer than the platform's own long-press by default: the rows this was built for are full
+ *   of things to press, and a reorder that started as easily as a menu does would fire on
+ *   somebody steadying their thumb to type a weight. Only a little, though — see [DEFAULT_HOLD].
  */
 @Composable
 fun rememberReorderState(
@@ -400,8 +414,16 @@ fun rememberReorderState(
     return state
 }
 
-/** Long enough not to fire on a steadying thumb, short enough not to feel broken. */
-val DEFAULT_HOLD: Duration = 1_200.milliseconds
+/**
+ * Long enough not to fire on a steadying thumb, short enough not to feel broken.
+ *
+ * 700ms, against the platform's 500: it was 1.2s, which is a *long* time to hold a phone still
+ * with nothing on screen acknowledging it, and long enough that somebody who has not been told
+ * the gesture exists lets go before it fires. The guard against an accidental lift is mostly
+ * [awaitHold]'s slop check rather than the clock — a finger on its way to a text field moves —
+ * so the clock only has to outlast a deliberate press, and 200ms over the platform does that.
+ */
+val DEFAULT_HOLD: Duration = 700.milliseconds
 
 /**
  * Follows the held item until the finger comes up.

@@ -1,5 +1,9 @@
 package com.opengym.feature.session.active.component
 
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,8 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -51,6 +57,15 @@ import com.opengym.core.ui.R as CoreR
  * @param isHeld whether this is the exercise under the finger. Drawn as the one accented card on
  *   the screen, which is what "picked up" looks like here — the accent is spent on the thing that
  *   matters right now, and while a drag is in flight nothing else does.
+ *
+ *   It is also the one row at full strength: it lifts a little, casts a shadow, and everything
+ *   it is being dragged past steps back to [PASSING_ALPHA]. The accent alone carries that on a
+ *   pale screen and almost nothing on a dark one, where a border two shades off the card is the
+ *   difference between held and not. Depth reads in both, and it says the right thing — the row
+ *   is off the page, in the hand, and the rest of the workout is what it is being moved through.
+ *
+ *   Sprung rather than eased, and the one place in the app that bounces: a pick-up is a physical
+ *   event and it is the only feedback the gesture gets besides the haptic tick under the thumb.
  */
 @Composable
 internal fun CollapsedExerciseRow(
@@ -63,9 +78,35 @@ internal fun CollapsedExerciseRow(
     // Resolved before the semantics block, which is not a composable context.
     val description = stringResource(R.string.active_reorder_position, position + 1, name)
 
+    val scale by animateFloatAsState(
+        targetValue = if (isHeld) HELD_SCALE else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "held scale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (isHeld) 1f else PASSING_ALPHA,
+        label = "passing alpha",
+    )
+    val elevation by animateDpAsState(
+        targetValue = if (isHeld) HELD_ELEVATION else 0.dp,
+        label = "held elevation",
+    )
+    val shape = MaterialTheme.shapes.small
+
     OpenGymCard(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+                this.alpha = alpha
+                shadowElevation = elevation.toPx()
+                this.shape = shape
+                clip = false
+            }
             // One node, read as one line: "3. Cable fly". The parts of the row — a handle, a
             // number, a name, a count — are four stops in the traversal order and none of them
             // means anything on its own, and the moves themselves are offered as actions on the
@@ -130,6 +171,18 @@ internal fun CollapsedExerciseRow(
 
 /** Matches the glyph size the set rows use, so the column of handles lines up with the numbers. */
 private val HANDLE_SIZE: Dp = 18.dp
+
+/*
+ * How far off the page the held row comes. Small numbers on purpose: the row is one line tall
+ * and forty of them can be on screen at once, so a lift big enough to be theatrical is one that
+ * overlaps its neighbours and makes the order harder to read — which is the one thing the user
+ * is looking at.
+ */
+private const val HELD_SCALE = 1.04f
+private val HELD_ELEVATION: Dp = 10.dp
+
+/** How much of itself a row the held one is being dragged past keeps. */
+private const val PASSING_ALPHA = 0.72f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
