@@ -1533,6 +1533,7 @@ class ActiveSessionScreenTest {
             position = 1,
             exercise = INCLINE,
             supersetLabel = "A1",
+            supersetGroupName = "A",
             isLinkedToNext = true,
         ),
         SessionExerciseRow(
@@ -1540,6 +1541,7 @@ class ActiveSessionScreenTest {
             position = 2,
             exercise = FLY,
             supersetLabel = "A2",
+            supersetGroupName = "A",
         ),
     )
 

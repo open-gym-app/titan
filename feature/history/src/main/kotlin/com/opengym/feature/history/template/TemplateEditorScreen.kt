@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -57,6 +58,7 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.template.component.DiscardTemplateEditsDialog
 import com.opengym.feature.history.template.component.TemplateExerciseCard
+import kotlinx.coroutines.flow.first
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -87,6 +89,11 @@ fun TemplateEditorRoute(
     // back stack is how the answer arrived. The same shape the session flow uses.
     LaunchedEffect(pickedExerciseIds) {
         val picked = pickedExerciseIds ?: return@LaunchedEffect
+        // Held until the ViewModel will take it, rather than dispatched and forgotten.
+        // `addExercises` drops an answer that arrives before the read has landed or while a
+        // write is out, and the clearing below throws away the only copy of what was picked —
+        // with the picker already popped behind it. The same wait the workout screen makes.
+        viewModel.uiState.first { !it.isLoading && !it.isSaving }
         viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(picked))
         onPickedExercisesHandled()
     }
@@ -194,9 +201,20 @@ fun TemplateEditorScreen(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // This screen is inside the tab shell, whose own `Scaffold` has already inset the
+        // content for the status and navigation bars and padded the `NavHost` by it. Asking
+        // for them again would push the bar down twice — the same rule `SessionsScreen` and
+        // the library tab follow.
+        contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(R.string.template_editor_title)) },
+                title = {
+                    Text(
+                        text = stringResource(
+                            if (state.isNew) R.string.template_editor_new_title else R.string.template_editor_title,
+                        ),
+                    )
+                },
                 navigationIcon = {
                     IconButton(
                         onClick = {
@@ -265,6 +283,7 @@ fun TemplateEditorScreen(
 
     if (state.confirmingDiscard) {
         DiscardTemplateEditsDialog(
+            isNew = state.isNew,
             onConfirm = { onEvent(TemplateEditorEvent.DiscardConfirmed) },
             onDismiss = { onEvent(TemplateEditorEvent.DiscardDismissed) },
         )
@@ -346,6 +365,7 @@ private fun TemplateEditorBody(
                                 onEvent(TemplateEditorEvent.FieldChanged(row.key, field, text))
                             },
                             onRemove = { onEvent(TemplateEditorEvent.ExerciseRemoved(row.key)) },
+                            unitSystem = state.unitSystem,
                             enabled = state.isEditable,
                         )
                     }
@@ -362,8 +382,11 @@ private fun TemplateEditorBody(
             item(key = "join-${row.key}") {
                 SupersetLink(
                     isLinked = row.isLinkedToNext,
-                    // `A1` is this exercise's place in group `A`; the pill names the group.
-                    groupLabel = row.supersetLabel?.takeWhile { !it.isDigit() },
+                    // The group's own name, off the row rather than sliced out of its `A1`
+                    // label: the label's format belongs to `SupersetLabels`, and its numeric
+                    // fallback past the twenty-sixth group is all digits, which a slice on the
+                    // first digit reads as an empty name.
+                    groupLabel = row.supersetGroupName,
                     exerciseName = row.exercise?.name
                         ?: stringResource(R.string.template_exercise_removed),
                     nextExerciseName = next.exercise?.name
@@ -411,11 +434,22 @@ private fun TemplateEditorBody(
  *
  * The count and the estimate on it are the *draft's* — see [TemplateEditorUiState.summary] — so
  * dropping an exercise repaints the header that is describing the list underneath it.
+ *
+ * A template being built has no name until the user gives it one, and they can dismiss the
+ * dialog that asks without answering. The placeholder stands in for that, because the row is the
+ * only way back into the dialog and a row with an empty title is one there is nothing to press.
  */
 @Composable
 private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEditorEvent) -> Unit) {
+    val summary = state.summary
+    val untitled = stringResource(R.string.template_editor_untitled)
+
     TemplateRow(
-        summary = state.summary,
+        summary = if (state.name.isBlank()) {
+            summary.copy(template = summary.template.copy(name = untitled))
+        } else {
+            summary
+        },
         onClick = { onEvent(TemplateEditorEvent.NameEditRequested) },
         trailing = {
             // A glyph rather than a button: the whole row is the target, and a second one inside
@@ -493,6 +527,36 @@ fun TemplateEditorScreenEmptyPreview() {
     }
 }
 
+/** Opened on nothing, with the dialog that asks what it is called already up over it. */
+@Preview(name = "Template editor - new", showBackground = true, heightDp = 900)
+@Composable
+fun TemplateEditorScreenNewPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        TemplateEditorScreen(
+            state = TemplateEditorUiState(
+                isNew = true,
+                isLoading = false,
+                naming = TemplateNamingDraft(name = ""),
+            ),
+            onEvent = {},
+            onExit = {},
+        )
+    }
+}
+
+/** The same, with the dialog dismissed unanswered — which is what the placeholder is for. */
+@Preview(name = "Template editor - new, unnamed", showBackground = true, heightDp = 900)
+@Composable
+fun TemplateEditorScreenNewUnnamedPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        TemplateEditorScreen(
+            state = TemplateEditorUiState(isNew = true, isLoading = false),
+            onEvent = {},
+            onExit = {},
+        )
+    }
+}
+
 @Preview(name = "Template editor - no such template", showBackground = true, heightDp = 900)
 @Composable
 fun TemplateEditorScreenMissingPreview() {
@@ -525,6 +589,7 @@ private fun previewState() = TemplateEditorUiState(
             weight = "15",
             supersetGroup = 0,
             supersetLabel = "A1",
+            supersetGroupName = "A",
             isLinkedToNext = true,
         ),
         previewRow(
@@ -535,6 +600,7 @@ private fun previewState() = TemplateEditorUiState(
             weight = "25",
             supersetGroup = 0,
             supersetLabel = "A2",
+            supersetGroupName = "A",
         ),
     ),
 )
@@ -549,6 +615,7 @@ private fun previewRow(
     rest: String = "90",
     supersetGroup: Int? = null,
     supersetLabel: String? = null,
+    supersetGroupName: String? = null,
     isLinkedToNext: Boolean = false,
 ) = TemplateExerciseRow(
     key = key,
@@ -560,5 +627,6 @@ private fun previewRow(
     rest = rest,
     supersetGroup = supersetGroup,
     supersetLabel = supersetLabel,
+    supersetGroupName = supersetGroupName,
     isLinkedToNext = isLinkedToNext,
 )

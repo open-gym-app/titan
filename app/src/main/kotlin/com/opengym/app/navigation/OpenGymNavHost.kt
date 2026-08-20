@@ -145,13 +145,20 @@ fun OpenGymNavHost(
                             launchSingleTop = true
                         }
                     },
+                    // The same editor with nothing in it, which is what an absent id means —
+                    // see `NEW_TEMPLATE`. `launchSingleTop` for the reason above.
+                    create = {
+                        navController.navigate(TemplateEditorDestination()) {
+                            launchSingleTop = true
+                        }
+                    },
                     onExit = { navController.popBackStack() },
                     // The same picker the session flow opens, and the same held answer. Only one
                     // of the two callers can be on the back stack at a time — the editor is
                     // inside the tabs and the flow is a mode over them — so there is no question
                     // of both reading it.
                     openExercisePicker = {
-                        navController.navigate(ExercisePickerDestination) { launchSingleTop = true }
+                        navController.navigate(ExercisePickerDestination()) { launchSingleTop = true }
                     },
                     pickedExerciseIds = { pickedExerciseIds?.toList() },
                     onPickedExercisesHandled = { pickedExerciseIds = null },

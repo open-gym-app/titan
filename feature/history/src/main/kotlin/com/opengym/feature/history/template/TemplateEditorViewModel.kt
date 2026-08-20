@@ -9,16 +9,20 @@ import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.template.TemplateDuration
+import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.domain.validation.SetValidator
+import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
+import com.opengym.feature.history.navigation.NEW_TEMPLATE
 import com.opengym.feature.history.navigation.TemplateEditorDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -35,7 +39,21 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * One template, opened to be changed: its name, what it trains, and the plan itself.
+ * One template, opened to be changed — or built from nothing: its name, what it trains, and the
+ * plan itself.
+ *
+ * ### Editing and creating are the same screen
+ *
+ * A template opened with [NEW_TEMPLATE] starts on an empty draft with the naming dialog already
+ * up, and SAVE calls [CreateTemplateUseCase] instead of [UpdateTemplateUseCase]. Everything
+ * between those two points — the picker, the reorder, the joins, the four figures, what SAVE is
+ * gated on and what backing out asks — is the same code, because it is the same question. A
+ * separate "new template" screen would be a second copy of all of it that has to keep agreeing
+ * with this one.
+ *
+ * The other way a template comes into existence is a finished workout saved as one, which is
+ * `SessionSummaryViewModel`'s and stays there: it has the sets and weights actually performed to
+ * seed from, which is not something this screen has or wants.
  *
  * ### The reads are one-shot, unlike every other screen here
  *
@@ -71,10 +89,14 @@ class TemplateEditorViewModel @Inject constructor(
     private val templateRepository: TemplateRepository,
     private val exerciseRepository: ExerciseRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val createTemplate: CreateTemplateUseCase,
     private val updateTemplate: UpdateTemplateUseCase,
 ) : ViewModel() {
 
     private val templateId: Long = savedStateHandle.toRoute<TemplateEditorDestination>().templateId
+
+    /** Whether this editor is building a template rather than changing one. See [NEW_TEMPLATE]. */
+    private val isNew: Boolean = templateId == NEW_TEMPLATE
 
     private val editorState = MutableStateFlow(EditorState())
 
@@ -99,7 +121,7 @@ class TemplateEditorViewModel @Inject constructor(
             scope = viewModelScope,
             // The other screens' number, for the same reasons.
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = TemplateEditorUiState(),
+            initialValue = TemplateEditorUiState(isNew = isNew),
         )
 
     init {
@@ -110,13 +132,19 @@ class TemplateEditorViewModel @Inject constructor(
      * Read the template, its plan and the catalogue, and seed the draft from them.
      *
      * A template id that no longer resolves lands on [TemplateEditorUiState.isMissing] rather
-     * than an empty editor: an editor for nothing would let the user build a plan that SAVE
-     * would then refuse.
+     * than an empty editor: an editor for *that* would let the user build a plan that SAVE would
+     * then refuse. [NEW_TEMPLATE] is the opposite case and not that one — there is nothing to
+     * read, so the draft is seeded empty and the naming dialog opens over it.
      */
     private suspend fun load() {
         val preferences = userPreferencesRepository.observe().first()
         unitSystem = preferences.unitSystem
         defaultRest = preferences.defaultRestDuration
+
+        if (isNew) {
+            loadNew()
+            return
+        }
 
         val template = templateRepository.getById(templateId).first()
         if (template == null) {
@@ -132,6 +160,10 @@ class TemplateEditorViewModel @Inject constructor(
         val seed = Draft(
             name = template.name,
             category = template.category,
+            // Carried untouched rather than dropped: `UpdateTemplateUseCase` rewrites every
+            // field it is given, so a save that omitted this would clear it — and this screen
+            // does not draw it, which is exactly why it has to hand it back.
+            icon = template.icon,
             rows = exercises.map { exercise ->
                 DraftRow(
                     key = exercise.id,
@@ -143,6 +175,8 @@ class TemplateEditorViewModel @Inject constructor(
                         .orEmpty(),
                     rest = exercise.restDuration?.toString().orEmpty(),
                     supersetGroup = exercise.supersetGroup,
+                    // Not edited here and not dropped either, for the reason `icon` is kept.
+                    notes = exercise.notes,
                 )
             },
         )
@@ -155,6 +189,34 @@ class TemplateEditorViewModel @Inject constructor(
                 seed = seed,
                 catalogue = catalogue,
                 isLoading = false,
+            )
+        }
+    }
+
+    /**
+     * Open on nothing: an empty plan, no name yet, and the naming dialog already up.
+     *
+     * The dialog rather than a screen that waits to be asked, because the name is the one thing
+     * a template cannot be saved without and the header that opens it is a row with nothing in
+     * it at this point — a control that looks like a heading, over a blank. Asking first is also
+     * the order the flow actually goes in: a user opens this knowing what the workout is called
+     * far more often than they know its fifth exercise.
+     *
+     * The empty draft is the seed as well as the draft, which is what leaves `isDirty` false: a
+     * new editor the user immediately backs out of has nothing to ask about, and cancelling the
+     * dialog without typing has to be free.
+     */
+    private suspend fun loadNew() {
+        val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
+        val seed = Draft(name = "", category = null, icon = null, rows = emptyList())
+
+        editorState.update {
+            it.copy(
+                draft = seed,
+                seed = seed,
+                catalogue = catalogue,
+                isLoading = false,
+                naming = TemplateNamingDraft(name = "", category = null),
             )
         }
     }
@@ -328,12 +390,7 @@ class TemplateEditorViewModel @Inject constructor(
 
         viewModelScope.launch {
             val outcome = try {
-                updateTemplate(
-                    templateId = templateId,
-                    name = draft.name,
-                    exercises = draft.toDrafts(unitSystem),
-                    category = draft.category,
-                )
+                write(draft)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -350,12 +407,38 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     /**
+     * The write itself: an insert for a template that does not exist yet, a rewrite otherwise.
+     *
+     * The two use cases enforce the same rules and refuse in the same currency — see
+     * [CreateTemplateUseCase] — so everything around this call is shared, and the only thing
+     * either one of them can do that the other cannot is [TemplateError.NotFound], which belongs
+     * to the id an insert does not have.
+     */
+    private suspend fun write(draft: Draft): Result<WorkoutTemplate> = if (isNew) {
+        createTemplate(
+            name = draft.name,
+            exercises = draft.toDrafts(unitSystem),
+            category = draft.category,
+            icon = draft.icon,
+        )
+    } else {
+        updateTemplate(
+            templateId = templateId,
+            name = draft.name,
+            exercises = draft.toDrafts(unitSystem),
+            category = draft.category,
+            icon = draft.icon,
+        )
+    }
+
+    /**
      * How a refused save is drawn.
      *
      * A name already taken reopens the naming dialog with the refusal under the field — the one
      * failure the user can fix in one move, and the field it is about is not otherwise on screen.
      * A template that has gone replaces the page with the dead end, because there is nothing left
-     * to save into. Everything else is said once and leaves the draft exactly where it is.
+     * to save into; only an update can be refused that way, since an insert has no id to be
+     * missing. Everything else is said once and leaves the draft exactly where it is.
      */
     private fun reportSaveFailure(failure: Throwable, draft: Draft) {
         when (failure) {
@@ -384,6 +467,7 @@ class TemplateEditorViewModel @Inject constructor(
     private fun build(state: EditorState): TemplateEditorUiState {
         val draft = state.draft
             ?: return TemplateEditorUiState(
+                isNew = isNew,
                 isLoading = state.isLoading,
                 isMissing = state.isMissing,
                 naming = state.naming,
@@ -392,6 +476,8 @@ class TemplateEditorViewModel @Inject constructor(
 
         val grouping = draft.rows.map(DraftRow::supersetGroup)
         val labels = supersetLabels(grouping)
+        // Beside the labels rather than parsed back out of them — see `supersetGroupNames`.
+        val groupNames = supersetGroupNames(grouping)
 
         return TemplateEditorUiState(
             name = draft.name,
@@ -407,6 +493,7 @@ class TemplateEditorViewModel @Inject constructor(
                     rest = row.rest,
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
+                    supersetGroupName = groupNames[index],
                     isLinkedToNext = row.supersetGroup != null &&
                         grouping.getOrNull(index + 1) == row.supersetGroup,
                     errors = row.errors(unitSystem),
@@ -416,7 +503,9 @@ class TemplateEditorViewModel @Inject constructor(
                 exercises = draft.toDrafts(unitSystem),
                 defaultRest = defaultRest,
             ),
+            unitSystem = unitSystem,
             naming = state.naming,
+            isNew = isNew,
             isLoading = false,
             isMissing = state.isMissing,
             isSaving = state.isSaving,
@@ -472,6 +561,8 @@ private data class EditorState(
 private data class Draft(
     val name: String,
     val category: TemplateCategory?,
+    /** Not edited on this screen, and carried so that saving does not clear it. */
+    val icon: String?,
     val rows: List<DraftRow>,
 )
 
@@ -484,6 +575,8 @@ private data class DraftRow(
     val weight: String = "",
     val rest: String = "",
     val supersetGroup: Int? = null,
+    /** Not edited on this screen, and carried so that saving does not clear it. */
+    val notes: String? = null,
 )
 
 /** The row with one of its four figures replaced. */
@@ -543,6 +636,7 @@ private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> 
         defaultWeight = row.weight.takeIf { it.isNotBlank() }
             ?.let { parseWeightMilligrams(it, unitSystem) },
         restDuration = row.rest.toLongOrNull(),
+        notes = row.notes,
         supersetGroup = row.supersetGroup,
     )
 }

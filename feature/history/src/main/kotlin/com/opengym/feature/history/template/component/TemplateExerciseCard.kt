@@ -21,11 +21,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.OpenGymValueField
 import com.opengym.core.ui.component.SupersetBadge
 import com.opengym.core.ui.format.weightSuffix
-import com.opengym.core.ui.theme.LocalUnitSystem
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.template.TemplateExerciseRow
@@ -64,6 +64,9 @@ import com.opengym.feature.history.template.TemplateField
  *
  * @param position where it sits in the plan, from 0. The *drawn* order, which while a drag is in
  *   flight is not the stored one.
+ * @param unitSystem what the weight cell is captioned and spoken in. Passed rather than read off
+ *   `LocalUnitSystem`, because it has to be the unit the draft was *formatted in and will be
+ *   parsed back with* — see `TemplateEditorUiState.unitSystem`.
  * @param enabled false makes the whole card read-only — a write is out. The fields keep what
  *   they hold, because that is still the user's copy of it.
  */
@@ -74,6 +77,7 @@ internal fun TemplateExerciseCard(
     onFieldChange: (TemplateField, String) -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
+    unitSystem: UnitSystem = UnitSystem.METRIC,
     enabled: Boolean = true,
 ) {
     val name = row.exercise?.name ?: stringResource(R.string.template_exercise_removed)
@@ -111,7 +115,12 @@ internal fun TemplateExerciseCard(
                 }
             }
 
-            DefaultsRow(row = row, onFieldChange = onFieldChange, enabled = enabled)
+            DefaultsRow(
+                row = row,
+                onFieldChange = onFieldChange,
+                unitSystem = unitSystem,
+                enabled = enabled,
+            )
         }
     }
 }
@@ -128,11 +137,12 @@ internal fun TemplateExerciseCard(
 private fun DefaultsRow(
     row: TemplateExerciseRow,
     onFieldChange: (TemplateField, String) -> Unit,
+    unitSystem: UnitSystem,
     enabled: Boolean,
 ) {
     val name = row.exercise?.name ?: stringResource(R.string.template_exercise_removed)
     val invalid = stringResource(R.string.template_field_invalid)
-    val unit = LocalUnitSystem.current.weightSuffix
+    val unit = unitSystem.weightSuffix
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -161,9 +171,10 @@ private fun DefaultsRow(
         DefaultField(
             value = row.weight,
             field = TemplateField.WEIGHT,
-            // The ambient unit, so both the caption and the spoken description say which number
-            // the user is typing. Read here rather than passed in: a change to the setting
-            // repaints it without the screen being revisited.
+            // The draft's own unit, so both the caption and the spoken description say which
+            // number the user is typing — and say the unit the save will parse it back with,
+            // which the ambient one stops being the moment the setting is changed from under
+            // an editor sitting on the tab's back stack.
             caption = unit,
             description = stringResource(R.string.template_field_weight_description, name, unit),
             row = row,

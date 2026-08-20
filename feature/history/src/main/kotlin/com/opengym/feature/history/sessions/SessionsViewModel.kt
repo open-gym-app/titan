@@ -210,7 +210,7 @@ class SessionsViewModel @Inject constructor(
             // closing, so a refusal has somewhere to be reported, and clearing the action on the
             // way out would let a second confirm race the first.
             SessionsEvent.TemplateActionDismissed ->
-                if (!uiState.value.templateAction.isBusy()) {
+                if (!screenState.value.templateAction.isBusy()) {
                     screenState.update { it.copy(templateAction = null) }
                 }
 
@@ -267,7 +267,7 @@ class SessionsViewModel @Inject constructor(
      * that was made with the old one, and the field would then disagree with what was stored.
      */
     private fun editNaming(change: (TemplateAction.Naming) -> TemplateAction.Naming) {
-        if ((uiState.value.templateAction as? TemplateAction.Naming)?.isSaving == true) return
+        if ((screenState.value.templateAction as? TemplateAction.Naming)?.isSaving == true) return
         updateNaming(change)
     }
 
@@ -285,9 +285,13 @@ class SessionsViewModel @Inject constructor(
      * decision taken here.
      */
     private fun confirmNaming() {
-        val naming = uiState.value.templateAction as? TemplateAction.Naming ?: return
+        val naming = screenState.value.templateAction as? TemplateAction.Naming ?: return
         if (naming.isSaving) return
         updateNaming { it.copy(isSaving = true) }
+
+        // Neither write is a patch — see `UpdateTemplateUseCase` — so the icon the dialog does
+        // not ask about has to be handed back with everything else, or a rename clears it.
+        val icon = templateSummary(naming.templateId)?.template?.icon
 
         viewModelScope.launch {
             val outcome = runTemplateWrite {
@@ -298,12 +302,14 @@ class SessionsViewModel @Inject constructor(
                         name = naming.name,
                         exercises = exercises,
                         category = naming.category,
+                        icon = icon,
                     )
 
                     TemplateNaming.DUPLICATE -> createTemplate(
                         name = naming.name,
                         exercises = exercises,
                         category = naming.category,
+                        icon = icon,
                     )
                 }.map { }
             } ?: return@launch
@@ -359,7 +365,7 @@ class SessionsViewModel @Inject constructor(
      * losing workouts: there are none to lose.
      */
     private fun confirmDelete() {
-        val deleting = uiState.value.templateAction as? TemplateAction.Deleting ?: return
+        val deleting = screenState.value.templateAction as? TemplateAction.Deleting ?: return
         if (deleting.isDeleting) return
         screenState.update { it.copy(templateAction = deleting.copy(isDeleting = true)) }
 
@@ -407,9 +413,17 @@ class SessionsViewModel @Inject constructor(
         null
     }
 
-    /** The row the action is about, or null once the list no longer holds it. */
+    /**
+     * The row the action is about, or null once the list no longer holds it.
+     *
+     * Off the template read itself rather than off [uiState], which is a `stateIn` downstream of
+     * it: a value written to a source flow does not reach a combined one until it has been
+     * dispatched, so a guard asked of [uiState] in the same frame as the update it is guarding
+     * against reads the state as it was before. Every question this ViewModel asks of itself is
+     * asked of what it holds — the same rule `TemplateEditorViewModel.save` follows.
+     */
     private fun templateSummary(templateId: Long): TemplateSummary? =
-        uiState.value.templates.firstOrNull { it.template.id == templateId }
+        templates.value?.firstOrNull { it.template.id == templateId }
 
     /**
      * Narrow the history to one day and show it.

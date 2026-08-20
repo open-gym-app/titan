@@ -911,6 +911,7 @@ private fun previewExercises(): List<SessionExerciseRow> = listOf(
         position = 2,
         exercise = Exercise(id = 3L, name = "Cable fly"),
         supersetLabel = "A1",
+        supersetGroupName = "A",
         isLinkedToNext = true,
     ),
     SessionExerciseRow(
@@ -918,6 +919,7 @@ private fun previewExercises(): List<SessionExerciseRow> = listOf(
         position = 3,
         exercise = Exercise(id = 4L, name = "Tricep pushdown"),
         supersetLabel = "A2",
+        supersetGroupName = "A",
         entryPrevious = previously(weightKg = 30.0, reps = 15),
         hasHistory = true,
     ),

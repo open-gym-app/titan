@@ -57,6 +57,7 @@ import com.opengym.feature.history.sessions.SessionsUiState
  *
  * @param onTemplateClick open a template's editor. Hoisted through the screen, because the
  *   destination is `:app`'s to name — see `historyGraph`.
+ * @param onNewTemplate open the same editor on nothing. Hoisted for the same reason.
  */
 @Composable
 internal fun TemplateList(
@@ -64,7 +65,7 @@ internal fun TemplateList(
     listState: LazyListState,
     onEvent: (SessionsEvent) -> Unit,
     onTemplateClick: (templateId: Long) -> Unit,
-    onStartSession: () -> Unit,
+    onNewTemplate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -78,7 +79,7 @@ internal fun TemplateList(
             // an empty state flashed over a list that is merely still opening tells a user
             // with six templates that they have none.
             if (!state.isLoadingTemplates) {
-                item(key = EMPTY_KEY) { TemplatesEmptyState(onStartSession = onStartSession) }
+                item(key = EMPTY_KEY) { TemplatesEmptyState(onNewTemplate = onNewTemplate) }
             }
             return@LazyColumn
         }
@@ -173,19 +174,22 @@ private fun TemplateMenu(summary: TemplateSummary, onEvent: (SessionsEvent) -> U
 /**
  * What the tab says with nothing in it.
  *
- * The action starts a session rather than opening a blank editor, because that is genuinely
- * where templates come from: one is saved out of a workout you have just done, with the sets
- * and weights you actually hit as its defaults. A "new template" button here would open an
- * empty form and ask a user with no history to type a plan they have not performed.
+ * The action opens the editor on a blank template, which is the thing this screen is a list of.
+ * It used to start a session instead, on the grounds that a template is really something you
+ * save out of a workout you have just done — true, and it is still the other way one is made
+ * (see `SessionSummaryScreen`), but it left the tab as the only list in the app with no way to
+ * add to it, and a user who already knows the plan they intend to follow with nothing to press.
+ * The description says the other way, so the user who would rather perform it first knows that
+ * road exists.
  */
 @Composable
-private fun TemplatesEmptyState(onStartSession: () -> Unit, modifier: Modifier = Modifier) {
+private fun TemplatesEmptyState(onNewTemplate: () -> Unit, modifier: Modifier = Modifier) {
     EmptyState(
         glyph = stringResource(R.string.sessions_templates_glyph),
         title = stringResource(R.string.sessions_templates_empty_title),
         description = stringResource(R.string.sessions_templates_empty_description),
         actionLabel = stringResource(R.string.sessions_templates_empty_action),
-        action = onStartSession,
+        action = onNewTemplate,
         modifier = modifier,
     )
 }

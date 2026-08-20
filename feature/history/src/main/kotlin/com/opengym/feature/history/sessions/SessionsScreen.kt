@@ -47,12 +47,15 @@ import com.opengym.feature.history.sessions.component.sessionsTabLabels
  *   new-session flow, which is also another module's.
  * @param onTemplateClick a template row was tapped. The editor is this module's own, but the
  *   push is still `:app`'s — the `NavController` belongs to it.
+ * @param onNewTemplate the templates tab's `+ NEW`, and the way out of an empty one. Opens the
+ *   same editor on nothing.
  */
 @Composable
 fun SessionsRoute(
     onSessionClick: (sessionId: Long) -> Unit,
     onStartSession: () -> Unit,
     onTemplateClick: (templateId: Long) -> Unit,
+    onNewTemplate: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SessionsViewModel = hiltViewModel(),
 ) {
@@ -64,6 +67,7 @@ fun SessionsRoute(
         onSessionClick = onSessionClick,
         onStartSession = onStartSession,
         onTemplateClick = onTemplateClick,
+        onNewTemplate = onNewTemplate,
         modifier = modifier,
     )
 }
@@ -100,6 +104,7 @@ fun SessionsScreen(
     onStartSession: () -> Unit,
     modifier: Modifier = Modifier,
     onTemplateClick: (templateId: Long) -> Unit = {},
+    onNewTemplate: () -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val message = state.message
@@ -162,6 +167,7 @@ fun SessionsScreen(
                     onToggleSearch = onToggleSearch,
                     onOpenDates = { datesOpen = true },
                     onNewSession = onStartSession,
+                    onNewTemplate = onNewTemplate,
                 )
                 OpenGymTabRow(
                     labels = sessionsTabLabels(),
@@ -204,7 +210,7 @@ fun SessionsScreen(
                 listState = templateListState,
                 onEvent = onEvent,
                 onTemplateClick = onTemplateClick,
-                onStartSession = onStartSession,
+                onNewTemplate = onNewTemplate,
                 modifier = content,
             )
 

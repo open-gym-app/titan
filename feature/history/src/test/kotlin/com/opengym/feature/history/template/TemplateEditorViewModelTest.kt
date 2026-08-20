@@ -6,8 +6,10 @@ import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.feature.history.library.FakeExerciseRepository
+import com.opengym.feature.history.navigation.NEW_TEMPLATE
 import com.opengym.feature.history.plate.FakeUserPreferencesRepository
 import com.opengym.feature.history.sessions.FakeTemplateStore
 import com.opengym.feature.history.sessions.namedTemplate
@@ -97,6 +99,80 @@ class TemplateEditorViewModelTest {
         val state = viewModel.uiState.value
         assertTrue(state.isMissing)
         assertFalse(state.isLoading)
+    }
+
+    // ─── Building one ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `opening on no template at all is an empty editor asking for a name`() = runTest {
+        val viewModel = viewModel(templateId = NEW_TEMPLATE)
+
+        val state = viewModel.uiState.value
+        assertTrue(state.isNew)
+        assertFalse(state.isLoading)
+        // Emphatically not the dead end: nothing is missing, there is simply nothing yet.
+        assertFalse(state.isMissing)
+        assertEquals("", state.name)
+        assertEquals(emptyList<TemplateExerciseRow>(), state.exercises)
+        // The name is the one thing the use case will not do without, and the row that opens
+        // this dialog is blank at this point.
+        assertEquals(TemplateNamingDraft(name = ""), state.naming)
+        // Nothing typed is nothing to lose: backing straight out has to be free.
+        assertFalse(state.isDirty)
+    }
+
+    @Test
+    fun `a new template is inserted rather than rewriting anything`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
+
+        viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day · Back"))
+        viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
+        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id, PUSHDOWN.id)))
+        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+        assertTrue(viewModel.uiState.value.isSaved)
+        val written = templates.templates().single { it.name == "Pull Day · Back" }
+        assertEquals(TemplateCategory.HYPERTROPHY, written.category)
+        assertEquals(
+            listOf(FLY.id, PUSHDOWN.id),
+            templates.exercisesOf(written.id).map(TemplateExercise::exerciseId),
+        )
+        // The template the editor was *not* opened on is untouched, which is what says this
+        // went through the insert and not the rewrite.
+        assertEquals(3, templates.exercisesOf(1).size)
+    }
+
+    @Test
+    fun `a new template cannot be saved until it has both a name and an exercise`() = runTest {
+        val viewModel = viewModel(templateId = NEW_TEMPLATE)
+
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+        // Dirty, and still refused: `CreateTemplateUseCase` would answer `EmptyName`, and a live
+        // SAVE whose only outcome is a refusal is a button that lies.
+        assertTrue(viewModel.uiState.value.isDirty)
+        assertFalse(viewModel.uiState.value.canSave)
+
+        viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day"))
+        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+        assertTrue(viewModel.uiState.value.canSave)
+    }
+
+    @Test
+    fun `a new template named after an existing one is refused in the dialog`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
+
+        viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day"))
+        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+        assertEquals(true, viewModel.uiState.value.naming?.nameTaken)
+        assertFalse(viewModel.uiState.value.isSaved)
+        // Nothing was inserted, so the tab still holds the two it started with.
+        assertEquals(2, templates.templates().size)
     }
 
     // ─── Editing the plan ───────────────────────────────────────────────────────────────
@@ -422,6 +498,7 @@ class TemplateEditorViewModelTest {
             templateRepository = store,
             exerciseRepository = this@TemplateEditorViewModelTest.exercises,
             userPreferencesRepository = preferences,
+            createTemplate = CreateTemplateUseCase(store),
             updateTemplate = UpdateTemplateUseCase(store),
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {

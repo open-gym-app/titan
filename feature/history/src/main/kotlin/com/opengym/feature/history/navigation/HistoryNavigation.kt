@@ -41,11 +41,26 @@ data object SessionsDestination
  * nothing about editing a plan is the kind of thing the session flow's chrome-less mode is for.
  * It is the second destination in that graph, which is why the graph existed before it did.
  *
- * @param templateId the template to edit. An id that no longer resolves draws the dead end
- *   rather than an empty editor — see `TemplateEditorViewModel`.
+ * @param templateId the template to edit, or [NEW_TEMPLATE] to build one from nothing. An id
+ *   that no longer resolves draws the dead end rather than an empty editor — see
+ *   `TemplateEditorViewModel`.
  */
 @Serializable
-data class TemplateEditorDestination(val templateId: Long)
+data class TemplateEditorDestination(val templateId: Long = NEW_TEMPLATE)
+
+/**
+ * "There is no template yet", as a route argument.
+ *
+ * The editor is the only place a template is built from nothing — the other way one comes into
+ * existence is a finished workout saved as one — so "create" and "edit" are the same screen with
+ * the same draft, the same rules and the same SAVE, differing only in which use case that SAVE
+ * calls. A second destination would be a second copy of all of it.
+ *
+ * A sentinel rather than a nullable `Long`, for the reason [NO_SUGGESTED_TARGET] is one:
+ * Navigation Compose has no built-in `NavType` for a nullable primitive, and zero is impossible
+ * as a template id because it is a row id the store assigns from one.
+ */
+const val NEW_TEMPLATE: Long = 0L
 
 /** The Library tab's graph. Navigating here lands on [ExerciseLibraryDestination]. */
 @Serializable
@@ -135,6 +150,8 @@ data class ExercisePickerDestination(val replacing: Boolean = false)
  * feature's destination through it.
  *
  * @param open a template row was tapped; the id is the template to edit.
+ * @param create the templates tab's `+ NEW`, and the way out of an empty one. Opens the same
+ *   editor on nothing — see [NEW_TEMPLATE].
  * @param onExit the editor is done with — saved, discarded, or opened on a template that is not
  *   there. One way out rather than three, because all three are the same pop and the screen has
  *   already said which of them happened.
@@ -153,6 +170,7 @@ data class ExercisePickerDestination(val replacing: Boolean = false)
  */
 data class TemplateEditor(
     val open: (templateId: Long) -> Unit,
+    val create: () -> Unit,
     val onExit: () -> Unit,
     val openExercisePicker: () -> Unit,
     val pickedExerciseIds: () -> List<Long>?,
@@ -193,6 +211,7 @@ fun NavGraphBuilder.historyGraph(
                 onSessionClick = onSessionClick,
                 onStartSession = onStartSession,
                 onTemplateClick = templateEditor.open,
+                onNewTemplate = templateEditor.create,
             )
         }
 

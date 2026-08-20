@@ -19,12 +19,17 @@ import com.opengym.feature.history.R
  * genuinely lossy at the same time: nothing in the store is at risk, and everything the user has
  * just typed is. That is what the question is about, and it is why the destructive answer is the
  * one that leaves.
+ *
+ * @param isNew the editor is building a template rather than changing one, which changes what
+ *   there is to reassure the user about: an edit leaves a stored template exactly as it was, and
+ *   a creation leaves nothing at all behind.
  */
 @Composable
 internal fun DiscardTemplateEditsDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    isNew: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -33,7 +38,13 @@ internal fun DiscardTemplateEditsDialog(
         title = { Text(text = stringResource(R.string.template_editor_discard_title)) },
         text = {
             Text(
-                text = stringResource(R.string.template_editor_discard_body),
+                text = stringResource(
+                    if (isNew) {
+                        R.string.template_editor_discard_new_body
+                    } else {
+                        R.string.template_editor_discard_body
+                    },
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },

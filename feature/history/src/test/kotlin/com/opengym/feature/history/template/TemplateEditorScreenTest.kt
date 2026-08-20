@@ -232,6 +232,38 @@ class TemplateEditorScreenTest {
         assertEquals(listOf(TemplateEditorEvent.DiscardDismissed), events)
     }
 
+    @Test
+    fun `a template being built is titled as one and headed by a placeholder`() {
+        setContent(TemplateEditorUiState(isNew = true, isLoading = false))
+
+        composeTestRule.onNodeWithText("New template").assertIsDisplayed()
+        // The header row is the only way back into the naming dialog, so it has to be a row
+        // there is something to press rather than an empty one.
+        composeTestRule.onNodeWithContentDescription("Untitled template", substring = true)
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Nothing in this template").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an unnamed template's header opens the dialog that names it`() {
+        setContent(TemplateEditorUiState(isNew = true, isLoading = false))
+
+        composeTestRule.onNodeWithContentDescription("Untitled template", substring = true)
+            .performClick()
+
+        assertEquals(listOf(TemplateEditorEvent.NameEditRequested), events)
+    }
+
+    @Test
+    fun `discarding a template being built says nothing was saved rather than nothing changed`() {
+        setContent(
+            TemplateEditorUiState(isNew = true, isLoading = false, isDirty = true, confirmingDiscard = true),
+        )
+
+        composeTestRule.onNodeWithText("Nothing has been saved yet", substring = true)
+            .assertIsDisplayed()
+    }
+
     /**
      * Brings [matcher]'s node into view before touching it.
      *
@@ -291,6 +323,7 @@ class TemplateEditorScreenTest {
         rest = "90",
         supersetGroup = if (supersetLabel != null) 0 else null,
         supersetLabel = supersetLabel,
+        supersetGroupName = if (supersetLabel != null) "A" else null,
         isLinkedToNext = isLinkedToNext,
     )
 }

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.WorkoutTemplate
 import kotlin.time.Duration
 
@@ -25,7 +26,15 @@ import kotlin.time.Duration
  * @param estimatedDuration the pacing figure for the plan *as edited*, recomputed as exercises
  *   are added, dropped and repriced. Derived and never stored — see
  *   [com.opengym.core.domain.template.TemplateDuration].
+ * @param unitSystem the unit every weight on the page is *typed and parsed in*, read once with
+ *   the template. Carried here rather than read from `LocalUnitSystem` at the cell, because a
+ *   setting changed while this screen sits on the tab's back stack would otherwise relabel a
+ *   column of figures the save still parses in the old unit.
  * @param naming the name-and-category dialog's contents, or **null** when it is closed.
+ * @param isNew this is a template being built rather than one being changed. Decides the title,
+ *   what backing out says, and which use case SAVE calls — and nothing else, which is the point:
+ *   creating and editing are one screen because they are one question. See
+ *   `com.opengym.feature.history.navigation.NEW_TEMPLATE`.
  * @param isLoading the read has not come back yet.
  * @param isMissing the read came back with no such template. Distinct from loading: one is a
  *   blank screen for a moment, the other is a dead end with a way out.
@@ -46,7 +55,9 @@ data class TemplateEditorUiState(
     val category: TemplateCategory? = null,
     val exercises: List<TemplateExerciseRow> = emptyList(),
     val estimatedDuration: Duration = Duration.ZERO,
+    val unitSystem: UnitSystem = UnitSystem.METRIC,
     val naming: TemplateNamingDraft? = null,
+    val isNew: Boolean = false,
     val isLoading: Boolean = true,
     val isMissing: Boolean = false,
     val isSaving: Boolean = false,
@@ -78,12 +89,14 @@ data class TemplateEditorUiState(
     /**
      * Whether SAVE does anything.
      *
-     * Four conditions, and each is one the use case would otherwise refuse: a template needs a
-     * name and at least one exercise, a figure that is not a number cannot be stored, and a save
-     * of a draft nobody has changed is a write that replaces every exercise row with itself.
+     * Each is one the use case would otherwise refuse: a template needs a name and at least one
+     * exercise, a figure that is not a number cannot be stored, a save of a draft nobody has
+     * changed is a write that replaces every exercise row with itself, and a template that is
+     * not there any more has nothing to save into — the page is the dead end by then, and a live
+     * SAVE above it is a button whose only outcome is the refusal that put it there.
      */
     val canSave: Boolean
-        get() = isDirty && !isSaving && !hasErrors &&
+        get() = isDirty && !isSaving && !isMissing && !hasErrors &&
             name.isNotBlank() && exercises.isNotEmpty()
 
     /** Whether the page takes input at all. False while a write is out or the read is not in. */
@@ -111,6 +124,10 @@ data class TemplateEditorUiState(
  *   user's configured default.
  * @param supersetLabel the `A1`/`A2` marker, or null for an exercise that stands alone. Derived
  *   from the grouping over the whole list, which a row does not have.
+ * @param supersetGroupName the group's own name — the `A` of `A1` — or null for an exercise that
+ *   stands alone. Carried beside [supersetLabel] rather than sliced out of it: the label's format
+ *   belongs to `SupersetLabels`, and its numeric fallback past the twenty-sixth group is all
+ *   digits, which a slice on the first digit reads as an empty name.
  * @param isLinkedToNext whether this exercise and the one after it are one superset — what the
  *   join between the two cards draws.
  * @param errors which of the four fields holds something that cannot be stored.
@@ -126,6 +143,7 @@ data class TemplateExerciseRow(
     val rest: String = "",
     val supersetGroup: Int? = null,
     val supersetLabel: String? = null,
+    val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
     val errors: Set<TemplateField> = emptySet(),
 )

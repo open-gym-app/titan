@@ -221,6 +221,7 @@
     <!-- The header's actions. Read aloud by TalkBack; the glyphs carry no text. -->
     <string name="sessions_new">+ New</string>
     <string name="sessions_new_description">New session</string>
+    <string name="sessions_new_template_description">New template</string>
     <string name="sessions_search">Search</string>
     <string name="sessions_search_placeholder">Search names and notes…</string>
 
@@ -244,8 +245,8 @@
          weights you actually hit as its defaults. -->
     <string name="sessions_templates_glyph">▤</string>
     <string name="sessions_templates_empty_title">No templates yet</string>
-    <string name="sessions_templates_empty_description">Finish a workout and save it as a template to start the same session again in one tap.</string>
-    <string name="sessions_templates_empty_action">Start a session</string>
+    <string name="sessions_templates_empty_description">Build one here, or finish a workout and save it as a template to start the same session again in one tap.</string>
+    <string name="sessions_templates_empty_action">Create a template</string>
 
     <!-- A template row's overflow menu, and the two dialogs behind it. -->
     <string name="sessions_template_actions">More for %1$s</string>
@@ -303,6 +304,8 @@
     <!-- ── Template editor ────────────────────────────────────────────────────────── -->
 
     <string name="template_editor_title">Edit template</string>
+    <string name="template_editor_new_title">New template</string>
+    <string name="template_editor_untitled">Untitled template</string>
     <string name="template_editor_back">Back</string>
     <string name="template_editor_save">Save</string>
     <string name="template_editor_exercises">Exercises</string>
@@ -347,6 +350,7 @@
     <!-- Leaving with unsaved edits. -->
     <string name="template_editor_discard_title">Leave without saving?</string>
     <string name="template_editor_discard_body">The template stays exactly as it was. The changes you just made are lost.</string>
+    <string name="template_editor_discard_new_body">Nothing has been saved yet, so the template you were building is lost.</string>
     <string name="template_editor_discard_confirm">Discard</string>
     <string name="template_editor_discard_cancel">Keep editing</string>
 

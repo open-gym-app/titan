@@ -36,6 +36,7 @@ class SessionsScreenTest {
     private val opened = mutableListOf<Long>()
     private val openedTemplates = mutableListOf<Long>()
     private var started = 0
+    private var newTemplates = 0
 
     // ─── The history tab ────────────────────────────────────────────────────────────────
 
@@ -281,13 +282,28 @@ class SessionsScreenTest {
     }
 
     @Test
-    fun `the empty templates tab offers the only way to make one`() {
+    fun `the empty templates tab opens the editor on nothing`() {
         setContent(populated(tab = SessionsTab.TEMPLATES).copy(templates = emptyList()))
 
         composeTestRule.onNodeWithText("No templates yet").assertIsDisplayed()
-        composeTestRule.onNodeWithText("START A SESSION").performClick()
+        composeTestRule.onNodeWithText("CREATE A TEMPLATE").performClick()
 
-        assertEquals(1, started)
+        assertEquals(1, newTemplates)
+        // Not the session flow: the tab is a list of templates, and the button on it makes one.
+        assertEquals(0, started)
+    }
+
+    @Test
+    fun `the header's new action makes a template on the templates tab`() {
+        // The same three characters as on the other two tabs and a different thing behind them,
+        // because it makes whatever the tab is a list of. Without this the editor could only be
+        // reached by tapping a template that already existed.
+        setContent(populated(tab = SessionsTab.TEMPLATES))
+
+        composeTestRule.onNodeWithContentDescription("New template").performClick()
+
+        assertEquals(1, newTemplates)
+        assertEquals(0, started)
     }
 
     @Test
@@ -368,6 +384,7 @@ class SessionsScreenTest {
                     onSessionClick = opened::add,
                     onStartSession = { started++ },
                     onTemplateClick = openedTemplates::add,
+                    onNewTemplate = { newTemplates++ },
                 )
             }
         }

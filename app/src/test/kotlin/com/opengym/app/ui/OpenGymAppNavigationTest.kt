@@ -411,6 +411,31 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
+    /**
+     * The one edge that only the assembled graph can answer: [TemplateEditorDestination]'s id
+     * has a default, which makes it an *optional* route argument rather than a path segment, and
+     * whether a `navigate` with none of it resolves back to the same registration is a property
+     * of the real `NavController` and nothing smaller. The screen tests either side of this call
+     * their halves with the value already decided.
+     */
+    @Test
+    fun `the templates tab's new action opens the editor inside the tab`() {
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
+        composeTestRule.onNodeWithText(TAB_TEMPLATES).performClick()
+
+        composeTestRule.onNodeWithContentDescription(NEW_TEMPLATE).performClick()
+
+        composeTestRule.onNodeWithText(NEW_TEMPLATE).assertIsDisplayed()
+        // Inside the tab, unlike the session flow: the bottom bar stays, and the tab it was
+        // opened from is still the selected one.
+        composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsSelected()
+
+        // And it is a push rather than the tab's own content, so back returns to the list.
+        pressBack()
+        composeTestRule.onNodeWithText(TAB_TEMPLATES).assertIsDisplayed()
+        composeTestRule.onNodeWithText(NEW_TEMPLATE).assertDoesNotExist()
+    }
+
     @Test
     fun `the settings action opens settings outside the tab scaffold`() {
         composeTestRule.onNodeWithContentDescription(SETTINGS_ACTION).performClick()
@@ -651,6 +676,12 @@ class OpenGymAppNavigationTest {
         const val HISTORY = "HISTORY"
         const val PROGRESSION = "PROGRESSION"
         const val NEW_SESSION = "New session"
+
+        // The templates tab, and the editor a new template opens in. One string for two things:
+        // the tab's `+ NEW` is the same three characters on all three tabs and says which of
+        // them it is only in its description, and the description is the editor's title.
+        const val TAB_TEMPLATES = "TEMPLATES"
+        const val NEW_TEMPLATE = "New template"
 
         /*
          * The workout, by its header bar rather than by anything in its body.
