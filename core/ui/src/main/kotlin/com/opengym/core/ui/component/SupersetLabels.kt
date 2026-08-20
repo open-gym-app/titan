@@ -28,14 +28,45 @@ fun supersetLabels(grouping: List<Int?>): List<String?> {
     val labels = arrayOfNulls<String>(grouping.size)
 
     Supersets.groups(grouping).forEach { (group, indices) ->
-        // Groups past the twenty-sixth fall back to their number. Nothing can produce a session
-        // with twenty-seven supersets in it, but a letter that silently became `[` is worse than
-        // a digit.
-        val name = if (group < ALPHABET_SIZE) ('A' + group).toString() else (group + 1).toString()
+        val name = groupName(group)
         indices.forEachIndexed { member, index -> labels[index] = "$name${member + 1}" }
     }
 
     return labels.toList()
 }
+
+/**
+ * The name of the group at each position of [grouping] — the `A` of `A1` — or null where the
+ * exercise stands alone.
+ *
+ * Beside [supersetLabels] rather than recovered from one, because a caller that needs the group
+ * on its own has only two ways to get it and one of them is wrong: reading the letters off the
+ * label is a parse of a display string whose format lives here, and it has no answer at all for
+ * the numeric fallback below, where every character is a digit and the parse comes back empty.
+ *
+ * @param grouping normalised, on the same terms as [supersetLabels].
+ *
+ * @return one entry per position of [grouping], in the same order. Members of one group all
+ *   carry the same name, which is the point of it.
+ */
+fun supersetGroupNames(grouping: List<Int?>): List<String?> {
+    val names = arrayOfNulls<String>(grouping.size)
+
+    Supersets.groups(grouping).forEach { (group, indices) ->
+        val name = groupName(group)
+        indices.forEach { index -> names[index] = name }
+    }
+
+    return names.toList()
+}
+
+/**
+ * What one group is called.
+ *
+ * Groups past the twenty-sixth fall back to their number. Nothing can produce a session with
+ * twenty-seven supersets in it, but a letter that silently became `[` is worse than a digit.
+ */
+private fun groupName(group: Int): String =
+    if (group < ALPHABET_SIZE) ('A' + group).toString() else (group + 1).toString()
 
 private const val ALPHABET_SIZE = 26

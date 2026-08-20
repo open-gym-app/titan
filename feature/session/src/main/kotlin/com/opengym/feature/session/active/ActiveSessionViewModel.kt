@@ -35,12 +35,14 @@ import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.component.SessionProgress
+import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -200,14 +202,33 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), 0L)
 
-    /** Everything the reads decide, with what the user is in the middle of laid over it. */
-    val uiState: StateFlow<ActiveSessionUiState> = combine(
+    /**
+     * Everything the reads decide, with what the user is in the middle of laid over it.
+     *
+     * The tick is not one of its inputs. Assembling this runs the row pipeline over every
+     * exercise and rolls `SessionStatsCalculator` over every set, and none of that changes
+     * because a second has passed — a workout with two hundred sets in it would redo all of
+     * that arithmetic sixty times a minute to move one clock. What the tick changes is folded
+     * on afterwards, in [uiState].
+     */
+    private val assembled: StateFlow<ActiveSessionUiState> = combine(
         loaded,
         catalogue,
         screenState,
-        tick,
-    ) { loaded, catalogue, screen, _ ->
+    ) { loaded, catalogue, screen ->
         build(loaded, catalogue, screen, clock.nowMillis())
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = ActiveSessionUiState(),
+    )
+
+    /** The assembled state with its clocks moved on, once a second, and nothing else redone. */
+    val uiState: StateFlow<ActiveSessionUiState> = combine(
+        assembled,
+        tick,
+    ) { state, _ ->
+        state.clockedAt(clock.nowMillis(), screenState.value)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -223,11 +244,23 @@ class ActiveSessionViewModel @Inject constructor(
         // are independent reads of the same small document, and [restoreDraft] formats stored
         // milligrams back into the unit they were typed in — a restore that won the race against
         // the collection would hand a lifter on pounds their 175 lb set back as `79.4`.
+        //
+        // Wrapped, because every step of it reads or writes a store and this runs before the
+        // user has touched anything: a disk error escaping here would take the process down on
+        // the way into the screen, over a session that is on disk and recoverable. What a
+        // failure costs is the realignment — the screen comes back as the state machine has it
+        // — and that is a screen the user can still act on.
         viewModelScope.launch {
-            unitSystem.value = userPreferencesRepository.observe().first().unitSystem
-            reattach()
-            restoreDraft()
-            realignPause()
+            try {
+                unitSystem.value = userPreferencesRepository.observe().first().unitSystem
+                reattach()
+                restoreDraft()
+                realignPause()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                screenState.update { it.copy(message = ActiveSessionMessage.RESTORE_FAILED) }
+            }
         }
     }
 
@@ -300,16 +333,26 @@ class ActiveSessionViewModel @Inject constructor(
      * The other exercises' rows are untouched, which is the point of keying them: a lifter
      * halfway through a superset has a weight typed against each of its members, and typing into
      * one must not disturb the other.
+     *
+     * Refused outright while the session is suspended or on its way out, which is the read-only
+     * guarantee `LogSetUseCase` enforces on the write path, enforced here on the draft. Every
+     * control that reaches this is drawn inert, so the guard is for the event a control
+     * dispatched in the frame before it was — the same reason [log] and [remove] have theirs.
      */
     private fun editEntry(sessionExerciseId: Long, change: (SetEntry) -> SetEntry) {
-        screenState.update { state ->
-            val edited = change(state.entryFor(sessionExerciseId))
-            state.copy(
-                entries = state.entries + (sessionExerciseId to edited.copy(error = validate(edited))),
+        val state = screenState.value
+        if (state.isBusy || state.pausedAt != null) return
+
+        screenState.update { current ->
+            val edited = change(current.entryFor(sessionExerciseId))
+            current.copy(
+                entries = current.entries + (
+                    sessionExerciseId to edited.copy(error = validate(edited))
+                    ),
                 message = null,
             )
         }
-        saveDraft()
+        saveDraftSoon()
     }
 
     /**
@@ -644,7 +687,19 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(isPausing = true) }
 
         viewModelScope.launch {
-            val outcome = if (paused) resumeSession() else pauseSession()
+            // Wrapped the way [finish] and [discard] are, and for the same reason: these are
+            // Room writes, a store that cannot be written throws rather than returning a
+            // refusal, and there is no `CoroutineExceptionHandler` on this scope to catch it.
+            val outcome = try {
+                if (paused) resumeSession() else pauseSession()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                screenState.update {
+                    it.copy(isPausing = false, message = ActiveSessionMessage.PAUSE_FAILED)
+                }
+                return@launch
+            }
 
             outcome
                 .onSuccess {
@@ -674,7 +729,13 @@ class ActiveSessionViewModel @Inject constructor(
      * is nothing to save yet, and the way past it is either a set or the discard action.
      */
     private fun finish() {
-        if (screenState.value.isBusy) return
+        // The set write is the one in-flight write a finish has to wait for. `LogSetUseCase`
+        // reads the session state once and never re-checks it, so a finish that overtakes an
+        // insert leaves the set in a session already stamped closed — undercounted in the
+        // recap, or, if it was the only one, refused as a workout with nothing logged. END is
+        // drawn inert for the same reason; this is what stops the event dispatched just before
+        // it was.
+        if (!screenState.value.canFinish) return
         screenState.update { it.copy(isFinishing = true, message = null) }
 
         viewModelScope.launch {
@@ -842,25 +903,65 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Writes the draft, whole.
+     * The save in flight or waiting, so the next one can supersede it.
      *
-     * Called after every change rather than on a timer, which is what
+     * One job for both paths, which is what makes [saveDraft] cancel a [saveDraftSoon] that has
+     * not fired: they write the same document from the same state, and the later call is always
+     * the more current of the two.
+     */
+    private var draftSave: Job? = null
+
+    /**
+     * Writes the draft once the keystrokes stop.
+     *
+     * The typing path, and the only one that is debounced. Every character of the weight, the
+     * reps, the RPE and the note routes through [editEntry], and an immediate save is a full
+     * encode of the session, an `fd.sync()` and an atomic rename — typing `75` and then `10`
+     * is four of those for one set, on the device's own storage, in the middle of a workout.
+     * Nothing on screen reads the draft, so the delay costs nothing visible.
+     *
+     * What it does cost is the last [DRAFT_QUIET] of typing if the process dies inside that
+     * window, which is the trade the debounce is: a half-typed weight, against writing the
+     * whole workout to disk per keystroke. Everything that is not a keystroke — a set logged,
+     * an exercise added or removed, a superset, a pause — still saves immediately through
+     * [saveDraft], so nothing the user has *committed* is ever inside the window.
+     */
+    private fun saveDraftSoon() {
+        draftSave?.cancel()
+        draftSave = viewModelScope.launch {
+            delay(DRAFT_QUIET)
+            writeDraft()
+        }
+    }
+
+    /**
+     * Writes the draft now, superseding a debounced save that has not fired.
+     *
+     * Called after every change that is not a keystroke, which is what
      * `InProgressSessionRepository.save` is built for — it is documented as being called on
      * every logged set, and its atomicity requirement exists because of it.
+     */
+    private fun saveDraft() {
+        draftSave?.cancel()
+        draftSave = viewModelScope.launch { writeDraft() }
+    }
+
+    /**
+     * The draft, whole.
      *
      * The draft's exercises are rebuilt from what is on disk plus the row being typed, rather
      * than maintained alongside it: the rows are the record, and a second copy of them here is
      * a second thing to keep in step.
      */
-    private fun saveDraft() = viewModelScope.launch {
-        val session = loaded.value?.session ?: return@launch
+    private suspend fun writeDraft() {
+        val session = loaded.value?.session ?: return
         val state = screenState.value
         // Nothing is written once the workout is on its way out. The layout actions save in
         // their coroutine tail, and their in-flight flags are not part of [ScreenState.isBusy],
         // so an append confirmed just before END returns after `FinishSessionUseCase` has
         // cleared the draft — and would write a new one naming a session that is over. That is
         // the draft-outliving-the-session state the use case exists to prevent.
-        if (state.isBusy) return@launch
+        if (state.isBusy) return
 
         val draft = ActiveSession(
             sessionId = sessionId,
@@ -918,10 +1019,12 @@ class ActiveSessionViewModel @Inject constructor(
                 startedAt = session.createdAt,
                 elapsed = screen.elapsedAt(now, session.createdAt),
                 progress = SessionProgress(
-                    // "Done" is at least one logged set, which is the rule
-                    // `SessionStats.exerciseBreakdown` applies. A rail counting anything else
-                    // would disagree with the recap of the same workout.
-                    completed = rows.count { it.setCount > 0 },
+                    // "Done" is at least one *completed* set, which is the rule
+                    // `SessionStats.exerciseBreakdown` applies four lines below over the same
+                    // data. Counting the rows instead would let a set that is persisted but
+                    // not ticked fill a sliver of the rail that the recap of the same workout
+                    // leaves empty.
+                    completed = rows.count { it.completedSetCount > 0 },
                     total = rows.size,
                 ),
             ),
@@ -935,6 +1038,31 @@ class ActiveSessionViewModel @Inject constructor(
         )
     }
 
+    /**
+     * The state with its clocks read at [now], and every other figure left as assembled.
+     *
+     * The two fields a second changes, and they are not the same arithmetic: the header shows
+     * time spent *working out*, which is wall clock less every paused stretch, and the stats
+     * carry the raw window the session has been open for. Both are cheap, which is the whole
+     * point of folding them on here rather than rebuilding the state around them.
+     *
+     * A screen with no header has nothing running to draw — the session is still loading, or it
+     * is gone — and comes back untouched.
+     */
+    private fun ActiveSessionUiState.clockedAt(
+        now: Long,
+        screen: ScreenState,
+    ): ActiveSessionUiState {
+        val header = header ?: return this
+
+        return copy(
+            header = header.copy(elapsed = screen.elapsedAt(now, header.startedAt)),
+            stats = stats?.copy(
+                durationSeconds = SessionStatsCalculator.durationSeconds(header.startedAt, now),
+            ),
+        )
+    }
+
     private companion object {
         /**
          * Long enough to survive a rotation without re-reading the session, short enough that a
@@ -945,6 +1073,15 @@ class ActiveSessionViewModel @Inject constructor(
 
         /** How often the elapsed clock is recomputed. It is drawn to the second. */
         val TICK = 1.seconds
+
+        /**
+         * How long the typing has to stop before the draft is written.
+         *
+         * Long enough that a number typed at speed is one save rather than one per digit, short
+         * enough to be over before a lifter who has finished typing reaches the tick — which is
+         * what makes the immediate save on [log] the one that matters.
+         */
+        val DRAFT_QUIET = 300.milliseconds
     }
 }
 
@@ -1010,6 +1147,17 @@ private data class ScreenState(
         get() = isFinishing || isDiscarding || finishedSessionId != null || isDiscarded
 
     /**
+     * Whether the workout can be closed out right now.
+     *
+     * [ActiveSessionUiState.canFinish]'s twin, and here for the reason [isBusy] is here as well
+     * as there: a disabled END stops the second *tap*, this stops the *event* dispatched in the
+     * frame before it was redrawn. A set write in flight is the extra condition — see the note
+     * on the state's own copy for what the race costs.
+     */
+    val canFinish: Boolean
+        get() = !isBusy && loggingExerciseId == null
+
+    /**
      * Time actually spent working out, at [now].
      *
      * The same arithmetic `ActiveSession.elapsedAt` does, over the fields the draft would carry,
@@ -1061,6 +1209,7 @@ private class Loaded(
     fun rows(catalogue: Catalogue, entries: Map<Long, SetEntry>): List<SessionExerciseRow> {
         val grouping = Supersets.normalize(ordered.map(SessionExercise::supersetGroup))
         val labels = supersetLabels(grouping)
+        val groupNames = supersetGroupNames(grouping)
 
         return ordered.mapIndexed { index, exercise ->
             SessionExerciseRow(
@@ -1069,6 +1218,7 @@ private class Loaded(
                 exercise = catalogue.exercises[exercise.exerciseId],
                 muscleGroups = catalogue.muscleLinks[exercise.exerciseId].orEmpty(),
                 supersetLabel = labels[index],
+                supersetGroupName = groupNames[index],
                 // Read off the neighbour rather than looked up by group, which is sound exactly
                 // because members are contiguous — the same reason `Supersets.isRestDueAfter`
                 // can. The last exercise is linked to nothing by construction.

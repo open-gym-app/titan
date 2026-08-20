@@ -43,9 +43,16 @@ import kotlinx.coroutines.flow.first
  * It also takes no [SessionLifecycleLock]. Logging is not a transition, and the set number
  * it computes is only stale if two sets are written to the same exercise at once — which
  * the caller prevents, because there is one screen, one button and one in-flight write at
- * a time. What the lock *would* buy is serialisation against a concurrent finish, and that
- * race is harmless in both directions: a set that lands first is counted, and one that
- * lands after the session is closed out is refused here by the state check.
+ * a time.
+ *
+ * What the lock *would* buy is serialisation against a concurrent finish, and that race is
+ * **not** closed here: the state is read once, at the top, and nothing re-reads it before
+ * the insert. A finish that lands in between leaves this writing a set into a session
+ * already stamped `is_in_progress = 0`, which the recap then either undercounts or refuses
+ * as having no sets at all. Closing it is the caller's, and the active session screen is
+ * where it is closed — a finish is refused while a set write is in flight, and END is drawn
+ * inert for as long as one is. A caller that logs sets without that guarantee needs the
+ * lock, and would have to be given it here.
  */
 class LogSetUseCase(
     private val sessionRepository: SessionRepository,

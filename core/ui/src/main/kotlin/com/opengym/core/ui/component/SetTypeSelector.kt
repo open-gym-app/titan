@@ -34,6 +34,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param contentPadding the row's inset. Defaults to the screen margin because the row is
  *   normally drawn edge to edge so a chip can scroll out from under it; a caller placing it
  *   inside a card that already has padding passes zero.
+ * @param enabled false makes the row read-only, which is what a paused or finished session
+ *   needs: the set's type is still worth reading, and the type of a set that cannot be written
+ *   is not worth changing. It is the same read-only the entry row above it goes into, so the
+ *   whole card answers the pause the same way.
  */
 @Composable
 fun SetTypeSelector(
@@ -41,6 +45,7 @@ fun SetTypeSelector(
     onSelect: (SetType) -> Unit,
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(horizontal = 0.dp),
+    enabled: Boolean = true,
 ) {
     OpenGymFilterChipRow(modifier = modifier, contentPadding = contentPadding) {
         items(SetType.entries, key = SetType::name) { type ->
@@ -48,6 +53,7 @@ fun SetTypeSelector(
                 label = type.label(),
                 selected = type == selected,
                 onClick = { onSelect(type) },
+                enabled = enabled,
             )
         }
     }

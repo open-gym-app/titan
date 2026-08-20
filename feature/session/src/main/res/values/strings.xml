@@ -135,6 +135,8 @@
     <string name="active_error_rename">Could not rename the session. Try again.</string>
     <!-- Both directions of the superset control, which is one thing to the user. -->
     <string name="active_error_superset">Could not change that superset. The workout is unchanged.</string>
+    <!-- Shown on open, when the screen could not be put back where the workout was left. -->
+    <string name="active_error_restore">Could not pick the workout back up where you left it. Your logged sets are safe.</string>
 
     <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
 

@@ -33,7 +33,8 @@ class SessionExerciseEditingTest {
         sessionStateRepository = state,
     )
     private val addExercises = AddSessionExercisesUseCase(sessions, state, clock)
-    private val removeExercise = RemoveSessionExerciseUseCase(sessions, state)
+    private val removeExercise = RemoveSessionExerciseUseCase(sessions, state, clock, lock)
+    private val linkSuperset = LinkSupersetUseCase(sessions, state, clock, lock)
 
     /** A push day: bench, then incline and fly performed back to back as a superset. */
     private suspend fun startPushDay(): Long = startPlannedSession(
@@ -189,6 +190,42 @@ class SessionExerciseEditingTest {
         removeExercise(fly.id).getOrThrow()
 
         assertEquals(listOf(null, null), layout(sessionId).map(SessionExercise::supersetGroup))
+    }
+
+    @Test
+    fun `the repair stamps the rows it moved`() = runTest {
+        // `updatedAt` is a change marker, and the analogous write in `SupersetTarget` stamps
+        // it. A consumer that caught a superset broken by hand and missed one broken by a
+        // removal would be reading the same column for two edits to it.
+        val sessionId = startPushDay()
+        val fly = layout(sessionId).last()
+        val repairedAt = clock.advance(60_000L)
+
+        removeExercise(fly.id).getOrThrow()
+
+        assertEquals(
+            listOf(repairedAt),
+            sessions.exerciseUpdates.map(SessionExercise::updatedAt),
+        )
+    }
+
+    @Test
+    fun `a removal and a superset link do not settle on each other's stale layout`() = runTest {
+        // Both read every exercise of the session, compute a grouping from what they read and
+        // write back the rows that moved. Interleaved, the later one writes a grouping computed
+        // before the earlier one landed — which used to dissolve the superset the user had just
+        // made, with nothing said about it. The lock is what serializes them.
+        val sessionId = startPushDay()
+        val (bench, incline, fly) = layout(sessionId)
+        assertEquals(listOf(null, 0, 0), listOf(bench, incline, fly).map(SessionExercise::supersetGroup))
+
+        // Bench joins the pair above it, and then fly leaves the workout.
+        linkSuperset(bench.id).getOrThrow()
+        removeExercise(fly.id).getOrThrow()
+
+        // Bench and incline are still a superset: the repair renormalised the layout the link
+        // left, not the one it read.
+        assertEquals(listOf(0, 0), layout(sessionId).map(SessionExercise::supersetGroup))
     }
 
     @Test

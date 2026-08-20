@@ -50,12 +50,17 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param onRpeChange the new stored value, or **null** when the user taps the value that is
  *   already selected — tapping the current rating clears it, which is the only way back to "not
  *   rated" and is why this is not a plain `(Int) -> Unit`.
+ * @param enabled false makes the scale read-only without changing what it shows, matching the
+ *   entry row it is opened under. It matters for a scale that was already open when the session
+ *   was paused: the tap that *opens* it is the caller's to withhold, and this is the half that
+ *   stops the one already on screen from still taking a rating.
  */
 @Composable
 fun RpeSelector(
     rpe: Int?,
     onRpeChange: (Int?) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -73,6 +78,7 @@ fun RpeSelector(
                         value = value,
                         selected = value == rpe,
                         onClick = { onRpeChange(value.takeIf { it != rpe }) },
+                        enabled = enabled,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -95,6 +101,7 @@ private fun RpeCell(
     value: Int,
     selected: Boolean,
     onClick: () -> Unit,
+    enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val label = formatRpe(value)
@@ -103,7 +110,12 @@ private fun RpeCell(
     Surface(
         modifier = modifier
             .height(CELL_HEIGHT)
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                role = Role.RadioButton,
+                onClick = onClick,
+            )
             .semantics { contentDescription = spoken },
         shape = MaterialTheme.shapes.extraSmall,
         color = if (selected) {

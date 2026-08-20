@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.superset.Supersets
+import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
 
 /**
@@ -33,10 +34,19 @@ import kotlinx.coroutines.flow.first
  * grouping is renormalised and any exercise whose group changed is written back. Positions are
  * *not* renumbered: the removal leaves a gap, nothing reads position as a dense index, and a
  * write across every surviving row would be a second thing to get wrong for no reader's benefit.
+ *
+ * ### Why it takes the lifecycle lock
+ *
+ * The repair is a read-modify-write over the whole session's grouping, and so is a superset
+ * link. Interleaved, the one that finishes second renormalises the snapshot it read *before*
+ * the other wrote — which dissolves the superset the user has just made, silently. The lock is
+ * held across the read and the repair so each layout write sees what the one before it left.
  */
 class RemoveSessionExerciseUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -46,18 +56,18 @@ class RemoveSessionExerciseUseCase(
      *
      * @return the id that was removed, so a caller can name it in what it shows.
      */
-    suspend operator fun invoke(sessionExerciseId: Long): Result<Long> {
+    suspend operator fun invoke(sessionExerciseId: Long): Result<Long> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val active = current as? SessionState.Active
-            ?: return Result.failure(SessionError.SessionNotActive(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
         val exercises = sessionRepository.getExercises(active.sessionId).first()
             .sortedBy(SessionExercise::position)
 
         refusal(sessionExerciseId, exercises, active.sessionId)
-            ?.let { return Result.failure(it) }
+            ?.let { return@withTransition Result.failure(it) }
 
-        return runCatching {
+        runCatching {
             sessionRepository.deleteExercise(sessionExerciseId)
             repairSupersets(exercises.filterNot { it.id == sessionExerciseId })
             sessionExerciseId
@@ -96,13 +106,21 @@ class RemoveSessionExerciseUseCase(
      * A failure here leaves a group with one member in it, which is worth naming as tolerable
      * rather than papered over: the screens renormalise before reading labels off a grouping,
      * so what the user sees is already correct, and the next removal repairs the rows.
+     *
+     * The rows it moves are stamped, the way [SupersetTarget]'s own write stamps the rows a
+     * link moves: this is the same edit to the same column, and a consumer reading `updatedAt`
+     * as a change marker would otherwise catch a superset broken by hand and miss one broken by
+     * a removal.
      */
     private suspend fun repairSupersets(surviving: List<SessionExercise>) {
         val repaired = Supersets.normalize(surviving.map(SessionExercise::supersetGroup))
+        val now = clock.nowMillis()
 
         surviving.forEachIndexed { index, exercise ->
             if (exercise.supersetGroup != repaired[index]) {
-                sessionRepository.updateExercise(exercise.copy(supersetGroup = repaired[index]))
+                sessionRepository.updateExercise(
+                    exercise.copy(supersetGroup = repaired[index], updatedAt = now),
+                )
             }
         }
     }

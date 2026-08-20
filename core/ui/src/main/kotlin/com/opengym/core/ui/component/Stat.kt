@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -206,7 +207,10 @@ fun SessionStatChips(
         if (showDuration) {
             StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
         }
-        StatChip(value = stats.totalSets.toString(), label = stringResource(R.string.stat_sets_short))
+        StatChip(
+            value = stats.totalSets.toString(),
+            label = pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
+        )
         StatChip(
             value = formatVolumeValue(stats.totalVolume),
             label = LocalUnitSystem.current.weightSuffix,

@@ -189,6 +189,7 @@ fun ActiveSessionScreen(
                 // The name is the affordance, so a workout started from the quick action can be
                 // titled from the one place its title is already shown.
                 onNameClick = { onEvent(ActiveSessionEvent.NameEditRequested) },
+                canFinish = state.canFinish,
             )
         },
     ) { innerPadding ->
@@ -308,8 +309,11 @@ private fun SessionBody(
             item(key = "join-${row.sessionExerciseId}") {
                 SupersetLink(
                     isLinked = row.isLinkedToNext,
-                    // `A1` is this exercise's place in group `A`; the pill names the group.
-                    groupLabel = row.supersetLabel?.takeWhile { !it.isDigit() },
+                    // The group's own name, off the row rather than sliced out of its `A1`
+                    // label: the label's format belongs to `SupersetLabels`, and its numeric
+                    // fallback for a twenty-seventh group is all digits, which a slice on the
+                    // first digit reads as an empty name.
+                    groupLabel = row.supersetGroupName,
                     exerciseName = row.name(),
                     nextExerciseName = next.name(),
                     onClick = {
@@ -396,6 +400,7 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.REMOVE_EXERCISE_FAILED -> R.string.active_error_remove
     ActiveSessionMessage.RENAME_FAILED -> R.string.active_error_rename
     ActiveSessionMessage.SUPERSET_FAILED -> R.string.active_error_superset
+    ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore
 }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────

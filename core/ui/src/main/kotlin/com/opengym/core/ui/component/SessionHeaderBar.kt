@@ -74,6 +74,11 @@ import kotlin.time.Duration.Companion.seconds
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
  *   Null leaves the name inert, which is what a caller with nothing to write wants.
+ * @param canFinish whether END is live. False for a caller with a write in flight that the
+ *   finish would race — the active session refuses one while a set is being written, because
+ *   the set can otherwise land in a session already stamped closed. Drawn inert rather than
+ *   hidden: the control is where the user is looking, and one that vanished for a fraction of
+ *   a second and came back is worse than one that does not respond for it.
  */
 @Composable
 fun SessionHeaderBar(
@@ -82,6 +87,7 @@ fun SessionHeaderBar(
     modifier: Modifier = Modifier,
     progress: SessionProgress = SessionProgress(),
     isPaused: Boolean = false,
+    canFinish: Boolean = true,
     onPauseToggle: () -> Unit = {},
     onFinish: () -> Unit = {},
     onDiscard: (() -> Unit)? = null,
@@ -163,6 +169,7 @@ fun SessionHeaderBar(
                 description = stringResource(R.string.session_header_finish),
                 container = chrome.accent,
                 content = chrome.onAccent,
+                enabled = canFinish,
                 width = FINISH_WIDTH,
             ) {
                 Eyebrow(
@@ -262,6 +269,7 @@ private fun ChromeButton(
     container: Color,
     content: Color,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     width: Dp = BUTTON_SIZE,
     body: @Composable () -> Unit,
 ) {
@@ -270,9 +278,13 @@ private fun ChromeButton(
         modifier = modifier
             .size(width = width, height = BUTTON_SIZE)
             .semantics { contentDescription = description },
+        enabled = enabled,
         shape = MaterialTheme.shapes.small,
-        color = container,
-        contentColor = content,
+        // Faded rather than recoloured: the bar has three tones of its own and a fourth for
+        // "off" would be a colour nobody could place. What the fade has to say is that the
+        // control is not there to be pressed, which is the same thing everywhere it happens.
+        color = if (enabled) container else container.copy(alpha = DISABLED_ALPHA),
+        contentColor = if (enabled) content else content.copy(alpha = DISABLED_ALPHA),
     ) {
         Box(contentAlignment = Alignment.Center) { body() }
     }
@@ -292,6 +304,9 @@ private val RAIL_GAP: Dp = 4.dp
 
 /** How much of the accent the exercise currently underway keeps. */
 private const val CURRENT_ALPHA = 0.45f
+
+/** How much of itself a control that cannot be pressed keeps. */
+private const val DISABLED_ALPHA = 0.38f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

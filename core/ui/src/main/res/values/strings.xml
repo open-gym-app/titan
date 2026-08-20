@@ -217,8 +217,14 @@
 
     <string name="stat_volume">Volume</string>
     <string name="stat_sets">Sets</string>
-    <!-- Inside a chip, where it follows the figure in a phrase rather than heading it. -->
-    <string name="stat_sets_short">sets</string>
+    <!-- Inside a chip, where it follows the figure in a phrase rather than heading it. A plural
+         with no placeholder: the figure is drawn beside this rather than into it, because a
+         chip sets the number and its word in two different colours — but the word still has to
+         agree with the number, or the first set of a workout reads "1 sets". -->
+    <plurals name="stat_sets_short">
+        <item quantity="one">set</item>
+        <item quantity="other">sets</item>
+    </plurals>
     <string name="stat_sets_unit">total</string>
     <string name="stat_duration">Duration</string>
     <string name="stat_exercises">Exercises</string>

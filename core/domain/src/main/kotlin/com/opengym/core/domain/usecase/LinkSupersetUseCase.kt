@@ -28,11 +28,20 @@ import com.opengym.core.domain.time.Clock
  * `superset_group` is a column on `session_exercise` and no set, figure or total reads it.
  * A lifter who supersets the last two exercises after doing a round of each has described their
  * workout more accurately than before, not corrupted it.
+ *
+ * ### Why it takes the lifecycle lock
+ *
+ * Reading the session's grouping, joining a pair in it and writing back the rows that moved is a
+ * read-modify-write, and so is the repair [RemoveSessionExerciseUseCase] runs on its way out.
+ * Interleaved, the later of the two writes a grouping computed from the layout as it was before
+ * the earlier one — which is how a superset the user has just made comes apart on its own. The
+ * lock is held across the read and the write.
  */
 class LinkSupersetUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -50,16 +59,18 @@ class LinkSupersetUseCase(
      * when the pair cannot be a superset, which on this screen means only that the exercise is
      * the last one in the workout.
      */
-    suspend operator fun invoke(sessionExerciseId: Long): Result<List<Int?>> {
-        val target = supersetTarget(sessionRepository, sessionStateRepository, sessionExerciseId)
-            .getOrElse { return Result.failure(it) }
+    suspend operator fun invoke(sessionExerciseId: Long): Result<List<Int?>> =
+        lock.withTransition {
+            val target =
+                supersetTarget(sessionRepository, sessionStateRepository, sessionExerciseId)
+                    .getOrElse { return@withTransition Result.failure(it) }
 
-        val joined = Supersets.join(target.grouping, target.index)
-            .getOrElse { return Result.failure(it) }
+            val joined = Supersets.join(target.grouping, target.index)
+                .getOrElse { return@withTransition Result.failure(it) }
 
-        return runCatching {
-            sessionRepository.writeGrouping(target, joined, clock.nowMillis())
-            joined
+            runCatching {
+                sessionRepository.writeGrouping(target, joined, clock.nowMillis())
+                joined
+            }
         }
-    }
 }

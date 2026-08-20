@@ -27,6 +27,7 @@ import com.opengym.feature.session.newsession.FakeSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -42,6 +43,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -78,11 +80,20 @@ class ActiveSessionViewModelTest {
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
 
+    /**
+     * The clock `viewModelScope` runs on, held so a test can move it.
+     *
+     * Needed because one path in the ViewModel is deliberately *not* immediate: the keystroke
+     * draft save waits for the typing to stop. Unconfined settles everything that does not
+     * wait; this is what settles the one thing that does. See [enter].
+     */
+    private val scheduler = TestCoroutineScheduler()
+
     @Before
     fun setUpMainDispatcher() {
         // `viewModelScope` dispatches on Main; unconfined so a launched write has run by the
         // time the call that started it returns.
-        Dispatchers.setMain(UnconfinedTestDispatcher())
+        Dispatchers.setMain(UnconfinedTestDispatcher(scheduler))
     }
 
     @After
@@ -337,6 +348,42 @@ class ActiveSessionViewModelTest {
 
         assertEquals(1, viewModel.uiState.value.header?.progress?.completed)
         assertEquals(3, viewModel.uiState.value.header?.progress?.total)
+    }
+
+    @Test
+    fun `progress and the recap agree about a set that is logged but not performed`() = runTest {
+        // The rail and `SessionStatsCalculator` run over the same sets four lines apart, and
+        // only one of them used to filter on `isCompleted`. They agree only while nothing
+        // incomplete is ever persisted, which #99's editing is exactly what changes.
+        val viewModel = viewModel(
+            store = pushDayStore(
+                sets = listOf(
+                    loggedSet(id = 1, sessionExerciseId = BENCH_ROW, setNumber = 1),
+                    loggedSet(
+                        id = 2,
+                        sessionExerciseId = INCLINE_ROW,
+                        setNumber = 1,
+                        isCompleted = false,
+                    ),
+                ),
+            ),
+        )
+        val state = viewModel.uiState.value
+
+        assertEquals(1, state.header?.progress?.completed)
+        assertEquals(1, state.stats?.totalSets)
+        // The row still draws both, because the table shows what is under the exercise.
+        assertEquals(1, state.rowOf(INCLINE_ROW).setCount)
+        assertEquals(0, state.rowOf(INCLINE_ROW).completedSetCount)
+    }
+
+    @Test
+    fun `a superset's group is carried on the row rather than sliced out of its label`() = runTest {
+        val viewModel = viewModel(store = supersetStore())
+        val state = viewModel.uiState.value
+
+        assertEquals(listOf(null, "A1", "A2"), state.exercises.map { it.supersetLabel })
+        assertEquals(listOf(null, "A", "A"), state.exercises.map { it.supersetGroupName })
     }
 
     // ─── Supersets ──────────────────────────────────────────────────────────────────────
@@ -644,6 +691,50 @@ class ActiveSessionViewModelTest {
         assertEquals(1.minutes, restored.uiState.value.header?.elapsed)
     }
 
+    @Test
+    fun `a pause the store cannot write is reported rather than thrown`() = runTest {
+        // Room throws on a disk error rather than returning a refusal, and there is no
+        // `CoroutineExceptionHandler` on `viewModelScope` — so an unwrapped call here takes the
+        // process down over a workout that is still perfectly recoverable.
+        val store = pushDayStore()
+        val viewModel = viewModel(store = store)
+        store.updateFailure = IllegalStateException("disk full")
+
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        assertEquals(ActiveSessionMessage.PAUSE_FAILED, viewModel.uiState.value.message)
+        assertFalse(viewModel.uiState.value.isPaused)
+    }
+
+    @Test
+    fun `a paused session takes no set-type change`() = runTest {
+        // The chips are drawn inert, and this is the event dispatched in the frame before they
+        // were: a change that landed would be written into the draft, over a session every
+        // write path considers read-only.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        viewModel.onEvent(ActiveSessionEvent.SetTypeChanged(BENCH_ROW, SetType.WARMUP))
+        scheduler.advanceTimeBy(DRAFT_SETTLED)
+
+        assertEquals(SetType.NORMAL, viewModel.uiState.value.entryOf(BENCH_ROW).setType)
+        assertEquals(SetType.NORMAL, drafts.stored?.exercises?.first()?.sets?.single()?.setType)
+    }
+
+    @Test
+    fun `a paused session takes no rating and no keystroke`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        viewModel.onEvent(ActiveSessionEvent.RpeChanged(BENCH_ROW, 85))
+        viewModel.onEvent(ActiveSessionEvent.WeightChanged(BENCH_ROW, "100"))
+
+        assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).rpe)
+        assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+    }
+
     // ─── The draft ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -727,6 +818,42 @@ class ActiveSessionViewModelTest {
         assertNull(viewModel.uiState.value.message)
     }
 
+    @Test
+    fun `typing a number writes the draft once, not once per keystroke`() = runTest {
+        // Each save is a full encode of the session, an fsync and an atomic rename. Typing
+        // `75` and then `10` used to be four of them for one set.
+        val viewModel = viewModel()
+
+        listOf("7", "75").forEach { viewModel.onEvent(ActiveSessionEvent.WeightChanged(BENCH_ROW, it)) }
+        listOf("1", "10").forEach { viewModel.onEvent(ActiveSessionEvent.RepsChanged(BENCH_ROW, it)) }
+        assertTrue(drafts.saves.isEmpty())
+
+        scheduler.advanceTimeBy(DRAFT_SETTLED)
+
+        assertEquals(1, drafts.saves.size)
+        assertEquals(75_000_000L, drafts.stored?.exercises?.first()?.sets?.single()?.weight)
+    }
+
+    @Test
+    fun `logging a set writes the draft immediately, without waiting out the typing`() = runTest {
+        // The debounce is the keystroke path's alone. What the user has committed — a set, an
+        // exercise, a superset, a pause — is on disk before the call returns.
+        val viewModel = viewModel()
+        viewModel.onEvent(ActiveSessionEvent.WeightChanged(BENCH_ROW, "80"))
+        viewModel.onEvent(ActiveSessionEvent.RepsChanged(BENCH_ROW, "5"))
+
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        // One save, with no time advanced at all: the two keystrokes above are still inside the
+        // quiet period, so this is the log's own write and not theirs arriving late.
+        assertEquals(1, drafts.saves.size)
+
+        // And the debounced save they queued is superseded rather than added to, so the older
+        // state never lands on top of what the log just wrote.
+        scheduler.advanceTimeBy(DRAFT_SETTLED)
+        assertEquals(1, drafts.saves.size)
+    }
+
     // ─── Finishing ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -749,6 +876,30 @@ class ActiveSessionViewModelTest {
         assertEquals(ActiveSessionMessage.NO_SETS_LOGGED, viewModel.uiState.value.message)
         assertNull(viewModel.uiState.value.finishedSessionId)
         assertFalse(viewModel.uiState.value.isFinishing)
+    }
+
+    @Test
+    fun `END is inert while a set write is in flight`() = runTest {
+        // `LogSetUseCase` reads the session state once, before it inserts. A finish that
+        // overtakes the insert leaves the set in a session already stamped closed — which the
+        // recap undercounts, or refuses outright as a workout with nothing logged.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+
+        assertTrue(viewModel.uiState.value.canFinish)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        assertTrue(viewModel.uiState.value.canFinish)
+    }
+
+    @Test
+    fun `a finish dispatched during a set write is ignored`() = runTest {
+        val viewModel = viewModel(
+            store = pushDayStore().apply { insertFailure = IllegalStateException("slow disk") },
+        )
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        assertNull(viewModel.uiState.value.finishedSessionId)
     }
 
     @Test
@@ -845,7 +996,15 @@ class ActiveSessionViewModelTest {
 
     // ─── Support ────────────────────────────────────────────────────────────────────────
 
-    /** Types a weight and a rep count into one exercise's entry row, one field at a time. */
+    /**
+     * Types a weight and a rep count into one exercise's entry row, one field at a time, then
+     * stops typing for long enough that the draft is written.
+     *
+     * The wait is the debounce working rather than an artefact of testing it: the keystroke
+     * path writes the draft once the typing stops, so a test that asserts on what was written
+     * has to stop typing first. Nothing else needs it — a set logged, an exercise added or
+     * removed, a superset and a pause all save immediately.
+     */
     private fun ActiveSessionViewModel.enter(
         weight: String,
         reps: String,
@@ -853,6 +1012,7 @@ class ActiveSessionViewModelTest {
     ) {
         onEvent(ActiveSessionEvent.WeightChanged(sessionExerciseId, weight))
         onEvent(ActiveSessionEvent.RepsChanged(sessionExerciseId, reps))
+        scheduler.advanceTimeBy(DRAFT_SETTLED)
     }
 
     /** The exercise's row on screen. Fails the test rather than returning null: every one of
@@ -894,7 +1054,9 @@ class ActiveSessionViewModelTest {
      *
      * A lock of this test's own rather than the shared default, matching the domain's own
      * integration tests: a process-wide mutex is not something a test should be sharing with
-     * every other suite in the JVM.
+     * every other suite in the JVM. The layout use cases take it too — the same instance the
+     * app gives them — because a removal and a superset link are the same read-modify-write
+     * over one session's grouping and have to queue behind each other.
      */
     private fun TestScope.viewModel(
         store: FakeActiveSessionStore = pushDayStore(),
@@ -915,9 +1077,9 @@ class ActiveSessionViewModelTest {
             userPreferencesRepository = settings,
             logSet = LogSetUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock),
-            removeExercise = RemoveSessionExerciseUseCase(store, state),
-            linkSuperset = LinkSupersetUseCase(store, state, clock),
-            unlinkSuperset = UnlinkSupersetUseCase(store, state, clock),
+            removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
+            linkSuperset = LinkSupersetUseCase(store, state, clock, lock),
+            unlinkSuperset = UnlinkSupersetUseCase(store, state, clock, lock),
             renameSession = RenameSessionUseCase(store),
             pauseSession = PauseSessionUseCase(store, state, clock, lock),
             resumeSession = ResumeSessionUseCase(store, state, clock, lock),
@@ -942,5 +1104,14 @@ class ActiveSessionViewModelTest {
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L
         const val FLY_ROW = 3L
+
+        /**
+         * Long enough for the debounced draft save to fire, short enough not to reach a tick.
+         *
+         * Both bounds matter: under the ViewModel's own quiet period nothing is written and the
+         * assertion is about a save that has not happened yet, and over its one-second tick the
+         * elapsed clock moves under tests that are not about the clock.
+         */
+        val DRAFT_SETTLED = 500.milliseconds
     }
 }

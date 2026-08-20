@@ -60,6 +60,11 @@ import com.opengym.feature.session.active.SetEntryError
  * @param row the exercise, its sets and its half-typed set.
  * @param enabled false makes the whole card read-only — a paused session, or one being closed
  *   out. The fields keep what they hold, because they are still the user's copy of it.
+ *
+ *   Every control takes it, the chips and the rating grid included. Those two are the ones it is
+ *   easiest to leave out — they are not fields and they are not the tick — and leaving them live
+ *   is a session that says it is suspended while its set type is still being changed, which is
+ *   the read-only guarantee `LogSetUseCase` enforces on the write path being broken on this one.
  * @param showRpeScale whether this card's rating scale is open under the table. Hoisted rather
  *   than remembered here so that only one is ever open on the screen.
  *
@@ -101,6 +106,11 @@ fun SessionExerciseCard(
                         onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it))
                         onRpeToggle()
                     },
+                    // The scale can be open *across* a pause — the tap that opens it is what
+                    // `SetLogRow` withholds, not the one that picks a value out of it — so a
+                    // read-only card has to say so here too, or a paused session still takes
+                    // ratings and saves a draft of them.
+                    enabled = enabled,
                 )
             }
 
@@ -111,6 +121,7 @@ fun SessionExerciseCard(
                         onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
                     },
                     modifier = Modifier.fillMaxWidth(),
+                    enabled = enabled,
                 )
 
                 SetNote(

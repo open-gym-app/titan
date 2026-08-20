@@ -47,7 +47,8 @@ import kotlin.time.Duration
  *   still accepted typing would be collecting keystrokes for a write that cannot happen.
  * @param loggingExerciseId the exercise whose set is being written, or null. An id rather than a
  *   flag because the rows are independent: a slow write against the bench press has no business
- *   disabling the tick on the curls.
+ *   disabling the tick on the curls. It does stop the workout being *closed out* — see
+ *   [canFinish] — because that is a race the row-level independence does not cover.
  * @param isFinishing the finish is in flight.
  * @param isDiscarding the discard has been confirmed and is in flight.
  * @param confirmingDiscard the discard confirmation is up. A flag rather than a nullable
@@ -94,8 +95,27 @@ data class ActiveSessionUiState(
      *
      * One flag for four situations that all mean "a write is in flight or the session is over",
      * so a screen does not have to re-derive the same conjunction at every button.
+     *
+     * [loggingExerciseId] is deliberately not part of it. A set write in flight against one
+     * exercise must not disable the tick on another — that independence is why the rows are
+     * keyed at all — and folding it in here would also stop the draft being saved for the
+     * length of every write. The one action it does have to stop is the finish, which asks
+     * [canFinish] instead.
      */
     val isBusy: Boolean get() = isFinishing || isDiscarding || isFinished
+
+    /**
+     * Whether the workout can be closed out right now.
+     *
+     * A set write in flight is a reason to wait. `LogSetUseCase` reads the session state once,
+     * before it inserts, so a finish landing in between writes the set into a session already
+     * stamped closed — which the recap then either undercounts or, if it was the only set,
+     * refuses as a workout with nothing logged. Neither is a thing the lifter did.
+     *
+     * Drawn as an inert END rather than as a refusal, because the wait is a fraction of a
+     * second and a message about it would outlive what it was about.
+     */
+    val canFinish: Boolean get() = !isBusy && loggingExerciseId == null
 }
 
 /**
@@ -139,6 +159,10 @@ data class ActiveSessionHeader(
  *   i.e. whether they are members of the same superset. What the control in the gap under this
  *   card is drawn from, and the reason it is a property of the *pair* rather than of the group:
  *   the tap breaks one join, not the whole superset. See `Supersets.split`.
+ * @param supersetGroupName what its superset is called — the `A` of `A1` — or null for an
+ *   exercise that stands alone. Carried beside [supersetLabel] rather than read back out of it:
+ *   the label's format is `SupersetLabels`' own, and the one caller that wants the group by
+ *   itself is the join under this card, which names it.
  * @param sets the sets logged against it, in set-number order.
  * @param entry the set being typed into it. Every exercise has one — there is always a next set
  *   to log, and a screen that hid the fields until an "add set" tap would put a tap in front of
@@ -151,13 +175,24 @@ data class SessionExerciseRow(
     val exercise: Exercise?,
     val muscleGroups: List<ExerciseMuscleGroupLink> = emptyList(),
     val supersetLabel: String? = null,
+    val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
     val sets: List<WorkoutSet> = emptyList(),
     val entry: SetEntry = SetEntry(),
 ) {
 
-    /** How many sets are logged against it, which is what makes it "done" rather than "to do". */
+    /** How many sets sit under it, performed or not, which is what the table draws. */
     val setCount: Int get() = sets.size
+
+    /**
+     * How many of them were actually performed, which is what makes the exercise "done".
+     *
+     * The rule `SessionStats.exerciseBreakdown` applies, restated over the same rows so the
+     * header's progress rail and the recap of the same workout cannot disagree. The two counts
+     * are the same number only while nothing incomplete is ever persisted, which is not a
+     * property this screen has: a set can be logged and left unticked.
+     */
+    val completedSetCount: Int get() = sets.count(WorkoutSet::isCompleted)
 
     /** The number the next set will be shown under, which is its place in the table, from 1. */
     val nextSetNumber: Int get() = sets.size + 1
@@ -284,6 +319,17 @@ enum class ActiveSessionMessage {
      * happen" is the whole of what there is to say about a write that changed nothing.
      */
     SUPERSET_FAILED,
+
+    /**
+     * Opening the screen could not put it back where the workout was left.
+     *
+     * The only message here about something the user did not do: reattaching the state machine,
+     * reading the draft back and realigning the pause all run on open, and all three touch a
+     * store. It is said rather than swallowed because what it costs is visible — the half-typed
+     * set is gone, or the clock is counting a pause as work — and a screen that looked wrong
+     * with no explanation is the worse of the two.
+     */
+    RESTORE_FAILED,
 }
 
 /**

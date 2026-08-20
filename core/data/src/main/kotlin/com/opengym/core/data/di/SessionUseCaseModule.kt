@@ -126,9 +126,18 @@ object SessionUseCaseModule {
     )
 
     /*
-     * The six below take no lock, because none of them is a lifecycle transition: they edit
-     * what is *inside* a running session rather than moving it between states. See
-     * [LogSetUseCase] for why that is safe.
+     * The three that rewrite a session's *grouping* take the lock, and the rest do not.
+     *
+     * None of them is a lifecycle transition, but a removal, a link and an unlink are each a
+     * read-modify-write over `session_exercise` — read every exercise, compute a grouping from
+     * what was read, write back the rows that moved — and two of those interleaved settle on
+     * the older snapshot. The same instance the transitions take, because they contend over the
+     * same session: giving the layout writes a lock of their own would serialize them against
+     * each other and against nothing else.
+     *
+     * Appending exercises does not read the grouping to change it, and logging a set does not
+     * touch it at all. See [LogSetUseCase] for what that leaves open on the logging path and
+     * where it is closed.
      */
 
     @Provides
@@ -148,6 +157,8 @@ object SessionUseCaseModule {
     ): RemoveSessionExerciseUseCase = RemoveSessionExerciseUseCase(
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
     )
 
     @Provides
@@ -158,6 +169,7 @@ object SessionUseCaseModule {
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
         clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
     )
 
     @Provides
@@ -168,6 +180,7 @@ object SessionUseCaseModule {
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
         clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
     )
 
     /** No state check either — a session logged last March is renamed the same way. */

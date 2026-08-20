@@ -42,6 +42,16 @@ class FakeActiveSessionStore(
     /** Thrown by [insertSet] instead of storing, when set. */
     var insertFailure: Throwable? = null
 
+    /**
+     * Thrown by [update] instead of storing, when set.
+     *
+     * The session row is what every lifecycle transition writes, so this is how a test says
+     * "the disk is full" to a pause, a resume or a finish. It throws rather than returning a
+     * refusal because that is what Room does, and the difference is the whole point of the
+     * tests that use it.
+     */
+    var updateFailure: Throwable? = null
+
     override fun getById(id: Long): Flow<WorkoutSession?> = session.map { it?.takeIf { s -> s.id == id } }
 
     override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
@@ -74,6 +84,7 @@ class FakeActiveSessionStore(
     }
 
     override suspend fun update(session: WorkoutSession) {
+        updateFailure?.let { throw it }
         this.session.value = session
     }
 
@@ -208,20 +219,28 @@ fun activeExercise(
     updatedAt = STARTED_AT,
 )
 
+/**
+ * One row of `workout_set`, completed unless a test says otherwise.
+ *
+ * @param isCompleted false is a set that is persisted but not performed — what #99's editing
+ *   makes ordinary, and the one case where "how many sets are under this exercise" and "how many
+ *   did the lifter do" are different numbers.
+ */
 fun loggedSet(
     id: Long,
     sessionExerciseId: Long,
     setNumber: Int,
     reps: Int? = 8,
     weight: Long? = 60_000_000L,
+    isCompleted: Boolean = true,
 ) = WorkoutSet(
     id = id,
     sessionExerciseId = sessionExerciseId,
     setNumber = setNumber,
     reps = reps,
     weight = weight,
-    isCompleted = true,
-    completedAt = STARTED_AT,
+    isCompleted = isCompleted,
+    completedAt = STARTED_AT.takeIf { isCompleted } ?: 0L,
     createdAt = STARTED_AT,
     updatedAt = STARTED_AT,
 )

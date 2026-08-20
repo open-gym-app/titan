@@ -49,6 +49,10 @@ import com.opengym.core.ui.theme.PillShape
  *   should not have to carry it.
  * @param multiple whether this chip is one of several that can be on at once. Changes only
  *   what the chip announces itself as.
+ * @param enabled false makes the chip inert without changing what it shows, the way
+ *   [SetLogRow]'s fields go read-only: the row is still saying which option is chosen, and a
+ *   greyed-out answer is harder to read than a live one. What goes is the tap and the
+ *   click action a screen reader would offer.
  */
 @Composable
 fun OpenGymFilterChip(
@@ -57,10 +61,12 @@ fun OpenGymFilterChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     multiple: Boolean = false,
+    enabled: Boolean = true,
 ) {
     Surface(
         modifier = modifier.selectable(
             selected = selected,
+            enabled = enabled,
             role = if (multiple) Role.Checkbox else Role.RadioButton,
             onClick = onClick,
         ),

@@ -18,11 +18,16 @@ import com.opengym.core.domain.time.Clock
  * one in the workout. A control that is only correct when the caller has already checked the
  * grouping is one every caller has to check the grouping for; the grouping is renormalised and
  * written back either way, and in the ordinary case that write touches no rows at all.
+ *
+ * Takes the lifecycle lock for the reason [LinkSupersetUseCase] does, and it is the same reason:
+ * this reads the session's grouping and writes one computed from it, so it has to be serialized
+ * against every other write of that shape.
  */
 class UnlinkSupersetUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -36,15 +41,17 @@ class UnlinkSupersetUseCase(
      * another session. There is no third refusal: see the note above on why a link that is not
      * there is not an error.
      */
-    suspend operator fun invoke(sessionExerciseId: Long): Result<List<Int?>> {
-        val target = supersetTarget(sessionRepository, sessionStateRepository, sessionExerciseId)
-            .getOrElse { return Result.failure(it) }
+    suspend operator fun invoke(sessionExerciseId: Long): Result<List<Int?>> =
+        lock.withTransition {
+            val target =
+                supersetTarget(sessionRepository, sessionStateRepository, sessionExerciseId)
+                    .getOrElse { return@withTransition Result.failure(it) }
 
-        val split = Supersets.split(target.grouping, target.index)
+            val split = Supersets.split(target.grouping, target.index)
 
-        return runCatching {
-            sessionRepository.writeGrouping(target, split, clock.nowMillis())
-            split
+            runCatching {
+                sessionRepository.writeGrouping(target, split, clock.nowMillis())
+                split
+            }
         }
-    }
 }
