@@ -149,6 +149,11 @@ fun OpenGymNavHost(
                     popUpTo<SessionGraphDestination> { inclusive = true }
                 }
             },
+            // A discarded workout has no recap to open — the row and its sets are gone — so
+            // this is the flow being dropped and nothing being pushed in its place. The user
+            // lands back wherever they started the session from, which is the honest answer
+            // to "that did not happen".
+            onSessionDiscarded = { navController.exitSessionFlow() },
         )
 
         // Registered once, for both callers. `onExit` means the same thing to the recap and

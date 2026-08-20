@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -186,15 +187,30 @@ fun PrBadge(modifier: Modifier = Modifier, type: PrType? = null) {
  * Takes [SessionStats] rather than three strings because that is what the domain hands the
  * caller and because the order — duration, sets, volume — is a decision this component gets
  * to make once instead of every list making it again.
+ *
+ * @param showDuration false drops the first chip. For a caller whose own chrome already carries
+ *   the clock — the active session, whose header ticks one directly above this row — where the
+ *   same number twice on one screen is one of them being ignored. A parameter rather than two
+ *   components for the same reason [SessionStatGrid] takes `musclesWorked`: the decision is
+ *   about what the *surrounding* screen already says, which is not a fact a row of chips has.
  */
 @Composable
-fun SessionStatChips(stats: SessionStats, modifier: Modifier = Modifier) {
+fun SessionStatChips(
+    stats: SessionStats,
+    modifier: Modifier = Modifier,
+    showDuration: Boolean = true,
+) {
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
     ) {
-        StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
-        StatChip(value = stats.totalSets.toString(), label = stringResource(R.string.stat_sets_short))
+        if (showDuration) {
+            StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
+        }
+        StatChip(
+            value = stats.totalSets.toString(),
+            label = pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
+        )
         StatChip(
             value = formatVolumeValue(stats.totalVolume),
             label = LocalUnitSystem.current.weightSuffix,

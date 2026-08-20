@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.stats.SessionStatsCalculator
@@ -20,7 +21,15 @@ import kotlinx.coroutines.flow.first
  * `Finished` are refused with [SessionError.SessionNotActive].
  *
  * A session with no completed sets is refused with [SessionError.NoSetsLogged] and
- * left in progress, so the user can either log something or discard it outright.
+ * left in progress, so the user can either log something or discard it outright —
+ * see [DiscardSessionUseCase], which is the other way out of that state.
+ *
+ * The in-progress draft is cleared on the way out. A draft outliving the session it
+ * describes is what makes the app offer to resume a workout that is already over, so
+ * this is not optional cleanup — and it belongs here rather than in the screen for the
+ * same reason the row's `is_in_progress` flag does: the session's lifetime is the use
+ * case's to end, and a second closer that forgot the draft would be a bug nobody sees
+ * until the next launch.
  *
  * Runs under [SessionLifecycleLock] so a double-tapped finish cannot close the same
  * session out twice.
@@ -28,6 +37,7 @@ import kotlinx.coroutines.flow.first
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val inProgressSessionRepository: InProgressSessionRepository,
     private val clock: Clock = Clock.SYSTEM,
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
@@ -82,6 +92,18 @@ class FinishSessionUseCase(
             ),
         )
         sessionStateRepository.update(finished)
+        // After the state, so a failure to clear leaves a stale draft over a session that
+        // is correctly closed out rather than a live session with no draft. The first is
+        // an offer to resume that the restore path already has to reject — a draft may
+        // legitimately name a session that no longer exists — and the second would be a
+        // workout the user could lose their place in.
+        //
+        // Best-effort for the same reason: by here the row and the state are already
+        // committed, so a store that refuses the clear must not turn a finish that
+        // happened into a failure the caller reports as "nothing was saved". That answer
+        // would be false, and it would strand the user on a screen whose every other exit
+        // is refused for a session that is no longer open.
+        runCatching { inProgressSessionRepository.clear() }
         return finished
     }
 }

@@ -148,16 +148,17 @@ class FakeSessionRepository : SessionRepository {
     ): List<Long> {
         exerciseInsertFailure?.let { throw it }
 
-        // Numbered from the order given and appended to whatever the session holds, per
-        // the contract — which is what lets a test assert that the grouping and the
-        // order the user picked survived the trip.
+        // Appended past the highest position in use, per the contract — not the count, which
+        // a removal makes a different number and which would then collide with a surviving
+        // row on the unique `(session_id, position)` index.
         val existing = this.exercises.value[sessionId].orEmpty()
+        val nextPosition = (existing.maxOfOrNull(SessionExercise::position) ?: -1) + 1
         val stored = exercises.mapIndexed { index, draft ->
             SessionExercise(
                 id = nextExerciseId++,
                 sessionId = sessionId,
                 exerciseId = draft.exerciseId,
-                position = existing.size + index,
+                position = nextPosition + index,
                 supersetGroup = draft.supersetGroup,
                 templateExerciseId = draft.templateExerciseId,
                 notes = draft.notes,
@@ -169,14 +170,63 @@ class FakeSessionRepository : SessionRepository {
         return stored.map(SessionExercise::id)
     }
 
+    /**
+     * Thrown by [insertSet] instead of storing, when set. The only way to reach
+     * `LogSetUseCase`'s store-failure branch: every other refusal it makes is one a test
+     * can produce with an argument, and a store that cannot be written is not.
+     */
+    var setInsertFailure: Throwable? = null
+
+    override suspend fun insertSet(set: WorkoutSet): Long {
+        setInsertFailure?.let { throw it }
+        return store(set.sessionExerciseId, set).id
+    }
+
+    override suspend fun updateExercise(exercise: SessionExercise) {
+        exerciseUpdates += exercise
+        exercises.value += exercise.sessionId to
+            exercises.value[exercise.sessionId].orEmpty()
+                .map { if (it.id == exercise.id) exercise else it }
+    }
+
+    /** Every exercise row rewritten, so a test can assert that only what changed was written. */
+    val exerciseUpdates = mutableListOf<SessionExercise>()
+
+    /** Thrown by [deleteExercise] instead of deleting, when set. */
+    var exerciseDeleteFailure: Throwable? = null
+
+    override suspend fun deleteExercise(sessionExerciseId: Long) {
+        exerciseDeleteFailure?.let { throw it }
+        exercises.value = exercises.value.mapValues { (_, rows) ->
+            rows.filterNot { it.id == sessionExerciseId }
+        }
+        sets.value -= sessionExerciseId
+    }
+
     override suspend fun update(session: WorkoutSession) {
         updateCount++
         sessions.value += session.id to session
     }
 
+    /**
+     * Deletes the session and everything under it, matching the schema's cascade from
+     * `workout_session` through `session_exercise` to `workout_set`. A fake that dropped
+     * the session and kept its sets would let a discard test pass over rows the real
+     * store would have taken with it.
+     */
+    /**
+     * Thrown by [delete] instead of deleting, when set. The only way to reach
+     * `DiscardSessionUseCase`'s failure branch, which is what proves a discard that cannot
+     * remove the row leaves the session running rather than clearing the state over it.
+     */
+    var deleteFailure: Throwable? = null
+
     override suspend fun delete(id: Long) {
+        deleteFailure?.let { throw it }
+        val orphaned = exercises.value[id].orEmpty().map(SessionExercise::id).toSet()
         sessions.value -= id
         exercises.value -= id
+        sets.value -= orphaned
     }
 
     /** Direct read, bypassing the Flow, for assertions. */
@@ -239,6 +289,17 @@ class FakeSessionRepository : SessionRepository {
             sessionExerciseId,
             set.copy(sessionExerciseId = sessionExerciseId, setNumber = existing.size + 1),
         )
+    }
+
+    /**
+     * Drops the set numbered [setNumber] from [sessionExerciseId], leaving a gap.
+     *
+     * There is no delete on the repository yet — that is #99 — but the gap it will leave is
+     * already something the write path has to survive, so a test can stage one directly.
+     */
+    fun removeSet(sessionExerciseId: Long, setNumber: Int) {
+        sets.value += sessionExerciseId to
+            sets.value[sessionExerciseId].orEmpty().filterNot { it.setNumber == setNumber }
     }
 
     /** Files [set] under [sessionExerciseId] with a fresh id, and returns it as stored. */

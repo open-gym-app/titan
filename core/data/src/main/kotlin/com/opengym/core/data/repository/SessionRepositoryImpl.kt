@@ -78,13 +78,22 @@ class SessionRepositoryImpl @Inject constructor(
         sessionId: Long,
         exercises: List<SessionExerciseDraft>,
         createdAt: Long,
-    ): List<Long> = sessionExerciseDao.insertAll(
-        sessionExerciseMapper.toEntities(
+    ): List<Long> = sessionExerciseDao.appendAll(
+        sessionId = sessionId,
+        rows = sessionExerciseMapper.toEntities(
             sessionId = sessionId,
             drafts = exercises,
             createdAt = createdAt,
         ),
     )
+
+    override suspend fun updateExercise(exercise: SessionExercise) =
+        sessionExerciseDao.update(sessionExerciseMapper.toEntity(exercise))
+
+    override suspend fun deleteExercise(sessionExerciseId: Long) =
+        sessionExerciseDao.delete(sessionExerciseId)
+
+    override suspend fun insertSet(set: WorkoutSet): Long = setDao.insert(setMapper.toEntity(set))
 
     override suspend fun update(session: WorkoutSession) =
         sessionDao.update(sessionMapper.toEntity(session))

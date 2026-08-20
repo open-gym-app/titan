@@ -3,6 +3,7 @@ package com.opengym.core.domain.integration
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.stats.VolumeCalculator
@@ -53,6 +54,7 @@ class FullSessionIntegrationTest {
     private val clock = MutableClock(now = 1_700_000_000_000L)
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
+    private val drafts = FakeInProgressSessionRepository()
     private val catalogue = Catalogue.repository()
 
     // A lock of this test's own rather than the shared default: these tests run in the
@@ -62,7 +64,7 @@ class FullSessionIntegrationTest {
     private val startSession = StartSessionUseCase(sessions, state, clock, lock)
     private val pauseSession = PauseSessionUseCase(sessions, state, clock, lock)
     private val resumeSession = ResumeSessionUseCase(sessions, state, clock, lock)
-    private val finishSession = FinishSessionUseCase(sessions, state, clock, lock)
+    private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock, lock)
 
     /** The bench sets this workout logs: 8 and 8 at 80 kg, then a top single of 6 at 100 kg. */
     private val benchSets = listOf(8 to kg(80), 8 to kg(80), 6 to kg(100))

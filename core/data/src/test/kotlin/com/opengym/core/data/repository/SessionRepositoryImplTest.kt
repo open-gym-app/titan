@@ -177,29 +177,104 @@ class SessionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
-    fun `a layout that violates the position index writes none of its rows`() = runBlocking {
-        // The transaction is the point: `session_exercise` is uniquely indexed on
-        // (session_id, position), so laying a session out twice collides on the second
-        // call's position 0 — and a per-row loop would leave the first of its rows behind.
+    fun `a layout that violates a constraint writes none of its rows`() = runBlocking {
+        // The transaction is the point. `session_exercise.exercise_id` is a foreign key, so a
+        // list whose *second* draft names an exercise that does not exist fails part way
+        // through — and a per-row loop would leave the first of its rows behind, in a session
+        // the user is looking at, with nothing saying which of the others are missing.
         val sessionId = db.workoutSessionDao().insert(session())
         val squat = db.exerciseDao().insert(exercise(name = "Squat"))
-        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
-        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
 
         assertThrows(SQLiteConstraintException::class.java) {
             runBlocking {
                 repository.insertExercises(
                     sessionId = sessionId,
                     exercises = listOf(
-                        SessionExerciseDraft(exerciseId = bench),
                         SessionExerciseDraft(exerciseId = squat),
+                        SessionExerciseDraft(exerciseId = NO_SUCH_EXERCISE),
                     ),
                     createdAt = 8_000,
                 )
             }
         }
 
-        assertEquals(listOf(squat), repository.getExercises(sessionId).first().map { it.exerciseId })
+        assertEquals(emptyList<Long>(), repository.getExercises(sessionId).first().map { it.exerciseId })
+    }
+
+    @Test
+    fun `a second layout appends rather than colliding with the first`() = runBlocking {
+        // What makes an exercise addable to a running session: positions continue past the
+        // highest in use, so `session_exercise`'s unique (session_id, position) index is never
+        // asked to hold two rows at position 0.
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
+
+        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(bench)), createdAt = 8_000)
+
+        val laidOut = repository.getExercises(sessionId).first()
+        assertEquals(listOf(squat, bench), laidOut.map { it.exerciseId })
+        assertEquals(listOf(0, 1), laidOut.map { it.position })
+    }
+
+    @Test
+    fun `an exercise added after a removal does not reuse the gap's position`() = runBlocking {
+        // One past the *highest* position, not the count: after a cut the two disagree, and
+        // numbering from the count would land on a row that is still there.
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        val fly = db.exerciseDao().insert(exercise(name = "Fly"))
+        repository.insertExercises(
+            sessionId,
+            listOf(SessionExerciseDraft(squat), SessionExerciseDraft(bench)),
+            createdAt = 7_000,
+        )
+        repository.deleteExercise(repository.getExercises(sessionId).first().first().id)
+
+        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(fly)), createdAt = 8_000)
+
+        val laidOut = repository.getExercises(sessionId).first()
+        assertEquals(listOf(bench, fly), laidOut.map { it.exerciseId })
+        assertEquals(listOf(1, 2), laidOut.map { it.position })
+    }
+
+    @Test
+    fun `removing an exercise takes its sets with it`() = runBlocking {
+        // The cascade `RemoveSessionExerciseUseCase` refuses to trigger, proven here rather
+        // than assumed: it is the reason that use case checks for logged sets at all.
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val exerciseRowId = repository
+            .insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
+            .single()
+        db.workoutSetDao().insert(workoutSet(exerciseRowId, setNumber = 1, reps = 5))
+
+        repository.deleteExercise(exerciseRowId)
+
+        assertEquals(emptyList<Long>(), repository.getExercises(sessionId).first().map { it.id })
+        assertEquals(0, repository.getSetsForSession(sessionId).first().size)
+    }
+
+    @Test
+    fun `updating an exercise rewrites the row it names and nothing else`() = runBlocking {
+        val sessionId = db.workoutSessionDao().insert(session())
+        val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+        val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+        repository.insertExercises(
+            sessionId,
+            listOf(SessionExerciseDraft(squat, supersetGroup = 0), SessionExerciseDraft(bench, supersetGroup = 0)),
+            createdAt = 7_000,
+        )
+        val stored = repository.getExercises(sessionId).first()
+
+        repository.updateExercise(stored.first().copy(supersetGroup = null))
+
+        assertEquals(
+            listOf(null, 0),
+            repository.getExercises(sessionId).first().map { it.supersetGroup },
+        )
     }
 
     @Test
@@ -348,5 +423,10 @@ class SessionRepositoryImplTest : RoomTestBase() {
         assertEquals(listOf(5, 5, 8), sets.map { it.reps })
         assertEquals(listOf(true, true, false), sets.map { it.isCompleted })
         assertEquals(100_000_000L, sets.first().weight)
+    }
+
+    private companion object {
+        /** An `exercise` id nothing was ever inserted under, so a row naming it breaks the key. */
+        const val NO_SUCH_EXERCISE = 9_999L
     }
 }

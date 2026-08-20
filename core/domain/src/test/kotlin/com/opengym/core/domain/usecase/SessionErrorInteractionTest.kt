@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.WorkoutSession
+import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -32,11 +33,12 @@ class SessionErrorInteractionTest {
     /** A state repository and the four lifecycle use cases wired onto it. */
     private inner class Machine(initial: SessionState = SessionState.Idle) {
         val state = FakeSessionStateRepository(initial)
+        val drafts = FakeInProgressSessionRepository()
         private val lock = SessionLifecycleLock()
         val start = StartSessionUseCase(sessions, state, clock, lock)
         val pause = PauseSessionUseCase(sessions, state, clock, lock)
         val resume = ResumeSessionUseCase(sessions, state, clock, lock)
-        val finish = FinishSessionUseCase(sessions, state, clock, lock)
+        val finish = FinishSessionUseCase(sessions, state, drafts, clock, lock)
     }
 
     /** Inserts a session row directly, bypassing the use cases, and returns its id. */

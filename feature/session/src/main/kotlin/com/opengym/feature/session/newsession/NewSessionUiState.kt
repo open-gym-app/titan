@@ -29,6 +29,8 @@ import kotlin.time.Duration
  *   way of saying it is over. Carried in the state rather than pushed down a channel because
  *   there is nothing to race: the destination is popped on the way into the workout, so this
  *   is the last value this screen ever holds.
+ * @param nameDraft what is in the name field, or **null** when the dialog is closed. Null is the
+ *   read state, so a screen asking "is the dialog up" asks one question.
  * @param message something that happened and needs saying once.
  */
 @Immutable
@@ -38,6 +40,7 @@ data class NewSessionUiState(
     val step: NewSessionStep = NewSessionStep.TemplateSelection,
     val isStarting: Boolean = false,
     val startedSessionId: Long? = null,
+    val nameDraft: String? = null,
     val message: NewSessionMessage? = null,
 )
 

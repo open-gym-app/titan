@@ -19,6 +19,7 @@ import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.ui.component.muscleContributions
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -79,6 +80,7 @@ class SessionSummaryViewModel @Inject constructor(
     exerciseRepository: ExerciseRepository,
     personalRecordRepository: PersonalRecordRepository,
     private val createTemplate: CreateTemplateUseCase,
+    private val renameSession: RenameSessionUseCase,
 ) : ViewModel() {
 
     private val destination: SessionSummaryDestination = savedStateHandle.toRoute()
@@ -167,6 +169,8 @@ class SessionSummaryViewModel @Inject constructor(
             isSavingNotes = screen.isSavingNotes,
             templateName = screen.templateName,
             isSavingTemplate = screen.isSavingTemplate,
+            nameDraft = screen.nameDraft,
+            isSavingName = screen.isSavingName,
             message = screen.message,
         )
     }.stateIn(
@@ -176,6 +180,8 @@ class SessionSummaryViewModel @Inject constructor(
     )
 
     fun onEvent(event: SessionSummaryEvent) {
+        if (onNameEvent(event)) return
+
         when (event) {
             SessionSummaryEvent.NoteEditRequested -> openNote()
             is SessionSummaryEvent.NoteChanged ->
@@ -199,6 +205,62 @@ class SessionSummaryViewModel @Inject constructor(
             SessionSummaryEvent.SaveAsTemplateConfirmed -> saveTemplate()
 
             SessionSummaryEvent.MessageShown -> screenState.update { it.copy(message = null) }
+            else -> Unit
+        }
+    }
+
+    /**
+     * The four events that only concern what the session is called, handled together.
+     *
+     * Split off [onEvent] so that neither `when` branches over two unrelated subjects: the note
+     * and the template dialog are about a session's *contents*, and this is about its title.
+     *
+     * @return whether [event] was one of them.
+     */
+    private fun onNameEvent(event: SessionSummaryEvent): Boolean {
+        when (event) {
+            // Seeded from what is stored. Ignored before the row has loaded.
+            SessionSummaryEvent.NameEditRequested -> loaded.value?.session?.let { session ->
+                screenState.update { it.copy(nameDraft = session.name.orEmpty()) }
+            }
+
+            is SessionSummaryEvent.NameChanged ->
+                screenState.update { it.copy(nameDraft = event.text) }
+
+            SessionSummaryEvent.NameEditCancelled ->
+                if (!screenState.value.isSavingName) {
+                    screenState.update { it.copy(nameDraft = null) }
+                }
+
+            SessionSummaryEvent.NameConfirmed -> saveName()
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * Write the name, leaving the dialog up and inert while the write is in flight.
+     *
+     * A session logged months ago is renamed exactly like the one just finished — the recap is
+     * one screen with two modes, and what the user can still *do* to a workout does not expire.
+     * `RenameSessionUseCase` owns the blank-means-unnamed rule, so there is nothing to check
+     * here.
+     */
+    private fun saveName() {
+        val draft = screenState.value.nameDraft ?: return
+        if (screenState.value.isSavingName) return
+        screenState.update { it.copy(isSavingName = true) }
+
+        viewModelScope.launch {
+            renameSession(destination.sessionId, draft)
+                // Closed on success only. The new title is drawn from the re-read; nothing is
+                // copied into local state to be kept in step with it.
+                .onSuccess { screenState.update { it.copy(nameDraft = null, isSavingName = false) } }
+                .onFailure {
+                    screenState.update {
+                        it.copy(isSavingName = false, message = SessionSummaryMessage.NAME_SAVE_FAILED)
+                    }
+                }
         }
     }
 
@@ -394,6 +456,8 @@ class SessionSummaryViewModel @Inject constructor(
 
 /** What the user is in the middle of. */
 private data class ScreenState(
+    val nameDraft: String? = null,
+    val isSavingName: Boolean = false,
     val noteDraft: String? = null,
     val isSavingNotes: Boolean = false,
     val templateName: String? = null,

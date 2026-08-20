@@ -30,6 +30,15 @@ class FakeInProgressSessionRepository(initial: ActiveSession? = null) : InProgre
     var clearCount = 0
         private set
 
+    /**
+     * Thrown by [clear] instead of clearing, when set.
+     *
+     * The failure a real store can hand back — the draft lives behind a file, and a write to
+     * one can fail — and the one the lifecycle use cases have to survive: by the time either of
+     * them clears, the session is already closed out or already deleted.
+     */
+    var clearFailure: Throwable? = null
+
     override suspend fun save(session: ActiveSession) {
         saveCount++
         document = ActiveSessionFormat.encode(session)
@@ -39,6 +48,7 @@ class FakeInProgressSessionRepository(initial: ActiveSession? = null) : InProgre
 
     override suspend fun clear() {
         clearCount++
+        clearFailure?.let { throw it }
         document = null
     }
 

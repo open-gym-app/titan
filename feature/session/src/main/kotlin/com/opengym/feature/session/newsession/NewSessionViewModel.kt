@@ -8,12 +8,14 @@ import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionPlan
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.toSessionPlan
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
+import com.opengym.core.ui.component.supersetLabels
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -83,6 +85,7 @@ class NewSessionViewModel @Inject constructor(
             step = screen.step(),
             isStarting = screen.isStarting,
             startedSessionId = screen.startedSessionId,
+            nameDraft = screen.nameDraft,
             message = screen.message,
         )
     }.stateIn(
@@ -107,6 +110,14 @@ class NewSessionViewModel @Inject constructor(
 
             NewSessionEvent.PlanDiscarded ->
                 screenState.update { it.copy(plan = null, selectingExercises = false) }
+
+            NewSessionEvent.NameEditRequested ->
+                screenState.update { it.copy(nameDraft = it.plan?.session?.name.orEmpty()) }
+            is NewSessionEvent.NameChanged ->
+                screenState.update { it.copy(nameDraft = event.text) }
+            NewSessionEvent.NameEditCancelled ->
+                screenState.update { it.copy(nameDraft = null) }
+            NewSessionEvent.NameConfirmed -> applyName()
 
             NewSessionEvent.SessionStartRequested -> start()
             NewSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
@@ -239,6 +250,25 @@ class NewSessionViewModel @Inject constructor(
     }
 
     /**
+     * Records what the session will be called, on the plan and nowhere else.
+     *
+     * Nothing is written here — the whole flow's premise is that backing out costs nothing to
+     * undo — so this is the same decision as picking a template or dropping an exercise, and it
+     * travels to `StartSessionUseCase` on `SessionPlan.name` when the user commits. The
+     * blank-means-unnamed rule belongs to `WorkoutSession.normalizeName` rather than to a second
+     * copy of it here: the plan keeps what the user typed, and the two places that have to agree
+     * about what it *means* — the use case on the way to the store, and [Plan.toStep] on the way
+     * to the screen — both ask that one function.
+     */
+    private fun applyName() = screenState.update { state ->
+        val plan = state.plan ?: return@update state.copy(nameDraft = null)
+        state.copy(
+            plan = plan.copy(session = plan.session.copy(name = state.nameDraft)),
+            nameDraft = null,
+        )
+    }
+
+    /**
      * Writes the plan and reports the session it became.
      *
      * Guarded on [ScreenState.isStarting] rather than only in the UI: a double-tapped START
@@ -270,6 +300,7 @@ class NewSessionViewModel @Inject constructor(
         val selectingExercises: Boolean = false,
         val isStarting: Boolean = false,
         val startedSessionId: Long? = null,
+        val nameDraft: String? = null,
         val message: NewSessionMessage? = null,
     ) {
 
@@ -308,7 +339,12 @@ class NewSessionViewModel @Inject constructor(
             val labels = supersetLabels(grouping)
 
             return NewSessionStep.ReadyToStart(
-                name = session.name,
+                // The same normalisation `StartSessionUseCase` applies on the way to the store,
+                // by the same function, so the panel says "Unnamed session" for exactly the
+                // inputs that will be stored as unnamed. Without it, a user who clears the name
+                // field — which the dialog's own hint invites — confirms their way to a blank
+                // title with no route back to the placeholder.
+                name = WorkoutSession.normalizeName(session.name),
                 estimatedDuration = estimatedDuration,
                 // One row per draft, in order. Unresolvable ids were cut from the plan
                 // itself in [adopt] rather than skipped here, so this cannot drop a row and
@@ -330,31 +366,6 @@ class NewSessionViewModel @Inject constructor(
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
     }
 }
-
-/**
- * The `A1`, `A2`, `B1` marker for each position of [grouping], or null where the exercise
- * stands alone.
- *
- * The letter is the group's ordinal and the digit is the member's place within it, which is
- * what makes a superset readable as a unit in a list — `A1` and `A2` are one thing, `B1` is
- * the next. [grouping] must already be normalised: the letters are read off dense ids
- * numbered from 0, so a gap would leave a `B` with no `A` above it.
- *
- * Groups past the twenty-sixth fall back to their number. Nothing can produce a session with
- * twenty-seven supersets in it, but a letter that silently became `[` is worse than a digit.
- */
-private fun supersetLabels(grouping: List<Int?>): List<String?> {
-    val labels = arrayOfNulls<String>(grouping.size)
-
-    Supersets.groups(grouping).forEach { (group, indices) ->
-        val name = if (group < ALPHABET_SIZE) ('A' + group).toString() else (group + 1).toString()
-        indices.forEachIndexed { member, index -> labels[index] = "$name${member + 1}" }
-    }
-
-    return labels.toList()
-}
-
-private const val ALPHABET_SIZE = 26
 
 /** Which of [NewSessionMessage] a refused start is. */
 private fun Throwable.toMessage(): NewSessionMessage = when (this) {

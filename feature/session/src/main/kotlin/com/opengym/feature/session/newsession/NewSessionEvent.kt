@@ -71,6 +71,24 @@ sealed interface NewSessionEvent {
     /** START. Writes the session and its exercises, then reports the id. */
     data object SessionStartRequested : NewSessionEvent
 
+    /** Open the name dialog on whatever the plan is called now. */
+    data object NameEditRequested : NewSessionEvent
+
+    /** The name field changed. */
+    data class NameChanged(val text: String) : NewSessionEvent
+
+    /** Close the name dialog without applying it. */
+    data object NameEditCancelled : NewSessionEvent
+
+    /**
+     * Apply the name to the plan.
+     *
+     * Nothing is written: the plan lives in the ViewModel until START, so this records a
+     * decision rather than renaming a session. `StartSessionUseCase` applies the same
+     * blank-means-unnamed rule on the way in that `RenameSessionUseCase` applies later.
+     */
+    data object NameConfirmed : NewSessionEvent
+
     /** The snackbar has been shown, so the message can be forgotten. */
     data object MessageShown : NewSessionEvent
 }

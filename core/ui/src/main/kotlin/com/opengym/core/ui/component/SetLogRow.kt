@@ -232,7 +232,7 @@ fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
             .fillMaxWidth()
             .clearAndSetSemantics { }
             .padding(horizontal = OpenGymTheme.spacing.md, vertical = OpenGymTheme.spacing.md),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Eyebrow(
@@ -284,7 +284,7 @@ private fun SetRowFrame(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
         )
@@ -537,12 +537,19 @@ private fun LoggedSetRow(
  * characters, an RPE is at most four — and proportional for the fields, which are the only
  * cells that benefit from a wider screen. The weight field is the larger share because
  * `102.5` is five characters and a rep count is rarely more than two.
+ *
+ * **The fixed widths are sized against a 320dp screen**, which is the narrowest Android still
+ * runs on, and they are tight there on purpose: the cell that has to survive is the value one,
+ * because a logged set reading `60 kg ×` with the reps clipped off is a row that has lost the
+ * only thing it was recording. Every dp taken off a fixed column goes there. The touch targets
+ * are unaffected — [TOGGLE_SIZE] is what the tick is *drawn* at, and `IconToggleButton` keeps
+ * its 48dp target regardless.
  */
 
 private val INDEX_COLUMN_WIDTH: Dp = 24.dp
-private val PREVIOUS_COLUMN_WIDTH: Dp = 52.dp
-private val RPE_COLUMN_WIDTH: Dp = 30.dp
-private val TOGGLE_SIZE: Dp = 36.dp
+private val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
+private val RPE_COLUMN_WIDTH: Dp = 28.dp
+private val TOGGLE_SIZE: Dp = 32.dp
 private const val WEIGHT_COLUMN_WEIGHT = 1.3f
 private const val REPS_COLUMN_WEIGHT = 1f
 

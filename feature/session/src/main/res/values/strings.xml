@@ -51,6 +51,8 @@
     <string name="new_session_superset">SS %1$s</string>
     <string name="new_session_remove">Remove %1$s</string>
     <string name="new_session_start">Start workout</string>
+    <!-- The review panel's title doubles as the way to name the session before it starts. -->
+    <string name="new_session_rename">Name this session</string>
 
     <string name="new_session_error_already_active">A session is already running. Finish it before starting another.</string>
     <string name="new_session_error_start_failed">Could not start the session. Nothing was saved.</string>
@@ -60,11 +62,81 @@
 
     <!-- ── Active session (#26) ───────────────────────────────────────────────────── -->
 
-    <!--
-      Shown when the back gesture is swallowed on an active session, so that a press that
-      does nothing at least says why. Replaced by the discard confirmation in #26.
-    -->
-    <string name="session_back_blocked">Finish the session to leave</string>
+    <!-- The exercise open on screen. The count is not in it: the header's progress rail
+         already says how far through the workout this is, and "EX 4 / 8" beside a rail that
+         is half filled is the same fact twice. -->
+    <string name="active_exercise_position">Exercise %1$d</string>
+    <!-- An exercise deleted from the library since the session started. The sets logged
+         against it still happened, so it keeps its place rather than vanishing mid-workout. -->
+    <string name="active_exercise_removed">Removed from your library</string>
+    <!-- The superset marker on an exercise: "SS A1". The same wording as the review panel
+         before the session started, because it is the same grouping. -->
+    <string name="active_superset">SS %1$s</string>
+
+    <string name="active_complete_set">Complete set %1$d</string>
+    <string name="active_add_note">Add a note</string>
+    <string name="active_note_label">Note</string>
+    <string name="active_note_clear">Clear</string>
+
+    <!-- The two refusals this screen words itself. Everything else a set can be refused for
+         is `SetValidator`'s own wording, shown as it stands — it names the field, the bound
+         and the value it saw, which is more than a paraphrase could. -->
+    <string name="active_weight_not_a_number">That weight is not a number</string>
+    <string name="active_reps_not_a_number">That rep count is not a number</string>
+
+    <!-- The action that opens the picker from inside a running workout. "More" rather than
+         "exercises", because the button sits under the ones the session already has. -->
+    <string name="active_add_exercises">Add more exercises</string>
+    <string name="active_remove_exercise">Remove %1$s from this workout</string>
+
+    <!-- The control in the gap between two exercise cards, in its two states. An eyebrow, so
+         both are drawn in caps. The joined one names its group, matching the `SS A1` badges on
+         the cards either side; the offer cannot, since there is no group yet. -->
+    <string name="active_superset_link_label">Superset</string>
+    <string name="active_superset_linked_label">Superset %1$s</string>
+    <!-- Read out in place of the control, which is a hairline and a word: where it sits is what
+         says which two exercises it joins, and a screen reader has no "where". -->
+    <string name="active_superset_link">Perform %1$s and %2$s back to back</string>
+    <string name="active_superset_break">Stop performing %1$s and %2$s back to back</string>
+
+    <!-- A session started empty, before any exercise has been added to it. -->
+    <string name="active_no_exercises_title">No exercises yet</string>
+    <string name="active_no_exercises_body">This session was started empty. Add the first exercise below and start logging.</string>
+
+    <!-- The rating sheet. -->
+    <string name="active_rpe_title">How hard was that?</string>
+    <string name="active_rpe_body">Rate of perceived exertion, for the set you are logging. Tap the value again to clear it.</string>
+
+    <!-- The discard confirmation. The count is in the question because "discard this session?"
+         is a different question when the answer costs eleven sets. -->
+    <string name="active_discard_title">Discard this workout?</string>
+    <plurals name="active_discard_body">
+        <item quantity="one">%1$d logged set will be deleted. This cannot be undone.</item>
+        <item quantity="other">%1$d logged sets will be deleted. This cannot be undone.</item>
+    </plurals>
+    <string name="active_discard_body_empty">Nothing has been logged yet, so nothing will be lost.</string>
+    <string name="active_discard_confirm">Discard</string>
+    <string name="active_discard_cancel">Keep training</string>
+
+    <!-- A session id that no longer resolves to a row. -->
+    <string name="active_missing_title">This session is gone</string>
+    <string name="active_missing_body">It was deleted or finished somewhere else. Nothing here can be logged against it.</string>
+
+    <string name="active_error_no_sets">Log at least one set before finishing, or discard the workout.</string>
+    <string name="active_error_finish">Could not finish the session. Nothing was saved and the workout is still running.</string>
+    <string name="active_error_discard">Could not discard the session. It is still running.</string>
+    <string name="active_error_set">That set could not be logged.</string>
+    <string name="active_error_pause">Could not change the session. Try again.</string>
+    <string name="active_error_add">Could not add those exercises. The workout is unchanged.</string>
+    <!-- The one refusal here that is a rule rather than a failure, so it names the way past
+         itself instead of suggesting a retry. -->
+    <string name="active_error_exercise_has_sets">That exercise has sets logged against it. Delete the sets first, or discard the whole workout.</string>
+    <string name="active_error_remove">Could not remove that exercise. It is still in the workout.</string>
+    <string name="active_error_rename">Could not rename the session. Try again.</string>
+    <!-- Both directions of the superset control, which is one thing to the user. -->
+    <string name="active_error_superset">Could not change that superset. The workout is unchanged.</string>
+    <!-- Shown on open, when the screen could not be put back where the workout was left. -->
+    <string name="active_error_restore">Could not pick the workout back up where you left it. Your logged sets are safe.</string>
 
     <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
 
@@ -77,6 +149,9 @@
     <!-- A session started empty and never named. The date under it is what identifies it, so
          this stands in for a name rather than inventing one. -->
     <string name="summary_unnamed">Unnamed session</string>
+    <!-- The recap's title doubles as the way to change it, in both modes: a workout is often
+         named after it is over, and one logged months ago is as renameable as today's. -->
+    <string name="summary_rename">Rename this session</string>
     <!-- "10:14 → 11:06 · 52:14", under the day. Every part is a numeric, so the line is set in
          the mono role and the separators are typographic rather than words. -->
     <string name="summary_meta">%1$s · %2$s</string>
@@ -137,6 +212,7 @@
     <string name="summary_template_cancel">Cancel</string>
 
     <string name="summary_error_notes">Could not save the note</string>
+    <string name="summary_error_rename">Could not rename the session</string>
     <string name="summary_template_saved">Saved as a template</string>
     <string name="summary_error_template_taken">You already have a template with that name</string>
     <string name="summary_error_template">Could not save the template</string>

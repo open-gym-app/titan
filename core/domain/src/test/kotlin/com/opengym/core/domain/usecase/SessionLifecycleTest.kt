@@ -2,6 +2,7 @@ package com.opengym.core.domain.usecase
 
 import app.cash.turbine.test
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -16,10 +17,11 @@ class SessionLifecycleTest {
     private val clock = MutableClock(now = 5_000L)
     private val sessions = FakeSessionRepository()
     private val state = FakeSessionStateRepository()
+    private val drafts = FakeInProgressSessionRepository()
     private val startSession = StartSessionUseCase(sessions, state, clock)
     private val pauseSession = PauseSessionUseCase(sessions, state, clock)
     private val resumeSession = ResumeSessionUseCase(sessions, state, clock)
-    private val finishSession = FinishSessionUseCase(sessions, state, clock)
+    private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock)
 
     @Test
     fun `a full start-pause-resume-finish run walks every state in order`() = runTest {
@@ -93,7 +95,7 @@ class SessionLifecycleTest {
         val resumed = ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
         assertEquals(started, resumed)
 
-        val finished = FinishSessionUseCase(sessions, restarted, clock)().getOrThrow()
+        val finished = FinishSessionUseCase(sessions, restarted, drafts, clock)().getOrThrow()
         assertEquals(started.sessionId, finished.summary.sessionId)
         assertEquals(1, finished.summary.totalSets)
         assertEquals(false, sessions.stored(started.sessionId)?.isInProgress)
@@ -106,7 +108,7 @@ class SessionLifecycleTest {
 
         val restarted = FakeSessionStateRepository()
         ResumeSessionUseCase(sessions, restarted, clock)().getOrThrow()
-        FinishSessionUseCase(sessions, restarted, clock)().getOrThrow()
+        FinishSessionUseCase(sessions, restarted, drafts, clock)().getOrThrow()
 
         val second = StartSessionUseCase(sessions, restarted, clock)().getOrThrow()
 

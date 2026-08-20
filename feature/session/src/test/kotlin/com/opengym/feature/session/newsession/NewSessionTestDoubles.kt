@@ -174,6 +174,15 @@ class FakeSessionStore : SessionRepository {
         return stored.map(SessionExercise::id)
     }
 
+    override suspend fun insertSet(set: WorkoutSet): Long =
+        throw UnsupportedOperationException("the new-session flow logs nothing")
+
+    override suspend fun updateExercise(exercise: SessionExercise) =
+        throw UnsupportedOperationException("the new-session flow edits no layout")
+
+    override suspend fun deleteExercise(sessionExerciseId: Long) =
+        throw UnsupportedOperationException("the new-session flow edits no layout")
+
     override suspend fun update(session: WorkoutSession) {
         sessions.update { it + (session.id to session) }
     }

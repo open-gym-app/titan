@@ -109,6 +109,101 @@ class SupersetsTest {
         assertEquals(listOf(null, null, null), original)
     }
 
+    // ---- joining a pair ---------------------------------------------------
+
+    @Test
+    fun `joining two exercises that stand alone makes them a superset`() {
+        val joined = Supersets.join(listOf(null, null, null), index = 1).getOrThrow()
+
+        assertEquals(listOf(null, 0, 0), joined)
+    }
+
+    @Test
+    fun `joining the last member of a group to the next exercise extends the group`() {
+        // The whole point of the pairwise form: the exercise at 1 comes with the group it
+        // is in, so a third exercise joins the superset instead of tearing 0 out of it.
+        val joined = Supersets.join(listOf(0, 0, null), index = 1).getOrThrow()
+
+        assertEquals(listOf(0, 0, 0), joined)
+    }
+
+    @Test
+    fun `joining across two groups merges them`() {
+        val joined = Supersets.join(listOf(0, 0, 1, 1), index = 1).getOrThrow()
+
+        assertEquals(listOf(0, 0, 0, 0), joined)
+    }
+
+    @Test
+    fun `joining a standalone exercise to the group below it extends that group`() {
+        val joined = Supersets.join(listOf(null, 0, 0), index = 0).getOrThrow()
+
+        assertEquals(listOf(0, 0, 0), joined)
+    }
+
+    @Test
+    fun `joining two exercises already performed back to back changes nothing`() {
+        val joined = Supersets.join(listOf(0, 0), index = 0).getOrThrow()
+
+        assertEquals(listOf(0, 0), joined)
+    }
+
+    @Test
+    fun `the last exercise has nothing to join`() {
+        val result = Supersets.join(listOf(null, null), index = 1)
+
+        assertTrue(result.isFailure)
+        assertTrue(failureOf(result).contains("nothing to join"))
+    }
+
+    @Test
+    fun `joining leaves the list it was given alone`() {
+        val original = listOf<Int?>(null, null)
+
+        Supersets.join(original, index = 0).getOrThrow()
+
+        assertEquals(listOf(null, null), original)
+    }
+
+    // ---- splitting a link -------------------------------------------------
+
+    @Test
+    fun `splitting a pair leaves both exercises standing alone`() {
+        val split = Supersets.split(listOf(0, 0), index = 0)
+
+        assertEquals(listOf(null, null), split)
+    }
+
+    @Test
+    fun `splitting a three-member group leaves a pair and a single`() {
+        // The link is what was tapped, not the group: 0 and 1 are still performed back to
+        // back, and only 2 comes out.
+        val split = Supersets.split(listOf(0, 0, 0), index = 1)
+
+        assertEquals(listOf(0, 0, null), split)
+    }
+
+    @Test
+    fun `splitting the head of a three-member group leaves the pair below it intact`() {
+        val split = Supersets.split(listOf(0, 0, 0), index = 0)
+
+        assertEquals(listOf(null, 0, 0), split)
+    }
+
+    @Test
+    fun `splitting renumbers the groups that survive`() {
+        val split = Supersets.split(listOf(0, 0, 1, 1), index = 0)
+
+        assertEquals(listOf(null, null, 0, 0), split)
+    }
+
+    @Test
+    fun `splitting where there is no link normalises and changes nothing else`() {
+        assertEquals(listOf(null, 0, 0), Supersets.split(listOf(null, 0, 0), index = 0))
+        assertEquals(listOf(0, 0, null), Supersets.split(listOf(0, 0, null), index = 2))
+        assertEquals(listOf(0, 0), Supersets.split(listOf(0, 0), index = 7))
+    }
+
     // ---- dissolving -------------------------------------------------------
 
     @Test
