@@ -71,6 +71,25 @@ sealed interface NewSessionEvent {
     /** START. Writes the session and its exercises, then reports the id. */
     data object SessionStartRequested : NewSessionEvent
 
+    /**
+     * Pick the workout that is already running back up, which is what the refused START
+     * offers — see [NewSessionUiState.runningSessionId].
+     *
+     * The plan being assembled here is dropped on the floor with it, and that is the honest
+     * outcome rather than a loss: nothing in it was written, and there is no second workout to
+     * put it in until the running one is closed out.
+     */
+    data object ResumeRequested : NewSessionEvent
+
+    /**
+     * The offer was declined. Leaves the plan on screen and START asks again.
+     *
+     * Not a way to start the second session — nothing here can grant that — but a way to say
+     * "not that one", which is a real answer when the workout in the way is one somebody means
+     * to end rather than continue.
+     */
+    data object ResumeDismissed : NewSessionEvent
+
     /** Open the name dialog on whatever the plan is called now. */
     data object NameEditRequested : NewSessionEvent
 

@@ -207,6 +207,41 @@ class NewSessionScreenTest {
         assertEquals(0, cancelled)
     }
 
+    // ─── The workout already running ────────────────────────────────────────────────────
+
+    @Test
+    fun `a start refused by a running workout offers that workout back`() {
+        setContent(
+            NewSessionUiState(isLoading = false, step = readyFromTemplate(), runningSessionId = 99L),
+        )
+
+        composeTestRule.onNodeWithText("A workout is already running").assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Pick it back up").performClick()
+
+        // The only route there is: the running session is not in the history list, and the
+        // workout screen is otherwise reachable only by starting one.
+        assertEquals(listOf(NewSessionEvent.ResumeRequested), events)
+    }
+
+    @Test
+    fun `the offer can be declined`() {
+        setContent(
+            NewSessionUiState(isLoading = false, step = readyFromTemplate(), runningSessionId = 99L),
+        )
+
+        composeTestRule.onNodeWithText("Not now").performClick()
+
+        assertEquals(listOf(NewSessionEvent.ResumeDismissed), events)
+    }
+
+    @Test
+    fun `negative - nothing running, nothing offered`() {
+        setContent(NewSessionUiState(isLoading = false, step = readyFromTemplate()))
+
+        composeTestRule.onNodeWithText("A workout is already running").assertDoesNotExist()
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
     private fun setContent(state: NewSessionUiState) {

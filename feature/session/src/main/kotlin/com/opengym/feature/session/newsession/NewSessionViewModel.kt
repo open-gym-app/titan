@@ -84,7 +84,8 @@ class NewSessionViewModel @Inject constructor(
             isLoading = templates == null,
             step = screen.step(),
             isStarting = screen.isStarting,
-            startedSessionId = screen.startedSessionId,
+            openSessionId = screen.openSessionId,
+            runningSessionId = screen.runningSessionId,
             nameDraft = screen.nameDraft,
             message = screen.message,
         )
@@ -96,6 +97,14 @@ class NewSessionViewModel @Inject constructor(
         initialValue = NewSessionUiState(),
     )
 
+    /*
+     * One branch per event, which is what the count is measuring. An exhaustive `when` over a
+     * sealed interface has no paths through it to get wrong — the compiler is what checks it is
+     * complete — so the threshold here is counting the flow's *actions* rather than anything
+     * that has to be held in the head at once. The same reasoning `ActiveSessionScreen` records
+     * over its own message table.
+     */
+    @Suppress("CyclomaticComplexMethod")
     fun onEvent(event: NewSessionEvent) {
         when (event) {
             NewSessionEvent.ExerciseSelectionOpened ->
@@ -120,6 +129,22 @@ class NewSessionViewModel @Inject constructor(
             NewSessionEvent.NameConfirmed -> applyName()
 
             NewSessionEvent.SessionStartRequested -> start()
+
+            // The same landing as a start: which of the two opened the workout is not a
+            // difference the shell has to know, and the workout screen resumes what it is
+            // handed — see `ActiveSessionViewModel`, which calls `ResumeSessionUseCase` for
+            // exactly this. `isStarting` goes with it so START cannot be pressed again over
+            // the pop, the same reason a real start leaves it set.
+            NewSessionEvent.ResumeRequested -> screenState.update {
+                it.copy(
+                    isStarting = it.runningSessionId != null,
+                    openSessionId = it.runningSessionId,
+                    runningSessionId = null,
+                )
+            }
+
+            NewSessionEvent.ResumeDismissed -> screenState.update { it.copy(runningSessionId = null) }
+
             NewSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -286,10 +311,22 @@ class NewSessionViewModel @Inject constructor(
                 .onSuccess { sessionId ->
                     // isStarting stays true: the screen is on its way out, and re-enabling
                     // the button for the frame before the pop invites a second workout.
-                    screenState.update { it.copy(startedSessionId = sessionId) }
+                    screenState.update { it.copy(openSessionId = sessionId) }
                 }
                 .onFailure { failure ->
-                    screenState.update { it.copy(isStarting = false, message = failure.toMessage()) }
+                    screenState.update { state ->
+                        // A session already running is the one refusal that is answered rather
+                        // than reported: the workout in the way is named by the error, and
+                        // offering it back is the only route to it there is — see
+                        // [NewSessionUiState.runningSessionId]. Everything else that can go
+                        // wrong here is the write itself, and nothing was left behind by it.
+                        val running = (failure as? SessionError.SessionAlreadyActive)?.sessionId
+                        state.copy(
+                            isStarting = false,
+                            runningSessionId = running,
+                            message = NewSessionMessage.START_FAILED.takeIf { running == null },
+                        )
+                    }
                 }
         }
     }
@@ -299,7 +336,8 @@ class NewSessionViewModel @Inject constructor(
         val plan: Plan? = null,
         val selectingExercises: Boolean = false,
         val isStarting: Boolean = false,
-        val startedSessionId: Long? = null,
+        val openSessionId: Long? = null,
+        val runningSessionId: Long? = null,
         val nameDraft: String? = null,
         val message: NewSessionMessage? = null,
     ) {
@@ -365,10 +403,4 @@ class NewSessionViewModel @Inject constructor(
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
     }
-}
-
-/** Which of [NewSessionMessage] a refused start is. */
-private fun Throwable.toMessage(): NewSessionMessage = when (this) {
-    is SessionError.SessionAlreadyActive -> NewSessionMessage.SESSION_ALREADY_ACTIVE
-    else -> NewSessionMessage.START_FAILED
 }

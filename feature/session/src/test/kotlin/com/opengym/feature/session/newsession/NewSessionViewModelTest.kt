@@ -178,7 +178,7 @@ class NewSessionViewModelTest {
         viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
 
-        val sessionId = viewModel.uiState.value.startedSessionId!!
+        val sessionId = viewModel.uiState.value.openSessionId!!
         val session = sessions.storedSessions().single()
         assertEquals("Push day", session.name)
         assertEquals(templateId, session.templateId)
@@ -360,7 +360,7 @@ class NewSessionViewModelTest {
         // `session_exercise.exercise_id` is a foreign key, so carrying the unresolvable draft
         // into the write aborts the whole layout — with START offered, since the button reads
         // the visible list. Cut from the plan, what is written is what was reviewed.
-        val sessionId = viewModel.uiState.value.startedSessionId!!
+        val sessionId = viewModel.uiState.value.openSessionId!!
         assertEquals(listOf(BENCH, FLY), sessions.storedExercises(sessionId).map(SessionExercise::exerciseId))
     }
 
@@ -409,7 +409,7 @@ class NewSessionViewModelTest {
 
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
 
-        val sessionId = viewModel.uiState.value.startedSessionId!!
+        val sessionId = viewModel.uiState.value.openSessionId!!
         assertEquals(sessionId, (sessionState.current as SessionState.Active).sessionId)
     }
 
@@ -429,18 +429,55 @@ class NewSessionViewModelTest {
     }
 
     @Test
-    fun `starting while a session is already running says so`() = runTest {
+    fun `starting while a session is already running offers that session back`() = runTest {
         sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
         val viewModel = viewModel()
         viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
 
         viewModel.onEvent(NewSessionEvent.SessionStartRequested)
 
-        assertEquals(NewSessionMessage.SESSION_ALREADY_ACTIVE, viewModel.uiState.value.message)
-        assertNull(viewModel.uiState.value.startedSessionId)
+        // Named rather than described: the workout in the way is the only thing that can be
+        // done about the refusal, and nothing else in the app can reach it.
+        assertEquals(99L, viewModel.uiState.value.runningSessionId)
+        assertNull(viewModel.uiState.value.message)
+        assertNull(viewModel.uiState.value.openSessionId)
         // Refused, not half-done: no row was left behind, and START is pressable again.
         assertEquals(emptyList<Any>(), sessions.storedSessions())
         assertFalse(viewModel.uiState.value.isStarting)
+    }
+
+    @Test
+    fun `picking the running session back up opens it`() = runTest {
+        sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        viewModel.onEvent(NewSessionEvent.ResumeRequested)
+
+        // The same landing as a start, and still no second session written: the plan on
+        // screen is dropped with the flow, which is what it was always going to be until the
+        // running workout is closed out.
+        assertEquals(99L, viewModel.uiState.value.openSessionId)
+        assertNull(viewModel.uiState.value.runningSessionId)
+        assertTrue(viewModel.uiState.value.isStarting)
+        assertEquals(emptyList<Any>(), sessions.storedSessions())
+    }
+
+    @Test
+    fun `declining the offer leaves the plan where it was`() = runTest {
+        sessionState.update(SessionState.Active(sessionId = 99L, startedAt = 1L))
+        val viewModel = viewModel()
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        viewModel.onEvent(NewSessionEvent.ResumeDismissed)
+
+        // Nothing is opened and nothing is lost: START asks again, and is refused again until
+        // the running workout is ended.
+        assertNull(viewModel.uiState.value.openSessionId)
+        assertNull(viewModel.uiState.value.runningSessionId)
+        assertTrue(viewModel.uiState.value.step is NewSessionStep.ReadyToStart)
     }
 
     @Test

@@ -60,6 +60,7 @@ import com.opengym.core.ui.component.TemplateRow
 import com.opengym.core.ui.format.formatAsEstimate
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.newsession.component.ResumeSessionDialog
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -68,8 +69,10 @@ import kotlin.time.Duration.Companion.minutes
  *
  * @param onCancel the user left without starting anything. The flow is over and nothing was
  *   written.
- * @param onSessionStarted the session exists and the workout should open. Called once, from
- *   the state — see [NewSessionUiState.startedSessionId].
+ * @param onSessionOpened the workout should open. Called once, from the state — see
+ *   [NewSessionUiState.openSessionId], which is set both by a start that succeeded and by the
+ *   already-running session being picked back up. The two land in the same place, because in
+ *   both cases this is the workout the user is now in.
  * @param onPickExercises open the exercise picker. It is a destination in another feature, so
  *   this screen reports that the user wants to pick and `:app` decides what that opens.
  * @param pickedExerciseIds the picker's answer on the way back, or null when it has not
@@ -79,7 +82,7 @@ import kotlin.time.Duration.Companion.minutes
 @Composable
 fun NewSessionRoute(
     onCancel: () -> Unit,
-    onSessionStarted: (sessionId: Long) -> Unit,
+    onSessionOpened: (sessionId: Long) -> Unit,
     onPickExercises: () -> Unit,
     modifier: Modifier = Modifier,
     pickedExerciseIds: List<Long>? = null,
@@ -112,8 +115,8 @@ fun NewSessionRoute(
         viewModel.onEvent(NewSessionEvent.ExerciseSelectionClosed)
     }
 
-    LaunchedEffect(state.startedSessionId) {
-        state.startedSessionId?.let(onSessionStarted)
+    LaunchedEffect(state.openSessionId) {
+        state.openSessionId?.let(onSessionOpened)
     }
 
     // The review panel is a step within one destination, so the system back gesture has to
@@ -174,6 +177,16 @@ fun NewSessionScreen(
             onNameChange = { onEvent(NewSessionEvent.NameChanged(it)) },
             onConfirm = { onEvent(NewSessionEvent.NameConfirmed) },
             onDismiss = { onEvent(NewSessionEvent.NameEditCancelled) },
+        )
+    }
+
+    // A refused start, asked rather than reported — see [ResumeSessionDialog]. It is drawn
+    // over whichever face is showing, because the refusal is about the workout the user is
+    // already in rather than about the plan they were assembling.
+    if (state.runningSessionId != null) {
+        ResumeSessionDialog(
+            onConfirm = { onEvent(NewSessionEvent.ResumeRequested) },
+            onDismiss = { onEvent(NewSessionEvent.ResumeDismissed) },
         )
     }
 
@@ -521,7 +534,6 @@ private fun StartBar(enabled: Boolean, onStart: () -> Unit) {
 
 /** The sentence a message is shown as. */
 private fun NewSessionMessage.labelRes(): Int = when (this) {
-    NewSessionMessage.SESSION_ALREADY_ACTIVE -> R.string.new_session_error_already_active
     NewSessionMessage.START_FAILED -> R.string.new_session_error_start_failed
     NewSessionMessage.TEMPLATE_UNAVAILABLE -> R.string.new_session_error_template
     NewSessionMessage.EXERCISES_UNAVAILABLE -> R.string.new_session_error_exercises_missing

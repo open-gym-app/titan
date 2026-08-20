@@ -25,10 +25,21 @@ import kotlin.time.Duration
  *   the write is two rows and a state transition, and a second press part way through would
  *   be refused by [com.opengym.core.domain.usecase.StartSessionUseCase] with an error the
  *   user did nothing to deserve.
- * @param startedSessionId the session that now exists, once START has succeeded — the flow's
- *   way of saying it is over. Carried in the state rather than pushed down a channel because
- *   there is nothing to race: the destination is popped on the way into the workout, so this
- *   is the last value this screen ever holds.
+ * @param openSessionId the workout this flow has landed the user on — the flow's way of saying
+ *   it is over. Two things set it and the screen does the same thing with both: the session
+ *   START has just created, and the one that was already running and has been picked back up
+ *   (see [runningSessionId]). Both are the same navigation, because in both cases the answer to
+ *   "which workout am I in" is this one.
+ *
+ *   Carried in the state rather than pushed down a channel because there is nothing to race:
+ *   the destination is popped on the way into the workout, so this is the last value this
+ *   screen ever holds.
+ * @param runningSessionId the workout that refused the start, or null. `StartSessionUseCase`
+ *   turns down a second session while one is in progress and names the one in the way, and
+ *   this screen offers it back rather than reporting the refusal: the running session is not in
+ *   the history list — which shows only what has been finished — so a user told "one is already
+ *   running" and left there has no way to reach it, finish it, or start anything else. See
+ *   `ResumeSessionDialog`.
  * @param nameDraft what is in the name field, or **null** when the dialog is closed. Null is the
  *   read state, so a screen asking "is the dialog up" asks one question.
  * @param message something that happened and needs saying once.
@@ -39,7 +50,8 @@ data class NewSessionUiState(
     val isLoading: Boolean = true,
     val step: NewSessionStep = NewSessionStep.TemplateSelection,
     val isStarting: Boolean = false,
-    val startedSessionId: Long? = null,
+    val openSessionId: Long? = null,
+    val runningSessionId: Long? = null,
     val nameDraft: String? = null,
     val message: NewSessionMessage? = null,
 )
@@ -127,15 +139,12 @@ data class PlannedExerciseRow(
  */
 enum class NewSessionMessage {
 
-    /**
-     * A session is already running, so this one was refused.
-     *
-     * The everyday cause is a session left open by a previous launch. It is reported rather
-     * than silently resumed: resuming somebody into a workout they did not ask for, from a
-     * screen where they were setting up a different one, is worse than saying why the button
-     * did nothing.
+    /*
+     * A refused start used to be one of these, and is not any more: a session already running
+     * is not something to say once, it is something to offer — see
+     * [NewSessionUiState.runningSessionId]. Said in a snackbar it faded, leaving the user
+     * holding a plan they could not start and no longer able to read why.
      */
-    SESSION_ALREADY_ACTIVE,
 
     /** The session could not be written. Nothing was left behind — see the use case. */
     START_FAILED,

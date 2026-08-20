@@ -109,7 +109,11 @@ data class ExercisePicker(
  *   Reached from **two** destinations now: setup opens it to build a plan, and the workout opens
  *   it to add to one. Only one of the two is ever on the back stack — setup is popped inclusive
  *   on the way into the workout — so there is no question of both reading the same answer.
- * @param onSessionStarted setup finished; the id is the session that was created.
+ * @param onSessionStarted the workout should open; the id is the session to open. Two things
+ *   reach it: setup finished and wrote a session, and a workout that was **already running**
+ *   was picked back up from the setup screen — see `NewSessionUiState.runningSessionId`, which
+ *   is the only route back to a session the app left open. Both are the same navigation, so
+ *   there is nothing here to tell apart.
  * @param onSessionFinished the workout ended and should be recapped. The recap is not in this
  *   graph — see [SessionSummaryDestination] — so this both leaves the flow and opens it.
  * @param onSessionDiscarded the workout was thrown away. A separate exit from
@@ -127,7 +131,7 @@ fun NavGraphBuilder.sessionGraph(
         composable<NewSessionDestination> {
             NewSessionRoute(
                 onCancel = onCancelSetup,
-                onSessionStarted = onSessionStarted,
+                onSessionOpened = onSessionStarted,
                 // Setup is building the plan from nothing, so every pick adds to it.
                 onPickExercises = { exercisePicker.open(false) },
                 // Read here, inside the destination, rather than taken off the graph as it was
