@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Close
@@ -21,7 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.component.BadgeTone
+import com.opengym.core.ui.component.DragHandle
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymBadge
@@ -83,6 +87,10 @@ import com.opengym.feature.session.active.SetEntryError
  * @param onSwap do a different exercise in this slot, keeping its place in the running order and
  *   whatever it is paired with. The picker is what answers; the refusal it can meet is the same
  *   one [onRemove] can, and for a related reason — see `SwapSessionExerciseUseCase`.
+ * @param isMovable whether holding this card would pick it up, which is the only thing that
+ *   draws the grab glyph in front of its position — see [ExerciseHeading]. The gesture has
+ *   nothing else on the screen announcing it, and the one thing worse than an unannounced
+ *   gesture is one announced where it does not work.
  */
 @Composable
 fun SessionExerciseCard(
@@ -96,6 +104,7 @@ fun SessionExerciseCard(
     showRpeScale: Boolean = false,
     enabled: Boolean = true,
     isLogging: Boolean = false,
+    isMovable: Boolean = false,
 ) {
     val entry = row.entry
 
@@ -110,6 +119,7 @@ fun SessionExerciseCard(
                 onRemove = onRemove,
                 onSwap = onSwap,
                 enabled = enabled,
+                isMovable = isMovable,
             )
 
             SetTable(row = row, onEvent = onEvent, onRpeClick = onRpeToggle, enabled = enabled)
@@ -179,7 +189,16 @@ fun SessionExerciseCard(
     }
 }
 
-/** The name, its place in the workout, and the two ways to change what is in the slot. */
+/**
+ * The name, its place in the workout, and the two ways to change what is in the slot.
+ *
+ * The grab glyph in front of the position is the only thing on the screen that says the order
+ * can be changed at all. It is a *mark*, not a control — nothing happens if it is pressed, the
+ * whole card responds to a hold — and it is the same glyph the row collapses to when one is
+ * picked up, so the two teach each other. Drawn only where the gesture would actually work
+ * ([isMovable]): a workout of one exercise, or a paused one, has nothing to reorder, and a hint
+ * at a gesture that is inert is worse than no hint.
+ */
 @Composable
 private fun ExerciseHeading(
     row: SessionExerciseRow,
@@ -187,6 +206,7 @@ private fun ExerciseHeading(
     onRemove: () -> Unit,
     onSwap: () -> Unit,
     enabled: Boolean,
+    isMovable: Boolean,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -194,10 +214,21 @@ private fun ExerciseHeading(
         verticalAlignment = Alignment.Top,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Eyebrow(
-                text = stringResource(R.string.active_exercise_position, position + 1),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (isMovable) {
+                    DragHandle(
+                        modifier = Modifier.size(HANDLE_SIZE),
+                        tint = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                Eyebrow(
+                    text = stringResource(R.string.active_exercise_position, position + 1),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 text = row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
                 style = MaterialTheme.typography.titleMedium,
@@ -352,3 +383,12 @@ private fun SetEntryError.message(): String = when (this) {
     SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
     is SetEntryError.Refused -> reason
 }
+
+/**
+ * The grab mark, at the size of the eyebrow it sits in front of.
+ *
+ * Smaller than the one on a collapsed row, which is sized against the set-row glyphs: here it is
+ * a mark on a label rather than a column of its own, and it should not outweigh the word beside
+ * it.
+ */
+private val HANDLE_SIZE: Dp = 14.dp

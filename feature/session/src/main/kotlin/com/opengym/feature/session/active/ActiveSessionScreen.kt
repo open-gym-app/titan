@@ -272,6 +272,10 @@ fun ActiveSessionScreen(
     // Not `rememberSaveable`, unlike the scale above: a held exercise cannot survive the process
     // that is holding it, and a list that came back collapsed with nothing under the finger
     // would be a mode with no way out.
+    // Hoisted, because the cards say so too: the grab mark on a card is drawn exactly where
+    // holding it would pick it up, and a hint at a gesture that is inert is worse than none.
+    val canReorder = state.isEditable && !state.isReordering && state.exercises.size > 1
+
     val reorder = rememberReorderState(
         itemCount = state.exercises.size,
         onMove = { from, to -> order = order.toMutableList().apply { add(to, removeAt(from)) } },
@@ -281,7 +285,7 @@ fun ActiveSessionScreen(
         // picked up would be a gesture whose only outcome is a refusal. Nor while an order is
         // being written: a second one computed against the list as it was is the same mistake
         // the superset control guards against with `isRegrouping`.
-        enabled = state.isEditable && !state.isReordering && state.exercises.size > 1,
+        enabled = canReorder,
     )
 
     // Drawn in the order being dragged rather than the stored one, so the page under the finger
@@ -329,6 +333,7 @@ fun ActiveSessionScreen(
                 state = state,
                 exercises = exercises,
                 reorder = reorder,
+                canReorder = canReorder,
                 inlineMessage = inlineMessage,
                 onEvent = onEvent,
                 onPickExercises = onPickExercises,
@@ -372,6 +377,7 @@ private fun SessionBody(
     state: ActiveSessionUiState,
     exercises: List<SessionExerciseRow>,
     reorder: ReorderState,
+    canReorder: Boolean,
     inlineMessage: ActiveSessionMessage?,
     onEvent: (ActiveSessionEvent) -> Unit,
     onPickExercises: (replacing: Boolean) -> Unit,
@@ -496,6 +502,7 @@ private fun SessionBody(
                             // the fields belong to a movement on its way out of the slot.
                             enabled = enabled && state.swappingExerciseId != row.sessionExerciseId,
                             isLogging = row.sessionExerciseId in state.loggingExerciseIds,
+                            isMovable = canReorder,
                         )
                     }
                 }
