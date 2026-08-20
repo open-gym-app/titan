@@ -508,6 +508,61 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a refused reorder puts the workout back in the order the store kept`() {
+        // The one outcome the re-seed off `storedOrder` cannot see: the write changed nothing,
+        // so the stored order is the list it already was and a `remember` keyed on it does not
+        // re-run. Left alone, the screen goes on drawing an order the database rejected, and a
+        // lifter works down a list the log disagrees with.
+        var refused by mutableStateOf(0)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state().copy(refusedReorders = refused),
+                    onEvent = events::add,
+                )
+            }
+        }
+
+        hold("Bench press")
+        drag(rows = 1.2f)
+        // The order under the finger: the bench has passed the incline.
+        composeTestRule.onNodeWithContentDescription("2. Bench press").assertIsDisplayed()
+        release()
+
+        // The store refuses, and its exercises come back exactly as they went in.
+        refused = 1
+        composeTestRule.waitForIdle()
+
+        // Picked up again — the numbered list is how the drawn order is readable — the workout
+        // is in the order the store kept.
+        hold("Bench press")
+        composeTestRule.onNodeWithContentDescription("1. Bench press").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2. Incline dumbbell press").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a reorder that lands is left drawn as it was made`() {
+        // The other half of the pair above: anything happening on the screen that is *not* a
+        // reorder refusal must not reach in and re-seed the list under a gesture that succeeded.
+        var message by mutableStateOf<ActiveSessionMessage?>(null)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = state().copy(message = message), onEvent = events::add)
+            }
+        }
+
+        hold("Bench press")
+        drag(rows = 1.2f)
+        release()
+
+        message = ActiveSessionMessage.RENAME_FAILED
+        composeTestRule.waitForIdle()
+
+        hold("Bench press")
+        composeTestRule.onNodeWithContentDescription("2. Bench press").assertIsDisplayed()
+    }
+
+    @Test
     fun `a paused workout cannot be picked up`() {
         setScreen(state().copy(isPaused = true))
 

@@ -619,9 +619,14 @@ class ActiveSessionViewModel @Inject constructor(
             reorderExercises(orderedSessionExerciseIds)
                 .onSuccess { screenState.update { it.copy(isReordering = false) } }
                 .onFailure {
+                    // Counted, not just reported. The refusal leaves `session_exercise` exactly
+                    // as it was, so nothing the screen reads off the store changes to tell it
+                    // that the order it is drawing was turned down — see
+                    // [ActiveSessionUiState.refusedReorders].
                     screenState.update {
                         it.copy(
                             isReordering = false,
+                            refusedReorders = it.refusedReorders + 1,
                             message = ActiveSessionMessage.REORDER_FAILED,
                         )
                     }
@@ -1096,6 +1101,7 @@ class ActiveSessionViewModel @Inject constructor(
             isRenaming = screen.isRenaming,
             isAddingExercises = screen.isAddingExercises,
             isRegrouping = screen.isRegrouping,
+            refusedReorders = screen.refusedReorders,
             isReordering = screen.isReordering,
             swappingExerciseId = screen.swappingExerciseId,
             isPaused = screen.pausedAt != null,
@@ -1203,6 +1209,7 @@ private data class ScreenState(
     val isAddingExercises: Boolean = false,
     val isRegrouping: Boolean = false,
     val isReordering: Boolean = false,
+    val refusedReorders: Int = 0,
     val swappingExerciseId: Long? = null,
     val removingExerciseIds: Set<Long> = emptySet(),
     val pausedDuration: Duration = Duration.ZERO,

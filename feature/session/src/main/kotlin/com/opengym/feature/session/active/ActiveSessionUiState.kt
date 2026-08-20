@@ -45,6 +45,13 @@ import kotlin.time.Duration
  * @param isRegrouping a superset is being formed or broken. One flag for the whole screen rather
  *   than one per join: the write is a rewrite of the *session's* grouping, and a second tap
  *   landing on another join mid-write would be computed against the layout as it was before.
+ * @param refusedReorders how many reorders the store has turned down this session.
+ *
+ *   Not drawn anywhere. It exists because a refusal is the one outcome that changes *nothing* a
+ *   screen can otherwise observe: the exercises come back in the order they were already in, so
+ *   a screen holding a dragged copy of that order has no signal that it should drop it. This is
+ *   the signal. A count rather than a flag because two refusals in a row have to read as two
+ *   events; see `ActiveSessionScreen`, which keys the dragged order on it.
  * @param isReordering the running order is being written. One flag for the same reason
  *   [isRegrouping] is one: what is being written is the *session's* layout, and a second drag
  *   let through mid-write would be computed against the order as it was before.
@@ -89,6 +96,7 @@ data class ActiveSessionUiState(
     val isAddingExercises: Boolean = false,
     val isRegrouping: Boolean = false,
     val isReordering: Boolean = false,
+    val refusedReorders: Int = 0,
     val swappingExerciseId: Long? = null,
     val isPaused: Boolean = false,
     val loggingExerciseIds: Set<Long> = emptySet(),

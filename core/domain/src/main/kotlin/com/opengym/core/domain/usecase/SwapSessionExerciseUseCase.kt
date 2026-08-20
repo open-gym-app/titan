@@ -44,6 +44,7 @@ class SwapSessionExerciseUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -64,18 +65,21 @@ class SwapSessionExerciseUseCase(
      * session; and with [SessionError.ExerciseHasLoggedSets] once anything has been logged
      * against it.
      */
-    suspend operator fun invoke(sessionExerciseId: Long, exerciseId: Long): Result<SessionExercise> {
+    suspend operator fun invoke(
+        sessionExerciseId: Long,
+        exerciseId: Long,
+    ): Result<SessionExercise> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val active = current as? SessionState.Active
-            ?: return Result.failure(SessionError.SessionNotActive(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
         val exercise = sessionRepository.getExercises(active.sessionId).first()
             .firstOrNull { it.id == sessionExerciseId }
-            ?: return Result.failure(
+            ?: return@withTransition Result.failure(
                 SessionError.ExerciseNotInSession(sessionExerciseId, active.sessionId),
             )
 
-        return fill(exercise, exerciseId)
+        fill(exercise, exerciseId)
     }
 
     /**

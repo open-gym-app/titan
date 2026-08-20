@@ -55,6 +55,14 @@ import kotlinx.coroutines.flow.first
  * same write as the positions: a screen reading a layout where the positions had moved and the
  * ordinals had not would draw `SS B` above `SS A`.
  *
+ * ### Why it takes the lifecycle lock
+ *
+ * Reading every exercise of the session, computing positions and a grouping from what was read
+ * and writing back the rows that moved is a read-modify-write, and it is the same one a removal
+ * and a superset link do. Interleaved, the later of the two writes a layout computed before the
+ * earlier one landed — which puts back the order, or the grouping, that the other had just
+ * changed. The lock is held across the read and the write.
+ *
  * ### Sets logged against an exercise do not pin it down
  *
  * An exercise that has already been worked reorders as freely as one that has not, and the
@@ -68,6 +76,7 @@ class ReorderSessionExercisesUseCase(
     private val sessionRepository: SessionRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val clock: Clock = Clock.SYSTEM,
+    private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -83,16 +92,18 @@ class ReorderSessionExercisesUseCase(
      * [SessionError.InvalidExerciseOrder] when the list is not this session's exercises, each
      * exactly once.
      */
-    suspend operator fun invoke(orderedSessionExerciseIds: List<Long>): Result<List<Long>> {
+    suspend operator fun invoke(
+        orderedSessionExerciseIds: List<Long>,
+    ): Result<List<Long>> = lock.withTransition {
         val current = sessionStateRepository.observe().first()
         val active = current as? SessionState.Active
-            ?: return Result.failure(SessionError.SessionNotActive(current))
+            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
         val exercises = sessionRepository.getExercises(active.sessionId).first()
         val moved = rowsThatMove(orderedSessionExerciseIds, exercises.associateBy(SessionExercise::id))
-            .getOrElse { return Result.failure(it) }
+            .getOrElse { return@withTransition Result.failure(it) }
 
-        return runCatching {
+        runCatching {
             // Nothing to write is a success rather than a special case: dragging an exercise
             // back where it came from is a legal thing to do and produces no order to save.
             if (moved.isNotEmpty()) sessionRepository.updateExercises(moved)

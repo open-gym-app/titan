@@ -629,6 +629,64 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
+    fun `an order that is not this session's exercises is refused and changes nothing`() = runTest {
+        // The refusal `ReorderSessionExercisesUseCase` makes about the list itself, which had no
+        // test at all. What it costs the screen is the point: nothing moved, so nothing on the
+        // store's side changes to tell the screen to stop drawing the order it dragged.
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW)))
+
+        assertEquals(ActiveSessionMessage.REORDER_FAILED, viewModel.uiState.value.message)
+        assertEquals(
+            listOf(BENCH, INCLINE, FLY),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+        // The count is the only thing about the session that a refusal changes, which is the
+        // whole reason it exists: the screen holding a dragged copy of the order has nothing
+        // else to notice.
+        assertEquals(1, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `each refusal counts, so two in a row are two`() = runTest {
+        val viewModel = viewModel()
+
+        repeat(2) {
+            viewModel.onEvent(ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW)))
+        }
+
+        assertEquals(2, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `a reorder that lands does not count as a refusal`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(0, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `a reorder of a paused workout is refused and the order stands`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(ActiveSessionMessage.REORDER_FAILED, viewModel.uiState.value.message)
+        assertEquals(
+            listOf(BENCH, INCLINE, FLY),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+    }
+
+    @Test
     fun `a reorder survives the screen being reopened, because it is on the row`() = runTest {
         val store = pushDayStore()
         viewModel(store = store).onEvent(
@@ -1347,8 +1405,8 @@ class ActiveSessionViewModelTest {
             logSet = LogSetUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
-            reorderExercises = ReorderSessionExercisesUseCase(store, state, clock),
-            swapExercise = SwapSessionExerciseUseCase(store, state, clock),
+            reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),
+            swapExercise = SwapSessionExerciseUseCase(store, state, clock, lock),
             linkSuperset = LinkSupersetUseCase(store, state, clock, lock),
             unlinkSuperset = UnlinkSupersetUseCase(store, state, clock, lock),
             renameSession = RenameSessionUseCase(store),

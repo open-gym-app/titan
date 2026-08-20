@@ -244,12 +244,21 @@ fun ActiveSessionScreen(
     // cells tall, and two of them open would push the second exercise's table off the screen.
     var rpeScaleFor by rememberSaveable { mutableStateOf<Long?>(null) }
 
-    // The order as it is being dragged. Screen-local and seeded from the store, which is what
-    // makes it honest: the key is the stored order, so anything that lands — the drag's own
-    // write, an exercise added, a refusal that never changed anything — re-seeds it. Between
-    // gestures the two are the same list.
+    // The order as it is being dragged. Screen-local and seeded from the store, on two keys.
+    //
+    // The stored order is the obvious one: anything that *changes* the workout — the drag's own
+    // write, an exercise added or cut — re-seeds this, and between gestures the two are the same
+    // list. What that key cannot see is a reorder the store **refused**, which is the case that
+    // matters: a refusal changes nothing, so the stored order is the list it already was, the key
+    // is structurally equal to what it was, `remember` does not re-run, and the screen goes on
+    // drawing an order the database rejected — a lifter working down a list the log disagrees
+    // with, with nothing to put it back.
+    //
+    // Hence the count of refusals, which is a fact about the workout that only the ViewModel has.
+    // A count rather than a flag because two refusals in a row have to be two re-seeds, and it is
+    // read only as a key: nothing on the screen draws it.
     val storedOrder = state.exercises.map(SessionExerciseRow::sessionExerciseId)
-    var order by remember(storedOrder) { mutableStateOf(storedOrder) }
+    var order by remember(storedOrder, state.refusedReorders) { mutableStateOf(storedOrder) }
 
     // Not `rememberSaveable`, unlike the scale above: a held exercise cannot survive the process
     // that is holding it, and a list that came back collapsed with nothing under the finger
