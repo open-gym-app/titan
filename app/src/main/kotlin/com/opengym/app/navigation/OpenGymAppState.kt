@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -55,29 +56,53 @@ class OpenGymAppState(val navController: NavHostController) {
      * grows without bound as the user browses, without the second every tab resets on every
      * visit.
      *
-     * **Except when the tab is already the one you are in.** Then the two state flags invert,
-     * and that is the whole of "tap the active tab to go back to the top": saving nothing and
-     * restoring nothing leaves the pop to stand, so a re-tap on the Library from a filtered,
-     * searched list lands on a fresh one. It has to be *both* flags — save without restore
-     * would file that state away to be silently restored on the next visit from another tab,
-     * which is the same bug wearing a delay.
+     * **Except when the tab is already the one you are in.** Then it is not a switch at all:
+     * the tab is popped and pushed back, saving and restoring nothing, and that is the whole
+     * of "tap the active tab to go back to the top" — a re-tap on the Library from a filtered,
+     * searched list lands on a fresh one, because the entry the search lived on is gone.
+     *
+     * The pop is of *this tab's own graph*, inclusively, and it has to be. Popping to the
+     * app's start destination instead leaves Home — which is that start destination — with
+     * nothing above it to pop, so `launchSingleTop` swaps the entry out in place; the outgoing
+     * entry never becomes a transition, `NavHost` finds it missing from its visible entries
+     * and falls back to a `ContentTransform` whose default `SizeTransform` wipes the screen
+     * open from its top-left corner. That wipe is the one animation in the app nothing asked
+     * for, and it is the reason a hammered Home button looks broken. Popping the tab's graph
+     * makes every tab take the same path Sessions, Library and Stats already took, which is
+     * the path where [NavMotion.RESET] — deliberately nothing — is what gets drawn.
      *
      * This is a deliberate exception to "returning to a tab resumes where you left it",
      * because they answer different questions. Arriving from elsewhere, the user is coming
      * back to what they were doing. Pressing the tab they are already on, they are asking for
      * the one thing that press could otherwise never do.
+     *
+     * **And only once they are actually on it.** A tab the shell is still animating *into* is
+     * not a tab the user is on, but the back stack says it is the moment `navigate` returns —
+     * so the second tap of a double tap reads as a reselection and resets a screen that has
+     * not finished arriving. That is what the bar does when its buttons are hammered: every
+     * tap after the first tears the tab down and rebuilds it mid-arrival, cutting the fade
+     * short and starting it again from a screen that was never on screen. An entry reaches
+     * `RESUMED` only once its enter transition has completed, which is precisely the question,
+     * and a tap that arrives before then is the one the shell is already carrying out.
      */
     fun navigateToTopLevelDestination(topLevelDestination: TopLevelDestination) {
-        val isReselection =
-            ShellChrome.of(navController.currentDestination).currentTopLevelDestination ==
+        val currentEntry = navController.currentBackStackEntry
+        val isCurrentTab =
+            ShellChrome.of(currentEntry?.destination).currentTopLevelDestination ==
                 topLevelDestination
+        val hasArrived =
+            currentEntry?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
+
+        if (isCurrentTab && !hasArrived) return
 
         navController.navigate(topLevelDestination.graphDestination) {
-            popUpTo(navController.graph.findStartDestination().id) {
-                saveState = !isReselection
+            if (isCurrentTab) {
+                popUpTo(topLevelDestination.graphDestination) { inclusive = true }
+            } else {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                restoreState = true
             }
             launchSingleTop = true
-            restoreState = !isReselection
         }
     }
 }

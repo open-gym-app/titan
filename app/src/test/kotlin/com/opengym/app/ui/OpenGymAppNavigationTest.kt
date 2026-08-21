@@ -183,6 +183,31 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
+    fun `a second tap on a tab that is still arriving is not a reselection`() {
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+        composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
+        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
+        composeTestRule.onNodeWithContentDescription(TAB_STATS).performClick()
+
+        // The clock is stopped so the second tap lands where a hammered bar puts it: after the
+        // navigation has been dispatched, before the animation into the tab has finished. This
+        // is the whole of the bug — `currentDestination` says Library the instant `navigate`
+        // returns, so without the guard the second tap reads as "you are already here".
+        composeTestRule.mainClock.autoAdvance = false
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+        composeTestRule.mainClock.advanceTimeBy(MID_TRANSITION_MILLIS)
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
+        composeTestRule.mainClock.autoAdvance = true
+        composeTestRule.waitForIdle()
+
+        // The tab the user was switching to, restored as the first tap asked for. Unguarded,
+        // the second tap resets it instead: the search closes on what was typed in it, and on
+        // screen the arrival is cut short by the reset's vertical slide over a tab being torn
+        // down and rebuilt — which is what a spammed bar looks like.
+        composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
+    }
+
+    @Test
     fun `opening a logged session leaves the tab scaffold, and back returns to it`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
         // The row is drawn from a Room read, so it arrives a beat after the tab does.
@@ -556,6 +581,10 @@ class OpenGymAppNavigationTest {
         const val LIBRARY_SEARCH = "Search"
         const val LIBRARY_SEARCH_PLACEHOLDER = "Search exercises…"
         const val QUERY = "bench"
+
+        // Part-way through a tab switch's 150ms fade: long enough that the arriving tab has
+        // been composed, short enough that it has not been marked as arrived at.
+        const val MID_TRANSITION_MILLIS = 80L
 
         // Actions.
         const val START_SESSION = "START SESSION"
