@@ -16,14 +16,17 @@ import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
+import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
 import com.opengym.feature.session.newsession.FakeSettings
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -181,6 +184,46 @@ class ActiveSessionViewModelTest {
         )
     }
 
+    @Test
+    fun `a superset's two writes are in flight at once without either logging twice`() = runTest {
+        // How a superset is actually logged: the incline and the fly are alternated set for
+        // set, so two ticks land within a second of each other and both writes are genuinely
+        // open. One flag for the screen — or one id — would have the first write to come back
+        // re-arm the other exercise's tick over an insert still running, and the set behind it
+        // would be written a second time.
+        val store = pushDayStore()
+        val incline = CompletableDeferred<Unit>()
+        val fly = CompletableDeferred<Unit>()
+        store.beforeInsert = { set ->
+            when (set.sessionExerciseId) {
+                INCLINE_ROW -> incline.await()
+                FLY_ROW -> fly.await()
+                else -> Unit
+            }
+        }
+        val viewModel = viewModel(store = store)
+
+        viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
+        viewModel.enter(weight = "20", reps = "15", sessionExerciseId = FLY_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+
+        assertEquals(setOf(INCLINE_ROW, FLY_ROW), viewModel.uiState.value.loggingExerciseIds)
+
+        // The incline's write lands while the fly's is still open, and a tick on the fly in
+        // that window is the double tap the guard is for.
+        // Completing resumes the parked write in place — the dispatcher is unconfined, and the
+        // scheduler must not be advanced here: the elapsed clock's heartbeat is an unending
+        // once-a-second flow, so advancing virtual time until idle never reaches idle.
+        incline.complete(Unit)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+        fly.complete(Unit)
+
+        assertEquals(1, store.logged.count { it.sessionExerciseId == FLY_ROW })
+        assertEquals(1, store.logged.count { it.sessionExerciseId == INCLINE_ROW })
+        assertTrue(viewModel.uiState.value.loggingExerciseIds.isEmpty())
+    }
+
     // ─── Validation ─────────────────────────────────────────────────────────────────────
 
     @Test
@@ -248,23 +291,46 @@ class ActiveSessionViewModelTest {
     }
 
     @Test
-    fun `a set the domain refuses keeps what was typed and says why`() = runTest {
-        // The screen's own check passes — the shape rule is the exercise type's, and only the
-        // use case knows it, since a plank records a duration rather than reps.
-        val store = pushDayStore()
-        val viewModel = viewModel(
-            store = store,
-            catalogue = FakeExerciseCatalogue(
-                exercises = listOf(BENCH.copy(type = ExerciseType.ISOMETRIC)),
-            ),
-        )
+    fun `an exercise logged by duration cannot take a set here, and says so rather than refusing one`() =
+        runTest {
+            // A plank records a duration, and this screen's entry row is a weight and a rep
+            // count — so every set logged against it would be refused by `SetValidator`. The
+            // tick is not live for it at all: the alternative is a control that looks ready on
+            // every set of the exercise and fails on every press of it.
+            val store = pushDayStore()
+            val viewModel = viewModel(
+                store = store,
+                catalogue = FakeExerciseCatalogue(
+                    exercises = listOf(BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                ),
+            )
 
-        viewModel.enter(weight = "80", reps = "5")
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(store.logged.isEmpty())
+            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).isLoggedByDuration)
+            assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+            // Nothing the user typed is wrong, so nothing is marked as wrong. What is typed
+            // stays put, as it does through any other refusal.
+            assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
+            assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+        }
+
+    @Test
+    fun `a strength set with no rep count is not loggable, and is not an error either`() = runTest {
+        // The dimension a completed STRENGTH set has to record is reps, so a row with only a
+        // weight in it is one `LogSetUseCase` would refuse. Half way through typing is not a
+        // mistake, though: the tick simply is not live yet, the way it is not on an empty row.
+        val store = pushDayStore()
+        val viewModel = viewModel(store = store)
+
+        viewModel.enter(weight = "80", reps = "")
         viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
         assertTrue(store.logged.isEmpty())
-        assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
-        assertTrue(viewModel.uiState.value.entryOf(BENCH_ROW).error is SetEntryError.Refused)
+        assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+        assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
     }
 
     // ─── The workout on screen ──────────────────────────────────────────────────────────
@@ -544,6 +610,247 @@ class ActiveSessionViewModelTest {
         viewModel.onEvent(ActiveSessionEvent.ExerciseRemoved(FLY_ROW))
 
         assertTrue(viewModel.uiState.value.exercises.all { it.supersetLabel == null })
+    }
+
+    // ─── Reordering ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a reorder is written, and the workout comes back in the new order`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(
+            listOf(FLY, BENCH, INCLINE),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+    }
+
+    @Test
+    fun `an order that is not this session's exercises is refused and changes nothing`() = runTest {
+        // The refusal `ReorderSessionExercisesUseCase` makes about the list itself, which had no
+        // test at all. What it costs the screen is the point: nothing moved, so nothing on the
+        // store's side changes to tell the screen to stop drawing the order it dragged.
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW)))
+
+        assertEquals(ActiveSessionMessage.REORDER_FAILED, viewModel.uiState.value.message)
+        assertEquals(
+            listOf(BENCH, INCLINE, FLY),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+        // The count is the only thing about the session that a refusal changes, which is the
+        // whole reason it exists: the screen holding a dragged copy of the order has nothing
+        // else to notice.
+        assertEquals(1, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `each refusal counts, so two in a row are two`() = runTest {
+        val viewModel = viewModel()
+
+        repeat(2) {
+            viewModel.onEvent(ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW)))
+        }
+
+        assertEquals(2, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `a reorder that lands does not count as a refusal`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(0, viewModel.uiState.value.refusedReorders)
+    }
+
+    @Test
+    fun `a reorder of a paused workout is refused and the order stands`() = runTest {
+        val viewModel = viewModel()
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(ActiveSessionMessage.REORDER_FAILED, viewModel.uiState.value.message)
+        assertEquals(
+            listOf(BENCH, INCLINE, FLY),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+    }
+
+    @Test
+    fun `a reorder survives the screen being reopened, because it is on the row`() = runTest {
+        val store = pushDayStore()
+        viewModel(store = store).onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, INCLINE_ROW, BENCH_ROW)),
+        )
+
+        // A second ViewModel over the same store is what a relaunch is: nothing of the order
+        // lives in this object, so what comes back is what `session_exercise.position` holds.
+        val reopened = viewModel(store = store)
+
+        assertEquals(
+            listOf(FLY, INCLINE, BENCH),
+            reopened.uiState.value.exercises.map { it.exercise },
+        )
+    }
+
+    @Test
+    fun `the exercises are renumbered on screen after a reorder`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(FLY_ROW, BENCH_ROW, INCLINE_ROW)),
+        )
+
+        assertEquals(listOf(0, 1, 2), viewModel.uiState.value.exercises.map { it.position })
+    }
+
+    @Test
+    fun `the progress marks travel with the exercises they are about`() = runTest {
+        // The rule for reordering an exercise that has already been worked: there is not one,
+        // because the indicator does not index the workout. It carries a mark per exercise, so
+        // moving the one that is done moves its mark — and the figure it is read as, "1 / 3",
+        // is the same either way.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        assertEquals(
+            listOf(true, false, false),
+            viewModel.uiState.value.header?.progress?.exercises,
+        )
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(INCLINE_ROW, FLY_ROW, BENCH_ROW)),
+        )
+
+        val after = viewModel.uiState.value.header?.progress
+        assertEquals(listOf(false, false, true), after?.exercises)
+        assertEquals(1, after?.completed)
+        assertEquals(3, after?.total)
+    }
+
+    @Test
+    fun `the sets of a reordered exercise move with it`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(INCLINE_ROW, FLY_ROW, BENCH_ROW)),
+        )
+
+        val bench = viewModel.uiState.value.rowOf(BENCH_ROW)
+        assertEquals(2, bench.position)
+        assertEquals(1, bench.setCount)
+    }
+
+    @Test
+    fun `a superset moved as a block keeps its members together`() = runTest {
+        val viewModel = viewModel(store = supersetStore())
+
+        viewModel.onEvent(
+            ActiveSessionEvent.ExercisesReordered(listOf(INCLINE_ROW, FLY_ROW, BENCH_ROW)),
+        )
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(INCLINE, FLY, BENCH), state.exercises.map { it.exercise })
+        assertEquals(listOf("A1", "A2", null), state.exercises.map { it.supersetLabel })
+    }
+
+    @Test
+    fun `an exercise dragged out of a superset leaves it, on screen as well as on the row`() =
+        runTest {
+            // The rule a drag makes visible: what the user did was take one exercise out from
+            // between two others, and the pair it was in is not a pair any more. Nothing is
+            // refused, and nothing is lost — the join between two cards puts it back.
+            val viewModel = viewModel(store = supersetStore())
+
+            viewModel.onEvent(
+                ActiveSessionEvent.ExercisesReordered(listOf(INCLINE_ROW, BENCH_ROW, FLY_ROW)),
+            )
+
+            val state = viewModel.uiState.value
+            assertNull(state.message)
+            assertEquals(listOf(INCLINE, BENCH, FLY), state.exercises.map { it.exercise })
+            assertTrue(state.exercises.all { it.supersetLabel == null })
+        }
+
+    // ─── Swapping ───────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a swapped slot holds the new exercise and keeps its place`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(INCLINE_ROW, PUSHDOWN.id))
+
+        val state = viewModel.uiState.value
+        assertEquals(listOf(BENCH, PUSHDOWN, FLY), state.exercises.map { it.exercise })
+        assertEquals(1, state.rowOf(INCLINE_ROW).position)
+    }
+
+    @Test
+    fun `a swap clears what was typed into that slot, and nothing else`() = runTest {
+        // The weight standing in the field was typed for the movement that was there.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+        viewModel.enter(weight = "80", reps = "5", sessionExerciseId = BENCH_ROW)
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(INCLINE_ROW, PUSHDOWN.id))
+
+        assertEquals(SetEntry(), viewModel.uiState.value.entryOf(INCLINE_ROW))
+        assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+    }
+
+    @Test
+    fun `a slot with a logged set is refused, and the refusal names the way past it`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(BENCH_ROW, PUSHDOWN.id))
+
+        assertEquals(ActiveSessionMessage.SWAP_HAS_SETS, viewModel.uiState.value.message)
+        assertEquals(BENCH, viewModel.uiState.value.rowOf(BENCH_ROW).exercise)
+    }
+
+    @Test
+    fun `a swap leaves every other exercise's sets alone`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        viewModel.enter(weight = "20", reps = "15", sessionExerciseId = FLY_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseSwapped(INCLINE_ROW, PUSHDOWN.id))
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.rowOf(BENCH_ROW).setCount)
+        assertEquals(1, state.rowOf(FLY_ROW).setCount)
+        assertEquals(2, state.stats?.totalSets)
+    }
+
+    @Test
+    fun `asking for the picker changes nothing on its own`() = runTest {
+        // The event exists so the screen can record which slot the answer belongs to; the
+        // workout is not touched until the picker comes back with something.
+        val viewModel = viewModel()
+
+        viewModel.onEvent(ActiveSessionEvent.ExerciseSwapRequested(INCLINE_ROW))
+
+        assertEquals(
+            listOf(BENCH, INCLINE, FLY),
+            viewModel.uiState.value.exercises.map { it.exercise },
+        )
+        assertNull(viewModel.uiState.value.message)
     }
 
     // ─── Naming ─────────────────────────────────────────────────────────────────────────
@@ -912,6 +1219,26 @@ class ActiveSessionViewModelTest {
         assertTrue(state.current is SessionState.Active)
     }
 
+    @Test
+    fun `pausing is ignored once the workout is on its way out`() = runTest {
+        // The header stays on screen for as long as the finish takes, so a pause can be
+        // dispatched behind one. Landing after it, the transition is refused for a session that
+        // is over and a "could not change the session" snackbar goes up over a screen that is
+        // successfully leaving for the recap; landing before it, it suspends a workout in the
+        // middle of being closed out.
+        val state = FakeSessionStateStore()
+        val viewModel = viewModel(state = state)
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+        assertFalse(viewModel.uiState.value.isPaused)
+        assertNull(viewModel.uiState.value.message)
+        assertTrue(state.current is SessionState.Finished)
+    }
+
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
 
     @Test
@@ -1078,6 +1405,8 @@ class ActiveSessionViewModelTest {
             logSet = LogSetUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
+            reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),
+            swapExercise = SwapSessionExerciseUseCase(store, state, clock, lock),
             linkSuperset = LinkSupersetUseCase(store, state, clock, lock),
             unlinkSuperset = UnlinkSupersetUseCase(store, state, clock, lock),
             renameSession = RenameSessionUseCase(store),

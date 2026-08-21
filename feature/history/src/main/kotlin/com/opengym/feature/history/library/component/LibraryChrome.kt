@@ -162,6 +162,9 @@ private fun LibraryActions(
 /**
  * The picker's bar: the way back, what it is for, how much is picked, and `+ NEW`.
  *
+ * @param replacing whether the picker is filling one slot rather than adding to the workout.
+ *   The title is the one place that says so before a row is tapped, and "Add exercises" over a
+ *   screen that will replace one is the wrong answer to "what am I doing here".
  * @param onBack the way out — nullable because the screen's is, the tab having none. A picker
  *   composed without one draws no arrow rather than one that goes nowhere.
  */
@@ -169,6 +172,7 @@ private fun LibraryActions(
 @Composable
 internal fun PickerTopBar(
     state: ExerciseLibraryUiState,
+    replacing: Boolean,
     searchExpanded: Boolean,
     onBack: (() -> Unit)?,
     onToggleSearch: () -> Unit,
@@ -191,7 +195,13 @@ internal fun PickerTopBar(
             title = {
                 Column {
                     Text(
-                        text = stringResource(R.string.library_title_select),
+                        text = stringResource(
+                            if (replacing) {
+                                R.string.library_title_replace
+                            } else {
+                                R.string.library_title_select
+                            },
+                        ),
                         // `titleMedium`, not the `titleLarge` a bar would usually carry: a
                         // back arrow and three actions leave about 130dp for the title on a
                         // 360dp screen, and at `titleLarge` "Add exercises" wraps to two
@@ -253,6 +263,11 @@ private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {
  * Disabled rather than hidden while nothing is selected, so it is clear from the moment the
  * screen opens what it is for and where the way out is.
  *
+ * [replacing] changes what it says rather than what it does: one exercise chosen for a slot is
+ * a swap, and "Add 1 exercise" over a workout that is about to have one *replaced* describes
+ * somebody else's action. The count is still what enables it — the picker takes at most one in
+ * that mode, so the two readings never disagree.
+ *
  * The navigation-bar inset is asked for rather than assumed: under the app shell it resolves
  * to nothing, because `OpenGymApp` pads the graph for the system bars and consumes them, and
  * it is the whole inset anywhere this is hosted without that. Asking is what keeps the button
@@ -262,6 +277,7 @@ private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {
 @Composable
 internal fun ConfirmSelectionBar(
     count: Int,
+    replacing: Boolean,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -276,10 +292,11 @@ internal fun ConfirmSelectionBar(
                 .padding(OpenGymTheme.spacing.screen),
         ) {
             Text(
-                text = if (count == 0) {
-                    stringResource(R.string.library_confirm_none)
-                } else {
-                    pluralStringResource(R.plurals.library_confirm, count, count)
+                text = when {
+                    replacing && count == 0 -> stringResource(R.string.library_confirm_replace_none)
+                    replacing -> stringResource(R.string.library_confirm_replace)
+                    count == 0 -> stringResource(R.string.library_confirm_none)
+                    else -> pluralStringResource(R.plurals.library_confirm, count, count)
                 },
                 style = MaterialTheme.typography.labelLarge,
             )

@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SnackbarHost
@@ -68,6 +69,8 @@ import com.opengym.feature.history.library.component.PickerTopBar
  * @param selecting whether the screen is being used as a *picker*. The library and the
  *   exercise picker are the same screen — see the note on [ExerciseLibraryScreen] — and this
  *   is the only thing that differs between them.
+ * @param singleSelection whether the picker is filling one slot, in which case it takes one
+ *   exercise — see [ExerciseLibraryScreen]. Ignored outside selection mode.
  * @param onExerciseClick open an exercise's detail screen. Null draws the rows inert rather
  *   than giving them a ripple and a click role that lead nowhere.
  * @param onSelectionConfirmed the picker's result: the chosen ids, in the order they were
@@ -82,6 +85,7 @@ fun ExerciseLibraryRoute(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     selecting: Boolean = false,
+    singleSelection: Boolean = false,
     onExerciseClick: ((exerciseId: Long) -> Unit)? = null,
     onSelectionConfirmed: (List<Long>) -> Unit = {},
     addedExerciseId: Long? = null,
@@ -94,9 +98,11 @@ fun ExerciseLibraryRoute(
     // result: the id arrives on this destination's `SavedStateHandle`, written by `:app` as
     // the detail screen pops, and the ViewModel has no business knowing that the back stack
     // is how the answer got here.
-    LaunchedEffect(addedExerciseId) {
+    LaunchedEffect(addedExerciseId, singleSelection) {
         if (addedExerciseId != null) {
-            viewModel.onEvent(ExerciseLibraryEvent.ExerciseSelected(addedExerciseId))
+            viewModel.onEvent(
+                ExerciseLibraryEvent.ExerciseSelected(addedExerciseId, exclusive = singleSelection),
+            )
             onAddedExerciseHandled()
         }
     }
@@ -106,6 +112,7 @@ fun ExerciseLibraryRoute(
         onEvent = viewModel::onEvent,
         onBack = onBack,
         selecting = selecting,
+        singleSelection = singleSelection,
         onExerciseClick = onExerciseClick,
         onSelectionConfirmed = onSelectionConfirmed,
         modifier = modifier,
@@ -122,6 +129,16 @@ fun ExerciseLibraryRoute(
  * same grouping, and two implementations of that is how one of them ends up not finding an
  * exercise the other does. What changes is small and local — rows toggle instead of opening,
  * a confirm bar appears, the title says what is being done.
+ *
+ * ### One picker, two questions
+ *
+ * Picking is itself two jobs, and [singleSelection] is which one. **Adding** to a workout takes
+ * any number of exercises; a **swap** fills one slot on a card that is already there, and a
+ * slot holds one exercise — see `SwapSessionExerciseUseCase`. So the swap takes one: the rows
+ * are radio buttons rather than checkboxes, tapping a second *moves* the choice instead of
+ * adding to it, and the bar and the title say a replacement is what is being chosen. It used
+ * to offer checkboxes for both, and everything ticked past the first was thrown away without a
+ * word on the way back.
  *
  * ### Two jobs, two sets of chrome
  *
@@ -159,6 +176,7 @@ fun ExerciseLibraryScreen(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
     selecting: Boolean = false,
+    singleSelection: Boolean = false,
     onExerciseClick: ((exerciseId: Long) -> Unit)? = null,
     onSelectionConfirmed: (List<Long>) -> Unit = {},
 ) {
@@ -233,6 +251,7 @@ fun ExerciseLibraryScreen(
                 if (selecting) {
                     PickerTopBar(
                         state = state,
+                        replacing = singleSelection,
                         searchExpanded = searchExpanded,
                         onBack = onBack,
                         onToggleSearch = onToggleSearch,
@@ -269,6 +288,7 @@ fun ExerciseLibraryScreen(
             if (selecting) {
                 ConfirmSelectionBar(
                     count = state.selection.size,
+                    replacing = singleSelection,
                     onConfirm = { onSelectionConfirmed(state.selection) },
                 )
             }
@@ -278,6 +298,7 @@ fun ExerciseLibraryScreen(
             state = state,
             onEvent = onEvent,
             selecting = selecting,
+            singleSelection = singleSelection,
             onExerciseClick = onExerciseClick,
             modifier = Modifier.padding(innerPadding),
         )
@@ -315,6 +336,7 @@ private fun LibraryList(
     state: ExerciseLibraryUiState,
     onEvent: (ExerciseLibraryEvent) -> Unit,
     selecting: Boolean,
+    singleSelection: Boolean,
     onExerciseClick: ((exerciseId: Long) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
@@ -346,8 +368,16 @@ private fun LibraryList(
                 ExerciseRow(
                     item = item,
                     selecting = selecting,
+                    singleSelection = singleSelection,
                     selected = item.exercise.id in state.selection,
-                    onToggle = { onEvent(ExerciseLibraryEvent.ExerciseToggled(item.exercise.id)) },
+                    onToggle = {
+                        onEvent(
+                            ExerciseLibraryEvent.ExerciseToggled(
+                                exerciseId = item.exercise.id,
+                                exclusive = singleSelection,
+                            ),
+                        )
+                    },
                     onClick = onExerciseClick,
                 )
                 HairlineDivider()
@@ -395,6 +425,13 @@ private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifie
  * a far better target than a 24dp box at the end of it, and giving the checkbox its own click
  * would leave two overlapping controls saying the same thing to a screen reader.
  *
+ * A picker filling one slot draws a radio button instead, and keeps the toggle on the row —
+ * the mark is the whole of what says "one of these" before the user has tapped anything, and
+ * it is the difference between a second tap adding an exercise and moving the choice. It stays
+ * *toggleable* rather than becoming `selectable`, because unticking the picked one is how
+ * somebody backs out of the swap without leaving the screen, and a radio group has no way to
+ * express that.
+ *
  * The one control that does get its own click there is the info button, and it is not saying
  * the same thing: browsing opens an exercise by tapping it, and the picker has spent that tap
  * on selecting, so without a second affordance the detail screen is unreachable from the one
@@ -405,6 +442,7 @@ private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifie
 private fun ExerciseRow(
     item: LibraryExercise,
     selecting: Boolean,
+    singleSelection: Boolean,
     selected: Boolean,
     onToggle: () -> Unit,
     onClick: ((exerciseId: Long) -> Unit)?,
@@ -432,14 +470,22 @@ private fun ExerciseRow(
                             )
                         }
                     }
-                    Checkbox(checked = selected, onCheckedChange = null)
+                    if (singleSelection) {
+                        RadioButton(selected = selected, onClick = null)
+                    } else {
+                        Checkbox(checked = selected, onCheckedChange = null)
+                    }
                 }
 
                 item.record != null -> PrValue(record = item.record)
             }
         },
         modifier = if (selecting) {
-            modifier.toggleable(value = selected, role = Role.Checkbox, onValueChange = { onToggle() })
+            modifier.toggleable(
+                value = selected,
+                role = if (singleSelection) Role.RadioButton else Role.Checkbox,
+                onValueChange = { onToggle() },
+            )
         } else {
             modifier
         },

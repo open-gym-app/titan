@@ -125,8 +125,10 @@ fun OpenGymNavHost(
                 // `launchSingleTop` as everywhere else: two taps on the quick-start dispatched
                 // before recomposition are two pushes of the same picker, and the first back
                 // press then looks like it did nothing.
-                open = {
-                    navController.navigate(ExercisePickerDestination) { launchSingleTop = true }
+                open = { replacing ->
+                    navController.navigate(ExercisePickerDestination(replacing = replacing)) {
+                        launchSingleTop = true
+                    }
                 },
                 selectedIds = { pickedExerciseIds?.toList() },
                 onSelectionHandled = { pickedExerciseIds = null },

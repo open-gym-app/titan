@@ -95,9 +95,16 @@ const val NO_SUGGESTED_TARGET: Long = 0L
  * graphs is also ambiguous to the `NavController`, which resolves by route pattern.
  *
  * The screen behind both is still one screen — see [ExerciseLibraryRoute].
+ *
+ * @param replacing whether the picker is being opened to fill **one** slot — a swap on an
+ *   exercise already in the workout — rather than to add to it. A slot holds one exercise, and
+ *   a picker that goes on offering checkboxes for a question with one answer is a screen that
+ *   collects a second choice it is about to throw away. A route argument rather than a second
+ *   destination with the same shape, matching [ExerciseDetailDestination.addToSession]: a
+ *   `NavController` resolves by route pattern, and two of those would be ambiguous.
  */
 @Serializable
-data object ExercisePickerDestination
+data class ExercisePickerDestination(val replacing: Boolean = false)
 
 /**
  * The Sessions tab.
@@ -215,9 +222,14 @@ fun NavGraphBuilder.plateCalculatorGraph(onBack: () -> Unit) {
  * cannot be: over a workout, drawing its own top bar and a confirm bar, with the shell's
  * bars gone. A picker opened mid-session has no business offering a jump to Stats.
  *
+ * Opened for two different questions, and it says which one it is asking: adding to a workout
+ * takes any number of exercises, while a swap fills one slot — see
+ * [ExercisePickerDestination.replacing], which is what turns the checkboxes into a single
+ * choice.
+ *
  * @param onExerciseClick open an exercise's detail screen, to check it before picking it.
  * @param onExercisesSelected the picker's result, in the order the user picked them — which
- *   becomes the order of the exercises in the session.
+ *   becomes the order of the exercises in the session. One id when it was opened replacing.
  */
 fun NavGraphBuilder.exercisePickerGraph(
     onBack: () -> Unit,
@@ -225,6 +237,8 @@ fun NavGraphBuilder.exercisePickerGraph(
     onExerciseClick: ((exerciseId: Long) -> Unit)? = null,
 ) {
     composable<ExercisePickerDestination> { entry ->
+        val destination: ExercisePickerDestination = entry.toRoute()
+
         // The detail screen's answer, read off *this* destination's saved state — the entry
         // `:app` writes to as the detail pops. Read here rather than inside the screen
         // because this is the only place that has the `NavBackStackEntry`; the screen is
@@ -236,6 +250,7 @@ fun NavGraphBuilder.exercisePickerGraph(
 
         ExerciseLibraryRoute(
             selecting = true,
+            singleSelection = destination.replacing,
             onBack = onBack,
             onExerciseClick = onExerciseClick,
             onSelectionConfirmed = onExercisesSelected,

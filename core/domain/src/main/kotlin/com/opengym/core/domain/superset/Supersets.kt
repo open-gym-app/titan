@@ -114,9 +114,9 @@ object Supersets {
      * It also means ids are **not stable across an edit** — nothing may store a group
      * id and expect to find the same exercises under it later.
      *
-     * A non-contiguous group is left exactly as it is. Repairing one means moving an
-     * exercise, and which one to move is a decision about the workout that this cannot
-     * make on the caller's behalf; [validate] is what refuses it.
+     * A non-contiguous group is left exactly as it is. Repairing one means deciding what
+     * the workout now is, which this cannot do on the caller's behalf: [validate] is what
+     * refuses it, and [tear] is what a caller who *has* made that decision applies.
      */
     fun normalize(grouping: List<Int?>): List<Int?> {
         val surviving = groups(grouping)
@@ -127,6 +127,48 @@ object Supersets {
             .associate { (ordinal, group) -> group to ordinal }
 
         return grouping.map { group -> group?.let(surviving::get) }
+    }
+
+    /**
+     * [grouping] with every group cut back to the run of consecutive positions it still
+     * occupies, then normalised.
+     *
+     * The repair a *reorder* needs, and the counterpart of [normalize]'s refusal to
+     * guess: an exercise dragged out from between two members leaves a group whose
+     * members are no longer next to each other, and the user has already said what
+     * should happen to it by moving it. Each group is therefore cut at its gaps — every
+     * maximal run of consecutive members becomes a group of its own — and [normalize]
+     * then dissolves the runs left with a single member and renumbers what survives.
+     *
+     * Two shapes of edit, one rule:
+     *
+     * - **A member dragged away from its group.** The exercise that left is a run of one
+     *   and stands alone; a pair it left dissolves entirely, while a three it was in the
+     *   middle of closes up — the two that remain are neighbours now — and stays a
+     *   superset.
+     * - **A non-member dropped into the middle of a group.** The group is cut in two at
+     *   the exercise that landed in it. What is left either side survives as a superset
+     *   if two or more members are still together, and dissolves if not.
+     *
+     * A grouping that is already well formed comes back exactly as [normalize] would
+     * leave it, so a caller does not have to know which of the two it is holding.
+     */
+    fun tear(grouping: List<Int?>): List<Int?> {
+        var fresh = (grouping.filterNotNull().maxOrNull() ?: -1) + 1
+        val cut = grouping.toMutableList()
+
+        groups(grouping).forEach { (group, indices) ->
+            // The first run keeps the group's own id; every run after a gap takes a new
+            // one, above every id in use, which normalize renumbers into its positional
+            // ordinal — or dissolves, where the run turned out to be one exercise.
+            var run = group
+            indices.zipWithNext().forEach { (previous, member) ->
+                if (member != previous + 1) run = fresh++
+                cut[member] = run
+            }
+        }
+
+        return normalize(cut)
     }
 
     /**

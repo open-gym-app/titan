@@ -11,9 +11,12 @@ import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.toSessionPlan
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
+import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.ui.component.supersetLabels
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,11 +57,23 @@ import kotlin.time.Duration.Companion.seconds
  * elsewhere and a picker showing a stale list is a picker showing templates that are gone.
  */
 @HiltViewModel
+/*
+ * Seven constructor parameters, one over the threshold, and every one is a graph edge: the
+ * templates, the catalogue, the sessions, and the four transitions this screen can cause —
+ * start, and the resume/discard pair that answers a start it was refused. Bundling them behind
+ * a holder to satisfy the count would put a type in the way of reading what the flow depends
+ * on, which is the one thing the list is good for. The same trade `ActiveSessionViewModel`
+ * records, at a fifth of the size.
+ */
+@Suppress("LongParameterList")
 class NewSessionViewModel @Inject constructor(
     getTemplateSummaries: GetTemplateSummariesUseCase,
     private val applyTemplate: ApplyTemplateUseCase,
     private val startPlannedSession: StartPlannedSessionUseCase,
+    private val resumeSession: ResumeSessionUseCase,
+    private val discardSession: DiscardSessionUseCase,
     private val exerciseRepository: ExerciseRepository,
+    private val sessionRepository: SessionRepository,
 ) : ViewModel() {
 
     /** What the screen owns, as opposed to what the stores do. */
@@ -84,7 +99,8 @@ class NewSessionViewModel @Inject constructor(
             isLoading = templates == null,
             step = screen.step(),
             isStarting = screen.isStarting,
-            startedSessionId = screen.startedSessionId,
+            openSessionId = screen.openSessionId,
+            runningWorkout = screen.runningWorkout,
             nameDraft = screen.nameDraft,
             message = screen.message,
         )
@@ -96,6 +112,14 @@ class NewSessionViewModel @Inject constructor(
         initialValue = NewSessionUiState(),
     )
 
+    /*
+     * One branch per event, which is what the count is measuring. An exhaustive `when` over a
+     * sealed interface has no paths through it to get wrong — the compiler is what checks it is
+     * complete — so the threshold here is counting the flow's *actions* rather than anything
+     * that has to be held in the head at once. The same reasoning `ActiveSessionScreen` records
+     * over its own message table.
+     */
+    @Suppress("CyclomaticComplexMethod")
     fun onEvent(event: NewSessionEvent) {
         when (event) {
             NewSessionEvent.ExerciseSelectionOpened ->
@@ -120,6 +144,24 @@ class NewSessionViewModel @Inject constructor(
             NewSessionEvent.NameConfirmed -> applyName()
 
             NewSessionEvent.SessionStartRequested -> start()
+
+            // The same landing as a start: which of the two opened the workout is not a
+            // difference the shell has to know, and the workout screen resumes what it is
+            // handed — see `ActiveSessionViewModel`, which calls `ResumeSessionUseCase` for
+            // exactly this. `isStarting` goes with it so START cannot be pressed again over
+            // the pop, the same reason a real start leaves it set.
+            NewSessionEvent.ResumeRequested -> screenState.update {
+                it.copy(
+                    isStarting = it.runningWorkout != null,
+                    openSessionId = it.runningWorkout?.sessionId,
+                    runningWorkout = null,
+                )
+            }
+
+            NewSessionEvent.RunningSessionDiscarded -> discardRunning()
+
+            NewSessionEvent.ResumeDismissed -> screenState.update { it.copy(runningWorkout = null) }
+
             NewSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -286,10 +328,81 @@ class NewSessionViewModel @Inject constructor(
                 .onSuccess { sessionId ->
                     // isStarting stays true: the screen is on its way out, and re-enabling
                     // the button for the frame before the pop invites a second workout.
-                    screenState.update { it.copy(startedSessionId = sessionId) }
+                    screenState.update { it.copy(openSessionId = sessionId) }
                 }
                 .onFailure { failure ->
-                    screenState.update { it.copy(isStarting = false, message = failure.toMessage()) }
+                    // A session already running is the one refusal that is answered rather than
+                    // reported: the workout in the way is named by the error, and offering it
+                    // back is the only route to it there is — see
+                    // [NewSessionUiState.runningWorkout]. Everything else that can go wrong here
+                    // is the write itself, and nothing was left behind by it.
+                    val blocking = (failure as? SessionError.SessionAlreadyActive)?.sessionId
+                    val running = blocking?.let { runningWorkout(it) }
+
+                    screenState.update {
+                        it.copy(
+                            isStarting = false,
+                            runningWorkout = running,
+                            // Refused by a session that is not there to be read is a refusal
+                            // with nothing to offer, so it is reported like any other.
+                            message = NewSessionMessage.START_FAILED.takeIf { running == null },
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * The workout in the way, read once for the offer that is about to be drawn over it.
+     *
+     * Two reads rather than one because the count is the deciding figure — see
+     * [RunningWorkout.loggedSets] — and `session_exercise` does not carry it. Null when the row
+     * is not there, which is a refusal that cannot be answered and is reported instead.
+     */
+    private suspend fun runningWorkout(sessionId: Long): RunningWorkout? {
+        val session = sessionRepository.getById(sessionId).first() ?: return null
+        return RunningWorkout(
+            sessionId = sessionId,
+            name = session.name,
+            startedAt = session.createdAt,
+            loggedSets = sessionRepository.getSetsForSession(sessionId).first().size,
+        )
+    }
+
+    /**
+     * Throws the workout in the way away and starts the planned one in its place.
+     *
+     * **Resumed first, deliberately.** [DiscardSessionUseCase] discards what the state machine
+     * says is open, and the state machine is in memory: the case that strands somebody here is
+     * a process restart, which leaves it `Idle` over a row still marked in progress. Resuming
+     * is what adopts that row — it is the transition written for exactly this — so the result
+     * is not read: from an already `Active` state there is nothing to adopt and the refusal is
+     * the correct answer, and a row that cannot be loaded fails the discard below, which is
+     * where it is reported.
+     *
+     * The start that follows is the same one START would have run, guarded the same way. It is
+     * run from here rather than left to a second press because the discard is the answer to a
+     * question the user asked by pressing START.
+     */
+    private fun discardRunning() {
+        val state = screenState.value
+        if (state.runningWorkout == null || state.isStarting) return
+        screenState.update { it.copy(isStarting = true) }
+
+        viewModelScope.launch {
+            resumeSession()
+            discardSession()
+                .onSuccess {
+                    // Cleared before the start, which refuses to run while it is set.
+                    screenState.update { it.copy(runningWorkout = null, isStarting = false) }
+                    start()
+                }
+                .onFailure {
+                    // The offer stays up: the workout is still there, still in the way, and
+                    // picking it back up is still the other way out of this.
+                    screenState.update {
+                        it.copy(isStarting = false, message = NewSessionMessage.DISCARD_FAILED)
+                    }
                 }
         }
     }
@@ -299,7 +412,8 @@ class NewSessionViewModel @Inject constructor(
         val plan: Plan? = null,
         val selectingExercises: Boolean = false,
         val isStarting: Boolean = false,
-        val startedSessionId: Long? = null,
+        val openSessionId: Long? = null,
+        val runningWorkout: RunningWorkout? = null,
         val nameDraft: String? = null,
         val message: NewSessionMessage? = null,
     ) {
@@ -365,10 +479,4 @@ class NewSessionViewModel @Inject constructor(
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
     }
-}
-
-/** Which of [NewSessionMessage] a refused start is. */
-private fun Throwable.toMessage(): NewSessionMessage = when (this) {
-    is SessionError.SessionAlreadyActive -> NewSessionMessage.SESSION_ALREADY_ACTIVE
-    else -> NewSessionMessage.START_FAILED
 }

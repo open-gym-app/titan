@@ -32,8 +32,12 @@ internal enum class NavMotion {
     /**
      * A destination replacing itself: re-tapping the tab you are already on.
      *
-     * Nowhere new is being gone. The screen is being put back to its top, and the one honest
-     * way to draw that is as the scroll it stands in for.
+     * Nowhere new is being gone, so nothing is drawn. A transition here animates an arrival
+     * the user never made: they were already looking at this screen, they pressed the tab
+     * they were already in, and anything that slides or fades reads as the app glitching
+     * rather than as an answer to the press. The reset is real — the screen is rebuilt, which
+     * is what puts a list back at its top and closes the Library's search — it simply happens
+     * between two frames instead of over a quarter of a second.
      */
     RESET,
 }
@@ -93,12 +97,6 @@ private const val FORWARD_MS = 300
 private const val MODAL_MS = 350
 
 /**
- * A reset. The pace of a flick back to the top, which is the gesture it replaces — slower and
- * the user waits on an animation to get somewhere they asked to be already.
- */
-private const val RESET_MS = 250
-
-/**
  * How far the screen being left behind travels during a push, as a fraction of the width.
  *
  * The two screens moving at different speeds is what reads as one sliding *over* the other;
@@ -122,10 +120,7 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTra
         NavMotion.FORWARD -> slideInHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeIn(tween(FORWARD_MS))
         NavMotion.MODAL -> slideInVertically(tween(MODAL_MS)) { height -> height }
-        // The screen's top, arriving from above the window — the direction it would come from
-        // if the user had flicked back up to it. No fade: a fade says "different screen",
-        // and this is the same screen at a different scroll position.
-        NavMotion.RESET -> slideInVertically(tween(RESET_MS)) { height -> -height }
+        NavMotion.RESET -> EnterTransition.None
     }
 
 /** Leaving somewhere that stays on the back stack, to be returned to. */
@@ -139,19 +134,16 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTrans
         // underneath is where the user is going back to, and it should look like it is still
         // there.
         NavMotion.MODAL -> fadeOut(tween(MODAL_MS))
-        // Downward and out, at the same rate the top arrives — no parallax, because the two
-        // are meant to read as one surface being scrolled rather than two screens moving.
-        NavMotion.RESET -> slideOutVertically(tween(RESET_MS)) { height -> height }
+        NavMotion.RESET -> ExitTransition.None
     }
 
 /**
  * Coming back to somewhere that was left on the back stack. The mirror of [exit].
  *
  * [NavMotion.RESET] cannot actually arrive here — a reset pops its own entry and pushes a new
- * one, and `launchSingleTop` keeps two entries of one destination off the stack everywhere
- * else, so there is no reset left to go back to. It is mirrored rather than left to a branch
+ * one, so there is no reset left to go back to. It is answered rather than left to a branch
  * that says it is impossible, because the day something does stack a destination on itself,
- * mirroring is right and a thrown exception is a crash.
+ * drawing nothing is right and a thrown exception is a crash.
  */
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition =
     when (motion()) {
@@ -160,7 +152,7 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): Enter
             slideInHorizontally(tween(FORWARD_MS)) { width -> -width / PARALLAX_DIVISOR } +
                 fadeIn(tween(FORWARD_MS))
         NavMotion.MODAL -> fadeIn(tween(MODAL_MS))
-        NavMotion.RESET -> slideInVertically(tween(RESET_MS)) { height -> height }
+        NavMotion.RESET -> EnterTransition.None
     }
 
 /** Being popped off the back stack for good. The mirror of [enter]. */
@@ -170,5 +162,5 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTr
         NavMotion.FORWARD -> slideOutHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeOut(tween(FORWARD_MS))
         NavMotion.MODAL -> slideOutVertically(tween(MODAL_MS)) { height -> height }
-        NavMotion.RESET -> slideOutVertically(tween(RESET_MS)) { height -> -height }
+        NavMotion.RESET -> ExitTransition.None
     }

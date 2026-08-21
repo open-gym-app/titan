@@ -101,6 +101,77 @@ class WorkoutFlowDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `a reorder that swaps two positions goes through in one write`() = runBlocking {
+        // The write the unique index above exists to abort: whichever of the two is written
+        // first lands on a position the other one still holds. `rewriteLayout` parks them out of
+        // the way first, which is the whole reason it is not a loop over `update`.
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionId = db.workoutSessionDao().insert(session())
+        val dao = db.sessionExerciseDao()
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 1))
+        val stored = dao.getBySession(sessionId).first()
+
+        dao.rewriteLayout(
+            listOf(
+                stored[0].copy(position = 1, updatedAt = 200),
+                stored[1].copy(position = 0, updatedAt = 200),
+            ),
+        )
+
+        assertEquals(
+            listOf(stored[1].id, stored[0].id),
+            dao.getBySession(sessionId).first().map { it.id },
+        )
+    }
+
+    @Test
+    fun `a whole layout can be reversed, groups and all`() = runBlocking {
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionId = db.workoutSessionDao().insert(session())
+        val dao = db.sessionExerciseDao()
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 1, supersetGroup = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 2, supersetGroup = 0))
+        val stored = dao.getBySession(sessionId).first()
+
+        dao.rewriteLayout(
+            stored.reversed().mapIndexed { index, row ->
+                row.copy(position = index, supersetGroup = if (index < 2) 0 else null)
+            },
+        )
+
+        val reordered = dao.getBySession(sessionId).first()
+        assertEquals(listOf(stored[2].id, stored[1].id, stored[0].id), reordered.map { it.id })
+        assertEquals(listOf(0, 0, null), reordered.map { it.supersetGroup })
+    }
+
+    @Test
+    fun `a row the reorder did not touch keeps the timestamp it had`() = runBlocking {
+        val exerciseId = db.exerciseDao().insert(exercise())
+        val sessionId = db.workoutSessionDao().insert(session())
+        val dao = db.sessionExerciseDao()
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 0))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 1))
+        dao.insert(sessionExercise(sessionId, exerciseId, position = 2))
+        val stored = dao.getBySession(sessionId).first()
+
+        // Only the two that changed places are handed over, which is what the caller is
+        // expected to work out — see `ReorderSessionExercisesUseCase`.
+        dao.rewriteLayout(
+            listOf(
+                stored[0].copy(position = 1, updatedAt = 500),
+                stored[1].copy(position = 0, updatedAt = 500),
+            ),
+        )
+
+        assertEquals(
+            listOf(500L, 500L, 0L),
+            dao.getBySession(sessionId).first().map { it.updatedAt },
+        )
+    }
+
+    @Test
     fun `a superset grouping survives the round trip, and a standalone exercise stays null`() = runBlocking {
         // NULL and a group id are different states — see Supersets — so this is a
         // column that has to come back exactly as it went in.

@@ -15,11 +15,16 @@ import com.opengym.core.domain.time.Clock
  *
  * ### Why it links a *pair*, not a selection
  *
- * `Supersets` requires a group's members to occupy consecutive positions, and this screen has no
- * reorder (#100). The only request a user can make that is guaranteed to satisfy that rule is
- * "join these two neighbours", so that is the only request this takes — [Supersets.join] then
- * absorbs whatever either side already belonged to, which is what lets a third exercise be added
- * to a superset by linking it to the group's last member.
+ * `Supersets` requires a group's members to occupy consecutive positions. "Join these two
+ * neighbours" is the only request a user can make that is guaranteed to satisfy that rule
+ * whatever the workout looks like, so that is the only request this takes — [Supersets.join]
+ * then absorbs whatever either side already belonged to, which is what lets a third exercise be
+ * added to a superset by linking it to the group's last member.
+ *
+ * A reorder *can* undo it, and deliberately: dragging one member away from the other is how a
+ * lifter says the two are no longer performed back to back, so [ReorderSessionExercisesUseCase]
+ * tears the group rather than refusing the drag. This is the way back — one tap on the join
+ * between two cards.
  *
  * ### Sets logged against it are irrelevant
  *

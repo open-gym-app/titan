@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -20,7 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.component.BadgeTone
+import com.opengym.core.ui.component.DragHandle
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymBadge
@@ -58,6 +63,9 @@ import com.opengym.feature.session.active.SetEntryError
  * the thing that suffers is reading the workout, which is the whole reason the page is like this.
  *
  * @param row the exercise, its sets and its half-typed set.
+ * @param position where it sits in the workout, from 0 — the *drawn* order rather than
+ *   [SessionExerciseRow.position], which is what is stored and is a frame behind it while a
+ *   reorder is being written.
  * @param enabled false makes the whole card read-only — a paused session, or one being closed
  *   out. The fields keep what they hold, because they are still the user's copy of it.
  *
@@ -76,17 +84,27 @@ import com.opengym.feature.session.active.SetEntryError
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
+ * @param onSwap do a different exercise in this slot, keeping its place in the running order and
+ *   whatever it is paired with. The picker is what answers; the refusal it can meet is the same
+ *   one [onRemove] can, and for a related reason — see `SwapSessionExerciseUseCase`.
+ * @param isMovable whether holding this card would pick it up, which is the only thing that
+ *   draws the grab glyph in front of its position — see [ExerciseHeading]. The gesture has
+ *   nothing else on the screen announcing it, and the one thing worse than an unannounced
+ *   gesture is one announced where it does not work.
  */
 @Composable
 fun SessionExerciseCard(
     row: SessionExerciseRow,
+    position: Int,
     onEvent: (ActiveSessionEvent) -> Unit,
     onRpeToggle: () -> Unit,
     onRemove: () -> Unit,
+    onSwap: () -> Unit,
     modifier: Modifier = Modifier,
     showRpeScale: Boolean = false,
     enabled: Boolean = true,
     isLogging: Boolean = false,
+    isMovable: Boolean = false,
 ) {
     val entry = row.entry
 
@@ -95,9 +113,27 @@ fun SessionExerciseCard(
             modifier = Modifier.padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
         ) {
-            ExerciseHeading(row = row, onRemove = onRemove, enabled = enabled)
+            ExerciseHeading(
+                row = row,
+                position = position,
+                onRemove = onRemove,
+                onSwap = onSwap,
+                enabled = enabled,
+                isMovable = isMovable,
+            )
 
             SetTable(row = row, onEvent = onEvent, onRpeClick = onRpeToggle, enabled = enabled)
+
+            // Said once, under the table, for an exercise this screen cannot log at all — see
+            // [SessionExerciseRow.isLoggedByDuration]. Not an entry error: nothing the user
+            // typed is wrong, and the row it would sit under is not the row at fault.
+            if (row.isLoggedByDuration) {
+                Text(
+                    text = stringResource(R.string.active_logged_by_duration),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
 
             if (showRpeScale) {
                 RpeSelector(
@@ -120,8 +156,8 @@ fun SessionExerciseCard(
                     onSelect = {
                         onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
                     },
-                    modifier = Modifier.fillMaxWidth(),
                     enabled = enabled,
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 SetNote(
@@ -134,7 +170,7 @@ fun SessionExerciseCard(
 
             Button(
                 onClick = { onEvent(ActiveSessionEvent.SetLogged(row.sessionExerciseId)) },
-                enabled = enabled && entry.canLog && !isLogging,
+                enabled = enabled && row.canLogEntry && !isLogging,
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -153,19 +189,46 @@ fun SessionExerciseCard(
     }
 }
 
-/** The name, its place in the workout, and the way out of it. */
+/**
+ * The name, its place in the workout, and the two ways to change what is in the slot.
+ *
+ * The grab glyph in front of the position is the only thing on the screen that says the order
+ * can be changed at all. It is a *mark*, not a control — nothing happens if it is pressed, the
+ * whole card responds to a hold — and it is the same glyph the row collapses to when one is
+ * picked up, so the two teach each other. Drawn only where the gesture would actually work
+ * ([isMovable]): a workout of one exercise, or a paused one, has nothing to reorder, and a hint
+ * at a gesture that is inert is worse than no hint.
+ */
 @Composable
-private fun ExerciseHeading(row: SessionExerciseRow, onRemove: () -> Unit, enabled: Boolean) {
+private fun ExerciseHeading(
+    row: SessionExerciseRow,
+    position: Int,
+    onRemove: () -> Unit,
+    onSwap: () -> Unit,
+    enabled: Boolean,
+    isMovable: Boolean,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.Top,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Eyebrow(
-                text = stringResource(R.string.active_exercise_position, row.position + 1),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (isMovable) {
+                    DragHandle(
+                        modifier = Modifier.size(HANDLE_SIZE),
+                        tint = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                Eyebrow(
+                    text = stringResource(R.string.active_exercise_position, position + 1),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Text(
                 text = row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
                 style = MaterialTheme.typography.titleMedium,
@@ -179,6 +242,19 @@ private fun ExerciseHeading(row: SessionExerciseRow, onRemove: () -> Unit, enabl
             OpenGymBadge(
                 text = stringResource(R.string.active_superset, row.supersetLabel),
                 tone = BadgeTone.ACCENT,
+            )
+        }
+        // Before the ×, because it is the milder of the two: swapping keeps the slot and the
+        // × takes it away, and a thumb reaching past the destructive one to find the reversible
+        // one is the wrong way round.
+        IconButton(onClick = onSwap, enabled = enabled) {
+            Icon(
+                imageVector = Icons.Outlined.SwapHoriz,
+                contentDescription = stringResource(
+                    R.string.active_swap_exercise,
+                    row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
+                ),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onRemove, enabled = enabled) {
@@ -239,6 +315,11 @@ private fun SetTable(
             isActive = true,
             error = error,
             enabled = enabled,
+            // The fields stay live while the tick does not: a row with a weight in it and no
+            // reps yet is a set half typed, not a refused one, and an exercise logged by time
+            // is one this screen cannot write at all. Either way the tick would be pressed for
+            // a set `LogSetUseCase` refuses.
+            canComplete = row.canLogEntry,
         )
     }
 }
@@ -302,3 +383,12 @@ private fun SetEntryError.message(): String = when (this) {
     SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
     is SetEntryError.Refused -> reason
 }
+
+/**
+ * The grab mark, at the size of the eyebrow it sits in front of.
+ *
+ * Smaller than the one on a collapsed row, which is sized against the set-row glyphs: here it is
+ * a mark on a label rather than a column of its own, and it should not outweigh the word beside
+ * it.
+ */
+private val HANDLE_SIZE: Dp = 14.dp

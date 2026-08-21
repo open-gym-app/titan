@@ -182,11 +182,39 @@ class FakeSessionRepository : SessionRepository {
         return store(set.sessionExerciseId, set).id
     }
 
+    /**
+     * Thrown by [updateExercise] instead of writing, when set. The only way to fail the
+     * superset repair a removal does on its way out, which is what proves the repair cannot
+     * take the removal down with it.
+     */
+    var exerciseUpdateFailure: Throwable? = null
+
     override suspend fun updateExercise(exercise: SessionExercise) {
+        exerciseUpdateFailure?.let { throw it }
         exerciseUpdates += exercise
         exercises.value += exercise.sessionId to
             exercises.value[exercise.sessionId].orEmpty()
                 .map { if (it.id == exercise.id) exercise else it }
+    }
+
+    /**
+     * Writes several rows at once, refusing what the unique `(session_id, position)` index
+     * would refuse.
+     *
+     * The check is the whole reason this is not a loop over [updateExercise]. The real store
+     * parks the rows out of the way before writing them back — see
+     * `SessionExerciseDao.rewriteLayout` — and a fake that simply applied the list would let a
+     * reorder that leaves two exercises on one position pass here and abort on a device.
+     */
+    override suspend fun updateExercises(exercises: List<SessionExercise>) {
+        exercises.forEach { updateExercise(it) }
+
+        exercises.map(SessionExercise::sessionId).distinct().forEach { sessionId ->
+            val positions = this.exercises.value[sessionId].orEmpty().map(SessionExercise::position)
+            check(positions.size == positions.distinct().size) {
+                "two exercises of session $sessionId ended up on one position: $positions"
+            }
+        }
     }
 
     /** Every exercise row rewritten, so a test can assert that only what changed was written. */
@@ -221,7 +249,15 @@ class FakeSessionRepository : SessionRepository {
      */
     var deleteFailure: Throwable? = null
 
+    /**
+     * Runs inside [delete] before the row is removed. Lets a test park a caller mid-delete and
+     * cancel the coroutine it is running in, which is the window a discard must not be torn in
+     * half by.
+     */
+    var beforeDelete: (suspend () -> Unit)? = null
+
     override suspend fun delete(id: Long) {
+        beforeDelete?.invoke()
         deleteFailure?.let { throw it }
         val orphaned = exercises.value[id].orEmpty().map(SessionExercise::id).toSet()
         sessions.value -= id

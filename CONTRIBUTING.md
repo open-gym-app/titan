@@ -178,9 +178,20 @@ Text(
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
+  | `ReorderableItem` / `Modifier.reorderable` / `DragHandle` | a list whose items are picked up by holding one, dragged, and dropped by letting go; the glyph that marks a row as movable | the list, hoisted, plus `onMove` per crossing and `onCommit` per gesture |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
+
+  The reorder pair is the one with rules attached. The gesture goes on the **list**
+  (`Modifier.reorderable`) and never on the items, because the items move: a handler on the row
+  under the finger is detached the moment that row changes places, mid-drag. It reports every
+  crossing and the *end* of the gesture separately, so a caller persists once per drag rather
+  than once per row crossed. It offers "move up" / "move down" as accessibility actions, because
+  a drag is a gesture TalkBack cannot perform — a list that can be reordered must be reorderable
+  without one. And the list is expected to **change shape while an item is held**, collapsing to
+  one line per item: that is what makes the pick-up unmistakable, and what removes the need for
+  auto-scrolling at the edges.
 
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up

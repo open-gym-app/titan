@@ -72,9 +72,12 @@ data class SessionSummaryDestination(val sessionId: Long, val historical: Boolea
  * module, and a key named on both sides of that boundary is an edge the architecture forbids.
  * `:app` holds it instead and hands it over here — see `OpenGymNavHost`.
  *
- * @param open push the picker. What that opens is `:app`'s business.
+ * @param open push the picker. What that opens is `:app`'s business. The flag is what the
+ *   picker is being opened *for*: `replacing` means one slot on an exercise already in the
+ *   workout, which takes one exercise rather than a list — the picker draws itself accordingly,
+ *   so the screen cannot come back with two answers to a question that has one.
  * @param selectedIds the exercises chosen, in the order they were picked, or null when the
- *   picker has not answered.
+ *   picker has not answered. One of them when it was opened replacing.
  *
  *   **A function, not the list itself, and this is load-bearing.** `NavHost` builds its graph
  *   inside a `remember` keyed on the builder lambda, so everything this value is constructed
@@ -87,7 +90,7 @@ data class SessionSummaryDestination(val sessionId: Long, val historical: Boolea
  *   recomposition or a process restore does not apply it twice.
  */
 data class ExercisePicker(
-    val open: () -> Unit,
+    val open: (replacing: Boolean) -> Unit,
     val selectedIds: () -> List<Long>?,
     val onSelectionHandled: () -> Unit,
 )
@@ -106,7 +109,11 @@ data class ExercisePicker(
  *   Reached from **two** destinations now: setup opens it to build a plan, and the workout opens
  *   it to add to one. Only one of the two is ever on the back stack — setup is popped inclusive
  *   on the way into the workout — so there is no question of both reading the same answer.
- * @param onSessionStarted setup finished; the id is the session that was created.
+ * @param onSessionStarted the workout should open; the id is the session to open. Two things
+ *   reach it: setup finished and wrote a session, and a workout that was **already running**
+ *   was picked back up from the setup screen — see `NewSessionUiState.runningSessionId`, which
+ *   is the only route back to a session the app left open. Both are the same navigation, so
+ *   there is nothing here to tell apart.
  * @param onSessionFinished the workout ended and should be recapped. The recap is not in this
  *   graph — see [SessionSummaryDestination] — so this both leaves the flow and opens it.
  * @param onSessionDiscarded the workout was thrown away. A separate exit from
@@ -124,8 +131,9 @@ fun NavGraphBuilder.sessionGraph(
         composable<NewSessionDestination> {
             NewSessionRoute(
                 onCancel = onCancelSetup,
-                onSessionStarted = onSessionStarted,
-                onPickExercises = exercisePicker.open,
+                onSessionOpened = onSessionStarted,
+                // Setup is building the plan from nothing, so every pick adds to it.
+                onPickExercises = { exercisePicker.open(false) },
                 // Read here, inside the destination, rather than taken off the graph as it was
                 // built — see [ExercisePicker.selectedIds] for why that distinction is the
                 // difference between the picker working and doing nothing at all.

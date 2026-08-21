@@ -12,10 +12,12 @@ import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
+import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import dagger.Module
 import dagger.Provides
@@ -126,18 +128,21 @@ object SessionUseCaseModule {
     )
 
     /*
-     * The three that rewrite a session's *grouping* take the lock, and the rest do not.
+     * The ones below that rewrite a session's *layout* take the lock, and the rest do not.
      *
-     * None of them is a lifecycle transition, but a removal, a link and an unlink are each a
-     * read-modify-write over `session_exercise` — read every exercise, compute a grouping from
-     * what was read, write back the rows that moved — and two of those interleaved settle on
-     * the older snapshot. The same instance the transitions take, because they contend over the
-     * same session: giving the layout writes a lock of their own would serialize them against
-     * each other and against nothing else.
+     * None of them is a lifecycle transition, but a removal, a reorder, a swap, a link and an
+     * unlink are each a read-modify-write over `session_exercise` — read the exercises, compute
+     * positions or a grouping from what was read, write back the rows that moved — and two of
+     * those interleaved settle on the older snapshot. The swap is in the list for a quieter
+     * version of the same reason: it writes the whole row back, so a snapshot taken before a
+     * reorder would restore the position that reorder had just changed. The same instance the
+     * transitions take, because they contend over the same session: giving the layout writes a
+     * lock of their own would serialize them against each other and against nothing else.
      *
-     * Appending exercises does not read the grouping to change it, and logging a set does not
-     * touch it at all. See [LogSetUseCase] for what that leaves open on the logging path and
-     * where it is closed.
+     * The rest edit what is *inside* a running session rather than its shape: appending
+     * exercises does not read the layout to change it, and the set writes do not touch it at
+     * all. See [LogSetUseCase] for what that leaves open on the logging path and where it is
+     * closed.
      */
 
     @Provides
@@ -155,6 +160,28 @@ object SessionUseCaseModule {
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
     ): RemoveSessionExerciseUseCase = RemoveSessionExerciseUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideReorderSessionExercisesUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): ReorderSessionExercisesUseCase = ReorderSessionExercisesUseCase(
+        sessionRepository = sessionRepository,
+        sessionStateRepository = sessionStateRepository,
+        clock = Clock.SYSTEM,
+        lock = SessionLifecycleLock.SHARED,
+    )
+
+    @Provides
+    fun provideSwapSessionExerciseUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): SwapSessionExerciseUseCase = SwapSessionExerciseUseCase(
         sessionRepository = sessionRepository,
         sessionStateRepository = sessionStateRepository,
         clock = Clock.SYSTEM,

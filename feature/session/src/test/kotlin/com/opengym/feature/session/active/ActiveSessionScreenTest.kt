@@ -1,5 +1,10 @@
 package com.opengym.feature.session.active
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -13,10 +18,13 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.performTouchInput
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
@@ -52,6 +60,19 @@ import kotlin.time.Duration.Companion.seconds
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp")
+/*
+ * Over the size threshold, for the reason `ActiveSessionViewModelTest` is over its own: this is
+ * the one screen a workout is logged, edited, paced, named, finished and thrown away on, and the
+ * tests for those are one subject each under a heading of its own.
+ *
+ * A split would cost the support block at the bottom, which is what makes the failures readable:
+ * `state()` builds the push day every test starts from, `scrollTo` composes a node inside a lazy
+ * list before touching it, and `hold`/`drag`/`release` carry one gesture across a list that
+ * changes shape underneath it. A second class would either duplicate all of that or hoist it
+ * somewhere both could reach, which is more machinery between a failure and its meaning than a
+ * heading is.
+ */
+@Suppress("LargeClass")
 class ActiveSessionScreenTest {
 
     @get:Rule
@@ -211,6 +232,36 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `an exercise logged by duration says so instead of offering a tick that cannot work`() {
+        // A plank's completed set has to record a duration, and this row is a weight and a rep
+        // count. Every set logged against it would come back refused, so neither the tick nor
+        // the button is live and the card says why.
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchRow(sets = emptyList(), entry = SetEntry(weight = "0", reps = "60"))
+                        .copy(exercise = BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                ),
+            ),
+        )
+
+        scrollTo(hasText("Timed exercise", substring = true)).assertIsDisplayed()
+        scrollToText("Complete set 1").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Mark set 1 done").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a set with no rep count yet leaves the fields live and the tick inert`() {
+        // Half way through typing is not a refusal: the weight field is still the user's to
+        // fill in, and `LogSetUseCase` would refuse the set behind the tick.
+        setScreen(state(entry = SetEntry(weight = "80")))
+
+        scrollToText("Complete set 3").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").assertIsEnabled()
+    }
+
+    @Test
     fun `text that is not a number is refused in the screen's own words`() {
         setScreen(state(entry = SetEntry(weight = "heavy", error = SetEntryError.WeightNotANumber)))
 
@@ -318,13 +369,13 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the add action opens the picker and says so`() {
-        var pickerOpened = false
+        val opened = mutableListOf<Boolean>()
         composeTestRule.setContent {
             OpenGymTheme {
                 ActiveSessionScreen(
                     state = state(),
                     onEvent = events::add,
-                    onPickExercises = { pickerOpened = true },
+                    onPickExercises = opened::add,
                 )
             }
         }
@@ -332,7 +383,8 @@ class ActiveSessionScreenTest {
         scrollToText("Add more exercises").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.AddExercisesRequested), events)
-        assertTrue(pickerOpened)
+        // Adding to the workout, which takes as many exercises as the user ticks.
+        assertEquals(listOf(false), opened)
     }
 
     @Test
@@ -342,6 +394,226 @@ class ActiveSessionScreenTest {
         scrollToDescription("Remove Cable fly from this workout").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.ExerciseRemoved(sessionExerciseId = 3L)), events)
+    }
+
+    @Test
+    fun `the swap on a card opens the picker and says which slot asked`() {
+        val opened = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state(),
+                    onEvent = events::add,
+                    onPickExercises = opened::add,
+                )
+            }
+        }
+
+        scrollToDescription("Swap Cable fly for another exercise").performClick()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.ExerciseSwapRequested(sessionExerciseId = 3L)),
+            events,
+        )
+        // Replacing: the slot holds one exercise, and the picker is opened asking for one
+        // rather than for a list it would come back from with an answer to spare.
+        assertEquals(listOf(true), opened)
+    }
+
+    @Test
+    fun `the slot being swapped goes read-only while the write is in flight`() {
+        setScreen(state().copy(swappingExerciseId = 2L))
+
+        scrollToDescription("Remove Incline dumbbell press from this workout").assertIsNotEnabled()
+        scrollToDescription("Remove Cable fly from this workout").assertIsEnabled()
+    }
+
+    @Test
+    fun `a slot that cannot be swapped says why`() {
+        setScreen(state().copy(message = ActiveSessionMessage.SWAP_HAS_SETS))
+
+        composeTestRule
+            .onNodeWithText(
+                "That exercise has sets logged against it. " +
+                    "Delete them first, or add the new exercise instead.",
+            )
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `holding an exercise collapses the workout to its titles`() {
+        setScreen(state())
+
+        hold("Bench press")
+
+        // Every exercise still on the page, and nothing else: no set tables, no stat chips, no
+        // way to add more. What is left is what a reorder needs to see — see
+        // `CollapsedExerciseRow`.
+        composeTestRule.onNodeWithContentDescription("1. Bench press").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2. Incline dumbbell press").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("3. Cable fly").assertIsDisplayed()
+        assertMissing(hasText("60 kg × 10"))
+        assertMissing(hasText("Add more exercises"))
+        assertMissing(hasText("5 sets"))
+    }
+
+    @Test
+    fun `letting go brings the workout back, and reports nothing`() {
+        setScreen(state())
+
+        hold("Bench press")
+        release()
+
+        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `a press too short to be a hold leaves the workout alone`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("Bench press").performTouchInput {
+            down(center)
+            advanceEventTime(TOO_SHORT)
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun `dragging a held exercise down the list reports the order it was let go in`() {
+        setScreen(state())
+
+        hold("Bench press")
+        drag(rows = 2.5f)
+        release()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.ExercisesReordered(listOf(2L, 3L, 1L))),
+            events,
+        )
+    }
+
+    @Test
+    fun `the numbers follow the exercises as they are dragged`() {
+        setScreen(state())
+
+        hold("Bench press")
+        drag(rows = 1.2f)
+
+        // The bench is second now, and the incline it passed is first. The numbers are the
+        // order being made rather than the one stored, which has not been written yet.
+        composeTestRule.onNodeWithContentDescription("1. Incline dumbbell press").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2. Bench press").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a refused reorder puts the workout back in the order the store kept`() {
+        // The one outcome the re-seed off `storedOrder` cannot see: the write changed nothing,
+        // so the stored order is the list it already was and a `remember` keyed on it does not
+        // re-run. Left alone, the screen goes on drawing an order the database rejected, and a
+        // lifter works down a list the log disagrees with.
+        var refused by mutableStateOf(0)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state().copy(refusedReorders = refused),
+                    onEvent = events::add,
+                )
+            }
+        }
+
+        hold("Bench press")
+        drag(rows = 1.2f)
+        // The order under the finger: the bench has passed the incline.
+        composeTestRule.onNodeWithContentDescription("2. Bench press").assertIsDisplayed()
+        release()
+
+        // The store refuses, and its exercises come back exactly as they went in.
+        refused = 1
+        composeTestRule.waitForIdle()
+
+        // Picked up again — the numbered list is how the drawn order is readable — the workout
+        // is in the order the store kept.
+        hold("Bench press")
+        composeTestRule.onNodeWithContentDescription("1. Bench press").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("2. Incline dumbbell press").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a reorder that lands is left drawn as it was made`() {
+        // The other half of the pair above: anything happening on the screen that is *not* a
+        // reorder refusal must not reach in and re-seed the list under a gesture that succeeded.
+        var message by mutableStateOf<ActiveSessionMessage?>(null)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = state().copy(message = message), onEvent = events::add)
+            }
+        }
+
+        hold("Bench press")
+        drag(rows = 1.2f)
+        release()
+
+        message = ActiveSessionMessage.RENAME_FAILED
+        composeTestRule.waitForIdle()
+
+        hold("Bench press")
+        composeTestRule.onNodeWithContentDescription("2. Bench press").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a paused workout cannot be picked up`() {
+        setScreen(state().copy(isPaused = true))
+
+        hold("Bench press")
+
+        // Still the whole card: a paused session is read-only, and `ReorderSessionExercisesUseCase`
+        // would refuse the write anyway.
+        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a workout of one exercise cannot be picked up either`() {
+        setScreen(state(exercises = listOf(benchRow())))
+
+        hold("Bench press")
+
+        composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an exercise offers move up and move down without anything being held`() {
+        setScreen(state())
+
+        // A drag is a gesture an assistive technology cannot perform, so the same two moves are
+        // actions on every exercise, at all times. Two of them here rather than three because
+        // the workout is a lazy list and the third card is below the fold — which is the
+        // ordinary case, and the reason the moves are on the exercises rather than on a mode.
+        val actions = reorderableItems().map { item ->
+            item.fetchSemanticsNode().config[SemanticsActions.CustomActions].map { it.label }
+        }
+
+        assertEquals(listOf(listOf("Move down"), listOf("Move up", "Move down")), actions)
+    }
+
+    @Test
+    fun `a move action reports the new order`() {
+        setScreen(state())
+
+        val moveDown = reorderableItems()[0].fetchSemanticsNode()
+            .config[SemanticsActions.CustomActions]
+            .first { it.label == "Move down" }
+        composeTestRule.runOnUiThread { moveDown.action() }
+        composeTestRule.waitForIdle()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.ExercisesReordered(listOf(2L, 1L, 3L))),
+            events,
+        )
     }
 
     @Test
@@ -423,6 +695,39 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a paused session's set-type chips are read-only too`() {
+        // The whole card goes read-only, chips included: `editEntry` saves a draft on every
+        // change and has no pause of its own to check, so a live chip is a paused workout still
+        // taking edits.
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = true))
+
+        scrollToText("WARM-UP").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a rating scale left open across a pause stops taking ratings`() {
+        // The tap that *opens* the scale is withheld while paused, so the only way to be looking
+        // at one on a paused session is to have opened it first — which is what a lifter who is
+        // interrupted mid-set does.
+        var paused by mutableStateOf(false)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(
+                    state = state(entry = SetEntry(weight = "80", reps = "5")).copy(isPaused = paused),
+                    onEvent = events::add,
+                )
+            }
+        }
+        scrollToDescription("Rate of perceived exertion, set 3, not set").performClick()
+
+        paused = true
+        composeTestRule.waitForIdle()
+        scrollToDescription("Rate of perceived exertion 8.5").performClick()
+
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun `a paused clock is announced as paused`() {
         setScreen(state().copy(isPaused = true))
 
@@ -438,6 +743,18 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithContentDescription("Finish the session").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
+    }
+
+    @Test
+    fun `the header's controls go inert while the workout is being closed out`() {
+        // The bar stays on screen for as long as the write takes. A pause dispatched into that
+        // window either mutates a session being closed out or is refused and reported over a
+        // screen on its way to the recap.
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithContentDescription("Pause the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Discard the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Finish the session").assertIsNotEnabled()
     }
 
     @Test
@@ -559,6 +876,64 @@ class ActiveSessionScreenTest {
         return composeTestRule.onNode(matcher).performScrollTo()
     }
 
+    /**
+     * Presses an exercise and keeps holding it, which is what picks it up.
+     *
+     * The gesture carries on across calls — `hold`, then [drag], then [release] — the way it
+     * does under a finger. Compose keeps the pointer state per root, so a list that has changed
+     * shape in between is not a new gesture, which is exactly the case this screen is built for.
+     */
+    private fun hold(exercise: String) {
+        // Pressed at the exercise's own position but dispatched through the root, and every
+        // step of the gesture after it goes the same way: the card the press lands on stops
+        // existing the moment the hold takes — that is the point of it — and a gesture cannot
+        // be continued through a node that has gone.
+        val target = composeTestRule.onNodeWithText(exercise).fetchSemanticsNode().boundsInRoot
+        composeTestRule.onRoot().performTouchInput {
+            down(target.center)
+            advanceEventTime(HELD_LONG_ENOUGH)
+            // A move of nothing, to deliver an event the hold can be measured against.
+            moveBy(Offset.Zero)
+        }
+        composeTestRule.waitForIdle()
+    }
+
+    /** Drags the held exercise down by [rows] collapsed rows, one row at a time. */
+    private fun drag(rows: Float) {
+        val step = collapsedRowHeight()
+        var travelled = 0f
+        while (travelled < rows) {
+            val next = minOf(1f, rows - travelled)
+            // One row at a time, with a frame in between: a crossing is only decided once the
+            // layout it caused has happened, which on a device is what the frames between two
+            // touch events do.
+            composeTestRule.onRoot().performTouchInput { moveBy(Offset(0f, step * next)) }
+            composeTestRule.waitForIdle()
+            travelled += next
+        }
+    }
+
+    private fun release() {
+        composeTestRule.onRoot().performTouchInput { up() }
+        composeTestRule.waitForIdle()
+    }
+
+    /** The exercises as they are while one is held, in the order they are drawn. */
+    private fun reorderableItems(): List<SemanticsNodeInteraction> {
+        val matcher = SemanticsMatcher.keyIsDefined(SemanticsActions.CustomActions)
+        val count = composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().size
+        return (0 until count).map { composeTestRule.onAllNodes(matcher)[it] }
+    }
+
+    /** How tall a collapsed row is, which is how far the finger travels to cross one. */
+    private fun collapsedRowHeight(): Float =
+        reorderableItems().first().fetchSemanticsNode().size.height.toFloat()
+
+    /** Fails unless nothing on the screen matches, which is how a gone thing is asserted. */
+    private fun assertMissing(matcher: SemanticsMatcher) {
+        assertTrue(composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().isEmpty())
+    }
+
     private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(hasText(text))
 
     private fun scrollToDescription(description: String): SemanticsNodeInteraction =
@@ -594,7 +969,7 @@ class ActiveSessionScreenTest {
             name = "Push day · Upper",
             startedAt = STARTED_AT,
             elapsed = 23.minutes + 14.seconds,
-            progress = SessionProgress(completed = 1, total = 3),
+            progress = SessionProgress.of(completed = 1, total = 3),
         ),
     ) = ActiveSessionUiState(
         header = header,
@@ -642,6 +1017,12 @@ class ActiveSessionScreenTest {
     )
 
     private companion object {
+        /** Past the hold, with room for the frame the timeout lands on. */
+        const val HELD_LONG_ENOUGH = 1_400L
+
+        /** A tap, in other words. */
+        const val TOO_SHORT = 200L
+
         /** The `session_exercise` ids this fixture writes, in position order. */
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L

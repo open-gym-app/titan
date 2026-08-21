@@ -207,6 +207,82 @@ class NewSessionScreenTest {
         assertEquals(0, cancelled)
     }
 
+    // ─── The workout already running ────────────────────────────────────────────────────
+
+    @Test
+    fun `a start refused by a running workout offers that workout back`() {
+        setContent(
+            NewSessionUiState(
+                isLoading = false,
+                step = readyFromTemplate(),
+                runningWorkout = RUNNING,
+            ),
+        )
+
+        // The workout itself, not a paragraph about it: which one, and what is in it.
+        composeTestRule.onNodeWithText("Push day").assertIsDisplayed()
+        composeTestRule.onNodeWithText("11 SETS LOGGED").assertIsDisplayed()
+
+        composeTestRule.onNodeWithText("Pick it back up").performClick()
+
+        // The only route there is: the running session is not in the history list, and the
+        // workout screen is otherwise reachable only by starting one.
+        assertEquals(listOf(NewSessionEvent.ResumeRequested), events)
+    }
+
+    @Test
+    fun `the running workout can be thrown away instead`() {
+        setContent(
+            NewSessionUiState(
+                isLoading = false,
+                step = readyFromTemplate(),
+                runningWorkout = RUNNING,
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Discard it and start").performClick()
+
+        assertEquals(listOf(NewSessionEvent.RunningSessionDiscarded), events)
+    }
+
+    @Test
+    fun `the offer goes inert while the discard is in flight`() {
+        setContent(
+            NewSessionUiState(
+                isLoading = false,
+                step = readyFromTemplate(),
+                runningWorkout = RUNNING,
+                isStarting = true,
+            ),
+        )
+
+        // A second press would be answered by a session that is already gone.
+        composeTestRule.onNodeWithText("Discard it and start").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Pick it back up").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the offer can be declined`() {
+        setContent(
+            NewSessionUiState(
+                isLoading = false,
+                step = readyFromTemplate(),
+                runningWorkout = RUNNING,
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Not now").performClick()
+
+        assertEquals(listOf(NewSessionEvent.ResumeDismissed), events)
+    }
+
+    @Test
+    fun `negative - nothing running, nothing offered`() {
+        setContent(NewSessionUiState(isLoading = false, step = readyFromTemplate()))
+
+        composeTestRule.onNodeWithText("STILL RUNNING").assertDoesNotExist()
+    }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
     private fun setContent(state: NewSessionUiState) {
@@ -253,4 +329,9 @@ class NewSessionScreenTest {
         exerciseCount = exerciseCount,
         estimatedDuration = duration,
     )
+
+    private companion object {
+        /** The workout in the way, as the refusal hands it to the screen. */
+        val RUNNING = RunningWorkout(sessionId = 99L, name = "Push day", loggedSets = 11)
+    }
 }

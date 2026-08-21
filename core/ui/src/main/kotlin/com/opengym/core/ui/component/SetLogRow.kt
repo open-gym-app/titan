@@ -94,6 +94,11 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   it without reading.
  * @param enabled false makes the fields read-only without changing what they show — a
  *   session that has been finished, a set being written.
+ * @param canComplete whether the tick can be pressed, which is a narrower question than
+ *   [enabled]: a row can be perfectly writable and still not hold a set yet — the dimension its
+ *   exercise is logged in may not be filled in — and a tick that is live for a set the write
+ *   path refuses is the one thing this row must not do. The fields stay live either way, since
+ *   filling them in is the way out of it.
  */
 @Composable
 fun SetLogRow(
@@ -113,6 +118,7 @@ fun SetLogRow(
     isActive: Boolean = false,
     error: String? = null,
     enabled: Boolean = true,
+    canComplete: Boolean = true,
 ) {
     SetRowFrame(
         modifier = modifier,
@@ -156,7 +162,7 @@ fun SetLogRow(
             setNumber = setNumber,
             isCompleted = isCompleted,
             onCompletedChange = onCompletedChange,
-            enabled = enabled,
+            enabled = enabled && canComplete,
         )
     }
 }

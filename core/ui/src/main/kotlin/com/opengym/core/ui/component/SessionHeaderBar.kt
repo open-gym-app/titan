@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -74,11 +75,18 @@ import kotlin.time.Duration.Companion.seconds
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
  *   Null leaves the name inert, which is what a caller with nothing to write wants.
- * @param canFinish whether END is live. False for a caller with a write in flight that the
- *   finish would race — the active session refuses one while a set is being written, because
- *   the set can otherwise land in a session already stamped closed. Drawn inert rather than
- *   hidden: the control is where the user is looking, and one that vanished for a fraction of
- *   a second and came back is worse than one that does not respond for it.
+ * @param enabled false makes the three controls inert, for the one situation that needs it: a
+ *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
+ *   the write takes, and a pause landing behind it either mutates a session being closed out or
+ *   is refused and reported over a screen that is successfully leaving. Note that a *paused*
+ *   session is not that situation — pausing is how a user comes back from it — which is why this
+ *   is not [isPaused] read the other way round.
+ * @param canFinish whether END in particular is live. Narrower than [enabled] and about a
+ *   different wait: a set write in flight is not the workout leaving, but a finish that
+ *   overtook it would land the set in a session already stamped closed. The pause and discard
+ *   controls have no such race and stay live. Drawn inert rather than hidden — the control is
+ *   where the user is looking, and one that vanished for a fraction of a second and came back
+ *   is worse than one that does not respond for it.
  */
 @Composable
 fun SessionHeaderBar(
@@ -87,6 +95,7 @@ fun SessionHeaderBar(
     modifier: Modifier = Modifier,
     progress: SessionProgress = SessionProgress(),
     isPaused: Boolean = false,
+    enabled: Boolean = true,
     canFinish: Boolean = true,
     onPauseToggle: () -> Unit = {},
     onFinish: () -> Unit = {},
@@ -145,6 +154,7 @@ fun SessionHeaderBar(
                     description = stringResource(R.string.session_header_discard),
                     container = chrome.fill,
                     content = chrome.onSurface,
+                    enabled = enabled,
                 ) {
                     Icon(imageVector = Icons.Filled.Close, contentDescription = null)
                 }
@@ -157,6 +167,7 @@ fun SessionHeaderBar(
                 ),
                 container = chrome.fill,
                 content = chrome.onSurface,
+                enabled = enabled,
             ) {
                 Icon(
                     imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
@@ -169,7 +180,7 @@ fun SessionHeaderBar(
                 description = stringResource(R.string.session_header_finish),
                 container = chrome.accent,
                 content = chrome.onAccent,
-                enabled = canFinish,
+                enabled = enabled && canFinish,
                 width = FINISH_WIDTH,
             ) {
                 Eyebrow(
@@ -205,25 +216,30 @@ fun SessionProgressRail(progress: SessionProgress, modifier: Modifier = Modifier
         progress.total,
     )
 
+    // The one still to do that is highest up the workout, which is where somebody who has been
+    // working down it is. There is no "current exercise" on the screen this heads — every one of
+    // them takes sets — so this is a reading of the workout rather than a selection in it.
+    val upNext = progress.exercises.indexOfFirst { !it }
+
     Row(
         modifier = modifier
             .height(RAIL_HEIGHT)
             .clearAndSetSemantics { contentDescription = description },
         horizontalArrangement = Arrangement.spacedBy(RAIL_GAP),
     ) {
-        repeat(progress.total) { index ->
+        progress.exercises.forEachIndexed { index, isDone ->
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .background(
                         color = when {
-                            index < progress.completed -> chrome.accent
+                            isDone -> chrome.accent
                             // The exercise being worked is the accent held back: it is
                             // underway rather than behind you, and drawing it either fully on
                             // or fully off would make the rail lie by one exercise in one
                             // direction or the other.
-                            index == progress.completed -> chrome.accent.copy(alpha = CURRENT_ALPHA)
+                            index == upNext -> chrome.accent.copy(alpha = CURRENT_ALPHA)
                             else -> chrome.track
                         },
                         shape = RoundedCornerShape(RAIL_HEIGHT / 2),
@@ -234,23 +250,49 @@ fun SessionProgressRail(progress: SessionProgress, modifier: Modifier = Modifier
 }
 
 /**
- * How far through its exercises a workout is.
+ * How far through its exercises a workout is: one flag per exercise, in the order they are
+ * performed.
  *
- * Two counts rather than a fraction, because the rail draws one sliver per exercise and a
- * `Float` would have thrown away the number of them. [completed] is also allowed to equal
- * [total] — a workout whose last exercise is done but which has not been finished yet is a real
- * state, and the rail is entirely filled for it.
+ * ### Why a flag each rather than two counts
  *
- * @param completed exercises with at least one logged set, which is the same rule
- *   `SessionStats.exerciseBreakdown` applies. A rail counting something else would disagree
- *   with the figure on the recap of the same workout.
- * @param total exercises in the session, laid out or added along the way.
+ * It was `completed` and `total`, and the rail filled its first `completed` slivers. That draws
+ * the same picture for a workout done in the order it was laid out, and it stops being true the
+ * moment one is reordered: a lifter who did the fourth exercise second and then dragged it up
+ * has two exercises behind them that are *not* the first two, and a rail filling the first two
+ * would be pointing at the wrong ones. A count cannot express that; a flag per exercise can, and
+ * it costs a list of booleans as long as the workout.
+ *
+ * [completed] and [total] are still here, derived, because the spoken description says them and
+ * a caller should not have to count.
+ *
+ * @param exercises whether each exercise has at least one logged set, which is the same rule
+ *   `SessionStats.exerciseBreakdown` applies. A rail counting something else would disagree with
+ *   the figure on the recap of the same workout.
  */
-data class SessionProgress(val completed: Int = 0, val total: Int = 0) {
-    init {
-        require(completed >= 0) { "completed cannot be negative, was $completed" }
-        require(total >= 0) { "total cannot be negative, was $total" }
-        require(completed <= total) { "completed ($completed) is past total ($total)" }
+@Immutable
+data class SessionProgress(val exercises: List<Boolean> = emptyList()) {
+
+    /** Exercises with something logged against them. */
+    val completed: Int get() = exercises.count { it }
+
+    /** Exercises in the session, laid out or added along the way. */
+    val total: Int get() = exercises.size
+
+    companion object {
+
+        /**
+         * [completed] exercises done out of [total], the first ones first.
+         *
+         * What a workout performed in the order it was written down looks like, which is what a
+         * preview or a test usually means. Anything that has an exercise-by-exercise answer
+         * should give it rather than reach for this.
+         */
+        fun of(completed: Int, total: Int): SessionProgress {
+            require(completed >= 0) { "completed cannot be negative, was $completed" }
+            require(total >= 0) { "total cannot be negative, was $total" }
+            require(completed <= total) { "completed ($completed) is past total ($total)" }
+            return SessionProgress(List(total) { index -> index < completed })
+        }
     }
 }
 
@@ -335,15 +377,23 @@ private fun SessionHeaderCatalogue() {
         SessionHeaderBar(
             name = "Push day · Upper",
             elapsed = 23.minutes + 14.seconds,
-            progress = SessionProgress(completed = 3, total = 8),
+            progress = SessionProgress.of(completed = 3, total = 8),
         )
         SessionHeaderBar(
             onNameClick = {},
             name = "Empty session",
             elapsed = 1.minutes + 4.seconds,
-            progress = SessionProgress(completed = 0, total = 3),
+            progress = SessionProgress.of(completed = 0, total = 3),
             isPaused = true,
             onDiscard = {},
+        )
+        // A workout done out of the order it was written down in: the second and fourth
+        // exercises are behind this lifter, and the rail says so rather than filling the first
+        // two slivers.
+        SessionHeaderBar(
+            name = "Pull day",
+            elapsed = 12.minutes,
+            progress = SessionProgress(listOf(false, true, false, true, false)),
         )
     }
 }

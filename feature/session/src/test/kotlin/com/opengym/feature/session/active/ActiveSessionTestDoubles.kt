@@ -43,6 +43,15 @@ class FakeActiveSessionStore(
     var insertFailure: Throwable? = null
 
     /**
+     * Runs inside [insertSet], before the row is stored, with the set being written.
+     *
+     * Lets a test hold one write open while another starts — which is not a contrivance on this
+     * screen but the ordinary way a superset is logged: its members are alternated set for set,
+     * so two ticks land within a second of each other and both writes are genuinely in flight.
+     */
+    var beforeInsert: (suspend (WorkoutSet) -> Unit)? = null
+
+    /**
      * Thrown by [update] instead of storing, when set.
      *
      * The session row is what every lifecycle transition writes, so this is how a test says
@@ -67,6 +76,7 @@ class FakeActiveSessionStore(
         }
 
     override suspend fun insertSet(set: WorkoutSet): Long {
+        beforeInsert?.invoke(set)
         insertFailure?.let { throw it }
         val stored = set.copy(id = nextSetId++)
         sets.value += stored
@@ -76,6 +86,25 @@ class FakeActiveSessionStore(
 
     override suspend fun updateExercise(exercise: SessionExercise) {
         exercises.value = exercises.value.map { if (it.id == exercise.id) exercise else it }
+    }
+
+    /**
+     * Writes several rows at once, refusing what the unique `(session_id, position)` index
+     * would refuse.
+     *
+     * The check is why this is not a loop over [updateExercise]: the real store parks the rows
+     * out of the way before writing them back — `SessionExerciseDao.rewriteLayout` — and a fake
+     * that simply applied the list would let a reorder leaving two exercises on one position
+     * pass here and abort on a device.
+     */
+    override suspend fun updateExercises(exercises: List<SessionExercise>) {
+        val written = exercises.associateBy(SessionExercise::id)
+        this.exercises.value = this.exercises.value.map { written[it.id] ?: it }
+
+        val positions = this.exercises.value.map(SessionExercise::position)
+        check(positions.size == positions.distinct().size) {
+            "two exercises ended up on one position: $positions"
+        }
     }
 
     override suspend fun deleteExercise(sessionExerciseId: Long) {

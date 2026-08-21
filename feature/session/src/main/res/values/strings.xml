@@ -54,8 +54,24 @@
     <!-- The review panel's title doubles as the way to name the session before it starts. -->
     <string name="new_session_rename">Name this session</string>
 
-    <string name="new_session_error_already_active">A session is already running. Finish it before starting another.</string>
+    <!-- The refused start, which is the one refusal here that asks something rather than
+         reporting it: the workout in the way is offered back. See ResumeSessionDialog. -->
+    <string name="new_session_resume_eyebrow">Still running</string>
+    <!-- What is in the workout being offered back, which is the figure the choice turns on. -->
+    <plurals name="new_session_resume_sets">
+        <item quantity="one">%1$d set logged</item>
+        <item quantity="other">%1$d sets logged</item>
+    </plurals>
+    <string name="new_session_resume_nothing_logged">Nothing logged yet</string>
+    <string name="new_session_resume_body">Only one workout runs at a time.</string>
+    <string name="new_session_resume_confirm">Pick it back up</string>
+    <!-- Says both halves of what it does: the workout in the way is deleted, and the planned
+         one is started in its place. -->
+    <string name="new_session_resume_discard">Discard it and start</string>
+    <string name="new_session_resume_dismiss">Not now</string>
+
     <string name="new_session_error_start_failed">Could not start the session. Nothing was saved.</string>
+    <string name="new_session_error_discard">Could not discard the running workout. It is still there.</string>
     <string name="new_session_error_template">That template could not be opened.</string>
     <!-- Shown when exercises in the plan have been deleted from the library since it was saved. -->
     <string name="new_session_error_exercises_missing">Some exercises are no longer in your library and were left out.</string>
@@ -84,10 +100,21 @@
     <string name="active_weight_not_a_number">That weight is not a number</string>
     <string name="active_reps_not_a_number">That rep count is not a number</string>
 
+    <!-- An exercise whose sets are measured in time — a plank, a row on the erg. The row above
+         this takes a weight and a rep count, so there is nowhere to put the one thing a set of
+         it has to record, and `SetValidator` would refuse every set logged from here. Said on
+         the card rather than left as a tick that does nothing: the dead end is the exercise's,
+         and the way out of it is to take the exercise out of the workout. -->
+    <string name="active_logged_by_duration">Timed exercise. Sets are recorded by duration, which this screen cannot enter yet — swap it out or remove it to keep going.</string>
+
     <!-- The action that opens the picker from inside a running workout. "More" rather than
          "exercises", because the button sits under the ones the session already has. -->
     <string name="active_add_exercises">Add more exercises</string>
     <string name="active_remove_exercise">Remove %1$s from this workout</string>
+    <!-- The other way to change what is in a slot: the machine is taken, so something else goes
+         in its place — at the same point in the workout, in the same superset. -->
+    <string name="active_swap_exercise">Swap %1$s for another exercise</string>
+
 
     <!-- The control in the gap between two exercise cards, in its two states. An eyebrow, so
          both are drawn in caps. The joined one names its group, matching the `SS A1` badges on
@@ -135,6 +162,15 @@
     <string name="active_error_rename">Could not rename the session. Try again.</string>
     <!-- Both directions of the superset control, which is one thing to the user. -->
     <string name="active_error_superset">Could not change that superset. The workout is unchanged.</string>
+    <string name="active_error_reorder">Could not save the new order. The workout is in the order it was.</string>
+    <!-- Read out in place of the whole card while the workout is being reordered, since the
+         rows are then a name and a number and the point of them is where they are. -->
+    <string name="active_reorder_position">%1$d. %2$s</string>
+    <!-- The second refusal here that is a rule rather than a failure. It names a different way
+         past itself than the removal does: a swap can also be had by adding the new exercise and
+         leaving the sets where they are. -->
+    <string name="active_error_swap_has_sets">That exercise has sets logged against it. Delete them first, or add the new exercise instead.</string>
+    <string name="active_error_swap">Could not swap that exercise. The workout is unchanged.</string>
     <!-- Shown on open, when the screen could not be put back where the workout was left. -->
     <string name="active_error_restore">Could not pick the workout back up where you left it. Your logged sets are safe.</string>
 

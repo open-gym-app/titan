@@ -248,6 +248,62 @@ class SupersetsTest {
         assertEquals(emptyList<Int?>(), Supersets.normalize(emptyList()))
     }
 
+    // ---- tearing ----------------------------------------------------------
+
+    @Test
+    fun `a pair separated by a reorder dissolves`() {
+        // What dragging one member of a pair away from the other leaves behind: two runs of
+        // one exercise, and one exercise is not a superset.
+        assertEquals(listOf(null, null, null), Supersets.tear(listOf(0, null, 0)))
+    }
+
+    @Test
+    fun `the half of a group still performed back to back survives`() {
+        // A three cut after its second member: the first two are still neighbours, the third
+        // is on its own.
+        assertEquals(listOf(0, 0, null, null), Supersets.tear(listOf(0, 0, null, 0)))
+    }
+
+    @Test
+    fun `a group that closed up over a departed member stays one group`() {
+        // The member that left is elsewhere; the two that remain are neighbours now, so there
+        // is no gap to cut and nothing to renumber.
+        assertEquals(listOf(null, 0, 0), Supersets.tear(listOf(null, 0, 0)))
+    }
+
+    @Test
+    fun `what survives a tear is renumbered down the workout`() {
+        assertEquals(listOf(0, 0, 1, 1), Supersets.tear(listOf(1, 1, 0, 0)))
+    }
+
+    @Test
+    fun `a well-formed grouping is left as normalize would leave it`() {
+        val grouping = listOf<Int?>(null, 2, 2, null, 5, 5)
+
+        assertEquals(Supersets.normalize(grouping), Supersets.tear(grouping))
+    }
+
+    @Test
+    fun `tearing a workout with no supersets in it changes nothing`() {
+        assertEquals(listOf(null, null, null), Supersets.tear(listOf(null, null, null)))
+    }
+
+    @Test
+    fun `what tearing produces is always a valid grouping`() {
+        // Two groups interleaved beyond repair — the one shape `validate` refuses — comes back
+        // as a grouping the rest of the rules can work on.
+        assertTrue(Supersets.validate(Supersets.tear(listOf(0, 1, 0, 1, 0))).isValid)
+    }
+
+    @Test
+    fun `tearing leaves the list it was given alone`() {
+        val original = listOf<Int?>(0, null, 0)
+
+        Supersets.tear(original)
+
+        assertEquals(listOf(0, null, 0), original)
+    }
+
     // ---- validating -------------------------------------------------------
 
     @Test

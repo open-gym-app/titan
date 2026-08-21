@@ -64,6 +64,43 @@ interface SessionExerciseDao {
     @Update
     suspend fun update(sessionExercise: SessionExerciseEntity)
 
+    @Update
+    suspend fun updateAll(sessionExercises: List<SessionExerciseEntity>)
+
+    /**
+     * Moves one row to a position nothing else can be holding, without touching anything else
+     * on it.
+     *
+     * The first half of [rewriteLayout] and useless on its own — see it for what the negative
+     * position is for. Deliberately does not stamp `updated_at`: the row is on its way to the
+     * position it will keep, and the write that puts it there carries the timestamp.
+     */
+    @Query("UPDATE session_exercise SET position = :position WHERE id = :id")
+    suspend fun park(id: Long, position: Int)
+
+    /**
+     * Rewrites [rows] — a reorder, in practice — in one transaction and without ever putting
+     * two exercises of one session on the same position.
+     *
+     * `session_exercise` is unique on `(session_id, position)`, so swapping two exercises row by
+     * row aborts on the second write: the first row lands on a position the second still holds.
+     * Every row being written is therefore parked out of the way first, at `-(position + 1)` —
+     * distinct per row because the positions it is derived from are, and negative, so it cannot
+     * collide with a row that is *not* being written and keeps the position it has.
+     *
+     * Both halves in one transaction because the intermediate state is not a layout: a workout
+     * whose exercises are at negative positions must never be observable, and a failure between
+     * the two halves would leave one that is.
+     *
+     * The caller decides which rows move. Handing over the whole layout would work and would
+     * restamp `updated_at` on every exercise a reorder did not touch.
+     */
+    @Transaction
+    suspend fun rewriteLayout(rows: List<SessionExerciseEntity>) {
+        rows.forEach { row -> park(id = row.id, position = -(row.position + 1)) }
+        updateAll(rows)
+    }
+
     @Query("DELETE FROM session_exercise WHERE id = :id")
     suspend fun delete(id: Long)
 
