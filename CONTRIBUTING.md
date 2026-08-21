@@ -153,13 +153,14 @@ Text(
 
   | Component | Draws | Takes |
   | --- | --- | --- |
-  | `SetLogRow` | the weight/reps/RPE entry row, with set type, tick and inline validation | text for the fields, because a half-typed number is not a number |
-  | `RpeSelector` | the 6–10 scale in halves, as nine buttons rather than a field | the stored rating (× 10), or null |
-  | `SetTypeSelector` | working / warm-up / drop / failure / interval, as one row of chips | a `SetType` |
+  | `SetLogRow` | a set as a row of fields — weight, reps, RPE, set type, tick, inline validation. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, plus an optional `onCommit` |
+  | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
+  | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
+  | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END | a name, an elapsed `Duration`, a `SessionProgress` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
-  | `LoggedSetRow` | a set that has already been written, formatted | `WorkoutSet` or `ActiveSet` |
+  | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
@@ -182,6 +183,26 @@ Text(
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
+
+  `SetLogRow` and `LoggedSetRow` are one table in two states and share their column grid, so a
+  caller has to pass the same `showPrevious` to both and to `SetLogHeader` or the labels stop
+  sitting over the cells they name.
+
+  **There is no editor.** A logged set is corrected in the row it is already in: on a screen that
+  can still be written to, every row of the table is a `SetLogRow` with the values in its fields,
+  and what writes one is *leaving* it — `onCommit`, raised when focus goes from the row or the
+  keyboard's DONE is pressed. There used to be a third component for this, opened by tapping a
+  row, drawing the same cells at the same widths with a tick and a CANCEL under them; it bought a
+  footer and cost a tap before a lifter could touch their own numbers. Only one row on a card
+  carries the accent, and it is the one the *next* set goes in — `isActive` is not "the row being
+  edited", because on this table that is any of them.
+
+  The two pickers are *cells* of that grid rather than blocks under it: the rating is picked from
+  the cell that shows the rating and the type from the cell that shows the type, so neither costs
+  the page any height. That is deliberate and hard-won — the rating scale used to be nine buttons
+  drawn open inside the table, which pushed the sets a rating is judged against off the screen.
+  Deleting a set is `SwipeToDelete` on the row for the mirror-image reason: a destructive action
+  should be the hardest gesture on a row, not the one nearest the thumb.
 
   The reorder pair is the one with rules attached. The gesture goes on the **list**
   (`Modifier.reorderable`) and never on the items, because the items move: a handler on the row

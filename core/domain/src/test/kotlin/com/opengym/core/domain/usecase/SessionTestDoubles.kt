@@ -182,6 +182,48 @@ class FakeSessionRepository : SessionRepository {
         return store(set.sessionExerciseId, set).id
     }
 
+    /** Thrown by [updateSet] and [updateSets] instead of writing, when set. */
+    var setUpdateFailure: Throwable? = null
+
+    /** Every set row rewritten, oldest first, so a test can assert on what a renumbering wrote. */
+    val setUpdates = mutableListOf<WorkoutSet>()
+
+    override suspend fun updateSet(set: WorkoutSet) {
+        setUpdateFailure?.let { throw it }
+        setUpdates += set
+        sets.value += set.sessionExerciseId to
+            sets.value[set.sessionExerciseId].orEmpty()
+                .map { if (it.id == set.id) set else it }
+    }
+
+    /**
+     * Writes several sets at once, and checks the invariant the schema does not.
+     *
+     * `workout_set` carries no unique index on `(session_exercise_id, set_number)` — see
+     * `SessionRepository.updateSets` — so nothing but the use cases keeps a table's numbers
+     * contiguous. A fake that simply applied the list would let a renumbering that leaves two
+     * sets on one number pass here and be read as "set 2 of 3" twice on a device.
+     */
+    override suspend fun updateSets(sets: List<WorkoutSet>) {
+        setUpdateFailure?.let { throw it }
+        sets.forEach { updateSet(it) }
+
+        sets.map(WorkoutSet::sessionExerciseId).distinct().forEach { sessionExerciseId ->
+            val numbers = this.sets.value[sessionExerciseId].orEmpty().map(WorkoutSet::setNumber)
+            check(numbers.size == numbers.distinct().size) {
+                "two sets of exercise $sessionExerciseId ended up on one number: $numbers"
+            }
+        }
+    }
+
+    /** Thrown by [deleteSet] instead of deleting, when set. */
+    var setDeleteFailure: Throwable? = null
+
+    override suspend fun deleteSet(setId: Long) {
+        setDeleteFailure?.let { throw it }
+        sets.value = sets.value.mapValues { (_, rows) -> rows.filterNot { it.id == setId } }
+    }
+
     /**
      * Thrown by [updateExercise] instead of writing, when set. The only way to fail the
      * superset repair a removal does on its way out, which is what proves the repair cannot
@@ -330,8 +372,10 @@ class FakeSessionRepository : SessionRepository {
     /**
      * Drops the set numbered [setNumber] from [sessionExerciseId], leaving a gap.
      *
-     * There is no delete on the repository yet — that is #99 — but the gap it will leave is
-     * already something the write path has to survive, so a test can stage one directly.
+     * The raw deletion, without the renumbering [DeleteSetUseCase] follows it with: a table with
+     * a gap in it is a state the write paths still have to survive — an older install, a torn
+     * renumbering — and this is how a test stages one without going through the use case that
+     * exists to prevent it.
      */
     fun removeSet(sessionExerciseId: Long, setNumber: Int) {
         sets.value += sessionExerciseId to

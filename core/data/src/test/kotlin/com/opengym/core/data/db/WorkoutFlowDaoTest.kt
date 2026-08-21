@@ -264,6 +264,31 @@ class WorkoutFlowDaoTest : RoomTestBase() {
     }
 
     @Test
+    fun `updateAll renumbers a table in one write`() = runBlocking {
+        val (_, sessionExerciseId) = seedSessionExercise()
+        val dao = db.workoutSetDao()
+        val first = dao.insert(workoutSet(sessionExerciseId, setNumber = 1))
+        val third = dao.insert(workoutSet(sessionExerciseId, setNumber = 3))
+        val fourth = dao.insert(workoutSet(sessionExerciseId, setNumber = 4))
+
+        // The gap a deletion leaves, closed up: the survivors move down onto numbers two of
+        // them are still holding at the moment the write starts. `workout_set` carries no
+        // unique index on `(session_exercise_id, set_number)`, which is exactly why this does
+        // not need `session_exercise`'s parking dance — see `WorkoutSetDao.updateAll`.
+        val stored = dao.getBySessionExercise(sessionExerciseId).first().associateBy { it.id }
+        dao.updateAll(
+            listOf(
+                requireNotNull(stored[third]).copy(setNumber = 2),
+                requireNotNull(stored[fourth]).copy(setNumber = 3),
+            ),
+        )
+
+        val table = dao.getBySessionExercise(sessionExerciseId).first()
+        assertEquals(listOf(1, 2, 3), table.map { it.setNumber })
+        assertEquals(listOf(first, third, fourth), table.map { it.id })
+    }
+
+    @Test
     fun `deleting a session_exercise cascades to its sets`() = runBlocking {
         val (_, sessionExerciseId) = seedSessionExercise()
         db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))

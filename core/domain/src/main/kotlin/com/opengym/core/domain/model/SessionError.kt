@@ -9,7 +9,8 @@ package com.opengym.core.domain.model
  * caller expects: `getOrThrow()` raises an `IllegalStateException` carrying a
  * message that names the transition that was refused.
  */
-sealed class SessionError(message: String) : IllegalStateException(message) {
+sealed class SessionError(message: String, failure: Throwable? = null) :
+    IllegalStateException(message, failure) {
 
     /** A session is already running, so a second one cannot be started. */
     data class SessionAlreadyActive(val sessionId: Long) : SessionError(
@@ -64,12 +65,25 @@ sealed class SessionError(message: String) : IllegalStateException(message) {
     )
 
     /**
+     * The set named is not one of that exercise's own.
+     *
+     * The same staleness [ExerciseNotInSession] describes, one level down: a screen holding a
+     * table that has been renumbered under it — by a delete performed elsewhere, or by an undo
+     * that has not reached it yet — names a row that may still exist under another exercise.
+     * Editing it there would correct a set in a workout nobody is looking at.
+     */
+    data class SetNotInExercise(val setId: Long, val sessionExerciseId: Long) : SessionError(
+        "set $setId is not logged against exercise $sessionExerciseId",
+    )
+
+    /**
      * The exercise cannot be removed because sets have been logged against it.
      *
      * `session_exercise` cascades to `workout_set`, so removing it would delete work the user
      * actually performed — the one outcome no confirmation dialog makes acceptable. The way
-     * past it is to delete the sets first (#99), after which the exercise is empty and goes
-     * freely; discarding the whole workout is the other.
+     * past it is to delete the sets first — see
+     * [com.opengym.core.domain.usecase.DeleteSetUseCase] — after which the exercise is empty and
+     * goes freely; discarding the whole workout is the other.
      */
     data class ExerciseHasLoggedSets(val sessionExerciseId: Long, val setCount: Int) : SessionError(
         "exercise $sessionExerciseId has $setCount logged set(s) and cannot be removed",
@@ -89,6 +103,31 @@ sealed class SessionError(message: String) : IllegalStateException(message) {
      */
     data class InvalidExerciseOrder(val reason: String) : SessionError(
         "the exercises cannot be reordered like that: $reason",
+    )
+
+    /**
+     * The set was written, but the renumbering that should have followed it was not.
+     *
+     * The one refusal here that is partly a success, and it is told apart from the rest for
+     * exactly that reason. Deleting a set and restoring one are each two writes — the row, then
+     * the numbers of the rows around it — and the second one failing leaves the first one done:
+     * a delete whose renumbering failed has taken the set out of the workout, and a restore
+     * whose renumbering failed has put it back, at the end of its exercise rather than where it
+     * was. A caller that could not tell this from "nothing was written" would drop the undo over
+     * a set that has genuinely gone, or tell the user to log again a set that is already there.
+     *
+     * What is left behind is a gap or a duplicate in one exercise's `set_number`s, which the
+     * next delete or restore on that table closes — see
+     * [com.opengym.core.domain.usecase.SetNumbering]. Logging closes nothing, but numbers from
+     * the highest set rather than the count, so it does not collide with one either.
+     *
+     * @param set the row as it now stands in the store: the set that was deleted, carrying the
+     *   number it had, or the set that was restored, carrying the number it was written with.
+     * @param failure what the store raised, kept as the cause so it is not lost behind this.
+     */
+    data class SetTableNotRenumbered(val set: WorkoutSet, val failure: Throwable) : SessionError(
+        "set ${set.id} was written but exercise ${set.sessionExerciseId} could not be renumbered",
+        failure,
     )
 
     /**

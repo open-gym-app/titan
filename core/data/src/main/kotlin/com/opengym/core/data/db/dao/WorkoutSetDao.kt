@@ -21,6 +21,23 @@ interface WorkoutSetDao {
     @Update
     suspend fun update(set: WorkoutSetEntity)
 
+    /**
+     * Rewrites several sets in one transaction — a renumbering, in practice.
+     *
+     * Room runs a multi-row `@Update` inside a transaction, which is the whole of what this
+     * needs and the reason it is not the parked, two-phase write `SessionExerciseDao` does for a
+     * reorder. The difference is the schema: `session_exercise` is unique on
+     * `(session_id, position)`, so two rows swapping places have to pass through a position
+     * nothing can be holding, while `workout_set` carries no unique index on
+     * `(session_exercise_id, set_number)` — the numbers are kept contiguous by the use cases —
+     * so the rows can go straight to the numbers they belong on.
+     *
+     * What the transaction is for is the observer: a table halfway through closing the gap left
+     * by a deleted set is numbered `1, 2, 4`, and no screen should ever read that.
+     */
+    @Update
+    suspend fun updateAll(sets: List<WorkoutSetEntity>)
+
     @Query("DELETE FROM workout_set WHERE id = :id")
     suspend fun delete(id: Long)
 

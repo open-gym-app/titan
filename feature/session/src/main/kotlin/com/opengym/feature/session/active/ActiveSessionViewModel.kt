@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
@@ -24,14 +25,18 @@ import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
+import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
+import com.opengym.core.domain.usecase.EditSetUseCase
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
+import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.opengym.core.domain.usecase.RestoreSetUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
@@ -44,6 +49,7 @@ import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,7 +60,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -108,16 +117,17 @@ import kotlin.time.Duration.Companion.seconds
  * the app exists for, and it is the one place a workout can be logged, edited, named, paused,
  * finished and thrown away.
  *
- * - **The parameter list.** Nineteen constructor parameters, and every one is a graph edge:
- *   three stores, the catalogue, the settings, twelve use cases and a clock. Bundling them into
+ * - **The parameter list.** Twenty-three constructor parameters, and every one is a graph edge:
+ *   three stores, the catalogue, the settings, sixteen use cases and a clock. Bundling them into
  *   a holder to satisfy a count would put a type in the way of reading what this screen depends
  *   on, which is the one thing the list is good for.
- * - **The function count.** The handlers are already grouped — `onEntryEvent`, `onNameEvent`
- *   and `onLayoutEvent` each own one subject — and what is left is one private method per
- *   thing the user can do. Splitting further means a second class over the same
- *   `MutableStateFlow`, which is two owners of one piece of state to satisfy a number.
+ * - **The function count, and the size that follows from it.** The handlers are already
+ *   grouped — `onEntryEvent`, `onSetEditEvent`, `onNameEvent` and `onLayoutEvent` each own one
+ *   subject — and what is left is one private method per thing the user can do. Splitting
+ *   further means a second class over the same `MutableStateFlow`, which is two owners of one
+ *   piece of state to satisfy a number.
  */
-@Suppress("LongParameterList", "TooManyFunctions")
+@Suppress("LargeClass", "LongParameterList", "TooManyFunctions")
 class ActiveSessionViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
@@ -126,6 +136,10 @@ class ActiveSessionViewModel @Inject constructor(
     exerciseRepository: ExerciseRepository,
     userPreferencesRepository: UserPreferencesRepository,
     private val logSet: LogSetUseCase,
+    private val editSet: EditSetUseCase,
+    private val deleteSet: DeleteSetUseCase,
+    private val restoreSet: RestoreSetUseCase,
+    private val markSetCompleted: MarkSetCompletedUseCase,
     private val addExercises: AddSessionExercisesUseCase,
     private val removeExercise: RemoveSessionExerciseUseCase,
     private val reorderExercises: ReorderSessionExercisesUseCase,
@@ -144,6 +158,46 @@ class ActiveSessionViewModel @Inject constructor(
 
     /** What the user is in the middle of, which no store has an opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
+
+    /**
+     * The correction being written for each row, so the next one can queue behind it.
+     *
+     * Kept here rather than in [ScreenState] because it is not state the screen has a use for —
+     * what a row *draws* while a correction is out is [ScreenState.savingSetIds]. These are the
+     * handles, and there are two things done with them: waiting, in [enqueueSetEdit], and waiting
+     * for all of them at once, in [flushSetEdits]. A plain map is enough because every touch of
+     * it is on the main dispatcher, which is where `viewModelScope` puts them.
+     */
+    private val setEditWrites = mutableMapOf<Long, Job>()
+
+    /**
+     * What the last correction to each row actually wrote, for as long as the read is behind it.
+     *
+     * The store is the answer to "is there anything to write", and for a moment after a write it
+     * is out of date: Room re-emits a query in its own time, so a correction queued behind one
+     * that has just landed would look at a row still holding the old values and write the same
+     * thing over again. This is what it is compared against instead. It goes the moment the read
+     * catches up, which is the same moment the draft does — see [writeSetEdit].
+     */
+    private val setEditWritten = mutableMapOf<Long, ActiveSet>()
+
+    /**
+     * One renumbering of a set table at a time, deletions and undos together.
+     *
+     * Both [delete] and [restoreDeletedSet] read an exercise's table and then write numbers
+     * computed from that reading, so two of them overlapping renumber one table from two
+     * readings, and whichever lands second is computed against numbers that have already moved —
+     * duplicate or gapped `set_number`s in a table nobody typed into. The in-flight flags each
+     * one carries are what keep a *second tap* out; they say nothing about the other action, and
+     * the pairing is reachable: an undo offer stands for several seconds, which is long enough
+     * to swipe a second set away and then think better of the first.
+     *
+     * A lock rather than a third flag, because the undo is a snackbar action and a refused one
+     * would be a tap that dismisses the offer and does nothing — the set the user asked for back
+     * would simply be gone. Made to wait, it lands a moment later against a table that has
+     * settled.
+     */
+    private val setTableWrites = Mutex()
 
     /**
      * The session as it stands on disk: the row, its exercises, and every set logged against it.
@@ -218,8 +272,12 @@ class ActiveSessionViewModel @Inject constructor(
         loaded,
         catalogue,
         screenState,
-    ) { loaded, catalogue, screen ->
-        build(loaded, catalogue, screen, clock.nowMillis())
+        // Collected here as well as read synchronously, because it is now half of what a set
+        // *reads* as: every logged row is drawn from the store through this, so a lifter who
+        // switches to pounds mid-workout has to see the table they are looking at change.
+        unitSystem,
+    ) { loaded, catalogue, screen, unitSystem ->
+        build(loaded, catalogue, screen, unitSystem, clock.nowMillis())
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -240,7 +298,23 @@ class ActiveSessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            userPreferencesRepository.observe().collect { unitSystem.value = it.unitSystem }
+            userPreferencesRepository.observe().collect { preferences ->
+                if (preferences.unitSystem == unitSystem.value) return@collect
+                unitSystem.value = preferences.unitSystem
+                // Every correction half-typed into a logged row was seeded from the store in the
+                // unit that has just stopped being the unit. Left alone, a row the user touched
+                // would keep showing `70` next to rows that had become `154`. They all go, and
+                // the rows fall back to reading themselves off the store.
+                //
+                // The ones being *written* go too, though this is the only copy of them: a write
+                // already out carries its own values — it was handed a draft, not this map — so
+                // what is dropped here is a number in the old unit that nothing needs any more.
+                // Keeping it is worse than losing it, twice over: the row would go on drawing
+                // `100` under a header that now says lb, and the next commit would read that
+                // `100` back as pounds and quietly write 45.4 kg over a 100 kg set.
+                setEditWritten.clear()
+                screenState.update { it.copy(setEdits = emptyMap()) }
+            }
         }
         // One coroutine, in this order, because each step depends on the one before it. The
         // settings are read again here rather than waited on from the collection above: the two
@@ -268,7 +342,7 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     fun onEvent(event: ActiveSessionEvent) {
-        if (onEntryEvent(event) || onNameEvent(event) || onLayoutEvent(event)) return
+        if (handledBySubject(event)) return
 
         when (event) {
             is ActiveSessionEvent.SetLogged -> log(event.sessionExerciseId)
@@ -290,6 +364,16 @@ class ActiveSessionViewModel @Inject constructor(
             else -> Unit
         }
     }
+
+    /**
+     * Whether one of the four grouped handlers took [event].
+     *
+     * Named rather than written into the `if` above it, because four handlers chained with `||`
+     * is a condition nobody reads as a condition: what it says is "this event belongs to a
+     * subject", and the subjects are the four `when`s below.
+     */
+    private fun handledBySubject(event: ActiveSessionEvent): Boolean =
+        onEntryEvent(event) || onSetEditEvent(event) || onNameEvent(event) || onLayoutEvent(event)
 
     /**
      * The five events that only change the row being typed, handled together.
@@ -476,6 +560,429 @@ class ActiveSessionViewModel @Inject constructor(
                     }
                 }
         }
+    }
+
+    // ─── Correcting a set that is already logged ────────────────────────────────────────
+
+    /**
+     * The events about a set that has already been written, handled together.
+     *
+     * Split off [onEvent] for the reason [onEntryEvent] is, and every one of them names its own
+     * row: there is no open editor for them to be about. Four of them type into a row and a
+     * fifth writes what was typed; the rest change a row without typing at all — the drag that
+     * deletes one, the tick that un-performs one, and the undo, whose row has gone altogether.
+     * The delete and the undo especially have to be read together to see that neither of them is
+     * a confirmation dialog.
+     *
+     * @return whether [event] was one of them.
+     */
+    private fun onSetEditEvent(event: ActiveSessionEvent): Boolean {
+        when (event) {
+            is ActiveSessionEvent.SetEditWeightChanged ->
+                typeIntoSet(event.setId) { it.copy(weight = event.text) }
+
+            is ActiveSessionEvent.SetEditRepsChanged ->
+                typeIntoSet(event.setId) { it.copy(reps = event.text) }
+
+            // Picked, not typed, so there is nothing to leave the row to finish — see
+            // [ActiveSessionEvent.SetEditRpeChanged]. The change and the write are one event.
+            is ActiveSessionEvent.SetEditRpeChanged -> {
+                typeIntoSet(event.setId) { it.copy(rpe = event.rpe) }
+                commitSet(event.sessionExerciseId, event.setId)
+            }
+
+            is ActiveSessionEvent.SetEditTypeChanged -> {
+                typeIntoSet(event.setId) { it.copy(setType = event.setType) }
+                commitSet(event.sessionExerciseId, event.setId)
+            }
+
+            is ActiveSessionEvent.SetEditCommitted ->
+                commitSet(event.sessionExerciseId, event.setId)
+
+            is ActiveSessionEvent.SetDeleted -> delete(event.sessionExerciseId, event.setId)
+
+            is ActiveSessionEvent.SetCompletionToggled ->
+                toggleCompletion(event.sessionExerciseId, event.setId, event.isCompleted)
+
+            ActiveSessionEvent.SetDeleteUndone -> restoreDeletedSet()
+            ActiveSessionEvent.SetDeleteDismissed ->
+                screenState.update { it.copy(deletedSet = null) }
+
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * Applies [change] to one logged row and re-validates it, against the same rules the entry
+     * row is checked against.
+     *
+     * The first keystroke on an untouched row seeds it from what is stored, which is why this
+     * reaches for the set rather than only for the map: until the user types, a logged row has no
+     * state of its own — its fields are read off the store every time the screen is built, so
+     * there is nothing to keep in step. The weight is seeded formatted into the unit it will be
+     * typed in, the way a restored draft is: what comes out of the store is milligrams, and a
+     * lifter on pounds correcting their 175 lb set must not find `79.4` in the field.
+     *
+     * No draft is saved. The draft carries the workout as it stands plus what is being *typed
+     * into* it, and a correction being typed is neither: the set it is about is already a row on
+     * disk, and a half-typed correction restored after a process kill would put values back over
+     * a set the user has no memory of touching.
+     */
+    private fun typeIntoSet(setId: Long, change: (SetEntry) -> SetEntry) {
+        val stored = loaded.value?.setById(setId) ?: return
+
+        screenState.update { state ->
+            val edited = change(state.setEdits[setId] ?: stored.toEntry(unitSystem.value))
+            state.copy(
+                setEdits = state.setEdits + (setId to edited.copy(error = validate(edited))),
+                message = null,
+            )
+        }
+    }
+
+    /**
+     * Writes one logged row over the set it was read from, if there is anything to write.
+     *
+     * Raised when the row is left rather than by a button, because there is no button: the row is
+     * the editor and it is never closed — see [ActiveSessionEvent.SetEditCommitted]. That makes
+     * this the one write on the screen the user does not press anything to cause, so it is
+     * deliberately quiet in every case where there is nothing to say:
+     *
+     * - **Untouched.** No draft, so nothing was typed. The commonest case by far, since focus
+     *   passes through rows a lifter is only reading.
+     * - **Unchanged.** Typed into and typed back, or the field was tabbed through. Compared
+     *   against the *stored* values rather than against the text, because `70` and `70.0` are one
+     *   set, and a write per glance is a write the store does not need. The draft goes with it,
+     *   so the row falls back to reading itself off the store.
+     * - **Not a set.** `SetValidator` would refuse it. The draft *stays*, with the reason under
+     *   the row, because it is the only copy of what the user typed — dropping it here would
+     *   silently undo a correction the moment they looked away from a typo.
+     *
+     * The values that are not on screen travel with it. `EditSetUseCase` replaces every dimension
+     * of the set from what it is handed, so the draft is built from the *stored* row with the four
+     * edited fields laid over it — anything else would quietly clear the note the user typed when
+     * they logged it, and the rest a set can carry.
+     *
+     * Those cases are decided in [writeSetEdit], which is where the write actually is; this is
+     * the gate in front of it. Reached through [enqueueSetEdit], so that two corrections to one
+     * row take turns rather than race. Refused outright over a workout on its way out, which
+     * [finish] makes safe by flushing what is held before it closes the session.
+     */
+    private fun commitSet(sessionExerciseId: Long, setId: Long) {
+        val state = screenState.value
+        if (state.isBusy || setId !in state.setEdits) return
+        enqueueSetEdit(sessionExerciseId, setId)
+    }
+
+    /**
+     * Puts one row's correction behind whatever is already being written for that row.
+     *
+     * Queued rather than dropped, which is the difference between a slow write and a lost one.
+     * The two menus write on the pick — see [ActiveSessionEvent.SetEditRpeChanged] — so a rating
+     * and a set type chosen one after the other are two commits a hundred milliseconds apart, and
+     * the second one lands while the first is still out. Refusing it there would leave the row
+     * *showing* the type the user picked, from a draft, over a store that never heard about it.
+     *
+     * Per row, because that is the width of the hazard: the writes race only with each other, and
+     * two rows being corrected have nothing to say to one another. What is queued is the row, not
+     * the values — [writeSetEdit] reads the draft when its turn comes, so a queue three deep on
+     * one row collapses into one write of what the row finally says, and the rest find it already
+     * written and clear the draft.
+     */
+    private fun enqueueSetEdit(sessionExerciseId: Long, setId: Long) {
+        val previous = setEditWrites[setId]
+        // Started only once it is in the map, so a write that gets all the way through without
+        // suspending cannot tidy away an entry that has not been made yet.
+        val job = viewModelScope.launch(start = CoroutineStart.LAZY) {
+            try {
+                previous?.join()
+                writeSetEdit(sessionExerciseId, setId)
+            } finally {
+                setEditWrites.remove(setId, coroutineContext.job)
+            }
+        }
+        setEditWrites[setId] = job
+        job.start()
+    }
+
+    /**
+     * Writes what the row says *now* over the set it was read from, if there is anything to write.
+     *
+     * The draft is read here rather than handed in because this can have waited: see
+     * [enqueueSetEdit]. By the time a queued write runs, the row may have been typed into again,
+     * corrected back to what it was, deleted, or emptied by a switch of units — and every one of
+     * those is answered by asking the state again instead of writing what was true when the user
+     * left the row.
+     */
+    private suspend fun writeSetEdit(sessionExerciseId: Long, setId: Long) {
+        val entry = screenState.value.setEdits[setId] ?: return
+        val target = editTarget(sessionExerciseId, setId, entry) ?: return
+        val draft = target.stored.toActiveSet().copy(
+            weight = weightField(entry.weight).value,
+            reps = repsField(entry.reps).value,
+            rpe = entry.rpe,
+            setType = entry.setType,
+        )
+        if (draft.matches(target.stored)) {
+            screenState.update { it.copy(setEdits = it.setEdits - setId) }
+            setEditWritten.remove(setId)
+            return
+        }
+        // Already written, by the commit this one queued behind, and the read has not come round
+        // yet. The draft stays: it is still what the row draws until the store agrees with it.
+        if (setEditWritten[setId]?.let(draft::matches) == true) return
+
+        screenState.update { it.copy(savingSetIds = it.savingSetIds + setId, message = null) }
+
+        editSet(sessionExerciseId, setId, draft, target.exerciseType)
+            // The draft is *kept* on success rather than dropped. What it holds is what was
+            // just written, so it draws the same row either way — and dropping it here would
+            // fall back to the store for the frame or two before the read comes round with
+            // the new values, which is the old weight flashing back under the user's thumb.
+            // The next commit finds it unchanged and clears it.
+            .onSuccess {
+                setEditWritten[setId] = draft
+                screenState.update { it.copy(savingSetIds = it.savingSetIds - setId) }
+                saveDraft()
+            }
+            .onFailure { failure ->
+                val inline = failure.toEntryError()
+                screenState.update { current ->
+                    // The row can have gone while the write was out — deleted, or its
+                    // exercise removed. There is nothing left to put an inline refusal
+                    // under, so it is said once in the bar instead; silence would be a
+                    // correction the user believes they made.
+                    val refused = current.setEdits[setId] ?: return@update current.copy(
+                        savingSetIds = current.savingSetIds - setId,
+                        message = ActiveSessionMessage.SET_EDIT_REJECTED,
+                    )
+                    current.copy(
+                        savingSetIds = current.savingSetIds - setId,
+                        setEdits = current.setEdits +
+                            (setId to refused.copy(error = inline ?: refused.error)),
+                        message = if (inline == null) {
+                            ActiveSessionMessage.SET_EDIT_REJECTED
+                        } else {
+                            null
+                        },
+                    )
+                }
+            }
+    }
+
+    /**
+     * Writes every correction still held on screen, and does not come back until they have landed.
+     *
+     * The one caller is [finish], and what it needs is the *store* right — the recap it opens is
+     * built from what `FinishSessionUseCase` reads, so a correction still in the map when that
+     * read happens is a set the user watched themselves change and will not find. Waiting is
+     * therefore the point rather than an implementation detail.
+     *
+     * It goes through [enqueueSetEdit] like every other commit, so a row already being written
+     * is not written twice over — it is joined. The loop is what covers the queue growing while
+     * it drains: a row waiting behind a slow write is not in the map yet when the round it
+     * belongs to begins, and a job takes itself out of the map before its `join` returns, so an
+     * empty map is the honest end of it. Rows whose values `SetValidator` refuses write nothing
+     * and hold nothing up, exactly as they do when the row is left — the session closes on what
+     * is stored, which for those rows is what was there before.
+     */
+    private suspend fun flushSetEdits() {
+        screenState.value.setEdits.keys.forEach { setId ->
+            val exerciseId = loaded.value?.setById(setId)?.sessionExerciseId ?: return@forEach
+            enqueueSetEdit(exerciseId, setId)
+        }
+        while (true) {
+            val pending = setEditWrites.values.toList()
+            if (pending.isEmpty()) return
+            pending.forEach { it.join() }
+        }
+    }
+
+    /**
+     * The stored row a correction is about and how its exercise is logged, or null when there is
+     * nothing to write.
+     *
+     * Three ways there is nothing: the exercise has left the workout, the set has, or the values
+     * as typed are not a set the write path would take. All three are silent, and the third is
+     * the ordinary one — a row left mid-correction, with the reason already under it. See
+     * [commitSet].
+     */
+    private fun editTarget(sessionExerciseId: Long, setId: Long, entry: SetEntry): EditTarget? {
+        val exercise = exerciseRow(sessionExerciseId) ?: return null
+        val exerciseType = catalogue.value?.exercises?.get(exercise.exerciseId)?.type
+        if (!entry.canLog || !entry.records(exerciseType)) return null
+
+        return loaded.value?.setsOf(sessionExerciseId)
+            ?.firstOrNull { it.id == setId }
+            ?.let { EditTarget(stored = it, exerciseType = exerciseType) }
+    }
+
+    /**
+     * Takes one set out of the workout, and holds it for the undo.
+     *
+     * Named rather than derived from what the user was typing, because what raises it is a drag
+     * across a row — see `SwipeToDelete` — and the row dragged is as likely as not to be one
+     * nobody has touched.
+     *
+     * A half-typed correction *to that row* goes straight away rather than on the write coming
+     * back: the row it belongs to is on its way out, and a draft outliving it would be typing
+     * held against a set that is no longer in the table. One against another row is left exactly
+     * as it is: a correction being typed into set 4 is not something a deletion of set 2 should
+     * throw away. The offer to undo is what covers a mistake, and it goes up with the set in hand
+     * — see [ActiveSessionUiState.deletedSet].
+     *
+     * One at a time, which [ScreenState.isDeletingSet] is for: two deletions in flight against one
+     * exercise renumber the same table from two readings of it, and the second one to land would
+     * be computed against numbers that have already moved. An undo is the same write from the
+     * other end and is held apart from this one by [setTableWrites].
+     */
+    private fun delete(sessionExerciseId: Long, setId: Long) {
+        val state = screenState.value
+        if (state.isBusy || state.isDeletingSet) return
+        setEditWritten.remove(setId)
+        screenState.update {
+            it.copy(
+                isDeletingSet = true,
+                setEdits = it.setEdits - setId,
+                message = null,
+            )
+        }
+
+        viewModelScope.launch {
+            setTableWrites.withLock { deleteSet(sessionExerciseId, setId) }
+                // A renumbering that failed over a set that has already gone is still a set that
+                // has gone, and the offer is the only copy of it left — so it goes up exactly as
+                // it would have on success. `DELETE_SET_FAILED` says the set is still in the
+                // workout, which on this branch it is not, and dropping the undo here would lose
+                // it for good. The gap left in the numbers is closed by the next write to that
+                // table; a set nobody was offered back is not.
+                .recoverCatching { failure ->
+                    (failure as? SessionError.SetTableNotRenumbered)?.set ?: throw failure
+                }
+                .onSuccess { deleted ->
+                    screenState.update { it.copy(isDeletingSet = false, deletedSet = deleted) }
+                    saveDraft()
+                }
+                .onFailure {
+                    screenState.update {
+                        it.copy(
+                            isDeletingSet = false,
+                            message = ActiveSessionMessage.DELETE_SET_FAILED,
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Puts the last deleted set back where it was.
+     *
+     * The offer is consumed on the way in rather than on the way back, because it is an offer
+     * rather than a record: a second tap on an undo that is still on screen would restore the
+     * set twice, and the user would have to delete one of them to find out.
+     *
+     * Taken straight away and written when the table is free — see [setTableWrites]. A deletion
+     * still in flight is a renumbering of the same table, so the two are made to take turns
+     * rather than to race; from the user's side the offer is accepted the moment it is tapped
+     * either way.
+     */
+    private fun restoreDeletedSet() {
+        val state = screenState.value
+        val deleted = state.deletedSet ?: return
+        // Withdrawn rather than ignored. Every other control on this screen goes inert over a
+        // workout that is finishing, being discarded or over, but the undo is a snackbar action
+        // and nothing disables one — so an offer left standing here would be a button whose only
+        // outcome is nothing happening, over a set `RestoreSetUseCase` would refuse to write
+        // back anyway. The screen withdraws it on sight for the same reason; this is the tap
+        // that beat it by a frame.
+        if (state.isBusy) {
+            screenState.update { it.copy(deletedSet = null) }
+            return
+        }
+        if (state.isRestoringSet) return
+        screenState.update { it.copy(isRestoringSet = true, deletedSet = null, message = null) }
+
+        viewModelScope.launch {
+            setTableWrites.withLock { restoreSet(deleted.sessionExerciseId, deleted) }
+                .onSuccess {
+                    screenState.update { it.copy(isRestoringSet = false) }
+                    saveDraft()
+                }
+                .onFailure { failure ->
+                    screenState.update {
+                        it.copy(
+                            isRestoringSet = false,
+                            // Two failures with opposite advice in them. `RESTORE_SET_FAILED`
+                            // says to log the set again, which is right only where nothing was
+                            // written; over a set the insert did land for it would have the user
+                            // record it twice.
+                            message = when (failure) {
+                                is SessionError.SetTableNotRenumbered ->
+                                    ActiveSessionMessage.SET_RESTORED_AT_END
+
+                                else -> ActiveSessionMessage.RESTORE_SET_FAILED
+                            },
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Ticks a logged set off, or takes the tick back off it.
+     *
+     * The one write on this screen that changes a set without anything being typed, and the only
+     * one that goes *back*: `MarkSetCompletedUseCase` is what un-ticks a set that was ticked by
+     * accident, leaving the row in its table and out of every figure.
+     *
+     * Nothing is held on screen for it. There is no draft of a tick — the row is the record, and
+     * the store re-emits — and there is no undo, because the action is its own undo: the control
+     * that took the tick off is the control that puts it back, in the same place, one tap later.
+     *
+     * The exercise's logging mode travels with it so a set being marked *performed* is held to the
+     * completeness rule every other write path holds it to. Un-ticking is never refused for it —
+     * see `SetValidator`.
+     */
+    private fun toggleCompletion(sessionExerciseId: Long, setId: Long, isCompleted: Boolean) {
+        val state = screenState.value
+        if (state.isBusy || setId in state.togglingSetIds) return
+        val exerciseType = exerciseTypeOf(sessionExerciseId)
+
+        screenState.update {
+            it.copy(togglingSetIds = it.togglingSetIds + setId, message = null)
+        }
+
+        viewModelScope.launch {
+            markSetCompleted(sessionExerciseId, setId, isCompleted, exerciseType)
+                .onSuccess {
+                    screenState.update { it.copy(togglingSetIds = it.togglingSetIds - setId) }
+                    // Rewritten the way it is after every other write to the workout: the draft
+                    // carries the sets as they stand alongside what is being typed, and a tick is
+                    // a change to the first half of that.
+                    saveDraft()
+                }
+                .onFailure {
+                    screenState.update {
+                        it.copy(
+                            togglingSetIds = it.togglingSetIds - setId,
+                            message = ActiveSessionMessage.SET_COMPLETION_FAILED,
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * How one exercise of this session is logged, or null when the catalogue has no row for it.
+     *
+     * Null is a real answer rather than a missing one: an exercise deleted from the library since
+     * the session started still has its sets, and what a set of it must record is a question with
+     * nobody left to answer it. Every use case takes null to mean "check the bounds alone".
+     */
+    private fun exerciseTypeOf(sessionExerciseId: Long): ExerciseType? {
+        val exercise = exerciseRow(sessionExerciseId) ?: return null
+        return catalogue.value?.exercises?.get(exercise.exerciseId)?.type
     }
 
     /**
@@ -830,6 +1337,14 @@ class ActiveSessionViewModel @Inject constructor(
      * A refusal for having logged nothing is shown inline and goes no further —
      * `SessionError.NoSetsLogged` is not an error the user made, it is the screen saying there
      * is nothing to save yet, and the way past it is either a set or the discard action.
+     *
+     * Every correction still on screen is written first. A correction is written by *leaving* the
+     * row — see [commitSet] — and tapping END does not leave it: a Material button does not take
+     * focus off a text field, so a lifter who types `72.5` over their last set and reaches
+     * straight for END has made a change that nothing has yet asked to be saved. The departure
+     * `LoggedSetTable` reports as the screen comes down arrives after [ScreenState.isFinishing]
+     * is set and is refused for it, which is right — a write must not start behind a session
+     * being closed out — so this is that write, done in front of it instead.
      */
     private fun finish() {
         // The set write is the one in-flight write a finish has to wait for. `LogSetUseCase`
@@ -842,6 +1357,8 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(isFinishing = true, message = null) }
 
         viewModelScope.launch {
+            flushSetEdits()
+
             val outcome = try {
                 finishSession()
             } catch (cancellation: CancellationException) {
@@ -953,8 +1470,16 @@ class ActiveSessionViewModel @Inject constructor(
         // One entry per exercise that was mid-set, from the trailing incomplete set the draft
         // format carries for exactly this. An exercise whose last set is completed was not being
         // typed into and gets nothing rather than an empty row.
+        //
+        // Incomplete is not enough to identify it any more. A logged set can be un-ticked — see
+        // [toggleCompletion] — so the last set of an exercise can be an incomplete *row*, and one
+        // restored into the entry fields would be a set the user could then log a second copy of.
+        // What tells them apart is the id: the draft carries it for a set that is a row, and the
+        // half-typed one has never been written and has none.
         val entries = draft.exercises.mapNotNull { exercise ->
-            val typed = exercise.sets.lastOrNull()?.takeIf { !it.isCompleted } ?: return@mapNotNull null
+            val typed = exercise.sets.lastOrNull()
+                ?.takeIf { !it.isCompleted && it.id == null }
+                ?: return@mapNotNull null
             val id = exercise.sessionExerciseId ?: return@mapNotNull null
             id to typed.toEntry(unitSystem.value)
         }.toMap()
@@ -1090,10 +1615,12 @@ class ActiveSessionViewModel @Inject constructor(
 
     // ─── Assembling the state ───────────────────────────────────────────────────────────
 
+    @Suppress("LongParameterList")
     private fun build(
         loaded: Loaded?,
         catalogue: Catalogue?,
         screen: ScreenState,
+        unitSystem: UnitSystem,
         now: Long,
     ): ActiveSessionUiState {
         val base = ActiveSessionUiState(
@@ -1106,18 +1633,26 @@ class ActiveSessionViewModel @Inject constructor(
             swappingExerciseId = screen.swappingExerciseId,
             isPaused = screen.pausedAt != null,
             loggingExerciseIds = screen.loggingExerciseIds,
+            togglingSetIds = screen.togglingSetIds,
             isFinishing = screen.isFinishing,
             isDiscarding = screen.isDiscarding,
             confirmingDiscard = screen.confirmingDiscard,
             finishedSessionId = screen.finishedSessionId,
             isDiscarded = screen.isDiscarded,
+            deletedSet = screen.deletedSet,
             message = screen.message,
         )
 
         if (loaded == null || catalogue == null) return base
         val session = loaded.session ?: return base.copy(isLoading = false)
 
-        val rows = loaded.rows(catalogue, screen.entries)
+        val rows = loaded.rows(
+            catalogue = catalogue,
+            entries = screen.entries,
+            setEdits = screen.setEdits,
+            savingSetIds = screen.savingSetIds,
+            unitSystem = unitSystem,
+        )
 
         return base.copy(
             header = ActiveSessionHeader(
@@ -1201,9 +1736,24 @@ class ActiveSessionViewModel @Inject constructor(
  *   means an untouched row, which is why reads go through [entryFor] rather than the map: an
  *   exercise the user has not reached yet and one they have typed into and cleared are the same
  *   empty row, and storing a default for every exercise would be a second copy of the layout.
+ * @param setEdits what has been typed over a set that is already logged, keyed by `workout_set`
+ *   id. Absent — which is nearly every row, nearly always — means a row nobody has touched,
+ *   whose fields are read off the store every time the screen is built. There is no "open" row to
+ *   be at most one of: every row is live, so what is held is the typing, and only for as long as
+ *   it differs from what is on disk. See [commitSet].
+ * @param savingSetIds the sets whose correction is being written. A set rather than a flag for
+ *   the reason [togglingSetIds] is one: the rows are independent, and a slow write against set 2
+ *   has no business freezing the fields of set 3.
+ * @param deletedSet the set behind the offer to undo, held until the offer is taken or lapses.
+ *   The store no longer has it, so this is the only copy — see [ActiveSessionUiState.deletedSet].
  */
 private data class ScreenState(
     val entries: Map<Long, SetEntry> = emptyMap(),
+    val setEdits: Map<Long, SetEntry> = emptyMap(),
+    val savingSetIds: Set<Long> = emptySet(),
+    val isDeletingSet: Boolean = false,
+    val deletedSet: WorkoutSet? = null,
+    val isRestoringSet: Boolean = false,
     val nameDraft: String? = null,
     val isRenaming: Boolean = false,
     val isAddingExercises: Boolean = false,
@@ -1215,6 +1765,7 @@ private data class ScreenState(
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,
     val loggingExerciseIds: Set<Long> = emptySet(),
+    val togglingSetIds: Set<Long> = emptySet(),
     val isPausing: Boolean = false,
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,
@@ -1282,6 +1833,15 @@ private data class ScreenState(
     }
 }
 
+/**
+ * What a correction is written from: the row as stored, and how its exercise is logged.
+ *
+ * The stored row rather than only its id, because an edit replaces every dimension of the set —
+ * see `EditSetUseCase` — so the values the table has no column for have to come from somewhere,
+ * and that somewhere is the row being corrected.
+ */
+private class EditTarget(val stored: WorkoutSet, val exerciseType: ExerciseType?)
+
 /** The two catalogue-wide reads, as one value. */
 private data class Catalogue(
     val exercises: Map<Long, Exercise> = emptyMap(),
@@ -1310,15 +1870,25 @@ private class Loaded(
     fun setsOf(sessionExerciseId: Long): List<WorkoutSet> =
         setsByExercise[sessionExerciseId].orEmpty()
 
+    /** One set by its own id, wherever in the workout it is. */
+    fun setById(setId: Long): WorkoutSet? = sets.firstOrNull { it.id == setId }
+
     /**
      * One row per exercise, resolved against the catalogue, labelled with its superset and
-     * carrying whatever is typed against it.
+     * carrying whatever is typed against it — the next set, and the logged one being corrected.
      *
      * The grouping is normalised before anything is read off it, matching the new-session flow:
      * a group left with one member is not a superset and must not be drawn as `A1` with no `A2`
      * under it, nor as a join the user could break.
      */
-    fun rows(catalogue: Catalogue, entries: Map<Long, SetEntry>): List<SessionExerciseRow> {
+    @Suppress("LongParameterList")
+    fun rows(
+        catalogue: Catalogue,
+        entries: Map<Long, SetEntry>,
+        setEdits: Map<Long, SetEntry>,
+        savingSetIds: Set<Long>,
+        unitSystem: UnitSystem,
+    ): List<SessionExerciseRow> {
         val grouping = Supersets.normalize(ordered.map(SessionExercise::supersetGroup))
         val labels = supersetLabels(grouping)
         val groupNames = supersetGroupNames(grouping)
@@ -1336,7 +1906,19 @@ private class Loaded(
                 // can. The last exercise is linked to nothing by construction.
                 isLinkedToNext = grouping[index] != null &&
                     grouping[index] == grouping.getOrNull(index + 1),
-                sets = setsOf(exercise.id),
+                // Every logged set as the fields it is drawn in: what has been typed over it if
+                // anything has, and otherwise the stored row read out into text. The fallback is
+                // the reason an untouched table costs no state at all — see [ScreenState.setEdits].
+                sets = setsOf(exercise.id).map { set ->
+                    val typed = setEdits[set.id]
+                    LoggedSet(
+                        id = set.id,
+                        entry = typed ?: set.toEntry(unitSystem),
+                        isCompleted = set.isCompleted,
+                        isEdited = typed != null,
+                        isSaving = set.id in savingSetIds,
+                    )
+                },
                 entry = entries[exercise.id] ?: SetEntry(),
             )
         }
@@ -1417,6 +1999,45 @@ private fun SetEntry.toActiveSets(unitSystem: UnitSystem): List<ActiveSet> {
         ),
     )
 }
+
+/**
+ * A stored set as the fields it is drawn in.
+ *
+ * The weight goes back into the unit it will be typed in — what is on disk is milligrams, and a
+ * lifter on pounds must not find `79.4` where they logged 175 lb.
+ *
+ * The note is left out on purpose. `SetEntry.notes` is the *entry* row's field, where null draws
+ * the "add a note" affordance and empty draws an open field; a logged row has no such field, and
+ * seeding it would be inventing an answer to a question the table never asks. What the note does
+ * instead is travel through the write untouched, off the stored row — see [ActiveSessionViewModel]'s
+ * commit path.
+ */
+private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(
+    weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
+    reps = reps?.toString().orEmpty(),
+    rpe = rpe,
+    setType = setType,
+)
+
+/**
+ * Whether this correction says the same thing as the set it was read from.
+ *
+ * The four dimensions a row can change, compared as *values* rather than as text: `70` and
+ * `70.0` are the same weight, and a lifter who tabbed through a field without altering it has
+ * made no correction to write.
+ */
+private fun ActiveSet.matches(stored: WorkoutSet): Boolean =
+    weight == stored.weight &&
+        reps == stored.reps &&
+        rpe == stored.rpe &&
+        setType == stored.setType
+
+/** The same four dimensions, against a correction rather than against a stored row. */
+private fun ActiveSet.matches(other: ActiveSet): Boolean =
+    weight == other.weight &&
+        reps == other.reps &&
+        rpe == other.rpe &&
+        setType == other.setType
 
 /** A restored half-typed set as the fields it was typed into. */
 private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(

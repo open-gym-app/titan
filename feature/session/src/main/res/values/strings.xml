@@ -174,6 +174,21 @@
     <!-- Shown on open, when the screen could not be put back where the workout was left. -->
     <string name="active_error_restore">Could not pick the workout back up where you left it. Your logged sets are safe.</string>
 
+    <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
+
+    <!-- The undo offer. Names the set by the number it was drawn under, which is what the user
+         was just looking at. -->
+    <string name="active_set_deleted">Set %1$d deleted</string>
+    <string name="active_undo">Undo</string>
+    <string name="active_error_set_edit">That change could not be saved. The set is as it was.</string>
+    <string name="active_error_delete_set">Could not delete that set. It is still in the workout.</string>
+    <!-- The one failure here that costs the user something they did, so it says so. -->
+    <string name="active_error_restore_set">Could not put that set back. Log it again to record it.</string>
+    <string name="active_error_restored_at_end">Set put back, at the end of the exercise.</string>
+    <!-- The tick, either way round: one sentence for both, because "nothing happened" is the
+         whole of what there is to say and the row still shows what the set says. -->
+    <string name="active_error_set_completion">Could not change that set\'s tick.</string>
+
     <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
 
     <!-- The eyebrow over the header. Which one is shown is the whole of what the two render

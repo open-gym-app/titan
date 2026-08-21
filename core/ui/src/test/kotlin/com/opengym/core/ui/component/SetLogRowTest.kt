@@ -1,6 +1,12 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -11,9 +17,11 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -23,6 +31,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 /**
  * The set row, driven stateless. The fields hold no state of their own — the test supplies
@@ -31,8 +40,13 @@ import org.robolectric.RobolectricTestRunner
  * Cells are found by their content description rather than by their contents: a weight field
  * and a rep field both show digits, and "the node whose text is 80" stops being unambiguous
  * the moment a set is 80 reps.
+ *
+ * A phone-sized viewport rather than Robolectric's 320 × 470 default: two cells of this row open
+ * menus, and on a screen no phone has shipped with this decade the bottom of the rating scale is
+ * off the display before the test has touched anything.
  */
 @RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = "w411dp-h891dp")
 class SetLogRowTest {
 
     @get:Rule
@@ -41,6 +55,8 @@ class SetLogRowTest {
     private val weightEdits = mutableListOf<String>()
     private val repEdits = mutableListOf<String>()
     private val completions = mutableListOf<Boolean>()
+    private val types = mutableListOf<SetType>()
+    private val ratings = mutableListOf<Int?>()
 
     @Test
     fun `renders the values it is given`() {
@@ -93,7 +109,7 @@ class SetLogRowTest {
     fun `a completed row offers to reopen the set rather than to complete it`() {
         setRow(weight = "80", reps = "5", isCompleted = true)
 
-        composeTestRule.onNodeWithContentDescription("Set 3 is done. Reopen it")
+        composeTestRule.onNodeWithContentDescription("Set 3 is done. Un-tick it")
             .assertIsOn()
             .performClick()
 
@@ -239,17 +255,46 @@ class SetLogRowTest {
     }
 
     @Test
-    fun `a set type replaces the number with its marker and says so to a screen reader`() {
+    fun `the leading cell announces the type it is showing, and which set it is`() {
         setRow(weight = "60", reps = "12", setType = SetType.WARMUP)
 
-        composeTestRule.onNodeWithContentDescription("Warm-up, set 3").assertIsDisplayed()
+        // The cell draws one letter. A screen reader gets the word, and the number the letter
+        // replaced — neither of which is recoverable from a `W`.
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Warm-up").assertIsDisplayed()
     }
 
     @Test
-    fun `a normal set keeps its number`() {
+    fun `the set type is picked from the cell that shows it`() {
         setRow(weight = "60", reps = "12")
 
-        composeTestRule.onNodeWithContentDescription("Working set, set 3").assertExists()
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Standard set").performClick()
+        composeTestRule.onNodeWithText("Warm-up").performClick()
+
+        assertEquals(listOf(SetType.WARMUP), types)
+    }
+
+    @Test
+    fun `the rating is picked from the cell that shows it, off a closed scale`() {
+        setRow(weight = "80", reps = "5", rpe = 75)
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithContentDescription("Rate of perceived exertion 9").performClick()
+
+        assertEquals(listOf(90), ratings)
+    }
+
+    @Test
+    fun `the rating menu's way out is what clears a rating`() {
+        setRow(weight = "80", reps = "5", rpe = 75)
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithText("Not rated").performClick()
+
+        assertEquals(listOf<Int?>(null), ratings)
     }
 
     @Test
@@ -258,6 +303,56 @@ class SetLogRowTest {
 
         composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
         assertEquals(emptyList<Boolean>(), completions)
+    }
+
+    @Test
+    fun `negative - a disabled row's menus do not open`() {
+        setRow(weight = "80", reps = "5", rpe = 75, enabled = false)
+
+        composeTestRule.onNodeWithContentDescription("Set type, set 3, Standard set").performClick()
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+
+        composeTestRule.onNodeWithText("Warm-up").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        assertEquals(emptyList<SetType>(), types)
+        assertEquals(emptyList<Int?>(), ratings)
+    }
+
+    @Test
+    fun `a menu the row went read-only under does not spring back open`() {
+        var enabled by mutableStateOf(true)
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 3,
+                    weight = "80",
+                    reps = "5",
+                    onWeightChange = weightEdits::add,
+                    onRepsChange = repEdits::add,
+                    onCompletedChange = completions::add,
+                    onSetTypeChange = types::add,
+                    rpe = 75,
+                    onRpeChange = ratings::add,
+                    enabled = enabled,
+                )
+            }
+        }
+
+        composeTestRule
+            .onNodeWithContentDescription("Rate of perceived exertion, set 3, 7.5")
+            .performClick()
+        composeTestRule.onNodeWithText("Not rated").assertIsDisplayed()
+
+        // The workout is paused under the open menu, and then picked back up. Withholding the
+        // popup without closing it leaves the menu up over a row nobody has touched since.
+        enabled = false
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        enabled = true
+
+        composeTestRule.onNodeWithText("Not rated").assertDoesNotExist()
+        assertEquals(emptyList<Int?>(), ratings)
     }
 
     @Test
@@ -296,6 +391,28 @@ class SetLogRowTest {
     }
 
     @Test
+    fun `a logged set's leading cell is a label rather than a control`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 1,
+                    set = ActiveSet(
+                        reps = 10,
+                        weight = 60_000_000,
+                        setType = SetType.WARMUP,
+                        isCompleted = true,
+                        completedAt = 1,
+                    ),
+                )
+            }
+        }
+
+        // "Warm-up, set 1" rather than the picker's "Set type, …": nothing about a written row's
+        // type can be changed from the row, so announcing it as a control would be a lie.
+        composeTestRule.onNodeWithContentDescription("Warm-up, set 1").assertIsDisplayed()
+    }
+
+    @Test
     fun `a logged set with no weight reads as reps alone`() {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -305,6 +422,143 @@ class SetLogRowTest {
 
         composeTestRule.onNodeWithText("12 reps").assertIsDisplayed()
     }
+
+    @Test
+    fun `the tick on a logged set takes it back out of the count`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet(),
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it")
+            .assertIsOn()
+            .performClick()
+
+        assertEquals(listOf(false), completions)
+    }
+
+    @Test
+    fun `an un-ticked logged set offers the tick back, and stays in the table`() {
+        val completions = mutableListOf<Boolean>()
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(
+                    setNumber = 2,
+                    set = loggedSet().copy(isCompleted = false, completedAt = null),
+                    onCompletedChange = completions::add,
+                )
+            }
+        }
+
+        // The values are still there — this is not a deletion — and the tick is the way back.
+        composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Mark set 2 done")
+            .assertIsOff()
+            .performClick()
+
+        assertEquals(listOf(true), completions)
+    }
+
+    @Test
+    fun `negative - a read-only table draws the tick as a mark rather than a control`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                LoggedSetRow(setNumber = 2, set = loggedSet(), onCompletedChange = null)
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+    }
+
+    // ─── Leaving a row, which is what writes a logged one ───────────────────────────────
+
+    @Test
+    fun `leaving the row reports it`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                Column {
+                    SetLogRow(
+                        setNumber = 1,
+                        weight = "70",
+                        reps = "8",
+                        onWeightChange = {},
+                        onRepsChange = {},
+                        onCompletedChange = {},
+                        onCommit = { commits++ },
+                    )
+                    // Somewhere else to put the focus, which is what leaving the row is.
+                    BasicTextField(value = "", onValueChange = {}, modifier = Modifier.testTag(ELSEWHERE))
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 1").requestFocus()
+        composeTestRule.onNodeWithTag(ELSEWHERE).requestFocus()
+
+        assertEquals(1, commits)
+    }
+
+    @Test
+    fun `negative - moving between the two fields of one row is not leaving it`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 1,
+                    weight = "70",
+                    reps = "8",
+                    onWeightChange = {},
+                    onRepsChange = {},
+                    onCompletedChange = {},
+                    onCommit = { commits++ },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 1").requestFocus()
+        composeTestRule.onNodeWithContentDescription("Reps, set 1").requestFocus()
+
+        // What has been left is a field, not the row. A commit per field would write the same
+        // correction twice on the way across it.
+        assertEquals(0, commits)
+    }
+
+    @Test
+    fun `negative - a row nobody has focused reports nothing`() {
+        var commits = 0
+        composeTestRule.setContent {
+            OpenGymTheme {
+                SetLogRow(
+                    setNumber = 1,
+                    weight = "70",
+                    reps = "8",
+                    onWeightChange = {},
+                    onRepsChange = {},
+                    onCompletedChange = {},
+                    onCommit = { commits++ },
+                )
+            }
+        }
+
+        // `onFocusChanged` fires once on composition with nothing focused. Read as "not focused,
+        // therefore left", that writes every row of the table the first time it is drawn.
+        assertEquals(0, commits)
+    }
+
+    private fun loggedSet() = ActiveSet(
+        reps = 8,
+        weight = 70_000_000,
+        rpe = 75,
+        isCompleted = true,
+        completedAt = 1,
+    )
 
     private fun setRow(
         weight: String,
@@ -328,7 +582,9 @@ class SetLogRowTest {
                     onRepsChange = repEdits::add,
                     onCompletedChange = completions::add,
                     setType = setType,
+                    onSetTypeChange = types::add,
                     rpe = rpe,
+                    onRpeChange = ratings::add,
                     previous = previous,
                     showPrevious = showPrevious,
                     isCompleted = isCompleted,
@@ -344,5 +600,8 @@ class SetLogRowTest {
 
         /** Layout is computed in floating point; a fraction of a pixel is not a misalignment. */
         const val HALF_A_PIXEL = 0.5f
+
+        /** A field outside the row, so focus has somewhere to go that counts as leaving. */
+        const val ELSEWHERE = "elsewhere"
     }
 }

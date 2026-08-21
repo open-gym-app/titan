@@ -62,6 +62,11 @@ import kotlin.time.Duration
  * @param isPaused whether the session is suspended. The clocks stop and every entry row goes
  *   read-only; `LogSetUseCase` refuses a set logged into a paused session, so a field that
  *   still accepted typing would be collecting keystrokes for a write that cannot happen.
+ * @param togglingSetIds the sets whose tick is being written, either way. Ids rather than a flag
+ *   for the reason [loggingExerciseIds] is a set: the rows are independent, and a slow write
+ *   against one set has no business freezing the tick on the four above it. What it buys is the
+ *   second tap: a tick pressed twice in the time one write takes would otherwise send the same
+ *   row both ways, and which of the two landed last decides what the set ends up saying.
  * @param loggingExerciseIds the exercises whose sets are being written. Ids rather than a flag
  *   because the rows are independent: a slow write against the bench press has no business
  *   disabling the tick on the curls. A *set* of them rather than one id for the same reason
@@ -82,6 +87,12 @@ import kotlin.time.Duration
  *   out, so this is the last value the screen ever holds.
  * @param isDiscarded the session was thrown away. The other way the screen ends, and a separate
  *   field because it leads somewhere else — there is no recap of a workout that did not happen.
+ * @param deletedSet the set that has just been taken out of the workout, held for as long as the
+ *   offer to undo stands, or null. The whole row rather than its id, because the row is the only
+ *   copy of it left: it is gone from the store, and what puts it back is its values and the
+ *   number it had. Carried in the state rather than pushed down a channel for the reason
+ *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
+ *   event would not.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -100,11 +111,13 @@ data class ActiveSessionUiState(
     val swappingExerciseId: Long? = null,
     val isPaused: Boolean = false,
     val loggingExerciseIds: Set<Long> = emptySet(),
+    val togglingSetIds: Set<Long> = emptySet(),
     val isFinishing: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
+    val deletedSet: WorkoutSet? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -198,10 +211,14 @@ data class ActiveSessionHeader(
  *   exercise that stands alone. Carried beside [supersetLabel] rather than read back out of it:
  *   the label's format is `SupersetLabels`' own, and the one caller that wants the group by
  *   itself is the join under this card, which names it.
- * @param sets the sets logged against it, in set-number order.
+ * @param sets the sets logged against it, in set-number order, each as the fields it is drawn
+ *   in. Text rather than the stored `WorkoutSet`, for the reason [SetEntry] gives at length:
+ *   every one of these rows is live — a logged set is corrected by typing into the row it is
+ *   already in — and a field being typed into does not hold a number.
  * @param entry the set being typed into it. Every exercise has one — there is always a next set
  *   to log, and a screen that hid the fields until an "add set" tap would put a tap in front of
- *   the thing the screen exists to do.
+ *   the thing the screen exists to do. Separate from [sets] because it is the one row that is
+ *   not a set yet: what writes it is a tick, and what writes the others is leaving them.
  */
 @Immutable
 data class SessionExerciseRow(
@@ -212,7 +229,7 @@ data class SessionExerciseRow(
     val supersetLabel: String? = null,
     val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
-    val sets: List<WorkoutSet> = emptyList(),
+    val sets: List<LoggedSet> = emptyList(),
     val entry: SetEntry = SetEntry(),
 ) {
 
@@ -227,7 +244,7 @@ data class SessionExerciseRow(
      * are the same number only while nothing incomplete is ever persisted, which is not a
      * property this screen has: a set can be logged and left unticked.
      */
-    val completedSetCount: Int get() = sets.count(WorkoutSet::isCompleted)
+    val completedSetCount: Int get() = sets.count(LoggedSet::isCompleted)
 
     /** The number the next set will be shown under, which is its place in the table, from 1. */
     val nextSetNumber: Int get() = sets.size + 1
@@ -343,6 +360,45 @@ data class SetEntry(
 }
 
 /**
+ * A set that is already written, as the row it is drawn in.
+ *
+ * ### Why a logged set carries text
+ *
+ * Because it is still being typed into. There is no separate editor and no mode: every row of
+ * every table on this screen is live from the moment it is drawn, and a correction is written
+ * when the user leaves the row — see `LoggedSetTable`. So a logged set needs exactly what the
+ * unwritten one needs, which is [SetEntry]: the field contents as typed, and the reason they
+ * would be refused. `8.` and `` are states a user passes through on the way to a number, and a
+ * `WorkoutSet` cannot hold either of them.
+ *
+ * The values are seeded from what is stored — the weight formatted back into the unit it will be
+ * typed in, the way a restored draft is — until the user touches the row, after which what they
+ * typed is what is shown. Only [SetEntry.notes] is unused: the table has no column for prose, and
+ * the stored note is carried through the write untouched; see `EditSetUseCase`.
+ *
+ * @param id the `workout_set` row. The number it is drawn under is *not* carried: that is its
+ *   place in the table, which the table already knows and which a deletion elsewhere changes.
+ * @param entry the values as they stand, validated against `SetValidator` on every keystroke
+ *   exactly as an entry row is.
+ * @param isCompleted whether it counts. Kept out of [entry] because it is the one thing about a
+ *   logged set that is not typed: the tick writes it on its own, straight away.
+ * @param isEdited whether [entry] is the user's typing rather than the stored row read out. False
+ *   for almost every row almost always, and what a screen checks before writing one on its way
+ *   out: the workout is a lazy list, so a card scrolled far enough away is taken out of the
+ *   composition, and a row that leaves that way never reports losing focus. See `LoggedSetTable`.
+ * @param isSaving a correction to this row is in flight. The row goes inert — it is the only
+ *   copy of what was typed, and a second write of the same correction is a race with itself.
+ */
+@Immutable
+data class LoggedSet(
+    val id: Long,
+    val entry: SetEntry = SetEntry(),
+    val isCompleted: Boolean = false,
+    val isEdited: Boolean = false,
+    val isSaving: Boolean = false,
+)
+
+/**
  * Something that happened and needs saying once.
  *
  * An enum rather than a string, matching every other screen in the module: the ViewModel does
@@ -382,7 +438,7 @@ enum class ActiveSessionMessage {
      * The exercise has sets logged against it, so it cannot be cut out.
      *
      * The one refusal on this screen that is a *rule* rather than a failure, and it names the
-     * way past itself: the sets go first (#99), or the whole workout does.
+     * way past itself: the sets go first — tap one and delete it — or the whole workout does.
      */
     EXERCISE_HAS_SETS,
 
@@ -415,6 +471,41 @@ enum class ActiveSessionMessage {
 
     /** The exercise could not be swapped. The slot holds what it held. */
     SWAP_FAILED,
+
+    /** The correction was refused by the domain after passing the screen's own check. */
+    SET_EDIT_REJECTED,
+
+    /** The set could not be deleted. It is still in the workout, exactly as it was. */
+    DELETE_SET_FAILED,
+
+    /**
+     * The tick could not be written. The set is however it was before the tap.
+     *
+     * One message for both directions, because there is one thing to say about a write that
+     * changed nothing — and because the row itself is the other half of the answer: it is still
+     * drawn as whatever the store says it is.
+     */
+    SET_COMPLETION_FAILED,
+
+    /**
+     * The deleted set could not be put back.
+     *
+     * The one message on this screen that reports the loss of something the user did, which is
+     * why it says so rather than saying "try again": the offer to undo is gone with it, and what
+     * is left is to log the set over.
+     */
+    RESTORE_SET_FAILED,
+
+    /**
+     * The deleted set is back, but at the end of its exercise rather than where it was.
+     *
+     * `SessionError.SetTableNotRenumbered`, which is the undo half-landing: the row was written
+     * and the renumbering that would have slotted it back in was not. A separate message from
+     * [RESTORE_SET_FAILED] because the advice in that one — log it again — would have the user
+     * record a set that is already in the table a second time. There is nothing to do about the
+     * order, so this says where the set went and stops there.
+     */
+    SET_RESTORED_AT_END,
 
     /**
      * Opening the screen could not put it back where the workout was left.

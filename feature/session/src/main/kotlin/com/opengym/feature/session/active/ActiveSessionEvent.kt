@@ -23,8 +23,8 @@ sealed interface ActiveSessionEvent {
     /**
      * The rating changed, or was cleared with null.
      *
-     * Null is reachable: tapping the selected value on the RPE scale clears it, which is the
-     * only way back to an unrated set.
+     * Null is reachable: the rating menu's last item is "not rated", which is the only way back
+     * to an unrated set.
      */
     data class RpeChanged(val sessionExerciseId: Long, val rpe: Int?) : ActiveSessionEvent
 
@@ -36,6 +36,99 @@ sealed interface ActiveSessionEvent {
 
     /** Write this exercise's entry row as a set. */
     data class SetLogged(val sessionExerciseId: Long) : ActiveSessionEvent
+
+    /*
+     * ── Correcting a set that is already logged ─────────────────────────────────────────
+     *
+     * There is no open row, so every one of these names its own. A logged set is corrected by
+     * typing into the row it is already in — all of them are live, all of the time, and there is
+     * no editor to open or to close. What used to be "the open row" is now as many half-typed
+     * corrections as the user has started, which is at most one per row and usually none.
+     *
+     * The four that carry values do not write. What writes is [SetEditCommitted], raised when
+     * the row is left — the two picked off a menu are the exception and say why below.
+     */
+
+    /** A logged row's weight field changed. Carries text, not a number — see [SetEntry]. */
+    data class SetEditWeightChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /** A logged row's rep field changed. */
+    data class SetEditRepsChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /**
+     * A logged row's rating changed, or was cleared with null.
+     *
+     * Written on the spot rather than waiting for [SetEditCommitted]. A rating is picked off a
+     * closed scale of nine in a menu — see `RpePicker` — so the pick *is* the answer: there are
+     * no half-typed states to pass through and nothing to leave the row to finish. A menu that
+     * shut without writing would be a change the user watched happen and would not find later.
+     */
+    data class SetEditRpeChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val rpe: Int?,
+    ) : ActiveSessionEvent
+
+    /** A logged row's set type changed. Written on the spot, for [SetEditRpeChanged]'s reason. */
+    data class SetEditTypeChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val setType: SetType,
+    ) : ActiveSessionEvent
+
+    /**
+     * The user has finished with a logged row: its fields lost focus, or the keyboard's DONE was
+     * pressed. Write what is in it.
+     *
+     * This is the whole of "saving a correction". There is no confirm button and no cancel,
+     * because there is no panel to put them on — see `LoggedSetTable`. A row whose values are
+     * unchanged writes nothing, and one whose values `SetValidator` refuses keeps them, with the
+     * reason under it, until they are a set again.
+     */
+    data class SetEditCommitted(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+
+    /**
+     * Take one set out of the workout.
+     *
+     * Names its set, because what raises it is a drag across a row in the table. Deleting used to
+     * be a word under an editor's fields; it is a gesture now, for the reason `SwipeToDelete`
+     * gives.
+     *
+     * Not confirmed, and reversible instead: what follows is an offer to undo, which the
+     * screen puts on screen for as long as it stands. See `DeleteSetUseCase`.
+     */
+    data class SetDeleted(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+
+    /**
+     * Tick a logged set off, or take the tick back off it.
+     *
+     * The tick is the control a set is written with, and it is therefore the control that gets
+     * pressed by accident — so it is also the way back, and it is the same control in the same
+     * cell. Carries the state it should end up in rather than "toggle": the tap
+     * was on a control that was already showing an answer, and a flip computed against whatever
+     * the row holds when the event lands is not what the user pressed.
+     *
+     * An un-ticked set stays in the table and stops counting. See `MarkSetCompletedUseCase`.
+     */
+    data class SetCompletionToggled(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val isCompleted: Boolean,
+    ) : ActiveSessionEvent
+
+    /** Put the set that was just deleted back, where it was. */
+    data object SetDeleteUndone : ActiveSessionEvent
+
+    /** The offer to undo has been on screen long enough. Nothing happens to the workout. */
+    data object SetDeleteDismissed : ActiveSessionEvent
 
     /**
      * Perform this exercise back to back with the one after it — make them a superset.

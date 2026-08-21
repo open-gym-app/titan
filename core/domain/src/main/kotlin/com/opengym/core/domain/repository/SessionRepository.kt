@@ -96,12 +96,66 @@ interface SessionRepository {
      *
      * @param set with `id = 0`, the value [WorkoutSet] defaults to: the row does not
      *   exist yet, and the store assigns its id. `setNumber` is the caller's, unlike
-     *   an exercise's position, because `workout_set` is unique on
-     *   `(session_exercise_id, set_number)` and a set can legitimately be written
-     *   against an exercise that already has some — there is no list here for the
-     *   store to take an order from.
+     *   an exercise's position, because a set can legitimately be written against an
+     *   exercise that already has some — there is no list here for the store to take
+     *   an order from. Keeping those numbers contiguous is therefore also the
+     *   caller's; [updateSets] is what a renumbering is written through.
      */
     suspend fun insertSet(set: WorkoutSet): Long
+
+    /**
+     * Replaces one `workout_set` row.
+     *
+     * What a correction is written through — a mistyped weight, a rating added after the
+     * fact. Narrow for the reason [updateExercise] is narrow: what edits one row at a time
+     * is a change that concerns one row, and a change that renumbers a whole exercise's
+     * table is [updateSets].
+     *
+     * **The bounds are not checked here** either, for the reason [insertSet] gives.
+     * [com.opengym.core.domain.usecase.EditSetUseCase] is the path that checks them.
+     *
+     * @param set carrying the id of the row to replace. Its `sessionExerciseId` and
+     *   `createdAt` are expected to be the ones already stored — this replaces a set, it
+     *   does not move one between exercises.
+     */
+    suspend fun updateSet(set: WorkoutSet)
+
+    /**
+     * Replaces several `workout_set` rows **atomically**.
+     *
+     * This is what a renumbering is written through: deleting the second of four sets
+     * leaves `1, 3, 4`, and the three writes that close that gap are one change to one
+     * exercise's table. Half of them applied is a table numbered `1, 2, 4`, which is worse
+     * than either end state — the "set 3 of 4" a card draws would name a set that is not
+     * there.
+     *
+     * Unlike [updateExercises] there is no parking step, and the difference is worth
+     * knowing: `session_exercise` carries a unique `(session_id, position)` index, so
+     * moving two rows past each other has to go through a position nothing can be holding.
+     * `workout_set` has no such index on `(session_exercise_id, set_number)` — the numbers
+     * are kept contiguous by the use cases rather than by the schema — so the rows can be
+     * written where they belong in one pass.
+     *
+     * Only the rows that change are handed over, so a set the renumbering did not move
+     * keeps the `updatedAt` it had.
+     */
+    suspend fun updateSets(sets: List<WorkoutSet>)
+
+    /**
+     * Removes one set.
+     *
+     * Nothing cascades from `workout_set` — it is the leaf of the session's tree — so this
+     * is the one delete in this interface that takes nothing with it.
+     *
+     * The remaining sets are **not** renumbered here, which is the opposite of what
+     * [deleteExercise] does with positions and for the opposite reason: a set number is
+     * read as "set 3 of 4" and a gap in it is visible, so the renumbering is required
+     * rather than pointless. It belongs to the caller because the caller is also what has
+     * to be able to undo it — see
+     * [com.opengym.core.domain.usecase.DeleteSetUseCase] and
+     * [com.opengym.core.domain.usecase.RestoreSetUseCase].
+     */
+    suspend fun deleteSet(setId: Long)
 
     /**
      * Replaces one `session_exercise` row.

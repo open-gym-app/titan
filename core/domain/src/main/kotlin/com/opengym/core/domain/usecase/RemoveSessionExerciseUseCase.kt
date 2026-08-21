@@ -24,9 +24,10 @@ import kotlinx.coroutines.flow.first
  * on autopilot between sets, in a gym, on a phone.
  *
  * The refusal is also not a dead end, which is what makes it a reasonable rule rather than an
- * obstruction. Deleting the sets first (#99) leaves the exercise empty and it then goes freely,
- * and a user who means to throw the whole workout away has `DiscardSessionUseCase`. What is not
- * offered is the middle path, because there is no honest version of it.
+ * obstruction. Deleting the sets first ([DeleteSetUseCase]) leaves the exercise empty and it
+ * then goes freely, and a user who means to throw the whole workout away has
+ * `DiscardSessionUseCase`. What is not offered is the middle path, because there is no honest
+ * version of it.
  *
  * ### What it repairs on the way out
  *

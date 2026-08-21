@@ -113,11 +113,12 @@ class LogSetUseCase(
     /**
      * One past the highest number already used under this exercise, counting from 1.
      *
-     * The highest rather than the count, because the two disagree the moment a set is
-     * deleted (#99) and only one of them cannot collide with the unique
-     * `(session_exercise_id, set_number)` index. A gap left behind by a deletion stays a
-     * gap; the number is a key, and the position a user reads is the row's place in the
-     * list.
+     * The highest rather than the count, which is the same number as long as the table is
+     * contiguous — [DeleteSetUseCase] is what keeps it so, by closing the gap a deletion
+     * leaves rather than letting the two drift apart. Taking the maximum anyway is what
+     * makes this the write path that cannot produce a duplicate number even if it ever
+     * did: nothing in the schema forbids one, so the rule lives here and in the
+     * renumbering, not in an index.
      */
     private suspend fun nextSetNumber(sessionExerciseId: Long): Int =
         (sessionRepository.getSets(sessionExerciseId).first().maxOfOrNull(WorkoutSet::setNumber) ?: 0) + 1

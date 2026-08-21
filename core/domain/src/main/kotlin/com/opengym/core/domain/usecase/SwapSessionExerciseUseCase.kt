@@ -29,8 +29,8 @@ import kotlinx.coroutines.flow.first
  * old exercise while appending the new one — the other option on the table — is what "add more
  * exercises" already does, said less clearly. So the swap is refused with
  * [SessionError.ExerciseHasLoggedSets], the same refusal the × on the card gives, and it names
- * the same way past itself: delete the sets first (#99), or add the new exercise and leave the
- * old one where it is.
+ * the same way past itself: delete the sets first ([DeleteSetUseCase]), or add the new exercise
+ * and leave the old one where it is.
  *
  * ### What travels with the slot, and what does not
  *

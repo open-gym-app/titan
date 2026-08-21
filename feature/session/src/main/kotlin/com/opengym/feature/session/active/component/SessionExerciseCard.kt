@@ -30,9 +30,7 @@ import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
-import com.opengym.core.ui.component.RpeSelector
 import com.opengym.core.ui.component.SetLogRow
-import com.opengym.core.ui.component.SetTypeSelector
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.ActiveSessionEvent
@@ -54,13 +52,17 @@ import com.opengym.feature.session.active.SetEntryError
  * a selection by the back door. What a glance from arm's length needs to find is the box the
  * next number goes in, and that box is accented on each card.
  *
- * ### The controls under the row appear when the set does
+ * ### Almost nothing is drawn under the row
  *
- * The set-type chips and the note affordance are drawn once the entry has been started — see
- * [SetEntry.isStarted]. Not a fold: nothing logged is ever hidden, and both controls are for a
- * set that is being written rather than for one that has been. Drawing them under every exercise
- * of an eight-exercise workout puts three rows of chrome between each pair of set tables, and
- * the thing that suffers is reading the workout, which is the whole reason the page is like this.
+ * The set's rating and its type are cells *of* the entry row — a menu each, opened from the cell
+ * that shows the answer; see `RpePicker` and `SetTypePicker`. They used to be a nine-button grid
+ * and a scrolling row of chips stacked underneath it, which on an eight-exercise workout put three
+ * rows of chrome between every pair of set tables, and the thing that suffered was reading the
+ * workout — the whole reason the page is like this.
+ *
+ * What is left below the row is the note, drawn once the entry has been started — see
+ * [SetEntry.isStarted]. Not a fold: nothing logged is ever hidden, and a note is prose, which is
+ * the one thing a table cell cannot be.
  *
  * @param row the exercise, its sets and its half-typed set.
  * @param position where it sits in the workout, from 0 — the *drawn* order rather than
@@ -69,18 +71,13 @@ import com.opengym.feature.session.active.SetEntryError
  * @param enabled false makes the whole card read-only — a paused session, or one being closed
  *   out. The fields keep what they hold, because they are still the user's copy of it.
  *
- *   Every control takes it, the chips and the rating grid included. Those two are the ones it is
- *   easiest to leave out — they are not fields and they are not the tick — and leaving them live
- *   is a session that says it is suspended while its set type is still being changed, which is
- *   the read-only guarantee `LogSetUseCase` enforces on the write path being broken on this one.
- * @param showRpeScale whether this card's rating scale is open under the table. Hoisted rather
- *   than remembered here so that only one is ever open on the screen.
- *
- *   It is drawn *inline* rather than in a bottom sheet, which is the one layout decision here
- *   worth stating. A sheet is the obvious home for a nine-cell grid and it puts the grid over
- *   the row it is rating — so the set the user is looking at, and the last two they did, are
- *   behind it at the moment they are deciding how hard the last one felt.
- * @param onRpeToggle open or close that scale.
+ *   Every control under it takes it, the rating and set-type pickers included. Those are the
+ *   ones it is easiest to leave out — they are not fields and they are not the tick — and
+ *   leaving them live is a session that says it is suspended while its set type is still being
+ *   changed, which is the read-only guarantee `LogSetUseCase` enforces on the write path being
+ *   broken on this one.
+ * @param togglingSetIds the logged sets of this exercise whose tick is being written, passed
+ *   through to the table so those rows' ticks go inert.
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
@@ -97,11 +94,10 @@ fun SessionExerciseCard(
     row: SessionExerciseRow,
     position: Int,
     onEvent: (ActiveSessionEvent) -> Unit,
-    onRpeToggle: () -> Unit,
     onRemove: () -> Unit,
     onSwap: () -> Unit,
     modifier: Modifier = Modifier,
-    showRpeScale: Boolean = false,
+    togglingSetIds: Set<Long> = emptySet(),
     enabled: Boolean = true,
     isLogging: Boolean = false,
     isMovable: Boolean = false,
@@ -122,7 +118,12 @@ fun SessionExerciseCard(
                 isMovable = isMovable,
             )
 
-            SetTable(row = row, onEvent = onEvent, onRpeClick = onRpeToggle, enabled = enabled)
+            SetTable(
+                row = row,
+                onEvent = onEvent,
+                togglingSetIds = togglingSetIds,
+                enabled = enabled,
+            )
 
             // Said once, under the table, for an exercise this screen cannot log at all — see
             // [SessionExerciseRow.isLoggedByDuration]. Not an entry error: nothing the user
@@ -135,31 +136,7 @@ fun SessionExerciseCard(
                 )
             }
 
-            if (showRpeScale) {
-                RpeSelector(
-                    rpe = entry.rpe,
-                    onRpeChange = {
-                        onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it))
-                        onRpeToggle()
-                    },
-                    // The scale can be open *across* a pause — the tap that opens it is what
-                    // `SetLogRow` withholds, not the one that picks a value out of it — so a
-                    // read-only card has to say so here too, or a paused session still takes
-                    // ratings and saves a draft of them.
-                    enabled = enabled,
-                )
-            }
-
             if (entry.isStarted) {
-                SetTypeSelector(
-                    selected = entry.setType,
-                    onSelect = {
-                        onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
-                    },
-                    enabled = enabled,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
                 SetNote(
                     sessionExerciseId = row.sessionExerciseId,
                     notes = entry.notes,
@@ -277,19 +254,29 @@ private fun ExerciseHeading(
  * added here is the row being typed, which every exercise also has: a superset is logged by
  * alternating between its members, and a row that only existed on one of them would make that
  * impossible.
+ *
+ * Every row of both halves takes typing. What tells them apart is not whether they can be edited
+ * — they all can — but what writes them: a logged row is written by being left, and this one by
+ * its tick, because it is not a set until somebody says it is.
  */
 @Composable
 private fun SetTable(
     row: SessionExerciseRow,
     onEvent: (ActiveSessionEvent) -> Unit,
-    onRpeClick: () -> Unit,
+    togglingSetIds: Set<Long>,
     enabled: Boolean,
 ) {
     val entry = row.entry
     val error = entry.error?.message()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        LoggedSetTable(sets = row.sets)
+        LoggedSetTable(
+            sets = row.sets,
+            sessionExerciseId = row.sessionExerciseId,
+            onEvent = onEvent,
+            togglingSetIds = togglingSetIds,
+            enabled = enabled,
+        )
         HairlineDivider()
 
         SetLogRow(
@@ -307,11 +294,18 @@ private fun SetTable(
                 if (it) onEvent(ActiveSessionEvent.SetLogged(row.sessionExerciseId))
             },
             setType = entry.setType,
+            onSetTypeChange = {
+                onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
+            },
             rpe = entry.rpe,
-            onRpeClick = onRpeClick,
+            onRpeChange = { onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it)) },
             // #101 fills this. The column is drawn either way, so adding it later does not move
             // every figure in the table sideways.
             previous = null,
+            // The one accented row on the card, always. Every row above it is live too — a
+            // logged set is corrected where it sits, see [LoggedSetTable] — so what the tint is
+            // left to mean is the only thing worth marking from arm's length: this is where the
+            // next number goes.
             isActive = true,
             error = error,
             enabled = enabled,
@@ -376,9 +370,13 @@ private fun SetNote(
  * Two of the three are this screen's own and come out of its resources; the third is
  * `SetValidator`'s, which already names the field, the bound and the value it saw. Paraphrasing
  * that one would be a second copy of a rule that lives in the domain.
+ *
+ * Internal because the same three refusals reach the same user under any row of the table:
+ * `SetValidator` gives one answer about a set, whether it is being logged or being corrected, so
+ * the screen says it in one set of words.
  */
 @Composable
-private fun SetEntryError.message(): String = when (this) {
+internal fun SetEntryError.message(): String = when (this) {
     SetEntryError.WeightNotANumber -> stringResource(R.string.active_weight_not_a_number)
     SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
     is SetEntryError.Refused -> reason

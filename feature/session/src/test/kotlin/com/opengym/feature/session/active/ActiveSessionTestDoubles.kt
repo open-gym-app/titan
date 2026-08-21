@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionTotals
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
@@ -38,6 +39,15 @@ class FakeActiveSessionStore(
 
     /** Every set written through [insertSet], oldest first. */
     val logged = mutableListOf<WorkoutSet>()
+
+    /**
+     * The `workout_set` rows as they now stand.
+     *
+     * The screen reads a set as the row it is drawn in — a set number is its place in the table,
+     * and the weight is text in the user's unit — so the stored numbering is a thing only the
+     * store can be asked about. That is what a renumbering after a deletion is asserted against.
+     */
+    val stored: List<WorkoutSet> get() = sets.value
 
     /** Thrown by [insertSet] instead of storing, when set. */
     var insertFailure: Throwable? = null
@@ -82,6 +92,73 @@ class FakeActiveSessionStore(
         sets.value += stored
         logged += stored
         return stored.id
+    }
+
+    /** Every set rewritten through [updateSet] or [updateSets], oldest first. */
+    val updated = mutableListOf<WorkoutSet>()
+
+    /** Thrown by [updateSet], [updateSets] and [deleteSet] instead of writing, when set. */
+    var editFailure: Throwable? = null
+
+    /**
+     * Runs inside [updateSet], before the row is written, with the set being written.
+     *
+     * Lets a test hold a correction open while the user reopens another row — the window in
+     * which a write coming back could close an editor it is not about.
+     */
+    var beforeUpdate: (suspend (WorkoutSet) -> Unit)? = null
+
+    override suspend fun updateSet(set: WorkoutSet) {
+        beforeUpdate?.invoke(set)
+        editFailure?.let { throw it }
+        updated += set
+        sets.value = sets.value.map { if (it.id == set.id) set else it }
+    }
+
+    /**
+     * Writes several sets at once, and checks the invariant the schema does not.
+     *
+     * `workout_set` has no unique index on `(session_exercise_id, set_number)` — the numbers are
+     * kept contiguous by the use cases — so a fake that simply applied the list would let a
+     * renumbering that leaves two sets on one number pass here and be read as "set 2" twice on a
+     * device.
+     */
+    /**
+     * Thrown by [updateSets] alone, when set.
+     *
+     * The second write of a delete or a restore — the renumbering — which is the one that can
+     * fail *after* the row has already gone or already come back. [editFailure] fails every
+     * write and so only ever reaches the first one; this reaches the window between them.
+     */
+    var renumberFailure: Throwable? = null
+
+    override suspend fun updateSets(sets: List<WorkoutSet>) {
+        editFailure?.let { throw it }
+        renumberFailure?.let { throw it }
+        sets.forEach { updateSet(it) }
+
+        sets.map(WorkoutSet::sessionExerciseId).distinct().forEach { sessionExerciseId ->
+            val numbers = this.sets.value
+                .filter { it.sessionExerciseId == sessionExerciseId }
+                .map(WorkoutSet::setNumber)
+            check(numbers.size == numbers.distinct().size) {
+                "two sets of exercise $sessionExerciseId ended up on one number: $numbers"
+            }
+        }
+    }
+
+    /**
+     * Runs inside [deleteSet], before the row goes, with the id being removed.
+     *
+     * Lets a test hold a deletion open across another write to the same table — a swipe and the
+     * undo of an earlier swipe are seconds apart on this screen, and both renumber the exercise.
+     */
+    var beforeDelete: (suspend (Long) -> Unit)? = null
+
+    override suspend fun deleteSet(setId: Long) {
+        beforeDelete?.invoke(setId)
+        editFailure?.let { throw it }
+        sets.value = sets.value.filterNot { it.id == setId }
     }
 
     override suspend fun updateExercise(exercise: SessionExercise) {
@@ -246,6 +323,26 @@ fun activeExercise(
     supersetGroup = supersetGroup,
     createdAt = STARTED_AT,
     updatedAt = STARTED_AT,
+)
+
+/**
+ * One logged set as the screen draws it: the values already in the fields.
+ *
+ * The row a screen test works with, as against [loggedSet], which is the row a *store* holds. The
+ * two are different shapes on purpose — every row of the table is live, so what reaches the screen
+ * is text in the user's own unit rather than milligrams. See `LoggedSet`.
+ */
+fun loggedRow(
+    id: Long,
+    weight: String = "60",
+    reps: String = "8",
+    rpe: Int? = null,
+    setType: SetType = SetType.NORMAL,
+    isCompleted: Boolean = true,
+) = LoggedSet(
+    id = id,
+    entry = SetEntry(weight = weight, reps = reps, rpe = rpe, setType = setType),
+    isCompleted = isCompleted,
 )
 
 /**

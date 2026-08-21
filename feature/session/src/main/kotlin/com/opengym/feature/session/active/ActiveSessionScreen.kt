@@ -18,8 +18,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,7 +40,6 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ReorderState
 import com.opengym.core.ui.component.ReorderableItem
@@ -223,6 +224,14 @@ fun ActiveSessionRoute(
  * on this screen rather than in a snackbar that fades.
  */
 @Composable
+/*
+ * Over the complexity threshold, and it is the branching a screen this size has: two dialogs,
+ * four page states, a snackbar that is two different offers, and a list that changes shape while
+ * an exercise is held. Every branch is a state the workout can genuinely be in, and pulling them
+ * into helpers would move the `when` rather than remove it — see `SessionBody`, which is the
+ * split that was worth making.
+ */
+@Suppress("CyclomaticComplexMethod")
 fun ActiveSessionScreen(
     state: ActiveSessionUiState,
     onEvent: (ActiveSessionEvent) -> Unit,
@@ -236,22 +245,56 @@ fun ActiveSessionScreen(
     val transient = state.message?.takeUnless { it == ActiveSessionMessage.NO_SETS_LOGGED }
     val transientText = transient?.let { stringResource(it.labelRes()) }
 
+    // Both of the things this screen puts in the bar take it from whatever is already in it,
+    // rather than queueing behind it. `SnackbarHostState` serialises on one mutex, so a refusal
+    // raised while the undo below is up would otherwise surface as much as ten seconds after the
+    // tap that caused it — by which time it reads as a message about something else. The newest
+    // thing that happened is the one worth saying, so it displaces the older one; an undo cut
+    // short this way is withdrawn rather than delayed, which the effect below reports as the
+    // offer lapsing.
     LaunchedEffect(transientText) {
-        if (transientText != null) {
-            snackbarHostState.showSnackbar(transientText)
-            onEvent(ActiveSessionEvent.MessageShown)
-        }
+        if (transientText == null) return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(transientText)
+        onEvent(ActiveSessionEvent.MessageShown)
     }
 
-    // Which card's rating scale is open, by `session_exercise` id, or null for none. Screen-local
-    // and rightly so: whether a scale is open is not a fact about the workout, and a ViewModel
-    // holding it would be a scale that reopened itself on every recomposition of a screen the
-    // user had closed it on. `rememberSaveable` is what carries it across a configuration change,
-    // which is the only thing it does need to survive.
+    // The undo, which is the whole of why deleting a set asks nothing first. Keyed on the set's
+    // id rather than on the value, so deleting a second set while the first offer is still up
+    // cancels that offer and makes a new one — two undos on screen at once would be two buttons
+    // that look identical and mean different sets.
     //
-    // One at a time, for the same reason the scale is inline rather than in a sheet: it is nine
-    // cells tall, and two of them open would push the second exercise's table off the screen.
-    var rpeScaleFor by rememberSaveable { mutableStateOf<Long?>(null) }
+    // `Long` rather than `Short`: this is not a notification, it is the window in which a
+    // mistake can be taken back, and four seconds is not long enough to look up from the bar,
+    // read it and decide.
+    val deletedSetText = state.deletedSet?.let {
+        stringResource(R.string.active_set_deleted, it.setNumber)
+    }
+    val undoLabel = stringResource(R.string.active_undo)
+
+    // Keyed on [ActiveSessionUiState.isBusy] as well, so the offer is withdrawn the moment the
+    // workout stops taking writes: `RestoreSetUseCase` refuses a session that is not running,
+    // and a snackbar action is the one control on this page that going inert does not reach —
+    // it stays on screen and pressable over a workout the user has already ended.
+    LaunchedEffect(state.deletedSet?.id, state.isBusy) {
+        if (deletedSetText == null) return@LaunchedEffect
+        if (state.isBusy) {
+            onEvent(ActiveSessionEvent.SetDeleteDismissed)
+            return@LaunchedEffect
+        }
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+            message = deletedSetText,
+            actionLabel = undoLabel,
+            duration = SnackbarDuration.Long,
+        )
+        onEvent(
+            when (result) {
+                SnackbarResult.ActionPerformed -> ActiveSessionEvent.SetDeleteUndone
+                SnackbarResult.Dismissed -> ActiveSessionEvent.SetDeleteDismissed
+            },
+        )
+    }
 
     // The order as it is being dragged. Screen-local and seeded from the store, on two keys.
     //
@@ -337,8 +380,6 @@ fun ActiveSessionScreen(
                 inlineMessage = inlineMessage,
                 onEvent = onEvent,
                 onPickExercises = onPickExercises,
-                rpeScaleFor = rpeScaleFor,
-                onRpeToggle = { id -> rpeScaleFor = id.takeIf { it != rpeScaleFor } },
                 contentPadding = innerPadding,
             )
         }
@@ -381,8 +422,6 @@ private fun SessionBody(
     inlineMessage: ActiveSessionMessage?,
     onEvent: (ActiveSessionEvent) -> Unit,
     onPickExercises: (replacing: Boolean) -> Unit,
-    rpeScaleFor: Long?,
-    onRpeToggle: (Long) -> Unit,
     contentPadding: PaddingValues,
 ) {
     // The entry row goes read-only while the session is suspended or on its way out.
@@ -496,8 +535,7 @@ private fun SessionBody(
                                 // one rather than offering a list it would have to trim.
                                 onPickExercises(true)
                             },
-                            showRpeScale = rpeScaleFor == row.sessionExerciseId,
-                            onRpeToggle = { onRpeToggle(row.sessionExerciseId) },
+                            togglingSetIds = state.togglingSetIds,
                             // The card whose exercise is being replaced goes read-only with it:
                             // the fields belong to a movement on its way out of the slot.
                             enabled = enabled && state.swappingExerciseId != row.sessionExerciseId,
@@ -613,13 +651,18 @@ private fun ActiveSessionHeader?.title(): String = when {
 private fun SessionExerciseRow.name(): String =
     exercise?.name ?: stringResource(R.string.active_exercise_removed)
 
-/** The words a message is said in. */
+/**
+ * The words a message is said in.
+ *
+ * One branch per case of the enum and nothing else: it is a lookup table, and the only way to
+ * make it shorter is to split it into two tables that a reader then has to find both of.
+ */
 @StringRes
 /*
  * One branch per message, which is what the count is measuring. An exhaustive `when` over an
  * enum has no paths through it to get wrong — the compiler is what checks it is complete — so
  * the threshold is counting cases rather than complexity. A lookup table keyed by the enum
- * would satisfy it and would be the same fourteen lines with a map in front of them.
+ * would satisfy it and would be the same lines again with a map in front of them.
  */
 @Suppress("CyclomaticComplexMethod")
 private fun ActiveSessionMessage.labelRes(): Int = when (this) {
@@ -636,6 +679,11 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
     ActiveSessionMessage.REORDER_FAILED -> R.string.active_error_reorder
     ActiveSessionMessage.SWAP_HAS_SETS -> R.string.active_error_swap_has_sets
     ActiveSessionMessage.SWAP_FAILED -> R.string.active_error_swap
+    ActiveSessionMessage.SET_EDIT_REJECTED -> R.string.active_error_set_edit
+    ActiveSessionMessage.DELETE_SET_FAILED -> R.string.active_error_delete_set
+    ActiveSessionMessage.SET_COMPLETION_FAILED -> R.string.active_error_set_completion
+    ActiveSessionMessage.RESTORE_SET_FAILED -> R.string.active_error_restore_set
+    ActiveSessionMessage.SET_RESTORED_AT_END -> R.string.active_error_restored_at_end
     ActiveSessionMessage.RESTORE_FAILED -> R.string.active_error_restore
 }
 
@@ -679,6 +727,38 @@ fun ActiveSessionScreenNoSetsPreview() {
     }
 }
 
+@Preview(name = "Active session - correcting a set", showBackground = true, heightDp = 1000)
+@Composable
+fun ActiveSessionScreenEditingPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        val base = previewState()
+        ActiveSessionScreen(
+            state = base.copy(
+                exercises = base.exercises.map { row ->
+                    // The second set of the bench press, half corrected: 70 typed back to 72.5,
+                    // not yet left. Nothing about the table has changed shape — the sets around it
+                    // are still readable and still typeable, which is the whole argument for there
+                    // being no editor at all.
+                    if (row.sessionExerciseId != 1L) {
+                        row
+                    } else {
+                        row.copy(
+                            sets = row.sets.mapIndexed { index, set ->
+                                if (index == 1) {
+                                    set.copy(entry = set.entry.copy(weight = "72.5"))
+                                } else {
+                                    set
+                                }
+                            },
+                        )
+                    }
+                },
+            ),
+            onEvent = {},
+        )
+    }
+}
+
 @Preview(name = "Active session - paused", showBackground = true)
 @Composable
 fun ActiveSessionScreenPausedPreview() {
@@ -694,23 +774,19 @@ private fun previewState(): ActiveSessionUiState {
     val fly = Exercise(id = 3L, name = "Cable fly")
     val pushdown = Exercise(id = 4L, name = "Tricep pushdown")
 
+    // A logged set as the row it is drawn in: the values already in the fields, because every row
+    // of the table is live — see `LoggedSetTable`. The weight is text in the ambient unit, which
+    // is what the ViewModel formats it into.
     fun set(
         number: Int,
-        weight: Long,
+        weight: String,
         reps: Int,
         rpe: Int,
         sessionExerciseId: Long = 1L,
-    ) = WorkoutSet(
+    ) = LoggedSet(
         id = number.toLong() + sessionExerciseId * 100,
-        sessionExerciseId = sessionExerciseId,
-        setNumber = number,
-        reps = reps,
-        weight = weight,
-        rpe = rpe,
+        entry = SetEntry(weight = weight, reps = reps.toString(), rpe = rpe),
         isCompleted = true,
-        completedAt = 1L,
-        createdAt = 1L,
-        updatedAt = 1L,
     )
 
     return ActiveSessionUiState(
@@ -732,9 +808,9 @@ private fun previewState(): ActiveSessionUiState {
                 position = 0,
                 exercise = bench,
                 sets = listOf(
-                    set(number = 1, weight = 60_000_000L, reps = 10, rpe = 60),
-                    set(number = 2, weight = 70_000_000L, reps = 8, rpe = 75),
-                    set(number = 3, weight = 75_000_000L, reps = 6, rpe = 85),
+                    set(number = 1, weight = "60", reps = 10, rpe = 60),
+                    set(number = 2, weight = "70", reps = 8, rpe = 75),
+                    set(number = 3, weight = "75", reps = 6, rpe = 85),
                 ),
             ),
             SessionExerciseRow(
@@ -742,8 +818,8 @@ private fun previewState(): ActiveSessionUiState {
                 position = 1,
                 exercise = incline,
                 sets = listOf(
-                    set(number = 1, weight = 26_000_000L, reps = 12, rpe = 70, sessionExerciseId = 2L),
-                    set(number = 2, weight = 28_000_000L, reps = 10, rpe = 80, sessionExerciseId = 2L),
+                    set(number = 1, weight = "26", reps = 12, rpe = 70, sessionExerciseId = 2L),
+                    set(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
                 ),
                 // Mid-set, which is what brings the set-type chips and the note out.
                 entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),

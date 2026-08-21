@@ -1,8 +1,15 @@
+/*
+ * The table's cells are one small composable each, on purpose: the grid is the contract between
+ * the row with fields and the row that is a record, and a column drawn twice is a column that
+ * drifts. Counting them is not a measure of anything.
+ */
+@file:Suppress("TooManyFunctions")
+
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -22,15 +30,22 @@ import androidx.compose.material3.IconToggleButtonColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -51,11 +66,15 @@ import com.opengym.core.ui.theme.OpenGymTheme
 /*
  * One set, as a row in the table under an exercise.
  *
- * Two composables, because logging a set and reading one back are different jobs:
+ * Two composables, because a set being written and a set being read back are different jobs:
  *
- * - [SetLogRow] is the entry row. Weight and reps are *text*, not numbers, and that is
- *   deliberate — see the note on its parameters.
- * - [LoggedSetRow] is the record. It takes a domain set, formats it, and cannot be typed in.
+ * - [SetLogRow] is the row with fields in it. Weight and reps are *text*, not numbers, and that
+ *   is deliberate — see the note on its parameters. It draws the set being typed *and* every set
+ *   already logged against an exercise the user can still change: there is no third component
+ *   for "a logged set opened for correction", because a logged set is never closed. See
+ *   [onCommit].
+ * - [LoggedSetRow] is the record: a domain set, formatted, that cannot be typed in. What a table
+ *   nobody can write to is made of — a finished workout's recap, a preview.
  *
  * They share a column grid so a screen can put one above the other — a summary listing
  * finished sets above the one still being worked — and have the digits line up. [SetLogHeader]
@@ -79,9 +98,14 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   itself: [ActiveSet] deliberately has no number, because a list is already ordered.
  * @param weight the weight field's contents, in the ambient [LocalUnitSystem]'s unit.
  * @param reps the rep field's contents.
- * @param rpe the stored RPE (x 10), or null. Tapping the cell calls [onRpeClick], which is
- *   the screen's cue to open a picker — the scale has eleven values and a text field for it
- *   would accept `47`.
+ * @param setType what kind of set this is, drawn in the leading cell in place of the number.
+ * @param onSetTypeChange the type picked from that cell's menu, or null for a row whose type
+ *   cannot be changed. Null is what makes the cell a label rather than a control — see
+ *   [SetTypePicker].
+ * @param rpe the stored RPE (x 10), or null.
+ * @param onRpeChange the rating picked from the cell's own menu, or null for a row whose rating
+ *   cannot be changed. The scale is a closed vocabulary of nine and a text field for it would
+ *   accept `47`, which is why the cell opens a menu rather than a keyboard — see [RpePicker].
  * @param previous what was done on this set last time — `80 kg × 5` — or null for a set with
  *   no history, which still reserves the column so the rows of one table line up. Formatted by
  *   the caller: which "last time" this is (#101) is the feature's question, not this row's.
@@ -99,6 +123,16 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   exercise is logged in may not be filled in — and a tick that is live for a set the write
  *   path refuses is the one thing this row must not do. The fields stay live either way, since
  *   filling them in is the way out of it.
+ * @param onCommit the fields have been left: focus has gone from the row altogether, or the
+ *   keyboard's DONE was pressed. Null for a row whose text is not written until something else
+ *   says so — the entry row, whose tick is that something.
+ *
+ *   This is what a set already logged is corrected through. There is no save button and no
+ *   cancel, because there is no panel to have them: the row *is* the editor, it is live from the
+ *   moment the table is drawn, and a correction is written when the user looks away from it. The
+ *   two closed vocabularies are not covered by this and do not need to be — a rating and a set
+ *   type are picked from a menu, which is an answer rather than a keystroke, so their callbacks
+ *   fire once and the caller can write on the spot.
  */
 @Composable
 fun SetLogRow(
@@ -110,8 +144,9 @@ fun SetLogRow(
     onCompletedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     setType: SetType = SetType.NORMAL,
+    onSetTypeChange: ((SetType) -> Unit)? = null,
     rpe: Int? = null,
-    onRpeClick: (() -> Unit)? = null,
+    onRpeChange: ((Int?) -> Unit)? = null,
     previous: String? = null,
     showPrevious: Boolean = true,
     isCompleted: Boolean = false,
@@ -119,14 +154,31 @@ fun SetLogRow(
     error: String? = null,
     enabled: Boolean = true,
     canComplete: Boolean = true,
+    onCommit: (() -> Unit)? = null,
 ) {
+    val focusManager = LocalFocusManager.current
+    // Cleared on DONE so the key that *looks* like it finishes the row actually does: dismissing
+    // the keyboard leaves the field focused, and a correction nobody committed is a correction
+    // the user believes they made. Clearing focus is the same event as tapping away, so both
+    // ways out arrive here as one.
+    val onDone = onCommit?.let { { focusManager.clearFocus() } }
+
     SetRowFrame(
-        modifier = modifier,
+        // Watched on the frame rather than on each field, so moving between the weight and the
+        // reps of one row is not a write: what has been left is the row, and the row is what
+        // gets written.
+        modifier = modifier.commitOnFocusLoss(onCommit),
         isActive = isActive,
         isCompleted = isCompleted,
         error = error,
     ) {
-        SetIndexCell(setNumber = setNumber, setType = setType, isActive = isActive)
+        SetTypeCell(
+            setNumber = setNumber,
+            setType = setType,
+            onSetTypeChange = onSetTypeChange,
+            isActive = isActive,
+            enabled = enabled,
+        )
         PreviousCell(previous = previous, showPrevious = showPrevious)
 
         SetValueField(
@@ -136,6 +188,7 @@ fun SetLogRow(
             keyboardType = KeyboardType.Decimal,
             enabled = enabled,
             error = error,
+            onDone = onDone,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
         Text(
@@ -154,10 +207,16 @@ fun SetLogRow(
             keyboardType = KeyboardType.Number,
             enabled = enabled,
             error = error,
+            onDone = onDone,
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
 
-        RpeCell(setNumber = setNumber, rpe = rpe, onClick = onRpeClick.takeIf { enabled })
+        RpeValueCell(
+            setNumber = setNumber,
+            rpe = rpe,
+            onRpeChange = onRpeChange,
+            enabled = enabled,
+        )
         CompletionToggle(
             setNumber = setNumber,
             isCompleted = isCompleted,
@@ -173,6 +232,14 @@ fun SetLogRow(
  * The weight and reps collapse into one cell — `80 kg × 5` — because nothing here is being
  * typed and two fixed columns for two values that are always read together is width spent on
  * a grid nobody is filling in.
+ *
+ * There is nothing to tap. A logged set is corrected in the row it is already in, by typing into
+ * it — that is [SetLogRow], which is what a screen that can still be written to draws for every
+ * set in the table. This one is for the tables that cannot: a finished session's recap, a
+ * preview, a template's plan.
+ *
+ * @param onCompletedChange takes the tick off the set, or puts it back. Null draws the tick as
+ *   the plain mark it used to be, for a table that cannot be written to.
  */
 @Composable
 fun LoggedSetRow(
@@ -181,6 +248,7 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
+    onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -191,6 +259,7 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
+        onCompletedChange = onCompletedChange,
         modifier = modifier,
     )
 }
@@ -203,6 +272,7 @@ fun LoggedSetRow(
     modifier: Modifier = Modifier,
     previous: String? = null,
     showPrevious: Boolean = true,
+    onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
     LoggedSetRow(
         setNumber = setNumber,
@@ -213,6 +283,7 @@ fun LoggedSetRow(
         isCompleted = set.isCompleted,
         previous = previous,
         showPrevious = showPrevious,
+        onCompletedChange = onCompletedChange,
         modifier = modifier,
     )
 }
@@ -265,8 +336,15 @@ fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
 
 // ─── Cells ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The ground a set row sits on, its padding, and the error under it.
+ *
+ * Internal rather than private because both rows in this file are it: the row with fields and the
+ * row that is a record draw the same cells on the same grid, and a frame each would be two sets
+ * of paddings that drift.
+ */
 @Composable
-private fun SetRowFrame(
+internal fun SetRowFrame(
     modifier: Modifier,
     isActive: Boolean,
     isCompleted: Boolean,
@@ -306,30 +384,78 @@ private fun SetRowFrame(
 }
 
 /**
- * The set's number, or the letter its type is marked with.
+ * The leading cell, as a label: the set's number, or the initial of its type.
  *
- * One cell for both because they are the same fact: `W` *is* the position of a warm-up in
- * the list, and a screen that drew a number and a badge would spend a second column saying
- * so. TalkBack gets both — "Warm-up, set 1" — since the letter alone is not a word.
+ * What it draws is [SetMarker]'s, including which types are tinted and why. What is added here is
+ * the column's width and what TalkBack hears — "Warm-up, set 1", both halves, since the letter
+ * alone is not a word and the number it replaced is still the answer to "which set".
  */
 @Composable
-private fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
-    val marker = setType.markerOrNull()
+internal fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
     val spoken = stringResource(R.string.set_log_position, setType.label(), setNumber)
 
-    Text(
-        text = marker ?: setNumber.toString(),
-        style = OpenGymTheme.typography.numeric,
-        color = when {
-            isActive -> MaterialTheme.colorScheme.onPrimaryContainer
-            marker != null -> MaterialTheme.colorScheme.onSurfaceVariant
-            else -> MaterialTheme.colorScheme.onSurface
-        },
-        textAlign = TextAlign.Center,
-        maxLines = 1,
+    SetMarker(
+        setNumber = setNumber,
+        setType = setType,
+        isActive = isActive,
         modifier = Modifier
             .width(INDEX_COLUMN_WIDTH)
             .clearAndSetSemantics { contentDescription = spoken },
+    )
+}
+
+/**
+ * The leading cell of a row whose type can be changed, or of one whose cannot.
+ *
+ * The branch is here rather than at each call site because a row has to draw the *same* cell
+ * either way: a table whose leading column changed width when a session was paused would relayout
+ * every figure in it.
+ */
+@Composable
+internal fun SetTypeCell(
+    setNumber: Int,
+    setType: SetType,
+    onSetTypeChange: ((SetType) -> Unit)?,
+    isActive: Boolean,
+    enabled: Boolean,
+) {
+    if (onSetTypeChange == null) {
+        SetIndexCell(setNumber = setNumber, setType = setType, isActive = isActive)
+        return
+    }
+
+    SetTypePicker(
+        setNumber = setNumber,
+        selected = setType,
+        onSelect = onSetTypeChange,
+        isActive = isActive,
+        enabled = enabled,
+    )
+}
+
+/**
+ * The rating cell of a row that can be rated, or of one that can only be read.
+ *
+ * [SetTypeCell]'s counterpart, and the same rule: the read-only cell and the menu's anchor are the
+ * same width, so pausing a session does not move the columns of the table it is drawn in.
+ */
+@Composable
+internal fun RpeValueCell(
+    setNumber: Int,
+    rpe: Int?,
+    onRpeChange: ((Int?) -> Unit)?,
+    enabled: Boolean,
+) {
+    if (onRpeChange == null) {
+        RpeCell(setNumber = setNumber, rpe = rpe)
+        return
+    }
+
+    RpePicker(
+        setNumber = setNumber,
+        rpe = rpe,
+        onRpeChange = onRpeChange,
+        enabled = enabled,
     )
 }
 
@@ -341,7 +467,7 @@ private fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
  * cell to its right by the column's width, so two rows of one table would not line up.
  */
 @Composable
-private fun PreviousCell(previous: String?, showPrevious: Boolean) {
+internal fun PreviousCell(previous: String?, showPrevious: Boolean) {
     if (!showPrevious) return
     val placeholder = stringResource(R.string.set_log_previous_none)
     val spoken = previous?.let { stringResource(R.string.set_log_previous_value, it) }
@@ -373,9 +499,12 @@ private fun PreviousCell(previous: String?, showPrevious: Boolean) {
  * [error] is carried here rather than on the row's frame because the frame is a `Column` with
  * no text and no role: TalkBack never stops on it, so an error announced there is an error
  * nobody hears. On the field it is read out with the value that was refused.
+ *
+ * [onDone] turns the keyboard's action key into DONE and is what it does. Null leaves the key
+ * whatever the platform would have made it, which is what a field nobody has to leave wants.
  */
 @Composable
-private fun SetValueField(
+internal fun SetValueField(
     value: String,
     onValueChange: (String) -> Unit,
     description: String,
@@ -383,6 +512,7 @@ private fun SetValueField(
     enabled: Boolean,
     error: String?,
     modifier: Modifier = Modifier,
+    onDone: (() -> Unit)? = null,
 ) {
     val shape = MaterialTheme.shapes.extraSmall
     val border = if (error != null) MaterialTheme.colorScheme.error else Color.Transparent
@@ -397,7 +527,11 @@ private fun SetValueField(
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
         ),
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = if (onDone != null) ImeAction.Done else ImeAction.Default,
+        ),
+        keyboardActions = KeyboardActions(onDone = onDone?.let { { it() } }),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier.semantics {
             contentDescription = description
@@ -417,15 +551,16 @@ private fun SetValueField(
 }
 
 /**
- * The RPE, or a dash for one that was never given.
+ * The RPE as a figure, or a dash for one that was never given.
  *
- * The description carries the value — "…, set 3, 8.5" — because a content description
- * *replaces* the text of the node it is set on rather than adding to it. A description of the
- * column alone would announce what the cell is and never what it holds, which is the one thing
- * a reader wanted.
+ * Read-only: a cell that can be *changed* is [RpePicker], which draws the same figure at the same
+ * width with a menu under it. The description carries the value — "…, set 3, 8.5" — because a
+ * content description *replaces* the text of the node it is set on rather than adding to it. A
+ * description of the column alone would announce what the cell is and never what it holds, which
+ * is the one thing a reader wanted.
  */
 @Composable
-private fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
+internal fun RpeCell(setNumber: Int, rpe: Int?) {
     val unset = stringResource(R.string.set_log_rpe_unset)
     val spoken = if (rpe != null) {
         stringResource(R.string.set_log_rpe_value, setNumber, formatRpe(rpe))
@@ -445,7 +580,6 @@ private fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
         maxLines = 1,
         modifier = Modifier
             .width(RPE_COLUMN_WIDTH)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = spoken },
     )
 }
@@ -456,9 +590,13 @@ private fun RpeCell(setNumber: Int, rpe: Int?, onClick: (() -> Unit)?) {
  * A real toggle rather than a tinted glyph: it is the control the whole row exists to reach,
  * it has to announce its checked state, and `IconToggleButton` is what gives it a 48dp touch
  * target regardless of the 36dp it is drawn at.
+ *
+ * Shared with [LoggedSetRow], where the same control takes the tick back *off* a set — the same
+ * glyph, the same place in the row, and the same two states, because it is the same question asked
+ * of a set that has been written rather than of one that has not.
  */
 @Composable
-private fun CompletionToggle(
+internal fun CompletionToggle(
     setNumber: Int,
     isCompleted: Boolean,
     onCompletedChange: (Boolean) -> Unit,
@@ -491,6 +629,7 @@ private fun CompletionToggle(
 }
 
 @Composable
+@Suppress("LongParameterList")
 private fun LoggedSetRow(
     setNumber: Int,
     setType: SetType,
@@ -500,6 +639,7 @@ private fun LoggedSetRow(
     isCompleted: Boolean,
     previous: String?,
     showPrevious: Boolean,
+    onCompletedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
 ) {
     val performed = when {
@@ -511,27 +651,79 @@ private fun LoggedSetRow(
         else -> stringResource(R.string.set_log_rpe_unset)
     }
 
-    SetRowFrame(modifier = modifier, isActive = false, isCompleted = isCompleted, error = null) {
-        SetIndexCell(setNumber = setNumber, setType = setType, isActive = false)
-        PreviousCell(previous = previous, showPrevious = showPrevious)
-        Text(
-            text = performed,
-            style = OpenGymTheme.typography.numeric,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
+    SetRowFrame(
+        modifier = modifier,
+        isActive = false,
+        isCompleted = isCompleted,
+        error = null,
+    ) {
+        // Kept as a group of its own even with nothing to tap, because the grid depends on it:
+        // the group takes the width the tick does not, which is what lands its cells on exactly
+        // the columns a row of fields puts them on. See the note on the columns below.
+        Row(
             modifier = Modifier.weight(1f),
-        )
-        RpeCell(setNumber = setNumber, rpe = rpe, onClick = null)
-        Box(modifier = Modifier.size(TOGGLE_SIZE), contentAlignment = Alignment.Center) {
-            if (isCompleted) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
+            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SetIndexCell(setNumber = setNumber, setType = setType, isActive = false)
+            PreviousCell(previous = previous, showPrevious = showPrevious)
+            Text(
+                text = performed,
+                style = OpenGymTheme.typography.numeric,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            RpeCell(setNumber = setNumber, rpe = rpe)
+        }
+
+        if (onCompletedChange != null) {
+            CompletionToggle(
+                setNumber = setNumber,
+                isCompleted = isCompleted,
+                onCompletedChange = onCompletedChange,
+                enabled = true,
+            )
+        } else {
+            Box(modifier = Modifier.size(TOGGLE_SIZE), contentAlignment = Alignment.Center) {
+                if (isCompleted) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Calls [onCommit] when focus leaves the subtree this is applied to, and not before.
+ *
+ * The guard is the whole of it. `onFocusChanged` fires once on composition with nothing focused,
+ * so a naive "not focused, therefore left" writes every row of the table the first time the
+ * screen is drawn — and again on every recomposition that remounts one. What is wanted is the
+ * *edge*: focus was in here, and now it is not.
+ *
+ * The `focusGroup` under it is what makes "the subtree" a thing to ask about at all. Without it
+ * the row has two independent focus targets below one observer, which reports each of them in
+ * turn — so moving from the weight to the reps would read as a departure and write the row twice
+ * on the way across it. Grouped, the observer sees one state, and `hasFocus` is true for as long
+ * as the focus is anywhere in the row.
+ */
+@Composable
+private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
+    // Remembered above the null check, not below it. A `remember` behind an early return claims a
+    // slot on some compositions and not others, so the first caller to make `onCommit` conditional
+    // would leave this reading whatever composable took the slot instead.
+    var wasFocused by remember { mutableStateOf(false) }
+    if (onCommit == null) return this
+
+    return onFocusChanged { state ->
+        if (wasFocused && !state.hasFocus) onCommit()
+        wasFocused = state.hasFocus
+    }.focusGroup()
 }
 
 // ─── The grid ───────────────────────────────────────────────────────────────────────────
@@ -550,17 +742,26 @@ private fun LoggedSetRow(
  * only thing it was recording. Every dp taken off a fixed column goes there. The touch targets
  * are unaffected — [TOGGLE_SIZE] is what the tick is *drawn* at, and `IconToggleButton` keeps
  * its 48dp target regardless.
+ *
+ * Two of the four are wider than the figures in them need, and deliberately: the leading cell and
+ * the rating cell are *controls* on a row being typed — the set type's menu and the rating's — so
+ * they are sized to be hit rather than to fit their contents. Eight dp between them is what that
+ * costs the value columns, which is a character of a rep count nobody logs.
+ *
+ * A logged row groups every cell except the tick under one parent, and the grid survives that
+ * because the group takes the width the tick does not: with one gap between them, the group's own
+ * cells land on exactly the columns a flat row puts them on.
  */
 
-private val INDEX_COLUMN_WIDTH: Dp = 24.dp
-private val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
-private val RPE_COLUMN_WIDTH: Dp = 28.dp
-private val TOGGLE_SIZE: Dp = 32.dp
-private const val WEIGHT_COLUMN_WEIGHT = 1.3f
-private const val REPS_COLUMN_WEIGHT = 1f
+internal val INDEX_COLUMN_WIDTH: Dp = 28.dp
+internal val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
+internal val RPE_COLUMN_WIDTH: Dp = 32.dp
+internal val TOGGLE_SIZE: Dp = 32.dp
+internal const val WEIGHT_COLUMN_WEIGHT = 1.3f
+internal const val REPS_COLUMN_WEIGHT = 1f
 
 /** The `×` between the two fields. U+00D7, not the letter x, which is narrower and lower. */
-private const val MULTIPLICATION_SIGN = "×"
+internal const val MULTIPLICATION_SIGN = "×"
 
 /**
  * How much of the fill tone an unlogged row keeps.
@@ -602,12 +803,89 @@ fun SetLogRowInvalidPreview() {
                 onWeightChange = {},
                 onRepsChange = {},
                 onCompletedChange = {},
+                onSetTypeChange = {},
+                onRpeChange = {},
                 previous = "75 × 6",
                 isActive = true,
                 error = "reps must be within 1..10,000, was 0",
             )
         }
     }
+}
+
+@Preview(name = "Set log - a table being corrected", widthDp = 360)
+@Composable
+fun SetLogCorrectionPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        CorrectableTable()
+    }
+}
+
+@Preview(name = "Set log - a table being corrected, dark", widthDp = 360)
+@Composable
+fun SetLogCorrectionDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) {
+        CorrectableTable()
+    }
+}
+
+/**
+ * What an exercise of a running workout looks like: every row live, the next one accented.
+ *
+ * The point of the picture is that the second set — the one being corrected from 70 to 72.5 —
+ * is not a mode. It is the same row it was a moment ago, with the sets above and below it still
+ * on screen, which is exactly what a mistyped weight is checked against.
+ */
+@Composable
+private fun CorrectableTable() {
+    OpenGymCard(modifier = Modifier.fillMaxWidth().padding(OpenGymTheme.spacing.screen)) {
+        SetLogHeader()
+        HairlineDivider()
+        LiveRow(setNumber = 1, weight = "60", reps = "10", rpe = 60, setType = SetType.WARMUP)
+        HairlineDivider()
+        LiveRow(setNumber = 2, weight = "72.5", reps = "8", rpe = 75)
+        HairlineDivider()
+        LiveRow(setNumber = 3, weight = "75", reps = "6", rpe = 85)
+        HairlineDivider()
+        SetLogRow(
+            setNumber = 4,
+            weight = "",
+            reps = "",
+            onWeightChange = {},
+            onRepsChange = {},
+            onCompletedChange = {},
+            onSetTypeChange = {},
+            onRpeChange = {},
+            previous = "75 × 6",
+            isActive = true,
+        )
+    }
+}
+
+/** One set already logged, still typeable. `onCommit` is what writes it — see [SetLogRow]. */
+@Composable
+private fun LiveRow(
+    setNumber: Int,
+    weight: String,
+    reps: String,
+    rpe: Int,
+    setType: SetType = SetType.NORMAL,
+) {
+    SetLogRow(
+        setNumber = setNumber,
+        weight = weight,
+        reps = reps,
+        onWeightChange = {},
+        onRepsChange = {},
+        onCompletedChange = {},
+        setType = setType,
+        onSetTypeChange = {},
+        rpe = rpe,
+        onRpeChange = {},
+        previous = null,
+        isCompleted = true,
+        onCommit = {},
+    )
 }
 
 @Composable
@@ -626,12 +904,16 @@ private fun SetLogTable() {
                 completedAt = 1,
             ),
             previous = "60 × 10",
+            onCompletedChange = {},
         )
         HairlineDivider()
+        // Ticked off again: the set is still in the table, under the number it had, and no longer
+        // counts towards anything — see `MarkSetCompletedUseCase`.
         LoggedSetRow(
             setNumber = 2,
-            set = ActiveSet(reps = 8, weight = 70_000_000, rpe = 75, isCompleted = true, completedAt = 1),
+            set = ActiveSet(reps = 8, weight = 70_000_000, rpe = 75, isCompleted = false),
             previous = "70 × 8",
+            onCompletedChange = {},
         )
         HairlineDivider()
         SetLogRow(
@@ -641,8 +923,9 @@ private fun SetLogTable() {
             onWeightChange = {},
             onRepsChange = {},
             onCompletedChange = {},
+            onSetTypeChange = {},
             rpe = 85,
-            onRpeClick = {},
+            onRpeChange = {},
             previous = "75 × 6",
             isActive = true,
         )
@@ -655,6 +938,8 @@ private fun SetLogTable() {
             onRepsChange = {},
             onCompletedChange = {},
             setType = SetType.DROP_SET,
+            onSetTypeChange = {},
+            onRpeChange = {},
             // No history: last session stopped at three sets. The column stays, holding the
             // fields under the ones above them.
             previous = null,
