@@ -250,8 +250,38 @@ class ReorderState internal constructor(
      */
     private var grabbed = false
 
-    /** Where the held row's middle should be: the finger, less the gap it keeps from it. */
-    private val virtualY: Float get() = pointerY - grab
+    /**
+     * Where the held row's middle should be: the finger, less the gap it keeps from it, and
+     * never outside the list.
+     *
+     * Confined rather than free, which is what keeps a drag on rails. The finger has the whole
+     * screen — the header, the status bar, the space under the last exercise — and a row that
+     * followed it there would be an exercise floating over the toolbar, or off the top edge
+     * entirely, with nothing under it to drop onto. There is nowhere above the first row or
+     * below the last for an exercise to go, so there is nowhere up there for it to be drawn:
+     * past either end the row sits at that end and waits, and the finger can carry on as far
+     * as it likes without taking the workout with it.
+     */
+    private val virtualY: Float get() = confine(pointerY - grab)
+
+    /**
+     * Keeps a row's middle inside the stretch the list actually occupies.
+     *
+     * The lane is the rows themselves, first top to last bottom, less half the held row at each
+     * end so that it stops flush with them rather than half over the edge. Measured every time
+     * rather than taken once: the list changes shape under the finger, and a lane from before
+     * the collapse describes a screen that is no longer there.
+     */
+    private fun confine(centre: Float): Float {
+        val held = placements[heldKey] ?: return centre
+        val half = (held.bottom - held.top) / 2f
+        val top = placements.values.minOf { it.top } + half
+        val bottom = placements.values.maxOf { it.bottom } - half
+        // A list of one, or one row taller than everything else put together: there is only one
+        // place it can be, and `coerceIn` on a backwards range throws.
+        if (bottom < top) return (top + bottom) / 2f
+        return centre.coerceIn(top, bottom)
+    }
 
     /**
      * The move that has been reported and not yet drawn.
@@ -274,7 +304,12 @@ class ReorderState internal constructor(
      */
     internal val lastIndex: Int get() = itemCount - 1
 
-    /** How far the held item has to be drawn from its slot to sit where the finger has put it. */
+    /**
+     * How far the held item has to be drawn from its slot to sit where the finger has put it.
+     *
+     * Bounded by [virtualY]: at the ends of the list this settles to zero, so a finger that
+     * keeps going drags nothing further and the row rests in the last slot there is.
+     */
     internal val translation: Float
         get() = virtualY - (placements[heldKey]?.centre ?: virtualY)
 
@@ -312,12 +347,23 @@ class ReorderState internal constructor(
         val held = heldKey
         // Nothing to decide: no item is held, a crossing is already reported and waiting to be
         // drawn, or the held row has not been measured since it was picked up.
-        val from = if (held == null || awaiting != null) null else placements[held]?.index
-        if (from == null) return
+        val slot = if (held == null || awaiting != null) null else placements[held]
+        if (slot == null) return
+        val from = slot.index
+
+        val target = virtualY
+        // Which way the row is being carried, which is what settles a dead heat. [confine] parks
+        // it flush with the first or last slot, and flush is *exactly* level with the centre of
+        // the row that lives there — so at both ends of the list the comparison below is a tie,
+        // and the tie has to break the way the finger is going. Strict either way and one end of
+        // the workout becomes a place a drag can approach and never reach.
+        val goingDown = target > slot.centre
 
         val to = placements
             .filterKeys { it != held }
-            .count { (_, placement) -> placement.centre < virtualY }
+            .count { (_, placement) ->
+                if (goingDown) placement.centre <= target else placement.centre < target
+            }
             .coerceIn(0, lastIndex.coerceAtLeast(0))
 
         if (to != from) {

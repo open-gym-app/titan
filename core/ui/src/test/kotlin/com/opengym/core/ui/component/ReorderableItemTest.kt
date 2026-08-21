@@ -58,6 +58,7 @@ class ReorderableItemTest {
     private val moves = mutableListOf<Pair<Int, Int>>()
     private var commits = 0
     private var held: Any? = null
+    private var reorder: ReorderState? = null
 
     @Test
     fun `the items are drawn in the order they are given`() {
@@ -170,6 +171,40 @@ class ReorderableItemTest {
         composeTestRule.waitForIdle()
 
         assertEquals(listOf(2 to 1), moves)
+    }
+
+    @Test
+    fun `a drag past the end of the list stops at the last slot`() {
+        setList()
+
+        composeTestRule.onNodeWithText("Bench press").performTouchInput {
+            down(center)
+            advanceEventTime(HELD_LONG_ENOUGH)
+            // Far past the bottom of the list, and then some: a finger is allowed to leave the
+            // list, the exercise it is holding is not.
+            moveBy(Offset(0f, rowStep() * 10))
+        }
+        composeTestRule.waitForIdle()
+
+        // It went to the end, and it is drawn *in* the end slot rather than eight rows below
+        // the last one.
+        assertEquals(listOf(0 to 2), moves)
+        assertEquals(0f, reorder!!.translation, 1f)
+    }
+
+    @Test
+    fun `a drag past the top of the list stops at the first slot`() {
+        setList()
+
+        composeTestRule.onNodeWithText("Cable fly").performTouchInput {
+            down(center)
+            advanceEventTime(HELD_LONG_ENOUGH)
+            moveBy(Offset(0f, -rowStep() * 10))
+        }
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf(2 to 0), moves)
+        assertEquals(0f, reorder!!.translation, 1f)
     }
 
     @Test
@@ -303,6 +338,7 @@ class ReorderableItemTest {
             enabled = enabled,
         )
         held = state.heldKey
+        reorder = state
 
         Column(modifier = Modifier.reorderable(state)) {
             items.forEachIndexed { index, name ->
