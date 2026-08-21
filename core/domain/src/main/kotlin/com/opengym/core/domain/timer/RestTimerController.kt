@@ -132,6 +132,80 @@ class RestTimerController(
     }
 
     /**
+     * Moves the countdown by [delta] — forward for a positive one, back for a negative —
+     * without restarting it.
+     *
+     * This is the "+15s" and "−15s" on the rest sheet, and it belongs here rather than in the
+     * screen for the reason [pause] does: what is being adjusted is the time *actually* left,
+     * which only this class knows. A caller reading [state] would be working from the last
+     * whole second published and would quietly lose the fraction of a second since it — and
+     * would have to rebuild a [RestTimerState.Running] to hand back, which is a state machine
+     * reimplemented at a button.
+     *
+     * ### What happens to the total
+     *
+     * It is kept, so the progress bar carries on from where it was rather than resetting: a
+     * rest extended with twenty seconds left is still a rest "of 2:00", now 35 seconds from
+     * its end. The one case where it cannot be kept is an extension past the total itself —
+     * [RestTimerState.Running] forbids a remainder longer than its total — and there the total
+     * grows to exactly the new remainder, which is the smallest change that keeps the
+     * invariant. That is a bar that jumps back to empty, and it is the honest drawing of it:
+     * the rest really has been made longer than it ever was.
+     *
+     * ### Where it applies
+     *
+     * A running rest and a paused one, each staying in the state it was in — an adjustment is
+     * not a resume. Idle and finished are no-ops, matching [pause] and [resume]: the buttons
+     * that raise this are drawn inert in both, and a race between the render and the tap is
+     * not something to report.
+     *
+     * Shortening past zero — of a running rest or a paused one — lands on
+     * [RestTimerState.Finished] rather than on a rest with nothing left, which is the same
+     * answer [restore] gives a deadline that has already gone by. It is deliberately *not*
+     * [RestTimerState.Idle]: the user asked for the rest to be over, not to be called off, and
+     * a caller that alerts on `Finished` should ring here exactly as it would have fifteen
+     * seconds later.
+     */
+    fun adjust(delta: Duration) {
+        when (val current = _state.value) {
+            is RestTimerState.Running -> {
+                // The live remainder rather than the published one, for the reason [pause]
+                // takes it from the same place. Null only if a command raced this one in
+                // between, in which case that command's state is the newer answer.
+                val live = run ?: return
+                moveTo(remaining = live.remainingNow() + delta, total = current.total, running = true)
+            }
+
+            is RestTimerState.Paused ->
+                moveTo(remaining = current.remaining + delta, total = current.total, running = false)
+
+            RestTimerState.Idle, RestTimerState.Finished -> Unit
+        }
+    }
+
+    /**
+     * Puts the timer at [remaining] out of [total], counting or frozen per [running].
+     *
+     * The shared tail of [adjust]: the clamping, the total that has to grow rather than be
+     * violated, and the shortening that runs off the end are the same three questions either
+     * way, and only the landing state differs.
+     */
+    private fun moveTo(remaining: Duration, total: Duration, running: Boolean) {
+        if (remaining <= Duration.ZERO) {
+            stopCountdown()
+            _state.value = RestTimerState.Finished
+            return
+        }
+        val held = maxOf(total, remaining)
+        if (running) {
+            countDownFrom(remaining = remaining, total = held)
+        } else {
+            stopCountdown()
+            _state.value = RestTimerState.Paused(remaining, held)
+        }
+    }
+
+    /**
      * Abandons the countdown and returns to [RestTimerState.Idle].
      *
      * Deliberately not [RestTimerState.Finished]: dismissing a rest is not the same

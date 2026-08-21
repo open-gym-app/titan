@@ -235,6 +235,7 @@
     <string name="rest_timer_resume">Resume the rest</string>
     <string name="rest_timer_skip">Skip rest</string>
     <string name="rest_timer_next_set">Next set</string>
+    <string name="rest_timer_reopen">Show the rest timer</string>
 
     <!-- ── Stats ──────────────────────────────────────────────────────────────────── -->
 

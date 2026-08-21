@@ -10,6 +10,8 @@ import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.timer.RestTimerSnapshot
+import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -41,6 +43,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -53,6 +56,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -1639,6 +1643,291 @@ class ActiveSessionViewModelTest {
         assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
     }
 
+    // ─── The rest between two sets ──────────────────────────────────────────────────────
+
+    /*
+     * The countdown itself is `RestTimerControllerTest`'s subject and is not re-tested here.
+     * What these ask is the ViewModel's half: which events start a rest and which do not, how
+     * long it lasts, what the sheet says is coming, and what survives the process — the last of
+     * which is the only place on this screen where the draft carries something that goes stale
+     * if it is written down wrong.
+     *
+     * All of it runs on virtual time; see the `timeSource` passed in `viewModel()`.
+     */
+
+    @Test
+    fun `logging a set starts the rest and raises the sheet`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+        assertTrue(viewModel.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `the rest is the user's setting`() = runTest {
+        settings.setDefaultRestDuration(3.minutes)
+        val viewModel = viewModel()
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        assertEquals(RestTimerState.Running(3.minutes, 3.minutes), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `an exercise with a rest of its own overrides the setting`() = runTest {
+        // `exercise.default_rest` is seconds, per PERSISTENCE.md's units table.
+        val viewModel = viewModel(
+            catalogue = FakeExerciseCatalogue(listOf(BENCH.copy(defaultRest = 150L), INCLINE, FLY)),
+        )
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        assertEquals(RestTimerState.Running(150.seconds, 150.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `the sheet says what the next set is expected to be`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        // The set just logged, which is what the lifter is about to do again. See `RestTarget`.
+        assertEquals(RestTarget(weight = 80_000_000L, reps = 5), viewModel.uiState.value.restTarget)
+    }
+
+    @Test
+    fun `no rest is started between the members of a superset`() = runTest {
+        // The incline and the fly are run back to back: what follows a set on the first of them
+        // is a set on the second, not a pause.
+        val viewModel = viewModel(store = supersetStore())
+
+        viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
+
+        assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+        assertFalse(viewModel.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `a set logged between two superset members is still written to the draft`() = runTest {
+        // The set clears the entry row, and the draft is what the row comes back from after a
+        // kill. Starting no rest must not take the save with it.
+        val viewModel = viewModel(store = supersetStore())
+
+        viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
+
+        assertEquals(RestTimerSnapshot.Idle, drafts.stored?.restTimer)
+        assertTrue(drafts.stored?.exercises?.any { it.sessionExerciseId == INCLINE_ROW } == true)
+    }
+
+    @Test
+    fun `the rest comes after the last member of a superset`() = runTest {
+        val viewModel = viewModel(store = supersetStore())
+
+        viewModel.enter(weight = "20", reps = "15", sessionExerciseId = FLY_ROW)
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
+
+        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `ticking a logged set back on starts the rest, and un-ticking one does not`() = runTest {
+        val viewModel = viewModel(store = benchStore())
+
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = false),
+        )
+
+        // An un-tick is a correction to a row logged some time ago, not the end of a set.
+        assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+
+        viewModel.onEvent(
+            ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = true),
+        )
+
+        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `adjusting moves the remainder and leaves the total alone`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        testScheduler.advanceTimeBy(30.seconds)
+        viewModel.onEvent(ActiveSessionEvent.RestAdjusted(15.seconds))
+
+        // 60 left of 90 became 75 left of 90: the bar moves back by what was added and by
+        // nothing else, which is what keeping the total is for.
+        assertEquals(RestTimerState.Running(75.seconds, 90.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `a rest paused from the sheet stops consuming time until it is resumed`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        testScheduler.advanceTimeBy(30.seconds)
+        viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
+        testScheduler.advanceTimeBy(5.minutes)
+
+        assertEquals(RestTimerState.Paused(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+
+        viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
+
+        assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `skipping ends the rest, closes the sheet and leaves the timer idle`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        viewModel.onEvent(ActiveSessionEvent.RestSkipped)
+
+        // Idle rather than finished: a rest that was dismissed is not one that was rested
+        // through, and nothing should ring for it.
+        assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+        assertFalse(viewModel.uiState.value.isRestSheetOpen)
+        assertEquals(RestTimerSnapshot.Idle, drafts.stored?.restTimer)
+    }
+
+    @Test
+    fun `a rest left to run out finishes and takes the sheet down with it`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        testScheduler.advanceTimeBy(91.seconds)
+
+        assertEquals(RestTimerState.Finished, viewModel.uiState.value.rest)
+        assertFalse(viewModel.uiState.value.isRestSheetOpen)
+        // Finished, not idle: what happened is a rest that ended, and the draft has to be able
+        // to say which of the two it was.
+        assertEquals(RestTimerSnapshot.Finished, drafts.stored?.restTimer)
+    }
+
+    @Test
+    fun `swiping the sheet away leaves the countdown running, and it comes back on request`() = runTest {
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        viewModel.onEvent(ActiveSessionEvent.RestSheetDismissed)
+        advanceRestTo(30.seconds)
+
+        assertFalse(viewModel.uiState.value.isRestSheetOpen)
+        assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+
+        viewModel.onEvent(ActiveSessionEvent.RestSheetRequested)
+
+        assertTrue(viewModel.uiState.value.isRestSheetOpen)
+        assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+    }
+
+    @Test
+    fun `the draft carries the rest as a deadline rather than as a remainder`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+        assertEquals(
+            RestTimerSnapshot.Running(deadline = STARTED_AT + 90_000, total = 90.seconds),
+            drafts.stored?.restTimer,
+        )
+    }
+
+    @Test
+    fun `the ticks do not rewrite the draft`() = runTest {
+        // The whole reason an instant is persisted rather than a remainder: a deadline does not
+        // move as it is counted down to, so ninety seconds of ticking is no writes at all. A
+        // remainder would be a store write a second, and each of them would push the deadline
+        // out by however stale the last tick was.
+        val viewModel = viewModel()
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        val writes = drafts.saves.size
+
+        testScheduler.advanceTimeBy(30.seconds)
+
+        assertEquals(writes, drafts.saves.size)
+    }
+
+    @Test
+    fun `a rest survives the process with the time that passed while it was dead taken off`() = runTest {
+        // The draft as it would have been written thirty seconds ago, and a clock that has
+        // moved on since. Nothing was running to tick the countdown down; the deadline is what
+        // does it.
+        val draft = restingDraft(deadline = STARTED_AT + 90_000)
+        clock.now = STARTED_AT + 30_000
+
+        val restored = viewModel(drafts = FakeDraftStore(draft))
+
+        assertEquals(RestTimerState.Running(60.seconds, 90.seconds), restored.uiState.value.rest)
+        // Straight back up: a rest is the one thing on this screen that went on happening while
+        // the app was not running.
+        assertTrue(restored.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `a rest whose deadline passed while the process was gone comes back finished`() = runTest {
+        val draft = restingDraft(deadline = STARTED_AT + 90_000)
+        clock.now = STARTED_AT + 10.minutes.inWholeMilliseconds
+
+        val restored = viewModel(drafts = FakeDraftStore(draft))
+
+        // Finished rather than a countdown owing time: `RestTimerState.Running` cannot hold a
+        // non-positive remainder, and a sheet over a rest that ended nine minutes ago would be
+        // the screen asking the user to wait for something that is already over.
+        assertEquals(RestTimerState.Finished, restored.uiState.value.rest)
+        assertFalse(restored.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `a rest started while the draft was still being read is not restored over`() = runTest {
+        // The read is held open, which is the window the bug lived in: `isLoading` clears on the
+        // session store's first emission, so the screen takes taps well before the draft comes
+        // back off disk.
+        val gated = FakeDraftStore(restingDraft(deadline = STARTED_AT + 90_000)).apply { holdLoad() }
+        clock.now = STARTED_AT + 30_000
+        val viewModel = viewModel(drafts = gated)
+
+        viewModel.enter(weight = "80", reps = "5")
+        viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+        val started = viewModel.uiState.value.rest
+
+        gated.releaseLoad()
+        runCurrent()
+
+        // A fresh 90 of 90, not the draft's 60 of 90. The one the user is watching wins: a
+        // restore landing on top of it would cancel the countdown and take its sheet down.
+        assertEquals(RestTimerState.Running(90.seconds, 90.seconds), started)
+        assertEquals(started, viewModel.uiState.value.rest)
+        assertTrue(viewModel.uiState.value.isRestSheetOpen)
+    }
+
+    @Test
+    fun `a restored rest still knows what set is coming`() = runTest {
+        val restored = viewModel(
+            store = benchStore(),
+            drafts = FakeDraftStore(restingDraft(deadline = STARTED_AT + 90_000)),
+        )
+
+        // Off the exercise the draft named, and out of the store: the second set of the bench,
+        // 70 x 8. Nothing about the target is written into the draft itself.
+        assertEquals(RestTarget(weight = 70_000_000L, reps = 8), restored.uiState.value.restTarget)
+    }
+
     // ─── The draft ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -2020,6 +2309,43 @@ class ActiveSessionViewModelTest {
     )
 
     /**
+     * Advances virtual time so exactly [offset] has passed, *including* the tick scheduled at
+     * that instant.
+     *
+     * `advanceTimeBy` alone stops just before it, which for a countdown is the difference
+     * between `1:00` and `1:01`: the remainder that has been published is the one from the
+     * previous tick. The domain's own rig makes the same distinction and says so at length —
+     * see `RestTimerTestSupport.advanceTimeTo`. Only the tests that read the *published*
+     * remainder need this; the ones that command the timer get the live one either way.
+     */
+    private fun TestScope.advanceRestTo(offset: Duration) {
+        testScheduler.advanceTimeBy(offset)
+        testScheduler.runCurrent()
+    }
+
+    /**
+     * A draft written mid-rest: the bench, with one rest in flight counting to [deadline].
+     *
+     * `currentExerciseIndex` is what carries the exercise the rest belongs to across the
+     * restart — see `ActiveSessionViewModel.saveDraft`.
+     */
+    private fun restingDraft(deadline: Long) = ActiveSession(
+        sessionId = ACTIVE_SESSION_ID,
+        startedAt = STARTED_AT,
+        exercises = listOf(
+            ActiveExercise(
+                exerciseId = BENCH.id,
+                sessionExerciseId = BENCH_ROW,
+                sets = listOf(
+                    ActiveSet(id = 2L, reps = 8, weight = 70_000_000L, isCompleted = true, completedAt = 1L),
+                ),
+            ),
+        ),
+        currentExerciseIndex = 0,
+        restTimer = RestTimerSnapshot.Running(deadline = deadline, total = 90.seconds),
+    )
+
+    /**
      * The ViewModel for one workout, with its state already flowing.
      *
      * The id arrives the way it does in the app — decoded off the destination's arguments in the
@@ -2066,6 +2392,10 @@ class ActiveSessionViewModelTest {
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
             clock = clock,
+            // Virtual time, so a ninety-second rest costs the suite nothing and the countdown
+            // and the scheduler cannot run ahead of each other. The rig `RestTimerTestSupport`
+            // sets up in `:core:domain`, wired through the ViewModel that owns the controller.
+            timeSource = testScheduler.timeSource,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }

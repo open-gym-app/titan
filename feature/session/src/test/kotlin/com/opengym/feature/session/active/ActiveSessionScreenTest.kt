@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -24,12 +26,14 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -1176,6 +1180,99 @@ class ActiveSessionScreenTest {
         scrollToText("Complete set 3").assertIsEnabled()
     }
 
+    // ─── The rest between two sets ──────────────────────────────────────────────────────
+
+    /*
+     * The sheet is a `ModalBottomSheet`, which draws into a window of its own — and Robolectric
+     * does not lay that window out: its nodes are in the tree, and they are at a rect no finger
+     * could reach. So these assert existence rather than display, and press through the
+     * semantics action rather than through a touch. What is being asserted is the wiring — which
+     * control raises which event — and none of that is about where the sheet ends up on screen.
+     * How the sheet itself is drawn is `RestTimerSheetTest`'s subject, in `:core:ui`.
+     */
+
+    @Test
+    fun `the rest sheet shows the countdown and the set that ends it`() {
+        setScreen(resting())
+
+        // Twice over: the sheet's figure and the header's pill behind it, which have to be the
+        // same reading — two clocks for one rest, one of them rounded the other way, is the bug
+        // `RestCountdown` and `RestTimerIndicator` share a formatter to prevent.
+        composeTestRule.onAllNodesWithContentDescription("1:23 left").assertCountEquals(2)
+        // The supporting line under the figure: how long the rest is, and what is coming.
+        composeTestRule.onNodeWithText("of 2:00 · Next 80 kg × 5").assertExists()
+    }
+
+    @Test
+    fun `the sheet's controls move the countdown, and its button ends it`() {
+        setScreen(resting())
+
+        composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds").invoke()
+        composeTestRule.onNodeWithContentDescription("Shorten the rest by 15 seconds").invoke()
+        composeTestRule.onNodeWithText("Skip rest").invoke()
+
+        assertEquals(
+            listOf(
+                ActiveSessionEvent.RestAdjusted(15.seconds),
+                ActiveSessionEvent.RestAdjusted((-15).seconds),
+                ActiveSessionEvent.RestSkipped,
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `dismissing the sheet asks for it to be hidden, and not for the rest to end`() {
+        setScreen(resting())
+
+        // The scrim, which is what a tap outside the sheet and a swipe down both land on.
+        composeTestRule.onNodeWithContentDescription("Close sheet").invoke()
+        composeTestRule.waitForIdle()
+
+        // Dismissed, not skipped. The countdown is untouched by the gesture — which is the
+        // whole point of it: what the user is reaching for is the set underneath.
+        assertEquals(listOf(ActiveSessionEvent.RestSheetDismissed), events)
+    }
+
+    @Test
+    fun `a rest that ends takes the sheet off screen, and does not strand it there`() {
+        // The sheet is not dropped straight out of composition any more — it is asked to hide
+        // and stays composed until the animation is done, which is what makes a skip and an
+        // expiry slide down instead of blinking out. This is the other half of that: a hide
+        // that never completed would leave a panel sitting over the workout for good.
+        val state = mutableStateOf(resting())
+        composeTestRule.setContent {
+            OpenGymTheme {
+                ActiveSessionScreen(state = state.value, onEvent = events::add)
+            }
+        }
+
+        state.value = state.value.copy(rest = RestTimerState.Finished, isRestSheetOpen = false)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
+        setScreen(resting().copy(isRestSheetOpen = false))
+
+        composeTestRule.onNodeWithContentDescription("1:23 left").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("1:23 left").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestSheetRequested), events)
+    }
+
+    @Test
+    fun `nothing on the header says rest when no rest is running`() {
+        // The pill is the one thing on this screen wearing the accent and changing on its own.
+        // One that sat there reading 0:00 between sets would spend that on nothing.
+        setScreen(state())
+
+        composeTestRule.onAllNodesWithContentDescription("0:00 left").assertCountEquals(0)
+    }
+
     // ─── Support ────────────────────────────────────────────────────────────────────────
 
     /**
@@ -1320,6 +1417,23 @@ class ActiveSessionScreenTest {
         ),
         exercises = exercises,
         isLoading = false,
+    )
+
+    /**
+     * Presses a node through its click *action* rather than through a finger.
+     *
+     * For the rest sheet, whose window Robolectric leaves at a rect outside the screen — a
+     * touch aimed at it is refused before the handler is ever reached. The action is the same
+     * one a tap ends up invoking, and the same one a screen reader uses.
+     */
+    private fun SemanticsNodeInteraction.invoke(): SemanticsNodeInteraction =
+        performSemanticsAction(SemanticsActions.OnClick)
+
+    /** The push day, mid-rest, with the sheet up over it. */
+    private fun resting() = state().copy(
+        rest = RestTimerState.Running(remaining = 83.seconds, total = 2.minutes),
+        isRestSheetOpen = true,
+        restTarget = RestTarget(weight = 80_000_000L, reps = 5),
     )
 
     /** The bench press, first in the workout, two sets in. */

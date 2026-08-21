@@ -57,7 +57,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatRpe
-import com.opengym.core.ui.format.formatWeight
+import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -642,14 +642,9 @@ private fun LoggedSetRow(
     onCompletedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
 ) {
-    val performed = when {
-        weight != null && reps != null ->
-            stringResource(R.string.set_log_weight_and_reps, formatWeight(weight), reps)
-
-        reps != null -> stringResource(R.string.set_log_reps_only, reps)
-        weight != null -> formatWeight(weight)
-        else -> stringResource(R.string.set_log_rpe_unset)
-    }
+    // The dash is this row's answer to an empty set rather than the formatter's: a table has
+    // columns to keep lined up, and a sentence quoting the same set would want the clause gone.
+    val performed = formatSet(weight, reps) ?: stringResource(R.string.set_log_rpe_unset)
 
     SetRowFrame(
         modifier = modifier,

@@ -11,6 +11,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.time.Clock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
@@ -268,7 +269,31 @@ class FakeDraftStore(initial: ActiveSession? = null) : InProgressSessionReposito
         saves += session
     }
 
-    override suspend fun load(): ActiveSession? = draft
+    /**
+     * Held closed by [holdLoad] until [releaseLoad], so a test can act on the screen while the
+     * draft read is still in flight. That window is real: the screen goes interactive on the
+     * session store's first emission, which lands well before a disk read comes back.
+     */
+    private var loadGate: CompletableDeferred<Unit>? = null
+
+    /** Makes the next [load] wait for [releaseLoad]. */
+    fun holdLoad() {
+        loadGate = CompletableDeferred()
+    }
+
+    /** Lets a [load] held by [holdLoad] finish. */
+    fun releaseLoad() {
+        loadGate?.complete(Unit)
+    }
+
+    override suspend fun load(): ActiveSession? {
+        // The value as it was when the read was *issued*, not as it is when the read comes
+        // back. That is what a held read models: a disk read in flight does not pick up a save
+        // that lands behind it, and the point of holding one is what the screen does meanwhile.
+        val issued = draft
+        loadGate?.await()
+        return issued
+    }
 
     override suspend fun clear() {
         clearCount++

@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.domain.validation.SetDimension
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.component.SessionProgress
@@ -93,6 +94,18 @@ import kotlin.time.Duration
  *   number it had. Carried in the state rather than pushed down a channel for the reason
  *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
  *   event would not.
+ * @param rest the countdown between two sets, straight off `RestTimerController`. Not folded
+ *   into [isRestSheetOpen] as one nullable, because they are two questions: the rest goes on
+ *   running with the sheet swiped away, which is the whole of what the header's pill is for.
+ * @param isRestSheetOpen whether the sheet is up over the workout. Raised by a set being marked
+ *   done and lowered by the skip, the swipe and the countdown reaching zero — the last of those
+ *   without the timer going idle, so that a rest slept through stays distinguishable from one
+ *   the user called off. Never true over a rest that is not [com.opengym.core.domain.timer.RestTimerState.Running]
+ *   or `Paused`: the sheet is a thing to look at while time passes.
+ * @param restTarget what the next set is expected to be, shown on the sheet so the rest is
+ *   worth watching rather than waiting out. Null where nothing has been logged to predict it
+ *   from. Carried as quantities rather than as `80 kg × 5`, because the unit is the ambient
+ *   one and the "×" is a word — both belong in composition.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -118,6 +131,9 @@ data class ActiveSessionUiState(
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
     val deletedSet: WorkoutSet? = null,
+    val rest: RestTimerState = RestTimerState.Idle,
+    val isRestSheetOpen: Boolean = false,
+    val restTarget: RestTarget? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -165,6 +181,25 @@ data class ActiveSessionUiState(
      */
     val canFinish: Boolean get() = !isBusy && loggingExerciseIds.isEmpty()
 }
+
+/**
+ * What the set after this rest is expected to be.
+ *
+ * There is no plan on this screen to read it off — a session's exercises carry no target sets,
+ * and the wireframe's `TARGET 80 × 5` belongs to a workout started from a template. What stands
+ * in for it is the set that has just been logged, which is what the lifter is about to do again:
+ * a rest is the gap between two attempts at the same thing, and "do that again" is right far
+ * more often than it is wrong. Where it is wrong the user is about to type over it anyway.
+ *
+ * Never carried for a rest that follows a superset's first exercise, because no rest is started
+ * there at all — the next set is the *other* exercise's, and the screen moves straight on. See
+ * `Supersets.isRestDueAfter`.
+ *
+ * @param weight in milligrams, matching `WorkoutSet.weight`, or null for a bodyweight set.
+ * @param reps how many, or null for a set that recorded none.
+ */
+@Immutable
+data class RestTarget(val weight: Long?, val reps: Int?)
 
 /**
  * The bar over the workout: what it is, and how long it has been going.

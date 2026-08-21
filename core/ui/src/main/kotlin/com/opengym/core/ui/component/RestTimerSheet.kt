@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
@@ -42,7 +44,7 @@ import kotlin.time.Duration.Companion.seconds
 /*
  * The rest between two sets.
  *
- * Three composables over one [RestTimerState], because the same countdown is wanted at three
+ * Four composables over one [RestTimerState], because the same countdown is wanted at several
  * sizes:
  *
  * - [RestTimerSheet] is the body of the bottom sheet that comes up when a set is logged. It
@@ -53,6 +55,8 @@ import kotlin.time.Duration.Companion.seconds
  *   what a compact header uses when the sheet has been dismissed but the rest is still
  *   running.
  * - [RestTimerIndicator] is the one-line pill for a top app bar.
+ * - [RestProgressBar] is the bar alone, which the sheet and the header both draw so that the
+ *   two cannot disagree about how far through a rest is.
  *
  * None of them ticks. [RestTimerState] arrives already counting from
  * [com.opengym.core.domain.timer.RestTimerController], which is the thing that owns a clock;
@@ -198,23 +202,57 @@ fun RestCountdown(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        LinearProgressIndicator(
-            progress = { state.elapsedFraction() },
-            // Padding before height, not after: a `height` that follows a `padding` sizes the
-            // bar, while one that precedes it sizes the bar *and* the gap, leaving a 2dp line.
+        RestProgressBar(
+            state = state,
+            // Padding before height, not after — see [RestProgressBar], which applies the
+            // height last for exactly this reason.
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = OpenGymTheme.spacing.xs)
-                .height(PROGRESS_HEIGHT),
-            color = MaterialTheme.colorScheme.primary,
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            strokeCap = StrokeCap.Round,
-            // Material 1.4 splits the bar with a gap and a stop dot. Neither is wanted on a
-            // 6dp rest bar: the gap reads as a second segment and the dot as a target.
-            gapSize = 0.dp,
-            drawStopIndicator = {},
+                .padding(top = OpenGymTheme.spacing.xs),
         )
     }
+}
+
+/**
+ * How far through the rest is, as one bar that fills from empty to full.
+ *
+ * The whole of the countdown that is *not* a number, and the reason it is public: the sheet
+ * and the header both draw it, and they must draw the same thing. A header that had a bar of
+ * its own — or, worse, borrowed the one next to it — would be a second answer to "how much of
+ * this rest is left", and two bars disagreeing about that is the one thing a rest timer cannot
+ * afford.
+ *
+ * Continuous, never segmented. It sits a few dp from [SessionProgressRail], which *is*
+ * segmented and is counting something else entirely — exercises done, not seconds passed — and
+ * the difference in shape is what keeps the two readable as two different facts.
+ *
+ * @param color the fill. Defaults to the scheme's primary; the workout header passes its own
+ *   accent for a running rest and a neutral for a paused one, on the same rule the big figure
+ *   follows — the accent means time is passing, so a frozen bar must not wear it.
+ * @param trackColor what the unfilled remainder is drawn on.
+ * @param height how thick the bar is. The default fills a sheet; a header rail passes its own.
+ */
+@Composable
+fun RestProgressBar(
+    state: RestTimerState,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    height: Dp = PROGRESS_HEIGHT,
+) {
+    LinearProgressIndicator(
+        progress = { state.elapsedFraction() },
+        // Height last: a `height` that follows a `padding` sizes the bar, while one that
+        // precedes it sizes the bar *and* the gap, leaving a 2dp line.
+        modifier = modifier.height(height),
+        color = color,
+        trackColor = trackColor,
+        strokeCap = StrokeCap.Round,
+        // Material 1.4 splits the bar with a gap and a stop dot. Neither is wanted on a rest
+        // bar: the gap reads as a second segment and the dot as a target.
+        gapSize = 0.dp,
+        drawStopIndicator = {},
+    )
 }
 
 /**
@@ -222,27 +260,51 @@ fun RestCountdown(
  *
  * The one place the accent is spent on something small. A running rest is the only thing on
  * the active-session screen that is *changing*, and it has to be findable without the sheet
- * being open.
+ * being open — which is what makes this the way back into a sheet the user swiped away.
+ *
+ * @param onClick reopens the sheet. Null draws the pill inert, which is what a header with
+ *   nowhere to go wants; where it is given, the pill announces itself as the way back rather
+ *   than as four digits that happen to be tappable.
+ * @param colors which two pairs it is drawn in. Defaulted to the colour scheme and overridden
+ *   by the one caller that is not on it — the active workout's header, which is a near-black
+ *   band in both schemes and would swallow a `primaryContainer` pill. See
+ *   [RestTimerDefaults.sessionChromeIndicatorColors].
  */
 @Composable
 fun RestTimerIndicator(
     state: RestTimerState,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    colors: RestTimerIndicatorColors = RestTimerDefaults.indicatorColors(),
 ) {
     val remaining = state.remaining()
     val running = state is RestTimerState.Running
     val spoken = spokenRemaining(remaining)
+    val reopen = stringResource(R.string.rest_timer_reopen)
 
     Row(
         modifier = modifier
-            .clearAndSetSemantics { contentDescription = spoken }
+            // One stop in the traversal order, reading the time and — where there is one — what
+            // pressing it does. The digits on their own are a number with no noun near them.
+            // The action goes in here with the label, and not as a bare label over the
+            // `clickable` below: this is `clearAndSetSemantics`, which throws away everything
+            // the rest of the chain contributed — including the clickable's handler. Labelling
+            // without re-supplying it leaves a node that announces "double tap to activate",
+            // takes the tap and does nothing, which is the way back into a swiped-away sheet
+            // gone for anyone driving the screen by screen reader. (The plain `.semantics`
+            // call elsewhere in this codebase *merges*, which is why a null action is right
+            // there and wrong here.)
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                if (onClick != null) {
+                    onClick(label = reopen) {
+                        onClick()
+                        true
+                    }
+                }
+            }
             .background(
-                color = if (running) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainer
-                },
+                color = if (running) colors.runningContainer else colors.restingContainer,
                 shape = PillShape,
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -253,14 +315,28 @@ fun RestTimerIndicator(
         Text(
             text = remaining.formatAsClock(),
             style = OpenGymTheme.typography.numeric,
-            color = if (running) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (running) colors.runningContent else colors.restingContent,
         )
     }
 }
+
+/**
+ * The two pairs [RestTimerIndicator] is drawn in: one for a countdown that is moving, one for
+ * a countdown that is not.
+ *
+ * A pair each rather than a single container and content, because the difference between them
+ * is the whole of what the pill communicates from across a room — the accent means the clock is
+ * running, and a paused rest wearing it would be the header saying time is passing when it is
+ * not. That is the same rule [RestCountdown] applies to the big figure, stated once for each
+ * ground the pill can sit on.
+ */
+@Immutable
+data class RestTimerIndicatorColors(
+    val runningContainer: Color,
+    val runningContent: Color,
+    val restingContainer: Color,
+    val restingContent: Color,
+)
 
 /** Defaults for the rest timer components. */
 object RestTimerDefaults {
@@ -273,6 +349,33 @@ object RestTimerDefaults {
      * presses is the common case of "give me another half minute".
      */
     val ADJUST_STEP: Duration = 15.seconds
+
+    /** [RestTimerIndicator] on the colour scheme, which is where any ordinary screen puts it. */
+    @Composable
+    fun indicatorColors(): RestTimerIndicatorColors = RestTimerIndicatorColors(
+        runningContainer = MaterialTheme.colorScheme.primaryContainer,
+        runningContent = MaterialTheme.colorScheme.onPrimaryContainer,
+        restingContainer = MaterialTheme.colorScheme.surfaceContainer,
+        restingContent = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    /**
+     * [RestTimerIndicator] on the active workout's own near-black band.
+     *
+     * The header does not invert with the scheme — see
+     * [com.opengym.core.ui.theme.OpenGymSessionChrome] — so a pill built from the scheme's
+     * containers would be a light chip on a dark bar in one scheme and invisible in the other.
+     * Both pairs here are ones the chrome already carries and the contrast test already holds.
+     */
+    @Composable
+    fun sessionChromeIndicatorColors(): RestTimerIndicatorColors = with(OpenGymTheme.sessionChrome) {
+        RestTimerIndicatorColors(
+            runningContainer = accent,
+            runningContent = onAccent,
+            restingContainer = fill,
+            restingContent = onSurface,
+        )
+    }
 }
 
 // ─── State, read four ways ──────────────────────────────────────────────────────────────
