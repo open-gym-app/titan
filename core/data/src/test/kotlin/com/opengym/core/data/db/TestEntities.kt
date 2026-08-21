@@ -90,11 +90,13 @@ fun workoutSet(
     completedAt: Long = 0,
     reps: Int? = null,
     weight: Long? = null,
+    setType: String = "NORMAL",
 ) = WorkoutSetEntity(
     sessionExerciseId = sessionExerciseId,
     setNumber = setNumber,
     reps = reps,
     weight = weight,
+    setType = setType,
     isCompleted = isCompleted,
     completedAt = completedAt,
     createdAt = 0,

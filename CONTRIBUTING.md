@@ -153,7 +153,7 @@ Text(
 
   | Component | Draws | Takes |
   | --- | --- | --- |
-  | `SetLogRow` | a set as a row of fields — weight, reps, RPE, set type, tick, inline validation. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, plus an optional `onCommit` |
+  | `SetLogRow` | a set as a row of fields — weight, reps, RPE, set type, tick, inline validation, and what the same set did last time. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, plus an optional `onCommit` and an optional `PreviousSet` |
   | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
   | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
   | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
@@ -250,7 +250,7 @@ Text(
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsEstimate` (`~55m`) | — |
   | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
-  | A whole set | milligrams and a count | `formatSet` (`80 kg × 5`, `12 reps`, or **null** where there is neither) | — (typed field by field) |
+  | A whole set | milligrams and a count | `formatSet` (`80 kg × 5`, `12 reps`, or **null** where there is neither), and `formatSetCompact` (`80×5`) for the one cell too narrow to hold the long form | — (typed field by field) |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and

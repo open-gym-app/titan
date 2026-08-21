@@ -34,6 +34,7 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.timer.RestTimerState
+import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -183,6 +184,60 @@ class ActiveSessionScreenTest {
         setScreen(ActiveSessionUiState(isLoading = false))
 
         composeTestRule.onNodeWithText("This session is gone").assertIsDisplayed()
+    }
+
+    // ─── Previous performance ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `each set row carries what the same set did last time`() {
+        setScreen(state(exercises = listOf(benchedBefore())))
+
+        // Announced as a sentence with the unit in it, where the cell itself draws `60×10`: the
+        // column is 52dp wide and a screen reader has all the room it needs. See `PreviousCell`.
+        scrollToDescription("Previously 60 kg × 10").assertIsDisplayed()
+        scrollToDescription("Previously 70 kg × 8").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an exercise with no history says so instead of drawing an empty column`() {
+        setScreen(state(exercises = listOf(benchRow())))
+
+        // Said once beside the name. A column of dashes down a card reads as a fault rather
+        // than as a first attempt, which is the whole reason this state has words of its own.
+        scrollToText("FIRST TIME").assertIsDisplayed()
+        assertMissing(hasContentDescription("Previously", substring = true))
+    }
+
+    @Test
+    fun `an exercise with history never claims to be a first attempt`() {
+        setScreen(state(exercises = listOf(benchedBefore())))
+
+        assertMissing(hasText("FIRST TIME"))
+    }
+
+    @Test
+    fun `sets beyond last time's count are left empty rather than repeating it`() {
+        // Three sets today against one last time, and the exercise still has history: the two
+        // extra rows have nothing to compare against, which is not the same as never having
+        // done the movement.
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchRow(
+                        sets = listOf(
+                            loggedRow(id = 1L, weight = "60", reps = "10")
+                                .copy(previous = PreviousSet(weight = 60_000_000L, reps = 10)),
+                            loggedRow(id = 2L, weight = "70", reps = "8"),
+                            loggedRow(id = 3L, weight = "75", reps = "6"),
+                        ),
+                    ).copy(hasHistory = true),
+                ),
+            ),
+        )
+
+        assertMissing(hasText("FIRST TIME"))
+        composeTestRule.onAllNodes(hasContentDescription("Previously", substring = true))
+            .assertCountEquals(1)
     }
 
     // ─── Logging a set ──────────────────────────────────────────────────────────────────
@@ -1449,6 +1504,25 @@ class ActiveSessionScreenTest {
         exercise = BENCH,
         sets = sets,
         entry = entry,
+    )
+
+    /**
+     * The bench press with last week's numbers against every row of it, entry row included.
+     *
+     * Separate from [benchRow] rather than a parameter on it, because almost every test on this
+     * screen is about a card with nothing behind it and would otherwise carry a reference it
+     * never looks at.
+     */
+    private fun benchedBefore() = benchRow(
+        sets = listOf(
+            loggedRow(id = 1L, weight = "60", reps = "10")
+                .copy(previous = PreviousSet(weight = 60_000_000L, reps = 10)),
+            loggedRow(id = 2L, weight = "70", reps = "8")
+                .copy(previous = PreviousSet(weight = 70_000_000L, reps = 8)),
+        ),
+    ).copy(
+        entryPrevious = PreviousSet(weight = 75_000_000L, reps = 6),
+        hasHistory = true,
     )
 
     /** The same three exercises, with the last two run as a superset. */

@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.domain.validation.SetDimension
 import com.opengym.core.domain.validation.SetValidator
+import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.SessionProgress
 import kotlin.time.Duration
 
@@ -254,6 +255,16 @@ data class ActiveSessionHeader(
  *   to log, and a screen that hid the fields until an "add set" tap would put a tap in front of
  *   the thing the screen exists to do. Separate from [sets] because it is the one row that is
  *   not a set yet: what writes it is a tick, and what writes the others is leaving them.
+ * @param entryPrevious what was done on the *next* set last time, or null where there is
+ *   nothing to compare it against. The counterpart of [LoggedSet.previous], which carries the
+ *   same fact for the rows above it — one per drawn row, because that is how the table reads
+ *   it and because the alignment is not a matter of counting: see [hasHistory].
+ * @param hasHistory whether this exercise has ever been performed before. **False is the
+ *   "first time" state**, and it is a separate question from whether any particular row has a
+ *   previous set: a lifter three sets into a workout that was two sets last time has history
+ *   and empty cells, and the two must not be drawn the same way. False also covers an exercise
+ *   whose whole history is warm-ups, which is never having performed it — see
+ *   `SessionRepository.getPreviousSets`.
  */
 @Immutable
 data class SessionExerciseRow(
@@ -266,6 +277,8 @@ data class SessionExerciseRow(
     val isLinkedToNext: Boolean = false,
     val sets: List<LoggedSet> = emptyList(),
     val entry: SetEntry = SetEntry(),
+    val entryPrevious: PreviousSet? = null,
+    val hasHistory: Boolean = false,
 ) {
 
     /** How many sets sit under it, performed or not, which is what the table draws. */
@@ -423,6 +436,12 @@ data class SetEntry(
  *   composition, and a row that leaves that way never reports losing focus. See `LoggedSetTable`.
  * @param isSaving a correction to this row is in flight. The row goes inert — it is the only
  *   copy of what was typed, and a second write of the same correction is a race with itself.
+ * @param previous what was done on the matching set last time, or null where there is nothing
+ *   to compare this row against — the exercise is new, last time was shorter, or this row is a
+ *   warm-up. Carried per row rather than as one list on the exercise because the rows and the
+ *   reference are not the same list: warm-ups are skipped on both sides, so which previous set
+ *   a row is compared against depends on the *types* of the rows above it, and that is settled
+ *   once, where the rows are built, rather than recounted by whatever draws them.
  */
 @Immutable
 data class LoggedSet(
@@ -431,6 +450,7 @@ data class LoggedSet(
     val isCompleted: Boolean = false,
     val isEdited: Boolean = false,
     val isSaving: Boolean = false,
+    val previous: PreviousSet? = null,
 )
 
 /**

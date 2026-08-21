@@ -32,3 +32,34 @@ fun formatSet(weightMilligrams: Long?, reps: Int?): String? = when {
     weightMilligrams != null -> formatWeight(weightMilligrams)
     else -> null
 }
+
+/**
+ * The same set with everything optional taken out of it: `60×10`.
+ *
+ * For the one place a set has to fit in a table *cell* rather than on a line — the previous
+ * column, which is 52dp wide because the columns beside it are fields somebody is typing into.
+ * The unit goes, and so do the spaces around the `×`: what the cell is for is a comparison
+ * against the row it sits on, and that row's own header already says which unit the numbers are
+ * in. Anything wider than this is a column that eats the weight field to say `kg` five times.
+ *
+ * Not a replacement for [formatSet], which is what a set reads as everywhere there is room for
+ * it — including the description a screen reader is given for this very cell. Two renderings of
+ * one fact, chosen by how much space there is, which is why they live next to each other.
+ *
+ * @return the cell, or **null** when there is nothing to put in it — same contract as
+ *   [formatSet], and the caller draws its own placeholder.
+ */
+@Composable
+fun formatSetCompact(weightMilligrams: Long?, reps: Int?): String? = when {
+    weightMilligrams != null && reps != null -> stringResource(
+        R.string.set_log_weight_and_reps_compact,
+        formatWeightValue(weightMilligrams),
+        reps,
+    )
+
+    // A bodyweight set, where the count is the whole of what was done. The `×` stays in front
+    // of it so the cell cannot be read as a weight with the reps clipped off.
+    reps != null -> stringResource(R.string.set_log_reps_only_compact, reps)
+    weightMilligrams != null -> formatWeightValue(weightMilligrams)
+    else -> null
+}

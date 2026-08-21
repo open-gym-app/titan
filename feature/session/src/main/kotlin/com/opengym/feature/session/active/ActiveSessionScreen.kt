@@ -40,11 +40,13 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.ui.component.EmptyState
+import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.ReorderState
 import com.opengym.core.ui.component.ReorderableItem
 import com.opengym.core.ui.component.RestExpiryAlert
@@ -878,76 +880,128 @@ fun ActiveSessionScreenPausedPreview() {
 }
 
 /** A push day, three exercises in, with its two accessories run as a superset. */
-private fun previewState(): ActiveSessionUiState {
-    val bench = Exercise(id = 1L, name = "Bench press")
-    val incline = Exercise(id = 2L, name = "Incline dumbbell press")
-    val fly = Exercise(id = 3L, name = "Cable fly")
-    val pushdown = Exercise(id = 4L, name = "Tricep pushdown")
+private fun previewState(): ActiveSessionUiState = ActiveSessionUiState(
+    header = ActiveSessionHeader(
+        name = "Push day · Upper",
+        startedAt = 1_700_000_000_000L,
+        elapsed = 23.minutes + 14.seconds,
+        progress = SessionProgress.of(completed = 2, total = 4),
+    ),
+    stats = SessionStats(
+        totalSets = 5,
+        totalVolume = 2_800_000_000L,
+        durationSeconds = 1_394,
+        exerciseBreakdown = emptyList(),
+    ),
+    exercises = previewExercises(),
+    isLoading = false,
+)
 
-    // A logged set as the row it is drawn in: the values already in the fields, because every row
-    // of the table is live — see `LoggedSetTable`. The weight is text in the ambient unit, which
-    // is what the ViewModel formats it into.
-    fun set(
-        number: Int,
-        weight: String,
-        reps: Int,
-        rpe: Int,
-        sessionExerciseId: Long = 1L,
-    ) = LoggedSet(
-        id = number.toLong() + sessionExerciseId * 100,
-        entry = SetEntry(weight = weight, reps = reps.toString(), rpe = rpe),
-        isCompleted = true,
-    )
+/**
+ * The four exercises the previews are drawn from, in the four states this screen has to show at
+ * once: one with a full reference behind it, one with a shorter one, one that has never been
+ * performed, and one waiting for its first set of the day.
+ */
+private fun previewExercises(): List<SessionExerciseRow> = listOf(
+    previewBench(),
+    previewIncline(),
+    // Never performed, which is the state the badge under the name is for.
+    SessionExerciseRow(
+        sessionExerciseId = 3L,
+        position = 2,
+        exercise = Exercise(id = 3L, name = "Cable fly"),
+        supersetLabel = "A1",
+        isLinkedToNext = true,
+    ),
+    SessionExerciseRow(
+        sessionExerciseId = 4L,
+        position = 3,
+        exercise = Exercise(id = 4L, name = "Tricep pushdown"),
+        supersetLabel = "A2",
+        entryPrevious = previously(weightKg = 30.0, reps = 15),
+        hasHistory = true,
+    ),
+)
 
-    return ActiveSessionUiState(
-        header = ActiveSessionHeader(
-            name = "Push day · Upper",
-            startedAt = 1_700_000_000_000L,
-            elapsed = 23.minutes + 14.seconds,
-            progress = SessionProgress.of(completed = 2, total = 4),
+/** Three sets in, with last week's numbers against every row of it and against the next one. */
+private fun previewBench() = SessionExerciseRow(
+    sessionExerciseId = 1L,
+    position = 0,
+    exercise = Exercise(id = 1L, name = "Bench press"),
+    sets = listOf(
+        previewSet(
+            number = 1,
+            weight = "60",
+            reps = 10,
+            rpe = 60,
+            previous = previously(weightKg = 60.0, reps = 10),
         ),
-        stats = SessionStats(
-            totalSets = 5,
-            totalVolume = 2_800_000_000L,
-            durationSeconds = 1_394,
-            exerciseBreakdown = emptyList(),
+        previewSet(
+            number = 2,
+            weight = "70",
+            reps = 8,
+            rpe = 75,
+            previous = previously(weightKg = 70.0, reps = 8),
         ),
-        exercises = listOf(
-            SessionExerciseRow(
-                sessionExerciseId = 1L,
-                position = 0,
-                exercise = bench,
-                sets = listOf(
-                    set(number = 1, weight = "60", reps = 10, rpe = 60),
-                    set(number = 2, weight = "70", reps = 8, rpe = 75),
-                    set(number = 3, weight = "75", reps = 6, rpe = 85),
-                ),
-            ),
-            SessionExerciseRow(
-                sessionExerciseId = 2L,
-                position = 1,
-                exercise = incline,
-                sets = listOf(
-                    set(number = 1, weight = "26", reps = 12, rpe = 70, sessionExerciseId = 2L),
-                    set(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
-                ),
-                // Mid-set, which is what brings the set-type chips and the note out.
-                entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),
-            ),
-            SessionExerciseRow(
-                sessionExerciseId = 3L,
-                position = 2,
-                exercise = fly,
-                supersetLabel = "A1",
-                isLinkedToNext = true,
-            ),
-            SessionExerciseRow(
-                sessionExerciseId = 4L,
-                position = 3,
-                exercise = pushdown,
-                supersetLabel = "A2",
-            ),
+        // The decimal case the previous column is sized against: `72.5×6` is about the widest
+        // thing that cell has to hold without clipping.
+        previewSet(
+            number = 3,
+            weight = "75",
+            reps = 6,
+            rpe = 85,
+            previous = previously(weightKg = 72.5, reps = 6),
         ),
-        isLoading = false,
-    )
-}
+    ),
+    // What the fourth set was last time, which is the row that reads as a target.
+    entryPrevious = previously(weightKg = 80.0, reps = 5),
+    hasHistory = true,
+)
+
+/** Two sets today against one last time, and mid-set — which is what brings the note out. */
+private fun previewIncline() = SessionExerciseRow(
+    sessionExerciseId = 2L,
+    position = 1,
+    exercise = Exercise(id = 2L, name = "Incline dumbbell press"),
+    sets = listOf(
+        previewSet(
+            number = 1,
+            weight = "26",
+            reps = 12,
+            rpe = 70,
+            sessionExerciseId = 2L,
+            previous = previously(weightKg = 24.0, reps = 12),
+        ),
+        // The column is empty on this row, and the exercise still has history behind it: the
+        // two states the "first time" badge has to stay out of.
+        previewSet(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
+    ),
+    entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),
+    hasHistory = true,
+)
+
+/**
+ * A logged set as the row it is drawn in: the values already in the fields, because every row of
+ * the table is live — see `LoggedSetTable`. The weight is text in the ambient unit, which is what
+ * the ViewModel formats it into.
+ */
+private fun previewSet(
+    number: Int,
+    weight: String,
+    reps: Int,
+    rpe: Int,
+    sessionExerciseId: Long = 1L,
+    previous: PreviousSet? = null,
+) = LoggedSet(
+    id = number.toLong() + sessionExerciseId * 100,
+    entry = SetEntry(weight = weight, reps = reps.toString(), rpe = rpe),
+    isCompleted = true,
+    previous = previous,
+)
+
+/**
+ * Last week's set. Written in kilograms and converted, because what this type carries is the
+ * milligrams everything is stored in, and `72_500_000` reads as nothing at a glance.
+ */
+private fun previously(weightKg: Double, reps: Int) =
+    PreviousSet(weight = (weightKg * MILLIGRAMS_PER_KILOGRAM).toLong(), reps = reps)

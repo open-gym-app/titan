@@ -30,6 +30,7 @@ import androidx.compose.material3.IconToggleButtonColors
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -58,6 +60,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatRpe
 import com.opengym.core.ui.format.formatSet
+import com.opengym.core.ui.format.formatSetCompact
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -106,9 +109,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param onRpeChange the rating picked from the cell's own menu, or null for a row whose rating
  *   cannot be changed. The scale is a closed vocabulary of nine and a text field for it would
  *   accept `47`, which is why the cell opens a menu rather than a keyboard — see [RpePicker].
- * @param previous what was done on this set last time — `80 kg × 5` — or null for a set with
- *   no history, which still reserves the column so the rows of one table line up. Formatted by
- *   the caller: which "last time" this is (#101) is the feature's question, not this row's.
+ * @param previous what was done on this set last time, or null for a row with no history —
+ *   which still reserves the column, so the rows of one table line up. A [PreviousSet] rather
+ *   than the text of one, because the cell renders it twice: see [PreviousCell]. Which "last
+ *   time" this is stays the caller's question — see `SessionRepository.getPreviousSets`.
  * @param showPrevious false drops the previous column entirely. A whole-table decision, not a
  *   per-row one: pass the same value to every row and to [SetLogHeader], or the labels stop
  *   sitting over the cells they name.
@@ -147,7 +151,7 @@ fun SetLogRow(
     onSetTypeChange: ((SetType) -> Unit)? = null,
     rpe: Int? = null,
     onRpeChange: ((Int?) -> Unit)? = null,
-    previous: String? = null,
+    previous: PreviousSet? = null,
     showPrevious: Boolean = true,
     isCompleted: Boolean = false,
     isActive: Boolean = false,
@@ -246,7 +250,7 @@ fun LoggedSetRow(
     setNumber: Int,
     set: WorkoutSet,
     modifier: Modifier = Modifier,
-    previous: String? = null,
+    previous: PreviousSet? = null,
     showPrevious: Boolean = true,
     onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -270,7 +274,7 @@ fun LoggedSetRow(
     setNumber: Int,
     set: ActiveSet,
     modifier: Modifier = Modifier,
-    previous: String? = null,
+    previous: PreviousSet? = null,
     showPrevious: Boolean = true,
     onCompletedChange: ((Boolean) -> Unit)? = null,
 ) {
@@ -465,19 +469,35 @@ internal fun RpeValueCell(
  * The dash is the point. A set with no history is the ordinary case in a table that has some —
  * last session was three sets, this one is five — and a cell that collapsed would shift every
  * cell to its right by the column's width, so two rows of one table would not line up.
+ *
+ * The two renderings are why this takes a [PreviousSet] rather than the text of one. What the
+ * cell *draws* has to survive 52dp between two fields, so it is `100×5` with no unit; what a
+ * screen reader is *given* has all the room a sentence needs, so it is `Previously 100 kg × 5`.
+ * A caller handing over a string could only supply one of them, and whichever it chose would be
+ * wrong for the other reader.
  */
 @Composable
-internal fun PreviousCell(previous: String?, showPrevious: Boolean) {
+internal fun PreviousCell(previous: PreviousSet?, showPrevious: Boolean) {
     if (!showPrevious) return
     val placeholder = stringResource(R.string.set_log_previous_none)
-    val spoken = previous?.let { stringResource(R.string.set_log_previous_value, it) }
+    val compact = previous?.let { formatSetCompact(it.weight, it.reps) }
+    val spoken = previous
+        ?.let { formatSet(it.weight, it.reps) }
+        ?.let { stringResource(R.string.set_log_previous_value, it) }
 
     Text(
-        text = previous ?: placeholder,
+        text = compact ?: placeholder,
         style = OpenGymTheme.typography.numericSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         maxLines = 1,
+        // Ellipsis rather than the default clip, because the column is a fixed width in `dp`
+        // and its text is in `sp`: at a large system font scale, or for a metric-entered
+        // weight read in pounds (`132.28×10`), the value is wider than the cell. Clipped, that
+        // renders as `132.28×1` — a different set, and a plausible one. Ellipsised it renders
+        // as a value that visibly did not fit, which is the only honest thing a cell this
+        // narrow can say.
+        overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .width(PREVIOUS_COLUMN_WIDTH)
             // Replaced rather than added to: read as text the cell is four unlabelled
@@ -637,7 +657,7 @@ private fun LoggedSetRow(
     reps: Int?,
     rpe: Int?,
     isCompleted: Boolean,
-    previous: String?,
+    previous: PreviousSet?,
     showPrevious: Boolean,
     onCompletedChange: ((Boolean) -> Unit)?,
     modifier: Modifier,
@@ -721,6 +741,25 @@ private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
     }.focusGroup()
 }
 
+/**
+ * What was done on one set of one exercise the last time it was performed.
+ *
+ * The quantities rather than the line they are drawn on, for the reason every other value type
+ * crossing into composition carries quantities: the unit is the ambient [LocalUnitSystem] and the
+ * `×` is a resource, so a caller that formatted would be picking both on behalf of a screen it
+ * cannot see. It is also what lets the cell render the same fact twice — compact for the column,
+ * spelled out for a screen reader — which a string could not.
+ *
+ * Both fields are nullable and independently so, matching `WorkoutSet`: a bodyweight set has reps
+ * and no weight, and a set logged in a dimension this table has no column for has neither. A
+ * value with neither draws as though there were no history at all, which is what it amounts to.
+ *
+ * @param weight in milligrams, the canonical unit.
+ * @param reps how many, or null for a set that recorded none.
+ */
+@Immutable
+data class PreviousSet(val weight: Long?, val reps: Int?)
+
 // ─── The grid ───────────────────────────────────────────────────────────────────────────
 
 /*
@@ -743,13 +782,20 @@ private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
  * they are sized to be hit rather than to fit their contents. Eight dp between them is what that
  * costs the value columns, which is a character of a rep count nobody logs.
  *
+ * [PREVIOUS_COLUMN_WIDTH] is the one that grew rather than shrank, and it is the exception that
+ * proves the rule above: it held a dash until the previous session was actually read (#101), and
+ * a column that now carries `102.5×10` cannot be sized for `–`. Eight characters of the
+ * `numericSmall` role is what it is set against, which covers the heaviest lift anybody logs in
+ * a compound; past that the cell clips, and what it clips is the rep count of a set performed
+ * last week rather than anything on today's row.
+ *
  * A logged row groups every cell except the tick under one parent, and the grid survives that
  * because the group takes the width the tick does not: with one gap between them, the group's own
  * cells land on exactly the columns a flat row puts them on.
  */
 
 internal val INDEX_COLUMN_WIDTH: Dp = 28.dp
-internal val PREVIOUS_COLUMN_WIDTH: Dp = 44.dp
+internal val PREVIOUS_COLUMN_WIDTH: Dp = 52.dp
 internal val RPE_COLUMN_WIDTH: Dp = 32.dp
 internal val TOGGLE_SIZE: Dp = 32.dp
 internal const val WEIGHT_COLUMN_WEIGHT = 1.3f
@@ -800,7 +846,7 @@ fun SetLogRowInvalidPreview() {
                 onCompletedChange = {},
                 onSetTypeChange = {},
                 onRpeChange = {},
-                previous = "75 × 6",
+                previous = PreviousSet(weight = 75_000_000, reps = 6),
                 isActive = true,
                 error = "reps must be within 1..10,000, was 0",
             )
@@ -851,7 +897,7 @@ private fun CorrectableTable() {
             onCompletedChange = {},
             onSetTypeChange = {},
             onRpeChange = {},
-            previous = "75 × 6",
+            previous = PreviousSet(weight = 75_000_000, reps = 6),
             isActive = true,
         )
     }
@@ -898,7 +944,7 @@ private fun SetLogTable() {
                 isCompleted = true,
                 completedAt = 1,
             ),
-            previous = "60 × 10",
+            previous = PreviousSet(weight = 60_000_000, reps = 10),
             onCompletedChange = {},
         )
         HairlineDivider()
@@ -907,7 +953,7 @@ private fun SetLogTable() {
         LoggedSetRow(
             setNumber = 2,
             set = ActiveSet(reps = 8, weight = 70_000_000, rpe = 75, isCompleted = false),
-            previous = "70 × 8",
+            previous = PreviousSet(weight = 70_000_000, reps = 8),
             onCompletedChange = {},
         )
         HairlineDivider()
@@ -921,7 +967,7 @@ private fun SetLogTable() {
             onSetTypeChange = {},
             rpe = 85,
             onRpeChange = {},
-            previous = "75 × 6",
+            previous = PreviousSet(weight = 75_000_000, reps = 6),
             isActive = true,
         )
         HairlineDivider()

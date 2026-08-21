@@ -3,6 +3,7 @@ package com.opengym.core.data.repository
 import com.opengym.core.data.db.dao.SessionExerciseDao
 import com.opengym.core.data.db.dao.WorkoutSessionDao
 import com.opengym.core.data.db.dao.WorkoutSetDao
+import com.opengym.core.data.db.projection.PreviousSetRow
 import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
@@ -53,6 +54,19 @@ class SessionRepositoryImpl @Inject constructor(
 
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
         setDao.getBySession(sessionId).map { rows -> rows.map(setMapper::toDomain) }
+
+    /**
+     * One query, as the contract requires — see [SessionRepository.getPreviousSets].
+     *
+     * The grouping is done here rather than in SQL for the reason [getTotals]'s map is built
+     * here: the caller wants an exercise's reference by id, and SQLite has no shape for "a list
+     * per key". What is not done here is the *choosing* — which session, and which sets count —
+     * because that is the part that would be a fan-out if it left the database.
+     */
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> =
+        setDao.getPreviousSetsForSession(sessionId).map { rows ->
+            rows.groupBy(PreviousSetRow::exerciseId) { setMapper.toDomain(it.set) }
+        }
 
     /**
      * One grouped query, as the contract requires — see [SessionRepository.getTotals].

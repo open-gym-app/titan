@@ -61,10 +61,43 @@ class SetFormatTest {
         assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
     }
 
+    @Test
+    fun `the compact form drops the unit and the spaces`() = withLocale(Locale.UK) {
+        // What the `PREV` column draws. `80 kg × 5` is nine characters in a 52dp cell between
+        // two fields somebody is typing into; the row's own header says which unit it is in.
+        compactLine(weightMilligrams = 80_000_000L, reps = 5)
+
+        composeTestRule.onNodeWithText("80×5").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the compact form keeps the sign in front of a bodyweight set`() = withLocale(Locale.UK) {
+        // `12` alone in that column would read as a weight with the reps clipped off, which is
+        // the one mistake a cell this narrow can actually cause.
+        compactLine(weightMilligrams = null, reps = 12)
+
+        composeTestRule.onNodeWithText("×12").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the compact form of a set with neither is no cell at all`() = withLocale(Locale.UK) {
+        compactLine(weightMilligrams = null, reps = null)
+
+        assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
+    }
+
     private fun setLine(weightMilligrams: Long?, reps: Int?) {
         composeTestRule.setContent {
             OpenGymTheme {
                 formatSet(weightMilligrams, reps)?.let { Text(text = it) }
+            }
+        }
+    }
+
+    private fun compactLine(weightMilligrams: Long?, reps: Int?) {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                formatSetCompact(weightMilligrams, reps)?.let { Text(text = it) }
             }
         }
     }
