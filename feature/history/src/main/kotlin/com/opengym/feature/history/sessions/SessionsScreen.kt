@@ -39,7 +39,7 @@ import com.opengym.feature.history.sessions.component.sessionsTabLabels
  *
  * @param onSessionClick a row was tapped. The recap it opens lives in `:feature:session`, so
  *   this is hoisted all the way to `:app` — see `historyGraph`.
- * @param onStartSession the `+ NEW` action and the empty state's way out. Opens the
+ * @param onStartSession the `+ New` action and the empty state's way out. Opens the
  *   new-session flow, which is also another module's.
  */
 @Composable

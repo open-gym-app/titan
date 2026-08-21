@@ -66,7 +66,7 @@ sealed interface ExerciseLibraryEvent {
         val exclusive: Boolean = false,
     ) : ExerciseLibraryEvent
 
-    /** The `+ NEW` action. Opens an empty draft. */
+    /** The `+ New` action. Opens an empty draft. */
     data object NewExerciseRequested : ExerciseLibraryEvent
 
     /** A field in the custom-exercise form changed. Carries the whole draft. */

@@ -124,7 +124,7 @@ data class ExercisePickerDestination(val replacing: Boolean = false)
  *   `NavController` belongs to `:app`, and a feature that reaches for it directly is one
  *   refactor away from reaching for another feature's destination through it. Here that is
  *   load-bearing rather than stylistic — the destination this opens is in another module.
- * @param onStartSession the header's `+ NEW`, and the way out of an empty history. Opens the
+ * @param onStartSession the header's `+ New`, and the way out of an empty history. Opens the
  *   new-session flow, which is `:feature:session`'s — hoisted for the same reason.
  */
 fun NavGraphBuilder.historyGraph(

@@ -245,7 +245,9 @@ class SessionsScreenTest {
         // history tab to begin one.
         setContent(populated(tab = SessionsTab.CALENDAR))
 
-        composeTestRule.onNodeWithText("+ NEW").performClick()
+        // By what it announces rather than by its label: the button is a glyph and a word,
+        // and the description is what says which of the screen's actions it is.
+        composeTestRule.onNodeWithContentDescription("New session").performClick()
 
         assertEquals(1, started)
     }

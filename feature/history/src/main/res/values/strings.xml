@@ -16,7 +16,7 @@
     <string name="library_title_select">Add exercises</string>
     <string name="library_title_replace">Swap exercise</string>
     <string name="library_back">Back</string>
-    <string name="library_new">+ New</string>
+    <string name="library_new">New</string>
     <!-- The same action as a bare `+`, where the bar has a title to fit too. -->
     <string name="library_new_description">New exercise</string>
     <string name="library_search_placeholder">Search exercises…</string>
@@ -219,7 +219,7 @@
     <string name="sessions_calendar_heading">%1$s · %2$s</string>
 
     <!-- The header's actions. Read aloud by TalkBack; the glyphs carry no text. -->
-    <string name="sessions_new">+ New</string>
+    <string name="sessions_new">New</string>
     <string name="sessions_new_description">New session</string>
     <string name="sessions_search">Search</string>
     <string name="sessions_search_placeholder">Search names and notes…</string>

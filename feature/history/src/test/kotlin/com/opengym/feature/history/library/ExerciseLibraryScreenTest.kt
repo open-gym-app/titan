@@ -281,7 +281,9 @@ class ExerciseLibraryScreenTest {
     fun `the new exercise action opens the form`() {
         setContent()
 
-        composeTestRule.onNodeWithText("+ NEW").performClick()
+        // By what it announces rather than by its label: the button is a glyph and a word,
+        // and the description is what says which of the screen's actions it is.
+        composeTestRule.onNodeWithContentDescription("New exercise").performClick()
 
         assertEquals(listOf(ExerciseLibraryEvent.NewExerciseRequested), events)
     }

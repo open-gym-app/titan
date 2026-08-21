@@ -29,7 +29,7 @@ import org.robolectric.RobolectricTestRunner
  *
  * Driven directly rather than through the `ModalBottomSheet` it normally lives in: the sheet
  * contributes an animation and a window, and neither is what any of this is about. The screen
- * test covers the one thing the sheet is responsible for — that `+ NEW` opens it.
+ * test covers the one thing the sheet is responsible for — that `+ New` opens it.
  */
 @RunWith(RobolectricTestRunner::class)
 class ExerciseFormTest {

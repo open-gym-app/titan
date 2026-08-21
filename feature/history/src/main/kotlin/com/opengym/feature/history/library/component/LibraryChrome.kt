@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -31,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
+import com.opengym.feature.history.component.NewButton
 import com.opengym.feature.history.library.ExerciseLibraryUiState
 
 /*
@@ -47,7 +47,7 @@ import com.opengym.feature.history.library.ExerciseLibraryUiState
  * The one thing on this screen that does not scroll. One row, rather than the 130dp that
  * pinning the search box and both chip rows would cost under a bar and over another one, and
  * it carries the two things worth that much: the count, which is how a filtered search says
- * whether it did anything, and `+ NEW`, which is what a user comes to this tab to do and
+ * whether it did anything, and `+ New`, which is what a user comes to this tab to do and
  * should not have to scroll back to. Getting back to the search box and the filters is what
  * re-tapping the Library tab does.
  */
@@ -64,7 +64,11 @@ internal fun LibraryHeader(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = OpenGymTheme.spacing.screen, end = OpenGymTheme.spacing.sm),
+                // The same inset both sides. The end used to be `sm`, which is what an icon
+                // button wants — its glyph carries 12dp of its own padding to the edge of the
+                // touch target. The `+ New` at the end of the row is a filled shape with no
+                // such inset, and at 6dp it sits all but flush against the screen.
+                .padding(horizontal = OpenGymTheme.spacing.screen),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
@@ -96,8 +100,8 @@ internal fun LibraryHeader(
  * screen saying "these results are narrower than they look", so it is not decoration: without
  * it, a filter set and forgotten is a library that has silently lost 170 exercises.
  *
- * @param compact the bar has a navigation icon and a title to fit as well, so `+ NEW` is drawn
- *   as a `+`. The picker's does: two icons and the word leave about 128dp for "Add exercises",
+ * @param compact the bar has a navigation icon and a title to fit as well, so the label goes
+ *   and only the `+` is drawn. The picker's does: two icons and the word leave about 128dp for "Add exercises",
  *   which truncates it to "Add exerci…" — and a title the user cannot read is a worse trade
  *   than a glyph they can. The tab's header has the whole width and keeps the word.
  */
@@ -149,18 +153,17 @@ private fun LibraryActions(
                 )
             }
         } else {
-            TextButton(onClick = onNewExercise) {
-                Eyebrow(
-                    text = stringResource(R.string.library_new),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            NewButton(
+                label = stringResource(R.string.library_new),
+                description = stringResource(R.string.library_new_description),
+                onClick = onNewExercise,
+            )
         }
     }
 }
 
 /**
- * The picker's bar: the way back, what it is for, how much is picked, and `+ NEW`.
+ * The picker's bar: the way back, what it is for, how much is picked, and `+ New`.
  *
  * @param replacing whether the picker is filling one slot rather than adding to the workout.
  *   The title is the one place that says so before a row is tapped, and "Add exercises" over a

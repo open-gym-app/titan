@@ -31,7 +31,7 @@ import com.opengym.feature.history.sessions.SessionsUiState
  *
  * Template authoring is #92. Until it lands there is nothing for a tap to open — starting a
  * workout from a template is the new-session flow's own picker, which is one tap away in the
- * `+ NEW` above — so the rows are drawn inert rather than given a ripple that leads nowhere.
+ * `+ New` above — so the rows are drawn inert rather than given a ripple that leads nowhere.
  * #92 adds the tap and the overflow, in the slot [TemplateRow] already carries for it.
  */
 @Composable
@@ -84,7 +84,7 @@ internal fun TemplateList(
  * No action, deliberately. The only way to make a template today is to finish a workout and
  * save it as one (#27), which is not a thing a button here can do — so the description says
  * where they come from rather than offering a way out that would not help. #92 gives this
- * state its `+ NEW`.
+ * state its `+ New`.
  */
 @Composable
 private fun TemplatesEmptyState(modifier: Modifier = Modifier) {

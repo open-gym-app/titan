@@ -11,18 +11,16 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.format.formatMonthAndYear
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
+import com.opengym.feature.history.component.NewButton
 import com.opengym.feature.history.sessions.DateFilter
 import com.opengym.feature.history.sessions.SessionsTab
 import com.opengym.feature.history.sessions.SessionsUiState
@@ -61,7 +59,11 @@ internal fun SessionsHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = OpenGymTheme.spacing.screen, end = OpenGymTheme.spacing.sm),
+            // The same inset both sides. The end used to be `sm`, which is what an icon
+            // button wants — its glyph carries 12dp of its own padding to the edge of the
+            // touch target. The `+ New` at the end of the row is a filled shape with no
+            // such inset, and at 6dp it sits all but flush against the screen.
+            .padding(horizontal = OpenGymTheme.spacing.screen),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -82,20 +84,11 @@ internal fun SessionsHeader(
                 }
                 DateFilterButton(filter = state.dateFilter, onClick = onOpenDates)
             }
-            // "+ New" uppercased is a glyph and a word, and TalkBack reads it as "plus new".
-            // A description on the button says what the control does instead: a merged node
-            // announces its `contentDescription` in place of the text under it, so the label
-            // stays visible and stays out of the announcement.
-            val newSessionDescription = stringResource(R.string.sessions_new_description)
-            TextButton(
+            NewButton(
+                label = stringResource(R.string.sessions_new),
+                description = stringResource(R.string.sessions_new_description),
                 onClick = onNewSession,
-                modifier = Modifier.semantics { contentDescription = newSessionDescription },
-            ) {
-                Eyebrow(
-                    text = stringResource(R.string.sessions_new),
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
+            )
         }
     }
 }
