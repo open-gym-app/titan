@@ -26,6 +26,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -92,6 +93,15 @@ class TemplateEditorScreenTest {
     }
 
     @Test
+    /*
+     * A phone-sized window for this one test. Robolectric's default is 320 x 470 dp — smaller
+     * than any phone shipped this decade — and with the save bar now holding the bottom of the
+     * page the first join falls below the fold there, then scrolls up under the top bar, where
+     * a tap lands on the bar instead of on it. Pinned per test rather than on the class: the
+     * viewport is four times the surface to render and the whole class at that size runs the
+     * test JVM out of heap. What the page looks like is answered on a device, not here.
+     */
+    @Config(qualifiers = "w411dp-h891dp")
     fun `the join between two neighbours makes a superset of them`() {
         setContent(populated())
 
@@ -127,15 +137,15 @@ class TemplateEditorScreenTest {
     fun `save is inert until something has changed`() {
         setContent(populated())
 
-        composeTestRule.onNodeWithText("SAVE").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
     }
 
     @Test
     fun `save is live on an edited plan and reports the write`() {
         setContent(populated().copy(isDirty = true))
 
-        composeTestRule.onNodeWithText("SAVE").assertIsEnabled()
-        composeTestRule.onNodeWithText("SAVE").performClick()
+        composeTestRule.onNodeWithText("Save").assertIsEnabled()
+        composeTestRule.onNodeWithText("Save").performClick()
 
         assertEquals(listOf(TemplateEditorEvent.SaveRequested), events)
     }
@@ -151,7 +161,7 @@ class TemplateEditorScreenTest {
             ),
         )
 
-        composeTestRule.onNodeWithText("SAVE").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
     }
 
     @Test
@@ -190,7 +200,7 @@ class TemplateEditorScreenTest {
         setContent(populated().copy(exercises = emptyList(), isDirty = true))
 
         composeTestRule.onNodeWithText("Nothing in this template").assertIsDisplayed()
-        composeTestRule.onNodeWithText("SAVE").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
     }
 
     @Test

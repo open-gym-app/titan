@@ -101,6 +101,15 @@ data class TemplateEditorUiState(
 
     /** Whether the page takes input at all. False while a write is out or the read is not in. */
     val isEditable: Boolean get() = !isLoading && !isMissing && !isSaving
+
+    /**
+     * There is a form on the page, so the things that sit around one belong there too.
+     *
+     * Distinct from [isEditable], which also goes false while a write is out: a save in flight
+     * takes the page's controls out of service, it does not take the page away — the save bar
+     * stays where it is, greyed, rather than vanishing from under the thumb that just used it.
+     */
+    val isEditorDrawn: Boolean get() = !isLoading && !isMissing
 }
 
 /**

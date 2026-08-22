@@ -2,6 +2,7 @@ package com.opengym.feature.history.template
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,7 +15,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -23,7 +26,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -118,6 +120,46 @@ fun TemplateEditorRoute(
         onPickExercises = onPickExercises,
         modifier = modifier,
     )
+}
+
+/**
+ * SAVE, at the bottom of the screen and the full width of it.
+ *
+ * ### Why it is not a top-bar action
+ *
+ * It was one, and the top-right corner of a 6.3in phone is the far corner of the thumb's
+ * reach — the "ow" zone. Writing the plan is the whole point of this page and the only thing
+ * the user came here to finish, so it belongs in the natural zone at the bottom, where the
+ * picker's own confirm bar and the new-exercise sheet's `Create` already put theirs. The top
+ * bar keeps what suits a hard-to-reach corner: leaving, which is rare and which nobody should
+ * hit by accident.
+ *
+ * Filled and in the accent, because it is that call to action; disabled — greyed by Material,
+ * container and label together — until there is something to write. `ConfirmSelectionBar`'s
+ * shape exactly: a hairline over a full-width button on the screen's own margin, so the two
+ * bars a user meets one after the other in this flow read as the same control.
+ *
+ * No `navigationBarsPadding` here, unlike the picker's: this screen is inside the tab shell,
+ * which has already inset its content and drawn its own bar under this one.
+ */
+@Composable
+private fun SaveBar(enabled: Boolean, onSave: () -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Button(
+            onClick = onSave,
+            enabled = enabled,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(OpenGymTheme.spacing.screen),
+        ) {
+            Text(
+                text = stringResource(R.string.template_editor_save),
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+    }
 }
 
 /**
@@ -230,18 +272,22 @@ fun TemplateEditorScreen(
                         )
                     }
                 },
-                actions = {
-                    TextButton(
-                        onClick = { onEvent(TemplateEditorEvent.SaveRequested) },
-                        enabled = state.canSave,
-                    ) {
-                        Eyebrow(text = stringResource(R.string.template_editor_save))
-                    }
-                },
+                // No action up here. SAVE is this page's one call to action and it lives at
+                // the bottom, in reach — see [SaveBar].
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),
             )
+        },
+        // Only over the editor itself: there is nothing to save while the read is out, and a
+        // template that is not there has a dead end and a way out rather than a form.
+        bottomBar = {
+            if (state.isEditorDrawn) {
+                SaveBar(
+                    enabled = state.canSave,
+                    onSave = { onEvent(TemplateEditorEvent.SaveRequested) },
+                )
+            }
         },
     ) { innerPadding ->
         when {
@@ -315,7 +361,10 @@ private fun TemplateEditorBody(
             .reorderable(reorder),
         contentPadding = PaddingValues(
             top = contentPadding.calculateTopPadding(),
-            bottom = OpenGymTheme.spacing.section,
+            // The scaffold's own bottom inset *plus* the breathing room, not instead of it:
+            // the save bar is part of that inset, and a list that ignored it would scroll its
+            // last exercise underneath the button that saves it.
+            bottom = contentPadding.calculateBottomPadding() + OpenGymTheme.spacing.section,
             start = OpenGymTheme.spacing.screen,
             end = OpenGymTheme.spacing.screen,
         ),
