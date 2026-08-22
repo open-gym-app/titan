@@ -174,8 +174,15 @@ fun HomeScreen(
     }
 
     if (state.confirmingDiscard) {
+        // Captured when the question is asked, not read while it is up. The row is deleted
+        // before the dialog closes — `getActive()` re-emits null the moment it goes, and the
+        // flag is only cleared once the whole delete returns — so a live read flips "11 logged
+        // sets will be deleted" to "nothing will be lost" while the cascade is still running,
+        // which is a lie about a destructive action, told at the worst moment.
+        val loggedSets = remember { state.resume?.loggedSets ?: 0 }
+
         DiscardSessionDialog(
-            loggedSets = state.resume?.loggedSets ?: 0,
+            loggedSets = loggedSets,
             onConfirm = { onEvent(HomeEvent.DiscardConfirmed) },
             onDismiss = { onEvent(HomeEvent.DiscardDismissed) },
             isDiscarding = state.isDiscarding,
