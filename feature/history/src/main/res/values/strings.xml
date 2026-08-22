@@ -240,9 +240,10 @@
     <string name="sessions_no_results_description">No session matches your search and the dates you picked.</string>
     <string name="sessions_clear_filters">Clear filters</string>
 
-    <!-- The templates tab. The empty state's action starts a session rather than opening a
-         blank form: a template is saved out of a workout you have just done, with the sets and
-         weights you actually hit as its defaults. -->
+    <!-- The templates tab. The empty state's action opens the editor on a blank template,
+         because this is the only list in the app the user could otherwise not add to. The
+         description still names the other way one is made — finishing a workout and saving it,
+         which brings the sets and weights actually hit along as its defaults. -->
     <string name="sessions_templates_glyph">▤</string>
     <string name="sessions_templates_empty_title">No templates yet</string>
     <string name="sessions_templates_empty_description">Build one here, or finish a workout and save it as a template to start the same session again in one tap.</string>
