@@ -13,6 +13,7 @@ import com.opengym.feature.history.navigation.NEW_TEMPLATE
 import com.opengym.feature.history.plate.FakeUserPreferencesRepository
 import com.opengym.feature.history.sessions.FakeTemplateStore
 import com.opengym.feature.history.sessions.namedTemplate
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -341,6 +342,29 @@ class TemplateEditorViewModelTest {
 
         assertEquals("Push Day", viewModel.uiState.value.name)
         assertFalse(viewModel.uiState.value.isDirty)
+    }
+
+    @Test
+    fun `the name dialog cannot be opened or applied over a write in flight`() = runTest {
+        val templates = templateStore()
+        val gate = CompletableDeferred<Unit>()
+        templates.writeGate = gate
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(TemplateEditorEvent.FieldChanged(KEY_BENCH, TemplateField.SETS, "5"))
+        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+        assertTrue(viewModel.uiState.value.isSaving)
+
+        // The header is drawn inert while the write is out, but the event has to be refused
+        // here too: the save took its copy of the draft before it launched, so a name applied
+        // now would be one the store never sees — and the save landing closes the screen over
+        // the difference.
+        viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
+        assertNull(viewModel.uiState.value.naming)
+
+        gate.complete(Unit)
+        assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
+        assertTrue(viewModel.uiState.value.isSaved)
     }
 
     // ─── Saving ─────────────────────────────────────────────────────────────────────────

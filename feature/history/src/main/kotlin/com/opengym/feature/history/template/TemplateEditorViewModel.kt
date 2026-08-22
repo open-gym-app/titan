@@ -290,8 +290,12 @@ class TemplateEditorViewModel @Inject constructor(
      */
     private fun onNameEvent(event: TemplateEditorEvent): Boolean {
         when (event) {
+            // Refused while a write is out, on the same terms as every other edit — see
+            // [editDraft]. The header that raises this is drawn inert then, but the dialog it
+            // opens is a second way into the draft and it has to answer to the same rule.
             TemplateEditorEvent.NameEditRequested -> editorState.update { state ->
                 val draft = state.draft ?: return@update state
+                if (state.isSaving) return@update state
                 state.copy(
                     naming = TemplateNamingDraft(name = draft.name, category = draft.category),
                 )
@@ -305,14 +309,18 @@ class TemplateEditorViewModel @Inject constructor(
 
             is TemplateEditorEvent.CategoryChanged -> editNaming { it.copy(category = event.category) }
 
-            TemplateEditorEvent.NameConfirmed -> editorState.update { state ->
-                val naming = state.naming ?: return@update state
-                state.copy(
-                    naming = null,
-                    // The name is trimmed on the way into the store as well
-                    // (`validateTemplate`), so what is kept here is what the user typed.
-                    draft = state.draft?.copy(name = naming.name, category = naming.category),
-                )
+            // Applied through [editDraft], so a name confirmed while a write is in flight is
+            // dropped rather than written into a draft the save has already taken a copy of:
+            // the store would keep the old name, the page would show the new one, and the save
+            // landing closes the screen over the difference.
+            TemplateEditorEvent.NameConfirmed -> {
+                val naming = editorState.value.naming ?: return true
+                // The name is trimmed on the way into the store as well (`validateTemplate`),
+                // so what is kept here is what the user typed.
+                editDraft { it.copy(name = naming.name, category = naming.category) }
+                editorState.update { state ->
+                    if (state.isSaving) state else state.copy(naming = null)
+                }
             }
 
             TemplateEditorEvent.NameEditCancelled -> editorState.update { it.copy(naming = null) }

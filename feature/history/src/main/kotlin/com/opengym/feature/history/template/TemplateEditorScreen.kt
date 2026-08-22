@@ -438,6 +438,10 @@ private fun TemplateEditorBody(
  * A template being built has no name until the user gives it one, and they can dismiss the
  * dialog that asks without answering. The placeholder stands in for that, because the row is the
  * only way back into the dialog and a row with an empty title is one there is nothing to press.
+ *
+ * Inert while a write is out, like every other control on the page: it is the one that is not a
+ * field or a button, and a heading that stayed live would be the way into the draft the rest of
+ * the screen has just been sealed off from.
  */
 @Composable
 private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEditorEvent) -> Unit) {
@@ -450,7 +454,13 @@ private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEdito
         } else {
             summary
         },
-        onClick = { onEvent(TemplateEditorEvent.NameEditRequested) },
+        // Null rather than a no-op: `TemplateRow` draws no ripple and takes no click role for
+        // one, so the row stops offering itself instead of offering and refusing.
+        onClick = if (state.isEditable) {
+            { onEvent(TemplateEditorEvent.NameEditRequested) }
+        } else {
+            null
+        },
         trailing = {
             // A glyph rather than a button: the whole row is the target, and a second one inside
             // it would be two things to hit for one action. It is what says the row is not just

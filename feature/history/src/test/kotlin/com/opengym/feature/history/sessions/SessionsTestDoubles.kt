@@ -15,6 +15,7 @@ import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.time.Clock
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -127,6 +128,16 @@ class FakeTemplateStore(
     var writeFailure: Throwable? = null,
 ) : TemplateRepository {
 
+    /**
+     * When set, every write waits on it before doing anything.
+     *
+     * A real write is slow enough for the user to act while it is in flight, and the screens
+     * here are built around that — they go inert rather than closing. A store that resolves the
+     * instant it is called cannot express the window those guards exist for. Complete it to let
+     * the write finish. The same shape `FakeExerciseRepository.insertGate` has.
+     */
+    var writeGate: CompletableDeferred<Unit>? = null
+
     private val stored = MutableStateFlow(templates)
     private val body = MutableStateFlow(exercises)
     private var nextId: Long = (templates.maxOfOrNull(WorkoutTemplate::id) ?: 0L) + 1
@@ -145,6 +156,7 @@ class FakeTemplateStore(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
     ): Long {
+        writeGate?.await()
         writeFailure?.let { throw it }
         val id = nextId++
         stored.value += template.copy(id = id)
@@ -156,6 +168,7 @@ class FakeTemplateStore(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
     ) {
+        writeGate?.await()
         writeFailure?.let { throw it }
         stored.value = stored.value.map { if (it.id == template.id) template else it }
         // Replaced wholesale, which is the contract — see `TemplateRepository.update`.
@@ -164,6 +177,7 @@ class FakeTemplateStore(
     }
 
     override suspend fun delete(id: Long) {
+        writeGate?.await()
         writeFailure?.let { throw it }
         stored.value = stored.value.filterNot { it.id == id }
         body.value = body.value.filterNot { it.templateId == id }
