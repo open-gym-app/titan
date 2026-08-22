@@ -357,6 +357,10 @@
 
     <!-- One-shot outcomes. There is none for a save that worked: the screen closes on it. -->
     <string name="template_editor_exercises_unavailable">Some of those exercises are no longer in your library and were left out</string>
+    <!-- The app was killed while the user was in the picker, so the editor it would have added
+         to is gone. Says what did not happen and what to do about it, rather than adding the
+         exercises to a plan that has lost everything else. -->
+    <string name="template_editor_restarted">The editor reopened, so those exercises were not added. Pick them again.</string>
     <string name="template_editor_save_failed">Could not save the template</string>
 
 </resources>

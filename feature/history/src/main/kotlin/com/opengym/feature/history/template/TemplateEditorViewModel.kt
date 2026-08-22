@@ -115,6 +115,23 @@ class TemplateEditorViewModel @Inject constructor(
     /** The key the next exercise added in this session takes. See [TemplateExerciseRow.key]. */
     private var nextKey: Long = NEW_ROW_FIRST_KEY
 
+    /**
+     * Whether the picker now answering is one *this* screen opened.
+     *
+     * The ids come back through `:app`, which holds them in `rememberSaveable` — so they survive
+     * the process being killed while the user is in the picker, and a ViewModel does not. The
+     * editor that comes back is therefore a new one, and it has re-read the stored template:
+     * appending to that draft hands back a plan that quietly lost every edit the user had made
+     * and gained the picked lines on top of the old one, with `isDirty` claiming there is
+     * something worth saving. An answer with no request behind it is an answer from a previous
+     * life of this screen, and is refused and said out loud instead.
+     *
+     * A plain field rather than state: it has to survive a rotation, which the ViewModel does,
+     * and *not* survive the process, which it also does. [isPickingExercises] cannot stand in —
+     * it is cleared on every resume, including the one that brings the answer back.
+     */
+    private var pickWasRequested = false
+
     val uiState: StateFlow<TemplateEditorUiState> = editorState
         .map(::build)
         .stateIn(
@@ -269,11 +286,21 @@ class TemplateEditorViewModel @Inject constructor(
             is TemplateEditorEvent.SupersetLinked -> editDraft { draft -> draft.regroup(event.key, link = true) }
             is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.key, link = false) }
 
-            TemplateEditorEvent.ExercisesPickRequested ->
+            TemplateEditorEvent.ExercisesPickRequested -> {
+                pickWasRequested = true
                 editorState.update { it.copy(isPickingExercises = true) }
+            }
             TemplateEditorEvent.ExercisesPickClosed ->
                 editorState.update { it.copy(isPickingExercises = false) }
-            is TemplateEditorEvent.ExercisesPicked -> addExercises(event.exerciseIds)
+            // Consumed, so the same answer cannot be applied twice, and refused when this
+            // screen never asked — see [pickWasRequested].
+            is TemplateEditorEvent.ExercisesPicked ->
+                if (pickWasRequested) {
+                    pickWasRequested = false
+                    addExercises(event.exerciseIds)
+                } else {
+                    editorState.update { it.copy(message = TemplateEditorMessage.EDITOR_RESTARTED) }
+                }
 
             else -> return false
         }

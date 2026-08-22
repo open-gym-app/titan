@@ -130,7 +130,7 @@ class TemplateEditorViewModelTest {
         viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day · Back"))
         viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
         viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id, PUSHDOWN.id)))
+        viewModel.pick(listOf(FLY.id, PUSHDOWN.id))
         viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
         assertTrue(viewModel.uiState.value.isSaved)
@@ -149,7 +149,7 @@ class TemplateEditorViewModelTest {
     fun `a new template cannot be saved until it has both a name and an exercise`() = runTest {
         val viewModel = viewModel(templateId = NEW_TEMPLATE)
 
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+        viewModel.pick(listOf(FLY.id))
         // Dirty, and still refused: `CreateTemplateUseCase` would answer `EmptyName`, and a live
         // SAVE whose only outcome is a refusal is a button that lies.
         assertTrue(viewModel.uiState.value.isDirty)
@@ -167,7 +167,7 @@ class TemplateEditorViewModelTest {
 
         viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day"))
         viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+        viewModel.pick(listOf(FLY.id))
         viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
         assertEquals(true, viewModel.uiState.value.naming?.nameTaken)
@@ -308,7 +308,7 @@ class TemplateEditorViewModelTest {
             ),
         )
 
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+        viewModel.pick(listOf(FLY.id))
 
         val rows = viewModel.uiState.value.exercises
         assertEquals(listOf("Bench press", "Cable fly"), rows.map { it.exercise?.name })
@@ -317,10 +317,26 @@ class TemplateEditorViewModelTest {
     }
 
     @Test
+    fun `an answer to a picker this editor never opened is refused`() = runTest {
+        val viewModel = viewModel()
+
+        // What a process killed under the picker leaves behind: `:app` holds the ids in
+        // `rememberSaveable` and hands them to the editor it comes back to, which is a new one
+        // over a draft re-read from the store. Appending here would return a plan that had lost
+        // every edit and gained these lines — see TemplateEditorViewModel.pickWasRequested.
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+
+        val state = viewModel.uiState.value
+        assertEquals(3, state.exercises.size)
+        assertFalse(state.isDirty)
+        assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
+    }
+
+    @Test
     fun `an exercise no longer in the catalogue is left out and said out loud`() = runTest {
         val viewModel = viewModel()
 
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(999)))
+        viewModel.pick(listOf(999))
 
         val state = viewModel.uiState.value
         assertEquals(3, state.exercises.size)
@@ -337,7 +353,7 @@ class TemplateEditorViewModelTest {
             // against that read it would be dropped — and the user told the exercise they had
             // just written was no longer in their library.
             val landmine = exercises.insert(Exercise(name = "Landmine press"))
-            viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(landmine)))
+            viewModel.pick(listOf(landmine))
 
             val state = viewModel.uiState.value
             assertEquals(4, state.exercises.size)
@@ -580,6 +596,16 @@ class TemplateEditorViewModelTest {
             viewModel.uiState.collect { }
         }
         return viewModel
+    }
+
+    /**
+     * A pick, delivered the way the screen delivers one: the request that pushes the picker,
+     * then the answer that comes back from it. The two are a pair — an answer without its
+     * request is one from before a process restart, and is refused.
+     */
+    private fun TemplateEditorViewModel.pick(exerciseIds: List<Long>) {
+        onEvent(TemplateEditorEvent.ExercisesPickRequested)
+        onEvent(TemplateEditorEvent.ExercisesPicked(exerciseIds))
     }
 
     private companion object {

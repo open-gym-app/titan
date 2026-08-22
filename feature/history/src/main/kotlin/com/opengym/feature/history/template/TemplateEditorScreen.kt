@@ -477,6 +477,7 @@ private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEdito
 /** The sentence a message is shown as. */
 private fun TemplateEditorMessage.labelRes(): Int = when (this) {
     TemplateEditorMessage.EXERCISES_UNAVAILABLE -> R.string.template_editor_exercises_unavailable
+    TemplateEditorMessage.EDITOR_RESTARTED -> R.string.template_editor_restarted
     TemplateEditorMessage.SAVE_FAILED -> R.string.template_editor_save_failed
 }
 

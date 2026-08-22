@@ -199,6 +199,16 @@ enum class TemplateEditorMessage {
      * for something that no longer exists.
      */
 
+    /**
+     * The exercises picked were not added, because the editor under the picker was rebuilt.
+     *
+     * The process was killed while the user was choosing — see
+     * `TemplateEditorViewModel.pickWasRequested`. Everything they had changed went with it, and
+     * the honest answer is to say the pick did not land rather than to append it to a plan that
+     * is no longer the one they were adding to.
+     */
+    EDITOR_RESTARTED,
+
     /** The template could not be written. Nothing was changed; the draft is still here. */
     SAVE_FAILED,
 }
