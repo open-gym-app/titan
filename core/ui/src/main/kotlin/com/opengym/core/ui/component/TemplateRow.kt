@@ -168,13 +168,18 @@ fun TemplateCard(
 
     OpenGymCard(
         shape = MaterialTheme.shapes.small,
-        modifier = modifier
-            .widthIn(min = CARD_WIDTH_MIN, max = CARD_WIDTH_MAX)
-            .clickable(onClickLabel = openLabel, onClick = onClick)
-            .semantics(mergeDescendants = true) { contentDescription = description },
+        modifier = modifier.widthIn(min = CARD_WIDTH_MIN, max = CARD_WIDTH_MAX),
     ) {
         Column(
-            modifier = Modifier.padding(OpenGymTheme.spacing.lg),
+            // The click sits *inside* the card, as [TemplateRow]'s and [ExerciseCard]'s do:
+            // a `clickable` on the modifier handed to [OpenGymCard] is applied outside the
+            // `Surface`'s own clip, so the ripple would be drawn as a square over a rounded
+            // card. Before the padding, so the whole card is the target rather than the text
+            // in the middle of it.
+            modifier = Modifier
+                .clickable(onClickLabel = openLabel, onClick = onClick)
+                .semantics(mergeDescendants = true) { contentDescription = description }
+                .padding(OpenGymTheme.spacing.lg),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
             Text(

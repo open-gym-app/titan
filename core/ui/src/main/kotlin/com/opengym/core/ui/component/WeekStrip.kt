@@ -29,7 +29,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatDayOfMonth
 import com.opengym.core.ui.format.formatSessionDate
-import com.opengym.core.ui.format.weekdayInitials
+import com.opengym.core.ui.format.weekdayInitial
 import com.opengym.core.ui.theme.OpenGymTheme
 import java.time.LocalDate
 
@@ -59,9 +59,8 @@ import java.time.LocalDate
  * right now, which on Home is the button that resumes a workout.
  *
  * @param days the week, in the order it is drawn, starting on whatever day the caller's locale
- *   opens a week on. Exactly seven; the header letters are derived from the first one's
- *   weekday, so a caller that hands over a partial week gets a strip whose letters and dates
- *   still agree with each other.
+ *   opens a week on. Ordinarily seven, but any length draws: each header letter is taken from
+ *   the day it sits over, so the letters and the dates agree however many there are.
  */
 @Composable
 fun WeekStrip(
@@ -75,12 +74,13 @@ fun WeekStrip(
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs)) {
-            // Taken from the week's own first day rather than from the locale a second time:
-            // the caller already decided where the week starts when it built the list, and
-            // asking again is how a strip ends up labelling Monday's cell "S".
-            weekdayInitials(days.first().date.dayOfWeek).take(days.size).forEach { initial ->
+            // Each letter from its own day rather than from a seven-long list rotated to the
+            // week's first one: the locale is not asked a second time — which is how a strip
+            // ends up labelling Monday's cell "S" — and a list that is not seven long still
+            // gets a letter over every cell rather than seven letters over eight of them.
+            days.forEach { day ->
                 Text(
-                    text = initial,
+                    text = weekdayInitial(day.date.dayOfWeek),
                     style = OpenGymTheme.typography.numericSmall,
                     color = MaterialTheme.colorScheme.outline,
                     textAlign = TextAlign.Center,

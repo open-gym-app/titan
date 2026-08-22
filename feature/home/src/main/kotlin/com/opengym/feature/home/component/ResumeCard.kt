@@ -34,7 +34,7 @@ import com.opengym.feature.home.SessionPosition
  * ┌─────────────────────────────────────────┐
  * │ RESUME · 00:23:14                       │
  * │ Push Day · Upper                        │
- * │ Bench press · set 3 of 4                │
+ * │ Bench press · set 3                     │
  * │ ┌───────────────────┐ ┌───────────────┐ │
  * │ │ ▶ RESUME          │ │ Discard       │ │
  * │ └───────────────────┘ └───────────────┘ │
@@ -196,13 +196,11 @@ private fun Actions(
 private const val STACKED_FONT_SCALE = 1.3f
 
 /**
- * `Bench press · set 3 of 4`, or the exercise alone when nothing is laid out under it.
+ * `Bench press · set 3` — the movement they were on, and the set they came back to do.
  *
- * The set half is dropped rather than shown as "set 1 of 0" for an exercise added to the
- * workout with no sets planned yet — a position with a zero in it is not a position.
+ * No total after it: nothing in the app knows how many sets an exercise was meant to get, and
+ * [SessionPosition] says why inventing one here would be worse than saying less.
  */
 @Composable
-private fun SessionPosition.label(): String = when (setCount) {
-    0 -> exerciseName
-    else -> stringResource(R.string.home_resume_position, exerciseName, setNumber, setCount)
-}
+private fun SessionPosition.label(): String =
+    stringResource(R.string.home_resume_position, exerciseName, setNumber)

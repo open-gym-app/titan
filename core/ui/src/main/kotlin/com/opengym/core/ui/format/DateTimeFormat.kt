@@ -156,8 +156,19 @@ fun weekdayInitials(
     firstDayOfWeek: DayOfWeek,
     locale: Locale = formattingLocale(),
 ): List<String> = (0 until DAYS_PER_WEEK).map { offset ->
-    firstDayOfWeek.plus(offset.toLong()).getDisplayName(TextStyle.NARROW, locale)
+    weekdayInitial(firstDayOfWeek.plus(offset.toLong()), locale)
 }
+
+/**
+ * One weekday's letter.
+ *
+ * What [weekdayInitials] is built from, and what a header labels its columns with when it has
+ * the days themselves rather than a starting weekday and a promise of seven — see `WeekStrip`,
+ * where a letter derived from a position in a list is a letter that lands over the wrong cell
+ * the moment the list is not the length that was assumed.
+ */
+fun weekdayInitial(day: DayOfWeek, locale: Locale = formattingLocale()): String =
+    day.getDisplayName(TextStyle.NARROW, locale)
 
 /** The first day of the week [locale] writes a calendar from — Monday, Sunday or Saturday. */
 fun firstDayOfWeek(locale: Locale = formattingLocale()): DayOfWeek =

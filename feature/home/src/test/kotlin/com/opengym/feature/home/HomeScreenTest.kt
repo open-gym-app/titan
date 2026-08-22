@@ -52,7 +52,7 @@ class HomeScreenTest {
 
         composeTestRule.onNodeWithText("RESUME · 0:23:14").assertIsDisplayed()
         composeTestRule.onNodeWithText("Push Day · Upper").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Bench press · set 3 of 4").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Bench press · set 3").assertIsDisplayed()
     }
 
     @Test
@@ -282,7 +282,7 @@ class HomeScreenTest {
             startedAt = 1_777_803_240_000L,
             elapsed = 23.minutes + 14.seconds,
             loggedSets = 11,
-            position = SessionPosition(exerciseName = "Bench press", setNumber = 3, setCount = 4),
+            position = SessionPosition(exerciseName = "Bench press", setNumber = 3),
         )
     }
 }

@@ -34,8 +34,9 @@ import kotlin.time.Duration
  *   never finished a session. A strip of seven empty squares under a "0 sessions" line is the
  *   empty shell #23 asks for it not to be: it says nothing a first-launch user does not already
  *   know, and it pushes the one thing they need — the way into a workout — down the screen.
- * @param templates the saved templates the quick-start strip offers, already cut to the
- *   handful that fit. Empty draws no strip, which is what a user who has never saved one sees.
+ * @param templates the saved templates the quick-start strip offers, already ordered and cut
+ *   to the handful that fit — most recently trained from first, see [HomeViewModel]. Empty
+ *   draws no strip, which is what a user who has never saved one sees.
  * @param isLoading no read has answered yet. Distinct from every empty state above, all of
  *   which are real answers: flashing "you have never trained" at somebody with four hundred
  *   sessions, for the frame before the query lands, is worse than showing nothing.
@@ -71,7 +72,8 @@ data class HomeUiState(
  * @param isPaused whether it was suspended when the app last wrote its draft. Changes what the
  *   banner is called rather than what it offers: a paused workout and a running one are picked
  *   back up the same way.
- * @param loggedSets how many sets are in it. Not drawn on the banner — the figure that matters
+ * @param loggedSets how many *ticked* sets are in it, the same figure the workout screen puts
+ *   in this question. Not drawn on the banner — the figure that matters
  *   at a glance is the clock — but it is the whole of the discard question, which is a
  *   different question when the answer costs eleven sets.
  * @param position where the user left off, or **null** when there is no draft to say. A draft
@@ -90,23 +92,27 @@ data class ResumeState(
 )
 
 /**
- * Where in the workout the user stopped: `Bench press · set 3 of 4`.
+ * Where in the workout the user stopped: `Bench press · set 3`.
  *
  * The exercise is named rather than numbered because it is what a lifter coming back to their
  * phone twenty minutes later is actually trying to remember. It costs one catalogue read for
  * one row — see [HomeViewModel] — which is the cheapest thing on this screen.
  *
- * @param setNumber the set they are on, one-based: the sets already ticked off, plus one,
- *   capped at [setCount] so a finished exercise reads "set 4 of 4" rather than "set 5 of 4".
- * @param setCount how many sets that exercise lays out. **Zero** for an exercise added to the
- *   workout with nothing planned under it yet, which the screen draws as the name alone —
- *   "set 1 of 0" is not a position, it is a bug rendered in words.
+ * ### No "of N", because there is no N
+ *
+ * A workout takes sets until the user stops taking them: nothing in the app records how many
+ * an exercise was *meant* to get, and the session screen itself counts what happened — "3
+ * sets" — rather than progress against a plan. So this is the set they came back to do, on its
+ * own. See [HomeViewModel.position] for what the draft can and cannot be asked.
+ *
+ * @param setNumber the set they are on, one-based: the sets already ticked off on this
+ *   exercise, plus one. **1** for an exercise they have not started, which is the truth — the
+ *   next thing they do on it is its first set.
  */
 @Immutable
 data class SessionPosition(
     val exerciseName: String,
     val setNumber: Int,
-    val setCount: Int,
 )
 
 /**

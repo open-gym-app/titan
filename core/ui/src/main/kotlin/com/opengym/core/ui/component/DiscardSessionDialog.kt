@@ -48,7 +48,11 @@ fun DiscardSessionDialog(
     isDiscarding: Boolean = false,
 ) {
     AlertDialog(
-        onDismissRequest = onDismiss,
+        // Guarded rather than handed straight over: the buttons are disabled while the delete
+        // is in flight, and a scrim tap or a back press is the same answer through a different
+        // door. Letting it through would close the question over a workout that is mid-deletion
+        // and leave the caller drawing a banner for a session that is on its way out.
+        onDismissRequest = { if (!isDiscarding) onDismiss() },
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         title = { Text(text = stringResource(R.string.discard_session_title)) },

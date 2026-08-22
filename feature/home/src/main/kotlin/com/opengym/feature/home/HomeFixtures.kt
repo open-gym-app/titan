@@ -48,7 +48,7 @@ internal val PREVIEW_RESUME = ResumeState(
     startedAt = PREVIEW_STARTED_AT,
     elapsed = 23.minutes + 14.seconds,
     loggedSets = 7,
-    position = SessionPosition(exerciseName = "Bench press", setNumber = 3, setCount = 4),
+    position = SessionPosition(exerciseName = "Bench press", setNumber = 3),
 )
 
 /**

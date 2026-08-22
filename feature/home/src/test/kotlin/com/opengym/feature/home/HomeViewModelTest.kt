@@ -16,6 +16,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -29,6 +30,7 @@ import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
 /**
@@ -79,7 +81,7 @@ class HomeViewModelTest {
         val startedAt = clock.now - 23.minutes.inWholeMilliseconds
         sessions.setSessions(listOf(openSession(7, startedAt = startedAt)))
         sessions.seedSets(sessionId = 7, count = 11)
-        drafts.save(draft(sessionId = 7, startedAt = startedAt, completed = 2, planned = 4))
+        drafts.save(draft(sessionId = 7, startedAt = startedAt, completed = 2, sets = 2))
 
         val resume = requireNotNull(viewModel().uiState.value.resume)
 
@@ -87,11 +89,23 @@ class HomeViewModelTest {
         assertEquals("Push Day", resume.name)
         assertEquals(23.minutes, resume.elapsed)
         assertEquals(11, resume.loggedSets)
-        assertEquals(
-            SessionPosition(exerciseName = "Bench press", setNumber = 3, setCount = 4),
-            resume.position,
-        )
+        // Two ticked off, so the set they came back to do is the third — even though the draft
+        // holds two rows and knows of no third. A draft counts what happened, never what was
+        // laid out, which is why the banner offers no total to put this out of.
+        assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 3), resume.position)
         assertFalse(resume.isPaused)
+    }
+
+    @Test
+    fun `an exercise nothing has been logged on yet reads as its first set`() = runTest {
+        sessions.setSessions(listOf(openSession(7)))
+        // One row being typed and nothing ticked: the shape the draft is actually written in
+        // when a lifter has just moved onto an exercise.
+        drafts.save(draft(sessionId = 7, completed = 0, sets = 1))
+
+        val resume = requireNotNull(viewModel().uiState.value.resume)
+
+        assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 1), resume.position)
     }
 
     @Test
@@ -124,7 +138,7 @@ class HomeViewModelTest {
     @Test
     fun `a draft belonging to another session is not read onto this one`() = runTest {
         sessions.setSessions(listOf(openSession(7)))
-        drafts.save(draft(sessionId = 99, completed = 2, planned = 4))
+        drafts.save(draft(sessionId = 99, completed = 2, sets = 2))
 
         assertNull(requireNotNull(viewModel().uiState.value.resume).position)
     }
@@ -265,20 +279,70 @@ class HomeViewModelTest {
         assertEquals(1, week.sessionCount)
     }
 
+    @Test
+    fun `midnight moves the week on with nobody touching the screen`() = runTest {
+        // Home is the screen the app is left sitting on. Nothing else re-emits overnight, so a
+        // day read while assembling would leave the ring on yesterday until something did.
+        sessions.setSessions(listOf(loggedSession(1, TODAY)))
+        val viewModel = viewModel()
+        assertTrue(requireNotNull(viewModel.uiState.value.week).days.single { it.date == TODAY }.isToday)
+
+        clock.now = middayOn(TOMORROW)
+        // Past the midnight twelve hours out, and short of the one after it.
+        advanceTimeBy(25.hours)
+
+        val week = requireNotNull(viewModel.uiState.value.week)
+        assertTrue(week.days.single { it.date == TOMORROW }.isToday)
+        assertFalse(week.days.single { it.date == TODAY }.isToday)
+    }
+
     // ─── Quick start ────────────────────────────────────────────────────────────────────
 
     @Test
     fun `the quick-start strip holds the templates, cut to what fits`() = runTest {
-        val saved = (1..8).map { template(it.toLong(), "Template $it") }
-        val templates = FakeTemplateStore(
-            templates = saved.map { it.first },
-            exercises = saved.flatMap { it.second },
-        )
-
-        val home = viewModel(templates = templates).uiState.value
+        val home = viewModel(templates = eightTemplates()).uiState.value
 
         assertEquals(6, home.templates.size)
+        // Nothing has been trained from, so nothing outranks anything and the name order the
+        // repository promises is what is left.
         assertEquals("Template 1", home.templates.first().template.name)
+    }
+
+    @Test
+    fun `the strip leads with the templates most recently trained from`() = runTest {
+        // The finding the alphabetical cut hid: a user with more templates than the strip holds
+        // saw the first six names for ever, and never their own rotation.
+        sessions.setSessions(
+            listOf(
+                loggedSession(1, LAST_SATURDAY, templateId = 8L),
+                loggedSession(2, TODAY, templateId = 7L),
+            ),
+        )
+
+        val home = viewModel(templates = eightTemplates()).uiState.value
+
+        assertEquals(
+            listOf("Template 7", "Template 8") + (1..4).map { "Template $it" },
+            home.templates.map { it.template.name },
+        )
+    }
+
+    @Test
+    fun `a template is ranked on the last time it was trained from, not the first`() = runTest {
+        sessions.setSessions(
+            listOf(
+                loggedSession(1, TODAY, templateId = 8L),
+                loggedSession(2, LAST_SATURDAY, templateId = 8L),
+                loggedSession(3, MONDAY, templateId = 7L),
+            ),
+        )
+
+        val home = viewModel(templates = eightTemplates()).uiState.value
+
+        assertEquals(
+            listOf("Template 8", "Template 7"),
+            home.templates.take(2).map { it.template.name },
+        )
     }
 
     @Test
@@ -290,6 +354,15 @@ class HomeViewModelTest {
     }
 
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
+
+    /** Eight saved templates, `Template 1` to `Template 8` — two more than the strip holds. */
+    private fun eightTemplates(): FakeTemplateStore {
+        val saved = (1..8).map { template(it.toLong(), "Template $it") }
+        return FakeTemplateStore(
+            templates = saved.map { it.first },
+            exercises = saved.flatMap { it.second },
+        )
+    }
 
     private fun TestScope.viewModel(
         sessions: FakeSessionStore = this@HomeViewModelTest.sessions,
@@ -318,8 +391,9 @@ class HomeViewModelTest {
     }
 
     /** A workout that is over: the rows the week is counted from. */
-    private fun loggedSession(id: Long, date: LocalDate) = WorkoutSession(
+    private fun loggedSession(id: Long, date: LocalDate, templateId: Long? = null) = WorkoutSession(
         id = id,
+        templateId = templateId,
         name = "Session $id",
         isInProgress = false,
         completedAt = middayOn(date) + 52.minutes.inWholeMilliseconds,
@@ -338,12 +412,18 @@ class HomeViewModelTest {
         updatedAt = startedAt,
     )
 
-    /** A draft sitting on [completed] of [planned] sets of one exercise. */
+    /**
+     * A draft holding [sets] rows on one exercise, [completed] of them ticked.
+     *
+     * [sets] is what a draft actually carries — the rows already written plus at most one being
+     * typed, per `ActiveSessionViewModel.draftExercises` — and not a plan. A test that hands
+     * over four rows with two ticked is describing a draft the app never writes.
+     */
     private fun draft(
         sessionId: Long,
         startedAt: Long = clock.now,
         completed: Int = 0,
-        planned: Int = 0,
+        sets: Int = 0,
         exerciseId: Long = BENCH_PRESS.id,
     ) = ActiveSession(
         sessionId = sessionId,
@@ -352,7 +432,7 @@ class HomeViewModelTest {
             ActiveExercise(
                 exerciseId = exerciseId,
                 sessionExerciseId = 1L,
-                sets = List(planned) { index ->
+                sets = List(sets) { index ->
                     val done = index < completed
                     ActiveSet(isCompleted = done, completedAt = startedAt.takeIf { done })
                 },
@@ -371,6 +451,9 @@ class HomeViewModelTest {
         val TODAY: LocalDate = LocalDate.of(2026, 4, 29)
         val MONDAY: LocalDate = LocalDate.of(2026, 4, 27)
         val LAST_SATURDAY: LocalDate = LocalDate.of(2026, 4, 25)
+
+        /** The Thursday after [TODAY], which is in the same week under either locale too. */
+        val TOMORROW: LocalDate = LocalDate.of(2026, 4, 30)
 
         val BENCH_PRESS = Exercise(id = 1L, name = "Bench press", type = ExerciseType.STRENGTH)
 

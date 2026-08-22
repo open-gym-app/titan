@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WorkoutSession
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -32,7 +34,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.TemporalAdjusters
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,10 +62,18 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### What ticks and what does not
  *
- * The elapsed clock, and nothing else. Assembling the week walks every session the user has
- * ever logged, and none of that changes because a second has passed, so the tick is folded on
- * afterwards over the banner alone — the same split `ActiveSessionViewModel` makes, and for the
- * same reason.
+ * The elapsed clock, once a second, and nothing else. Assembling the week walks every session
+ * the user has ever logged, and none of that changes because a second has passed, so the tick
+ * is folded on afterwards over the banner alone — the same split `ActiveSessionViewModel`
+ * makes, and for the same reason.
+ *
+ * ### The day is a source, not something read on the way past
+ *
+ * Which day it is decides the today ring and which calendar week is being counted, and it
+ * changes on its own — at midnight, with nothing else happening. Reading it off the clock while
+ * assembling would only ever answer for a screen that was being rebuilt anyway, so a phone left
+ * on Home overnight would keep its ring on yesterday and keep counting last week. It is a flow
+ * beside the other four instead, waking once per day at local midnight — see [today].
  */
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -100,6 +112,25 @@ class HomeViewModel @Inject constructor(
         sessionRepository.getActive().map { session -> session?.let { readWorkout(it) } }
 
     /**
+     * The day it is, re-emitted when that stops being true.
+     *
+     * One wake-up per day rather than a poll: the wait is measured to the next local midnight
+     * and the emission is deduplicated, so a clock that jumps — a timezone change, a manual
+     * correction — moves the screen onto the right day without a burst of rebuilds.
+     *
+     * [ZoneId.systemDefault] here and in [localDateOf], which is the zone every session is
+     * grouped into a calendar day by. A user who flies somewhere gets the local week, which is
+     * the one they are training in.
+     */
+    private val today: Flow<LocalDate> = flow {
+        while (true) {
+            val now = clock.nowMillis()
+            emit(localDateOf(now))
+            delay(millisUntilTomorrow(now))
+        }
+    }.distinctUntilChanged()
+
+    /**
      * Everything the reads decide, with the clock left out of it.
      *
      * The first value arrives only once **every** input has answered, which is what makes
@@ -112,8 +143,9 @@ class HomeViewModel @Inject constructor(
         workout,
         getTemplateSummaries(),
         screenState,
-    ) { sessions, workout, templates, screen ->
-        assemble(sessions, workout, templates, screen)
+        today,
+    ) { sessions, workout, templates, screen, today ->
+        assemble(sessions, workout, templates, screen, today)
     }.stateIn(
         scope = viewModelScope,
         // Long enough to survive a rotation without re-reading three queries, short enough that
@@ -215,9 +247,14 @@ class HomeViewModel @Inject constructor(
             startedAt = session.createdAt,
             draft = draft,
             position = draft?.let { position(it) },
-            // Every row, not only the ticked ones: this figure is what the discard question
-            // costs, and the delete cascades to all of them.
-            loggedSets = sessionRepository.getSetsForSession(session.id).first().size,
+            // The *ticked* rows, which is what "logged" means everywhere else — see
+            // `MarkSetCompletedUseCase`, where an un-ticked row stays in the table and counts
+            // towards nothing. The workout screen asks this same dialog with
+            // `SessionStats.totalSets`, and the whole point of sharing it is that the two
+            // cannot disagree about what throwing a session away costs.
+            loggedSets = sessionRepository.getSetsForSession(session.id)
+                .first()
+                .count(WorkoutSet::isCompleted),
         )
     }
 
@@ -227,6 +264,14 @@ class HomeViewModel @Inject constructor(
      * One catalogue row, read by id rather than by walking the whole catalogue for one name.
      * Null when the exercise has been deleted from the library underneath the workout, which
      * drops the line rather than drawing a position with a blank where the movement goes.
+     *
+     * **The set they are about to do, and no total to put it out of.** A draft's
+     * [ActiveExercise.sets] are the rows already written plus at most one being typed — see
+     * `ActiveSessionViewModel.draftExercises` — so it counts what has happened, never what was
+     * laid out. Nothing in the app holds a planned set count: a workout takes sets until the
+     * user stops, and the session screen itself says "3 sets" rather than "3 of 4". A total
+     * invented here would be the one place claiming otherwise, and it would read "set 3 of 3"
+     * at the exact moment the user is about to start their fourth.
      */
     private suspend fun position(draft: ActiveSession): SessionPosition? {
         val current = draft.currentExercise ?: return null
@@ -234,39 +279,56 @@ class HomeViewModel @Inject constructor(
 
         return SessionPosition(
             exerciseName = name,
-            // The set they are *on*: what is done, plus one, capped so a finished exercise
-            // reads "set 4 of 4" rather than "set 5 of 4".
-            setNumber = (current.completedSets.size + 1).coerceAtMost(current.sets.size.coerceAtLeast(1)),
-            setCount = current.sets.size,
+            // What is done, plus one: the set they came back to do.
+            setNumber = current.completedSets.size + 1,
         )
     }
 
-    /**
-     * Assemble everything except the clock.
-     *
-     * The templates are cut here rather than in the screen: the strip holds what it holds, and
-     * a `LazyRow` handed sixty templates would compose six of them and keep the other
-     * fifty-four alive as items nobody can reach without scrolling past the end of the design.
-     */
+    /** Assemble everything except the clock. */
     private fun assemble(
         sessions: List<WorkoutSession>,
         workout: ActiveWorkout?,
         templates: List<TemplateSummary>,
         screen: ScreenState,
-    ): Assembled {
-        val today = localDateOf(clock.nowMillis())
+        today: LocalDate,
+    ): Assembled = Assembled(
+        state = HomeUiState(
+            week = sessions.weekOf(today = today, weekStart = firstDayOfWeek()),
+            templates = templates.quickStart(sessions),
+            isLoading = false,
+            confirmingDiscard = screen.confirmingDiscard,
+            isDiscarding = screen.isDiscarding,
+            message = screen.message,
+        ),
+        workout = workout,
+    )
 
-        return Assembled(
-            state = HomeUiState(
-                week = sessions.weekOf(today = today, weekStart = firstDayOfWeek()),
-                templates = templates.take(QUICK_START_TEMPLATES),
-                isLoading = false,
-                confirmingDiscard = screen.confirmingDiscard,
-                isDiscarding = screen.isDiscarding,
-                message = screen.message,
-            ),
-            workout = workout,
-        )
+    /**
+     * The templates the quick-start strip offers: the ones this user actually trains from,
+     * most recently started first.
+     *
+     * **Which handful, not just how many.** `TemplateRepository.getAll` is ordered by name, so
+     * taking the first six off it hands a user with twenty templates the same three A-names
+     * every morning and buries the split they are three days into. What a shortcut is for is
+     * the rotation, and the rotation is legible without storing anything: a session started
+     * from a template keeps its [WorkoutSession.templateId], and the sessions are already read
+     * for the week above.
+     *
+     * The sort is stable and templates nobody has trained from all rank alike, so those keep
+     * the name order they arrived in — which is the right order for a template that has no
+     * history to be ordered by, and the order a brand-new user sees for all of them.
+     *
+     * The cut happens here rather than in the screen because it is a decision about *which*
+     * templates, which is this class's to make; the strip draws what it is handed.
+     */
+    private fun List<TemplateSummary>.quickStart(sessions: List<WorkoutSession>): List<TemplateSummary> {
+        val lastStarted: Map<Long, Long> = sessions
+            .mapNotNull { session -> session.templateId?.let { it to session.createdAt } }
+            .groupBy({ (templateId, _) -> templateId }, { (_, startedAt) -> startedAt })
+            .mapValues { (_, startedAt) -> startedAt.max() }
+
+        return sortedByDescending { lastStarted[it.template.id] ?: NEVER_STARTED }
+            .take(QUICK_START_TEMPLATES)
     }
 
     /** What the screen owns and what the stores do not know about. */
@@ -337,11 +399,14 @@ class HomeViewModel @Inject constructor(
         /**
          * How many templates the quick-start strip offers.
          *
-         * Six: enough that a lifter's whole rotation is usually in there, few enough that the
-         * strip is a shortcut rather than a list. The way to *all* of them is the action above
-         * it, which opens the picker that is built for choosing.
+         * Six: enough to hold a lifter's whole rotation, few enough that the strip is a
+         * shortcut rather than a list. The way to *all* of them is the action above it, which
+         * opens the picker that is built for choosing.
          */
         const val QUICK_START_TEMPLATES = 6
+
+        /** Ranks below every real timestamp, so a template never trained from sorts last. */
+        const val NEVER_STARTED = Long.MIN_VALUE
     }
 }
 
@@ -378,3 +443,19 @@ private fun List<WorkoutSession>.weekOf(today: LocalDate, weekStart: DayOfWeek):
 }
 
 private const val DAYS_PER_WEEK = 7
+
+/**
+ * How long from [nowMillis] until the next local midnight, in milliseconds.
+ *
+ * [java.time.ZonedDateTime.toLocalDate] then [java.time.LocalDate.atStartOfDay] rather than
+ * adding twenty-four hours: the two days either side of a daylight-saving change are twenty-three
+ * and twenty-five hours long, and `atStartOfDay(zone)` also answers for the zones where midnight
+ * itself is skipped, by giving the first instant the day does have.
+ *
+ * Floored at one millisecond so the caller cannot spin: a clock that steps forward over the
+ * midnight this was measured to would otherwise return zero for as long as it took to notice.
+ */
+private fun millisUntilTomorrow(nowMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long {
+    val tomorrow = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().plusDays(1)
+    return (tomorrow.atStartOfDay(zone).toInstant().toEpochMilli() - nowMillis).coerceAtLeast(1L)
+}
