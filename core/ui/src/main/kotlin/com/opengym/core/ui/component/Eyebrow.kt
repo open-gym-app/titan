@@ -5,6 +5,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -22,6 +24,19 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * user gets `İ` and not `I`. Call sites pass ordinary sentence-case text — passing
  * `"APPEARANCE"` still works but puts a shouted string in the source and, worse, in the
  * translation file, where a translator has no way to know the case is decoration.
+ *
+ * **What it hands a screen reader is the sentence-case original.** TalkBack reads an
+ * all-capitals word as an initialism and may spell it out — `START EMPTY SESSION` letter by
+ * letter is not an action anybody can follow — so the uppercase stays where it belongs, in
+ * the pixels. This is set here rather than at each call site because every eyebrow in the app
+ * has the problem: the bottom bar, which draws its own uppercase label rather than using this,
+ * had to work around it by hand.
+ *
+ * **A container that merges its descendants has to speak for itself.** A merged node carrying
+ * a description anywhere inside it is announced as that description and nothing else, so an
+ * eyebrow dropped into a `clickable` card silences the card's other text. Home's resume banner
+ * is the worked example: it carries a sentence of its own and clears the eyebrow's, so the
+ * workout's name and the line saying where it was left are still spoken.
  *
  * @param color defaults to `onSurfaceVariant`, the quiet role for a heading that must be
  *   findable without competing with the content under it. The accent is the deliberate
@@ -44,6 +59,9 @@ fun Eyebrow(
         color = color,
         maxLines = maxLines,
         overflow = TextOverflow.Clip,
-        modifier = modifier,
+        // The description rides on the text's own node, so a call site that speaks for its
+        // whole contents — the cards that `clearAndSetSemantics` — still wipes it along with
+        // everything else in there, which is what those call sites want.
+        modifier = modifier.semantics { contentDescription = text },
     )
 }

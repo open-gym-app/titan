@@ -9,16 +9,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -129,6 +132,84 @@ fun TemplateRow(
 }
 
 /**
+ * The same template as a card, for a strip that scrolls sideways.
+ *
+ * ```text
+ * ┌──────────────┐ ┌──────────────┐
+ * │ Push Day     │ │ Pull Day     │
+ * │ 8 EX · ~55M  │ │ 7 EX · ~50M  │
+ * └──────────────┘ └──────────────┘
+ * ```
+ *
+ * Home's quick-start strip, and nothing else yet. It lives beside [TemplateRow] rather than in
+ * the feature because the two have to keep saying the same thing about the same template: the
+ * exercise count and the estimate come from the one private helper below, so a card and a row
+ * cannot end up five minutes apart on the same workout. What it drops is what a 140dp card has
+ * no room for — the mark and the category chip — and it drops nothing that carries a figure.
+ *
+ * The width is **bounded rather than fixed**: at ordinary sizes every card comes out at the
+ * minimum, so a strip of them reads as a rack rather than as a ragged line, and at a large font
+ * scale a card grows to hold its own figures instead of clipping them — `8 ex · ~55m` cut off
+ * after `8 ex ·` is a row of numbers that says nothing. The name takes two lines and then
+ * ellipsises, which is what keeps the growth bounded.
+ *
+ * @param onClick what tapping the card does. Not optional, unlike [TemplateRow]'s: a card in a
+ *   scrolling strip that does nothing is a control the user will try twice.
+ * @param enabled false dims the card and takes the click off it, announcing it as disabled.
+ *   For a caller whose strip leads somewhere that is currently refusing — Home's, while a
+ *   workout is still open — where a live card is a tap that ends in a dialog saying no.
+ */
+@Composable
+fun TemplateCard(
+    summary: TemplateSummary,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    // Resolved before the modifier chain: `semantics` takes a plain lambda, not a composable
+    // one, so the strings cannot be read inside it.
+    val description = summary.spokenDescription()
+    val openLabel = stringResource(R.string.template_start)
+
+    OpenGymCard(
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier
+            .widthIn(min = CARD_WIDTH_MIN, max = CARD_WIDTH_MAX)
+            // One fade over the whole card rather than a disabled colour per line: the card is
+            // two texts and a border, and dimming them one at a time is three constants that
+            // have to agree.
+            .alpha(if (enabled) 1f else DISABLED_ALPHA),
+    ) {
+        Column(
+            // The click sits *inside* the card, as [TemplateRow]'s and [ExerciseCard]'s do:
+            // a `clickable` on the modifier handed to [OpenGymCard] is applied outside the
+            // `Surface`'s own clip, so the ripple would be drawn as a square over a rounded
+            // card. Before the padding, so the whole card is the target rather than the text
+            // in the middle of it.
+            modifier = Modifier
+                .clickable(enabled = enabled, onClickLabel = openLabel, onClick = onClick)
+                .semantics(mergeDescendants = true) { contentDescription = description }
+                .padding(OpenGymTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+        ) {
+            Text(
+                text = summary.template.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = summary.meta(),
+                style = OpenGymTheme.typography.numericSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/**
  * The square with the template's opening letter in it.
  *
  * `extraSmall`, the same radius [ExerciseImage] clips a thumbnail to, so a template row and
@@ -204,6 +285,20 @@ private fun TemplateSummary.spokenDescription(): String {
  * the letter inside it reads at the `numeric` role, and it is used here only.
  */
 private val MARK_SIZE = 36.dp
+
+/**
+ * A quick-start card's width, as a range.
+ *
+ * The minimum is wide enough for two words of a template name at the body scale and narrow
+ * enough that the card after next is cut off by the edge of a 360dp screen — which is what says
+ * the strip scrolls without a chevron having to. The maximum is what stops a long name and a
+ * large font scale between them turning one card into the whole screen.
+ */
+private val CARD_WIDTH_MIN = 140.dp
+private val CARD_WIDTH_MAX = 240.dp
+
+/** Material's own figure for disabled content — see [TemplateCard]'s `enabled`. */
+private const val DISABLED_ALPHA = 0.38f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
@@ -284,3 +379,47 @@ private fun previewSummary(
     exerciseCount = exerciseCount,
     estimatedDuration = duration,
 )
+
+@Preview(name = "Template card", widthDp = 360)
+@Composable
+fun TemplateCardPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        TemplateCardStrip()
+    }
+}
+
+@Preview(name = "Template card, dark", widthDp = 360)
+@Composable
+fun TemplateCardDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) {
+        TemplateCardStrip()
+    }
+}
+
+/** The strip as Home lays it out: three cards, the third one cut off by the screen's edge. */
+@Composable
+private fun TemplateCardStrip() {
+    Row(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.background)
+            .padding(OpenGymTheme.spacing.screen),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+    ) {
+        TemplateCard(
+            previewSummary(name = "Push Day", exerciseCount = 8, duration = 55.minutes),
+            onClick = {},
+        )
+        TemplateCard(
+            previewSummary(name = "Pull Day", exerciseCount = 7, duration = 50.minutes),
+            onClick = {},
+        )
+        TemplateCard(
+            previewSummary(
+                name = "Saturday morning full body",
+                exerciseCount = 12,
+                duration = 95.minutes,
+            ),
+            onClick = {},
+        )
+    }
+}

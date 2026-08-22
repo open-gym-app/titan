@@ -31,7 +31,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -60,6 +63,7 @@ import com.opengym.core.ui.component.TemplateRow
 import com.opengym.core.ui.format.formatAsEstimate
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.navigation.NO_TEMPLATE
 import com.opengym.feature.session.newsession.component.ResumeSessionDialog
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -75,6 +79,13 @@ import kotlin.time.Duration.Companion.minutes
  *   both cases this is the workout the user is now in.
  * @param onPickExercises open the exercise picker. It is a destination in another feature, so
  *   this screen reports that the user wants to pick and `:app` decides what that opens.
+ * @param templateId a template the flow was opened *on*, or
+ *   [com.opengym.feature.session.navigation.NO_TEMPLATE]. Applied once, which puts the screen
+ *   straight on that template's review panel — see [NewSessionEvent.TemplateSelected].
+ * @param pickExercises open the picker as soon as the screen appears, for a flow opened as
+ *   "start an empty session". Applied once, and cancelling the picker leaves the user on the
+ *   template list rather than back where they came from: they asked to build a workout, and
+ *   the list is the other way of doing that.
  * @param pickedExerciseIds the picker's answer on the way back, or null when it has not
  *   answered. Applied once and then handed back through [onPickedExercisesHandled] so a
  *   recomposition does not re-apply it.
@@ -85,11 +96,39 @@ fun NewSessionRoute(
     onSessionOpened: (sessionId: Long) -> Unit,
     onPickExercises: () -> Unit,
     modifier: Modifier = Modifier,
+    templateId: Long = NO_TEMPLATE,
+    pickExercises: Boolean = false,
     pickedExerciseIds: List<Long>? = null,
     onPickedExercisesHandled: () -> Unit = {},
     viewModel: NewSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Where the flow was asked to open — Home's two quick-start actions and its template strip
+    // all mean "open this flow *here*", and both arguments are route arguments, so they are
+    // still there on every recomposition and every restore.
+    //
+    // `rememberSaveable`, and consumed: without it a process death on the review panel would
+    // reapply the template over whatever the user has since built, and one on the picker would
+    // push a second picker over the first. Restored as false, this does nothing, which is
+    // right — the flow has already opened where it was told to.
+    var entryPending by rememberSaveable { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        if (!entryPending) return@LaunchedEffect
+        entryPending = false
+
+        when {
+            templateId != NO_TEMPLATE ->
+                viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+
+            // The event as well as the push: it is what keeps the quick-start action from
+            // opening a second picker through a slow transition.
+            pickExercises -> {
+                viewModel.onEvent(NewSessionEvent.ExerciseSelectionOpened)
+                onPickExercises()
+            }
+        }
+    }
 
     // Consumed here rather than in the ViewModel because the ids are a *navigation* result:
     // `:app` holds them while the picker pops, and the ViewModel has no business knowing

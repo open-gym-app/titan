@@ -138,17 +138,6 @@
     <string name="active_rpe_title">How hard was that?</string>
     <string name="active_rpe_body">Rate of perceived exertion, for the set you are logging. Tap the value again to clear it.</string>
 
-    <!-- The discard confirmation. The count is in the question because "discard this session?"
-         is a different question when the answer costs eleven sets. -->
-    <string name="active_discard_title">Discard this workout?</string>
-    <plurals name="active_discard_body">
-        <item quantity="one">%1$d logged set will be deleted. This cannot be undone.</item>
-        <item quantity="other">%1$d logged sets will be deleted. This cannot be undone.</item>
-    </plurals>
-    <string name="active_discard_body_empty">Nothing has been logged yet, so nothing will be lost.</string>
-    <string name="active_discard_confirm">Discard</string>
-    <string name="active_discard_cancel">Keep training</string>
-
     <!-- A session id that no longer resolves to a row. -->
     <string name="active_missing_title">This session is gone</string>
     <string name="active_missing_body">It was deleted or finished somewhere else. Nothing here can be logged against it.</string>

@@ -1,10 +1,12 @@
 package com.opengym.app.ui
 
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
@@ -130,7 +132,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `opens on Home with the four tabs and a settings action`() {
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsNotSelected()
@@ -165,7 +167,7 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
-    fun `re-tapping the library tab rebuilds it, which is what puts it back to the top`() {
+    fun `pressing the tab you are already on leaves it exactly as it was`() {
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
         composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
@@ -173,26 +175,27 @@ class OpenGymAppNavigationTest {
 
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
 
-        // The library's root *is* its tab, so there is nothing to pop back to and the re-tap
-        // would look inert. What it actually does is drop the entry and push a fresh one, so
-        // the screen is rebuilt with no scroll position to restore — which is what puts a
-        // long list back at the top. The search box closing on what was typed in it is the
-        // visible half of that same fact.
-        composeTestRule.onNodeWithText(QUERY).assertDoesNotExist()
-        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).assertDoesNotExist()
+        // Inert, and that is the whole of it: the bar does not navigate to where the user
+        // already is. The open search box with what was typed in it still on screen is the
+        // visible proof that the entry was never popped and rebuilt — the tab is not reset,
+        // not re-animated, and nothing the user had is spent on a press that asked for no
+        // movement.
+        composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertIsSelected()
     }
 
     @Test
-    fun `a second tap on a tab that is still arriving is not a reselection`() {
+    fun `a hammered bar does not tear down the tab it is arriving at`() {
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
         composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
         composeTestRule.onNodeWithContentDescription(TAB_STATS).performClick()
 
-        // The clock is stopped so the second tap lands where a hammered bar puts it: after the
-        // navigation has been dispatched, before the animation into the tab has finished. This
-        // is the whole of the bug — `currentDestination` says Library the instant `navigate`
-        // returns, so without the guard the second tap reads as "you are already here".
+        // The clock is stopped so the extra taps land where a hammered bar puts them: after
+        // the navigation has been dispatched, before the animation into the tab has finished.
+        // `currentDestination` says Library the instant `navigate` returns, so every tap after
+        // the first is a press on the tab the user is already in — which is now a press that
+        // does nothing rather than one that rebuilds a tab mid-arrival.
         composeTestRule.mainClock.autoAdvance = false
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.mainClock.advanceTimeBy(MID_TRANSITION_MILLIS)
@@ -200,10 +203,8 @@ class OpenGymAppNavigationTest {
         composeTestRule.mainClock.autoAdvance = true
         composeTestRule.waitForIdle()
 
-        // The tab the user was switching to, restored as the first tap asked for. Unguarded,
-        // the second tap resets it instead: the search closes on what was typed in it, and on
-        // screen the arrival is cut short by the reset's vertical slide over a tab being torn
-        // down and rebuilt — which is what a spammed bar looks like.
+        // The tab the user was switching to, restored as the first tap asked for and left
+        // alone by the rest.
         composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
     }
 
@@ -211,7 +212,7 @@ class OpenGymAppNavigationTest {
     fun `opening a logged session leaves the tab scaffold, and back returns to it`() {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
         // The row is drawn from a Room read, so it arrives a beat after the tab does.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule
                 .onAllNodesWithContentDescription(LOGGED_SESSION, substring = true)
                 .fetchSemanticsNodes()
@@ -237,8 +238,8 @@ class OpenGymAppNavigationTest {
      * none for such a screen surviving a tab switch. Nothing in the app is one any more: the
      * session recap was the last, and #27 moved it out to the top level alongside the exercise
      * detail. The rules those tests covered are still in `OpenGymAppState` and are still
-     * exercised — `saveState`/`restoreState` by the tab-state test below, the reselection
-     * inversion by the library's re-tap test above — and #24 gives the Sessions tab three
+     * exercised — `saveState`/`restoreState` by the tab-state test below, the guard on the
+     * active tab by the two tests above — and #24 gives the Sessions tab three
      * destinations of its own to put the hierarchy walk back under test.
      */
 
@@ -261,7 +262,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `entering the session flow hides the bottom bar`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        openSetup()
 
         composeTestRule.onNodeWithText(NEW_SESSION).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
@@ -285,7 +286,7 @@ class OpenGymAppNavigationTest {
         // The recap is the end of the flow rather than a step of it — it is pushed as the flow
         // is popped — but it is still bar-less, because it is outside the tab scaffold. Waited
         // for, because closing the session out is a write and the navigation follows it.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText(DONE).assertIsDisplayed()
@@ -309,7 +310,7 @@ class OpenGymAppNavigationTest {
     @Test
     fun `backing out of the picker leaves the quick start usable`() {
         openThePicker()
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
         }
 
@@ -324,9 +325,60 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithText(EMPTY_SESSION).assertIsEnabled()
 
         composeTestRule.onNodeWithText(EMPTY_SESSION).performClick()
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test
+    fun `a template on Home opens the flow on that template rather than on the list`() {
+        // The whole point of the quick-start strip: the template is already chosen, so the
+        // step that chooses one is skipped and the user lands one tap from a workout. It is
+        // the review panel and not the workout itself — a card tapped by accident on a
+        // scrolling strip must not cost a session that has to be discarded.
+        // The strip is a Room read like every other list here, so the card is waited for
+        // rather than assumed.
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodes(templateRow()).fetchSemanticsNodes().isNotEmpty()
+        }
+        tapOnHome(templateRow())
+
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(START_WORKOUT).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(START_WORKOUT).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
+    }
+
+    @Test
+    fun `a workout the app was left holding is offered on Home and resumes into itself`() {
+        // The state a process restart leaves behind, and the only route back to it: the
+        // history lists what has been *finished*, so without this banner the workout below is
+        // unreachable and nothing else can be started while it exists.
+        runBlocking {
+            sessions.insert(
+                WorkoutSession(
+                    name = RUNNING_SESSION,
+                    isInProgress = true,
+                    lastActiveAt = LOGGED_AT,
+                    createdAt = LOGGED_AT,
+                    updatedAt = LOGGED_AT,
+                ),
+            )
+        }
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(RUNNING_SESSION).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        tapOnHome(RESUME)
+
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithContentDescription(ACTIVE_SESSION)
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+        // And it is the mode, not a tab with a workout drawn in it.
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
     }
 
     @Test
@@ -334,11 +386,11 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).performClick()
 
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        openSetup()
         composeTestRule.onNodeWithContentDescription(LEAVE_SETUP).performClick()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
 
         // And the tab the user had been on is still there to go back to.
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
@@ -350,12 +402,12 @@ class OpenGymAppNavigationTest {
         startAWorkout()
         logASet()
         composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText(DONE).performClick()
 
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
@@ -375,13 +427,13 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `the back gesture leaves the session flow before the workout starts`() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        openSetup()
         composeTestRule.onNodeWithText(NEW_SESSION).assertIsDisplayed()
 
         pressBack()
 
         // Setup is not a mode: nothing has been logged, so backing out is just backing out.
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
@@ -438,10 +490,23 @@ class OpenGymAppNavigationTest {
 
         // Nothing was logged, so there is nothing to recap — the flow is popped and the user
         // lands back where they started it from, with the tab scaffold restored.
-        composeTestRule.waitUntil {
+        awaitHome()
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
+    }
+
+    /**
+     * Home, once it has something on it.
+     *
+     * The screen draws **nothing at all** until its reads land — see `HomeScreen`, where the
+     * quick-start actions wait with the rest of it rather than being pushed down the page by a
+     * banner that arrives a frame later — so a test that lands on the tab and reaches straight
+     * for a control is reaching for one that is not composed yet. Waiting on the section
+     * heading is waiting on the database, which is the thing actually being waited for.
+     */
+    private fun awaitHome() {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(HOME).fetchSemanticsNodes().isNotEmpty()
         }
-        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
     /**
@@ -452,22 +517,22 @@ class OpenGymAppNavigationTest {
      * result reaches the flow that opened it.
      */
     private fun startAWorkout() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
+        openSetup()
         // The template list is a real Room query on a real background dispatcher, and
         // Compose's idling does not track it — so the row is waited for, not assumed.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodes(templateRow()).fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNode(templateRow()).performClick()
         // And again for the review panel: reading the template out and resolving its
         // exercises against the catalogue are two more queries off the main thread.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(START_WORKOUT).fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText(START_WORKOUT).performClick()
         // Once more for the commit: the session and its exercises are two writes, and the
         // navigation into the workout follows the state they produce.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithContentDescription(ACTIVE_SESSION)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
@@ -483,7 +548,7 @@ class OpenGymAppNavigationTest {
      * queries on a background dispatcher, the same reason [startAWorkout] waits three times.
      */
     private fun logASet() {
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithContentDescription(FIRST_SET_WEIGHT)
                 .fetchSemanticsNodes()
                 .isNotEmpty()
@@ -496,16 +561,58 @@ class OpenGymAppNavigationTest {
         // is a finish over a session that still has nothing in it — which the use case refuses,
         // correctly, leaving the test looking at a workout it thought it had ended. The button
         // renumbering itself is the row having come back.
-        composeTestRule.waitUntil {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(COMPLETE_SECOND_SET).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
-    /** Home to the exercise picker, by the quick-start action rather than a template. */
-    private fun openThePicker() {
-        composeTestRule.onNodeWithText(START_SESSION).performClick()
-        composeTestRule.onNodeWithText(EMPTY_SESSION).performClick()
+    /**
+     * Home into setup, with the transition that gets there run out.
+     *
+     * The flow is a mode: it slides up over the tab across [NavMotion.MODAL]'s 350 ms, so the
+     * screen it lands on is composed a frame before any of it is on screen. Every caller below
+     * acts on that screen immediately, so the transition is finished here rather than raced —
+     * the same reason the template row is waited for in [startAWorkout] rather than assumed.
+     */
+    private fun openSetup() = tapOnHome(START_FROM_TEMPLATE)
+
+    /**
+     * Taps one of Home's quick-start actions and lands on what it opens.
+     *
+     * Three steps rather than one:
+     *
+     * - **the scroll**, because Home is a dashboard and grows down the page — its actions fit
+     *   on the phone-sized window these tests run in (see `robolectric.properties`) and a card
+     *   added below them one day will not. A tap on a node that is off screen is a tap the user
+     *   could not have made;
+     * - **the settle after it**, because the scroll a semantics action performs is *animated*,
+     *   and a tap injected while one is running lands where the button was a frame ago — which
+     *   is nowhere, silently;
+     * - **the settle after the tap**, because the flow is a mode and slides up over the tab
+     *   across [NavMotion.MODAL]'s 350 ms, so the screen it lands on is composed a frame before
+     *   any of it is on screen.
+     */
+    private fun tapOnHome(label: String) = tapOnHome(hasText(label))
+
+    /** The same, for the one control on Home that is found by what it says out loud. */
+    private fun tapOnHome(matcher: SemanticsMatcher) {
+        awaitHome()
+        composeTestRule.onNode(matcher).performScrollTo()
+        composeTestRule.mainClock.advanceTimeBy(SCROLL_SETTLE_MILLIS)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNode(matcher).performClick()
+        composeTestRule.mainClock.advanceTimeBy(MODAL_TRANSITION_MILLIS)
+        composeTestRule.waitForIdle()
     }
+
+    /**
+     * Home to the exercise picker, by the quick-start action rather than a template.
+     *
+     * One tap: Home's empty-session action opens the flow *on* the picker — see
+     * `NewSessionDestination` — rather than on the list the picker is reached from.
+     */
+    private fun openThePicker() = tapOnHome(START_EMPTY)
 
     /**
      * The seeded template's row, by the sentence it speaks.
@@ -540,7 +647,7 @@ class OpenGymAppNavigationTest {
         const val SETTINGS_ACTION = "Settings"
 
         // Screen markers — each screen's eyebrow.
-        const val HOME = "TODAY"
+        const val HOME = "QUICK START"
         const val HISTORY = "HISTORY"
         const val PROGRESSION = "PROGRESSION"
         const val NEW_SESSION = "New session"
@@ -586,8 +693,31 @@ class OpenGymAppNavigationTest {
         // been composed, short enough that it has not been marked as arrived at.
         const val MID_TRANSITION_MILLIS = 80L
 
-        // Actions.
-        const val START_SESSION = "START SESSION"
+        // Past the end of the 350ms slide the session flow arrives on — see [NavMotion].
+        const val MODAL_TRANSITION_MILLIS = 400L
+
+        // Past the end of the animated scroll `performScrollTo` runs — see [tapOnHome].
+        const val SCROLL_SETTLE_MILLIS = 1_000L
+
+        /**
+         * How long a wait for a Room read is given, over `waitUntil`'s own second.
+         *
+         * Every wait in this file is on a query Compose's idling does not track, and there are
+         * now more of them behind one screen than there were: Home observes the sessions, the
+         * open one and the templates, and those share a dispatcher with whatever the test is
+         * driving. A second is enough almost every time, which is the worst kind of enough.
+         */
+        const val READ_TIMEOUT_MILLIS = 5_000L
+
+        // The workout seeded by the resume test, and the banner's action.
+        const val RUNNING_SESSION = "Left running"
+        const val RESUME = "RESUME"
+
+        // Home's ways into the session flow. The template action opens it on its list; the
+        // empty-session action opens the picker over that list in one move, which is why the
+        // second tap `openThePicker` used to need is gone.
+        const val START_FROM_TEMPLATE = "Start from template"
+        const val START_EMPTY = "START EMPTY SESSION"
 
         // The seeded session's name, and when it happened: midday UTC on a fixed day, so the
         // row lands on the same date in whichever zone the test runs.

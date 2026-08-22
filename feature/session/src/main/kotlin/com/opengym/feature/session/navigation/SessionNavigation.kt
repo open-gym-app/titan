@@ -7,6 +7,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import androidx.navigation.toRoute
 import com.opengym.feature.session.active.ActiveSessionEvent
 import com.opengym.feature.session.active.ActiveSessionRoute
 import com.opengym.feature.session.active.ActiveSessionViewModel
@@ -29,9 +30,42 @@ import kotlinx.serialization.Serializable
 @Serializable
 data object SessionGraphDestination
 
-/** Template picking and exercise selection, before the clock starts (#25). */
+/**
+ * Template picking and exercise selection, before the clock starts (#25).
+ *
+ * The two arguments are entry points rather than state: Home offers its own ways into this
+ * flow (#23) and each of them means "open the flow *here*". Route arguments rather than three
+ * destinations drawing the same screen, matching [SessionSummaryDestination.historical] and
+ * for the same reason — a `NavController` resolves by route *pattern*, and three of those with
+ * one shape would be ambiguous.
+ *
+ * Both are consumed once, on the way in — see [com.opengym.feature.session.newsession.NewSessionRoute].
+ * Neither says anything about where the flow *is*; that is `NewSessionStep`'s, and it changes
+ * as soon as the user does anything.
+ *
+ * @param templateId a template to open on, or [NO_TEMPLATE]. Skips the picking step and lands
+ *   on that template's ready-to-start panel. It lands there rather than starting the workout
+ *   outright, which is the whole reason the panel exists: a card tapped by accident on a
+ *   scrolling strip would otherwise cost a session that has to be finished or discarded.
+ * @param pickExercises open the exercise picker straight away, for a workout with no template
+ *   behind it. The user asked for an empty session, and the first thing that flow does is ask
+ *   what is going in it.
+ */
 @Serializable
-data object NewSessionDestination
+data class NewSessionDestination(
+    val templateId: Long = NO_TEMPLATE,
+    val pickExercises: Boolean = false,
+)
+
+/**
+ * No template: open the flow on its own list.
+ *
+ * A sentinel rather than a nullable argument, matching `NO_SUGGESTED_TARGET` in
+ * `:feature:history`: a nullable `Long` in a route is serialised as the string "null" and read
+ * back through a type that has to be taught about it, for a value that means "the ordinary
+ * case".
+ */
+const val NO_TEMPLATE: Long = -1L
 
 /** The workout in progress (#26). */
 @Serializable
@@ -127,11 +161,18 @@ fun NavGraphBuilder.sessionGraph(
     onSessionFinished: (sessionId: Long) -> Unit,
     onSessionDiscarded: () -> Unit,
 ) {
-    navigation<SessionGraphDestination>(startDestination = NewSessionDestination) {
-        composable<NewSessionDestination> {
+    navigation<SessionGraphDestination>(startDestination = NewSessionDestination()) {
+        composable<NewSessionDestination> { entry ->
+            val destination: NewSessionDestination = entry.toRoute()
+
             NewSessionRoute(
                 onCancel = onCancelSetup,
                 onSessionOpened = onSessionStarted,
+                // Where the flow opens, when whoever pushed it had already decided — see
+                // [NewSessionDestination]. Read off the entry rather than closed over, because
+                // the graph below is built once inside `NavHost`'s own `remember`.
+                templateId = destination.templateId,
+                pickExercises = destination.pickExercises,
                 // Setup is building the plan from nothing, so every pick adds to it.
                 onPickExercises = { exercisePicker.open(false) },
                 // Read here, inside the destination, rather than taken off the graph as it was

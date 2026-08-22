@@ -30,14 +30,17 @@ internal enum class NavMotion {
     MODAL,
 
     /**
-     * A destination replacing itself: re-tapping the tab you are already on.
+     * A destination replacing itself.
      *
      * Nowhere new is being gone, so nothing is drawn. A transition here animates an arrival
-     * the user never made: they were already looking at this screen, they pressed the tab
-     * they were already in, and anything that slides or fades reads as the app glitching
-     * rather than as an answer to the press. The reset is real — the screen is rebuilt, which
-     * is what puts a list back at its top and closes the Library's search — it simply happens
-     * between two frames instead of over a quarter of a second.
+     * the user never made, and anything that slides or fades reads as the app glitching
+     * rather than as an answer to whatever caused it.
+     *
+     * Nothing in the shell produces this today: the bottom bar used to, by rebuilding the tab
+     * you re-tapped, and it now returns without navigating instead
+     * (`navigateToTopLevelDestination`). It is kept because the alternative for a destination
+     * that does stack on itself is not "no animation" but the `NavHost` default, whose
+     * `SizeTransform` wipes the screen open from its top-left corner.
      */
     RESET,
 }
@@ -61,11 +64,10 @@ internal enum class NavMotion {
  * - everything else is movement within one place: a tab to a screen inside it, one step of
  *   the session flow to the next, a tab out to Settings.
  *
- * @param sameDestination both ends are the same destination. The only thing that produces
- *   this is `navigateToTopLevelDestination` re-tapping the active tab at its root: the pop
- *   drops the entry and the navigate builds a fresh one, so the screen is genuinely torn down
- *   and rebuilt — which is what puts its list back at the top, and what there is an animation
- *   to classify at all.
+ * @param sameDestination both ends are the same destination, which is a destination being
+ *   torn down and rebuilt in place. Nothing in the shell does this since the bar stopped
+ *   re-navigating to the tab you are already on; see [NavMotion.RESET] for why the case is
+ *   still answered.
  */
 internal fun motionBetween(
     from: ShellChrome,
@@ -109,7 +111,7 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.motion(): NavMotio
         from = ShellChrome.of(initialState.destination),
         to = ShellChrome.of(targetState.destination),
         // The two *entries* always differ here — a reset pops one and pushes another — so the
-        // destination is what says the user is being put back where they already are.
+        // destination is what says the user is being put back where they already were.
         sameDestination = initialState.destination.id == targetState.destination.id,
     )
 

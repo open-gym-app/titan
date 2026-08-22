@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the home screen.
+
+  Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
+  uppercases for the caller, so a translator is never asked to reproduce a typographic
+  treatment.
+
+  The screen's own title is not here — the tab bar's shell draws it, from `:app`.
+-->
+<resources>
+
+    <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
+
+    <!-- "RUNNING · 23:14": what the workout is doing, and how long it has been doing it.
+         A state, not an action — the button below the line is the action, and naming this
+         one "Resume" too said the same word twice and left the state unsaid. -->
+    <string name="home_resume_eyebrow">%1$s · %2$s</string>
+    <string name="home_resume_running">Running</string>
+    <string name="home_resume_paused">Paused</string>
+    <!-- The banner as one spoken sentence: "Running · 23:14, Push Day · Upper, Bench press ·
+         set 3". Applied twice where there is a position to add, the way a template's is. -->
+    <string name="home_resume_description">%1$s, %2$s</string>
+    <!-- Where the user left off: "Bench press · set 3" — the set they came back to do. -->
+    <string name="home_resume_position">%1$s · set %2$d</string>
+    <string name="home_resume_action">Resume</string>
+    <string name="home_resume_discard">Discard</string>
+
+    <!-- The workout is still there and still in the way, which is why this is said rather
+         than shown as a banner going away. -->
+    <string name="home_discard_failed">That workout could not be discarded. It is still open.</string>
+
+    <!-- ── This week ─────────────────────────────────────────────────────────────── -->
+
+    <string name="home_week_heading">This week</string>
+    <!-- What tapping the card does, as the click's own label: the tab that lists the sessions
+         the card is counting. -->
+    <string name="home_week_open">Show all sessions</string>
+    <plurals name="home_week_sessions">
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
+    </plurals>
+
+    <!-- ── Quick start ───────────────────────────────────────────────────────────── -->
+
+    <string name="home_quick_start_heading">Quick start</string>
+    <!-- Shown on a first launch, where this section is the whole screen. It says what the
+         cards that are not there yet are for; it is not an empty state with a glyph on it. -->
+    <string name="home_first_launch">Nothing logged yet. Start a session and your week fills in here.</string>
+    <!-- Why the two actions below are dead: a workout is still open, and the flow they lead
+         into refuses to start a second one. Points at the banner above, which is where both
+         ways out of it are. -->
+    <string name="home_quick_start_blocked">Finish or discard the workout above before starting another.</string>
+    <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
+    <string name="home_start_empty">Start empty session</string>
+    <string name="home_start_from_template">Start from template</string>
+
+</resources>
