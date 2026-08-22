@@ -394,9 +394,9 @@ private fun TemplateEditorBody(
                     onClick = {
                         onEvent(
                             if (row.isLinkedToNext) {
-                                TemplateEditorEvent.SupersetUnlinked(index)
+                                TemplateEditorEvent.SupersetUnlinked(row.key)
                             } else {
-                                TemplateEditorEvent.SupersetLinked(index)
+                                TemplateEditorEvent.SupersetLinked(row.key)
                             },
                         )
                     },

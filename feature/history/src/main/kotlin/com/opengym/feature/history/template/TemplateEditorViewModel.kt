@@ -266,8 +266,8 @@ class TemplateEditorViewModel @Inject constructor(
 
             is TemplateEditorEvent.ExercisesReordered -> editDraft { draft -> draft.reorder(event.order) }
 
-            is TemplateEditorEvent.SupersetLinked -> editDraft { draft -> draft.regroup(event.index, link = true) }
-            is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.index, link = false) }
+            is TemplateEditorEvent.SupersetLinked -> editDraft { draft -> draft.regroup(event.key, link = true) }
+            is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.key, link = false) }
 
             TemplateEditorEvent.ExercisesPickRequested ->
                 editorState.update { it.copy(isPickingExercises = true) }
@@ -684,13 +684,21 @@ private fun Draft.reorder(order: List<Long>): Draft {
 }
 
 /**
- * The draft with the join below [index] made or broken.
+ * The draft with the join below the row identified by [key] made or broken.
+ *
+ * The index is resolved *here*, against the draft's own rows, rather than taken from the screen:
+ * the page is drawn in the order being dragged and the two lists differ for as long as a reorder
+ * is being applied. A key the plan no longer holds — or one that is the last row, with nothing
+ * below it to join to — is a no-op rather than a guess.
  *
  * A refused join leaves the draft alone. `Supersets.join` can only refuse a request this screen
  * cannot make — the control is drawn between two neighbours, which is the one ask that is always
  * contiguous — so there is nothing to report, only nothing to do.
  */
-private fun Draft.regroup(index: Int, link: Boolean): Draft {
+private fun Draft.regroup(key: Long, link: Boolean): Draft {
+    val index = rows.indexOfFirst { it.key == key }
+    if (index < 0 || index == rows.lastIndex) return this
+
     val grouping = rows.map(DraftRow::supersetGroup)
     val regrouped = if (link) {
         Supersets.join(grouping, index).getOrNull() ?: return this

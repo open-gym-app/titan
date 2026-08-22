@@ -254,15 +254,48 @@ class TemplateEditorViewModelTest {
     fun `joining two neighbours makes them a superset, and tapping again breaks it`() = runTest {
         val viewModel = viewModel()
 
-        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(0))
+        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
         assertEquals(
             listOf("A1", "A2", "A3"),
             viewModel.uiState.value.exercises.map { it.supersetLabel },
         )
 
-        viewModel.onEvent(TemplateEditorEvent.SupersetUnlinked(0))
+        viewModel.onEvent(TemplateEditorEvent.SupersetUnlinked(KEY_BENCH))
         assertEquals(
             listOf(null, "A1", "A2"),
+            viewModel.uiState.value.exercises.map { it.supersetLabel },
+        )
+    }
+
+    @Test
+    fun `a join is resolved against the draft's own order, not the screen's`() = runTest {
+        val viewModel = viewModel()
+
+        // The pushdown pulled to the front. The screen redraws in the new order a frame before
+        // the draft does, so an index would name a different pair on each side of that frame —
+        // the key names the same exercise on both.
+        viewModel.onEvent(
+            TemplateEditorEvent.ExercisesReordered(listOf(KEY_PUSHDOWN, KEY_BENCH, KEY_FLY)),
+        )
+        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+
+        val rows = viewModel.uiState.value.exercises
+        assertEquals(listOf("Tricep pushdown", "Bench press", "Cable fly"), rows.map { it.exercise?.name })
+        // The bench and the fly, which is what the key asked for.
+        assertEquals(listOf(null, "A1", "A2"), rows.map { it.supersetLabel })
+    }
+
+    @Test
+    fun `a join under an exercise the plan no longer holds does nothing`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_BENCH))
+        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+
+        // The fly and the pushdown are still the one superset they were, and nothing was
+        // joined to a row that is not there.
+        assertEquals(
+            listOf("A1", "A2"),
             viewModel.uiState.value.exercises.map { it.supersetLabel },
         )
     }

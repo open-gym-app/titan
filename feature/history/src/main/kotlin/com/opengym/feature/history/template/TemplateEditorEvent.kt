@@ -64,11 +64,18 @@ sealed interface TemplateEditorEvent {
      */
     data class ExercisesReordered(val order: List<Long>) : TemplateEditorEvent
 
-    /** The join below the exercise at [index] was tapped, making the two one superset. */
-    data class SupersetLinked(val index: Int) : TemplateEditorEvent
+    /**
+     * The join below the exercise identified by [key] was tapped, making the two one superset.
+     *
+     * By [key] rather than by index, for the reason [FieldChanged] and [ExerciseRemoved] are:
+     * the plan is drawn in the order being *dragged*, which is a frame ahead of the draft while
+     * a reorder is being applied, and a join resolved against the wrong list of the two joins a
+     * pair the user did not point at.
+     */
+    data class SupersetLinked(val key: Long) : TemplateEditorEvent
 
     /** The same join, tapped again: the two are no longer performed back to back. */
-    data class SupersetUnlinked(val index: Int) : TemplateEditorEvent
+    data class SupersetUnlinked(val key: Long) : TemplateEditorEvent
 
     /** "Add exercises". Records that the picker is being opened; the push is the screen's. */
     data object ExercisesPickRequested : TemplateEditorEvent

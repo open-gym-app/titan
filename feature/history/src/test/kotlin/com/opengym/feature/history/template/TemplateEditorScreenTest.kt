@@ -99,7 +99,7 @@ class TemplateEditorScreenTest {
             "Perform Bench press and Cable fly back to back",
         ).performClick()
 
-        assertEquals(listOf(TemplateEditorEvent.SupersetLinked(0)), events)
+        assertEquals(listOf(TemplateEditorEvent.SupersetLinked(1L)), events)
     }
 
     @Test
@@ -110,7 +110,7 @@ class TemplateEditorScreenTest {
             hasContentDescription("Stop performing Cable fly and Tricep pushdown back to back"),
         ).performClick()
 
-        assertEquals(listOf(TemplateEditorEvent.SupersetUnlinked(1)), events)
+        assertEquals(listOf(TemplateEditorEvent.SupersetUnlinked(2L)), events)
     }
 
     @Test
