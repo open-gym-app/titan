@@ -32,6 +32,12 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * has the problem: the bottom bar, which draws its own uppercase label rather than using this,
  * had to work around it by hand.
  *
+ * **A container that merges its descendants has to speak for itself.** A merged node carrying
+ * a description anywhere inside it is announced as that description and nothing else, so an
+ * eyebrow dropped into a `clickable` card silences the card's other text. Home's resume banner
+ * is the worked example: it carries a sentence of its own and clears the eyebrow's, so the
+ * workout's name and the line saying where it was left are still spoken.
+ *
  * @param color defaults to `onSurfaceVariant`, the quiet role for a heading that must be
  *   findable without competing with the content under it. The accent is the deliberate
  *   exception — see the note on the accent in CONTRIBUTING.md — and is worth spending on the
