@@ -188,7 +188,13 @@ class HomeViewModel @Inject constructor(
         when (event) {
             HomeEvent.DiscardRequested -> screenState.update { it.copy(confirmingDiscard = true) }
             HomeEvent.DiscardConfirmed -> discard()
-            HomeEvent.DiscardDismissed -> screenState.update { it.copy(confirmingDiscard = false) }
+            // Ignored while the delete is in flight, as `ActiveSessionViewModel` ignores its
+            // own: the dialog disables both buttons and holds its dismiss, but the invariant
+            // belongs to the layer that owns the flag rather than to the one drawing it.
+            HomeEvent.DiscardDismissed ->
+                if (!screenState.value.isDiscarding) {
+                    screenState.update { it.copy(confirmingDiscard = false) }
+                }
             HomeEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
