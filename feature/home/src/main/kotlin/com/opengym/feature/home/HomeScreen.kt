@@ -161,6 +161,11 @@ fun HomeScreen(
                     onStartEmptySession = onStartEmptySession,
                     onStartFromTemplates = onStartFromTemplates,
                     onStartFromTemplate = onStartFromTemplate,
+                    // A workout is already open, and the flow these lead into would refuse to
+                    // start a second one — `ResumeSessionDialog` is where the user finds that
+                    // out today, a screen later. Home knows now, and the banner above says so
+                    // and offers both ways out of it.
+                    enabled = state.resume == null,
                     // No week means nothing has ever been finished — see HomeUiState.week.
                     isFirstLaunch = state.week == null,
                 )

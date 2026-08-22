@@ -44,6 +44,10 @@
     <!-- Shown on a first launch, where this section is the whole screen. It says what the
          cards that are not there yet are for; it is not an empty state with a glyph on it. -->
     <string name="home_first_launch">Nothing logged yet. Start a session and your week fills in here.</string>
+    <!-- Why the two actions below are dead: a workout is still open, and the flow they lead
+         into refuses to start a second one. Points at the banner above, which is where both
+         ways out of it are. -->
+    <string name="home_quick_start_blocked">Finish or discard the workout above before starting another.</string>
     <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
     <string name="home_start_empty">Start empty session</string>
     <string name="home_start_from_template">Start from template</string>

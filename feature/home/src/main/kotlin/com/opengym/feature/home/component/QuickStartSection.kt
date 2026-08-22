@@ -70,6 +70,12 @@ import com.opengym.feature.home.R
  *
  * @param templates what the strip offers. Empty draws no strip and no heading for one, which
  *   is what a user who has never saved a template sees.
+ * @param enabled false while a workout is already open. Both actions and the strip under them
+ *   lead into the flow that sets a new session up, and that flow *refuses* while one is running — `ResumeSessionDialog`
+ *   is where the user finds that out today, a screen and a transition later. Home knows before
+ *   the tap, and the banner that knows it is directly above, offering the two ways out. The
+ *   line of prose below the heading is what says so, because a control that is dead and silent
+ *   about it is the complaint disabled controls exist to earn.
  * @param isFirstLaunch nothing has ever been logged, so this section is the whole screen. It
  *   gets one line of prose above it — not a card and not a glyph, both of which would be the
  *   empty shell this screen is built to avoid, but enough that a first launch reads as a place
@@ -82,17 +88,34 @@ fun QuickStartSection(
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     isFirstLaunch: Boolean = false,
 ) {
+    // Material fades a disabled button's container for us but not its label, because both
+    // labels here are drawn in a colour of their own — see the note on the accent above — and
+    // would otherwise sit at full strength on a greyed-out control.
+    val disabledLabel = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
     ) {
         SectionHeading(text = stringResource(R.string.home_quick_start_heading))
 
-        if (isFirstLaunch) {
+        // One line of prose above the actions, for the two states that need a word of
+        // explanation: nothing has ever been logged, or a workout is open and they are
+        // therefore out of service. A disabled control with nothing saying why is the reason
+        // disabled controls have the reputation they have. The blocked line wins where both
+        // are true — a user whose first workout is the one still running is being told the
+        // more useful of the two things.
+        val note = when {
+            !enabled -> R.string.home_quick_start_blocked
+            isFirstLaunch -> R.string.home_first_launch
+            else -> null
+        }
+        if (note != null) {
             Text(
-                text = stringResource(R.string.home_first_launch),
+                text = stringResource(note),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -100,12 +123,13 @@ fun QuickStartSection(
 
         Button(
             onClick = onStartEmptySession,
+            enabled = enabled,
             shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Eyebrow(
                 text = stringResource(R.string.home_start_empty),
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = if (enabled) MaterialTheme.colorScheme.onPrimary else disabledLabel,
                 // Three tracked words do not fit across a phone at twice the type, and an
                 // action clipped to "START EMPTY" is an action that means something else.
                 maxLines = 2,
@@ -114,13 +138,14 @@ fun QuickStartSection(
 
         OutlinedButton(
             onClick = onStartFromTemplates,
+            enabled = enabled,
             shape = MaterialTheme.shapes.small,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
                 text = stringResource(R.string.home_start_from_template),
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface else disabledLabel,
                 maxLines = 2,
                 textAlign = TextAlign.Center,
             )
@@ -145,6 +170,10 @@ fun QuickStartSection(
                     TemplateCard(
                         summary = summary,
                         onClick = { onStartFromTemplate(summary.template.id) },
+                        // The strip leads into the same flow the two actions above do, and is
+                        // refused for the same reason — a live card here would be the one
+                        // remaining way to walk into that refusal.
+                        enabled = enabled,
                     )
                 }
             }
@@ -165,3 +194,6 @@ private fun Modifier.bleed(margin: Dp) = layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.offset(horizontal = edge * 2))
     layout(placeable.width - edge * 2, placeable.height) { placeable.place(-edge, 0) }
 }
+
+/** Material's own, for the labels it does not fade — see [QuickStartSection]. */
+private const val DISABLED_ALPHA = 0.38f

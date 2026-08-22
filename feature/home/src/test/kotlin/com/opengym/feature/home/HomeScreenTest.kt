@@ -1,6 +1,7 @@
 package com.opengym.feature.home
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
@@ -9,6 +10,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WorkoutTemplate
@@ -170,6 +172,37 @@ class HomeScreenTest {
             .performClick()
 
         assertEquals(listOf(2L), startedFromTemplate)
+    }
+
+    @Test
+    fun `a workout already open takes both ways into a new one out of service`() {
+        setContent(state(resume = RUNNING))
+
+        // The flow behind them refuses to start a second session — `ResumeSessionDialog` —
+        // and Home knows that before the tap rather than a screen later.
+        composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Start from template").assertIsNotEnabled()
+        // The strip below them goes the same way, or it becomes the one live control left
+        // leading into a refusal.
+        composeTestRule
+            .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .assertIsNotEnabled()
+        // And said out loud: dead controls with nothing explaining them are worse than the
+        // round trip they save.
+        composeTestRule
+            .onNodeWithText("Finish or discard the workout above before starting another.")
+            // Scrolled to: with the banner and the week above it, the line sits below the fold
+            // of the phone-sized window these run in.
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `nothing open leaves them both live`() {
+        setContent(state(resume = null))
+
+        composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsEnabled()
+        composeTestRule.onNodeWithText("Start from template").assertIsEnabled()
     }
 
     // ─── The empty screen ───────────────────────────────────────────────────────────────

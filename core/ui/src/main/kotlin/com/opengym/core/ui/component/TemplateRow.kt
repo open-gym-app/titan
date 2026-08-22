@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -154,12 +155,16 @@ fun TemplateRow(
  *
  * @param onClick what tapping the card does. Not optional, unlike [TemplateRow]'s: a card in a
  *   scrolling strip that does nothing is a control the user will try twice.
+ * @param enabled false dims the card and takes the click off it, announcing it as disabled.
+ *   For a caller whose strip leads somewhere that is currently refusing — Home's, while a
+ *   workout is still open — where a live card is a tap that ends in a dialog saying no.
  */
 @Composable
 fun TemplateCard(
     summary: TemplateSummary,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     // Resolved before the modifier chain: `semantics` takes a plain lambda, not a composable
     // one, so the strings cannot be read inside it.
@@ -168,7 +173,12 @@ fun TemplateCard(
 
     OpenGymCard(
         shape = MaterialTheme.shapes.small,
-        modifier = modifier.widthIn(min = CARD_WIDTH_MIN, max = CARD_WIDTH_MAX),
+        modifier = modifier
+            .widthIn(min = CARD_WIDTH_MIN, max = CARD_WIDTH_MAX)
+            // One fade over the whole card rather than a disabled colour per line: the card is
+            // two texts and a border, and dimming them one at a time is three constants that
+            // have to agree.
+            .alpha(if (enabled) 1f else DISABLED_ALPHA),
     ) {
         Column(
             // The click sits *inside* the card, as [TemplateRow]'s and [ExerciseCard]'s do:
@@ -177,7 +187,7 @@ fun TemplateCard(
             // card. Before the padding, so the whole card is the target rather than the text
             // in the middle of it.
             modifier = Modifier
-                .clickable(onClickLabel = openLabel, onClick = onClick)
+                .clickable(enabled = enabled, onClickLabel = openLabel, onClick = onClick)
                 .semantics(mergeDescendants = true) { contentDescription = description }
                 .padding(OpenGymTheme.spacing.lg),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
@@ -286,6 +296,9 @@ private val MARK_SIZE = 36.dp
  */
 private val CARD_WIDTH_MIN = 140.dp
 private val CARD_WIDTH_MAX = 240.dp
+
+/** Material's own figure for disabled content — see [TemplateCard]'s `enabled`. */
+private const val DISABLED_ALPHA = 0.38f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
