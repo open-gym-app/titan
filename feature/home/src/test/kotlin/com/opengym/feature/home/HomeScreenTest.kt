@@ -51,7 +51,7 @@ class HomeScreenTest {
     fun `an open workout is drawn with its clock and where it was left`() {
         setContent(state(resume = RUNNING))
 
-        composeTestRule.onNodeWithText("RUNNING · 0:23:14").assertIsDisplayed()
+        composeTestRule.onNodeWithText("RUNNING · 23:14").assertIsDisplayed()
         composeTestRule.onNodeWithText("Push Day · Upper").assertIsDisplayed()
         composeTestRule.onNodeWithText("Bench press · set 3").assertIsDisplayed()
     }
@@ -60,7 +60,7 @@ class HomeScreenTest {
     fun `a paused workout says so rather than looking like a stopped clock`() {
         setContent(state(resume = RUNNING.copy(isPaused = true)))
 
-        composeTestRule.onNodeWithText("PAUSED · 0:23:14").assertIsDisplayed()
+        composeTestRule.onNodeWithText("PAUSED · 23:14").assertIsDisplayed()
     }
 
     @Test

@@ -21,7 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymCard
-import com.opengym.core.ui.format.formatAsElapsed
+import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.home.R
@@ -33,7 +33,7 @@ import com.opengym.feature.home.SessionPosition
  *
  * ```text
  * ┌─────────────────────────────────────────┐
- * │ RUNNING · 0:23:14                       │
+ * │ RUNNING · 23:14                         │
  * │ Push Day · Upper                        │
  * │ Bench press · set 3                     │
  * │ ┌───────────────────┐ ┌───────────────┐ │
@@ -68,6 +68,11 @@ import com.opengym.feature.home.SessionPosition
  * this workout", and two hours ago means "the phone was in my pocket on the way home". The set
  * count is the discard question's, and is asked there rather than drawn here.
  *
+ * Read as a countdown is — `23:14`, growing an hours field only when there is one — and not as
+ * the session header's `0:23:14`. The header keeps its zero hours because it is a live column
+ * that must not change width mid-workout; this is a line of prose in an eyebrow, and a leading
+ * `0:` on it is a digit the reader has to discard before the number means anything.
+ *
  * ### The card is the target, not just the button
  *
  * The title and the position line are the largest thing on the screen, and a banner offering
@@ -96,11 +101,11 @@ fun ResumeCard(
                 .padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
-            // "RUNNING · 0:23:14", or "PAUSED · 0:23:14". Which of the two it says changes
+            // "RUNNING · 23:14", or "PAUSED · 23:14". Which of the two it says changes
             // nothing about what the card offers: a paused workout is picked back up exactly
             // as a running one is, and the word is there so the clock that has stopped moving
             // does not read as a screen that has stopped updating. It is a *state* and not an
-            // action — the action is the button below, and "RESUME · 0:23:14" over a button
+            // action — the action is the button below, and "RESUME · 23:14" over a button
             // marked RESUME said the same word twice and left the state unsaid.
             val status = stringResource(
                 if (resume.isPaused) R.string.home_resume_paused else R.string.home_resume_running,
@@ -109,7 +114,7 @@ fun ResumeCard(
                 text = stringResource(
                     R.string.home_resume_eyebrow,
                     status,
-                    resume.elapsed.formatAsElapsed(),
+                    resume.elapsed.formatAsClock(),
                 ),
                 color = MaterialTheme.colorScheme.primary,
             )

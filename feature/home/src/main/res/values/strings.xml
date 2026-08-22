@@ -12,7 +12,7 @@
 
     <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
 
-    <!-- "RUNNING · 0:23:14": what the workout is doing, and how long it has been doing it.
+    <!-- "RUNNING · 23:14": what the workout is doing, and how long it has been doing it.
          A state, not an action — the button below the line is the action, and naming this
          one "Resume" too said the same word twice and left the state unsaid. -->
     <string name="home_resume_eyebrow">%1$s · %2$s</string>
