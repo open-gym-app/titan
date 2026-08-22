@@ -28,7 +28,12 @@ private val PREVIEW_WEEK_START: LocalDate = LocalDate.of(2026, 4, 27)
 /** 2026-04-29, 10:14 UTC — the day the previewed workout was opened. */
 private const val PREVIEW_STARTED_AT = 1_777_803_240_000L
 
-/** Trained Monday and Tuesday, twice on Wednesday, which is also today. */
+/**
+ * Trained Monday and Tuesday, twice on Wednesday, which is also today.
+ *
+ * Thursday onwards is therefore *ahead* of the week, and drawn as an outline rather than as
+ * four rest days the user has already failed to train on — see [WeekDay.isFuture].
+ */
 private val PREVIEW_DAYS: List<WeekDay> = List(7) { offset ->
     WeekDay(
         date = PREVIEW_WEEK_START.plusDays(offset.toLong()),
@@ -38,6 +43,7 @@ private val PREVIEW_DAYS: List<WeekDay> = List(7) { offset ->
             else -> 0
         },
         isToday = offset == 2,
+        isFuture = offset > 2,
     )
 }
 

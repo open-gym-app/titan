@@ -1,5 +1,6 @@
 package com.opengym.core.ui.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -30,6 +31,7 @@ import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatDayOfMonth
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.weekdayInitial
+import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.OpenGymTheme
 import java.time.LocalDate
 
@@ -39,7 +41,7 @@ import java.time.LocalDate
  * ```text
  * M   T   W   T   F   S   S
  * 27  28  29  30  1   2   3
- * ▓   ▓   ░   ░   ░   ░   ░
+ * ▓   ▓   ░   ░   ·   ·   ·
  * ```
  *
  * [TrainingCalendar]'s row, on its own and without the month around it: the home screen shows
@@ -48,6 +50,13 @@ import java.time.LocalDate
  * screens end up disagreeing about which days count as trained — and built from the same
  * colour pairs, the same radius and the same today ring, so the strip and the grid read as the
  * same instrument at two lengths.
+ *
+ * ### Three states, not two: trained, skipped, and not yet
+ *
+ * A day that has not happened is drawn as an outline rather than as a filled cell, because a
+ * week is read on the Monday morning it starts as often as on the Sunday night it ends, and a
+ * strip that paints the whole week as rest days tells that user they have already lost it.
+ * Nothing about Friday is true yet, so Friday says nothing — see [WeekDay.isFuture].
  *
  * ### One shade of trained, where the calendar has two
  *
@@ -110,26 +119,38 @@ fun WeekStrip(
 @Composable
 private fun RowScope.DayCell(day: WeekDay, modifier: Modifier = Modifier) {
     val trained = day.sessionCount > 0
-    val container: Color = if (trained) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surfaceContainer
+    val container: Color = when {
+        trained -> MaterialTheme.colorScheme.primaryContainer
+        // No fill at all for a day that has not happened. The filled `surfaceContainer` cell
+        // is a statement — this day went by without a workout — and it is not one the app can
+        // make about Friday on a Monday.
+        day.isFuture -> Color.Transparent
+        else -> MaterialTheme.colorScheme.surfaceContainer
     }
-    val content: Color = if (trained) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else {
-        MaterialTheme.colorScheme.outline
+    val content: Color = when {
+        trained -> MaterialTheme.colorScheme.onPrimaryContainer
+        day.isFuture -> MaterialTheme.colorScheme.outlineVariant
+        else -> MaterialTheme.colorScheme.outline
+    }
+    // Today's ruled ring, or the hairline that gives an unfilled cell its edge back. Never
+    // both: today has happened, so it is never the future one.
+    val ring: BorderStroke? = when {
+        day.isToday -> BorderStroke(TODAY_RING, MaterialTheme.colorScheme.onSurface)
+        day.isFuture -> BorderStroke(HAIRLINE_WIDTH, MaterialTheme.colorScheme.outlineVariant)
+        else -> null
     }
 
-    val spoken = if (trained) {
-        pluralStringResource(
+    val spoken = when {
+        trained -> pluralStringResource(
             R.plurals.calendar_day_sessions,
             day.sessionCount,
             formatSessionDate(day.date),
             day.sessionCount,
         )
-    } else {
-        stringResource(R.string.calendar_day_rest, formatSessionDate(day.date))
+        // "Fri 1 May 2026, rest day" for a day nobody has had the chance to train on yet is
+        // the drawn cell's lie, said out loud.
+        day.isFuture -> stringResource(R.string.calendar_day_upcoming, formatSessionDate(day.date))
+        else -> stringResource(R.string.calendar_day_rest, formatSessionDate(day.date))
     }
 
     Box(
@@ -138,12 +159,8 @@ private fun RowScope.DayCell(day: WeekDay, modifier: Modifier = Modifier) {
             .aspectRatio(1f)
             .background(color = container, shape = MaterialTheme.shapes.extraSmall)
             .then(
-                if (day.isToday) {
-                    Modifier.border(
-                        width = TODAY_RING,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        shape = MaterialTheme.shapes.extraSmall,
-                    )
+                if (ring != null) {
+                    Modifier.border(border = ring, shape = MaterialTheme.shapes.extraSmall)
                 } else {
                     Modifier
                 },
@@ -169,12 +186,17 @@ private fun RowScope.DayCell(day: WeekDay, modifier: Modifier = Modifier) {
  * @param isToday draws the cell with a ruled outline. Passed rather than read off a clock in
  *   here, for the reason [SessionRow] takes `isToday` — a component that read the date itself
  *   would render differently on the day a screenshot was recorded and every day after it.
+ * @param isFuture the day has not happened yet: drawn as an outline rather than as a filled
+ *   cell, and announced as upcoming rather than as a rest day. Passed for the same reason
+ *   [isToday] is, and separately from it because "not trained" and "not yet" are different
+ *   facts that a `sessionCount` of zero cannot tell apart.
  */
 @Immutable
 data class WeekDay(
     val date: LocalDate,
     val sessionCount: Int = 0,
     val isToday: Boolean = false,
+    val isFuture: Boolean = false,
 )
 
 /** Twice the hairline, so today reads as marked rather than as a cell with a border. */
@@ -184,17 +206,14 @@ private val TODAY_RING = 2.dp
 
 private val PREVIEW_MONDAY: LocalDate = LocalDate.of(2026, 4, 27)
 
-/** Trained on Monday, Wednesday and twice on Saturday; today is Wednesday. */
+/** Trained on Monday and Wednesday, today is Wednesday, and the rest of the week is ahead. */
 private val PREVIEW_WEEK: List<WeekDay> = List(7) { offset ->
     val date = PREVIEW_MONDAY.plusDays(offset.toLong())
     WeekDay(
         date = date,
-        sessionCount = when (offset) {
-            0, 2 -> 1
-            5 -> 2
-            else -> 0
-        },
+        sessionCount = if (offset == 0 || offset == 2) 1 else 0,
         isToday = offset == 2,
+        isFuture = offset > 2,
     )
 }
 
@@ -223,7 +242,17 @@ private fun WeekStripCatalogue() {
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
         WeekStrip(days = PREVIEW_WEEK)
-        // A week nothing has happened in yet, which is what Monday morning looks like.
-        WeekStrip(days = PREVIEW_WEEK.map { it.copy(sessionCount = 0) })
+        // Monday morning: one day to be judged on and six the week has not reached.
+        WeekStrip(
+            days = PREVIEW_WEEK.mapIndexed { offset, day ->
+                day.copy(sessionCount = 0, isToday = offset == 0, isFuture = offset > 0)
+            },
+        )
+        // The week from its far end, where every cell has happened and three were skipped.
+        WeekStrip(
+            days = PREVIEW_WEEK.mapIndexed { offset, day ->
+                day.copy(isToday = offset == 6, isFuture = false)
+            },
+        )
     }
 }

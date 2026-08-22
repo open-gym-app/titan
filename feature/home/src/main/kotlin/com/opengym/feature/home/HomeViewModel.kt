@@ -421,6 +421,10 @@ class HomeViewModel @Inject constructor(
  * The session still in progress is not counted. It is drawn by the banner above, and counting
  * a workout that has not happened yet would put a filled square on today for somebody who has
  * so far only pressed START.
+ *
+ * All seven days are built, including the ones still ahead — the strip is a week and not a
+ * week-so-far — and each of those is marked [WeekDay.isFuture] so it is drawn and announced as
+ * a day that has not happened rather than as one that was skipped.
  */
 private fun List<WorkoutSession>.weekOf(today: LocalDate, weekStart: DayOfWeek): WeekState? {
     val logged = filterNot(WorkoutSession::isInProgress)
@@ -436,6 +440,10 @@ private fun List<WorkoutSession>.weekOf(today: LocalDate, weekStart: DayOfWeek):
             date = date,
             sessionCount = counts[date] ?: 0,
             isToday = date == today,
+            // The days the week has not reached. Without this the strip cannot tell a day
+            // that was skipped from one that has not happened, and a user opening the app on
+            // Monday morning reads six rest days and a week already lost — see [WeekDay].
+            isFuture = date.isAfter(today),
         )
     }
 

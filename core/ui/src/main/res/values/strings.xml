@@ -373,6 +373,9 @@
         <item quantity="other">%1$s, %2$d sessions</item>
     </plurals>
     <string name="calendar_day_rest">%1$s, rest day</string>
+    <!-- A day the week has not reached. Distinct from a rest day on purpose: nobody has
+         skipped a workout they have not had the chance to do yet. -->
+    <string name="calendar_day_upcoming">%1$s, upcoming</string>
     <!-- What tapping a trained day does, as the click's own label. -->
     <string name="calendar_day_open">Show this day</string>
 

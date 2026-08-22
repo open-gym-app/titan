@@ -248,6 +248,19 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `the days the week has not reached are marked, today is not one of them`() = runTest {
+        sessions.setSessions(listOf(loggedSession(1, MONDAY)))
+
+        val week = requireNotNull(viewModel().uiState.value.week)
+
+        // Without this the strip cannot tell a day that was skipped from one that has not
+        // happened, and a Monday morning reads as a week already lost — see WeekStrip.
+        assertTrue(week.days.single { it.date == TOMORROW }.isFuture)
+        assertFalse(week.days.single { it.date == TODAY }.isFuture)
+        assertFalse(week.days.single { it.date == MONDAY }.isFuture)
+    }
+
+    @Test
     fun `two sessions on one day count twice on one cell`() = runTest {
         sessions.setSessions(listOf(loggedSession(1, TODAY), loggedSession(2, TODAY)))
 

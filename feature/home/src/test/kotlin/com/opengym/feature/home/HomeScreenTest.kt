@@ -219,6 +219,18 @@ class HomeScreenTest {
         composeTestRule.onNodeWithContentDescription("$thursday, rest day").assertIsDisplayed()
     }
 
+    @Test
+    fun `a day the week has not reached is not a rest day`() {
+        setContent(state())
+
+        // Nobody has skipped a workout they have not had the chance to do yet, and a strip
+        // that says otherwise reads as a week already lost — see WeekStrip.
+        val sunday = formatSessionDate(WEEK.last().date)
+
+        composeTestRule.onNodeWithContentDescription("$sunday, upcoming").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("$sunday, rest day").assertDoesNotExist()
+    }
+
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
 
     private fun setContent(state: HomeUiState) {
@@ -245,13 +257,19 @@ class HomeScreenTest {
     )
 
     private companion object {
-        /** The week of Monday 27 April 2026: trained Monday, Wednesday and Saturday. */
+        /**
+         * The week of Monday 27 April 2026: trained Monday, Wednesday and Saturday.
+         *
+         * Today is that Saturday, which leaves the Sunday after it as a day the week has not
+         * reached — the one cell that must not read as a rest day.
+         */
         val WEEK: List<WeekDay> = List(7) { offset ->
             val date = LocalDate.of(2026, 4, 27).plusDays(offset.toLong())
             WeekDay(
                 date = date,
                 sessionCount = if (offset in listOf(0, 2, 5)) 1 else 0,
-                isToday = offset == 2,
+                isToday = offset == 5,
+                isFuture = offset > 5,
             )
         }
 
