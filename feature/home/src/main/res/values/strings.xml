@@ -18,6 +18,9 @@
     <string name="home_resume_eyebrow">%1$s · %2$s</string>
     <string name="home_resume_running">Running</string>
     <string name="home_resume_paused">Paused</string>
+    <!-- The banner as one spoken sentence: "Running · 23:14, Push Day · Upper, Bench press ·
+         set 3". Applied twice where there is a position to add, the way a template's is. -->
+    <string name="home_resume_description">%1$s, %2$s</string>
     <!-- Where the user left off: "Bench press · set 3" — the set they came back to do. -->
     <string name="home_resume_position">%1$s · set %2$d</string>
     <string name="home_resume_action">Resume</string>

@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymCard
@@ -79,6 +82,13 @@ import com.opengym.feature.home.SessionPosition
  * one obvious action should take a tap anywhere on it. The button stays as the explicit
  * affordance, and the nested `Discard` keeps its own: a tap that lands on either of them is
  * that button's, and only the space around them falls through to the card.
+ *
+ * That click also makes the card **one node** to a screen reader, which is why it carries a
+ * sentence of its own: a merged node with a description anywhere inside it is read as that
+ * description and nothing else, so the eyebrow's would have silenced the workout's name and
+ * the line saying where it was left. Set with `semantics` rather than `clearAndSetSemantics` —
+ * clearing takes the two buttons inside the card out of the tree with it, and they are the
+ * whole point of the banner.
  */
 @Composable
 fun ResumeCard(
@@ -87,6 +97,10 @@ fun ResumeCard(
     onDiscard: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Resolved before the modifier chain: `semantics` takes a plain lambda, not a composable
+    // one, so the strings cannot be read inside it.
+    val spoken = resume.spokenDescription()
+
     OpenGymCard(accented = true, modifier = modifier.fillMaxWidth()) {
         Column(
             // Inside the card and before the padding, the way a template card's click is
@@ -98,6 +112,7 @@ fun ResumeCard(
                     onClickLabel = stringResource(R.string.home_resume_action),
                     onClick = onResume,
                 )
+                .semantics(mergeDescendants = true) { contentDescription = spoken }
                 .padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
@@ -110,18 +125,23 @@ fun ResumeCard(
             val status = stringResource(
                 if (resume.isPaused) R.string.home_resume_paused else R.string.home_resume_running,
             )
+            val eyebrow = stringResource(
+                R.string.home_resume_eyebrow,
+                status,
+                resume.elapsed.formatAsClock(),
+            )
+            val title = resume.name ?: formatSessionDate(resume.startedAt)
             Eyebrow(
-                text = stringResource(
-                    R.string.home_resume_eyebrow,
-                    status,
-                    resume.elapsed.formatAsClock(),
-                ),
+                text = eyebrow,
                 color = MaterialTheme.colorScheme.primary,
+                // Its own description would be merged into the card's beside the sentence
+                // above, which already opens with this line.
+                modifier = Modifier.clearAndSetSemantics { },
             )
             Text(
                 // The same fallback the workout's own header uses, so a session started
                 // unnamed is called the same thing here as on the screen this opens.
-                text = resume.name ?: formatSessionDate(resume.startedAt),
+                text = title,
                 style = MaterialTheme.typography.titleLarge,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -144,6 +164,26 @@ fun ResumeCard(
             )
         }
     }
+}
+
+/**
+ * The banner as one sentence: what the workout is doing and for how long, what it is called,
+ * and where it was left.
+ *
+ * The same three things the card draws, in the same order, which is what makes the merged node
+ * worth listening to rather than a description that says less than the pixels do.
+ */
+@Composable
+private fun ResumeState.spokenDescription(): String {
+    val status = stringResource(if (isPaused) R.string.home_resume_paused else R.string.home_resume_running)
+    val opening = stringResource(
+        R.string.home_resume_description,
+        stringResource(R.string.home_resume_eyebrow, status, elapsed.formatAsClock()),
+        name ?: formatSessionDate(startedAt),
+    )
+
+    return position?.let { stringResource(R.string.home_resume_description, opening, it.label()) }
+        ?: opening
 }
 
 /**

@@ -53,16 +53,29 @@ class HomeScreenTest {
     fun `an open workout is drawn with its clock and where it was left`() {
         setContent(state(resume = RUNNING))
 
-        composeTestRule.onNodeWithText("RUNNING · 23:14").assertIsDisplayed()
         composeTestRule.onNodeWithText("Push Day · Upper").assertIsDisplayed()
         composeTestRule.onNodeWithText("Bench press · set 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the banner is one sentence, not a clock on its own`() {
+        setContent(state(resume = RUNNING))
+
+        // Tapping the card makes it a single node to a screen reader, and a merged node with
+        // a description in it is announced as that description and nothing else — so the
+        // card's own has to carry everything the card draws. See ResumeCard.
+        composeTestRule
+            .onNodeWithContentDescription("Running · 23:14, Push Day · Upper, Bench press · set 3")
+            .assertIsDisplayed()
     }
 
     @Test
     fun `a paused workout says so rather than looking like a stopped clock`() {
         setContent(state(resume = RUNNING.copy(isPaused = true)))
 
-        composeTestRule.onNodeWithText("PAUSED · 23:14").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Paused · 23:14, Push Day · Upper, Bench press · set 3")
+            .assertIsDisplayed()
     }
 
     @Test
