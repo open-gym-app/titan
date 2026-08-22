@@ -167,7 +167,7 @@ class OpenGymAppNavigationTest {
     }
 
     @Test
-    fun `re-tapping the library tab rebuilds it, which is what puts it back to the top`() {
+    fun `pressing the tab you are already on leaves it exactly as it was`() {
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
         composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
@@ -175,26 +175,27 @@ class OpenGymAppNavigationTest {
 
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
 
-        // The library's root *is* its tab, so there is nothing to pop back to and the re-tap
-        // would look inert. What it actually does is drop the entry and push a fresh one, so
-        // the screen is rebuilt with no scroll position to restore — which is what puts a
-        // long list back at the top. The search box closing on what was typed in it is the
-        // visible half of that same fact.
-        composeTestRule.onNodeWithText(QUERY).assertDoesNotExist()
-        composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).assertDoesNotExist()
+        // Inert, and that is the whole of it: the bar does not navigate to where the user
+        // already is. The open search box with what was typed in it still on screen is the
+        // visible proof that the entry was never popped and rebuilt — the tab is not reset,
+        // not re-animated, and nothing the user had is spent on a press that asked for no
+        // movement.
+        composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).assertIsSelected()
     }
 
     @Test
-    fun `a second tap on a tab that is still arriving is not a reselection`() {
+    fun `a hammered bar does not tear down the tab it is arriving at`() {
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.onNodeWithContentDescription(LIBRARY_SEARCH).performClick()
         composeTestRule.onNodeWithText(LIBRARY_SEARCH_PLACEHOLDER).performTextInput(QUERY)
         composeTestRule.onNodeWithContentDescription(TAB_STATS).performClick()
 
-        // The clock is stopped so the second tap lands where a hammered bar puts it: after the
-        // navigation has been dispatched, before the animation into the tab has finished. This
-        // is the whole of the bug — `currentDestination` says Library the instant `navigate`
-        // returns, so without the guard the second tap reads as "you are already here".
+        // The clock is stopped so the extra taps land where a hammered bar puts them: after
+        // the navigation has been dispatched, before the animation into the tab has finished.
+        // `currentDestination` says Library the instant `navigate` returns, so every tap after
+        // the first is a press on the tab the user is already in — which is now a press that
+        // does nothing rather than one that rebuilds a tab mid-arrival.
         composeTestRule.mainClock.autoAdvance = false
         composeTestRule.onNodeWithContentDescription(TAB_LIBRARY).performClick()
         composeTestRule.mainClock.advanceTimeBy(MID_TRANSITION_MILLIS)
@@ -202,10 +203,8 @@ class OpenGymAppNavigationTest {
         composeTestRule.mainClock.autoAdvance = true
         composeTestRule.waitForIdle()
 
-        // The tab the user was switching to, restored as the first tap asked for. Unguarded,
-        // the second tap resets it instead: the search closes on what was typed in it, and on
-        // screen the arrival is cut short by the reset's vertical slide over a tab being torn
-        // down and rebuilt — which is what a spammed bar looks like.
+        // The tab the user was switching to, restored as the first tap asked for and left
+        // alone by the rest.
         composeTestRule.onNodeWithText(QUERY).assertIsDisplayed()
     }
 
@@ -239,8 +238,8 @@ class OpenGymAppNavigationTest {
      * none for such a screen surviving a tab switch. Nothing in the app is one any more: the
      * session recap was the last, and #27 moved it out to the top level alongside the exercise
      * detail. The rules those tests covered are still in `OpenGymAppState` and are still
-     * exercised — `saveState`/`restoreState` by the tab-state test below, the reselection
-     * inversion by the library's re-tap test above — and #24 gives the Sessions tab three
+     * exercised — `saveState`/`restoreState` by the tab-state test below, the guard on the
+     * active tab by the two tests above — and #24 gives the Sessions tab three
      * destinations of its own to put the hierarchy walk back under test.
      */
 

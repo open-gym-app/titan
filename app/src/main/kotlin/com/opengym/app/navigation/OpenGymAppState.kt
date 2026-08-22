@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.remember
-import androidx.lifecycle.Lifecycle
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -50,58 +49,39 @@ class OpenGymAppState(val navController: NavHostController) {
      *   tab's id;
      * - `restoreState = true` puts the arriving tab's filed stack back, so returning to the
      *   Library lands on the search the user had open rather than on a fresh list;
-     * - `launchSingleTop` stops re-tapping the current tab from stacking a second copy of it.
+     * - `launchSingleTop` stops a tab from stacking a second copy of itself.
      *
      * Drop any one and the bar stops behaving like tabs: without the first the back stack
      * grows without bound as the user browses, without the second every tab resets on every
      * visit.
      *
-     * **Except when the tab is already the one you are in.** Then it is not a switch at all:
-     * the tab is popped and pushed back, saving and restoring nothing, and that is the whole
-     * of "tap the active tab to go back to the top" — a re-tap on the Library from a filtered,
-     * searched list lands on a fresh one, because the entry the search lived on is gone.
+     * **Pressing the tab you are already in does nothing.** Not "nothing visible" — the call
+     * returns before the navigator is touched, so the entry the user is looking at is never
+     * popped, never rebuilt, and never re-animated. A bottom bar is a statement of where you
+     * are as much as a way to move, and the answer to "take me to Home" while Home is on
+     * screen is that you are there. Anything else spends a screen teardown, a lost scroll
+     * position and an animation on a press that asked for no movement, and a bar that is
+     * hammered or double-tapped does it repeatedly — which is what made the shell look broken.
      *
-     * The pop is of *this tab's own graph*, inclusively, and it has to be. Popping to the
-     * app's start destination instead leaves Home — which is that start destination — with
-     * nothing above it to pop, so `launchSingleTop` swaps the entry out in place; the outgoing
-     * entry never becomes a transition, `NavHost` finds it missing from its visible entries
-     * and falls back to a `ContentTransform` whose default `SizeTransform` wipes the screen
-     * open from its top-left corner. That wipe is the one animation in the app nothing asked
-     * for, and it is the reason a hammered Home button looks broken. Popping the tab's graph
-     * makes every tab take the same path Sessions, Library and Stats already took, which is
-     * the path where [NavMotion.RESET] — deliberately nothing — is what gets drawn.
+     * This deliberately gives up "tap the active tab to jump back to the top", the reselection
+     * gesture Material's `NavigationBar` documents. It bought one thing here — a re-tap on the
+     * Library closing a search and rewinding a long list — at the cost of every tab being a
+     * screen the user can destroy by pressing the button that says they are already on it.
+     * Nothing in the app is more than one destination deep inside its tab today, so the
+     * gesture had nothing else to pop; the screens that scroll far enough to want it are
+     * better served by a scroll-to-top of their own than by a rebuild.
      *
-     * This is a deliberate exception to "returning to a tab resumes where you left it",
-     * because they answer different questions. Arriving from elsewhere, the user is coming
-     * back to what they were doing. Pressing the tab they are already on, they are asking for
-     * the one thing that press could otherwise never do.
-     *
-     * **And only once they are actually on it.** A tab the shell is still animating *into* is
-     * not a tab the user is on, but the back stack says it is the moment `navigate` returns —
-     * so the second tap of a double tap reads as a reselection and resets a screen that has
-     * not finished arriving. That is what the bar does when its buttons are hammered: every
-     * tap after the first tears the tab down and rebuilds it mid-arrival, cutting the fade
-     * short and starting it again from a screen that was never on screen. An entry reaches
-     * `RESUMED` only once its enter transition has completed, which is precisely the question,
-     * and a tap that arrives before then is the one the shell is already carrying out.
+     * The guard reads the *hierarchy*, via [ShellChrome], and not the current destination: a
+     * screen pushed inside a tab (#24) is still that tab, and the bar shows it as selected, so
+     * pressing it there is the same press.
      */
     fun navigateToTopLevelDestination(topLevelDestination: TopLevelDestination) {
-        val currentEntry = navController.currentBackStackEntry
-        val isCurrentTab =
-            ShellChrome.of(currentEntry?.destination).currentTopLevelDestination ==
-                topLevelDestination
-        val hasArrived =
-            currentEntry?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) == true
-
-        if (isCurrentTab && !hasArrived) return
+        val current = ShellChrome.of(navController.currentBackStackEntry?.destination)
+        if (current.currentTopLevelDestination == topLevelDestination) return
 
         navController.navigate(topLevelDestination.graphDestination) {
-            if (isCurrentTab) {
-                popUpTo(topLevelDestination.graphDestination) { inclusive = true }
-            } else {
-                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                restoreState = true
-            }
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            restoreState = true
             launchSingleTop = true
         }
     }
