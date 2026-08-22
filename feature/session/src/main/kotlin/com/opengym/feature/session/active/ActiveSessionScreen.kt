@@ -45,6 +45,7 @@ import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.timer.RestTimerState
+import com.opengym.core.ui.component.DiscardSessionDialog
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.ReorderState
@@ -62,7 +63,6 @@ import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.component.CollapsedExerciseRow
-import com.opengym.feature.session.active.component.DiscardSessionDialog
 import com.opengym.feature.session.active.component.SessionExerciseCard
 import com.opengym.feature.session.active.component.SupersetLink
 import kotlinx.coroutines.flow.first

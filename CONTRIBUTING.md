@@ -160,6 +160,7 @@ Text(
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END, and — on a line of its own above the progress rail — the rest countdown as a pill and a bar | a name, an elapsed `Duration`, a `SessionProgress`, an optional `RestTimerState` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
+  | `DiscardSessionDialog` | the question a workout is thrown away through, with the count of what it costs in it. Asked from the workout itself and from Home's resume banner | how many sets go with it |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
@@ -174,8 +175,10 @@ Text(
   | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
   | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
   | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip | `TemplateSummary` |
+  | `TemplateCard` | the same template as a fixed-width card, for a strip that scrolls sideways. Shares the row's figures, so the two cannot disagree | `TemplateSummary` |
   | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
+  | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
   | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |

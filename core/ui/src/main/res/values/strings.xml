@@ -223,6 +223,9 @@
     <string name="template_description">%1$s, %2$s</string>
     <string name="template_description_category">%1$s, %2$s, %3$s</string>
 
+    <!-- What tapping a quick-start card does, as the click's own label. -->
+    <string name="template_start">Start from this template</string>
+
     <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
 
     <string name="rest_timer_running">Rest</string>
@@ -372,5 +375,19 @@
     <string name="calendar_day_rest">%1$s, rest day</string>
     <!-- What tapping a trained day does, as the click's own label. -->
     <string name="calendar_day_open">Show this day</string>
+
+    <!-- ── Discarding a session ───────────────────────────────────────────────────── -->
+
+    <!-- The discard confirmation, asked by the workout screen and by the home screen's
+         resume banner. The count is in the question because "discard this session?" is a
+         different question when the answer costs eleven sets. -->
+    <string name="discard_session_title">Discard this workout?</string>
+    <plurals name="discard_session_body">
+        <item quantity="one">%1$d logged set will be deleted. This cannot be undone.</item>
+        <item quantity="other">%1$d logged sets will be deleted. This cannot be undone.</item>
+    </plurals>
+    <string name="discard_session_body_empty">Nothing has been logged yet, so nothing will be lost.</string>
+    <string name="discard_session_confirm">Discard</string>
+    <string name="discard_session_cancel">Keep training</string>
 
 </resources>

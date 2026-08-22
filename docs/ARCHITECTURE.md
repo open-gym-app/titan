@@ -208,7 +208,7 @@ fun NavGraphBuilder.homeGraph(
 // :app — the only module that knows both sides of the edge
 NavHost(navController = navController, startDestination = HomeDestination) {
     homeGraph(
-        onStartEmptySession = { navController.navigate(NewSessionDestination) },
+        onStartEmptySession = { navController.navigate(NewSessionDestination(pickExercises = true)) },
         onResumeSession = { id -> navController.navigate(ActiveSessionDestination(id)) },
     )
     sessionGraph(

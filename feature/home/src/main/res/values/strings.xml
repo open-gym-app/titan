@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the home screen.
+
+  Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
+  uppercases for the caller, so a translator is never asked to reproduce a typographic
+  treatment.
+
+  The screen's own title is not here — the tab bar's shell draws it, from `:app`.
+-->
+<resources>
+
+    <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
+
+    <!-- "RESUME · 00:23:14": what the workout is doing, and how long it has been doing it. -->
+    <string name="home_resume_eyebrow">%1$s · %2$s</string>
+    <string name="home_resume_running">Resume</string>
+    <string name="home_resume_paused">Paused</string>
+    <!-- Where the user left off: "Bench press · set 3 of 4". -->
+    <string name="home_resume_position">%1$s · set %2$d of %3$d</string>
+    <string name="home_resume_action">Resume</string>
+    <string name="home_resume_discard">Discard</string>
+
+    <!-- The workout is still there and still in the way, which is why this is said rather
+         than shown as a banner going away. -->
+    <string name="home_discard_failed">That workout could not be discarded. It is still open.</string>
+
+    <!-- ── This week ─────────────────────────────────────────────────────────────── -->
+
+    <string name="home_week_heading">This week</string>
+    <plurals name="home_week_sessions">
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
+    </plurals>
+
+    <!-- ── Quick start ───────────────────────────────────────────────────────────── -->
+
+    <string name="home_quick_start_heading">Quick start</string>
+    <!-- Shown on a first launch, where this section is the whole screen. It says what the
+         cards that are not there yet are for; it is not an empty state with a glyph on it. -->
+    <string name="home_first_launch">Nothing logged yet. Start a session and your week fills in here.</string>
+    <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
+    <string name="home_start_empty">Start empty session</string>
+    <string name="home_start_from_template">Start from template</string>
+
+</resources>

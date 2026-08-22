@@ -25,6 +25,7 @@ import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.progression.navigation.progressionGraph
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import com.opengym.feature.session.navigation.ExercisePicker
+import com.opengym.feature.session.navigation.NO_TEMPLATE
 import com.opengym.feature.session.navigation.NewSessionDestination
 import com.opengym.feature.session.navigation.SessionGraphDestination
 import com.opengym.feature.session.navigation.SessionSummaryDestination
@@ -84,13 +85,25 @@ fun OpenGymNavHost(
     ) {
         navigation<TabsGraphDestination>(startDestination = HomeGraphDestination) {
             homeGraph(
-                // `launchSingleTop` because the trigger is a full-width primary button. Two
-                // taps dispatched before recomposition would push two nested session graphs,
-                // and [exitSessionFlow] pops only the innermost — so CANCEL, or DONE at the
-                // end of a real workout, would leave the user inside a second copy of the
-                // flow with both bars hidden and no way out but the system back gesture.
-                onStartSession = {
-                    navController.navigate(SessionGraphDestination) { launchSingleTop = true }
+                // Straight into the workout, not through the flow that sets one up: the
+                // session already exists, and `ActiveSessionViewModel` is what picks it back
+                // up. Navigating to a destination *inside* the session graph puts the graph on
+                // the back stack around it, so [exitSessionFlow] still takes the user out of
+                // the mode from there.
+                onResumeSession = { sessionId ->
+                    navController.navigate(ActiveSessionDestination(sessionId)) {
+                        launchSingleTop = true
+                    }
+                },
+                // The three ways into setup, which differ only in where the flow opens — see
+                // [NewSessionDestination]. `launchSingleTop` on all of them because the
+                // triggers are full-width buttons and a scrolling strip of cards: two taps
+                // dispatched before recomposition are two pushes of the same screen, and the
+                // first back press then looks like it did nothing.
+                onStartEmptySession = { navController.openSetup(pickExercises = true) },
+                onStartFromTemplates = { navController.openSetup() },
+                onStartFromTemplate = { templateId ->
+                    navController.openSetup(templateId = templateId)
                 },
             )
             historyGraph(
@@ -108,12 +121,9 @@ fun OpenGymNavHost(
                         launchSingleTop = true
                     }
                 },
-                // The same move the home screen's primary button makes, and `launchSingleTop`
-                // for the same reason: two taps dispatched before recomposition would push two
-                // nested session graphs, and [exitSessionFlow] pops only the innermost.
-                onStartSession = {
-                    navController.navigate(SessionGraphDestination) { launchSingleTop = true }
-                },
+                // The same move Home's template action makes, through the same helper: the
+                // session list has no template in hand either, so the flow opens on its list.
+                onStartSession = { navController.openSetup() },
             )
             libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
             progressionGraph()
@@ -239,6 +249,25 @@ private fun NavHostController.openExercise(exerciseId: Long, addToSession: Boole
  */
 private fun NavHostController.openPlateCalculator(target: Long = NO_SUGGESTED_TARGET) {
     navigate(PlateCalculatorDestination(target)) { launchSingleTop = true }
+}
+
+/**
+ * Open the flow that sets a workout up, at the step the caller asked for.
+ *
+ * One function for every entry into it, because it is one destination: Home's two quick-start
+ * actions and its template strip differ only in the arguments — see [NewSessionDestination].
+ *
+ * `launchSingleTop` for the reason every other push here has it: two taps dispatched before
+ * recomposition are two pushes of the same screen, and the first back press then looks like it
+ * did nothing.
+ */
+private fun NavHostController.openSetup(
+    templateId: Long = NO_TEMPLATE,
+    pickExercises: Boolean = false,
+) {
+    navigate(NewSessionDestination(templateId = templateId, pickExercises = pickExercises)) {
+        launchSingleTop = true
+    }
 }
 
 /**
