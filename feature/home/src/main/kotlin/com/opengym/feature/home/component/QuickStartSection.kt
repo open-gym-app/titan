@@ -12,8 +12,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.offset
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.SectionHeading
@@ -58,6 +61,12 @@ import com.opengym.feature.home.R
  * It holds the handful the ViewModel cut it to, and tapping one goes straight to that
  * template's ready-to-start panel — the template step of #25's flow, skipped past. The way to
  * *all* the templates is the action above it, which opens the picker built for choosing.
+ *
+ * It also **runs off the edge of the screen**, which is the only thing that says a row scrolls
+ * before anybody has touched it: the screen's margin is moved out of the column and into the
+ * row's own content padding, so the first card still lines up with the buttons above it while
+ * the next one is visibly cut by the edge. Kept on the margin, two cards fit a phone exactly
+ * and the strip reads as two cards and nothing more.
  *
  * @param templates what the strip offers. Empty draws no strip and no heading for one, which
  *   is what a user who has never saved a template sees.
@@ -119,11 +128,18 @@ fun QuickStartSection(
 
         if (templates.isNotEmpty()) {
             LazyRow(
+                // Out to the screen's edges, and the margin the column would have given it
+                // handed to the row itself. The cards still start on the margin; what changes
+                // is what happens at the other end, where the next one is now cut by the edge
+                // instead of stopping short of it.
+                modifier = Modifier.bleed(OpenGymTheme.spacing.screen),
                 horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
                 // A hair of vertical padding so the cards' borders are not clipped by the
-                // row's own bounds; the horizontal margin is the screen's, applied by the
-                // column above.
-                contentPadding = PaddingValues(vertical = OpenGymTheme.spacing.xs),
+                // row's own bounds.
+                contentPadding = PaddingValues(
+                    horizontal = OpenGymTheme.spacing.screen,
+                    vertical = OpenGymTheme.spacing.xs,
+                ),
             ) {
                 items(items = templates, key = { it.template.id }) { summary ->
                     TemplateCard(
@@ -134,4 +150,18 @@ fun QuickStartSection(
             }
         }
     }
+}
+
+/**
+ * Let a child spill [margin] past each side of its parent.
+ *
+ * The screen's margin lives on Home's own column, which is what keeps every block on it lined
+ * up; a horizontally scrolling row is the one child that wants the full width anyway. Measured
+ * against constraints widened by both margins and then *reported* at the width the column laid
+ * out for, so the column is not itself pushed off the screen by a child that is wider than it.
+ */
+private fun Modifier.bleed(margin: Dp) = layout { measurable, constraints ->
+    val edge = margin.roundToPx()
+    val placeable = measurable.measure(constraints.offset(horizontal = edge * 2))
+    layout(placeable.width - edge * 2, placeable.height) { placeable.place(-edge, 0) }
 }
