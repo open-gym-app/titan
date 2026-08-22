@@ -264,15 +264,20 @@ private fun NavHostController.openPlateCalculator(target: Long = NO_SUGGESTED_TA
  * One function for every entry into it, because it is one destination: Home's two quick-start
  * actions and its template strip differ only in the arguments — see [NewSessionDestination].
  *
- * `launchSingleTop` for the reason every other push here has it: two taps dispatched before
- * recomposition are two pushes of the same screen, and the first back press then looks like it
- * did nothing.
+ * **`launchSingleTop` is not enough on its own here**, unlike everywhere else in this file: it
+ * collapses a push only when the route *and its arguments* match the entry already on top, and
+ * these differ by argument by design. Two taps dispatched before recomposition — two fingers
+ * landing on two different cards of the quick-start strip — are therefore two setup screens,
+ * and the first back press looks like it did nothing. Popping any setup entry already on the
+ * stack is what makes the flow single-instance whichever way it was opened, and it is a no-op
+ * the ordinary time, when there is none.
  */
 private fun NavHostController.openSetup(
     templateId: Long = NO_TEMPLATE,
     pickExercises: Boolean = false,
 ) {
     navigate(NewSessionDestination(templateId = templateId, pickExercises = pickExercises)) {
+        popUpTo<NewSessionDestination> { inclusive = true }
         launchSingleTop = true
     }
 }
