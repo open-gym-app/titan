@@ -73,6 +73,17 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `the whole banner resumes, not only the button on it`() {
+        setContent(state(resume = RUNNING))
+
+        // The title is the biggest thing on the screen and was inert; a tap on it is the
+        // gesture a dashboard card invites — see ResumeCard.
+        composeTestRule.onNodeWithText("Push Day · Upper").performClick()
+
+        assertEquals(listOf(7L), resumed)
+    }
+
+    @Test
     fun `nothing running draws no banner`() {
         setContent(state(resume = null))
 

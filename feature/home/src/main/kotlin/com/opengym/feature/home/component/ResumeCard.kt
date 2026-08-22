@@ -1,5 +1,6 @@
 package com.opengym.feature.home.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -66,6 +67,13 @@ import com.opengym.feature.home.SessionPosition
  * The clock is the figure a lifter reads here: twenty-three minutes ago means "I am still in
  * this workout", and two hours ago means "the phone was in my pocket on the way home". The set
  * count is the discard question's, and is asked there rather than drawn here.
+ *
+ * ### The card is the target, not just the button
+ *
+ * The title and the position line are the largest thing on the screen, and a banner offering
+ * one obvious action should take a tap anywhere on it. The button stays as the explicit
+ * affordance, and the nested `Discard` keeps its own: a tap that lands on either of them is
+ * that button's, and only the space around them falls through to the card.
  */
 @Composable
 fun ResumeCard(
@@ -76,7 +84,16 @@ fun ResumeCard(
 ) {
     OpenGymCard(accented = true, modifier = modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(OpenGymTheme.spacing.card),
+            // Inside the card and before the padding, the way a template card's click is
+            // built: on the modifier handed to [OpenGymCard] it would sit outside the
+            // `Surface`'s clip and ripple square over a rounded card, and after the padding it
+            // would leave a dead border the width of the card's inset.
+            modifier = Modifier
+                .clickable(
+                    onClickLabel = stringResource(R.string.home_resume_action),
+                    onClick = onResume,
+                )
+                .padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
             // "RESUME · 00:23:14", or "PAUSED · 00:23:14". Which of the two it says changes
