@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The first-run flow.
+
+  Four screens' worth of copy, and the one place in the app where the reader has not decided
+  yet whether to trust it. So: no exclamation marks, no promises the app does not keep — the
+  training goal is stored and nothing reads it in v1, and the copy says as much rather than
+  claiming tailored plans — and no sentence longer than one held in the head between sets.
+
+  The training goal and unit-system option labels are *not* here. They live in `:core:ui`
+  (`PreferenceLabels.kt`) because settings asks the same two questions, and one stored value
+  described two ways is worse than a shared string.
+-->
+<resources>
+
+    <!-- ── Chrome ─────────────────────────────────────────────────────────────────── -->
+
+    <!-- The step counter, drawn as an eyebrow: "STEP 2 OF 4". Written "of" rather than the
+         wireframe's slash so a screen reader says it as a sentence rather than as punctuation. -->
+    <string name="onboarding_step_counter">Step %1$d of %2$d</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_continue">Continue</string>
+    <string name="onboarding_start">Start training</string>
+
+    <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_welcome_title">Log the work. Watch it add up.</string>
+    <string name="onboarding_welcome_body">Open Gym is a training log that runs entirely on this phone. No account, no cloud, no ads.</string>
+    <string name="onboarding_welcome_logging">Log sets</string>
+    <string name="onboarding_welcome_logging_detail">Weight, reps and RPE, one tap per set</string>
+    <string name="onboarding_welcome_progress">See progress</string>
+    <string name="onboarding_welcome_progress_detail">Volume, records and a training calendar</string>
+    <string name="onboarding_welcome_privacy">Keep it yours</string>
+    <string name="onboarding_welcome_privacy_detail">Everything stays on this device</string>
+    <string name="onboarding_welcome_length">Two questions, then you are in</string>
+
+    <!-- ── Training goal ─────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_goal_title">What are you training for?</string>
+    <!-- Deliberately modest. #M4-22 is explicit that nothing consumes the goal in v1, and a
+         first-run screen promising tailored plans is the wrong place to start being wrong. -->
+    <string name="onboarding_goal_body">Kept with your settings, and changeable any time. It does not change how you log.</string>
+
+    <!-- ── Units ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_units_title">Kilos or pounds?</string>
+    <string name="onboarding_units_body">How weights and distances are shown. Every set is stored the same way either way, so switching later changes nothing you have logged.</string>
+
+    <!-- ── Ready ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_ready_title">You are set.</string>
+    <string name="onboarding_ready_body">That is everything. Your first workout is one tap from the home screen.</string>
+    <string name="onboarding_ready_goal">Training goal</string>
+    <string name="onboarding_ready_units">Units</string>
+    <string name="onboarding_ready_footnote">Both live in Settings, along with everything else.</string>
+
+    <!-- ── Failures ──────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_save_failed">Could not save that answer</string>
+    <string name="onboarding_finish_failed">Could not finish setting up. Check this phone\'s storage and try again.</string>
+
+</resources>

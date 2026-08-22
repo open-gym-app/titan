@@ -11,6 +11,7 @@ open-gym/
 │   ├── data/               # Data access - Room, repositories, Hilt bindings
 │   └── ui/                 # Shared Compose components, design system, theming
 └── feature/                # One sub-module per vertical slice
+    ├── onboarding/         # The first-run flow (not a tab; where a fresh install opens)
     ├── home/               # The dashboard (Home tab)
     ├── session/            # New session -> active session -> summary (not a tab)
     ├── history/            # Session browsing: history, templates, calendar (Sessions tab)
@@ -19,8 +20,8 @@ open-gym/
 ```
 
 Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`,
-`:feature:home`, `:feature:session`, `:feature:history`, `:feature:progression`,
-`:feature:settings`.
+`:feature:onboarding`, `:feature:home`, `:feature:session`, `:feature:history`,
+`:feature:progression`, `:feature:settings`.
 
 ## Build logic
 
@@ -270,6 +271,7 @@ TabsGraphDestination            bottom bar + top bar
 SessionGraphDestination         full screen, no bars
 └── NewSession -> ActiveSession -> SessionSummary
 
+OnboardingDestination           full screen, no bars
 ExercisePickerDestination       full screen, no bars
 ExerciseDetailDestination       full screen, no bars
 SettingsDestination             full screen, no bars
@@ -299,7 +301,25 @@ stands, so pressing the active tab returns it to its root.
 
 **The session flow is a mode, not a place.** It sits outside the tab scaffold and hides both
 bars, because offering a tap into Stats mid-set is an invitation to lose the set being
-logged. Onboarding (#96) will sit outside the scaffold the same way.
+logged. Onboarding sits outside the scaffold the same way.
+
+**Where the app opens is decided once per launch.** `MainViewModel` reads
+`UserPreferences.onboardingCompleted` and *latches* the answer as
+`MainUiState.Ready.startsOnOnboarding`, which `:app` passes down to the `NavHost` as its start
+destination. It is latched rather than followed live because Navigation Compose rebuilds the
+graph — and empties the back stack — when `startDestination` changes, and the flag flips at the
+*end* of onboarding: read live, it would tear the graph down underneath the very navigation
+onboarding is making. Finishing is a `navigate(TabsGraphDestination)` with
+`popUpTo<OnboardingDestination> { inclusive = true }`, so the back gesture from Home leaves the
+app rather than re-asking four questions the user has just answered.
+
+**The four onboarding steps are state, not four destinations.** The flow is one flat
+destination whose current step lives in its ViewModel. Putting the steps on the back stack
+would make "leave nothing of onboarding behind" a property that has to be re-established every
+time a step is added, where one destination makes it a single `popUpTo`. The system back
+gesture is handled *inside* the screen, walking back one question at a time and falling through
+to the platform on the first step — where leaving costs nothing, because the completion flag is
+written last and the next launch opens the flow again.
 
 Four tabs, not the wireframes' five: Map has no content until M8, and Settings is a gear in
 the top app bar rather than a fifth of the bar given to a destination visited twice.

@@ -1,59 +1,17 @@
 package com.opengym.feature.settings
 
 import androidx.annotation.StringRes
-import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.domain.model.TrainingGoal
-import com.opengym.core.domain.model.UnitSystem
 
 /*
- * The domain enums' display names.
+ * The screen's own strings that are chosen rather than written inline.
  *
- * Extension functions in the feature rather than a `labelRes` property on the enum: the domain
- * is a plain Kotlin library with no Android on its classpath and no business knowing what a
- * string resource is. Exhaustive `when`s, so adding a value to one of these enums fails to
- * compile here rather than rendering a blank row.
+ * The *stored preferences* — the theme, the unit system and the training goal — are no longer
+ * labelled here. Onboarding (#M4-22) asks for two of the three on first launch, which made
+ * this file the second-best place for them: they moved to `:core:ui`'s `PreferenceLabels.kt`
+ * under the rule the design system already stated for the domain enums, so two screens cannot
+ * describe one stored value differently. Reach for `theme.label()`, `goal.detail()` and their
+ * siblings.
  */
-
-@StringRes
-internal fun ThemePreference.labelRes(): Int = when (this) {
-    ThemePreference.LIGHT -> R.string.settings_theme_light
-    ThemePreference.DARK -> R.string.settings_theme_dark
-    ThemePreference.SYSTEM -> R.string.settings_theme_system
-}
-
-@StringRes
-internal fun ThemePreference.detailRes(): Int? = when (this) {
-    ThemePreference.SYSTEM -> R.string.settings_theme_system_detail
-    else -> null
-}
-
-@StringRes
-internal fun UnitSystem.labelRes(): Int = when (this) {
-    UnitSystem.METRIC -> R.string.settings_units_metric
-    UnitSystem.IMPERIAL -> R.string.settings_units_imperial
-}
-
-@StringRes
-internal fun UnitSystem.detailRes(): Int = when (this) {
-    UnitSystem.METRIC -> R.string.settings_units_metric_detail
-    UnitSystem.IMPERIAL -> R.string.settings_units_imperial_detail
-}
-
-@StringRes
-internal fun TrainingGoal.labelRes(): Int = when (this) {
-    TrainingGoal.STRENGTH -> R.string.settings_goal_strength
-    TrainingGoal.HYPERTROPHY -> R.string.settings_goal_hypertrophy
-    TrainingGoal.ENDURANCE -> R.string.settings_goal_endurance
-    TrainingGoal.CUSTOM -> R.string.settings_goal_custom
-}
-
-@StringRes
-internal fun TrainingGoal.detailRes(): Int = when (this) {
-    TrainingGoal.STRENGTH -> R.string.settings_goal_strength_detail
-    TrainingGoal.HYPERTROPHY -> R.string.settings_goal_hypertrophy_detail
-    TrainingGoal.ENDURANCE -> R.string.settings_goal_endurance_detail
-    TrainingGoal.CUSTOM -> R.string.settings_goal_custom_detail
-}
 
 @StringRes
 internal fun SettingsMessage.textRes(): Int = when (this) {

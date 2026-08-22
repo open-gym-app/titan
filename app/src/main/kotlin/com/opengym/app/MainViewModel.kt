@@ -7,7 +7,7 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
@@ -23,6 +23,9 @@ import javax.inject.Inject
  *
  * The same argument covers the unit system, which is why both travel together.
  *
+ * It also answers the one preference question that must *not* be answered continuously: where
+ * the app opens. See [MainUiState.Ready.startsOnOnboarding].
+ *
  * `SharingStarted.Eagerly`, unusually for a `stateIn`: the collector is the activity's
  * content, so "nobody is subscribed" means the app is in the background, and dropping the
  * subscription there buys a re-read of one small file in exchange for a chance of rendering
@@ -34,7 +37,17 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     val uiState: StateFlow<MainUiState> = userPreferencesRepository.observe()
-        .map<UserPreferences, MainUiState>(MainUiState::Ready)
+        // `runningFold` rather than `map`, for one field: the routing decision is latched on
+        // the first read and every later emission carries the same answer. Folding is what
+        // gives an emission access to the one before it without a `var` captured in an
+        // operator, which is the alternative and is a mutable field on a hot flow.
+        .runningFold<UserPreferences, MainUiState>(MainUiState.Loading) { previous, preferences ->
+            MainUiState.Ready(
+                preferences = preferences,
+                startsOnOnboarding = (previous as? MainUiState.Ready)?.startsOnOnboarding
+                    ?: !preferences.onboardingCompleted,
+            )
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
@@ -55,5 +68,23 @@ sealed interface MainUiState {
 
     data object Loading : MainUiState
 
-    data class Ready(val preferences: UserPreferences) : MainUiState
+    /**
+     * @param preferences the stored settings, re-read on every change.
+     * @param startsOnOnboarding whether this *launch* began before onboarding was completed.
+     *
+     *   Latched on the first read and never recomputed, which is the whole point of the
+     *   field: it decides the `NavHost`'s start destination, and Navigation Compose rebuilds
+     *   the graph — and empties the back stack with it — when that value changes. Read live
+     *   from [UserPreferences.onboardingCompleted], the flag flipping at the *end* of
+     *   onboarding would therefore tear the graph down underneath the navigation that
+     *   onboarding is in the middle of making.
+     *
+     *   Stated as "where this launch starts" rather than "has onboarding been done", because
+     *   those stop being the same sentence the moment the flag is written, and the shell needs
+     *   the first one.
+     */
+    data class Ready(
+        val preferences: UserPreferences,
+        val startsOnOnboarding: Boolean,
+    ) : MainUiState
 }

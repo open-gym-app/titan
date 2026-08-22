@@ -125,7 +125,9 @@ class OpenGymAppNavigationTest {
         }
         composeTestRule.setContent {
             OpenGymTheme {
-                OpenGymApp()
+                // Every test in this class is about the shell *after* first run. Opening on
+                // onboarding is `OnboardingRoutingTest`'s subject and nothing else's.
+                OpenGymApp(startsOnOnboarding = false)
             }
         }
     }

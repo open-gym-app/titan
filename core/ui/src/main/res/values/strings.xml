@@ -419,4 +419,30 @@
     <string name="discard_session_confirm">Discard</string>
     <string name="discard_session_cancel">Keep training</string>
 
+    <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
+
+    <!-- The three settings the user is asked about in more than one place: onboarding asks
+         for the goal and the units on first launch, and settings offers all three for the
+         rest of the app's life. The words live here, next to the labels for the domain's
+         other enums, so the two screens cannot describe the same stored value differently. -->
+
+    <string name="preference_theme_light">Light</string>
+    <string name="preference_theme_dark">Dark</string>
+    <string name="preference_theme_system">Auto</string>
+    <string name="preference_theme_system_detail">Follows your device</string>
+
+    <string name="preference_units_metric">Metric</string>
+    <string name="preference_units_metric_detail">Kilograms and kilometres</string>
+    <string name="preference_units_imperial">Imperial</string>
+    <string name="preference_units_imperial_detail">Pounds and miles</string>
+
+    <string name="preference_goal_strength">Strength</string>
+    <string name="preference_goal_strength_detail">Heavy, low reps, long rests</string>
+    <string name="preference_goal_hypertrophy">Hypertrophy</string>
+    <string name="preference_goal_hypertrophy_detail">Volume and time under tension</string>
+    <string name="preference_goal_endurance">Endurance</string>
+    <string name="preference_goal_endurance_detail">High reps, short rests</string>
+    <string name="preference_goal_custom">Custom</string>
+    <string name="preference_goal_custom_detail">Your own programme</string>
+
 </resources>

@@ -39,8 +39,10 @@ import com.opengym.core.ui.component.MetaGrid
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.component.SelectableOption
 import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionProgress
+import com.opengym.core.ui.component.StepProgress
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatWeight
 import kotlin.time.Duration.Companion.minutes
@@ -254,6 +256,41 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * What a question asked *as a screen* is made of: the option card and the step rail.
+ *
+ * A sheet of its own rather than two more sections on [ComponentCatalog], which already fills
+ * a device height — see the note at the top of the file. It is also the pair's natural
+ * grouping: neither is much use without the other.
+ */
+@Composable
+fun ChoiceCatalog(modifier: Modifier = Modifier) {
+    CatalogSheet(modifier) {
+        CatalogSection("SELECTABLE OPTION") {
+            // Both states together, because the pair *is* the token: selection is the accent
+            // border over the accent-soft fill, at the same hairline weight as every other
+            // line in the app. See `SelectableOption` for why the border does not thicken.
+            SelectableOption(
+                label = "Hypertrophy",
+                detail = "Volume and time under tension",
+                selected = true,
+                onClick = {},
+            )
+            SelectableOption(
+                label = "Endurance",
+                detail = "High reps, short rests",
+                selected = false,
+                onClick = {},
+            )
+        }
+        CatalogSection("STEP PROGRESS") {
+            StepProgress(step = 1, steps = 4)
+            StepProgress(step = 2, steps = 4)
+            StepProgress(step = 4, steps = 4)
+        }
+    }
+}
+
 /** A card row at the density the settings screen uses it. */
 @Composable
 private fun CatalogCardRow(label: String, value: String) {
@@ -447,6 +484,18 @@ fun ComponentCatalogLightPreview() {
 @Composable
 fun ComponentCatalogDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { ComponentCatalog() }
+}
+
+@Preview(name = "Catalog - choices - light", widthDp = 360)
+@Composable
+fun ChoiceCatalogLightPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) { ChoiceCatalog() }
+}
+
+@Preview(name = "Catalog - choices - dark", widthDp = 360)
+@Composable
+fun ChoiceCatalogDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) { ChoiceCatalog() }
 }
 
 @Preview(name = "Catalog - session chrome - light", widthDp = 360)

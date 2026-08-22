@@ -39,6 +39,9 @@ import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.detail
+import com.opengym.core.ui.component.detailOrNull
+import com.opengym.core.ui.component.label
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatWeight
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -170,13 +173,13 @@ private fun AppearanceGroup(preferences: UserPreferences, onEvent: (SettingsEven
     SettingsGroup(title = stringResource(R.string.settings_group_appearance)) {
         SettingsRow(
             label = stringResource(R.string.settings_theme),
-            value = stringResource(preferences.theme.labelRes()),
+            value = preferences.theme.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.THEME)) },
         )
         HairlineDivider()
         SettingsRow(
             label = stringResource(R.string.settings_units),
-            value = stringResource(preferences.unitSystem.labelRes()),
+            value = preferences.unitSystem.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.UNITS)) },
         )
         HairlineDivider()
@@ -210,7 +213,7 @@ private fun WorkoutGroup(preferences: UserPreferences, onEvent: (SettingsEvent) 
         HairlineDivider()
         SettingsRow(
             label = stringResource(R.string.settings_training_goal),
-            value = stringResource(preferences.trainingGoal.labelRes()),
+            value = preferences.trainingGoal.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.TRAINING_GOAL)) },
         )
     }
@@ -297,8 +300,8 @@ private fun SettingsDialogs(state: SettingsUiState, onEvent: (SettingsEvent) -> 
             choices = ThemePreference.entries.map { theme ->
                 SettingsChoice(
                     value = theme,
-                    label = stringResource(theme.labelRes()),
-                    detail = theme.detailRes()?.let { stringResource(it) },
+                    label = theme.label(),
+                    detail = theme.detailOrNull(),
                 )
             },
             selected = state.preferences.theme,
@@ -311,8 +314,8 @@ private fun SettingsDialogs(state: SettingsUiState, onEvent: (SettingsEvent) -> 
             choices = UnitSystem.entries.map { units ->
                 SettingsChoice(
                     value = units,
-                    label = stringResource(units.labelRes()),
-                    detail = stringResource(units.detailRes()),
+                    label = units.label(),
+                    detail = units.detail(),
                 )
             },
             selected = state.preferences.unitSystem,
@@ -340,8 +343,8 @@ private fun SettingsDialogs(state: SettingsUiState, onEvent: (SettingsEvent) -> 
             choices = TrainingGoal.entries.map { goal ->
                 SettingsChoice(
                     value = goal,
-                    label = stringResource(goal.labelRes()),
-                    detail = stringResource(goal.detailRes()),
+                    label = goal.label(),
+                    detail = goal.detail(),
                 )
             },
             selected = state.preferences.trainingGoal,
