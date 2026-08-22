@@ -43,6 +43,7 @@ class HomeScreenTest {
     private val startedFromTemplate = mutableListOf<Long>()
     private var startedEmpty = 0
     private var openedTemplates = 0
+    private var openedSessions = 0
 
     // ─── The resume banner ──────────────────────────────────────────────────────────────
 
@@ -233,6 +234,15 @@ class HomeScreenTest {
         composeTestRule.onNodeWithContentDescription("$sunday, rest day").assertDoesNotExist()
     }
 
+    @Test
+    fun `the week card opens the sessions it is counting`() {
+        setContent(state())
+
+        composeTestRule.onNodeWithText("3 sessions").performClick()
+
+        assertEquals(1, openedSessions)
+    }
+
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
 
     private fun setContent(state: HomeUiState) {
@@ -245,6 +255,7 @@ class HomeScreenTest {
                     onStartEmptySession = { startedEmpty++ },
                     onStartFromTemplates = { openedTemplates++ },
                     onStartFromTemplate = startedFromTemplate::add,
+                    onOpenSessions = { openedSessions++ },
                 )
             }
         }

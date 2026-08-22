@@ -105,6 +105,13 @@ fun OpenGymNavHost(
                 onStartFromTemplate = { templateId ->
                     navController.openSetup(templateId = templateId)
                 },
+                // A tab switch and not a push: the sessions the week card counts are the
+                // Sessions tab's own list, and moving the user there through
+                // [OpenGymAppState.navigateToTopLevelDestination] is what leaves that tab on
+                // the stack it already had — and what makes the bar show where they now are.
+                onOpenSessions = {
+                    appState.navigateToTopLevelDestination(TopLevelDestination.SESSIONS)
+                },
             )
             historyGraph(
                 // A logged session opens the recap `:feature:session` draws, in its historical

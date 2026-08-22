@@ -28,6 +28,9 @@
     <!-- ── This week ─────────────────────────────────────────────────────────────── -->
 
     <string name="home_week_heading">This week</string>
+    <!-- What tapping the card does, as the click's own label: the tab that lists the sessions
+         the card is counting. -->
+    <string name="home_week_open">Show all sessions</string>
     <plurals name="home_week_sessions">
         <item quantity="one">%1$d session</item>
         <item quantity="other">%1$d sessions</item>

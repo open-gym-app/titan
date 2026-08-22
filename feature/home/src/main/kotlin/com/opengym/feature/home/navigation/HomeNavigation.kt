@@ -39,12 +39,16 @@ data object HomeDestination
  *   Separate from [onStartFromTemplates] because it names a template and therefore skips the
  *   step that picks one — Home cannot know that the two land in the same flow, and does not
  *   need to.
+ * @param onOpenSessions the user tapped the week card and wants the sessions behind the count.
+ *   Named for the event and not for the move, as everything here is: that this is a *tab*
+ *   switch rather than a push is the shell's knowledge, and Home has no idea it is in a tab.
  */
 fun NavGraphBuilder.homeGraph(
     onResumeSession: (sessionId: Long) -> Unit,
     onStartEmptySession: () -> Unit,
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
+    onOpenSessions: () -> Unit,
 ) {
     navigation<HomeGraphDestination>(startDestination = HomeDestination) {
         composable<HomeDestination> {
@@ -53,6 +57,7 @@ fun NavGraphBuilder.homeGraph(
                 onStartEmptySession = onStartEmptySession,
                 onStartFromTemplates = onStartFromTemplates,
                 onStartFromTemplate = onStartFromTemplate,
+                onOpenSessions = onOpenSessions,
             )
         }
     }

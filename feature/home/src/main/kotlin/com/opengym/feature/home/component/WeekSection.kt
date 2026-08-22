@@ -1,5 +1,6 @@
 package com.opengym.feature.home.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,10 +36,18 @@ import com.opengym.feature.home.WeekState
  * that answers "am I keeping this up" at a glance, and the only one on this screen that M4 can
  * answer honestly. The streak the wireframe draws beside it needs #34's engine and arrives with
  * #110 — see [WeekState].
+ *
+ * **The whole card opens the Sessions tab.** A dashboard card carrying a figure is a thing
+ * users tap, and seven cells and a count that answer nothing back is a control that dead-ends;
+ * what is behind it is the list those sessions are in.
+ *
+ * @param onClick the card was tapped. Not optional, for the reason a template card's click is
+ *   not: a card in a dashboard that does nothing is a control the user will try twice.
  */
 @Composable
 fun WeekSection(
     week: WeekState,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -49,7 +58,16 @@ fun WeekSection(
 
         OpenGymCard {
             Column(
-                modifier = Modifier.padding(OpenGymTheme.spacing.card),
+                // The click sits *inside* the card, as [TemplateCard]'s does: on the modifier
+                // handed to [OpenGymCard] it would be applied outside the `Surface`'s own clip
+                // and the ripple would be drawn square over a rounded card. Before the padding,
+                // so the whole card is the target and not the column of content in it.
+                modifier = Modifier
+                    .clickable(
+                        onClickLabel = stringResource(R.string.home_week_open),
+                        onClick = onClick,
+                    )
+                    .padding(OpenGymTheme.spacing.card),
                 verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
             ) {
                 WeekStrip(days = week.days)

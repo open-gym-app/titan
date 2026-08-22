@@ -44,6 +44,7 @@ import kotlinx.coroutines.flow.filterNotNull
  * @param onStartEmptySession the user wants a workout they will build as they go.
  * @param onStartFromTemplates the user wants to pick a template first.
  * @param onStartFromTemplate the user picked one from the quick-start strip.
+ * @param onOpenSessions the week card was tapped: the user wants the sessions it is counting.
  */
 @Composable
 fun HomeRoute(
@@ -51,6 +52,7 @@ fun HomeRoute(
     onStartEmptySession: () -> Unit,
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
+    onOpenSessions: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -63,6 +65,7 @@ fun HomeRoute(
         onStartEmptySession = onStartEmptySession,
         onStartFromTemplates = onStartFromTemplates,
         onStartFromTemplate = onStartFromTemplate,
+        onOpenSessions = onOpenSessions,
         modifier = modifier,
     )
 }
@@ -98,6 +101,7 @@ fun HomeScreen(
     onStartEmptySession: () -> Unit,
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
+    onOpenSessions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -148,7 +152,9 @@ fun HomeScreen(
                         onDiscard = { onEvent(HomeEvent.DiscardRequested) },
                     )
                 }
-                state.week?.let { week -> WeekSection(week = week) }
+                state.week?.let { week ->
+                    WeekSection(week = week, onClick = onOpenSessions)
+                }
 
                 QuickStartSection(
                     templates = state.templates,
@@ -256,5 +262,6 @@ private fun HomePreview(state: HomeUiState) {
         onStartEmptySession = {},
         onStartFromTemplates = {},
         onStartFromTemplate = {},
+        onOpenSessions = {},
     )
 }
