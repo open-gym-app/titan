@@ -33,7 +33,7 @@ import com.opengym.feature.home.SessionPosition
  *
  * ```text
  * ┌─────────────────────────────────────────┐
- * │ RESUME · 00:23:14                       │
+ * │ RUNNING · 0:23:14                       │
  * │ Push Day · Upper                        │
  * │ Bench press · set 3                     │
  * │ ┌───────────────────┐ ┌───────────────┐ │
@@ -96,10 +96,12 @@ fun ResumeCard(
                 .padding(OpenGymTheme.spacing.card),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
-            // "RESUME · 00:23:14", or "PAUSED · 00:23:14". Which of the two it says changes
+            // "RUNNING · 0:23:14", or "PAUSED · 0:23:14". Which of the two it says changes
             // nothing about what the card offers: a paused workout is picked back up exactly
             // as a running one is, and the word is there so the clock that has stopped moving
-            // does not read as a screen that has stopped updating.
+            // does not read as a screen that has stopped updating. It is a *state* and not an
+            // action — the action is the button below, and "RESUME · 0:23:14" over a button
+            // marked RESUME said the same word twice and left the state unsaid.
             val status = stringResource(
                 if (resume.isPaused) R.string.home_resume_paused else R.string.home_resume_running,
             )

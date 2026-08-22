@@ -12,9 +12,11 @@
 
     <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
 
-    <!-- "RESUME · 00:23:14": what the workout is doing, and how long it has been doing it. -->
+    <!-- "RUNNING · 0:23:14": what the workout is doing, and how long it has been doing it.
+         A state, not an action — the button below the line is the action, and naming this
+         one "Resume" too said the same word twice and left the state unsaid. -->
     <string name="home_resume_eyebrow">%1$s · %2$s</string>
-    <string name="home_resume_running">Resume</string>
+    <string name="home_resume_running">Running</string>
     <string name="home_resume_paused">Paused</string>
     <!-- Where the user left off: "Bench press · set 3" — the set they came back to do. -->
     <string name="home_resume_position">%1$s · set %2$d</string>
