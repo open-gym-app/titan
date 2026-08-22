@@ -293,6 +293,24 @@ class TemplateEditorViewModelTest {
         assertEquals(TemplateEditorMessage.EXERCISES_UNAVAILABLE, state.message)
     }
 
+    @Test
+    fun `an exercise written from inside the picker is added rather than reported missing`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // The picker is the library in selecting mode and it can create one, so the answer
+            // can name an id that did not exist when this editor read the catalogue. Judged
+            // against that read it would be dropped — and the user told the exercise they had
+            // just written was no longer in their library.
+            val landmine = exercises.insert(Exercise(name = "Landmine press"))
+            viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(landmine)))
+
+            val state = viewModel.uiState.value
+            assertEquals(4, state.exercises.size)
+            assertEquals("Landmine press", state.exercises.last().exercise?.name)
+            assertNull(state.message)
+        }
+
     // ─── Naming ─────────────────────────────────────────────────────────────────────────
 
     @Test

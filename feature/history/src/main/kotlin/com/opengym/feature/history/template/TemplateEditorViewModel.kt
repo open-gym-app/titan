@@ -345,30 +345,42 @@ class TemplateEditorViewModel @Inject constructor(
      * they have not priced yet, and inventing three sets of ten for it would be the screen
      * putting numbers in their mouth. Exercises that are no longer in the catalogue are dropped
      * and said out loud — see [TemplateEditorMessage.EXERCISES_UNAVAILABLE].
+     *
+     * ### The catalogue is re-read here rather than trusted from the open
+     *
+     * The picker is the library in selecting mode and it can *create* an exercise. An id that is
+     * missing from the map this screen loaded is therefore far more likely to be one written a
+     * moment ago than one deleted — and judged against that map it would be dropped, with the
+     * user told their brand new exercise is "no longer in your library". Re-reading costs one
+     * query on a screen that has just come back from another one, and the rows added resolve to
+     * their names instead of to the removed-exercise placeholder. It is the same read
+     * `NewSessionViewModel.adopt` makes when the same picker answers it, for the same reason.
      */
     private fun addExercises(exerciseIds: List<Long>) {
         if (exerciseIds.isEmpty()) return
 
-        editorState.update { state ->
-            val draft = state.draft ?: return@update state
-            if (state.isSaving) return@update state
+        viewModelScope.launch {
+            val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
+            val known = exerciseIds.filter { it in catalogue }
+            // Keyed outside the update, which may run more than once: `nextKey` is this
+            // ViewModel's counter, and a side effect inside a compare-and-set loop is one that
+            // cannot say how many times it happened.
+            val added = known.map { exerciseId -> DraftRow(key = nextKey--, exerciseId = exerciseId) }
 
-            val known = exerciseIds.filter { it in state.catalogue }
-            if (known.isEmpty()) {
-                return@update state.copy(message = TemplateEditorMessage.EXERCISES_UNAVAILABLE)
-            }
+            editorState.update { state ->
+                val draft = state.draft ?: return@update state
+                if (state.isSaving) return@update state
 
-            val added = known.map { exerciseId ->
-                DraftRow(key = nextKey--, exerciseId = exerciseId)
+                state.copy(
+                    draft = if (added.isEmpty()) draft else draft.copy(rows = draft.rows + added),
+                    catalogue = catalogue,
+                    message = if (known.size < exerciseIds.size) {
+                        TemplateEditorMessage.EXERCISES_UNAVAILABLE
+                    } else {
+                        state.message
+                    },
+                )
             }
-            state.copy(
-                draft = draft.copy(rows = draft.rows + added),
-                message = if (known.size < exerciseIds.size) {
-                    TemplateEditorMessage.EXERCISES_UNAVAILABLE
-                } else {
-                    state.message
-                },
-            )
         }
     }
 
