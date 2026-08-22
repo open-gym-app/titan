@@ -132,7 +132,7 @@ class OpenGymAppNavigationTest {
 
     @Test
     fun `opens on Home with the four tabs and a settings action`() {
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).assertIsNotSelected()
@@ -390,7 +390,7 @@ class OpenGymAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(LEAVE_SETUP).performClick()
 
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
 
         // And the tab the user had been on is still there to go back to.
         composeTestRule.onNodeWithContentDescription(TAB_SESSIONS).performClick()
@@ -407,7 +407,7 @@ class OpenGymAppNavigationTest {
         }
         composeTestRule.onNodeWithText(DONE).performClick()
 
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
@@ -433,7 +433,7 @@ class OpenGymAppNavigationTest {
         pressBack()
 
         // Setup is not a mode: nothing has been logged, so backing out is just backing out.
-        composeTestRule.onNodeWithText(HOME).assertIsDisplayed()
+        awaitHome()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
@@ -490,10 +490,23 @@ class OpenGymAppNavigationTest {
 
         // Nothing was logged, so there is nothing to recap — the flow is popped and the user
         // lands back where they started it from, with the tab scaffold restored.
+        awaitHome()
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
+    }
+
+    /**
+     * Home, once it has something on it.
+     *
+     * The screen draws **nothing at all** until its reads land — see `HomeScreen`, where the
+     * quick-start actions wait with the rest of it rather than being pushed down the page by a
+     * banner that arrives a frame later — so a test that lands on the tab and reaches straight
+     * for a control is reaching for one that is not composed yet. Waiting on the section
+     * heading is waiting on the database, which is the thing actually being waited for.
+     */
+    private fun awaitHome() {
         composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(HOME).fetchSemanticsNodes().isNotEmpty()
         }
-        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsSelected()
     }
 
     /**
@@ -583,6 +596,7 @@ class OpenGymAppNavigationTest {
 
     /** The same, for the one control on Home that is found by what it says out loud. */
     private fun tapOnHome(matcher: SemanticsMatcher) {
+        awaitHome()
         composeTestRule.onNode(matcher).performScrollTo()
         composeTestRule.mainClock.advanceTimeBy(SCROLL_SETTLE_MILLIS)
         composeTestRule.waitForIdle()

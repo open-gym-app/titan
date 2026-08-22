@@ -134,9 +134,12 @@ fun HomeScreen(
                 .padding(OpenGymTheme.spacing.screen),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
         ) {
-            // Nothing above the actions until the reads land. The alternative is a banner and a
-            // week strip that appear a frame later and push the buttons down under a thumb
-            // already on its way to them.
+            // Nothing at all until the reads land — the actions included, though they need no
+            // data to draw. Drawing them alone puts two full-width buttons at the top of an
+            // otherwise empty screen and then inserts a banner and a week *above* them a frame
+            // later, moving them the height of both under a thumb already on its way down.
+            // A screen that stays empty for the frame the queries take is the cheaper half of
+            // that trade.
             if (!state.isLoading) {
                 state.resume?.let { resume ->
                     ResumeCard(
@@ -146,18 +149,16 @@ fun HomeScreen(
                     )
                 }
                 state.week?.let { week -> WeekSection(week = week) }
-            }
 
-            QuickStartSection(
-                templates = state.templates,
-                onStartEmptySession = onStartEmptySession,
-                onStartFromTemplates = onStartFromTemplates,
-                onStartFromTemplate = onStartFromTemplate,
-                // No week means nothing has ever been finished — see HomeUiState.week. The
-                // reads have to have landed first: the line is about an empty database, not
-                // about a query that has not answered.
-                isFirstLaunch = !state.isLoading && state.week == null,
-            )
+                QuickStartSection(
+                    templates = state.templates,
+                    onStartEmptySession = onStartEmptySession,
+                    onStartFromTemplates = onStartFromTemplates,
+                    onStartFromTemplate = onStartFromTemplate,
+                    // No week means nothing has ever been finished — see HomeUiState.week.
+                    isFirstLaunch = state.week == null,
+                )
+            }
         }
     }
 

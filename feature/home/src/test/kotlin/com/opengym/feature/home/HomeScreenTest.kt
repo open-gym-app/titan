@@ -180,14 +180,16 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `nothing above the actions is drawn while the reads are still out`() {
+    fun `nothing at all is drawn while the reads are still out`() {
         // The default state, which is what the screen holds for the frame before the queries
         // answer. Drawing the week here would flash "0 sessions" at somebody who has four
-        // hundred of them.
+        // hundred of them — and drawing the actions alone puts them where the banner and the
+        // week are about to appear above them, moving them under a thumb on its way down.
         setContent(HomeUiState())
 
         composeTestRule.onNodeWithText("THIS WEEK").assertDoesNotExist()
-        composeTestRule.onNodeWithText("QUICK START").assertIsDisplayed()
+        composeTestRule.onNodeWithText("QUICK START").assertDoesNotExist()
+        composeTestRule.onNodeWithText("START EMPTY SESSION").assertDoesNotExist()
         // And not the first-launch line either: an empty database and an unanswered query
         // are different things, and only one of them is worth saying out loud.
         composeTestRule
