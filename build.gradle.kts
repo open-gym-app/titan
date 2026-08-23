@@ -80,6 +80,22 @@ val checkBuildLogic by tasks.registering {
 subprojects {
     afterEvaluate {
         tasks.withType<Test>().configureEach {
+            // The zone every JVM test runs in, and the counterpart to the locale
+            // `WriteRobolectricConfig` pins. A session is stamped in epoch millis UTC and
+            // rendered in the device's zone, so the same instant draws `2:00 PM` on a
+            // machine in Paris and `12:00 PM` on a CI runner in UTC — and every screenshot
+            // that shows a clock time fails on whichever of the two did not record it.
+            // `SessionRowPreview` is the clearest case: its unnamed row falls back to the
+            // start time as a title, which is exactly the half of a timestamp that moves.
+            //
+            // UTC because it is the one zone no contributor's location argues with, and
+            // because `robolectric.properties` cannot carry this — Robolectric configures
+            // the Android locale from its qualifiers but leaves the JVM's default zone to
+            // whatever started it. Nothing about the app itself is pinned here: it still
+            // renders in the device's zone, which is what `DateTimeFormat` takes a `ZoneId`
+            // parameter for.
+            systemProperty("user.timezone", "UTC")
+
             testLogging {
                 events("failed", "skipped")
                 exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
