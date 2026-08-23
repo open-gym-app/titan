@@ -45,7 +45,9 @@ class TemplateEditorScreenTest {
 
     private val events = mutableListOf<TemplateEditorEvent>()
     private var exited = 0
-    private var pickerOpened = 0
+
+    /** What each push of the picker asked for: true fills one slot, false adds to the plan. */
+    private val pickerOpens = mutableListOf<Boolean>()
 
     @Test
     fun `the plan is drawn as a card per exercise under the template's own row`() {
@@ -145,7 +147,44 @@ class TemplateEditorScreenTest {
         scrollTo(hasText("ADD EXERCISES")).performClick()
 
         assertEquals(listOf(TemplateEditorEvent.ExercisesPickRequested), events)
-        assertEquals(1, pickerOpened)
+        // Not the single-choice picker: this is the control that adds, and a plan takes as many
+        // exercises as the user ticks.
+        assertEquals(listOf(false), pickerOpens)
+    }
+
+    @Test
+    fun `the swap on a card says which slot asked and opens the picker for one`() {
+        setContent(populated())
+
+        // The action rather than a touch, as the × beside it: the control sits on the second card
+        // of a scrolling page, and where it lands under a finger is the layout's business.
+        scrollTo(hasContentDescription("Swap Cable fly for another exercise"))
+            .assertIsDisplayed()
+            .performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(listOf(TemplateEditorEvent.ExerciseSwapRequested(2L)), events)
+        // A slot holds one exercise, so the picker is drawn as a single choice.
+        assertEquals(listOf(true), pickerOpens)
+    }
+
+    @Test
+    fun `a plan of one exercise still offers the swap`() {
+        // The × and the ⇄ are about what is *in* the slot, so neither depends on there being
+        // another slot — unlike the hold, which a plan of one has nothing to reorder with.
+        setContent(populated().copy(exercises = populated().exercises.take(1)))
+
+        composeTestRule
+            .onNodeWithContentDescription("Swap Bench press for another exercise")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the slot controls go inert while a write is out`() {
+        setContent(populated().copy(isSaving = true))
+
+        composeTestRule
+            .onNodeWithContentDescription("Swap Bench press for another exercise")
+            .assertIsNotEnabled()
     }
 
     @Test
@@ -311,7 +350,7 @@ class TemplateEditorScreenTest {
                     state = state,
                     onEvent = events::add,
                     onExit = { exited++ },
-                    onPickExercises = { pickerOpened++ },
+                    onPickExercises = pickerOpens::add,
                 )
             }
         }

@@ -155,7 +155,8 @@ data class ExercisePickerDestination(val replacing: Boolean = false)
  * @param onExit the editor is done with — saved, discarded, or opened on a template that is not
  *   there. One way out rather than three, because all three are the same pop and the screen has
  *   already said which of them happened.
- * @param openExercisePicker push the picker over the editor. Its destination is in this module,
+ * @param openExercisePicker push the picker over the editor, saying which of the two questions it
+ *   is being asked — see [ExercisePickerDestination.replacing]. Its destination is in this module,
  *   but it is registered *outside* the tab scaffold, so the push is `:app`'s.
  * @param pickedExerciseIds what the picker came back with, or null when it has not answered.
  *
@@ -172,7 +173,7 @@ data class TemplateEditor(
     val open: (templateId: Long) -> Unit,
     val create: () -> Unit,
     val onExit: () -> Unit,
-    val openExercisePicker: () -> Unit,
+    val openExercisePicker: (replacing: Boolean) -> Unit,
     val pickedExerciseIds: () -> List<Long>?,
     val onPickedExercisesHandled: () -> Unit,
 )

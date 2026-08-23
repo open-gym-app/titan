@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.component.DragHandle
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.PlannedSetHeader
@@ -41,7 +43,7 @@ import com.opengym.feature.history.template.TemplateSetField
  *
  * ```text
  * ┌──────────────────────────────────────────┐
- * │ 1  Bench press                 SS A1   × │
+ * │ ⣿ 1  Bench press              SS A1  ⇄  × │
  * │    SET   KG   ×  REPS                    │
  * │    W    [40]  ×  [12]                    │
  * │    2    [80]  ×  [8]                     │
@@ -67,6 +69,16 @@ import com.opengym.feature.history.template.TemplateSetField
  * runs on the user's configured default (`UserPreferences.defaultRestDuration`) whatever the
  * template says, so a per-exercise picker here set a number nothing would ever read.
  *
+ * ### The slot's two controls, and the grab glyph in front of them
+ *
+ * ⇄ before ×, because it is the milder of the two: swapping keeps the slot and the × takes it
+ * away, and a thumb reaching past the destructive control to find the reversible one is the
+ * wrong way round. Both sit on the header row, where the workout's own card puts them.
+ *
+ * The grab glyph is a *mark*, not a control — nothing happens if it is pressed, the whole card
+ * responds to a hold — and it is the same glyph the row collapses to when one is picked up, so
+ * the two teach each other. See `CollapsedReorderRow`.
+ *
  * ### The two destructive gestures are deliberately different
  *
  * A **set** is swiped away, matching the workout's own table: a row's fields are the width of the
@@ -77,6 +89,14 @@ import com.opengym.feature.history.template.TemplateSetField
  *
  * @param position where it sits in the plan, from 0. The *drawn* order, which while a drag is in
  *   flight is not the stored one.
+ * @param onSwap plan a different movement in this slot, keeping its place, its superset and the
+ *   sets already written into it. The picker is what answers; see
+ *   `TemplateEditorViewModel.swapExercise` for why the sets stay where the workout screen's own
+ *   swap refuses to carry them.
+ * @param isMovable whether holding this card would pick it up, which is the only thing that draws
+ *   the grab glyph in front of its position. The gesture has nothing else on the page announcing
+ *   it, and the one thing worse than an unannounced gesture is one announced where it does not
+ *   work — a plan of one exercise has nothing to reorder.
  * @param unitSystem what the weight column is captioned and spoken in. Passed rather than read
  *   off `LocalUnitSystem`, because it has to be the unit the draft was *formatted in and will be
  *   parsed back with* — see `TemplateEditorUiState.unitSystem`.
@@ -91,10 +111,12 @@ internal fun TemplateExerciseCard(
     onSetTypeChange: (setKey: Long, SetType) -> Unit,
     onSetAdd: () -> Unit,
     onSetRemove: (setKey: Long) -> Unit,
+    onSwap: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
     unitSystem: UnitSystem = UnitSystem.METRIC,
     enabled: Boolean = true,
+    isMovable: Boolean = false,
 ) {
     val name = row.exercise?.name ?: stringResource(R.string.template_exercise_removed)
 
@@ -107,8 +129,10 @@ internal fun TemplateExerciseCard(
                 name = name,
                 position = position,
                 supersetLabel = row.supersetLabel,
+                onSwap = onSwap,
                 onRemove = onRemove,
                 enabled = enabled,
+                isMovable = isMovable,
             )
 
             PlanTable(
@@ -130,22 +154,32 @@ internal fun TemplateExerciseCard(
     }
 }
 
-/** The exercise's own line: where it sits, what it is, and the way to cut it. */
+/** The exercise's own line: where it sits, what it is, and the two ways to change what is in it. */
 @Composable
 private fun Header(
     name: String,
     position: Int,
     supersetLabel: String?,
+    onSwap: () -> Unit,
     onRemove: () -> Unit,
     enabled: Boolean,
+    isMovable: Boolean,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = OpenGymTheme.spacing.card),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Drawn only where the hold would actually do something, and quietly: it is on every card
+        // of the plan and none of them is about it.
+        if (isMovable) {
+            DragHandle(
+                modifier = Modifier.size(HANDLE_SIZE),
+                tint = MaterialTheme.colorScheme.outlineVariant,
+            )
+        }
         Text(
             text = (position + 1).toString(),
             style = OpenGymTheme.typography.numericSmall,
@@ -160,6 +194,15 @@ private fun Header(
             modifier = Modifier.weight(1f),
         )
         if (supersetLabel != null) SupersetBadge(label = supersetLabel)
+        // Before the ×, for the reason on the class: the reversible control should not be the one
+        // a thumb reaches past the destructive one to find.
+        IconButton(onClick = onSwap, enabled = enabled) {
+            Icon(
+                imageVector = Icons.Outlined.SwapHoriz,
+                contentDescription = stringResource(R.string.template_swap_exercise, name),
+                modifier = Modifier.size(REMOVE_ICON_SIZE),
+            )
+        }
         IconButton(onClick = onRemove, enabled = enabled) {
             Icon(
                 imageVector = Icons.Outlined.Close,
@@ -261,3 +304,6 @@ private val REMOVE_ICON_SIZE: Dp = 18.dp
 
 /** The same, for the one control that adds rather than removes. */
 private val ADD_ICON_SIZE: Dp = 18.dp
+
+/** Smaller than the controls it sits opposite, because it is a mark and not one of them. */
+private val HANDLE_SIZE: Dp = 14.dp

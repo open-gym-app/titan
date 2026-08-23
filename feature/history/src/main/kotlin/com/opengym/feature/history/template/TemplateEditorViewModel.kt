@@ -145,6 +145,21 @@ class TemplateEditorViewModel @Inject constructor(
      */
     private var pickWasRequested = false
 
+    /**
+     * The slot a swap is waiting on, or null when the picker was opened to add to the plan.
+     *
+     * Set by whichever of the two controls asked — [TemplateEditorEvent.ExerciseSwapRequested]
+     * sets it and [TemplateEditorEvent.ExercisesPickRequested] clears it — so a picker backed out
+     * of and reopened from the other control cannot answer the wrong question. The workout screen
+     * keeps the same flag for the same reason; here it lives in the ViewModel rather than the
+     * screen because this screen's request flag already does.
+     *
+     * A plain field beside [pickWasRequested] and with the same lifetime, which is the point: an
+     * answer that outlived the process is refused by that flag before this one is read, so this
+     * never has to describe a slot from a previous life of the screen.
+     */
+    private var swappingKey: Long? = null
+
     val uiState: StateFlow<TemplateEditorUiState> = editorState
         .map(::build)
         .stateIn(
@@ -320,7 +335,7 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     /**
-     * The six events that change which exercises the plan holds, and in what order.
+     * The seven events that change which exercises the plan holds, and in what order.
      *
      * Split off [onEvent] so neither `when` branches over two unrelated subjects: those are about
      * the screen — saving, leaving, a message shown — and these are about what the workout is.
@@ -341,8 +356,16 @@ class TemplateEditorViewModel @Inject constructor(
             is TemplateEditorEvent.SupersetLinked -> editDraft { draft -> draft.regroup(event.key, link = true) }
             is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.key, link = false) }
 
+            is TemplateEditorEvent.ExerciseSwapRequested -> {
+                pickWasRequested = true
+                swappingKey = event.key
+                editorState.update { it.copy(isPickingExercises = true) }
+            }
+
             TemplateEditorEvent.ExercisesPickRequested -> {
                 pickWasRequested = true
+                // Cleared, so the last control tapped is the one the answer belongs to.
+                swappingKey = null
                 editorState.update { it.copy(isPickingExercises = true) }
             }
             TemplateEditorEvent.ExercisesPickClosed ->
@@ -352,7 +375,18 @@ class TemplateEditorViewModel @Inject constructor(
             is TemplateEditorEvent.ExercisesPicked ->
                 if (pickWasRequested) {
                     pickWasRequested = false
-                    addExercises(event.exerciseIds)
+                    val target = swappingKey
+                    swappingKey = null
+                    if (target == null) {
+                        addExercises(event.exerciseIds)
+                    } else {
+                        // The first of the list rather than the whole of it: a slot holds one
+                        // exercise, and a picker opened for a swap is drawn as a single choice —
+                        // see `ExercisePickerDestination.replacing`. Read this way all the same,
+                        // because this is the one place a second answer would otherwise turn a
+                        // swap into an edit of the whole plan.
+                        swapExercise(target, event.exerciseIds.firstOrNull())
+                    }
                 } else {
                     editorState.update { it.copy(message = TemplateEditorMessage.EDITOR_RESTARTED) }
                 }
@@ -477,6 +511,52 @@ class TemplateEditorViewModel @Inject constructor(
                     } else {
                         state.message
                     },
+                )
+            }
+        }
+    }
+
+    /**
+     * Put a different movement in one slot of the plan, leaving everything else about it alone.
+     *
+     * ### The sets travel with the slot
+     *
+     * The row keeps its position, its superset, its notes **and its planned sets**. Only the
+     * movement changes. That is the one thing this does differently from the workout screen's
+     * swap, which refuses outright once anything is logged — see `SwapSessionExerciseUseCase`.
+     *
+     * The difference is what the sets *are*. A logged set is a record of something that happened,
+     * and carrying it onto another movement would make the history say the user benched what they
+     * inclined. A planned set is a suggestion the user is in the middle of writing: the figures
+     * sit in a table directly under this control, blank is a legal value for every one of them,
+     * and a lifter swapping barbell bench for dumbbell bench is nearly always keeping the 4 × 8
+     * and retyping the weight. Clearing them on their behalf would be the destructive reading of
+     * an edit that is meant to be the mild one, and there is no undo on this page.
+     *
+     * ### The catalogue is re-read, for [addExercises]' reason
+     *
+     * The picker can create an exercise, so an id missing from the map this screen opened with is
+     * far more likely to be one written a moment ago than one deleted.
+     *
+     * @param key the slot, by [DraftRow.key].
+     * @param exerciseId what to put in it, or null for a picker that came back with nothing —
+     *   which is not a failure and says nothing: the user backed out.
+     */
+    private fun swapExercise(key: Long, exerciseId: Long?) {
+        if (exerciseId == null) return
+
+        viewModelScope.launch {
+            val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
+            val known = exerciseId in catalogue
+
+            editorState.update { state ->
+                val draft = state.draft ?: return@update state
+                if (state.isSaving) return@update state
+
+                state.copy(
+                    draft = if (known) draft.mapRow(key) { it.copy(exerciseId = exerciseId) } else draft,
+                    catalogue = catalogue,
+                    message = if (known) state.message else TemplateEditorMessage.EXERCISE_UNAVAILABLE,
                 )
             }
         }

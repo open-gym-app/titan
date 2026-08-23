@@ -472,6 +472,79 @@ class TemplateEditorViewModelTest {
             assertNull(state.message)
         }
 
+    @Test
+    fun `a swap changes the movement and leaves the slot it sits in alone`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.swap(KEY_FLY, PUSHDOWN.id)
+
+        val rows = viewModel.uiState.value.exercises
+        // The middle slot, still the middle slot, still the first half of the superset it was in.
+        assertEquals(
+            listOf("Bench press", "Tricep pushdown", "Tricep pushdown"),
+            rows.map { it.exercise?.name },
+        )
+        assertEquals("A1", rows[1].supersetLabel)
+        assertTrue(viewModel.uiState.value.isDirty)
+    }
+
+    @Test
+    fun `the sets planned for a slot survive the movement in it changing`() = runTest {
+        val viewModel = viewModel()
+
+        // Three sets of twelve, written against the fly. A lifter swapping one cable movement for
+        // another is nearly always keeping the shape and retyping the weight, and there is no undo
+        // on this page — see `TemplateEditorViewModel.swapExercise`.
+        val before = viewModel.uiState.value.exercises[1].sets
+
+        viewModel.swap(KEY_FLY, PUSHDOWN.id)
+
+        assertEquals(before, viewModel.uiState.value.exercises[1].sets)
+    }
+
+    @Test
+    fun `a swap answered with an exercise that is gone changes nothing and says so`() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.swap(KEY_FLY, 999)
+
+        val state = viewModel.uiState.value
+        // Not EXERCISES_UNAVAILABLE: nothing was "left out", the plan is exactly as it was.
+        assertEquals(TemplateEditorMessage.EXERCISE_UNAVAILABLE, state.message)
+        assertEquals("Cable fly", state.exercises[1].exercise?.name)
+        assertFalse(state.isDirty)
+    }
+
+    @Test
+    fun `an add after a backed-out swap appends rather than filling the slot`() = runTest {
+        val viewModel = viewModel()
+
+        // The picker opened from ⇄, backed out of, then reopened from ADD EXERCISES. The last
+        // control tapped is the one the answer belongs to.
+        viewModel.onEvent(TemplateEditorEvent.ExerciseSwapRequested(KEY_FLY))
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPickClosed)
+        viewModel.pick(listOf(PUSHDOWN.id))
+
+        val rows = viewModel.uiState.value.exercises
+        assertEquals(4, rows.size)
+        assertEquals("Cable fly", rows[1].exercise?.name)
+        assertEquals("Tricep pushdown", rows.last().exercise?.name)
+    }
+
+    @Test
+    fun `an answer to a swap this editor never asked for is refused`() = runTest {
+        val viewModel = viewModel()
+
+        // The same process-death case `pickWasRequested` guards for an add, reached through the
+        // other control: the flag is read before the slot is, so there is no slot to rewrite.
+        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+        val state = viewModel.uiState.value
+        assertEquals("Cable fly", state.exercises[1].exercise?.name)
+        assertFalse(state.isDirty)
+        assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
+    }
+
     // ─── Naming ─────────────────────────────────────────────────────────────────────────
 
     @Test
@@ -779,6 +852,12 @@ class TemplateEditorViewModelTest {
     private fun TemplateEditorViewModel.pick(exerciseIds: List<Long>) {
         onEvent(TemplateEditorEvent.ExercisesPickRequested)
         onEvent(TemplateEditorEvent.ExercisesPicked(exerciseIds))
+    }
+
+    /** The ⇄ on one slot, then the picker's single answer. The screen dispatches the same pair. */
+    private fun TemplateEditorViewModel.swap(key: Long, exerciseId: Long) {
+        onEvent(TemplateEditorEvent.ExerciseSwapRequested(key))
+        onEvent(TemplateEditorEvent.ExercisesPicked(listOf(exerciseId)))
     }
 
     private companion object {

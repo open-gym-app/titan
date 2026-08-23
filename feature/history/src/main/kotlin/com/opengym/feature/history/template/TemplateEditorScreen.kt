@@ -70,8 +70,10 @@ import kotlin.time.Duration.Companion.minutes
  * @param onExit the screen is done with — saved, discarded, or opened on a template that is not
  *   there. Reported from the state rather than from a callback, so a navigation cannot be fired
  *   again on every recomposition until the pop actually happens.
- * @param onPickExercises push the exercise picker. It lives outside the tab scaffold, so the push
- *   is `:app`'s — see `historyGraph`.
+ * @param onPickExercises push the exercise picker, saying which of the two questions it is being
+ *   asked: `true` fills **one** slot — a swap on an exercise already in the plan — and draws the
+ *   picker as a single choice; `false` adds to the plan. It lives outside the tab scaffold, so the
+ *   push is `:app`'s — see `historyGraph`.
  * @param pickedExerciseIds what the picker came back with, or null when it has not answered.
  * @param onPickedExercisesHandled the answer has been applied and should be forgotten, so a
  *   recomposition or a process restore does not append the same exercises twice.
@@ -79,7 +81,7 @@ import kotlin.time.Duration.Companion.minutes
 @Composable
 fun TemplateEditorRoute(
     onExit: () -> Unit,
-    onPickExercises: () -> Unit,
+    onPickExercises: (replacing: Boolean) -> Unit,
     modifier: Modifier = Modifier,
     pickedExerciseIds: List<Long>? = null,
     onPickedExercisesHandled: () -> Unit = {},
@@ -199,7 +201,7 @@ fun TemplateEditorScreen(
     onEvent: (TemplateEditorEvent) -> Unit,
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
-    onPickExercises: () -> Unit = {},
+    onPickExercises: (replacing: Boolean) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val message = state.message
@@ -227,13 +229,17 @@ fun TemplateEditorScreen(
     // Not `rememberSaveable`: a held exercise cannot survive the process that is holding it, and
     // a list that came back collapsed with nothing under the finger would be a mode with no way
     // out.
+    // Nothing to reorder in a plan of one, and nothing to reorder at all while a write is out or
+    // the read has not landed. One value rather than two, because the gesture and the glyph that
+    // announces it must not be able to disagree: a hint at a hold that does nothing is worse than
+    // no hint. The workout screen keeps the same pairing.
+    val canReorder = state.isEditable && state.exercises.size > 1
+
     val reorder = rememberReorderState(
         itemCount = state.exercises.size,
         onMove = { from, to -> order = order.toMutableList().apply { add(to, removeAt(from)) } },
         onCommit = { onEvent(TemplateEditorEvent.ExercisesReordered(order)) },
-        // Nothing to reorder in a plan of one, and nothing to reorder at all while a write is
-        // out or the read has not landed.
-        enabled = state.isEditable && state.exercises.size > 1,
+        enabled = canReorder,
     )
 
     // Drawn in the order being dragged rather than the draft's, so the page under the finger is
@@ -307,6 +313,7 @@ fun TemplateEditorScreen(
                 state = state,
                 exercises = exercises,
                 reorder = reorder,
+                canReorder = canReorder,
                 onEvent = onEvent,
                 onPickExercises = onPickExercises,
                 contentPadding = innerPadding,
@@ -349,8 +356,9 @@ private fun TemplateEditorBody(
     state: TemplateEditorUiState,
     exercises: List<TemplateExerciseRow>,
     reorder: ReorderState,
+    canReorder: Boolean,
     onEvent: (TemplateEditorEvent) -> Unit,
-    onPickExercises: () -> Unit,
+    onPickExercises: (replacing: Boolean) -> Unit,
     contentPadding: PaddingValues,
 ) {
     LazyColumn(
@@ -423,9 +431,16 @@ private fun TemplateEditorBody(
                             onSetRemove = { setKey ->
                                 onEvent(TemplateEditorEvent.SetRemoved(row.key, setKey))
                             },
+                            // Recorded and pushed together: the event says which slot the
+                            // answer belongs to, and the push says the picker is filling one.
+                            onSwap = {
+                                onEvent(TemplateEditorEvent.ExerciseSwapRequested(row.key))
+                                onPickExercises(true)
+                            },
                             onRemove = { onEvent(TemplateEditorEvent.ExerciseRemoved(row.key)) },
                             unitSystem = state.unitSystem,
                             enabled = state.isEditable,
+                            isMovable = canReorder,
                         )
                     }
                 }
@@ -469,7 +484,7 @@ private fun TemplateEditorBody(
                 OutlinedButton(
                     onClick = {
                         onEvent(TemplateEditorEvent.ExercisesPickRequested)
-                        onPickExercises()
+                        onPickExercises(false)
                     },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = state.isEditable && !state.isPickingExercises,
@@ -536,6 +551,7 @@ private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEdito
 /** The sentence a message is shown as. */
 private fun TemplateEditorMessage.labelRes(): Int = when (this) {
     TemplateEditorMessage.EXERCISES_UNAVAILABLE -> R.string.template_editor_exercises_unavailable
+    TemplateEditorMessage.EXERCISE_UNAVAILABLE -> R.string.template_editor_exercise_unavailable
     TemplateEditorMessage.EDITOR_RESTARTED -> R.string.template_editor_restarted
     TemplateEditorMessage.SAVE_FAILED -> R.string.template_editor_save_failed
 }

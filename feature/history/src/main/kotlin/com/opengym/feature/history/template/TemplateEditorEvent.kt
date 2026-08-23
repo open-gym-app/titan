@@ -115,6 +115,19 @@ sealed interface TemplateEditorEvent {
     /** The same join, tapped again: the two are no longer performed back to back. */
     data class SupersetUnlinked(val key: Long) : TemplateEditorEvent
 
+    /**
+     * The ⇄ on one exercise: plan a different movement in this slot.
+     *
+     * Records *which* slot the picker about to open is being asked about; the push is the
+     * screen's, as it is for [ExercisesPickRequested]. Whichever of the two was tapped last is
+     * the question the answer belongs to — see `TemplateEditorViewModel.swappingKey`.
+     *
+     * By [key] rather than by index or by exercise id, for the reason [ExerciseRemoved] is: the
+     * plan is drawn in the order being dragged, and the same movement may legitimately appear
+     * twice in one template.
+     */
+    data class ExerciseSwapRequested(val key: Long) : TemplateEditorEvent
+
     /** "Add exercises". Records that the picker is being opened; the push is the screen's. */
     data object ExercisesPickRequested : TemplateEditorEvent
 
@@ -123,6 +136,11 @@ sealed interface TemplateEditorEvent {
      * end of the plan. Each arrives with one blank set — a line the user has not priced yet, but
      * one whose plan is a table they can already type into rather than an empty card with an
      * invitation on it.
+     *
+     * The same event answers a swap, where it carries the one exercise the slot is to hold —
+     * see [ExerciseSwapRequested]. One event rather than two because the *picker* is one screen
+     * that returns one list either way, and which question it answered is this screen's to
+     * remember rather than the picker's to report.
      */
     data class ExercisesPicked(val exerciseIds: List<Long>) : TemplateEditorEvent
 

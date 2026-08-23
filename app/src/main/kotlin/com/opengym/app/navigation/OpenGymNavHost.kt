@@ -157,8 +157,10 @@ fun OpenGymNavHost(
                     // of the two callers can be on the back stack at a time — the editor is
                     // inside the tabs and the flow is a mode over them — so there is no question
                     // of both reading it.
-                    openExercisePicker = {
-                        navController.navigate(ExercisePickerDestination()) { launchSingleTop = true }
+                    openExercisePicker = { replacing ->
+                        navController.navigate(ExercisePickerDestination(replacing = replacing)) {
+                            launchSingleTop = true
+                        }
                     },
                     pickedExerciseIds = { pickedExerciseIds?.toList() },
                     onPickedExercisesHandled = { pickedExerciseIds = null },

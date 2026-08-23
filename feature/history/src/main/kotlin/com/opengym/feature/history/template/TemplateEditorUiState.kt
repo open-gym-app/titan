@@ -237,6 +237,16 @@ enum class TemplateEditorMessage {
      */
     EXERCISES_UNAVAILABLE,
 
+    /**
+     * The exercise picked for a swap is no longer in the catalogue, so the slot was left alone.
+     *
+     * [EXERCISES_UNAVAILABLE]'s case for a swap, which is worth its own word because the outcome
+     * is different: an add that loses one of three still adds two, where a swap that loses its
+     * one answer changes nothing at all, and a screen that said "some were left out" about a
+     * plan that is exactly as it was would be describing something that did not happen.
+     */
+    EXERCISE_UNAVAILABLE,
+
     /*
      * There is no message for a template that has gone.
      *

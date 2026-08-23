@@ -322,6 +322,7 @@
          the plan is the user's, and a line silently dropped is a workout that got shorter. -->
     <string name="template_exercise_removed">Removed from your library</string>
     <string name="template_remove_exercise">Remove %1$s from this template</string>
+    <string name="template_swap_exercise">Swap %1$s for another exercise</string>
 
     <!-- The plan's own table: a row per set, and the one rest that follows all of them. The
          set rows' own labels come from :core:ui, which draws the same cells in the workout. -->
@@ -352,6 +353,7 @@
 
     <!-- One-shot outcomes. There is none for a save that worked: the screen closes on it. -->
     <string name="template_editor_exercises_unavailable">Some of those exercises are no longer in your library and were left out</string>
+    <string name="template_editor_exercise_unavailable">That exercise is no longer in your library, so nothing was changed</string>
     <!-- The app was killed while the user was in the picker, so the editor it would have added
          to is gone. Says what did not happen and what to do about it, rather than adding the
          exercises to a plan that has lost everything else. -->
