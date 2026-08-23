@@ -1,5 +1,6 @@
 package com.opengym.feature.history.navigation
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
@@ -319,6 +320,10 @@ fun NavGraphBuilder.plateCalculatorGraph(onBack: () -> Unit) {
  * [ExercisePickerDestination.replacing], which is what turns the checkboxes into a single
  * choice.
  *
+ * @param onBack the user left without picking anything — the arrow and the system gesture
+ *   both, since a picker that means two different things by them would be a picker whose
+ *   caller could not act on either. Most callers pop one entry; the session flow's own entry
+ *   picker leaves the flow, which is why this is a callback and not a pop in here.
  * @param onExerciseClick open an exercise's detail screen, to check it before picking it.
  * @param onExercisesSelected the picker's result, in the order the user picked them — which
  *   becomes the order of the exercises in the session. One id when it was opened replacing.
@@ -339,6 +344,20 @@ fun NavGraphBuilder.exercisePickerGraph(
         val addedExerciseId by handle
             .getStateFlow<Long?>(ADDED_EXERCISE_ID_KEY, null)
             .collectAsStateWithLifecycle()
+
+        // The gesture and the arrow are one exit, so they run one lambda.
+        //
+        // Without this the gesture pops the back stack itself — which is what [onBack] does
+        // for every caller but one, and so looked like the same thing for as long as it was.
+        // It is not: a picker opened *as* the session flow's first screen has a setup screen
+        // under it that the user has never seen, and leaving it means leaving the flow. That
+        // is a decision only `:app` can make, and it can only make it if both ways out arrive
+        // there — see `OpenGymNavHost`'s `pickerOpenedTheFlow`.
+        //
+        // Here rather than inside `ExerciseLibraryScreen` for the reason the active session's
+        // handler gives: `BackHandler` needs an `OnBackPressedDispatcherOwner`, which a
+        // `@Preview` does not provide.
+        BackHandler { onBack() }
 
         ExerciseLibraryRoute(
             selecting = true,

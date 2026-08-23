@@ -83,9 +83,11 @@ import kotlin.time.Duration.Companion.minutes
  *   [com.opengym.feature.session.navigation.NO_TEMPLATE]. Applied once, which puts the screen
  *   straight on that template's review panel — see [NewSessionEvent.TemplateSelected].
  * @param pickExercises open the picker as soon as the screen appears, for a flow opened as
- *   "start an empty session". Applied once, and cancelling the picker leaves the user on the
- *   template list rather than back where they came from: they asked to build a workout, and
- *   the list is the other way of doing that.
+ *   "start an empty session". Applied once. This screen is never drawn before the picker
+ *   covers it, so cancelling that picker leaves the flow entirely rather than uncovering a
+ *   screen the user has not visited — the decision belongs to `:app`, which knows how the
+ *   flow was entered; see `OpenGymNavHost`'s `pickerOpenedTheFlow`. A picker the user opens
+ *   *from* this screen later is an ordinary step and still comes back to it.
  * @param pickedExerciseIds the picker's answer on the way back, or null when it has not
  *   answered. Applied once and then handed back through [onPickedExercisesHandled] so a
  *   recomposition does not re-apply it.
