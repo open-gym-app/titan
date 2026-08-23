@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.theme.OpenGymTheme
 
@@ -42,6 +43,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   findable without competing with the content under it. The accent is the deliberate
  *   exception — see the note on the accent in CONTRIBUTING.md — and is worth spending on the
  *   one section of a screen that matters right now.
+ * @param textAlign how it sits in the width it was given. Null — the default — leaves it at the
+ *   start, which is what a heading over a block of content wants. Centre is for the one job an
+ *   eyebrow does that is not a heading: labelling a *column*, where the label has to sit over the
+ *   cells rather than over the left edge of the space they share. See `SetLogHeader`.
  * @param maxLines how many lines it may wrap to. One by default, and clipped rather than
  *   ellipsised: an eyebrow is three or four words in a fixed column, and a heading that
  *   breaks `SET` across two lines is worse than one that is a pixel short.
@@ -51,12 +56,14 @@ fun Eyebrow(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    textAlign: TextAlign? = null,
     maxLines: Int = 1,
 ) {
     Text(
         text = text.uppercase(Locale.current.platformLocale),
         style = OpenGymTheme.typography.eyebrow,
         color = color,
+        textAlign = textAlign,
         maxLines = maxLines,
         overflow = TextOverflow.Clip,
         // The description rides on the text's own node, so a call site that speaks for its

@@ -320,6 +320,7 @@
 
     <!-- An exercise deleted from the library since the template was saved. It keeps its place:
          the plan is the user's, and a line silently dropped is a workout that got shorter. -->
+    <string name="template_exercise_position">Exercise %1$d</string>
     <string name="template_exercise_removed">Removed from your library</string>
     <string name="template_remove_exercise">Remove %1$s from this template</string>
     <string name="template_swap_exercise">Swap %1$s for another exercise</string>

@@ -188,15 +188,7 @@ fun SetLogRow(
             onDone = onDone,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        Text(
-            text = MULTIPLICATION_SIGN,
-            style = OpenGymTheme.typography.numericSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            // Decoration between two labelled fields. Left in the tree it is a stop of its
-            // own, and swiping through a five-set exercise hits "multiplication sign" five
-            // times between the values it is punctuating.
-            modifier = Modifier.clearAndSetSemantics { },
-        )
+        MultiplicationSign()
         OpenGymValueField(
             value = reps,
             onValueChange = onRepsChange,
@@ -293,6 +285,18 @@ fun LoggedSetRow(
  * out to a screen reader would then announce four words with nothing under them, so it is
  * hidden from semantics; each field carries its own label instead.
  *
+ * ### One label per cell, on the cell's own grid
+ *
+ * The two figure columns used to share a single `KG × REPS` label spanning both of them, which
+ * put the words at the *left edge* of a span whose contents — every cell in this table centres
+ * what it holds — sat in the middle of it. The header read as though it had slipped a column.
+ *
+ * So the header is built from the same cells the rows are, in the same order and at the same
+ * widths, each label centred the way the value under it is. That is also why the `×` is
+ * [MultiplicationSign] rather than a glyph of this header's own: it is the one thing between the
+ * two proportional columns that is not proportional, so the grid holds only while both draw it
+ * the same way.
+ *
  * @param showPrevious must match what the rows under it were given, since nothing here can
  *   check: a header that keeps a column the rows dropped is labels sitting over the wrong
  *   cells.
@@ -311,20 +315,30 @@ fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
     ) {
         Eyebrow(
             text = stringResource(R.string.set_log_column_set),
+            textAlign = TextAlign.Center,
             modifier = Modifier.width(INDEX_COLUMN_WIDTH),
         )
         if (showPrevious) {
             Eyebrow(
                 text = stringResource(R.string.set_log_column_previous),
+                textAlign = TextAlign.Center,
                 modifier = Modifier.width(PREVIOUS_COLUMN_WIDTH),
             )
         }
         Eyebrow(
-            text = stringResource(R.string.set_log_column_weight_reps, weightUnit),
-            modifier = Modifier.weight(1f),
+            text = weightUnit,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
+        )
+        MultiplicationSign()
+        Eyebrow(
+            text = stringResource(R.string.set_log_column_reps),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
         Eyebrow(
             text = stringResource(R.string.set_log_column_rpe),
+            textAlign = TextAlign.Center,
             modifier = Modifier.width(RPE_COLUMN_WIDTH),
         )
         Box(modifier = Modifier.width(TOGGLE_SIZE))
@@ -734,6 +748,29 @@ internal const val REPS_COLUMN_WEIGHT = 1f
 
 /** The `×` between the two fields. U+00D7, not the letter x, which is narrower and lower. */
 internal const val MULTIPLICATION_SIGN = "×"
+
+/**
+ * The `×` between the weight and the reps, drawn identically on a row and in the header over it.
+ *
+ * One composable rather than the same three lines in four places, and that is load-bearing rather
+ * than tidy: the two figure columns are proportional and the separator between them is not, so the
+ * header's cells land on the row's cells only while the thing separating them is exactly as wide.
+ * A header that styled its own `×` would drift off the grid by whatever the two styles differ by,
+ * which is the bug this fixed.
+ *
+ * Decoration, so it carries no semantics: left in the tree it is a stop of its own, and swiping
+ * through a five-set exercise hits "multiplication sign" five times between the values it is
+ * punctuating.
+ */
+@Composable
+internal fun MultiplicationSign() {
+    Text(
+        text = MULTIPLICATION_SIGN,
+        style = OpenGymTheme.typography.numericSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.clearAndSetSemantics { },
+    )
+}
 
 /**
  * How much of the fill tone an unlogged row keeps.

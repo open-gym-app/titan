@@ -17,7 +17,7 @@
     <string name="set_log_column_set">Set</string>
     <string name="set_log_column_previous">Prev</string>
     <!-- The combined weight-and-reps column: "KG × REPS". The unit is the ambient one. -->
-    <string name="set_log_column_weight_reps">%1$s × reps</string>
+    <string name="set_log_column_reps">Reps</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the single glyph shown in the set-number cell; the label is

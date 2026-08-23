@@ -1,20 +1,17 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.style.TextAlign
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -41,8 +38,11 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * **The rating.** A template does not plan how hard a set will feel — see
  * [com.opengym.core.domain.model.PlannedSet].
  *
- * The trailing space the tick used to hold is kept, so the fields of a plan and the fields of
- * the workout it becomes sit at the same width rather than jumping when the session starts.
+ * **The trailing space the tick used to hold goes with it.** It was held open so a plan's fields
+ * and the fields of the workout it becomes would sit at the same width — but the two tables are
+ * never on screen together, so nothing was ever compared, and what it actually bought was a 32dp
+ * gutter down the right of every template card. On a phone that reads as a table shoved to the
+ * left of the card holding it. The two figures take that width instead.
  *
  * ### Deleting a set is not here
  *
@@ -98,13 +98,9 @@ fun PlannedSetRow(
             error = error,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        Text(
-            text = MULTIPLICATION_SIGN,
-            style = OpenGymTheme.typography.numericSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            // Decoration between two labelled fields, as in the workout's own row.
-            modifier = Modifier.clearAndSetSemantics { },
-        )
+        // The same separator the workout's row draws, which is what keeps the header over this
+        // one on the same grid — see [MultiplicationSign].
+        MultiplicationSign()
         OpenGymValueField(
             value = reps,
             onValueChange = onRepsChange,
@@ -114,18 +110,20 @@ fun PlannedSetRow(
             error = error,
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
-
-        Box(modifier = Modifier.width(PLAN_TRAILING_WIDTH))
     }
 }
 
 /**
- * The plan's column labels: `SET`, `KG × REPS`.
+ * The plan's column labels: `SET`, `KG`, `REPS`.
  *
- * [SetLogHeader] without the two columns [PlannedSetRow] drops. Separate rather than a flag on
+ * [SetLogHeader] without the columns [PlannedSetRow] drops. Separate rather than a flag on
  * that one, because it is not the same table: this header sits over rows whose widths are this
  * file's, and a header that took its columns from a parameter would be one argument away from
  * labelling the wrong cells.
+ *
+ * One label per cell and each centred over it, for the reason [SetLogHeader] gives at length: the
+ * cells of this table centre what they hold, so a label at the left edge of the space they share
+ * reads as a column that slipped.
  *
  * Hidden from semantics for the reason the workout's is: four words with nothing under them,
  * read out before every plan. Each field carries its own label.
@@ -145,15 +143,19 @@ fun PlannedSetHeader(weightUnit: String, modifier: Modifier = Modifier) {
     ) {
         Eyebrow(
             text = stringResource(R.string.set_log_column_set),
+            textAlign = TextAlign.Center,
             modifier = Modifier.width(INDEX_COLUMN_WIDTH),
         )
         Eyebrow(
-            text = stringResource(R.string.set_log_column_weight_reps, weightUnit),
-            modifier = Modifier.weight(1f),
+            text = weightUnit,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        Box(modifier = Modifier.width(PLAN_TRAILING_WIDTH))
+        MultiplicationSign()
+        Eyebrow(
+            text = stringResource(R.string.set_log_column_reps),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
+        )
     }
 }
-
-/** The width the workout's tick occupies, held open so the two tables line up. */
-private val PLAN_TRAILING_WIDTH: Dp = TOGGLE_SIZE

@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.component.DragHandle
+import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.PlannedSetHeader
@@ -43,7 +44,8 @@ import com.opengym.feature.history.template.TemplateSetField
  *
  * ```text
  * ┌──────────────────────────────────────────┐
- * │ ⣿ 1  Bench press              SS A1  ⇄  × │
+ * │ ⣿ EXERCISE 1                  SS A1  ⇄  × │
+ * │ Bench press                              │
  * │    SET   KG   ×  REPS                    │
  * │    W    [40]  ×  [12]                    │
  * │    2    [80]  ×  [8]                     │
@@ -68,6 +70,15 @@ import com.opengym.feature.history.template.TemplateSetField
  * There is no rest field. Rest is not a property of a plan on this screen: the workout's timer
  * runs on the user's configured default (`UserPreferences.defaultRestDuration`) whatever the
  * template says, so a per-exercise picker here set a number nothing would ever read.
+ *
+ * ### The heading is the workout's heading
+ *
+ * Name *under* its position rather than beside it, in `titleMedium`, exactly as the card this
+ * card is a plan for draws it — see `SessionExerciseCard.ExerciseHeading`. The name was on the
+ * position's own line in `titleSmall`, which made a template read as a smaller, denser thing than
+ * the workout it becomes, and squeezed the name into whatever the controls left of one line: a
+ * two-word movement wrapped mid-name beside them. Given the line to itself it takes the width of
+ * the card.
  *
  * ### The slot's two controls, and the grab glyph in front of them
  *
@@ -154,7 +165,7 @@ internal fun TemplateExerciseCard(
     }
 }
 
-/** The exercise's own line: where it sits, what it is, and the two ways to change what is in it. */
+/** The exercise's own heading: where it sits, what it is, and the two ways to change it. */
 @Composable
 private fun Header(
     name: String,
@@ -169,30 +180,35 @@ private fun Header(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = OpenGymTheme.spacing.card),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+        // Top rather than centre: the name may take two lines, and controls that centred against
+        // it would sit lower on a long name than on a short one.
+        verticalAlignment = Alignment.Top,
     ) {
-        // Drawn only where the hold would actually do something, and quietly: it is on every card
-        // of the plan and none of them is about it.
-        if (isMovable) {
-            DragHandle(
-                modifier = Modifier.size(HANDLE_SIZE),
-                tint = MaterialTheme.colorScheme.outlineVariant,
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Drawn only where the hold would actually do something, and quietly: it is on
+                // every card of the plan and none of them is about it.
+                if (isMovable) {
+                    DragHandle(
+                        modifier = Modifier.size(HANDLE_SIZE),
+                        tint = MaterialTheme.colorScheme.outlineVariant,
+                    )
+                }
+                Eyebrow(text = stringResource(R.string.template_exercise_position, position + 1))
+            }
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = OpenGymTheme.spacing.xs),
             )
         }
-        Text(
-            text = (position + 1).toString(),
-            style = OpenGymTheme.typography.numericSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
         if (supersetLabel != null) SupersetBadge(label = supersetLabel)
         // Before the ×, for the reason on the class: the reversible control should not be the one
         // a thumb reaches past the destructive one to find.
@@ -200,14 +216,14 @@ private fun Header(
             Icon(
                 imageVector = Icons.Outlined.SwapHoriz,
                 contentDescription = stringResource(R.string.template_swap_exercise, name),
-                modifier = Modifier.size(REMOVE_ICON_SIZE),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         IconButton(onClick = onRemove, enabled = enabled) {
             Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.template_remove_exercise, name),
-                modifier = Modifier.size(REMOVE_ICON_SIZE),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -299,10 +315,7 @@ private fun AddSetButton(
     }
 }
 
-/** Matches the icon size of the workout card's own slot controls. */
-private val REMOVE_ICON_SIZE: Dp = 18.dp
-
-/** The same, for the one control that adds rather than removes. */
+/** The size of the one control that is not one of the workout card's own. */
 private val ADD_ICON_SIZE: Dp = 18.dp
 
 /** Smaller than the controls it sits opposite, because it is a mark and not one of them. */
