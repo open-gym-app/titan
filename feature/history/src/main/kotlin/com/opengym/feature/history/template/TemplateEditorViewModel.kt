@@ -103,13 +103,14 @@ class TemplateEditorViewModel @Inject constructor(
     private val editorState = MutableStateFlow(EditorState())
 
     /**
-     * The unit every weight on this screen is read and typed in, and the rest every exercise
-     * that does not name one is priced at.
+     * The unit every weight on this screen is read and typed in, and the rest the estimate
+     * prices every exercise at.
      *
      * Both are read once, with the template — see the note on the class. `defaultRest` is not a
      * display value: it is what [TemplateDuration] charges an exercise with no rest of its own,
      * so an estimate computed without it would be the shipped default's estimate on the phone of
-     * a user who has changed theirs.
+     * a user who has changed theirs. This screen plans no rest, so it is what almost every
+     * exercise is charged — see [DraftRow.restDuration] for the ones that are not.
      */
     private var unitSystem: UnitSystem = UnitSystem.METRIC
     private var defaultRest: Duration = Duration.ZERO
@@ -207,9 +208,10 @@ class TemplateEditorViewModel @Inject constructor(
                             reps = planned.reps?.toString().orEmpty(),
                         )
                     },
-                    rest = exercise.restDuration?.toString().orEmpty(),
                     supersetGroup = exercise.supersetGroup,
-                    // Not edited here and not dropped either, for the reason `icon` is kept.
+                    // Neither of these is edited here, and neither is dropped, for the reason
+                    // `icon` is kept.
+                    restDuration = exercise.restDuration,
                     notes = exercise.notes,
                 )
             },
@@ -280,8 +282,7 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     /**
-     * The five events about one exercise's sets — what is in them, how many there are, and the
-     * rest between them.
+     * The four events about one exercise's sets — what is in them, and how many there are.
      *
      * Split off [onPlanEvent] on the same principle that splits *it* off [onEvent]: one `when`
      * per subject. These are about what an exercise asks of the lifter; those are about which
@@ -311,10 +312,6 @@ class TemplateEditorViewModel @Inject constructor(
                 draft.mapRow(event.exerciseKey) { row ->
                     row.copy(sets = row.sets.filterNot { it.key == event.setKey })
                 }
-            }
-
-            is TemplateEditorEvent.RestChanged -> editDraft { draft ->
-                draft.mapRow(event.exerciseKey) { it.copy(rest = event.text) }
             }
 
             else -> return false
@@ -609,8 +606,6 @@ class TemplateEditorViewModel @Inject constructor(
                             errors = set.errors(unitSystem),
                         )
                     },
-                    rest = row.rest,
-                    hasRestError = !row.rest.isValidCount(REST_SECONDS_RANGE),
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
                     supersetGroupName = groupNames[index],
@@ -690,8 +685,16 @@ private data class DraftRow(
     val key: Long,
     val exerciseId: Long,
     val sets: List<DraftSet> = emptyList(),
-    val rest: String = "",
     val supersetGroup: Int? = null,
+    /**
+     * Not edited on this screen, and carried so that saving does not clear it.
+     *
+     * The screen used to plan this and no longer does: the workout's timer runs on the user's
+     * default whatever the template says, so the field was setting a number nothing read. What a
+     * template already holds still prices its estimate, and an edit that silently zeroed it would
+     * change the figure on a card the user only opened to rename an exercise.
+     */
+    val restDuration: Long? = null,
     /** Not edited on this screen, and carried so that saving does not clear it. */
     val notes: String? = null,
 )
@@ -753,9 +756,6 @@ private fun String.isValidCount(range: LongRange): Boolean =
 /** [SetValidator]'s own bounds on a logged set's reps, as the range this field is held to. */
 private val REP_COUNT_RANGE = SetValidator.REPS_MIN.toLong()..SetValidator.REPS_MAX.toLong()
 
-/** Rest has a floor in [SetValidator] and no ceiling; a day is a sanity limit on a typo. */
-private val REST_SECONDS_RANGE = SetValidator.REST_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS
-
 /** The plan as the drafts a write takes, with every figure parsed and the blanks left null. */
 private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> = rows.map { row ->
     TemplateExerciseDraft(
@@ -768,7 +768,7 @@ private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> 
                     ?.let { parseWeightMilligrams(it, unitSystem) },
             )
         },
-        restDuration = row.rest.toLongOrNull(),
+        restDuration = row.restDuration,
         notes = row.notes,
         supersetGroup = row.supersetGroup,
     )

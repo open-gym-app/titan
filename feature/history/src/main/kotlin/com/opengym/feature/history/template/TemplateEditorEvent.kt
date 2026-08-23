@@ -84,14 +84,6 @@ sealed interface TemplateEditorEvent {
     data class SetRemoved(val exerciseKey: Long, val setKey: Long) : TemplateEditorEvent
 
     /**
-     * The rest between one exercise's sets was typed into, in seconds.
-     *
-     * Separate from [SetFieldChanged] because it is not a set's figure: it belongs to the
-     * exercise, and there is one of it however many sets are planned.
-     */
-    data class RestChanged(val exerciseKey: Long, val text: String) : TemplateEditorEvent
-
-    /**
      * An exercise was dropped from the plan.
      *
      * By [key], not by exercise id: the same movement may legitimately appear twice in one

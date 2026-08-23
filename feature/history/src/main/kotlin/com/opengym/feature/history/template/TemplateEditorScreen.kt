@@ -423,7 +423,6 @@ private fun TemplateEditorBody(
                             onSetRemove = { setKey ->
                                 onEvent(TemplateEditorEvent.SetRemoved(row.key, setKey))
                             },
-                            onRestChange = { onEvent(TemplateEditorEvent.RestChanged(row.key, it)) },
                             onRemove = { onEvent(TemplateEditorEvent.ExerciseRemoved(row.key)) },
                             unitSystem = state.unitSystem,
                             enabled = state.isEditable,
@@ -715,7 +714,6 @@ private fun previewRow(
     key: Long,
     name: String,
     sets: List<TemplateSetRow> = emptyList(),
-    rest: String = "90",
     supersetGroup: Int? = null,
     supersetLabel: String? = null,
     supersetGroupName: String? = null,
@@ -725,7 +723,6 @@ private fun previewRow(
     exerciseId = key,
     exercise = Exercise(id = key, name = name),
     sets = sets,
-    rest = rest,
     supersetGroup = supersetGroup,
     supersetLabel = supersetLabel,
     supersetGroupName = supersetGroupName,

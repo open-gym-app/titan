@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
@@ -20,7 +19,6 @@ import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -28,7 +26,6 @@ import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
-import com.opengym.core.ui.component.OpenGymValueField
 import com.opengym.core.ui.component.PlannedSetHeader
 import com.opengym.core.ui.component.PlannedSetRow
 import com.opengym.core.ui.component.SupersetBadge
@@ -49,7 +46,7 @@ import com.opengym.feature.history.template.TemplateSetField
  * │    W    [40]  ×  [12]                    │
  * │    2    [80]  ×  [8]                     │
  * │    D    [60]  ×  [10]                    │
- * │    + Add set                  REST [90]  │
+ * │    + Add set                             │
  * └──────────────────────────────────────────┘
  * ```
  *
@@ -66,8 +63,9 @@ import com.opengym.feature.history.template.TemplateSetField
  * happened yet; everything else lines up cell for cell with the session it becomes, which is the
  * point: a lifter should recognise their template when it opens as a workout.
  *
- * Rest sits beside ADD SET rather than in the table, because there is one of it per exercise
- * however many sets are planned.
+ * There is no rest field. Rest is not a property of a plan on this screen: the workout's timer
+ * runs on the user's configured default (`UserPreferences.defaultRestDuration`) whatever the
+ * template says, so a per-exercise picker here set a number nothing would ever read.
  *
  * ### The two destructive gestures are deliberately different
  *
@@ -93,7 +91,6 @@ internal fun TemplateExerciseCard(
     onSetTypeChange: (setKey: Long, SetType) -> Unit,
     onSetAdd: () -> Unit,
     onSetRemove: (setKey: Long) -> Unit,
-    onRestChange: (String) -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
     unitSystem: UnitSystem = UnitSystem.METRIC,
@@ -124,12 +121,10 @@ internal fun TemplateExerciseCard(
                 onSetRemove = onSetRemove,
             )
 
-            Footer(
-                row = row,
-                name = name,
+            AddSetButton(
+                canAddSet = row.canAddSet,
                 enabled = enabled,
-                onSetAdd = onSetAdd,
-                onRestChange = onRestChange,
+                onClick = onSetAdd,
             )
         }
     }
@@ -229,54 +224,34 @@ private fun PlanTable(
 }
 
 /**
- * ADD SET, and the rest that follows every one of them.
+ * ADD SET, on its own line under the table.
  *
- * On one line because they are the two things left to say about the exercise once its table is
- * written, and because the rest field is three characters wide — a row of its own for it would
- * be a caption, a box and an expanse of nothing.
+ * Full width rather than sized to its label: it is the only control the card's foot holds, and a
+ * short button floating at one end of an empty line reads as something that lost its neighbour.
  */
 @Composable
-private fun Footer(
-    row: TemplateExerciseRow,
-    name: String,
+private fun AddSetButton(
+    canAddSet: Boolean,
     enabled: Boolean,
-    onSetAdd: () -> Unit,
-    onRestChange: (String) -> Unit,
+    onClick: () -> Unit,
 ) {
-    Row(
+    TextButton(
+        onClick = onClick,
+        // Inert at the ceiling rather than absent: a control that vanishes when a plan gets
+        // long reads as a bug, where a greyed one reads as a limit.
+        enabled = enabled && canAddSet,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = OpenGymTheme.spacing.card),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        TextButton(
-            onClick = onSetAdd,
-            // Inert at the ceiling rather than absent: a control that vanishes when a plan gets
-            // long reads as a bug, where a greyed one reads as a limit.
-            enabled = enabled && row.canAddSet,
-            modifier = Modifier.weight(1f),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Add,
-                contentDescription = null,
-                modifier = Modifier.size(ADD_ICON_SIZE),
-            )
-            Text(
-                text = stringResource(R.string.template_add_set),
-                modifier = Modifier.padding(start = OpenGymTheme.spacing.xs),
-            )
-        }
-
-        OpenGymValueField(
-            value = row.rest,
-            onValueChange = onRestChange,
-            description = stringResource(R.string.template_field_rest_description, name),
-            keyboardType = KeyboardType.Number,
-            enabled = enabled,
-            error = stringResource(R.string.template_field_invalid).takeIf { row.hasRestError },
-            caption = stringResource(R.string.template_field_rest),
-            modifier = Modifier.width(REST_FIELD_WIDTH),
+        Icon(
+            imageVector = Icons.Outlined.Add,
+            contentDescription = null,
+            modifier = Modifier.size(ADD_ICON_SIZE),
+        )
+        Text(
+            text = stringResource(R.string.template_add_set),
+            modifier = Modifier.padding(start = OpenGymTheme.spacing.xs),
         )
     }
 }
@@ -286,6 +261,3 @@ private val REMOVE_ICON_SIZE: Dp = 18.dp
 
 /** The same, for the one control that adds rather than removes. */
 private val ADD_ICON_SIZE: Dp = 18.dp
-
-/** Three characters and their caption — `90`, `120` — which is every rest anybody plans. */
-private val REST_FIELD_WIDTH: Dp = 72.dp

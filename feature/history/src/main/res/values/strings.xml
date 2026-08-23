@@ -329,8 +329,6 @@
     <string name="template_remove_set">Remove set %1$d of %2$s</string>
     <!-- Captions are drawn under the cells, so they are as short as the boxes they name; the
          descriptions are what a screen reader hears. -->
-    <string name="template_field_rest">Rest</string>
-    <string name="template_field_rest_description">Rest in seconds for %1$s</string>
     <!-- Said of the field itself, which is where a screen reader will hear it. The bounds are
          not spelled out: what is wrong is nearly always a stray character. -->
     <string name="template_field_invalid">Not a number this can plan</string>

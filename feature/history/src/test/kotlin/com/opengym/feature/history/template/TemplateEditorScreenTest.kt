@@ -95,15 +95,6 @@ class TemplateEditorScreenTest {
     }
 
     @Test
-    fun `the rest cell says which exercise it belongs to`() {
-        setContent(populated())
-
-        // On the field rather than on the caption under it, which is cleared from the semantics
-        // tree — see `OpenGymValueField`.
-        scrollTo(hasContentDescription("Rest in seconds for Bench press")).assertIsDisplayed()
-    }
-
-    @Test
     fun `removing an exercise reports it by key`() {
         setContent(populated())
 
@@ -370,7 +361,6 @@ class TemplateEditorScreenTest {
         exerciseId = key,
         exercise = Exercise(id = key, name = name),
         sets = sets,
-        rest = "90",
         supersetGroup = if (supersetLabel != null) 0 else null,
         supersetLabel = supersetLabel,
         supersetGroupName = if (supersetLabel != null) "A" else null,

@@ -318,18 +318,6 @@ class TemplateEditorViewModelTest {
     }
 
     @Test
-    fun `a rest that is not a number is refused on the exercise and blocks the save`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(TemplateEditorEvent.RestChanged(KEY_BENCH, "two minutes"))
-
-        val state = viewModel.uiState.value
-        assertTrue(state.exercises.first().hasRestError)
-        assertTrue(state.hasErrors)
-        assertFalse(state.canSave)
-    }
-
-    @Test
     fun `a blank figure is the template declining to say, not an error`() = runTest {
         val viewModel = viewModel()
 
@@ -560,6 +548,19 @@ class TemplateEditorViewModelTest {
     }
 
     @Test
+    fun `a stored rest survives an edit that does not touch it`() = runTest {
+        val templates = templateStore()
+        val viewModel = viewModel(templates = templates)
+
+        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+        // `UpdateTemplateUseCase` rewrites every field it is given, so a draft that dropped this
+        // would clear it — silently repricing a template the user opened to add one set.
+        assertEquals(120L, templates.exercisesOf(1).first().restDuration)
+    }
+
+    @Test
     fun `saving a weight writes it back in milligrams, on the set it was typed into`() = runTest {
         val templates = templateStore()
         val viewModel = viewModel(templates = templates)
@@ -710,6 +711,10 @@ class TemplateEditorViewModelTest {
             exerciseId = BENCH.id,
             position = 0,
             sets = List(4) { PlannedSet(reps = 8, weight = 80_000_000) },
+            // The editor has never been able to set this and cannot now — it is here because
+            // templates written before the field was dropped still hold one, and a save has to
+            // hand it back. See `a stored rest survives an edit that does not touch it`.
+            restDuration = 120,
         ),
         TemplateExercise(
             id = KEY_FLY,
