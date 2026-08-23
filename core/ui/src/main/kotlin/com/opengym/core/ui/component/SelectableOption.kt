@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -21,12 +22,21 @@ import com.opengym.core.ui.theme.OpenGymTheme
 /**
  * One choice in a list where exactly one is taken, drawn as a card rather than as a row.
  *
- * The wireframes' onboarding treatment: a bordered box per option, a radio on the left, the
- * name and one line saying what it means beside it, and the whole box carrying the accent
- * once it is the chosen one. It is what a question asked *as a screen* looks like, where
- * `ChoiceDialog`'s plain radio rows are what the same question looks like squeezed into a
- * dialog — same semantics, four times the target, and room for the detail line that is the
- * whole reason a beginner can answer "strength or hypertrophy?" at all.
+ * The wireframes' onboarding treatment: a bordered box per option, the name and one line
+ * saying what it means, and the whole box carrying the accent once it is the chosen one. It is
+ * what a question asked *as a screen* looks like, where `ChoiceDialog`'s plain radio rows are
+ * what the same question looks like squeezed into a dialog — same semantics, four times the
+ * target, and room for the detail line that is the whole reason a beginner can answer
+ * "strength or hypertrophy?" at all.
+ *
+ * ## The mark leads, the radio follows
+ *
+ * An [icon] sits at the start and the radio at the end, which is the opposite of a settings
+ * row and deliberate. A list of options is *scanned* before it is chosen from, and the thing
+ * worth scanning is what each option is — four identical radios stacked down the left edge
+ * are four identical marks the eye has to read past. Putting the state at the end also puts it
+ * where the reader's eye arrives last, which is when the answer to "and which one is on?"
+ * matters.
  *
  * ## Selection is a colour, not a weight
  *
@@ -46,7 +56,12 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * list in `Modifier.selectableGroup()` so the set is announced as one.
  *
  * @param detail the line under the name — what the option actually means. Optional, and worth
- *   writing wherever the name alone is a guess.
+ *   writing wherever the name alone is a guess. Set in prose rather than in the mono numeric
+ *   role: it is a sentence about the option, and the mono faces in this app mean *figures*.
+ * @param icon the mark for this option. Optional — a list whose options have no natural
+ *   picture is better with none than with four shrugs — but where there is one it is what
+ *   makes the list scannable, and it must be given for *every* option in the group or the
+ *   ones without it read as disabled.
  */
 @Composable
 fun SelectableOption(
@@ -55,7 +70,14 @@ fun SelectableOption(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     detail: String? = null,
+    icon: ImageVector? = null,
 ) {
+    val content = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
@@ -80,27 +102,33 @@ fun SelectableOption(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
         ) {
-            // `onClick = null`: the card above owns the click and the semantics. A radio with
-            // its own handler here would be a second, smaller target announcing the same thing.
-            RadioButton(selected = selected, onClick = null)
+            if (icon != null) {
+                IconTile(
+                    icon = icon,
+                    // The chosen card is already filled with the accent-soft shade, so a tile
+                    // in that same colour would vanish into it. It takes the surface behind
+                    // the card instead, which keeps the mark a distinct object on both.
+                    container = if (selected) {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer
+                    },
+                )
+            }
 
-            Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+            ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+                    color = content,
                 )
                 if (detail != null) {
-                    // Mono, like every other supporting line the wireframes set under a name.
-                    // It is not a number, but it is *metadata* — the same role the meta line
-                    // under an exercise name and under a session row is drawn in.
                     Text(
                         text = detail,
-                        style = OpenGymTheme.typography.numericSmall,
+                        style = MaterialTheme.typography.bodySmall,
                         color = if (selected) {
                             MaterialTheme.colorScheme.onPrimaryContainer
                         } else {
@@ -109,6 +137,10 @@ fun SelectableOption(
                     )
                 }
             }
+
+            // `onClick = null`: the card above owns the click and the semantics. A radio with
+            // its own handler here would be a second, smaller target announcing the same thing.
+            RadioButton(selected = selected, onClick = null)
         }
     }
 }

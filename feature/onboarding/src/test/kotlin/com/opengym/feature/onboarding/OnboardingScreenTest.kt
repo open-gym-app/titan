@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
@@ -50,6 +51,35 @@ class OnboardingScreenTest {
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
         assertEquals(listOf(OnboardingEvent.Continued), events)
+    }
+
+    @Test
+    fun `the footer offers a way back, and reports BackPressed`() {
+        setContent(OnboardingUiState(step = OnboardingStep.GOAL))
+
+        // The system gesture does the same thing, but it is not an affordance: this is the
+        // part a user can see, and losing it is how the flow came to look one-way.
+        composeTestRule.onNodeWithText(BACK).performClick()
+
+        assertEquals(listOf(OnboardingEvent.BackPressed), events)
+    }
+
+    @Test
+    fun `the first step has nothing to go back to`() {
+        setContent(OnboardingUiState())
+
+        // Absent rather than disabled: there is nothing behind it, and a greyed control on the
+        // very first screen of an app reads as something already broken.
+        composeTestRule.onNodeWithText(BACK).assertDoesNotExist()
+    }
+
+    @Test
+    fun `going back is inert while the flow is being recorded`() {
+        setContent(OnboardingUiState(step = OnboardingStep.READY, isFinishing = true))
+
+        composeTestRule.onNodeWithText(BACK).assertIsNotEnabled().performClick()
+
+        assertEquals(emptyList<OnboardingEvent>(), events)
     }
 
     @Test
@@ -110,10 +140,16 @@ class OnboardingScreenTest {
         )
 
         composeTestRule.onNodeWithText(READY_TITLE).assertIsDisplayed()
-        // `MetaGrid` announces each cell as one node, so the recap is matched the way a
-        // screen reader reads it rather than as two loose fragments.
-        composeTestRule.onNodeWithContentDescription(RECAP_GOAL).assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription(RECAP_UNITS).assertIsDisplayed()
+        // Each recap row announces as one node, so the answers are matched the way a screen
+        // reader reads them rather than as four loose fragments. Scrolled to rather than
+        // asserted where they lie: Robolectric's device is 470dp tall, shorter than any phone
+        // this ships on, and the step scrolls there like every other screen in the app.
+        composeTestRule.onNodeWithContentDescription(RECAP_GOAL)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(RECAP_UNITS)
+            .performScrollTo()
+            .assertIsDisplayed()
 
         // The button says what it does rather than "Done", and the header's escape hatch is
         // gone: there is nothing left to skip past.
@@ -146,6 +182,7 @@ class OnboardingScreenTest {
         const val STEP_ONE_OF_FOUR = "STEP 1 OF 4"
         const val SKIP = "SKIP"
         const val CONTINUE = "Continue"
+        const val BACK = "Back"
         const val START = "Start training"
 
         const val WELCOME_TITLE = "Log the work. Watch it add up."

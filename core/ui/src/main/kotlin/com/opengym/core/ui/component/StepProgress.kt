@@ -1,9 +1,10 @@
 package com.opengym.core.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -13,15 +14,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
- * How far through a numbered flow the user is, as one filled rail.
+ * How far through a numbered flow the user is, as one segment per step.
  *
- * The wireframes' onboarding treatment: a 3dp track with the accent filling it left to right,
- * under the `STEP 2 OF 4` eyebrow that names the same fact in words. Deliberately not
- * Material's `LinearProgressIndicator`, which is about *work in progress* — it has a stop
- * indicator, an indeterminate mode and a gap between track and bar, all of which are answers
- * to a question a step counter is not asking.
+ * **Segments rather than one filled bar.** A continuous rail answers "how much is left" as a
+ * proportion, which is the question a download asks; a numbered flow is asking "which of the
+ * four am I on", and four separated ticks say that at a glance without the user reading the
+ * counter beside them. It is also the difference between a step that *lands* — one more tick
+ * takes the accent — and a bar that slides to a position nobody can measure.
+ *
+ * Deliberately not Material's `LinearProgressIndicator`, which is about *work in progress*: it
+ * has a stop indicator, an indeterminate mode and a track gap, all of which are answers to a
+ * question a step counter is not asking.
  *
  * **It is decorative, and says so.** The semantics are cleared, because the number of steps
  * and the one being shown is something the caller has already put on screen as text — a rail
@@ -32,7 +38,7 @@ import androidx.compose.ui.unit.dp
  * @param step which step is showing, counting from one. Clamped, so a caller that has an
  *   off-by-one draws a full or an empty rail rather than one that overshoots its track.
  * @param steps how many there are in total. Must be positive.
- * @param thickness the rail's height. The default is the wireframes' 3dp; it is a parameter
+ * @param thickness a segment's height. The default is the wireframes' 3dp; it is a parameter
  *   only so a denser host — a card header rather than a screen — can ask for less.
  */
 @Composable
@@ -44,43 +50,42 @@ fun StepProgress(
 ) {
     require(steps > 0) { "a flow has at least one step, was $steps" }
 
-    // Clamped, not trusted: `fillMaxWidth` rejects a fraction outside 0..1, so an off-by-one
-    // in a caller would be a crash rather than a rail that looks a step wrong.
-    val fraction = step.coerceIn(0, steps).toFloat() / steps
-    // Animated, because the rail is the only thing on the screen that moves when Continue is
-    // pressed and the next step's content is swapped in under it. Snapping would read as the
-    // header being redrawn rather than as progress being made.
-    val animatedFraction by animateFloatAsState(
-        targetValue = fraction,
-        label = "step progress",
-    )
+    // Clamped, not trusted: an off-by-one in a caller should draw a full or an empty rail
+    // rather than crash a screen on a negative repeat count.
+    val reached = step.coerceIn(0, steps)
 
-    Box(
-        modifier = modifier
-            .clearAndSetSemantics {}
-            .fillMaxWidth()
-            .height(thickness)
-            .background(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = MaterialTheme.shapes.extraSmall,
-            ),
+    Row(
+        modifier = modifier.clearAndSetSemantics {}.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
     ) {
-        Box(
-            modifier = Modifier
-                // Coerced as well as clamped above: `fillMaxWidth` rejects a fraction outside
-                // 0..1, and an animation landing on 1.0000001 is not a reason to crash a screen.
-                .fillMaxWidth(animatedFraction.coerceIn(0f, 1f))
-                .fillMaxHeight()
-                .background(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = MaterialTheme.shapes.extraSmall,
-                ),
-        )
+        repeat(steps) { index ->
+            // The colour is animated rather than snapped, because the rail is the only thing
+            // on the screen that stays put while the step under it is replaced. A tick that
+            // simply appears reads as the header being redrawn; one that fills reads as
+            // progress being made.
+            val color by animateColorAsState(
+                targetValue = if (index < reached) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                },
+                label = "step ${index + 1}",
+            )
+
+            Box(
+                modifier = Modifier
+                    // Equal shares of the width, so the rail reads as a measure of the flow
+                    // rather than as four items that happen to be in a row.
+                    .weight(1f)
+                    .height(thickness)
+                    .background(color = color, shape = MaterialTheme.shapes.extraSmall),
+            )
+        }
     }
 }
 
 /**
- * The rail's drawn weight.
+ * A segment's drawn weight.
  *
  * Three device-independent pixels: heavier than a hairline, because this one is *content*
  * rather than a rule, and still thin enough that it reads as a measure rather than as a bar

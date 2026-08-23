@@ -19,6 +19,9 @@
          wireframe's slash so a screen reader says it as a sentence rather than as punctuation. -->
     <string name="onboarding_step_counter">Step %1$d of %2$d</string>
     <string name="onboarding_skip">Skip</string>
+    <!-- The visible way back a step. The system gesture does the same thing, but a gesture is
+         not an affordance: without this the flow only ever looked as if it went one way. -->
+    <string name="onboarding_back">Back</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_start">Start training</string>
 
@@ -53,6 +56,10 @@
     <string name="onboarding_ready_goal">Training goal</string>
     <string name="onboarding_ready_units">Units</string>
     <string name="onboarding_ready_footnote">Both live in Settings, along with everything else.</string>
+    <!-- How one recap row is read out: "Training goal, Hypertrophy". A label and a value
+         announced as two fragments are two facts a swipe apart, which is not the same
+         information — the same sentence `MetaGrid` builds for the metadata blocks elsewhere. -->
+    <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
 
     <!-- ── Failures ──────────────────────────────────────────────────────────────── -->
 

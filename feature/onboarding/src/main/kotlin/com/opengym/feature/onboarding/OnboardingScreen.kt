@@ -8,9 +8,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -127,6 +130,7 @@ fun OnboardingScreen(
                 // be in a state that makes moving on wrong: every question has an answer from
                 // the moment it is drawn, because the store has a default for all of them.
                 enabled = !state.isFinishing,
+                onBack = { onEvent(OnboardingEvent.BackPressed) },
                 onContinue = { onEvent(OnboardingEvent.Continued) },
             )
         },
@@ -161,18 +165,35 @@ fun OnboardingScreen(
                 label = "onboarding step",
                 modifier = Modifier.weight(1f),
             ) { step ->
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(
-                            start = OpenGymTheme.spacing.screen,
-                            end = OpenGymTheme.spacing.screen,
-                            top = OpenGymTheme.spacing.section,
-                            bottom = OpenGymTheme.spacing.section,
-                        ),
-                ) {
-                    StepBody(step = step, state = state, onEvent = onEvent)
+                // `BoxWithConstraints` so the scrolling column can be told to be *at least* as
+                // tall as the space it was given. Without a floor it wraps its content and a
+                // `verticalArrangement` has nothing spare to distribute — which is how the two
+                // steps that announce rather than ask came to sit jammed under the header with
+                // a third of a screen of nothing under them. With it, a step that fits is laid
+                // out in the whole space, and one that does not — four options at twice the
+                // font scale — still scrolls, because `Center` only distributes what is spare.
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    val available = maxHeight
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .heightIn(min = available)
+                            .padding(
+                                start = OpenGymTheme.spacing.screen,
+                                end = OpenGymTheme.spacing.screen,
+                                top = OpenGymTheme.spacing.section,
+                                bottom = OpenGymTheme.spacing.section,
+                            ),
+                        verticalArrangement = if (step.isCentred) {
+                            Arrangement.Center
+                        } else {
+                            Arrangement.Top
+                        },
+                    ) {
+                        StepBody(step = step, state = state, onEvent = onEvent)
+                    }
                 }
             }
         }
@@ -214,6 +235,31 @@ private fun StepBody(
     }
 }
 
+/**
+ * Whether a step's content is centred in the space it was given, or set from the top.
+ *
+ * It follows what the step is *doing*, and the two answers look wrong on each other's steps.
+ *
+ * The two that ask a question are lists. They start at the top, under the rail that says how
+ * far through the flow this is, because that is where the eye goes looking for the question —
+ * centred, the units step's two options push the heading into the middle of the screen with a
+ * third of it blank above, which reads as a page that failed to draw its top half. They are
+ * also the two that overflow at a large font scale, where there is no spare space to centre in
+ * anyway.
+ *
+ * The two that announce something — the greeting and the recap — are a mark, a sentence and
+ * one small block, and there is no list under them for the eye to run down. Left at the top
+ * they read as a screen that failed to load the *rest* of itself.
+ *
+ * An exhaustive `when`, so a step added to [OnboardingStep] is a compile error here rather
+ * than a screen that quietly picks an alignment nobody chose.
+ */
+private val OnboardingStep.isCentred: Boolean
+    get() = when (this) {
+        OnboardingStep.WELCOME, OnboardingStep.READY -> true
+        OnboardingStep.GOAL, OnboardingStep.UNITS -> false
+    }
+
 /** The sentence a message is shown as. */
 private fun OnboardingMessage.textRes(): Int = when (this) {
     OnboardingMessage.SAVE_FAILED -> R.string.onboarding_save_failed
@@ -231,7 +277,7 @@ private const val STEP_SLIDE_FRACTION = 5
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Onboarding - welcome", showBackground = true)
+@Preview(name = "Onboarding - welcome", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun OnboardingWelcomePreview() {
     OpenGymTheme {
@@ -239,7 +285,7 @@ fun OnboardingWelcomePreview() {
     }
 }
 
-@Preview(name = "Onboarding - training goal", showBackground = true)
+@Preview(name = "Onboarding - training goal", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun OnboardingGoalPreview() {
     OpenGymTheme {
@@ -253,7 +299,7 @@ fun OnboardingGoalPreview() {
     }
 }
 
-@Preview(name = "Onboarding - units, dark", showBackground = true)
+@Preview(name = "Onboarding - units, dark", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun OnboardingUnitsDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
@@ -270,7 +316,7 @@ fun OnboardingUnitsDarkPreview() {
     }
 }
 
-@Preview(name = "Onboarding - ready", showBackground = true)
+@Preview(name = "Onboarding - ready", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun OnboardingReadyPreview() {
     OpenGymTheme {
@@ -286,3 +332,34 @@ fun OnboardingReadyPreview() {
         )
     }
 }
+
+@Preview(
+    name = "Onboarding - goal, twice the font",
+    showBackground = true,
+    heightDp = FULL_SCREEN_HEIGHT_DP,
+    fontScale = 2f,
+)
+@Composable
+fun OnboardingGoalLargeFontPreview() {
+    // The step that overflows first: four options, each two lines, under a heading set in the
+    // largest role in the app. It is here to keep the flow honest about scrolling — the
+    // primary action stays pinned and reachable however far the content runs past the fold.
+    OpenGymTheme {
+        OnboardingScreen(
+            state = OnboardingUiState(
+                step = OnboardingStep.GOAL,
+                preferences = UserPreferences(trainingGoal = TrainingGoal.STRENGTH),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+/**
+ * The height the previews render at.
+ *
+ * A phone, not the 480dp the preview default gives: this flow's whole job is filling a first
+ * screen, and a reference rendered short enough to clip the welcome card is a reference that
+ * cannot tell anybody whether it does.
+ */
+private const val FULL_SCREEN_HEIGHT_DP = 780
