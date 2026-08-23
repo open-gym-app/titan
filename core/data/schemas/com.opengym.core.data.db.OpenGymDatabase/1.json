@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "2c9464c39407908e0c221f5242d32c77",
+    "identityHash": "c2ba593872614150a5aa9c21d7fafa50",
     "entities": [
       {
         "tableName": "exercise",
@@ -393,7 +393,7 @@
       },
       {
         "tableName": "template_exercise",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `default_sets` INTEGER, `default_reps` INTEGER, `default_weight` INTEGER, `rest_duration` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `rest_duration` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -422,21 +422,6 @@
           {
             "fieldPath": "supersetGroup",
             "columnName": "superset_group",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "defaultSets",
-            "columnName": "default_sets",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "defaultReps",
-            "columnName": "default_reps",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "defaultWeight",
-            "columnName": "default_weight",
             "affinity": "INTEGER"
           },
           {
@@ -504,6 +489,87 @@
             "onUpdate": "NO ACTION",
             "columns": [
               "exercise_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "template_set",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_exercise_id` INTEGER NOT NULL, `set_number` INTEGER NOT NULL, `set_type` TEXT NOT NULL DEFAULT 'NORMAL', `reps` INTEGER, `weight` INTEGER, FOREIGN KEY(`template_exercise_id`) REFERENCES `template_exercise`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateExerciseId",
+            "columnName": "template_exercise_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "setNumber",
+            "columnName": "set_number",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "setType",
+            "columnName": "set_type",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'NORMAL'"
+          },
+          {
+            "fieldPath": "reps",
+            "columnName": "reps",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "weight",
+            "columnName": "weight",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_template_set_template_exercise_id",
+            "unique": false,
+            "columnNames": [
+              "template_exercise_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_template_set_template_exercise_id` ON `${TABLE_NAME}` (`template_exercise_id`)"
+          },
+          {
+            "name": "index_template_set_template_exercise_id_set_number",
+            "unique": true,
+            "columnNames": [
+              "template_exercise_id",
+              "set_number"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_template_set_template_exercise_id_set_number` ON `${TABLE_NAME}` (`template_exercise_id`, `set_number`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "template_exercise",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "template_exercise_id"
             ],
             "referencedColumns": [
               "id"
@@ -1087,7 +1153,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '2c9464c39407908e0c221f5242d32c77')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c2ba593872614150a5aa9c21d7fafa50')"
     ]
   }
 }

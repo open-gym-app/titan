@@ -442,6 +442,13 @@ data class SetEntry(
  *   reference are not the same list: warm-ups are skipped on both sides, so which previous set
  *   a row is compared against depends on the *types* of the rows above it, and that is settled
  *   once, where the rows are built, rather than recounted by whatever draws them.
+ * @param canComplete whether the tick can be pressed, which is the same narrower question
+ *   [SessionExerciseRow.canLogEntry] asks of the row being typed: a set that does not fill in the
+ *   dimension its exercise is logged in would be refused by `SetValidator` the moment it was
+ *   marked done. It matters here because a row can now arrive **empty** — a template that named
+ *   an exercise without pricing it lays down a set with nothing in it — where before this every
+ *   stored set had been through a write path that checked it. Always true for a set that is
+ *   already ticked, since taking a tick *off* is never refused.
  */
 @Immutable
 data class LoggedSet(
@@ -451,6 +458,7 @@ data class LoggedSet(
     val isEdited: Boolean = false,
     val isSaving: Boolean = false,
     val previous: PreviousSet? = null,
+    val canComplete: Boolean = true,
 )
 
 /**

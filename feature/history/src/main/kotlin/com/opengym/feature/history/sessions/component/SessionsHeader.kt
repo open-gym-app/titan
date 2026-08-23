@@ -48,6 +48,14 @@ import com.opengym.feature.history.sessions.SessionsUiState
  * A search box over a month grid narrows nothing, and a date window over a list of templates
  * is a control with no referent. Both are absent rather than disabled on the other two tabs:
  * a control that is permanently greyed is one the user keeps re-discovering.
+ *
+ * ### `+ NEW` makes whatever the tab is a list *of*
+ *
+ * A workout on the history and the calendar, and a template on the templates tab — where a
+ * button that started a workout instead was the only way to reach the editor at all, and so the
+ * one thing a user looking at their templates could not do was write one. One control rather
+ * than two side by side: the tab already says which of the two is meant, and a second button
+ * that is dead on two tabs out of three is a control to be re-discovered.
  */
 @Composable
 internal fun SessionsHeader(
@@ -56,8 +64,10 @@ internal fun SessionsHeader(
     onToggleSearch: () -> Unit,
     onOpenDates: () -> Unit,
     onNewSession: () -> Unit,
+    onNewTemplate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val makingTemplate = state.tab == SessionsTab.TEMPLATES
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -85,11 +95,16 @@ internal fun SessionsHeader(
             // "+ New" uppercased is a glyph and a word, and TalkBack reads it as "plus new".
             // A description on the button says what the control does instead: a merged node
             // announces its `contentDescription` in place of the text under it, so the label
-            // stays visible and stays out of the announcement.
-            val newSessionDescription = stringResource(R.string.sessions_new_description)
+            // stays visible and stays out of the announcement. It is also the only thing that
+            // distinguishes the two actions — the label is the same three characters either
+            // way, and which one is meant is what a screen reader would otherwise have to infer
+            // from the selected tab.
+            val newDescription = stringResource(
+                if (makingTemplate) R.string.sessions_new_template_description else R.string.sessions_new_description,
+            )
             TextButton(
-                onClick = onNewSession,
-                modifier = Modifier.semantics { contentDescription = newSessionDescription },
+                onClick = if (makingTemplate) onNewTemplate else onNewSession,
+                modifier = Modifier.semantics { contentDescription = newDescription },
             ) {
                 Eyebrow(
                     text = stringResource(R.string.sessions_new),

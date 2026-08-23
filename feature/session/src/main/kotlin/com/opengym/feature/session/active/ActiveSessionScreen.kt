@@ -56,6 +56,7 @@ import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.component.SessionStatChips
+import com.opengym.core.ui.component.SupersetLink
 import com.opengym.core.ui.component.rememberReorderState
 import com.opengym.core.ui.component.reorderable
 import com.opengym.core.ui.format.formatSessionDate
@@ -64,7 +65,6 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.component.CollapsedExerciseRow
 import com.opengym.feature.session.active.component.SessionExerciseCard
-import com.opengym.feature.session.active.component.SupersetLink
 import kotlinx.coroutines.flow.first
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -911,6 +911,7 @@ private fun previewExercises(): List<SessionExerciseRow> = listOf(
         position = 2,
         exercise = Exercise(id = 3L, name = "Cable fly"),
         supersetLabel = "A1",
+        supersetGroupName = "A",
         isLinkedToNext = true,
     ),
     SessionExerciseRow(
@@ -918,6 +919,7 @@ private fun previewExercises(): List<SessionExerciseRow> = listOf(
         position = 3,
         exercise = Exercise(id = 4L, name = "Tricep pushdown"),
         supersetLabel = "A2",
+        supersetGroupName = "A",
         entryPrevious = previously(weightKg = 30.0, reps = 15),
         hasHistory = true,
     ),

@@ -28,6 +28,7 @@ import javax.inject.Inject
  * A cascade delete on `workout_session` takes its exercises and their sets with it,
  * so [delete] is the single DAO call it looks like; the schema does the rest.
  */
+@Suppress("TooManyFunctions") // One per `SessionRepository` method — see its own note.
 class SessionRepositoryImpl @Inject constructor(
     private val sessionDao: WorkoutSessionDao,
     private val sessionExerciseDao: SessionExerciseDao,
@@ -115,6 +116,10 @@ class SessionRepositoryImpl @Inject constructor(
         sessionExerciseDao.delete(sessionExerciseId)
 
     override suspend fun insertSet(set: WorkoutSet): Long = setDao.insert(setMapper.toEntity(set))
+
+    /** One transaction, which is Room's own for a multi-row `@Insert` — see `WorkoutSetDao`. */
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> =
+        if (sets.isEmpty()) emptyList() else setDao.insertAll(sets.map(setMapper::toEntity))
 
     override suspend fun updateSet(set: WorkoutSet) = setDao.update(setMapper.toEntity(set))
 

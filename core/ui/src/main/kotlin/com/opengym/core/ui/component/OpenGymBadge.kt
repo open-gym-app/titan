@@ -44,6 +44,10 @@ fun OpenGymBadge(
         text = text.uppercase(Locale.current.platformLocale),
         style = OpenGymTheme.typography.eyebrow,
         color = content,
+        // One line, always. A badge is a label rather than prose: wrapped, `HYPERTROPHY` comes
+        // out as a three-line lozenge that is taller than the row it is on, and what it says is
+        // no clearer for it. Where the room is not there, the thing beside it is what gives.
+        maxLines = 1,
         modifier = modifier
             .background(color = container, shape = PillShape)
             .padding(horizontal = OpenGymTheme.spacing.sm, vertical = OpenGymTheme.spacing.xs),

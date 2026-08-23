@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -211,6 +212,26 @@ class SessionSummaryScreenTest {
         setContent(previewState(templateName = ""))
 
         composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the dialog offers a category, and picking one reports it`() {
+        setContent(previewState(templateName = "Push day"))
+
+        composeTestRule.onNodeWithText("HYPERTROPHY").performClick()
+
+        assertEquals(
+            listOf(SessionSummaryEvent.TemplateCategoryChanged(TemplateCategory.HYPERTROPHY)),
+            events,
+        )
+    }
+
+    @Test
+    fun `a name already in use is drawn under the field rather than in a snackbar`() {
+        setContent(previewState(templateName = "Push day").copy(templateNameTaken = true))
+
+        composeTestRule.onNodeWithText("You already have a template with that name")
+            .assertIsDisplayed()
     }
 
     @Test

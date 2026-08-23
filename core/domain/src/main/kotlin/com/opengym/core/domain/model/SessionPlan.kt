@@ -47,16 +47,28 @@ data class SessionPlan(
 /**
  * This template's plan as a session about to be started from it.
  *
- * The name and the superset grouping carry over — that is what "a session started from
- * a template *is* that template" means — along with the link back to each
- * [TemplateExercise], so a session can say which template line each of its exercises
- * came from.
+ * The name, the superset grouping and **the sets** carry over — that is what "a session
+ * started from a template *is* that template" means — along with the link back to each
+ * [TemplateExercise], so a session can say which template line each of its exercises came
+ * from.
  *
- * The per-exercise defaults (sets, reps, weight, rest) deliberately do **not** come
- * with it: `session_exercise` has no columns for them. They are defaults for the *sets*
- * the user is about to log, which is the active session's business
- * ([com.opengym.core.domain.model.ActiveSession]) and not something the row being
- * written here can hold.
+ * ### The sets used to be dropped here
+ *
+ * They had to be: a template held one set count, one rep count and one weight per exercise,
+ * `session_exercise` has no columns for any of them, and there was nowhere else for them to
+ * go — so a four-set template started a workout with four exercises and no sets in it, which
+ * is most of what the template was for, lost between the two screens.
+ *
+ * They travel now because a plan is a list of [PlannedSet]s and a session has a table those
+ * belong in: [com.opengym.core.domain.usecase.StartPlannedSessionUseCase] writes each one as
+ * an unperformed `workout_set`, and the lifter ticks them off rather than typing them in.
+ * `session_exercise` still has no columns for the plan, and still should not — the plan was
+ * never a property of the *slot*, it is the sets themselves.
+ *
+ * The per-exercise rest does not come with them, and that asymmetry is deliberate: rest is
+ * what the session's timer counts down after a set, read from the user's preferences, and
+ * `workout_set.rest_after` records what a rest actually *was* rather than what a template
+ * hoped it would be.
  */
 fun TemplatePlan.toSessionPlan(): SessionPlan = SessionPlan(
     exercises = exercises.map { exercise ->
@@ -64,6 +76,7 @@ fun TemplatePlan.toSessionPlan(): SessionPlan = SessionPlan(
             exerciseId = exercise.exerciseId,
             supersetGroup = exercise.supersetGroup,
             templateExerciseId = exercise.id,
+            sets = exercise.sets,
         )
     },
     templateId = templateId,

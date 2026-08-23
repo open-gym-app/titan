@@ -4,7 +4,9 @@ import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import com.opengym.core.domain.usecase.DeleteTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,11 +19,11 @@ import dagger.hilt.components.SingletonComponent
  * different set of repositories behind them, per ARCHITECTURE.md's rule against a
  * single module of unrelated bindings.
  *
- * The two reads have been here from the start. [CreateTemplateUseCase] joins them with
- * #27's "save as template", which is the first caller anything on the write path has had
- * — the rule being followed is still "a binding nothing injects is an unverified claim
- * that the wiring works", so `UpdateTemplateUseCase` and `DeleteTemplateUseCase` stay
- * unbound until template authoring (#92) gives them one.
+ * The two reads have been here from the start. [CreateTemplateUseCase] joined them with
+ * #27's "save as template", and template authoring (#92) supplied the callers the last two
+ * were waiting for: the templates tab renames, duplicates and deletes, and the editor
+ * rewrites. The rule being followed throughout is "a binding nothing injects is an
+ * unverified claim that the wiring works" — every use case here now has a consumer.
  *
  * See [SessionUseCaseModule] for why the use cases are wired from `:core:data` at all,
  * and why these are `@Provides` rather than constructor injection.
@@ -39,6 +41,16 @@ object TemplateUseCaseModule {
     fun provideCreateTemplateUseCase(
         templateRepository: TemplateRepository,
     ): CreateTemplateUseCase = CreateTemplateUseCase(templateRepository)
+
+    @Provides
+    fun provideUpdateTemplateUseCase(
+        templateRepository: TemplateRepository,
+    ): UpdateTemplateUseCase = UpdateTemplateUseCase(templateRepository)
+
+    @Provides
+    fun provideDeleteTemplateUseCase(
+        templateRepository: TemplateRepository,
+    ): DeleteTemplateUseCase = DeleteTemplateUseCase(templateRepository)
 
     @Provides
     fun provideGetTemplateSummariesUseCase(

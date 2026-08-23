@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionStats
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.ui.component.MuscleContribution
 
 /**
@@ -44,7 +45,12 @@ import com.opengym.core.ui.component.MuscleContribution
  *   has somewhere to be reported and the text is still there to retry with.
  * @param templateName what is in the "save as template" dialog's name field, or **null** when
  *   the dialog is closed. Same shape as [notesDraft] and for the same reason.
+ * @param templateCategory what the dialog's category chips have selected, or null for a template
+ *   saved without one — which is a real answer and not a missing value, see `TemplateCategory`.
  * @param isSavingTemplate the template write is in flight.
+ * @param templateNameTaken the last attempt was refused because another template already carries
+ *   the name. Drawn under the field rather than sent to the snackbar: it is the one refusal the
+ *   user can fix without retyping anything, and the dialog is still up with their text in it.
  * @param nameDraft what is in the rename field, or **null** when the dialog is closed. Same
  *   shape as [notesDraft], and for the same reason.
  * @param isSavingName a rename write is in flight.
@@ -65,7 +71,9 @@ data class SessionSummaryUiState(
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,
     val templateName: String? = null,
+    val templateCategory: TemplateCategory? = null,
     val isSavingTemplate: Boolean = false,
+    val templateNameTaken: Boolean = false,
     val nameDraft: String? = null,
     val isSavingName: Boolean = false,
     val isLoading: Boolean = true,
@@ -218,14 +226,14 @@ enum class SessionSummaryMessage {
     /** The template was written. Said, because what it produced is not on this screen. */
     TEMPLATE_SAVED,
 
-    /**
-     * A template of that name already exists.
+    /*
+     * There is no message for a name already in use.
      *
-     * Reported rather than resolved by appending a number: the user picked the name, and a
-     * template silently saved as "Push Day 2" is one they will not find when they look for
-     * the one they meant to overwrite.
+     * It is reported rather than resolved by appending a number — the user picked the name, and
+     * a template silently saved as "Push Day 2" is one they will not find when they look for
+     * the one they meant to overwrite — but it is reported *in the dialog*, which is still up
+     * with the name in it. See [SessionSummaryUiState.templateNameTaken].
      */
-    TEMPLATE_NAME_TAKEN,
 
     /** The template could not be written. Nothing was saved. */
     TEMPLATE_SAVE_FAILED,

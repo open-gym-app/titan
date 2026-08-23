@@ -19,6 +19,16 @@ interface WorkoutSetDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(set: WorkoutSetEntity): Long
 
+    /**
+     * Several sets at once, in one transaction — Room's own for a multi-row `@Insert`, the
+     * same guarantee [updateAll] leans on.
+     *
+     * The ids come back in the order given, which is what lets a caller that just laid out a
+     * plan know which row each planned set became without reading the table back.
+     */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAll(sets: List<WorkoutSetEntity>): List<Long>
+
     @Update
     suspend fun update(set: WorkoutSetEntity)
 

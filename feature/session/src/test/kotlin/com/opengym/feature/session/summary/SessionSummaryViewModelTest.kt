@@ -2,8 +2,11 @@ package com.opengym.feature.session.summary
 
 import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
@@ -309,7 +312,7 @@ class SessionSummaryViewModelTest {
     // ─── Save as template ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `the template is the session's exercises in order, with what was done as defaults`() = runTest {
+    fun `the template is the session's exercises in order, set for set as they were done`() = runTest {
         val viewModel = viewModel(sets = pushDaySets())
 
         viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
@@ -319,21 +322,45 @@ class SessionSummaryViewModelTest {
         assertEquals("Push Day · Upper", saved.name)
         assertEquals(
             listOf(
-                // Three sets, ten reps most often, and the heaviest load.
+                // The ramp is kept as a ramp. This used to come back as "3 × 10 × 80", which
+                // is a workout nobody did: the modal rep count against the heaviest load.
                 TemplateExerciseDraft(
                     exerciseId = BENCH.id,
-                    defaultSets = 3,
-                    defaultReps = 10,
-                    defaultWeight = 80_000_000,
+                    sets = listOf(
+                        PlannedSet(reps = 10, weight = 60_000_000),
+                        PlannedSet(reps = 10, weight = 70_000_000),
+                        PlannedSet(reps = 5, weight = 80_000_000),
+                    ),
                 ),
                 TemplateExerciseDraft(
                     exerciseId = PUSHDOWN.id,
-                    defaultSets = 2,
-                    defaultReps = 12,
-                    defaultWeight = 30_000_000,
+                    sets = listOf(
+                        PlannedSet(reps = 12, weight = 30_000_000),
+                        PlannedSet(reps = 12, weight = 25_000_000),
+                    ),
                 ),
             ),
             templates.storedExercises(saved.id),
+        )
+    }
+
+    @Test
+    fun `a set's type is kept, so a warm-up saved as a template is still a warm-up`() = runTest {
+        val viewModel = viewModel(
+            sets = listOf(
+                workoutSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 12, weight = 40_000_000)
+                    .copy(setType = SetType.WARMUP),
+                workoutSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 5, weight = 80_000_000),
+            ),
+        )
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+        val saved = templates.stored().single()
+        assertEquals(
+            listOf(SetType.WARMUP, SetType.NORMAL),
+            templates.storedExercises(saved.id).first().sets.map(PlannedSet::setType),
         )
     }
 
@@ -355,10 +382,34 @@ class SessionSummaryViewModelTest {
         viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
         val state = viewModel.uiState.value
-        assertEquals(SessionSummaryMessage.TEMPLATE_NAME_TAKEN, state.message)
+        // Reported under the field rather than in the snackbar, which is where the name the user
+        // has to change actually is.
+        assertTrue(state.templateNameTaken)
+        assertNull(state.message)
         // Still open, with the name still in it: the fix is a word, not the whole thing again.
         assertEquals("Push Day · Upper", state.templateName)
         assertEquals(1, templates.stored().size)
+    }
+
+    @Test
+    fun `the category chosen in the dialog is what the template is saved with`() = runTest {
+        val viewModel = viewModel(sets = pushDaySets())
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.TemplateCategoryChanged(TemplateCategory.HYPERTROPHY))
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+        assertEquals(TemplateCategory.HYPERTROPHY, templates.stored().single().category)
+    }
+
+    @Test
+    fun `a template saved without being asked has no category, which is not GENERAL`() = runTest {
+        val viewModel = viewModel(sets = pushDaySets())
+
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+        assertNull(templates.stored().single().category)
     }
 
     @Test

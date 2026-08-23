@@ -19,9 +19,9 @@ import kotlinx.coroutines.flow.first
  * (`startSession(templateId = plan.templateId, name = plan.name)`), and reading it
  * here saves the caller a second load of a template it has just read.
  *
- * Each returned [TemplateExercise] carries the catalogue `exerciseId` plus the
- * template's defaults — sets, reps, weight, rest, notes — so the session can be
- * pre-filled without a second read. It intentionally does not resolve those ids into
+ * Each returned [TemplateExercise] carries the catalogue `exerciseId`, the sets the template
+ * plans for it — one [com.opengym.core.domain.model.PlannedSet] each, in order — and its rest
+ * and notes, so the session can be laid out without a second read. It intentionally does not resolve those ids into
  * [com.opengym.core.domain.model.Exercise] rows: that is
  * [com.opengym.core.domain.repository.ExerciseRepository]'s job, the caller usually
  * has the catalogue loaded already, and pulling it in here would make every

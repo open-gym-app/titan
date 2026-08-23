@@ -263,7 +263,7 @@ plugin, so a feature module needs no extra setup to declare one.
 ```text
 TabsGraphDestination            bottom bar + top bar
 ├── HomeGraphDestination        -> HomeDestination
-├── HistoryGraphDestination     -> SessionsDestination
+├── HistoryGraphDestination     -> SessionsDestination, TemplateEditorDestination
 ├── LibraryGraphDestination     -> ExerciseLibraryDestination
 └── ProgressionGraphDestination -> StatsDestination
 
@@ -278,6 +278,12 @@ SettingsDestination             full screen, no bars
 Settings is the one non-tab destination that is a *flat* destination rather than a nested
 graph: the graph-per-tab exists so the bottom bar can ask whether a tab's route is anywhere in
 the current destination's hierarchy, and settings has no tab to keep selected.
+
+**The template editor is the first screen to live *inside* a tab.** Everything else pushed over
+the shell — the exercise detail, the plate calculator, the picker — is a mode with its own bar;
+a template is read and edited from the list of templates, and the list is a tab. That is the
+whole reason a tab is a graph rather than a bare destination, and #92 is where the second
+destination finally arrived.
 
 **Each tab is a nested graph, not a bare destination.** The bottom bar decides which tab is
 selected by asking whether a tab's route appears anywhere in the current destination's
@@ -319,13 +325,20 @@ previous back stack entry's `SavedStateHandle` before the pop, since Navigation 
 no "start for result" and a feature cannot reach the `NavController`. The key lives next to
 the destination that reads it, in `HistoryNavigation.kt`.
 
-**The picker's own result does not travel that way, and cannot.** Its readers are in *other*
-feature modules — the new-session flow today, the template editor next — so a key would have
+**The picker's own result does not travel that way, and cannot.** One of its readers is in
+*another* feature module — the new-session flow, and the workout after it — so a key would have
 to be named on both sides of an edge the module rules forbid, and a constant duplicated with
 a comment asking nobody to change one copy is not a contract. `:app` holds the selection in
 `rememberSaveable` state instead and hands it to whoever opened the picker as an ordinary
-parameter (`ExercisePicker` in `SessionNavigation.kt`). It is the one module that knows both
-sides of that edge, which is the whole reason it exists.
+parameter (`ExercisePicker` in `SessionNavigation.kt`, `TemplateEditor` in
+`HistoryNavigation.kt`). It is the one module that knows both sides of that edge, which is the
+whole reason it exists.
+
+The template editor is in the *same* module as the picker and could have used a key, and does
+not: the two callers would then return their answers by two different mechanisms, and one
+`rememberSaveable` in `:app` serves both. Only one of them is ever on the back stack — the
+editor is inside the tabs, the session flow is a mode over them — so there is nothing to
+disambiguate.
 
 **A screen's cross-module result is `:app`'s to carry; a screen's result to its own module
 may ride the back stack.** That is the rule the two halves above are instances of.

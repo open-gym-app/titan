@@ -7,6 +7,8 @@ import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.mapper.TemplateExerciseMapper
 import com.opengym.core.data.mapper.TemplateMapper
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutTemplate
 import kotlinx.coroutines.flow.first
@@ -39,7 +41,7 @@ class TemplateRepositoryImplTest : RoomTestBase() {
         val id = repository.insert(
             WorkoutTemplate(name = "Push Day", icon = "dumbbell"),
             listOf(
-                TemplateExerciseDraft(exerciseId = squat, defaultSets = 5, defaultReps = 5),
+                TemplateExerciseDraft(exerciseId = squat, sets = List(5) { PlannedSet(reps = 5) }),
                 TemplateExerciseDraft(exerciseId = bench, restDuration = 120, notes = "pause"),
             ),
         )
@@ -49,9 +51,62 @@ class TemplateRepositoryImplTest : RoomTestBase() {
         assertEquals("Push Day", template?.name)
         assertEquals("dumbbell", template?.icon)
         assertEquals(listOf(squat, bench), exercises.map { it.exerciseId })
-        assertEquals(listOf(5, null), exercises.map { it.defaultSets })
+        assertEquals(listOf(5, 0), exercises.map { it.sets.size })
         assertEquals(listOf(null, 120L), exercises.map { it.restDuration })
         assertTrue(exercises.all { it.templateId == id })
+    }
+
+    @Test
+    fun `a plan survives the round trip set for set`() = runBlocking {
+        // The whole point of the table: a warm-up, two working sets and a drop set have to come
+        // back as four different sets rather than as "four sets of something".
+        val bench = catalogueExercise("Bench")
+        val plan = listOf(
+            PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000_000),
+            PlannedSet(reps = 5, weight = 80_000_000),
+            PlannedSet(reps = 5, weight = 85_000_000),
+            PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = 50_000_000),
+        )
+
+        val id = repository.insert(
+            WorkoutTemplate(name = "Bench day"),
+            listOf(TemplateExerciseDraft(exerciseId = bench, sets = plan)),
+        )
+
+        assertEquals(plan, repository.getExercises(id).first().single().sets)
+    }
+
+    @Test
+    fun `replacing a template replaces the sets its exercises planned`() = runBlocking {
+        val bench = catalogueExercise("Bench")
+        val id = repository.insert(
+            WorkoutTemplate(name = "Bench day"),
+            listOf(TemplateExerciseDraft(exerciseId = bench, sets = List(5) { PlannedSet(reps = 5) })),
+        )
+
+        repository.update(
+            WorkoutTemplate(id = id, name = "Bench day"),
+            listOf(TemplateExerciseDraft(exerciseId = bench, sets = List(2) { PlannedSet(reps = 10) })),
+        )
+
+        // Two, not seven: the old rows go with the exercise they hung off, which cascades.
+        val stored = repository.getExercises(id).first().single()
+        assertEquals(2, stored.sets.size)
+        assertEquals(listOf(10, 10), stored.sets.map(PlannedSet::reps))
+    }
+
+    @Test
+    fun `deleting a template takes the sets its exercises planned with it`() = runBlocking {
+        val bench = catalogueExercise("Bench")
+        val id = repository.insert(
+            WorkoutTemplate(name = "Bench day"),
+            listOf(TemplateExerciseDraft(exerciseId = bench, sets = List(3) { PlannedSet() })),
+        )
+
+        repository.delete(id)
+
+        assertTrue(repository.getExercises(id).first().isEmpty())
+        assertTrue(repository.getAllExercises().first().isEmpty())
     }
 
     @Test

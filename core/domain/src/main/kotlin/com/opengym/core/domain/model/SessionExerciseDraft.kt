@@ -15,6 +15,13 @@ package com.opengym.core.domain.model
  * hand over a group left with a single member after a removal without repairing it
  * first.
  *
+ * @property sets the sets the session opens with, in order — what the template it came
+ *   from plans, or empty for an exercise picked by hand. They are written as real
+ *   `workout_set` rows with `is_completed = 0`: what PERSISTENCE.md calls a
+ *   planned-but-unperformed set, which counts towards no figure until the lifter ticks
+ *   it off. Carrying them as far as the draft is what makes a four-set template start a
+ *   four-set workout instead of one empty row — see
+ *   [com.opengym.core.domain.usecase.StartPlannedSessionUseCase].
  * @property templateExerciseId the `template_exercise` row this came from, or null for
  *   an exercise the user picked themselves. It is a provenance link and nothing more:
  *   editing or deleting the template afterwards does not change the session, and the
@@ -25,4 +32,5 @@ data class SessionExerciseDraft(
     val supersetGroup: Int? = null,
     val templateExerciseId: Long? = null,
     val notes: String? = null,
+    val sets: List<PlannedSet> = emptyList(),
 )

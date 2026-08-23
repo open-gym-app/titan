@@ -1,4 +1,4 @@
-package com.opengym.feature.history.component
+package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -21,11 +20,12 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *
  * It is also the shape that survives the taxonomy growing. A scrolling row gets no worse to
  * *look at* as chips are added and steadily worse to use; a wrap gets one line taller and no
- * harder. Both places this is used — the filter sheet and the new-exercise form — are places
- * the user has to see everything before choosing, which is why neither of them scrolls.
+ * harder. Every place this is used — the library's filter sheet, the new-exercise form, and
+ * [TemplateCategoryPicker] — is a place the user has to see everything before choosing, which is
+ * why none of them scrolls.
  */
 @Composable
-internal fun ChipSection(
+fun ChipSection(
     label: String,
     modifier: Modifier = Modifier,
     content: @Composable FlowRowScope.() -> Unit,

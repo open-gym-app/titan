@@ -6,6 +6,14 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
+/**
+ * One exercise of a template. What it plans is in [TemplateSetEntity], one row per set:
+ * the `default_sets`, `default_reps` and `default_weight` columns that used to live here
+ * could only describe identical sets, which is not a plan anybody trains from.
+ *
+ * `rest_duration` stays, because rest is a property of the exercise rather than of each
+ * of its sets — see [com.opengym.core.domain.model.PlannedSet].
+ */
 @Entity(
     tableName = "template_exercise",
     foreignKeys = [
@@ -40,12 +48,6 @@ data class TemplateExerciseEntity(
     /** The superset this exercise is part of, or NULL when it stands alone. */
     @ColumnInfo(name = "superset_group")
     val supersetGroup: Int? = null,
-    @ColumnInfo(name = "default_sets")
-    val defaultSets: Int? = null,
-    @ColumnInfo(name = "default_reps")
-    val defaultReps: Int? = null,
-    @ColumnInfo(name = "default_weight")
-    val defaultWeight: Long? = null,
     @ColumnInfo(name = "rest_duration")
     val restDuration: Long? = null,
     @ColumnInfo(name = "notes")

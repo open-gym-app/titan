@@ -8,7 +8,9 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
@@ -168,7 +170,9 @@ class SessionSummaryViewModel @Inject constructor(
             notesDraft = screen.noteDraft,
             isSavingNotes = screen.isSavingNotes,
             templateName = screen.templateName,
+            templateCategory = screen.templateCategory,
             isSavingTemplate = screen.isSavingTemplate,
+            templateNameTaken = screen.templateNameTaken,
             nameDraft = screen.nameDraft,
             isSavingName = screen.isSavingName,
             message = screen.message,
@@ -191,8 +195,12 @@ class SessionSummaryViewModel @Inject constructor(
             SessionSummaryEvent.NoteSaved -> saveNote()
 
             SessionSummaryEvent.SaveAsTemplateRequested -> openTemplateDialog()
+            // Typing clears the refusal: it was about the name that *was* in the field, and an
+            // error left under a name nobody has claimed reads as one that cannot be fixed.
             is SessionSummaryEvent.TemplateNameChanged ->
-                screenState.update { it.copy(templateName = event.name) }
+                screenState.update { it.copy(templateName = event.name, templateNameTaken = false) }
+            is SessionSummaryEvent.TemplateCategoryChanged ->
+                screenState.update { it.copy(templateCategory = event.category) }
             // Ignored while the write is in flight, which is the dialog's own rule — it goes
             // inert rather than closing, so a refusal has somewhere to be reported. Enforced
             // here as well because clearing the flag on the way out would re-arm the action
@@ -200,7 +208,7 @@ class SessionSummaryViewModel @Inject constructor(
             // has just taken.
             SessionSummaryEvent.SaveAsTemplateDismissed ->
                 if (!screenState.value.isSavingTemplate) {
-                    screenState.update { it.copy(templateName = null) }
+                    screenState.update { it.closeTemplateDialog() }
                 }
             SessionSummaryEvent.SaveAsTemplateConfirmed -> saveTemplate()
 
@@ -311,10 +319,19 @@ class SessionSummaryViewModel @Inject constructor(
         }
     }
 
-    /** Raise the dialog on the session's own name, which is the name a user expects to see. */
+    /**
+     * Raise the dialog on the session's own name, which is the name a user expects to see, and
+     * on no category — see [TemplateCategory], where the null is explicitly not `GENERAL`.
+     */
     private fun openTemplateDialog() {
         val session = loaded.value?.session ?: return
-        screenState.update { it.copy(templateName = session.name.orEmpty()) }
+        screenState.update {
+            it.copy(
+                templateName = session.name.orEmpty(),
+                templateCategory = null,
+                templateNameTaken = false,
+            )
+        }
     }
 
     /**
@@ -348,7 +365,11 @@ class SessionSummaryViewModel @Inject constructor(
 
         viewModelScope.launch {
             val outcome = try {
-                createTemplate(name = name, exercises = exercises)
+                createTemplate(
+                    name = name,
+                    exercises = exercises,
+                    category = screenState.value.templateCategory,
+                )
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -356,11 +377,8 @@ class SessionSummaryViewModel @Inject constructor(
                 // own refusals — those come back as a failed `Result`. So there is nothing to
                 // inspect and nothing a second press would fix; the dialog goes.
                 screenState.update {
-                    it.copy(
-                        templateName = null,
-                        isSavingTemplate = false,
-                        message = SessionSummaryMessage.TEMPLATE_SAVE_FAILED,
-                    )
+                    it.closeTemplateDialog()
+                        .copy(message = SessionSummaryMessage.TEMPLATE_SAVE_FAILED)
                 }
                 return@launch
             }
@@ -368,28 +386,24 @@ class SessionSummaryViewModel @Inject constructor(
             outcome
                 .onSuccess {
                     screenState.update {
-                        it.copy(
-                            templateName = null,
-                            isSavingTemplate = false,
-                            message = SessionSummaryMessage.TEMPLATE_SAVED,
-                        )
+                        it.closeTemplateDialog()
+                            .copy(message = SessionSummaryMessage.TEMPLATE_SAVED)
                     }
                 }
                 .onFailure { failure ->
-                    // The dialog stays up on a name collision and closes on anything else: the
-                    // first is something the user can fix without retyping what they wrote,
-                    // and the second is not something a second press would resolve.
-                    val taken = failure is TemplateError.DuplicateName
-                    screenState.update {
-                        it.copy(
-                            templateName = if (taken) it.templateName else null,
-                            isSavingTemplate = false,
-                            message = if (taken) {
-                                SessionSummaryMessage.TEMPLATE_NAME_TAKEN
-                            } else {
-                                SessionSummaryMessage.TEMPLATE_SAVE_FAILED
-                            },
-                        )
+                    // The dialog stays up on a name collision, with the refusal drawn under the
+                    // field it is about, and closes on anything else: the first is something the
+                    // user can fix without retyping what they wrote, and the second is not
+                    // something a second press would resolve.
+                    if (failure is TemplateError.DuplicateName) {
+                        screenState.update {
+                            it.copy(isSavingTemplate = false, templateNameTaken = true)
+                        }
+                    } else {
+                        screenState.update {
+                            it.closeTemplateDialog()
+                                .copy(message = SessionSummaryMessage.TEMPLATE_SAVE_FAILED)
+                        }
                     }
                 }
         }
@@ -461,9 +475,20 @@ private data class ScreenState(
     val noteDraft: String? = null,
     val isSavingNotes: Boolean = false,
     val templateName: String? = null,
+    val templateCategory: TemplateCategory? = null,
     val isSavingTemplate: Boolean = false,
+    val templateNameTaken: Boolean = false,
     val message: SessionSummaryMessage? = null,
-)
+) {
+
+    /** The dialog gone, and everything it was holding with it. */
+    fun closeTemplateDialog(): ScreenState = copy(
+        templateName = null,
+        templateCategory = null,
+        isSavingTemplate = false,
+        templateNameTaken = false,
+    )
+}
 
 /** The three catalogue-wide reads, as one value. */
 private data class Catalogue(
@@ -593,18 +618,28 @@ private class Loaded(
     /**
      * The session as the exercises of a template.
      *
-     * Each exercise keeps its place and its superset grouping, and carries what was actually
-     * done as the template's defaults: the number of sets performed, the rep count performed
-     * *most often*, and the heaviest load. The modal rep count rather than the highest or the
-     * lowest, because a template's defaults are what to aim for next time — five sets of ten
-     * with one set of six in them is a template of tens.
+     * Each exercise keeps its place and its superset grouping, and carries the sets that were
+     * actually performed — set for set, in the order they were done, each with its own type,
+     * reps and weight.
+     *
+     * ### It used to average the workout away
+     *
+     * A template held three numbers per exercise, so this had to reduce a whole exercise to
+     * them: the count of sets, the *modal* rep count, and the heaviest load. That threw away
+     * exactly what a lifter saves a workout as a template *for* — the warm-up, the ramp, the
+     * drop set at the end all came back as "5 × 10 × 100", which is a workout nobody did.
+     * A template is a list of sets now ([PlannedSet]), so what is copied is what happened.
+     *
+     * Only performed sets are copied, which is [performed]'s own filter: an unticked row is
+     * work that did not happen, and planning next week around it would be planning around a
+     * set the lifter skipped.
      */
     fun templateDrafts(): List<TemplateExerciseDraft> = performed.map { (exercise, performedSets) ->
         TemplateExerciseDraft(
             exerciseId = exercise.exerciseId,
-            defaultSets = performedSets.size,
-            defaultReps = performedSets.mapNotNull(WorkoutSet::reps).modeOrNull(),
-            defaultWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
+            sets = performedSets.map { set ->
+                PlannedSet(setType = set.setType, reps = set.reps, weight = set.weight)
+            },
             supersetGroup = exercise.supersetGroup,
         )
     }
@@ -623,15 +658,3 @@ private class MuscleBreakdown(
     val primary: List<MuscleGroup>,
     val secondary: List<MuscleGroup>,
 )
-
-/**
- * The most frequent value, or null for an empty list.
- *
- * Ties go to the larger value, so `8, 8, 10, 10, 6` comes out as a template of tens rather
- * than of eights: a target you fall short of is a better default than one you exceed.
- */
-private fun List<Int>.modeOrNull(): Int? = groupingBy { it }
-    .eachCount()
-    .entries
-    .maxWithOrNull(compareBy({ it.value }, { it.key }))
-    ?.key

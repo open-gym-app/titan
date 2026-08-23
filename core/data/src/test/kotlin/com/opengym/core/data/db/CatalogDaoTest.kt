@@ -51,7 +51,7 @@ class CatalogDaoTest : RoomTestBase() {
         dao.insertExercise(templateExercise(templateId, exerciseId, position = 2))
         dao.insertExercise(templateExercise(templateId, exerciseId, position = 0))
         dao.insertExercise(templateExercise(templateId, exerciseId, position = 1))
-        val positions = dao.getExercises(templateId).first().map { it.position }
+        val positions = dao.getExercises(templateId).first().map { it.exercise.position }
         assertEquals(listOf(0, 1, 2), positions)
     }
 
@@ -68,7 +68,7 @@ class CatalogDaoTest : RoomTestBase() {
 
         assertEquals(
             listOf(null, 0, 0),
-            dao.getExercises(templateId).first().map { it.supersetGroup },
+            dao.getExercises(templateId).first().map { it.exercise.supersetGroup },
         )
     }
 

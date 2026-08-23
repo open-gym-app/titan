@@ -15,8 +15,9 @@ package com.opengym.core.domain.model
  *   pointing at it: renaming a template afterwards must not rewrite the title of a
  *   workout already logged under the old one, and the user is free to edit the
  *   session's own name without touching the template.
- * @property exercises the template's exercises, ordered by position, with their
- *   defaults.
+ * @property exercises the template's exercises, ordered by position, each with the sets it
+ *   plans — see [PlannedSet]. Those sets are what the session is laid out with, so a plan that
+ *   dropped them would start a workout with nothing in it.
  */
 data class TemplatePlan(
     val templateId: Long,

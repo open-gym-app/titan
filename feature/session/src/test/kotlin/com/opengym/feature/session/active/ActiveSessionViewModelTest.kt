@@ -344,6 +344,53 @@ class ActiveSessionViewModelTest {
         assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
     }
 
+    @Test
+    fun `a planned set with nothing in it yet cannot be ticked off`() = runTest {
+        // What a template that named an exercise without pricing it lays down: a row in the
+        // table, under its number, with no reps. `SetValidator` would refuse it the moment it
+        // was marked done, so the tick is not live — the same rule the entry row above follows.
+        val store = pushDayStore(
+            sets = listOf(
+                loggedSet(id = 1, sessionExerciseId = BENCH_ROW, setNumber = 1, isCompleted = false)
+                    .copy(reps = null, weight = null),
+            ),
+        )
+        val viewModel = viewModel(store = store)
+
+        assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().canComplete)
+    }
+
+    @Test
+    fun `typing the missing reps into a planned set arms its tick`() = runTest {
+        val store = pushDayStore(
+            sets = listOf(
+                loggedSet(id = 1, sessionExerciseId = BENCH_ROW, setNumber = 1, isCompleted = false)
+                    .copy(reps = null),
+            ),
+        )
+        val viewModel = viewModel(store = store)
+
+        viewModel.onEvent(ActiveSessionEvent.SetEditRepsChanged(BENCH_ROW, setId = 1, text = "8"))
+
+        // Armed on the keystroke rather than on the write: the row is the plan being filled in.
+        assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().canComplete)
+    }
+
+    @Test
+    fun `a planned set the template did price can be ticked straight off`() = runTest {
+        val store = pushDayStore(
+            sets = listOf(
+                loggedSet(id = 1, sessionExerciseId = BENCH_ROW, setNumber = 1, isCompleted = false),
+            ),
+        )
+        val viewModel = viewModel(store = store)
+
+        val planned = viewModel.uiState.value.rowOf(BENCH_ROW).sets.single()
+        assertTrue(planned.canComplete)
+        assertFalse(planned.isCompleted)
+        assertEquals("8", planned.entry.reps)
+    }
+
     // ─── Correcting a logged set ────────────────────────────────────────────────────────
     //
     // There is no editor to open and nothing to confirm. Every logged row is live from the

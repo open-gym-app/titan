@@ -4,22 +4,31 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionTotals
+import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
+import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.usecase.CreateTemplateUseCase
+import com.opengym.core.domain.usecase.DeleteTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.ui.component.TrainingDay
 import com.opengym.core.ui.component.TrainingLoad
 import com.opengym.core.ui.format.localDateOf
+import com.opengym.feature.history.template.toDrafts
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
@@ -69,10 +78,20 @@ import kotlin.time.Duration.Companion.seconds
  * record's instant belongs to at most one of them and there is no ambiguity to resolve.
  */
 @HiltViewModel
+/*
+ * Eight injected dependencies, which is one over the threshold and is what this screen is: four
+ * reads for the three tabs, and the three template use cases the tab's row actions call. Bundling
+ * any of them would be a type invented to satisfy a count.
+ */
+@Suppress("LongParameterList")
 class SessionsViewModel @Inject constructor(
     sessionRepository: SessionRepository,
     personalRecordRepository: PersonalRecordRepository,
     getTemplateSummaries: GetTemplateSummariesUseCase,
+    private val templateRepository: TemplateRepository,
+    private val createTemplate: CreateTemplateUseCase,
+    private val updateTemplate: UpdateTemplateUseCase,
+    private val deleteTemplate: DeleteTemplateUseCase,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -118,6 +137,8 @@ class SessionsViewModel @Inject constructor(
     )
 
     fun onEvent(event: SessionsEvent) {
+        if (onTemplateEvent(event)) return
+
         when (event) {
             is SessionsEvent.TabSelected -> screenState.update { it.copy(tab = event.tab) }
             is SessionsEvent.QueryChanged -> screenState.update { it.copy(query = event.query) }
@@ -127,8 +148,282 @@ class SessionsViewModel @Inject constructor(
                 screenState.update { it.copy(query = "", dateFilter = DateFilter.All) }
             is SessionsEvent.CalendarDaySelected -> selectDay(event.date)
             is SessionsEvent.CalendarMonthChanged -> changeMonth(event.forward)
+            else -> Unit
         }
     }
+
+    /**
+     * The nine events that only concern the templates tab's row actions, handled together.
+     *
+     * Split off [onEvent] so neither `when` branches over two unrelated subjects: those are about
+     * reading the history, and these are about changing a saved plan.
+     *
+     * @return whether [event] was one of them.
+     */
+    private fun onTemplateEvent(event: SessionsEvent): Boolean {
+        when (event) {
+            is SessionsEvent.TemplateRenameRequested -> openNaming(
+                templateId = event.templateId,
+                kind = TemplateNaming.RENAME,
+                // The template's own name, so the commonest rename — a typo, a word added — is
+                // an edit rather than a retype. Its category comes with it: the dialog shows
+                // both, so a rename that left the chips blank would clear one by omission.
+                name = { summary -> summary.template.name },
+            )
+
+            is SessionsEvent.TemplateDuplicateRequested -> openNaming(
+                templateId = event.templateId,
+                kind = TemplateNaming.DUPLICATE,
+                name = { event.proposedName },
+            )
+
+            // Typing clears the refusal: it was about the name that *was* in the field, and an
+            // error left under a name nobody has claimed reads as one that cannot be fixed.
+            is SessionsEvent.TemplateNameChanged -> editNaming {
+                it.copy(name = event.name, nameTaken = false)
+            }
+
+            is SessionsEvent.TemplateCategoryChanged -> editNaming {
+                it.copy(category = event.category)
+            }
+
+            SessionsEvent.TemplateNameConfirmed -> confirmNaming()
+
+            is SessionsEvent.TemplateDeleteRequested -> {
+                // Ignored for an id the list no longer holds, like [openNaming]: the row is about
+                // to disappear anyway, and a dialog with nothing behind it is worse than a tap
+                // that did nothing.
+                val summary = templateSummary(event.templateId) ?: return true
+                screenState.update {
+                    it.copy(
+                        templateAction = TemplateAction.Deleting(
+                            templateId = event.templateId,
+                            name = summary.template.name,
+                        ),
+                    )
+                }
+            }
+
+            SessionsEvent.TemplateDeleteConfirmed -> confirmDelete()
+
+            // Ignored mid-write, which is the dialogs' own rule: they go inert rather than
+            // closing, so a refusal has somewhere to be reported, and clearing the action on the
+            // way out would let a second confirm race the first.
+            SessionsEvent.TemplateActionDismissed ->
+                if (!screenState.value.templateAction.isBusy()) {
+                    screenState.update { it.copy(templateAction = null) }
+                }
+
+            SessionsEvent.MessageShown -> screenState.update { it.copy(message = null) }
+
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * Raise the name dialog on a template that is still in the list.
+     *
+     * Ignored for an id the list no longer holds, rather than opening a dialog over a template
+     * that has gone: the row is about to disappear anyway, and a dialog with nothing behind it
+     * is worse than a tap that did nothing.
+     */
+    private fun openNaming(
+        templateId: Long,
+        kind: TemplateNaming,
+        name: (TemplateSummary) -> String,
+    ) {
+        val summary = templateSummary(templateId) ?: return
+        screenState.update {
+            it.copy(
+                templateAction = TemplateAction.Naming(
+                    templateId = templateId,
+                    kind = kind,
+                    name = name(summary),
+                    category = summary.template.category,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Change what the name dialog is holding, if that is what is up.
+     *
+     * Unguarded, because the write path itself uses it: [editNaming] is the one the user's own
+     * edits go through, and it is the one that has to stop while a write is out.
+     */
+    private fun updateNaming(change: (TemplateAction.Naming) -> TemplateAction.Naming) {
+        screenState.update { state ->
+            val naming = state.templateAction as? TemplateAction.Naming ?: return@update state
+            state.copy(templateAction = change(naming))
+        }
+    }
+
+    /**
+     * The user's own edit to the dialog, ignored while a write is in flight.
+     *
+     * The dialog draws itself inert over a write, so this is belt and braces — but a keystroke
+     * already in flight when the confirm landed would otherwise change the name *under* a write
+     * that was made with the old one, and the field would then disagree with what was stored.
+     */
+    private fun editNaming(change: (TemplateAction.Naming) -> TemplateAction.Naming) {
+        if ((screenState.value.templateAction as? TemplateAction.Naming)?.isSaving == true) return
+        updateNaming(change)
+    }
+
+    /**
+     * Write the rename or the copy, leaving the dialog up and inert while the write is in flight.
+     *
+     * Both go through the same body read, because both are writes of a *whole* template: the use
+     * cases take a name and an exercise list together — see [TemplateRepository.update] — so
+     * even a rename has to hand back the exercises it is not changing.
+     *
+     * A rename therefore replaces the template's exercise rows, which `SET NULL`s
+     * `session_exercise.template_exercise_id` for sessions that were started from them. The
+     * sessions themselves are untouched; what is lost is "this set came from that template line"
+     * for past workouts, which nothing reads yet. It is the cost of the store's one write, not a
+     * decision taken here.
+     */
+    private fun confirmNaming() {
+        val naming = screenState.value.templateAction as? TemplateAction.Naming ?: return
+        if (naming.isSaving) return
+        updateNaming { it.copy(isSaving = true) }
+
+        // Neither write is a patch — see `UpdateTemplateUseCase` — so the icon the dialog does
+        // not ask about has to be handed back with everything else, or a rename clears it.
+        val icon = templateSummary(naming.templateId)?.template?.icon
+
+        viewModelScope.launch {
+            val outcome = runTemplateWrite {
+                val exercises = templateRepository.getExercises(naming.templateId).first().toDrafts()
+                when (naming.kind) {
+                    TemplateNaming.RENAME -> updateTemplate(
+                        templateId = naming.templateId,
+                        name = naming.name,
+                        exercises = exercises,
+                        category = naming.category,
+                        icon = icon,
+                    )
+
+                    TemplateNaming.DUPLICATE -> createTemplate(
+                        name = naming.name,
+                        exercises = exercises,
+                        category = naming.category,
+                        icon = icon,
+                    )
+                }.map { }
+            } ?: return@launch
+
+            outcome
+                .onSuccess {
+                    screenState.update {
+                        it.copy(
+                            templateAction = null,
+                            // Nothing for a rename: the row redrawing under its new name is the
+                            // confirmation, and the copy lands at its own sort position rather
+                            // than under the row it came from.
+                            message = when (naming.kind) {
+                                TemplateNaming.RENAME -> it.message
+                                TemplateNaming.DUPLICATE -> SessionsMessage.TEMPLATE_DUPLICATED
+                            },
+                        )
+                    }
+                }
+                .onFailure { failure -> reportNamingFailure(failure) }
+        }
+    }
+
+    /**
+     * How a refused name or copy is drawn.
+     *
+     * A collision keeps the dialog, with the refusal under the field the user can fix. Everything
+     * else closes it: a template that has gone is not something a second press resolves, and
+     * neither is a body the use case would not accept.
+     */
+    private fun reportNamingFailure(failure: Throwable) {
+        if (failure is TemplateError.DuplicateName) {
+            updateNaming { it.copy(isSaving = false, nameTaken = true) }
+            return
+        }
+        screenState.update {
+            it.copy(
+                templateAction = null,
+                message = if (failure is TemplateError.NotFound) {
+                    SessionsMessage.TEMPLATE_GONE
+                } else {
+                    SessionsMessage.TEMPLATE_ACTION_FAILED
+                },
+            )
+        }
+    }
+
+    /**
+     * Delete the template, leaving the sessions started from it exactly where they are.
+     *
+     * `workout_session.template_id` is `SET NULL`, so the history survives the plan it was run
+     * from — see `DeleteTemplateUseCase`. That is the whole reason this needs no warning about
+     * losing workouts: there are none to lose.
+     */
+    private fun confirmDelete() {
+        val deleting = screenState.value.templateAction as? TemplateAction.Deleting ?: return
+        if (deleting.isDeleting) return
+        screenState.update { it.copy(templateAction = deleting.copy(isDeleting = true)) }
+
+        viewModelScope.launch {
+            val outcome = runTemplateWrite { deleteTemplate(deleting.templateId) }
+                ?: return@launch
+
+            screenState.update {
+                it.copy(
+                    templateAction = null,
+                    message = when {
+                        outcome.isSuccess -> SessionsMessage.TEMPLATE_DELETED
+                        outcome.exceptionOrNull() is TemplateError.NotFound ->
+                            SessionsMessage.TEMPLATE_GONE
+                        else -> SessionsMessage.TEMPLATE_ACTION_FAILED
+                    },
+                )
+            }
+        }
+    }
+
+    /**
+     * Run a template write, catching the failure the use cases do not return.
+     *
+     * Two failure channels, because there are two kinds of failure. A use case *returns* its
+     * refusals — the name, the body, an id that is not there — and the store *throws* when it
+     * cannot be written at all. Catching only the first would leave the second to kill the
+     * coroutine with a dialog still up and nothing said under it.
+     *
+     * @return the use case's own result, or **null** when the store threw — in which case the
+     *   dialog has already been closed and the failure reported, and there is nothing left for
+     *   the caller to decide.
+     */
+    private suspend fun runTemplateWrite(write: suspend () -> Result<Unit>): Result<Unit>? = try {
+        write()
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (_: Throwable) {
+        screenState.update {
+            it.copy(
+                templateAction = null,
+                message = SessionsMessage.TEMPLATE_ACTION_FAILED,
+            )
+        }
+        null
+    }
+
+    /**
+     * The row the action is about, or null once the list no longer holds it.
+     *
+     * Off the template read itself rather than off [uiState], which is a `stateIn` downstream of
+     * it: a value written to a source flow does not reach a combined one until it has been
+     * dispatched, so a guard asked of [uiState] in the same frame as the update it is guarding
+     * against reads the state as it was before. Every question this ViewModel asks of itself is
+     * asked of what it holds — the same rule `TemplateEditorViewModel.save` follows.
+     */
+    private fun templateSummary(templateId: Long): TemplateSummary? =
+        templates.value?.firstOrNull { it.template.id == templateId }
 
     /**
      * Narrow the history to one day and show it.
@@ -192,6 +487,8 @@ class SessionsViewModel @Inject constructor(
             sessionCount = rows.size,
             matchCount = matches.size,
             templates = templates.orEmpty(),
+            templateAction = screen.templateAction,
+            message = screen.message,
             calendar = rows.calendarPage(
                 month = YearMonth.from(today).plusMonths(screen.monthOffset),
                 today = today,
@@ -208,6 +505,8 @@ class SessionsViewModel @Inject constructor(
         val dateFilter: DateFilter = DateFilter.All,
         /** Months from the current one. Zero is this month; negative is the past. */
         val monthOffset: Long = 0,
+        val templateAction: TemplateAction? = null,
+        val message: SessionsMessage? = null,
     )
 
     /**
@@ -381,4 +680,16 @@ private fun LongArray.hasValueIn(start: Long, end: Long): Boolean {
     }
 
     return low < size && this[low] <= end
+}
+
+/**
+ * Whether a write is already out for this action.
+ *
+ * Both cases carry a flag of their own — they are written by different use cases and mean
+ * different things — and every caller asking "can this be dismissed" wants them together.
+ */
+private fun TemplateAction?.isBusy(): Boolean = when (this) {
+    is TemplateAction.Naming -> isSaving
+    is TemplateAction.Deleting -> isDeleting
+    null -> false
 }

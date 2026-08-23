@@ -1,7 +1,11 @@
 package com.opengym.core.data.mapper
 
 import com.opengym.core.data.db.entity.TemplateExerciseEntity
+import com.opengym.core.data.db.entity.TemplateSetEntity
 import com.opengym.core.data.db.entity.WorkoutTemplateEntity
+import com.opengym.core.data.db.projection.TemplateExerciseWithSets
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -56,18 +60,28 @@ class TemplateMappersTest {
     }
 
     @Test
-    fun `a stored exercise row maps to the domain with every field`() {
-        val row = TemplateExerciseEntity(
-            id = 8,
-            templateId = 3,
-            exerciseId = 14,
-            position = 1,
-            supersetGroup = 0,
-            defaultSets = 4,
-            defaultReps = 8,
-            defaultWeight = 60_000_000,
-            restDuration = 120,
-            notes = "pause at the bottom",
+    fun `a stored exercise row and its sets map to the domain with every field`() {
+        val row = TemplateExerciseWithSets(
+            exercise = TemplateExerciseEntity(
+                id = 8,
+                templateId = 3,
+                exerciseId = 14,
+                position = 1,
+                supersetGroup = 0,
+                restDuration = 120,
+                notes = "pause at the bottom",
+            ),
+            sets = listOf(
+                TemplateSetEntity(
+                    id = 1,
+                    templateExerciseId = 8,
+                    setNumber = 1,
+                    setType = "WARMUP",
+                    reps = 12,
+                    weight = 40_000_000,
+                ),
+                TemplateSetEntity(id = 2, templateExerciseId = 8, setNumber = 2, reps = 8, weight = 60_000_000),
+            ),
         )
 
         val expected = TemplateExercise(
@@ -76,9 +90,10 @@ class TemplateMappersTest {
             exerciseId = 14,
             position = 1,
             supersetGroup = 0,
-            defaultSets = 4,
-            defaultReps = 8,
-            defaultWeight = 60_000_000,
+            sets = listOf(
+                PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000_000),
+                PlannedSet(reps = 8, weight = 60_000_000),
+            ),
             restDuration = 120,
             notes = "pause at the bottom",
         )
@@ -86,26 +101,73 @@ class TemplateMappersTest {
     }
 
     @Test
-    fun `a draft carries its defaults onto the row`() {
+    fun `the sets are put back in set-number order, whatever order the relation returns`() {
+        // `@Relation` promises the rows and not their order — see `TemplateExerciseWithSets`.
+        // A plan read back with its warm-up in the middle is the wrong plan.
+        val row = TemplateExerciseWithSets(
+            exercise = TemplateExerciseEntity(id = 8, templateId = 3, exerciseId = 14, position = 0),
+            sets = listOf(
+                TemplateSetEntity(id = 3, templateExerciseId = 8, setNumber = 3, reps = 6),
+                TemplateSetEntity(id = 1, templateExerciseId = 8, setNumber = 1, reps = 12),
+                TemplateSetEntity(id = 2, templateExerciseId = 8, setNumber = 2, reps = 8),
+            ),
+        )
+
+        assertEquals(listOf(12, 8, 6), exerciseMapper.toDomain(row).sets.map(PlannedSet::reps))
+    }
+
+    @Test
+    fun `an unknown set type reads as a standard set rather than making the plan unreadable`() {
+        val row = TemplateExerciseWithSets(
+            exercise = TemplateExerciseEntity(id = 8, templateId = 3, exerciseId = 14, position = 0),
+            sets = listOf(TemplateSetEntity(templateExerciseId = 8, setNumber = 1, setType = "CLUSTER")),
+        )
+
+        assertEquals(SetType.NORMAL, exerciseMapper.toDomain(row).sets.single().setType)
+    }
+
+    @Test
+    fun `a draft carries its plan onto the rows`() {
         val draft = TemplateExerciseDraft(
             exerciseId = 14,
-            supersetGroup = 0,
-            defaultSets = 4,
-            defaultReps = 8,
-            defaultWeight = 60_000_000,
+            sets = listOf(
+                PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000_000),
+                PlannedSet(reps = 8, weight = 60_000_000),
+                PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = 30_000_000),
+            ),
             restDuration = 120,
             notes = "pause at the bottom",
+            supersetGroup = 0,
         )
 
         val row = exerciseMapper.toEntities(templateId = 3, drafts = listOf(draft)).single()
 
-        assertEquals(draft.exerciseId, row.exerciseId)
-        assertEquals(draft.supersetGroup, row.supersetGroup)
-        assertEquals(draft.defaultSets, row.defaultSets)
-        assertEquals(draft.defaultReps, row.defaultReps)
-        assertEquals(draft.defaultWeight, row.defaultWeight)
-        assertEquals(draft.restDuration, row.restDuration)
-        assertEquals(draft.notes, row.notes)
+        assertEquals(draft.exerciseId, row.exercise.exerciseId)
+        assertEquals(draft.supersetGroup, row.exercise.supersetGroup)
+        assertEquals(draft.restDuration, row.exercise.restDuration)
+        assertEquals(draft.notes, row.exercise.notes)
+        assertEquals(listOf("WARMUP", "NORMAL", "DROP_SET"), row.sets.map { it.setType })
+        assertEquals(listOf(12, 8, 10), row.sets.map { it.reps })
+        assertEquals(listOf(40_000_000L, 60_000_000L, 30_000_000L), row.sets.map { it.weight })
+    }
+
+    @Test
+    fun `planned sets are numbered from one in the order given`() {
+        val draft = TemplateExerciseDraft(exerciseId = 14, sets = List(4) { PlannedSet(reps = it) })
+
+        val row = exerciseMapper.toEntities(templateId = 3, drafts = listOf(draft)).single()
+
+        assertEquals(listOf(1, 2, 3, 4), row.sets.map { it.setNumber })
+        assertEquals(listOf(0, 1, 2, 3), row.sets.map { it.reps })
+    }
+
+    @Test
+    fun `a set's exercise id is left for the DAO to stamp, since it does not exist yet`() {
+        val draft = TemplateExerciseDraft(exerciseId = 14, sets = listOf(PlannedSet()))
+
+        val row = exerciseMapper.toEntities(templateId = 3, drafts = listOf(draft)).single()
+
+        assertEquals(0L, row.sets.single().templateExerciseId)
     }
 
     @Test
@@ -119,8 +181,8 @@ class TemplateMappersTest {
             ),
         )
 
-        assertEquals(listOf(0, 1, 2), entities.map { it.position })
-        assertEquals(listOf(30L, 10L, 20L), entities.map { it.exerciseId })
+        assertEquals(listOf(0, 1, 2), entities.map { it.exercise.position })
+        assertEquals(listOf(30L, 10L, 20L), entities.map { it.exercise.exerciseId })
     }
 
     @Test
@@ -130,7 +192,7 @@ class TemplateMappersTest {
             drafts = listOf(TemplateExerciseDraft(exerciseId = 1)),
         )
 
-        assertEquals(42L, entities.single().templateId)
+        assertEquals(42L, entities.single().exercise.templateId)
     }
 
     @Test

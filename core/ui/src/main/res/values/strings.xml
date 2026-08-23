@@ -17,7 +17,7 @@
     <string name="set_log_column_set">Set</string>
     <string name="set_log_column_previous">Prev</string>
     <!-- The combined weight-and-reps column: "KG × REPS". The unit is the ambient one. -->
-    <string name="set_log_column_weight_reps">%1$s × reps</string>
+    <string name="set_log_column_reps">Reps</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the single glyph shown in the set-number cell; the label is
@@ -226,6 +226,29 @@
     <!-- What tapping a quick-start card does, as the click's own label. -->
     <string name="template_start">Start from this template</string>
 
+    <!-- The category picker's own chrome. "None" is a chip rather than the absence of one —
+         see TemplateCategoryPicker — so it needs a word of its own. -->
+    <string name="template_category_label">Category</string>
+    <string name="template_category_none">None</string>
+
+    <!-- Naming a template: saving a workout as one, renaming it, retitling it in the editor.
+         The field has no drawn label — the dialog's title names it — so this is what a screen
+         reader reads for it. -->
+    <string name="template_name_label">Template name</string>
+    <string name="template_name_placeholder">Push day · Upper</string>
+    <string name="template_name_cancel">Cancel</string>
+
+    <!-- ── Supersets ──────────────────────────────────────────────────────────────── -->
+
+    <!-- The marker an exercise in a superset wears: "SS A1". Abbreviated because it sits on a
+         badge beside an exercise's name; the spoken forms below carry the words. -->
+    <string name="superset_badge">SS %1$s</string>
+    <!-- The join between two exercises, as an offer and as a fact. -->
+    <string name="superset_link_label">Superset</string>
+    <string name="superset_linked_label">Superset %1$s</string>
+    <string name="superset_link">Perform %1$s and %2$s back to back</string>
+    <string name="superset_break">Stop performing %1$s and %2$s back to back</string>
+
     <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
 
     <string name="rest_timer_running">Rest</string>
@@ -304,6 +327,9 @@
          cannot perform, so the same two moves are always reachable without one. -->
     <string name="reorder_move_up">Move up</string>
     <string name="reorder_move_down">Move down</string>
+    <!-- A collapsed item, read as one line: "3. Cable fly". The handle, the number and the
+         name are three stops in the traversal order and none means anything on its own. -->
+    <string name="reorder_position">%1$d. %2$s</string>
 
     <!-- ── Search ─────────────────────────────────────────────────────────────────── -->
 

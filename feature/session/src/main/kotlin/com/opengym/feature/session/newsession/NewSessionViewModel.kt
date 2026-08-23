@@ -263,11 +263,12 @@ class NewSessionViewModel @Inject constructor(
      * draft in it resolved against the catalogue when the plan was adopted, so the two are
      * numbered alike. See [adopt].
      *
-     * The estimate goes with the first removal. It was priced against the template's set
-     * counts, and the drafts carry none — there is nothing to recompute it from, so the only
-     * honest options are to drop it or to keep quoting the figure that priced a workout the
-     * user has just changed. "4 exercises · ~55m", where the 55 was for eight, is worse than
-     * "4 exercises".
+     * The estimate goes with the first removal. The drafts do carry their planned sets, but the
+     * estimate is `TemplateDuration`'s and that also prices the rest between them, which is the
+     * template's and does not travel onto a session draft — so a figure recomputed here would be
+     * a different formula's answer wearing the same units. The only honest options are to drop it
+     * or to keep quoting the figure that priced a workout the user has just changed, and
+     * "4 exercises · ~55m", where the 55 was for eight, is worse than "4 exercises".
      *
      * Removing the last one clears the plan, which puts the screen back on the template list.
      * The alternative — a review panel showing nothing, with START disabled — is a state

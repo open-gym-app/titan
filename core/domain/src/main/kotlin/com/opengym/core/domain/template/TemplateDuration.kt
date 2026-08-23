@@ -27,8 +27,15 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  *
  * summed over the template, **minus the last rest** — the one nobody stands around
- * for, because the workout is over. `sets` falls back to [DEFAULT_SETS] when the
- * template does not say.
+ * for, because the workout is over. `sets` is how many the exercise plans, which is
+ * the length of its [PlannedExercise.sets]; an exercise that plans none is not
+ * performed and costs nothing.
+ *
+ * The sets are counted rather than read: a warm-up and a drop set are both a set that
+ * takes about as long as the next one, and pricing them apart would need a
+ * per-set-type measurement nothing collects. What the list buys the estimate is that
+ * it no longer has to guess a count for an exercise whose plan says nothing — a plan
+ * that says nothing now plans nothing.
  *
  * A superset changes only the rest: its members are performed back to back with the
  * rest taken after the group, so a member that is not the last of its group
@@ -62,9 +69,6 @@ object TemplateDuration {
      */
     val WORK_PER_SET: Duration = 45.seconds
 
-    /** The set count assumed for an exercise whose template does not give one. */
-    const val DEFAULT_SETS: Int = 3
-
     /**
      * The estimate for [exercises], which must be **in position order** — the order a
      * repository hands them back, and the order a draft list is already in.
@@ -79,8 +83,8 @@ object TemplateDuration {
      * from a second table would not match the rest the session actually runs.
      *
      * An empty template estimates [Duration.ZERO], as does one whose exercises all plan
-     * zero sets. A negative set count or rest — which nothing writes, but an import
-     * can — contributes nothing rather than subtracting time.
+     * no sets. A negative rest — which nothing writes, but an import can — contributes
+     * nothing rather than subtracting time.
      */
     fun estimate(exercises: List<PlannedExercise>, defaultRest: Duration): Duration {
         // An exercise planning no sets is not performed, so it is dropped before the
@@ -88,7 +92,7 @@ object TemplateDuration {
         // member plans nothing still takes its rest after the member that *is*
         // performed, and reading the raw grouping would hand that rest to a member
         // that never runs and so lose it entirely.
-        val performed = exercises.filter { plannedSets(it) > 0 }
+        val performed = exercises.filter { it.sets.isNotEmpty() }
         val grouping = performed.map(PlannedExercise::supersetGroup)
         val fallbackRest = defaultRest.coerceAtLeast(Duration.ZERO)
 
@@ -99,7 +103,7 @@ object TemplateDuration {
         var trailingRest = Duration.ZERO
 
         performed.forEachIndexed { index, exercise ->
-            total += WORK_PER_SET * plannedSets(exercise)
+            total += WORK_PER_SET * exercise.sets.size
             if (Supersets.isRestDueAfter(grouping, index)) {
                 val rest = exercise.restDuration
                     ?.seconds
@@ -113,10 +117,6 @@ object TemplateDuration {
         return total - trailingRest
     }
 
-    /** [exercise]'s planned sets, with [DEFAULT_SETS] for silence and no negatives. */
-    private fun plannedSets(exercise: PlannedExercise): Int =
-        (exercise.defaultSets ?: DEFAULT_SETS).coerceAtLeast(0)
-
     /**
      * How many times a rest is taken after the exercise at [last], which is a standalone
      * exercise or the last member of a superset — its own set count in the first case,
@@ -128,12 +128,12 @@ object TemplateDuration {
      * contiguous.
      */
     private fun rounds(performed: List<PlannedExercise>, grouping: List<Int?>, last: Int): Int {
-        val group = grouping[last] ?: return plannedSets(performed[last])
+        val group = grouping[last] ?: return performed[last].sets.size
 
         var rounds = 0
         var index = last
         while (index >= 0 && grouping[index] == group) {
-            rounds = maxOf(rounds, plannedSets(performed[index]))
+            rounds = maxOf(rounds, performed[index].sets.size)
             index--
         }
         return rounds

@@ -2213,6 +2213,12 @@ private class Loaded(
                     isEdited = typed != null,
                     isSaving = set.id in savingSetIds,
                     previous = reference?.toPreviousSet(),
+                    // Asked of the row as *shown*, so typing the missing reps into a set a
+                    // template left blank arms its tick on the keystroke rather than on the
+                    // write. Un-ticking is never refused, so a completed row can always be
+                    // pressed. See [LoggedSet.canComplete].
+                    canComplete = set.isCompleted ||
+                        shown.records(catalogue.exercises[exercise.exerciseId]?.type),
                 )
             }
 

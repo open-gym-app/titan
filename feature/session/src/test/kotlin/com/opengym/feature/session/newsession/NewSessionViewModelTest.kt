@@ -1,11 +1,14 @@
 package com.opengym.feature.session.newsession
 
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -192,6 +195,66 @@ class NewSessionViewModelTest {
         assertEquals(listOf(BENCH, INCLINE, FLY), laidOut.map(SessionExercise::exerciseId))
         assertEquals(listOf(0, 1, 2), laidOut.map(SessionExercise::position))
         assertEquals(listOf(null, 0, 0), laidOut.map(SessionExercise::supersetGroup))
+    }
+
+    @Test
+    fun `starting from a template lays out every set it plans`() = runTest {
+        // The bug the plan-as-a-list refactor fixes: a template of ten sets used to start a
+        // workout with three exercises and nothing to tick off.
+        val templateId = seedPushDay()
+        val viewModel = viewModel()
+
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        val sessionId = viewModel.uiState.value.openSessionId!!
+        val byExercise = sessions.plannedSets.groupBy(WorkoutSet::sessionExerciseId)
+        assertEquals(
+            listOf(4, 3, 3),
+            sessions.storedExercises(sessionId).map { byExercise[it.id].orEmpty().size },
+        )
+        // Planned, not performed, and numbered from 1 within each exercise.
+        assertTrue(sessions.plannedSets.none(WorkoutSet::isCompleted))
+        assertEquals(listOf(1, 2, 3, 4), byExercise.values.first().map(WorkoutSet::setNumber))
+    }
+
+    @Test
+    fun `the weights and reps a template plans arrive in the workout`() = runTest {
+        val templateId = templates.seed(
+            name = "Ramped bench",
+            drafts = listOf(
+                TemplateExerciseDraft(
+                    exerciseId = BENCH,
+                    sets = listOf(
+                        PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000_000),
+                        PlannedSet(reps = 5, weight = 80_000_000),
+                        PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = 50_000_000),
+                    ),
+                ),
+            ),
+        )
+        val viewModel = viewModel()
+
+        viewModel.onEvent(NewSessionEvent.TemplateSelected(templateId))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        assertEquals(
+            listOf(SetType.WARMUP, SetType.NORMAL, SetType.DROP_SET),
+            sessions.plannedSets.map(WorkoutSet::setType),
+        )
+        assertEquals(listOf(40_000_000L, 80_000_000L, 50_000_000L), sessions.plannedSets.map(WorkoutSet::weight))
+        assertEquals(listOf(12, 5, 10), sessions.plannedSets.map(WorkoutSet::reps))
+    }
+
+    @Test
+    fun `a session built by picking exercises starts with no sets in it`() = runTest {
+        // Nothing planned it, so there is nothing to lay out — the lifter types the first set.
+        val viewModel = viewModel()
+
+        viewModel.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH)))
+        viewModel.onEvent(NewSessionEvent.SessionStartRequested)
+
+        assertTrue(sessions.plannedSets.isEmpty())
     }
 
     @Test
@@ -631,9 +694,9 @@ class NewSessionViewModelTest {
     private fun seedPushDay(): Long = templates.seed(
         name = "Push day",
         drafts = listOf(
-            TemplateExerciseDraft(exerciseId = BENCH, defaultSets = 4),
-            TemplateExerciseDraft(exerciseId = INCLINE, defaultSets = 3, supersetGroup = 0),
-            TemplateExerciseDraft(exerciseId = FLY, defaultSets = 3, supersetGroup = 0),
+            TemplateExerciseDraft(exerciseId = BENCH, sets = List(4) { PlannedSet() }),
+            TemplateExerciseDraft(exerciseId = INCLINE, sets = List(3) { PlannedSet() }, supersetGroup = 0),
+            TemplateExerciseDraft(exerciseId = FLY, sets = List(3) { PlannedSet() }, supersetGroup = 0),
         ),
         category = TemplateCategory.STRENGTH,
     )

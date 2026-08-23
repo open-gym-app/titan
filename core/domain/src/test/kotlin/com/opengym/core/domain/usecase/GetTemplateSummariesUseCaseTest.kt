@@ -53,7 +53,7 @@ class GetTemplateSummariesUseCaseTest {
 
     @Test
     fun `summarising estimates the duration from the template's contents`() = runTest {
-        val body = listOf(draft(exerciseId = 1L, defaultSets = 3), draft(exerciseId = 2L, defaultSets = 3))
+        val body = listOf(draft(exerciseId = 1L, sets = plannedSets(3)), draft(exerciseId = 2L, sets = plannedSets(3)))
         templates.seed("Push day", body)
 
         val summary = summaries().first().single()
@@ -69,7 +69,7 @@ class GetTemplateSummariesUseCaseTest {
         // The reason the preferences are read here rather than left to a screen: an
         // estimate against the shipped default is right on most phones and quietly wrong
         // on the ones belonging to users who changed it.
-        templates.seed("Push day", listOf(draft(exerciseId = 1L, defaultSets = 3)))
+        templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
         val shipped = summaries().first().single().estimatedDuration
 
         preferences.setDefaultRestDuration(300.seconds)
@@ -80,7 +80,7 @@ class GetTemplateSummariesUseCaseTest {
 
     @Test
     fun `editing a template's exercises changes its estimate with no write`() = runTest {
-        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, defaultSets = 3)))
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
         val writesBefore = templates.writeCount
 
         summaries().test {
@@ -89,8 +89,8 @@ class GetTemplateSummariesUseCaseTest {
             templates.update(
                 templates.stored(id)!!,
                 listOf(
-                    draft(exerciseId = 1L, defaultSets = 3),
-                    draft(exerciseId = 2L, defaultSets = 3),
+                    draft(exerciseId = 1L, sets = plannedSets(3)),
+                    draft(exerciseId = 2L, sets = plannedSets(3)),
                 ),
             )
 
@@ -125,9 +125,9 @@ class GetTemplateSummariesUseCaseTest {
         templates.seed(
             "Push day",
             listOf(
-                draft(exerciseId = 1L, defaultSets = 3, supersetGroup = 0),
-                draft(exerciseId = 2L, defaultSets = 3, supersetGroup = 0),
-                draft(exerciseId = 3L, defaultSets = 1),
+                draft(exerciseId = 1L, sets = plannedSets(3), supersetGroup = 0),
+                draft(exerciseId = 2L, sets = plannedSets(3), supersetGroup = 0),
+                draft(exerciseId = 3L, sets = plannedSets(1)),
             ),
         )
         val ordered = summaries().first().single().estimatedDuration

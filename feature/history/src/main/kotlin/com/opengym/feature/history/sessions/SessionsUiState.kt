@@ -1,6 +1,7 @@
 package com.opengym.feature.history.sessions
 
 import androidx.compose.runtime.Immutable
+import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.ui.component.TrainingDay
 import java.time.LocalDate
@@ -35,6 +36,10 @@ import kotlin.time.Duration
  * @param isLoadingTemplates the same, for the templates tab. Separate because the two reads
  *   are separate queries and either can answer first; one flag would draw an empty template
  *   list under a loaded history.
+ * @param templateAction what a template row's overflow menu has opened, or **null** for none. One
+ *   field rather than one per dialog: only one of them can be up, and two nullable drafts is two
+ *   ways to describe a state that cannot happen.
+ * @param message a one-shot outcome to show and forget.
  */
 @Immutable
 data class SessionsUiState(
@@ -48,11 +53,104 @@ data class SessionsUiState(
     val calendar: CalendarPage = CalendarPage(),
     val isLoading: Boolean = true,
     val isLoadingTemplates: Boolean = true,
+    val templateAction: TemplateAction? = null,
+    val message: SessionsMessage? = null,
 ) {
 
     /** Whether anything is narrowing the history — which decides *which* empty state it draws. */
     val hasFilters: Boolean
         get() = query.isNotBlank() || dateFilter != DateFilter.All
+}
+
+/**
+ * What a template row's overflow menu opened, and what it is holding.
+ *
+ * The three row actions are two dialogs: rename and duplicate ask the same question — what to
+ * call it — and delete asks whether to. So the naming half is one case with a [TemplateNaming]
+ * on it rather than two cases that would have to be kept in step, which is also what lets the
+ * screen raise one `TemplateNameDialog` for both.
+ *
+ * Nothing here is written until it is confirmed. Backing out of any of them costs nothing,
+ * which is why none of the three needs an undo.
+ */
+sealed interface TemplateAction {
+
+    /** The template being acted on. Held so a confirm does not have to be told again. */
+    val templateId: Long
+
+    /**
+     * Naming a template — either the one being renamed, or the copy about to be made.
+     *
+     * @param name what is in the field. Seeded from the template's own name for a rename, and
+     *   from "<name> (copy)" for a duplicate, so the commonest answer is already typed.
+     * @param nameTaken the last attempt collided with another template's name. Drawn under the
+     *   field, because that is the thing the user has to change and the dialog is still up with
+     *   what they wrote in it.
+     */
+    @Immutable
+    data class Naming(
+        override val templateId: Long,
+        val kind: TemplateNaming,
+        val name: String,
+        val category: TemplateCategory? = null,
+        val isSaving: Boolean = false,
+        val nameTaken: Boolean = false,
+    ) : TemplateAction
+
+    /**
+     * Deleting a template, pending the confirmation.
+     *
+     * @param name what is being deleted, for the question to say. "Delete this template?" is a
+     *   different question when the answer is a plan the user built up over a month.
+     */
+    @Immutable
+    data class Deleting(
+        override val templateId: Long,
+        val name: String,
+        val isDeleting: Boolean = false,
+    ) : TemplateAction
+}
+
+/** Which of the two things a [TemplateAction.Naming] is about to do. */
+enum class TemplateNaming {
+
+    /** Retitle the template in place, keeping its exercises and everything started from it. */
+    RENAME,
+
+    /** Write a second template with the same body, under a name of its own. */
+    DUPLICATE,
+}
+
+/**
+ * Something that happened on this screen and needs saying once.
+ *
+ * An enum rather than a string, matching every other screen here: the ViewModel does not reach
+ * for a `Context`, and every user-visible word stays in the screen's resources.
+ *
+ * There is no message for a rename. The row redrawing under its new name is the confirmation,
+ * and a snackbar over a list the user is looking at is the app reading its own writing back.
+ */
+enum class SessionsMessage {
+
+    /** A copy was written. Said, because it lands at the list's sort position and not under the
+     *  row it was copied from, so "did that work" is a real question. */
+    TEMPLATE_DUPLICATED,
+
+    /** A template was deleted. Said, because a row disappearing is also what a bug looks like. */
+    TEMPLATE_DELETED,
+
+    /**
+     * The template is not there any more.
+     *
+     * What a row acted on from a list that has gone stale looks like — the everyday cause is the
+     * same template deleted from its editor on another screen. Reported rather than swallowed:
+     * the user asked something of a thing that no longer exists, and the list is about to lose
+     * the row they were aiming at.
+     */
+    TEMPLATE_GONE,
+
+    /** The write could not be made at all. Nothing changed. */
+    TEMPLATE_ACTION_FAILED,
 }
 
 /** The three surfaces the Sessions tab holds. Ordered as the tab strip draws them. */
