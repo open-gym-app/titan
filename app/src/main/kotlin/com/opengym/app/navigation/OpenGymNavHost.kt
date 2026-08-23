@@ -76,6 +76,25 @@ fun OpenGymNavHost(
     // [ExercisePicker.selectedIds].
     var pickedExerciseIds by rememberSaveable { mutableStateOf<LongArray?>(null) }
 
+    // Whether the picker now on screen is the one the session flow *opened on*.
+    //
+    // "Start an empty session" pushes setup and setup pushes the picker over itself before it
+    // has drawn a frame — see `NewSessionRoute`'s entry effect. The setup screen is therefore
+    // never seen on the way in, but it is on the back stack, and backing out of the picker
+    // used to reveal it: a screen the user has not visited, wearing Home's own quick-start
+    // action and template strip, which reads as the back gesture going *forwards*.
+    //
+    // Held here because it is a fact about how the flow was entered, which is the one thing
+    // `:app` knows and neither feature does. A flag rather than a route argument on the
+    // picker: the picker is `:feature:history`'s destination and has no business carrying a
+    // session concept, and `NewSessionDestination.pickExercises` cannot stand in for it —
+    // the argument outlives the entry it describes, so a picker reopened by hand from the
+    // template list would answer to it too.
+    //
+    // `rememberSaveable` alongside the answer above, and for the same reason: the picker is a
+    // screen a process death can happen behind.
+    var pickerOpenedTheFlow by rememberSaveable { mutableStateOf(false) }
+
     NavHost(
         navController = navController,
         startDestination = TabsGraphDestination,
@@ -102,7 +121,10 @@ fun OpenGymNavHost(
                 // triggers are full-width buttons and a scrolling strip of cards: two taps
                 // dispatched before recomposition are two pushes of the same screen, and the
                 // first back press then looks like it did nothing.
-                onStartEmptySession = { navController.openSetup(pickExercises = true) },
+                onStartEmptySession = {
+                    pickerOpenedTheFlow = true
+                    navController.openSetup(pickExercises = true)
+                },
                 onStartFromTemplates = { navController.openSetup() },
                 onStartFromTemplate = { templateId ->
                     navController.openSetup(templateId = templateId)
@@ -216,12 +238,34 @@ fun OpenGymNavHost(
         sessionSummaryGraph(onExit = { navController.popBackStack() })
 
         exercisePickerGraph(
-            onBack = { navController.popBackStack() },
+            // Cancelling the picker the flow opened on cancels the flow, rather than popping
+            // one entry and landing the user on the setup screen they never saw. They asked
+            // for a workout and changed their mind before choosing anything; the honest
+            // answer to that is the tab they left, which is what [exitSessionFlow] returns
+            // them to. Popping the graph from here reaches the picker as well — it sits above
+            // it, outside the graph — so the mode goes in one move.
+            //
+            // Every other picker still pops one entry: opened from a running workout, from
+            // the template editor, or by hand from the template list, it is a step inside
+            // something the user is in the middle of, and leaving it is not leaving that.
+            onBack = {
+                if (pickerOpenedTheFlow) {
+                    pickerOpenedTheFlow = false
+                    navController.exitSessionFlow()
+                } else {
+                    navController.popBackStack()
+                }
+            },
             // The picker's result goes to whoever opened it, through the state hoisted above
             // — see the note on it for why this one does not travel on a `SavedStateHandle`
             // the way the detail screen's answer does. Recorded before the pop so the caller
             // is holding it by the time it is composed again.
             onExercisesSelected = { exerciseIds ->
+                // The flow has been entered properly now: the setup screen the user is
+                // dropped back onto is holding their plan, so it is somewhere they have been
+                // and the back gesture out of it means what it says. A picker reopened later
+                // from the template list must not inherit this entry's exit.
+                pickerOpenedTheFlow = false
                 pickedExerciseIds = exerciseIds.toLongArray()
                 navController.popBackStack()
             },

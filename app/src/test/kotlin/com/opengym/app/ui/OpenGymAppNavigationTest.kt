@@ -308,8 +308,35 @@ class OpenGymAppNavigationTest {
      */
 
     @Test
-    fun `backing out of the picker leaves the quick start usable`() {
+    fun `backing out of the picker the flow opened on returns to the tab it left`() {
         openThePicker()
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        pressBack()
+
+        // Home, and not the setup screen the picker was pushed over. That screen was never
+        // drawn — the quick start opens the flow and the picker in one move — so surfacing it
+        // on the way out shows the user somewhere they have not been, wearing Home's own
+        // quick-start action and template strip. Back would be going forwards.
+        composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsDisplayed()
+        composeTestRule.onNodeWithText(NEW_SESSION).assertDoesNotExist()
+
+        // And the flow really is gone rather than merely covered: the quick start opens a
+        // fresh one.
+        openThePicker()
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun `backing out of a picker opened from the template list leaves the quick start usable`() {
+        // The other picker, and the other meaning of leaving it: here the setup screen *is*
+        // where the user came from, so a cancel belongs on it rather than out of the flow.
+        openSetup()
+        composeTestRule.onNodeWithText(EMPTY_SESSION).performClick()
         composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(CONFIRM_NONE).fetchSemanticsNodes().isNotEmpty()
         }
