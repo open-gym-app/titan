@@ -77,6 +77,7 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     ): List<Long> = unsupported()
 
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> = unsupported()
     override suspend fun updateSet(set: WorkoutSet) = unsupported()
     override suspend fun updateSets(sets: List<WorkoutSet>) = unsupported()
     override suspend fun deleteSet(setId: Long) = unsupported()
@@ -199,9 +200,7 @@ class FakeTemplateStore(
                 exerciseId = draft.exerciseId,
                 position = position,
                 supersetGroup = draft.supersetGroup,
-                defaultSets = draft.defaultSets,
-                defaultReps = draft.defaultReps,
-                defaultWeight = draft.defaultWeight,
+                sets = draft.sets,
                 restDuration = draft.restDuration,
                 notes = draft.notes,
             )

@@ -196,13 +196,13 @@ Text(
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
 
-  `SetLogRow` is built from `OpenGymValueField`s and so is the template editor's per-exercise
-  defaults row, which is the point of the component: the weight a template plans and the weight
-  it becomes are the same cell.
-
-  `SetLogRow` and `LoggedSetRow` are one table in two states and share their column grid, so a
-  caller has to pass the same `showPrevious` to both and to `SetLogHeader` or the labels stop
-  sitting over the cells they name.
+  `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
+  typed, the set that is a record, and the set that has not happened yet — and they share their
+  column grid, which is the point of the component: the weight a template plans and the weight it
+  becomes are the same cell, at the same width, in the same order. A caller has to pass the same
+  `showPrevious` to `SetLogRow`, `LoggedSetRow` and `SetLogHeader` or the labels stop sitting over
+  the cells they name; `PlannedSetRow` has its own header (`PlannedSetHeader`) because it drops
+  two columns a plan cannot fill in — the previous performance, and the rating.
 
   **There is no editor.** A logged set is corrected in the row it is already in: on a screen that
   can still be written to, every row of the table is a `SetLogRow` with the values in its fields,

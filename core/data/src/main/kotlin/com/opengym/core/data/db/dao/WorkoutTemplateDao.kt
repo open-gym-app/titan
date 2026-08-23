@@ -7,7 +7,9 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.opengym.core.data.db.entity.TemplateExerciseEntity
+import com.opengym.core.data.db.entity.TemplateSetEntity
 import com.opengym.core.data.db.entity.WorkoutTemplateEntity
+import com.opengym.core.data.db.projection.TemplateExerciseWithSets
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -38,8 +40,19 @@ interface WorkoutTemplateDao {
     @Query("DELETE FROM template_exercise WHERE id = :id")
     suspend fun deleteExercise(id: Long)
 
+    /**
+     * The sets of one exercise, numbered from 1 in the order they are performed.
+     *
+     * Written in bulk rather than one at a time, unlike a session's sets: a template's
+     * body is only ever replaced whole, so there is no single-set write for the store to
+     * offer and nothing that would need one.
+     */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertSets(sets: List<TemplateSetEntity>)
+
+    @Transaction
     @Query("SELECT * FROM template_exercise WHERE template_id = :templateId ORDER BY position ASC")
-    fun getExercises(templateId: Long): Flow<List<TemplateExerciseEntity>>
+    fun getExercises(templateId: Long): Flow<List<TemplateExerciseWithSets>>
 
     /**
      * Every template's exercises in one query, for the screens that render a row per
@@ -49,8 +62,9 @@ interface WorkoutTemplateDao {
      * Ordered by template and then by position, so a caller grouping by `template_id`
      * gets each group already in the order the contract promises.
      */
+    @Transaction
     @Query("SELECT * FROM template_exercise ORDER BY template_id ASC, position ASC")
-    fun getAllExercises(): Flow<List<TemplateExerciseEntity>>
+    fun getAllExercises(): Flow<List<TemplateExerciseWithSets>>
 
     @Query("DELETE FROM template_exercise WHERE template_id = :templateId")
     suspend fun deleteExercises(templateId: Long)
@@ -60,18 +74,18 @@ interface WorkoutTemplateDao {
      * id, which each exercise row is stamped with on the way in.
      *
      * The caller cannot do this itself: the exercises need an id that does not exist
-     * until the template row is written, so splitting the two across two calls would
-     * leave a window where a named template has no body — the state
-     * `CreateTemplateUseCase` refuses to create. Positions come in already numbered;
-     * this only fills in the id.
+     * until the template row is written, and each exercise's sets need an id that does
+     * not exist until *it* is written — so splitting this up would leave windows where a
+     * named template has no body, or an exercise has no sets. Positions and set numbers
+     * come in already numbered; this only fills in the two ids.
      */
     @Transaction
     suspend fun insertWithExercises(
         template: WorkoutTemplateEntity,
-        exercises: List<TemplateExerciseEntity>,
+        exercises: List<TemplateExerciseWithSets>,
     ): Long {
         val templateId = insert(template)
-        exercises.forEach { insertExercise(it.copy(templateId = templateId)) }
+        insertBodies(templateId, exercises)
         return templateId
     }
 
@@ -95,10 +109,29 @@ interface WorkoutTemplateDao {
     @Transaction
     suspend fun updateWithExercises(
         template: WorkoutTemplateEntity,
-        exercises: List<TemplateExerciseEntity>,
+        exercises: List<TemplateExerciseWithSets>,
     ) {
         if (update(template) == 0) return
+        // The sets go with them: `template_set` cascades from `template_exercise`, so
+        // deleting the body deletes what it planned.
         deleteExercises(template.id)
-        exercises.forEach { insertExercise(it.copy(templateId = template.id)) }
+        insertBodies(template.id, exercises)
+    }
+
+    /**
+     * Writes each exercise under [templateId] and then the sets it plans under the id it
+     * was just given.
+     *
+     * Shared by both write paths rather than written twice, which is the only way the
+     * insert and the replace can be guaranteed to store the same thing. Not transactional
+     * on its own — both callers already are, and this must not commit half a body.
+     */
+    suspend fun insertBodies(templateId: Long, exercises: List<TemplateExerciseWithSets>) {
+        exercises.forEach { body ->
+            val exerciseId = insertExercise(body.exercise.copy(templateId = templateId))
+            if (body.sets.isNotEmpty()) {
+                insertSets(body.sets.map { it.copy(templateExerciseId = exerciseId) })
+            }
+        }
     }
 }

@@ -1,5 +1,7 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -105,9 +107,7 @@ class FakeTemplateRepository : TemplateRepository {
                 exerciseId = draft.exerciseId,
                 position = position,
                 supersetGroup = draft.supersetGroup,
-                defaultSets = draft.defaultSets,
-                defaultReps = draft.defaultReps,
-                defaultWeight = draft.defaultWeight,
+                sets = draft.sets,
                 restDuration = draft.restDuration,
                 notes = draft.notes,
             )
@@ -140,18 +140,28 @@ class FakeTemplateRepository : TemplateRepository {
 /** Terse [TemplateExerciseDraft] for tests that only care about identity and order. */
 fun draft(
     exerciseId: Long,
-    defaultSets: Int? = null,
-    defaultReps: Int? = null,
-    defaultWeight: Long? = null,
+    sets: List<PlannedSet> = emptyList(),
     restDuration: Long? = null,
     notes: String? = null,
     supersetGroup: Int? = null,
 ): TemplateExerciseDraft = TemplateExerciseDraft(
     exerciseId = exerciseId,
-    defaultSets = defaultSets,
-    defaultReps = defaultReps,
-    defaultWeight = defaultWeight,
+    sets = sets,
     restDuration = restDuration,
     notes = notes,
     supersetGroup = supersetGroup,
 )
+
+/**
+ * [count] identical sets, which is what a template used to be able to say and is now one plan
+ * among many.
+ *
+ * Most tests care that a line plans *n* sets rather than what is in them, and this keeps them
+ * reading that way; a test about the warm-up, the ramp or the drop set builds its own list.
+ */
+fun plannedSets(
+    count: Int,
+    reps: Int? = null,
+    weight: Long? = null,
+    setType: SetType = SetType.NORMAL,
+): List<PlannedSet> = List(count) { PlannedSet(setType = setType, reps = reps, weight = weight) }

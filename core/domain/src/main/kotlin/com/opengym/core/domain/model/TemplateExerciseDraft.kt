@@ -10,6 +10,10 @@ package com.opengym.core.domain.model
  * a caller that hand-numbers positions is one reorder away from violating it. A
  * list is already ordered; the write path numbers it.
  *
+ * [sets] follows the same rule one level down: a planned set's number is its index
+ * here, and `template_set` carries the matching unique `(template_exercise_id,
+ * set_number)` index. See [PlannedSet].
+ *
  * [supersetGroup] is the one place that ordering matters twice over: a group's members
  * are contiguous *in this list*, since the list is what the positions are read from.
  * The write path normalises the grouping before storing it — see
@@ -18,15 +22,10 @@ package com.opengym.core.domain.model
  */
 data class TemplateExerciseDraft(
     val exerciseId: Long,
-    override val defaultSets: Int? = null,
-    val defaultReps: Int? = null,
-    /** Milligrams, per [TemplateExercise.defaultWeight]. */
-    val defaultWeight: Long? = null,
+    /** What to perform, in order. Empty is a line that plans no sets — see [PlannedSet]. */
+    override val sets: List<PlannedSet> = emptyList(),
     /** Seconds, per [TemplateExercise.restDuration]. */
     override val restDuration: Long? = null,
     val notes: String? = null,
-    // Appended rather than slotted next to the other structural field: it is an `Int?`
-    // like `defaultSets`, so inserting it earlier would silently re-read any positional
-    // `Draft(id, 4, 8)` as a group id instead of failing to compile.
     override val supersetGroup: Int? = null,
 ) : PlannedExercise

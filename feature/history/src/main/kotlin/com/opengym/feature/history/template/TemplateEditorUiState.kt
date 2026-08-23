@@ -2,6 +2,7 @@ package com.opengym.feature.history.template
 
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.UnitSystem
@@ -84,7 +85,7 @@ data class TemplateEditorUiState(
         )
 
     /** Whether anything in the plan was typed wrong. Blocks the save rather than the field. */
-    val hasErrors: Boolean get() = exercises.any { it.errors.isNotEmpty() }
+    val hasErrors: Boolean get() = exercises.any(TemplateExerciseRow::hasErrors)
 
     /**
      * Whether SAVE does anything.
@@ -113,14 +114,14 @@ data class TemplateEditorUiState(
 }
 
 /**
- * One exercise of the plan, with its defaults as they are being typed.
+ * One exercise of the plan, with the sets it lays out and the rest between them.
  *
- * ### Why the four figures are `String`
+ * ### Why the figures are `String`
  *
  * Because a half-typed number is not a number. `SetLogRow` makes the same trade for the same
  * reason: a field holding an `Int?` cannot represent "the user has typed a minus sign", and one
  * that parsed on every keystroke would delete the character somebody was in the middle of.
- * Parsing happens here too — see [errors] — but what is *held* is what was typed.
+ * Parsing happens here too — see [TemplateSetRow.errors] — but what is *held* is what was typed.
  *
  * @param key identity across a reorder, stable for the life of the draft. Not the stored
  *   `TemplateExercise.id`, which an exercise added in this session does not have yet, and not the
@@ -128,9 +129,13 @@ data class TemplateEditorUiState(
  * @param exercise the catalogue row, or **null** for an exercise deleted from the library since
  *   the template was saved. It keeps its place rather than vanishing: the plan is the user's, and
  *   a line silently dropped is a workout that quietly got shorter.
- * @param weight in the ambient unit system's unit, like every weight field in the app.
- * @param rest in seconds. Blank means the template says nothing and the session will use the
- *   user's configured default.
+ * @param sets what to perform, in order — a warm-up, the working sets, whatever ends it. Empty is
+ *   legal and means the line plans an exercise and leaves its sets to the day; the session then
+ *   opens it with nothing but its entry row, exactly as one built by hand.
+ * @param rest in seconds, between the sets above. Blank means the template says nothing and the
+ *   session will use the user's configured default. One field for the exercise rather than one
+ *   per set — see [com.opengym.core.domain.model.PlannedSet].
+ * @param hasRestError the rest field holds something that cannot be stored.
  * @param supersetLabel the `A1`/`A2` marker, or null for an exercise that stands alone. Derived
  *   from the grouping over the whole list, which a row does not have.
  * @param supersetGroupName the group's own name — the `A` of `A1` — or null for an exercise that
@@ -139,31 +144,66 @@ data class TemplateEditorUiState(
  *   digits, which a slice on the first digit reads as an empty name.
  * @param isLinkedToNext whether this exercise and the one after it are one superset — what the
  *   join between the two cards draws.
- * @param errors which of the four fields holds something that cannot be stored.
  */
 @Immutable
 data class TemplateExerciseRow(
     val key: Long,
     val exerciseId: Long,
     val exercise: Exercise? = null,
-    val sets: String = "",
-    val reps: String = "",
-    val weight: String = "",
+    val sets: List<TemplateSetRow> = emptyList(),
     val rest: String = "",
+    val hasRestError: Boolean = false,
     val supersetGroup: Int? = null,
     val supersetLabel: String? = null,
     val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
-    val errors: Set<TemplateField> = emptySet(),
+) {
+
+    /** Whether anything on this line was typed wrong, wherever on it. */
+    val hasErrors: Boolean get() = hasRestError || sets.any { it.errors.isNotEmpty() }
+
+    /** Whether another set can be added. See [TemplateEditorUiState] for the ceiling. */
+    val canAddSet: Boolean get() = sets.size < MAX_SETS_PER_EXERCISE
+}
+
+/**
+ * One set of the plan, as the row it is typed into.
+ *
+ * The counterpart of the workout screen's `LoggedSet`, minus everything a set that has not
+ * happened cannot have: no id, no tick, no rating, no previous. What is left is what a plan
+ * actually says — which kind of set it is, and the two figures.
+ *
+ * @param key identity within its exercise, stable for the life of the draft, so a keystroke that
+ *   lands after a set was inserted above still reaches the set it was typed into.
+ * @param setType the warm-up, the working set, the drop set. The whole reason the plan is a list.
+ * @param weight in the ambient unit system's unit, like every weight field in the app.
+ * @param reps how many.
+ * @param errors which of the two figures holds something that cannot be stored.
+ */
+@Immutable
+data class TemplateSetRow(
+    val key: Long,
+    val setType: SetType = SetType.NORMAL,
+    val weight: String = "",
+    val reps: String = "",
+    val errors: Set<TemplateSetField> = emptySet(),
 )
 
-/** The four figures a template line carries, as the thing an error is *about*. */
-enum class TemplateField {
-    SETS,
-    REPS,
+/** The two figures a planned set carries, as the thing an error is *about*. */
+enum class TemplateSetField {
     WEIGHT,
-    REST,
+    REPS,
 }
+
+/**
+ * How many sets one exercise of a template may plan.
+ *
+ * A sanity limit rather than a domain rule — there is no `SetValidator` bound for it, because a
+ * *session* counts its sets rather than declaring them. Ninety-nine rows is far past any real
+ * plan and well short of a list that a phone struggles to draw, and the ceiling exists so that a
+ * finger held on ADD SET cannot build one.
+ */
+const val MAX_SETS_PER_EXERCISE = 99
 
 /**
  * The name-and-category dialog's contents while it is up.

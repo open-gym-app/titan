@@ -1,5 +1,7 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateError
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -42,15 +44,13 @@ class ApplyTemplateUseCaseTest {
     }
 
     @Test
-    fun `applying carries the defaults a session should be pre-filled with`() = runTest {
+    fun `applying carries the plan a session should be pre-filled with`() = runTest {
         val id = templates.seed(
             "Leg day",
             listOf(
                 draft(
                     exerciseId = 3L,
-                    defaultSets = 5,
-                    defaultReps = 5,
-                    defaultWeight = 100_000L,
+                    sets = plannedSets(count = 5, reps = 5, weight = 100_000L),
                     restDuration = 180L,
                     notes = "warm up first",
                 ),
@@ -60,11 +60,37 @@ class ApplyTemplateUseCaseTest {
         val applied = applyTemplate(id).getOrThrow().exercises.single()
 
         assertEquals(3L, applied.exerciseId)
-        assertEquals(5, applied.defaultSets)
-        assertEquals(5, applied.defaultReps)
-        assertEquals(100_000L, applied.defaultWeight)
+        assertEquals(5, applied.sets.size)
+        assertEquals(listOf(5, 5, 5, 5, 5), applied.sets.map { it.reps })
+        assertEquals(listOf(100_000L), applied.sets.map { it.weight }.distinct())
         assertEquals(180L, applied.restDuration)
         assertEquals("warm up first", applied.notes)
+    }
+
+    @Test
+    fun `applying carries each set as its own, not as n copies of one`() = runTest {
+        val id = templates.seed(
+            "Leg day",
+            listOf(
+                draft(
+                    exerciseId = 3L,
+                    sets = listOf(
+                        PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000L),
+                        PlannedSet(reps = 8, weight = 100_000L),
+                        PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = 60_000L),
+                    ),
+                ),
+            ),
+        )
+
+        val applied = applyTemplate(id).getOrThrow().exercises.single()
+
+        assertEquals(
+            listOf(SetType.WARMUP, SetType.NORMAL, SetType.DROP_SET),
+            applied.sets.map { it.setType },
+        )
+        assertEquals(listOf(40_000L, 100_000L, 60_000L), applied.sets.map { it.weight })
+        assertEquals(listOf(12, 8, 10), applied.sets.map { it.reps })
     }
 
     @Test

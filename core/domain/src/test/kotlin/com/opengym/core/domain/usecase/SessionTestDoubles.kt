@@ -190,6 +190,16 @@ class FakeSessionRepository : SessionRepository {
         return store(set.sessionExerciseId, set).id
     }
 
+    /**
+     * Written one at a time through [store], which is what a real batch insert amounts to
+     * from a caller's point of view: the ids come back in the order given. [setInsertFailure]
+     * applies to the batch as a whole, so a test can make laying a plan out fail.
+     */
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> {
+        setInsertFailure?.let { throw it }
+        return sets.map { store(it.sessionExerciseId, it).id }
+    }
+
     /** Thrown by [updateSet] and [updateSets] instead of writing, when set. */
     var setUpdateFailure: Throwable? = null
 

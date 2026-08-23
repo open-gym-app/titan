@@ -16,8 +16,17 @@ package com.opengym.core.domain.model
  */
 interface PlannedExercise {
 
-    /** Planned sets, or null when the template does not say. */
-    val defaultSets: Int?
+    /**
+     * The sets planned for it, in the order they are performed.
+     *
+     * A list rather than a count, because the estimate is not the only reader: what a
+     * template plans is a *sequence* — a warm-up, three working sets, a drop set — and
+     * a count could not tell those apart. See [PlannedSet].
+     *
+     * Empty is legal and means the plan says nothing about this exercise's sets, which
+     * is what an exercise the user has added but not priced looks like.
+     */
+    val sets: List<PlannedSet>
 
     /** Seconds of rest after a set of this exercise, or null to take the caller's default. */
     val restDuration: Long?

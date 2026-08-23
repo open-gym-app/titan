@@ -1,15 +1,18 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionPlan
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.superset.Supersets
 
 /**
  * Turns a [SessionPlan] into a running session: the `workout_session` row, its
- * `session_exercise` rows, and the state machine moved to [SessionState.Active].
+ * `session_exercise` rows, the `workout_set` rows for whatever the plan plans, and the
+ * state machine moved to [SessionState.Active].
  *
  * The one call the new-session flow (#25) makes when the user commits. Everything
  * before it — choosing a template, picking exercises, changing their mind — writes
@@ -23,6 +26,24 @@ import com.opengym.core.domain.superset.Supersets
  * the flow needs, and keeping them apart is what lets "the user chose a template" and
  * "the user began training" stay two separately cancellable decisions — see
  * [ApplyTemplateUseCase], which reads a template without starting anything.
+ *
+ * ### The plan's sets are written as sets
+ *
+ * A plan that carries [PlannedSet]s — one started from a template — lays them down as real
+ * `workout_set` rows with `is_completed = 0`, which is what PERSISTENCE.md calls a
+ * planned-but-unperformed set: it is in the table, under its number, and it counts towards
+ * no figure until the lifter ticks it off. So a four-set template opens a four-set workout
+ * with the weights already in the fields, and performing it is four taps rather than four
+ * sets typed from nothing.
+ *
+ * `completed_at` is written as `0`, the placeholder the contract names for exactly this row.
+ * It is not a time and must never be read as one; [MarkSetCompletedUseCase] stamps the real
+ * moment when the set is ticked, which is the only point at which one exists.
+ *
+ * Nothing is validated on the way down, deliberately. A planned set is allowed to be empty —
+ * "do a fourth set, weight to be decided" is a plan — and `SetValidator` only holds a set to
+ * its exercise's logging mode once it is *completed*, which is a rule the tick already
+ * enforces. Refusing a blank plan here would refuse the ordinary case.
  *
  * ### Failure leaves nothing behind
  *
@@ -56,13 +77,20 @@ class StartPlannedSessionUseCase(
             .getOrElse { return Result.failure(it) }
 
         return runCatching {
-            sessionRepository.insertExercises(
+            val exerciseIds = sessionRepository.insertExercises(
                 sessionId = started.sessionId,
                 exercises = exercises,
                 // The session's own start, not a second reading: the exercises were laid
                 // out as part of starting it, and two timestamps a millisecond apart on
                 // rows written by one action is a distinction nothing wants to read.
                 createdAt = started.startedAt,
+            )
+            // One write for the whole workout rather than one per exercise: the plan is laid
+            // down in a single action, and the ids come back in the order the drafts went in
+            // — the contract `insertExercises` gives — so the two lists zip.
+            sessionRepository.insertSets(
+                exercises.zip(exerciseIds) { draft, id -> draft.plannedSets(id, started.startedAt) }
+                    .flatten(),
             )
         }
             .map { started.sessionId }
@@ -105,3 +133,38 @@ private fun List<SessionExerciseDraft>.normalizeSupersets(): List<SessionExercis
     val normalized = Supersets.normalize(map(SessionExerciseDraft::supersetGroup))
     return mapIndexed { index, draft -> draft.copy(supersetGroup = normalized[index]) }
 }
+
+/**
+ * This exercise's plan as the rows that hold it, numbered from 1 in the order planned.
+ *
+ * `createdAt` and `updatedAt` are the session's own start, matching the exercises they hang
+ * off. `completedAt` is the `0` placeholder rather than that timestamp, and the difference is
+ * the point: the other two say when the row was written, which is a fact, and this one would
+ * be claiming the set was performed at the moment the workout began.
+ */
+private fun SessionExerciseDraft.plannedSets(
+    sessionExerciseId: Long,
+    createdAt: Long,
+): List<WorkoutSet> = sets.mapIndexed { index, planned ->
+    WorkoutSet(
+        sessionExerciseId = sessionExerciseId,
+        setNumber = index + 1,
+        reps = planned.reps,
+        weight = planned.weight,
+        setType = planned.setType,
+        completedAt = UNPERFORMED,
+        isCompleted = false,
+        createdAt = createdAt,
+        updatedAt = createdAt,
+    )
+}
+
+/**
+ * What `workout_set.completed_at` holds for a set nobody has performed.
+ *
+ * The column is NOT NULL — see PERSISTENCE.md — so a row that has not happened yet needs a
+ * value that reads as "no time at all", and 0 is the one the contract names. Every aggregate
+ * filters on `is_completed` before it looks at the timestamp, so the placeholder never reaches
+ * one.
+ */
+private const val UNPERFORMED = 0L

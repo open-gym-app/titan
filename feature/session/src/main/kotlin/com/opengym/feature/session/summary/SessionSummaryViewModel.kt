@@ -8,6 +8,7 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
@@ -617,18 +618,28 @@ private class Loaded(
     /**
      * The session as the exercises of a template.
      *
-     * Each exercise keeps its place and its superset grouping, and carries what was actually
-     * done as the template's defaults: the number of sets performed, the rep count performed
-     * *most often*, and the heaviest load. The modal rep count rather than the highest or the
-     * lowest, because a template's defaults are what to aim for next time — five sets of ten
-     * with one set of six in them is a template of tens.
+     * Each exercise keeps its place and its superset grouping, and carries the sets that were
+     * actually performed — set for set, in the order they were done, each with its own type,
+     * reps and weight.
+     *
+     * ### It used to average the workout away
+     *
+     * A template held three numbers per exercise, so this had to reduce a whole exercise to
+     * them: the count of sets, the *modal* rep count, and the heaviest load. That threw away
+     * exactly what a lifter saves a workout as a template *for* — the warm-up, the ramp, the
+     * drop set at the end all came back as "5 × 10 × 100", which is a workout nobody did.
+     * A template is a list of sets now ([PlannedSet]), so what is copied is what happened.
+     *
+     * Only performed sets are copied, which is [performed]'s own filter: an unticked row is
+     * work that did not happen, and planning next week around it would be planning around a
+     * set the lifter skipped.
      */
     fun templateDrafts(): List<TemplateExerciseDraft> = performed.map { (exercise, performedSets) ->
         TemplateExerciseDraft(
             exerciseId = exercise.exerciseId,
-            defaultSets = performedSets.size,
-            defaultReps = performedSets.mapNotNull(WorkoutSet::reps).modeOrNull(),
-            defaultWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
+            sets = performedSets.map { set ->
+                PlannedSet(setType = set.setType, reps = set.reps, weight = set.weight)
+            },
             supersetGroup = exercise.supersetGroup,
         )
     }
@@ -647,15 +658,3 @@ private class MuscleBreakdown(
     val primary: List<MuscleGroup>,
     val secondary: List<MuscleGroup>,
 )
-
-/**
- * The most frequent value, or null for an empty list.
- *
- * Ties go to the larger value, so `8, 8, 10, 10, 6` comes out as a template of tens rather
- * than of eights: a target you fall short of is a better default than one you exceed.
- */
-private fun List<Int>.modeOrNull(): Int? = groupingBy { it }
-    .eachCount()
-    .entries
-    .maxWithOrNull(compareBy({ it.value }, { it.key }))
-    ?.key

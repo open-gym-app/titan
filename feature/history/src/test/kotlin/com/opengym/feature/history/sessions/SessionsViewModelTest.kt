@@ -1,5 +1,6 @@
 package com.opengym.feature.history.sessions
 
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.WorkoutTemplate
@@ -612,8 +613,8 @@ class SessionsViewModelTest {
             namedTemplate(2, "Pull Day"),
         ),
         exercises = listOf(
-            TemplateExercise(id = 100, templateId = 1, exerciseId = 10, position = 0, defaultSets = 4),
-            TemplateExercise(id = 101, templateId = 1, exerciseId = 11, position = 1, defaultSets = 3),
+            TemplateExercise(id = 100, templateId = 1, exerciseId = 10, position = 0, sets = List(4) { PlannedSet() }),
+            TemplateExercise(id = 101, templateId = 1, exerciseId = 11, position = 1, sets = List(3) { PlannedSet() }),
         ),
     )
 

@@ -1,6 +1,7 @@
 package com.opengym.core.domain.template
 
 import com.opengym.core.domain.model.PlannedExercise
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.UserPreferences
@@ -60,10 +61,13 @@ class TemplateDurationTest {
     }
 
     @Test
-    fun `an exercise with no set count is assumed to plan three`() {
-        val estimate = estimate(listOf(exercise(sets = null, rest = 60)))
+    fun `an exercise that plans no sets is not performed and costs nothing`() {
+        // It used to be charged three sets, because a template could not tell "no plan" from
+        // "no sets" — one nullable count said both. A plan is a list now, and an empty one
+        // says exactly one thing.
+        val estimate = estimate(listOf(exercise(sets = 0, rest = 60)))
 
-        assertEquals(work * TemplateDuration.DEFAULT_SETS + 60.seconds * 2, estimate)
+        assertEquals(Duration.ZERO, estimate)
     }
 
     @Test
@@ -204,14 +208,11 @@ class TemplateDurationTest {
         assertEquals(work * 2 + 60.seconds, estimate)
     }
 
-    @Test
-    fun `a negative set count contributes nothing rather than subtracting time`() {
-        val estimate = estimate(
-            listOf(exercise(sets = -4, rest = 60), exercise(sets = 2, rest = 60)),
-        )
-
-        assertEquals(work * 2 + 60.seconds, estimate)
-    }
+    /*
+     * There is no test for a negative set count any more, because there is no way to write
+     * one: the plan is a list, and a list cannot be -4 long. The rest below still guards its
+     * own negative case, which an import genuinely can produce.
+     */
 
     @Test
     fun `a negative rest is read as no rest at all`() {
@@ -255,9 +256,19 @@ class TemplateDurationTest {
     @Test
     fun `a draft estimates the same as the row it becomes`() {
         val drafts = listOf(
-            TemplateExerciseDraft(exerciseId = 1, defaultSets = 3, restDuration = 60, supersetGroup = 0),
-            TemplateExerciseDraft(exerciseId = 2, defaultSets = 3, restDuration = 60, supersetGroup = 0),
-            TemplateExerciseDraft(exerciseId = 3, defaultSets = 4, restDuration = null),
+            TemplateExerciseDraft(
+                exerciseId = 1,
+                sets = List(3) { PlannedSet() },
+                restDuration = 60,
+                supersetGroup = 0,
+            ),
+            TemplateExerciseDraft(
+                exerciseId = 2,
+                sets = List(3) { PlannedSet() },
+                restDuration = 60,
+                supersetGroup = 0,
+            ),
+            TemplateExerciseDraft(exerciseId = 3, sets = List(4) { PlannedSet() }, restDuration = null),
         )
         val stored = drafts.mapIndexed { position, draft ->
             TemplateExercise(
@@ -266,7 +277,7 @@ class TemplateDurationTest {
                 exerciseId = draft.exerciseId,
                 position = position,
                 supersetGroup = draft.supersetGroup,
-                defaultSets = draft.defaultSets,
+                sets = draft.sets,
                 restDuration = draft.restDuration,
             )
         }
@@ -281,12 +292,14 @@ class TemplateDurationTest {
     private fun estimate(exercises: List<PlannedExercise>, rest: Duration = defaultRest) =
         TemplateDuration.estimate(exercises, rest)
 
-    private fun exercise(sets: Int?, rest: Long? = null, group: Int? = null) = TemplateExercise(
+    private fun exercise(sets: Int, rest: Long? = null, group: Int? = null) = TemplateExercise(
         templateId = 1,
         exerciseId = 1,
         position = 0,
         supersetGroup = group,
-        defaultSets = sets,
+        // The estimate counts the sets rather than reading them, so what is in them does not
+        // matter here — only how many there are. See `TemplateDuration`.
+        sets = List(sets) { PlannedSet() },
         restDuration = rest,
     )
 }

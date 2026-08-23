@@ -1,5 +1,6 @@
 package com.opengym.feature.history.template
 
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 
 /**
@@ -34,24 +35,69 @@ sealed interface TemplateEditorEvent {
     data object NameEditCancelled : TemplateEditorEvent
 
     /**
-     * One of an exercise's four figures was typed into.
+     * A planned set's weight or reps was typed into.
      *
-     * By [key] rather than by index, so a keystroke that lands after a reorder still reaches the
-     * exercise it was typed into — and one field rather than four events, because the four
-     * differ only in which figure they carry and the parsing they need is the same shape.
+     * By [exerciseKey] and [setKey] rather than by index, so a keystroke that lands after a set
+     * was inserted above it — or after the plan was reordered — still reaches the set it was
+     * typed into. One event rather than one per figure, because the two differ only in which
+     * cell they carry and the parsing they need is the same shape.
      */
-    data class FieldChanged(
-        val key: Long,
-        val field: TemplateField,
+    data class SetFieldChanged(
+        val exerciseKey: Long,
+        val setKey: Long,
+        val field: TemplateSetField,
         val text: String,
     ) : TemplateEditorEvent
+
+    /**
+     * A planned set was made a warm-up, a drop set, or a standard set again.
+     *
+     * Its own event rather than a [SetFieldChanged] with a `SetType` in it: the menu's answer is
+     * a closed vocabulary and arrives whole, where the two figures arrive a character at a time.
+     * The same split the workout screen makes.
+     */
+    data class SetTypeChanged(
+        val exerciseKey: Long,
+        val setKey: Long,
+        val setType: SetType,
+    ) : TemplateEditorEvent
+
+    /**
+     * ADD SET on one exercise: another set on the end of its plan.
+     *
+     * The new set copies the one above it — its type, its weight, its reps — because the next
+     * set of an exercise is usually the last one again, and a lifter planning `3 × 80 × 8` should
+     * not type the same three figures three times. The first set of an exercise has nothing to
+     * copy and starts blank. Refused past [MAX_SETS_PER_EXERCISE].
+     */
+    data class SetAdded(val exerciseKey: Long) : TemplateEditorEvent
+
+    /**
+     * A planned set was swiped away.
+     *
+     * By [setKey] for the reason every other edit is: the sets below it move up, so an index
+     * resolved a frame later removes the wrong one. Removing the last set of an exercise leaves
+     * the exercise in the plan with nothing planned — which is a line that says "do this, sets to
+     * be decided" and a legitimate thing to save. Dropping the exercise is
+     * [ExerciseRemoved], and the user has a control for that.
+     */
+    data class SetRemoved(val exerciseKey: Long, val setKey: Long) : TemplateEditorEvent
+
+    /**
+     * The rest between one exercise's sets was typed into, in seconds.
+     *
+     * Separate from [SetFieldChanged] because it is not a set's figure: it belongs to the
+     * exercise, and there is one of it however many sets are planned.
+     */
+    data class RestChanged(val exerciseKey: Long, val text: String) : TemplateEditorEvent
 
     /**
      * An exercise was dropped from the plan.
      *
      * By [key], not by exercise id: the same movement may legitimately appear twice in one
-     * template, and an id would remove whichever came first. A superset left with one member
-     * dissolves rather than being refused — see `Supersets.normalize`.
+     * template, and an id would remove whichever came first. The sets it planned go with it. A
+     * superset left with one member dissolves rather than being refused — see
+     * `Supersets.normalize`.
      */
     data class ExerciseRemoved(val key: Long) : TemplateEditorEvent
 
@@ -67,7 +113,7 @@ sealed interface TemplateEditorEvent {
     /**
      * The join below the exercise identified by [key] was tapped, making the two one superset.
      *
-     * By [key] rather than by index, for the reason [FieldChanged] and [ExerciseRemoved] are:
+     * By [key] rather than by index, for the reason [SetFieldChanged] and [ExerciseRemoved] are:
      * the plan is drawn in the order being *dragged*, which is a frame ahead of the draft while
      * a reorder is being applied, and a join resolved against the wrong list of the two joins a
      * pair the user did not point at.
@@ -82,7 +128,9 @@ sealed interface TemplateEditorEvent {
 
     /**
      * The picker's answer: the exercises chosen, in the order they were picked, appended to the
-     * end of the plan. Each arrives with no defaults — a line the user has not priced yet.
+     * end of the plan. Each arrives with one blank set — a line the user has not priced yet, but
+     * one whose plan is a table they can already type into rather than an empty card with an
+     * invitation on it.
      */
     data class ExercisesPicked(val exerciseIds: List<Long>) : TemplateEditorEvent
 

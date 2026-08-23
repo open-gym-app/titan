@@ -102,6 +102,34 @@ class SetCompletionTest {
     }
 
     @Test
+    fun `ticking off a set that was never performed stamps the clock for the first time`() = runTest {
+        // A set a template laid down: in the table, under its number, with `completed_at = 0`
+        // because it has not happened. Leaving the placeholder on the way in would file the set
+        // at epoch 1970 in every aggregate that reads the column — see PERSISTENCE.md.
+        val exerciseId = startWithExercise()
+        val planned = sessions.addSet(
+            exerciseId,
+            WorkoutSet(
+                sessionExerciseId = exerciseId,
+                setNumber = 1,
+                reps = 8,
+                weight = 70_000_000L,
+                isCompleted = false,
+                completedAt = 0L,
+                createdAt = 5_000L,
+                updatedAt = 5_000L,
+            ),
+        )
+        clock.advance(600_000L)
+
+        val edited = markSetCompleted(exerciseId, planned.id, isCompleted = true).getOrThrow()
+
+        assertTrue(edited.isCompleted)
+        assertEquals(605_000L, edited.completedAt)
+        assertEquals(605_000L, edited.updatedAt)
+    }
+
+    @Test
     fun `a tick that says what the set already says writes nothing`() = runTest {
         val exerciseId = startWithExercise()
         val logged = logSet(exerciseId, ActiveSet(reps = 8, weight = 70_000_000L)).getOrThrow()

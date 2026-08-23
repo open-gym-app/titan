@@ -38,12 +38,20 @@ import com.opengym.core.domain.validation.ValidationResult
  *
  * ### What it does not touch
  *
- * [WorkoutSet.completedAt] stays exactly as it was, in both directions. The column records when
- * the set was performed, and neither noticing a stray tick nor putting it back is a claim about
- * *when*: clearing it on the way out would leave the row unable to say when it had been done, and
- * re-stamping it on the way back in would move a set the user did ten minutes ago to now. The
- * flag says whether the set counts; the timestamp says when it happened. Only [WorkoutSet.updatedAt]
- * moves, which is the column that exists to say a row was touched.
+ * [WorkoutSet.completedAt] stays exactly as it was, in both directions, **with one exception**.
+ * The column records when the set was performed, and neither noticing a stray tick nor putting it
+ * back is a claim about *when*: clearing it on the way out would leave the row unable to say when
+ * it had been done, and re-stamping it on the way back in would move a set the user did ten
+ * minutes ago to now. The flag says whether the set counts; the timestamp says when it happened.
+ * Only [WorkoutSet.updatedAt] moves, which is the column that exists to say a row was touched.
+ *
+ * The exception is a set that has *never* been performed — one a template laid down as part of
+ * the plan, whose `completed_at` is the `0` placeholder PERSISTENCE.md names for a row that has
+ * not happened. Ticking that one off is not putting a timestamp back, it is the first time there
+ * has been one, and leaving the placeholder would file the set at epoch 1970: the same contract
+ * warns that a row with `is_completed = 1` and `completed_at = 0` is counted there by every
+ * aggregate that reads the column. So a first tick stamps the clock, and every later one leaves
+ * what it finds.
  *
  * The set numbers are untouched too, unlike a deletion: nothing has left the table, so there is no
  * gap to close.
@@ -96,7 +104,19 @@ class MarkSetCompletedUseCase(
 
         if (stored.isCompleted == isCompleted) return Result.success(stored)
 
-        val edited = stored.copy(isCompleted = isCompleted, updatedAt = clock.nowMillis())
+        val now = clock.nowMillis()
+        val edited = stored.copy(
+            isCompleted = isCompleted,
+            // Only for a set that has never been performed, and only on the way in. See the
+            // note on the class: this is the first timestamp the row has ever had, not a
+            // replacement for one it already carries.
+            completedAt = if (isCompleted && stored.completedAt == NEVER_PERFORMED) {
+                now
+            } else {
+                stored.completedAt
+            },
+            updatedAt = now,
+        )
 
         return when (val result = SetValidator.validate(edited, exerciseType)) {
             is ValidationResult.Invalid -> Result.failure(SessionError.SetRejected(result.reason))
@@ -105,5 +125,14 @@ class MarkSetCompletedUseCase(
                 edited
             }
         }
+    }
+
+    private companion object {
+
+        /**
+         * The `completed_at` a set that has not been performed carries, per PERSISTENCE.md
+         * and [StartPlannedSessionUseCase], which is what writes them.
+         */
+        const val NEVER_PERFORMED = 0L
     }
 }

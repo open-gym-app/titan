@@ -125,6 +125,9 @@ class FakeActiveSessionStore(
         return stored.id
     }
 
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> =
+        sets.map { insertSet(it) }
+
     /** Every set rewritten through [updateSet] or [updateSets], oldest first. */
     val updated = mutableListOf<WorkoutSet>()
 

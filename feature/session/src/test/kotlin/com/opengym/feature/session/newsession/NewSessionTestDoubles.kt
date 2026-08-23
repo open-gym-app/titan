@@ -105,7 +105,7 @@ class FakeTemplateStore : TemplateRepository {
                         exerciseId = draft.exerciseId,
                         position = position,
                         supersetGroup = draft.supersetGroup,
-                        defaultSets = draft.defaultSets,
+                        sets = draft.sets,
                         restDuration = draft.restDuration,
                     )
                 }
@@ -185,6 +185,21 @@ class FakeSessionStore : SessionRepository {
 
     override suspend fun insertSet(set: WorkoutSet): Long =
         throw UnsupportedOperationException("the new-session flow logs nothing")
+
+    /**
+     * Kept, not refused: starting a session from a template lays its plan down as sets, so this
+     * is on the path the flow's own START takes.
+     */
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> {
+        val stored = sets.map { it.copy(id = nextSetId++) }
+        plannedSets += stored
+        return stored.map(WorkoutSet::id)
+    }
+
+    /** Every set written as part of laying a plan out, in the order it was written. */
+    val plannedSets = mutableListOf<WorkoutSet>()
+
+    private var nextSetId = 1L
 
     override suspend fun updateSet(set: WorkoutSet) =
         throw UnsupportedOperationException("the new-session flow logs nothing")

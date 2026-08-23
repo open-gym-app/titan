@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -116,6 +118,16 @@ class TemplateEditorViewModel @Inject constructor(
     private var nextKey: Long = NEW_ROW_FIRST_KEY
 
     /**
+     * The key the next planned set takes. See [TemplateSetRow.key].
+     *
+     * Counts *up* from 1 and shares no space with [nextKey], which counts down from -1 over the
+     * stored `TemplateExercise.id`s: a set has no stored identity to collide with — the rows are
+     * replaced wholesale on every save — so the only thing this has to guarantee is that no two
+     * sets of one exercise are ever handed the same key while the draft is open.
+     */
+    private var nextSetKey: Long = 1
+
+    /**
      * Whether the picker now answering is one *this* screen opened.
      *
      * The ids come back through `:app`, which holds them in `rememberSaveable` — so they survive
@@ -185,11 +197,16 @@ class TemplateEditorViewModel @Inject constructor(
                 DraftRow(
                     key = exercise.id,
                     exerciseId = exercise.exerciseId,
-                    sets = exercise.defaultSets?.toString().orEmpty(),
-                    reps = exercise.defaultReps?.toString().orEmpty(),
-                    weight = exercise.defaultWeight
-                        ?.let { formatWeightValue(it, unitSystem) }
-                        .orEmpty(),
+                    sets = exercise.sets.map { planned ->
+                        DraftSet(
+                            key = nextSetKey++,
+                            setType = planned.setType,
+                            weight = planned.weight
+                                ?.let { formatWeightValue(it, unitSystem) }
+                                .orEmpty(),
+                            reps = planned.reps?.toString().orEmpty(),
+                        )
+                    },
                     rest = exercise.restDuration?.toString().orEmpty(),
                     supersetGroup = exercise.supersetGroup,
                     // Not edited here and not dropped either, for the reason `icon` is kept.
@@ -240,6 +257,7 @@ class TemplateEditorViewModel @Inject constructor(
 
     fun onEvent(event: TemplateEditorEvent) {
         if (onNameEvent(event)) return
+        if (onSetEvent(event)) return
         if (onPlanEvent(event)) return
 
         when (event) {
@@ -262,19 +280,59 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     /**
-     * The seven events that change the plan itself, handled together.
+     * The five events about one exercise's sets — what is in them, how many there are, and the
+     * rest between them.
+     *
+     * Split off [onPlanEvent] on the same principle that splits *it* off [onEvent]: one `when`
+     * per subject. These are about what an exercise asks of the lifter; those are about which
+     * exercises the workout holds and in what order.
+     *
+     * @return whether [event] was one of them.
+     */
+    private fun onSetEvent(event: TemplateEditorEvent): Boolean {
+        when (event) {
+            is TemplateEditorEvent.SetFieldChanged -> editDraft { draft ->
+                draft.mapSet(event.exerciseKey, event.setKey) { it.withField(event.field, event.text) }
+            }
+
+            is TemplateEditorEvent.SetTypeChanged -> editDraft { draft ->
+                draft.mapSet(event.exerciseKey, event.setKey) { it.copy(setType = event.setType) }
+            }
+
+            // Keyed outside [editDraft], which may run its lambda more than once: the counter is
+            // this ViewModel's, and a side effect inside a compare-and-set loop cannot say how
+            // many times it happened. See [addExercises], which does the same.
+            is TemplateEditorEvent.SetAdded -> {
+                val key = nextSetKey++
+                editDraft { draft -> draft.mapRow(event.exerciseKey) { it.withSetAdded(key) } }
+            }
+
+            is TemplateEditorEvent.SetRemoved -> editDraft { draft ->
+                draft.mapRow(event.exerciseKey) { row ->
+                    row.copy(sets = row.sets.filterNot { it.key == event.setKey })
+                }
+            }
+
+            is TemplateEditorEvent.RestChanged -> editDraft { draft ->
+                draft.mapRow(event.exerciseKey) { it.copy(rest = event.text) }
+            }
+
+            else -> return false
+        }
+        return true
+    }
+
+    /**
+     * The six events that change which exercises the plan holds, and in what order.
      *
      * Split off [onEvent] so neither `when` branches over two unrelated subjects: those are about
      * the screen — saving, leaving, a message shown — and these are about what the workout is.
+     * What happens *inside* one exercise is [onSetEvent].
      *
      * @return whether [event] was one of them.
      */
     private fun onPlanEvent(event: TemplateEditorEvent): Boolean {
         when (event) {
-            is TemplateEditorEvent.FieldChanged -> editDraft { draft ->
-                draft.mapRow(event.key) { it.withField(event.field, event.text) }
-            }
-
             is TemplateEditorEvent.ExerciseRemoved -> editDraft { draft ->
                 // Normalised rather than torn: a removal cannot split a group, it can only
                 // leave one with a single member, and that dissolves. See `Supersets.normalize`.
@@ -376,9 +434,11 @@ class TemplateEditorViewModel @Inject constructor(
     /**
      * Append what the picker came back with, in the order it was picked.
      *
-     * Appended rather than inserted, and with no defaults: a line the user has just added is one
-     * they have not priced yet, and inventing three sets of ten for it would be the screen
-     * putting numbers in their mouth. Exercises that are no longer in the catalogue are dropped
+     * Appended rather than inserted, and with one blank set each: a line the user has just added
+     * is one they have not priced yet, so the figures are empty, but the *table* is there —
+     * inventing three sets of ten would be the screen putting numbers in their mouth, and
+     * offering an empty card with an "add a set" invitation on it would put a tap in front of the
+     * thing the screen exists to do. Exercises that are no longer in the catalogue are dropped
      * and said out loud — see [TemplateEditorMessage.EXERCISES_UNAVAILABLE].
      *
      * ### The catalogue is re-read here rather than trusted from the open
@@ -400,7 +460,13 @@ class TemplateEditorViewModel @Inject constructor(
             // Keyed outside the update, which may run more than once: `nextKey` is this
             // ViewModel's counter, and a side effect inside a compare-and-set loop is one that
             // cannot say how many times it happened.
-            val added = known.map { exerciseId -> DraftRow(key = nextKey--, exerciseId = exerciseId) }
+            val added = known.map { exerciseId ->
+                DraftRow(
+                    key = nextKey--,
+                    exerciseId = exerciseId,
+                    sets = listOf(DraftSet(key = nextSetKey++)),
+                )
+            }
 
             editorState.update { state ->
                 val draft = state.draft ?: return@update state
@@ -534,16 +600,22 @@ class TemplateEditorViewModel @Inject constructor(
                     key = row.key,
                     exerciseId = row.exerciseId,
                     exercise = state.catalogue[row.exerciseId],
-                    sets = row.sets,
-                    reps = row.reps,
-                    weight = row.weight,
+                    sets = row.sets.map { set ->
+                        TemplateSetRow(
+                            key = set.key,
+                            setType = set.setType,
+                            weight = set.weight,
+                            reps = set.reps,
+                            errors = set.errors(unitSystem),
+                        )
+                    },
                     rest = row.rest,
+                    hasRestError = !row.rest.isValidCount(REST_SECONDS_RANGE),
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
                     supersetGroupName = groupNames[index],
                     isLinkedToNext = row.supersetGroup != null &&
                         grouping.getOrNull(index + 1) == row.supersetGroup,
-                    errors = row.errors(unitSystem),
                 )
             },
             estimatedDuration = TemplateDuration.estimate(
@@ -617,40 +689,59 @@ private data class Draft(
 private data class DraftRow(
     val key: Long,
     val exerciseId: Long,
-    val sets: String = "",
-    val reps: String = "",
-    val weight: String = "",
+    val sets: List<DraftSet> = emptyList(),
     val rest: String = "",
     val supersetGroup: Int? = null,
     /** Not edited on this screen, and carried so that saving does not clear it. */
     val notes: String? = null,
 )
 
-/** The row with one of its four figures replaced. */
-private fun DraftRow.withField(field: TemplateField, text: String): DraftRow = when (field) {
-    TemplateField.SETS -> copy(sets = text)
-    TemplateField.REPS -> copy(reps = text)
-    TemplateField.WEIGHT -> copy(weight = text)
-    TemplateField.REST -> copy(rest = text)
+/** One planned set of that line, as it is being typed. */
+private data class DraftSet(
+    val key: Long,
+    val setType: SetType = SetType.NORMAL,
+    val weight: String = "",
+    val reps: String = "",
+)
+
+/** The set with one of its two figures replaced. */
+private fun DraftSet.withField(field: TemplateSetField, text: String): DraftSet = when (field) {
+    TemplateSetField.WEIGHT -> copy(weight = text)
+    TemplateSetField.REPS -> copy(reps = text)
 }
 
 /**
- * Which of this row's figures cannot be stored.
+ * The line with another set on the end of it, copied from the one it follows.
  *
- * A blank field is not an error — it is the template declining to say, which is what the
- * nullable columns are for. Everything else has to be a number inside the bounds
- * [SetValidator] holds a logged set to: a template whose defaults a set could not be logged from
- * is a plan the user would meet a refusal in the middle of.
+ * The copy is the point: a lifter planning three working sets at the same weight taps ADD SET
+ * twice rather than typing six figures, and one planning a drop set after them retypes the two
+ * that differ. An exercise with nothing planned yet has nothing to copy and gets a blank set.
+ *
+ * Refused at the ceiling rather than clamped silently — see [MAX_SETS_PER_EXERCISE]. There is
+ * nothing to report: the control is drawn inert at that point, so this only catches a tap that
+ * was already in flight.
  */
-private fun DraftRow.errors(unitSystem: UnitSystem): Set<TemplateField> = buildSet {
-    if (!sets.isValidCount(SET_COUNT_RANGE)) add(TemplateField.SETS)
-    if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateField.REPS)
-    if (!rest.isValidCount(REST_SECONDS_RANGE)) add(TemplateField.REST)
+private fun DraftRow.withSetAdded(key: Long): DraftRow {
+    if (sets.size >= MAX_SETS_PER_EXERCISE) return this
+    val copied = sets.lastOrNull()?.copy(key = key) ?: DraftSet(key = key)
+    return copy(sets = sets + copied)
+}
+
+/**
+ * Which of this set's figures cannot be stored.
+ *
+ * A blank field is not an error — it is the plan declining to say, which is what the nullable
+ * columns are for. Everything else has to be a number inside the bounds [SetValidator] holds a
+ * logged set to: a template whose sets a session could not log is a plan the user would meet a
+ * refusal in the middle of.
+ */
+private fun DraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> = buildSet {
+    if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
 
     if (weight.isNotBlank()) {
         val milligrams = parseWeightMilligrams(weight, unitSystem)
         if (milligrams == null || milligrams !in SetValidator.WEIGHT_MIN_MG..SetValidator.WEIGHT_MAX_MG) {
-            add(TemplateField.WEIGHT)
+            add(TemplateSetField.WEIGHT)
         }
     }
 }
@@ -662,26 +753,21 @@ private fun String.isValidCount(range: LongRange): Boolean =
 /** [SetValidator]'s own bounds on a logged set's reps, as the range this field is held to. */
 private val REP_COUNT_RANGE = SetValidator.REPS_MIN.toLong()..SetValidator.REPS_MAX.toLong()
 
-/**
- * How many sets a template line may plan.
- *
- * There is no `SetValidator` bound for this — a *session* counts its sets rather than declaring
- * them — so the upper end is a sanity limit rather than a domain rule: ninety-nine sets of one
- * exercise is a typo, and the field is three characters wide.
- */
-private val SET_COUNT_RANGE = 1L..99L
-
-/** Rest has a floor in [SetValidator] and no ceiling; a day is the same sanity limit as above. */
+/** Rest has a floor in [SetValidator] and no ceiling; a day is a sanity limit on a typo. */
 private val REST_SECONDS_RANGE = SetValidator.REST_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS
 
 /** The plan as the drafts a write takes, with every figure parsed and the blanks left null. */
 private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> = rows.map { row ->
     TemplateExerciseDraft(
         exerciseId = row.exerciseId,
-        defaultSets = row.sets.toIntOrNull(),
-        defaultReps = row.reps.toIntOrNull(),
-        defaultWeight = row.weight.takeIf { it.isNotBlank() }
-            ?.let { parseWeightMilligrams(it, unitSystem) },
+        sets = row.sets.map { set ->
+            PlannedSet(
+                setType = set.setType,
+                reps = set.reps.toIntOrNull(),
+                weight = set.weight.takeIf { it.isNotBlank() }
+                    ?.let { parseWeightMilligrams(it, unitSystem) },
+            )
+        },
         restDuration = row.rest.toLongOrNull(),
         notes = row.notes,
         supersetGroup = row.supersetGroup,
@@ -691,6 +777,18 @@ private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> 
 /** The draft with one row replaced. A key the plan no longer holds is a no-op. */
 private fun Draft.mapRow(key: Long, change: (DraftRow) -> DraftRow): Draft =
     copy(rows = rows.map { if (it.key == key) change(it) else it })
+
+/**
+ * The draft with one set of one row replaced. A key either list no longer holds is a no-op.
+ *
+ * Both keys, rather than the set's alone: set keys are unique across the draft as it stands, but
+ * they are handed out by a counter that a caller has no contract with, and resolving a keystroke
+ * against every exercise at once would make that an invariant the screen depends on.
+ */
+private fun Draft.mapSet(exerciseKey: Long, setKey: Long, change: (DraftSet) -> DraftSet): Draft =
+    mapRow(exerciseKey) { row ->
+        row.copy(sets = row.sets.map { if (it.key == setKey) change(it) else it })
+    }
 
 /** The draft with its grouping in canonical form — groups of one dissolved, survivors renumbered. */
 private fun Draft.normalized(): Draft = withGrouping(Supersets.normalize(rows.map(DraftRow::supersetGroup)))

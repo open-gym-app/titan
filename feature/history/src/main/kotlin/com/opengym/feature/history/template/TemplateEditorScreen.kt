@@ -43,6 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.CollapsedReorderRow
@@ -410,9 +411,19 @@ private fun TemplateEditorBody(
                             // The place it is being dragged to rather than the one in the draft,
                             // which is a frame behind while an order is being applied.
                             position = index,
-                            onFieldChange = { field, text ->
-                                onEvent(TemplateEditorEvent.FieldChanged(row.key, field, text))
+                            onSetFieldChange = { setKey, field, text ->
+                                onEvent(
+                                    TemplateEditorEvent.SetFieldChanged(row.key, setKey, field, text),
+                                )
                             },
+                            onSetTypeChange = { setKey, setType ->
+                                onEvent(TemplateEditorEvent.SetTypeChanged(row.key, setKey, setType))
+                            },
+                            onSetAdd = { onEvent(TemplateEditorEvent.SetAdded(row.key)) },
+                            onSetRemove = { setKey ->
+                                onEvent(TemplateEditorEvent.SetRemoved(row.key, setKey))
+                            },
+                            onRestChange = { onEvent(TemplateEditorEvent.RestChanged(row.key, it)) },
                             onRemove = { onEvent(TemplateEditorEvent.ExerciseRemoved(row.key)) },
                             unitSystem = state.unitSystem,
                             enabled = state.isEditable,
@@ -562,11 +573,18 @@ fun TemplateEditorScreenEditedPreview() {
             state = previewState().copy(
                 isDirty = true,
                 exercises = previewState().exercises.map { row ->
-                    if (row.key == PREVIEW_REFUSED_KEY) {
-                        row.copy(reps = "0", errors = setOf(TemplateField.REPS))
-                    } else {
-                        row
-                    }
+                    if (row.key != PREVIEW_REFUSED_KEY) return@map row
+                    // One set of the plan, not the whole card: an error belongs to the figure
+                    // that was typed wrong, and the rows around it stay perfectly good.
+                    row.copy(
+                        sets = row.sets.mapIndexed { index, set ->
+                            if (index == 1) {
+                                set.copy(reps = "0", errors = setOf(TemplateSetField.REPS))
+                            } else {
+                                set
+                            }
+                        },
+                    )
                 },
             ),
             onEvent = {},
@@ -629,8 +647,13 @@ fun TemplateEditorScreenMissingPreview() {
     }
 }
 
-/** The row the "edited" preview shows refused, which is the first member of the superset. */
-private const val PREVIEW_REFUSED_KEY = 3L
+/**
+ * The row the "edited" preview shows refused.
+ *
+ * The first card, because the plan is a scrolling list and a refusal drawn on the third one is a
+ * reference screenshot of a page with nothing wrong on it.
+ */
+private const val PREVIEW_REFUSED_KEY = 1L
 
 /** A push day with its last two exercises paired up. */
 private fun previewState() = TemplateEditorUiState(
@@ -639,14 +662,27 @@ private fun previewState() = TemplateEditorUiState(
     estimatedDuration = 52.minutes,
     isLoading = false,
     exercises = listOf(
-        previewRow(1L, "Bench press", sets = "4", reps = "8", weight = "80"),
-        previewRow(2L, "Incline dumbbell press", sets = "3", reps = "10", weight = "28"),
+        // A warm-up, two working sets and a drop set — the plan the old four-cell card could
+        // not express, which is why the preview leads with it.
+        previewRow(
+            key = 1L,
+            name = "Bench press",
+            sets = listOf(
+                previewSet(key = 1L, setType = SetType.WARMUP, weight = "40", reps = "12"),
+                previewSet(key = 2L, weight = "80", reps = "8"),
+                previewSet(key = 3L, weight = "80", reps = "8"),
+                previewSet(key = 4L, setType = SetType.DROP_SET, weight = "60", reps = "10"),
+            ),
+        ),
+        previewRow(
+            key = 2L,
+            name = "Incline dumbbell press",
+            sets = previewPlan(firstKey = 10L, count = 3, weight = "28", reps = "10"),
+        ),
         previewRow(
             key = 3L,
             name = "Cable fly",
-            sets = "3",
-            reps = "12",
-            weight = "15",
+            sets = previewPlan(firstKey = 20L, count = 3, weight = "15", reps = "12"),
             supersetGroup = 0,
             supersetLabel = "A1",
             supersetGroupName = "A",
@@ -655,9 +691,7 @@ private fun previewState() = TemplateEditorUiState(
         previewRow(
             key = 4L,
             name = "Tricep pushdown",
-            sets = "3",
-            reps = "12",
-            weight = "25",
+            sets = previewPlan(firstKey = 30L, count = 3, weight = "25", reps = "12"),
             supersetGroup = 0,
             supersetLabel = "A2",
             supersetGroupName = "A",
@@ -665,13 +699,22 @@ private fun previewState() = TemplateEditorUiState(
     ),
 )
 
+/** [count] identical working sets, keyed from [firstKey], for a card whose plan is not the point. */
+private fun previewPlan(firstKey: Long, count: Int, weight: String, reps: String) =
+    List(count) { previewSet(key = firstKey + it, weight = weight, reps = reps) }
+
+private fun previewSet(
+    key: Long,
+    setType: SetType = SetType.NORMAL,
+    weight: String = "",
+    reps: String = "",
+) = TemplateSetRow(key = key, setType = setType, weight = weight, reps = reps)
+
 @Suppress("LongParameterList")
 private fun previewRow(
     key: Long,
     name: String,
-    sets: String = "",
-    reps: String = "",
-    weight: String = "",
+    sets: List<TemplateSetRow> = emptyList(),
     rest: String = "90",
     supersetGroup: Int? = null,
     supersetLabel: String? = null,
@@ -682,8 +725,6 @@ private fun previewRow(
     exerciseId = key,
     exercise = Exercise(id = key, name = name),
     sets = sets,
-    reps = reps,
-    weight = weight,
     rest = rest,
     supersetGroup = supersetGroup,
     supersetLabel = supersetLabel,

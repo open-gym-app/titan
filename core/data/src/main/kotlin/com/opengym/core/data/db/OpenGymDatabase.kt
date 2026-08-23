@@ -24,6 +24,7 @@ import com.opengym.core.data.db.entity.PersonalRecordEntity
 import com.opengym.core.data.db.entity.SessionExerciseEntity
 import com.opengym.core.data.db.entity.TagEntity
 import com.opengym.core.data.db.entity.TemplateExerciseEntity
+import com.opengym.core.data.db.entity.TemplateSetEntity
 import com.opengym.core.data.db.entity.WorkoutSessionEntity
 import com.opengym.core.data.db.entity.WorkoutSetEntity
 import com.opengym.core.data.db.entity.WorkoutTemplateEntity
@@ -37,6 +38,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
         ExerciseTagEntity::class,
         WorkoutTemplateEntity::class,
         TemplateExerciseEntity::class,
+        TemplateSetEntity::class,
         WorkoutSessionEntity::class,
         SessionExerciseEntity::class,
         WorkoutSetEntity::class,

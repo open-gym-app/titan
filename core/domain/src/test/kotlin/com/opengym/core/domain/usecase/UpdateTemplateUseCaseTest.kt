@@ -53,14 +53,14 @@ class UpdateTemplateUseCaseTest {
 
     @Test
     fun `editing the exercises changes the estimated duration without a second write`() = runTest {
-        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, defaultSets = 3)))
+        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
         val before = estimatedDuration(id)
         val writesBefore = templates.writeCount
 
         updateTemplate(
             id,
             "Push day",
-            listOf(draft(exerciseId = 1L, defaultSets = 3), draft(exerciseId = 2L, defaultSets = 4)),
+            listOf(draft(exerciseId = 1L, sets = plannedSets(3)), draft(exerciseId = 2L, sets = plannedSets(4))),
         ).getOrThrow()
 
         // One write, the one that stored the new exercise list. Nothing restates the

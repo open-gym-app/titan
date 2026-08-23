@@ -1,10 +1,13 @@
 package com.opengym.core.domain.integration
 
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.model.toSessionPlan
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
@@ -13,9 +16,11 @@ import com.opengym.core.domain.usecase.FakeSessionStateRepository
 import com.opengym.core.domain.usecase.FakeTemplateRepository
 import com.opengym.core.domain.usecase.MutableClock
 import com.opengym.core.domain.usecase.SessionLifecycleLock
+import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
 import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.domain.usecase.draft
+import com.opengym.core.domain.usecase.plannedSets
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.domain.validation.ValidationResult
 import kotlinx.coroutines.flow.first
@@ -34,8 +39,12 @@ import org.junit.Test
  * code no single-use-case test owns. That wiring is what breaks first if either side
  * changes its mind about ordering, and it is what this pins: the plan comes out in
  * template order, the session records which template it came from and takes its name,
- * the exercises land in the plan's order, and the sets pre-filled from the template's
- * defaults are sets [SetValidator] accepts.
+ * the exercises land in the plan's order, and every set the template planned is in the
+ * workout before the lifter has typed anything — as a row [SetValidator] accepts.
+ *
+ * That last one is the part that used to be missing. A template held one set count per
+ * exercise, the plan dropped it on the way to the session because `session_exercise` had
+ * nowhere to put it, and a four-set template opened a workout with one empty row in it.
  */
 class TemplateToSessionIntegrationTest {
 
@@ -47,6 +56,7 @@ class TemplateToSessionIntegrationTest {
     private val updateTemplate = UpdateTemplateUseCase(templates)
     private val applyTemplate = ApplyTemplateUseCase(templates)
     private val startSession = StartSessionUseCase(sessions, state, clock, SessionLifecycleLock())
+    private val startPlanned = StartPlannedSessionUseCase(startSession, sessions, state)
 
     /** A push day: five heavy bench sets, then a plank held for a minute. */
     private suspend fun pushDay(): Long = createTemplate(
@@ -54,30 +64,31 @@ class TemplateToSessionIntegrationTest {
         exercises = listOf(
             draft(
                 exerciseId = Catalogue.benchPress.id,
-                defaultSets = 5,
-                defaultReps = 5,
-                defaultWeight = kg(80),
+                sets = plannedSets(count = 5, reps = 5, weight = kg(80)),
                 restDuration = 180L,
                 notes = "warm up first",
             ),
             draft(
                 exerciseId = Catalogue.plank.id,
-                defaultSets = 3,
+                sets = plannedSets(3),
                 restDuration = 60L,
             ),
         ),
     ).getOrThrow().id
 
     /**
-     * Starts a session from [templateId] and lays its plan out as session exercises, the
-     * way a "start from template" screen would: apply, start, then write one
-     * session-exercise per plan entry in the order the plan came back.
+     * Starts a session from [templateId] the way the new-session flow does: apply the
+     * template, turn the plan into a session plan, and hand that to
+     * [StartPlannedSessionUseCase], which writes the row, its exercises and its sets.
+     *
+     * The composition under test *is* those three calls, so the test makes them rather than
+     * writing the rows itself — a helper that laid the session out by hand would pass however
+     * the real path behaved.
      */
     private suspend fun startFrom(templateId: Long): Pair<SessionState.Active, List<TemplateExercise>> {
         val plan = applyTemplate(templateId).getOrThrow()
-        val started = startSession(templateId = templateId, name = plan.name).getOrThrow()
-        plan.exercises.forEach { sessions.addExercise(started.sessionId, it.exerciseId, it.supersetGroup) }
-        return started to plan.exercises
+        startPlanned(plan.toSessionPlan()).getOrThrow()
+        return state.current as SessionState.Active to plan.exercises
     }
 
     @Test
@@ -143,32 +154,75 @@ class TemplateToSessionIntegrationTest {
     }
 
     @Test
-    fun `the sets pre-filled from the template's defaults are sets the validator accepts`() = runTest {
+    fun `the sets the template planned are in the workout before anything is typed`() = runTest {
+        // The bug this file exists to keep fixed: a template with two exercises and eight
+        // sets between them used to open a workout with two exercises and no sets at all.
+        val templateId = pushDay()
+
+        val (started, _) = startFrom(templateId)
+
+        val exercises = sessions.getExercises(started.sessionId).first()
+        val sets = exercises.flatMap { sessions.getSets(it.id).first() }
+        assertEquals(8, sets.size)
+        assertEquals(listOf(5, 3), exercises.map { sessions.getSets(it.id).first().size })
+    }
+
+    @Test
+    fun `a planned set is in the table, numbered, and counts towards nothing yet`() = runTest {
+        val templateId = pushDay()
+        val (started, _) = startFrom(templateId)
+        val bench = sessions.getExercises(started.sessionId).first().first()
+
+        val sets = sessions.getSets(bench.id).first()
+
+        assertEquals(listOf(1, 2, 3, 4, 5), sets.map { it.setNumber })
+        assertEquals(List(5) { 5 }, sets.map { it.reps })
+        assertEquals(List(5) { kg(80) }, sets.map { it.weight })
+        // Planned, not performed. `completed_at` is the placeholder PERSISTENCE.md names,
+        // never a time: a set filed at epoch 1970 would land in every aggregate that reads
+        // the column.
+        assertTrue(sets.none(WorkoutSet::isCompleted))
+        assertEquals(List(5) { 0L }, sets.map { it.completedAt })
+    }
+
+    @Test
+    fun `each planned set keeps its own type and weight`() = runTest {
+        val templateId = createTemplate(
+            name = "Ramped bench",
+            exercises = listOf(
+                draft(
+                    exerciseId = Catalogue.benchPress.id,
+                    sets = listOf(
+                        PlannedSet(setType = SetType.WARMUP, reps = 12, weight = kg(40)),
+                        PlannedSet(reps = 5, weight = kg(80)),
+                        PlannedSet(reps = 5, weight = kg(85)),
+                        PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = kg(50)),
+                    ),
+                ),
+            ),
+        ).getOrThrow().id
+
+        val (started, _) = startFrom(templateId)
+
+        val sets = sessions.getSets(sessions.getExercises(started.sessionId).first().first().id).first()
+        assertEquals(
+            listOf(SetType.WARMUP, SetType.NORMAL, SetType.NORMAL, SetType.DROP_SET),
+            sets.map(WorkoutSet::setType),
+        )
+        assertEquals(listOf(kg(40), kg(80), kg(85), kg(50)), sets.map(WorkoutSet::weight))
+        assertEquals(listOf(12, 5, 5, 10), sets.map(WorkoutSet::reps))
+    }
+
+    @Test
+    fun `the sets laid out from the template are sets the validator accepts`() = runTest {
         val catalogue = Catalogue.repository()
         val templateId = pushDay()
-        val (started, plan) = startFrom(templateId)
+        val (started, _) = startFrom(templateId)
         val exercises = sessions.getExercises(started.sessionId).first()
 
-        val prefilled = plan.zip(exercises).flatMap { (planned, exercise) ->
-            val type = catalogue.exercise(planned.exerciseId).type
-            List(planned.defaultSets ?: 0) {
-                sessions.addSet(
-                    exercise.id,
-                    // Planned, not performed: the user has not done these yet, so they
-                    // carry the template's numbers and no completion.
-                    WorkoutSet(
-                        sessionExerciseId = exercise.id,
-                        setNumber = 0,
-                        reps = planned.defaultReps,
-                        weight = planned.defaultWeight,
-                        restAfter = planned.restDuration,
-                        isCompleted = false,
-                        completedAt = 0L,
-                        createdAt = clock.now,
-                        updatedAt = clock.now,
-                    ),
-                ) to type
-            }
+        val prefilled = exercises.flatMap { exercise ->
+            val type = catalogue.exercise(exercise.exerciseId).type
+            sessions.getSets(exercise.id).first().map { it to type }
         }
 
         assertEquals(8, prefilled.size)
@@ -197,24 +251,6 @@ class TemplateToSessionIntegrationTest {
                 SetValidator.validate(set, type) is ValidationResult.Invalid,
             )
         }
-    }
-
-    @Test
-    fun `a planned set carries the template's numbers and is numbered by the store`() = runTest {
-        val templateId = pushDay()
-        val (started, plan) = startFrom(templateId)
-        val bench = sessions.getExercises(started.sessionId).first().first()
-        val planned = plan.first()
-
-        repeat(planned.defaultSets ?: 0) {
-            sessions.addSet(bench.id, reps = planned.defaultReps, weight = planned.defaultWeight, isCompleted = false)
-        }
-
-        val sets = sessions.getSets(bench.id).first()
-        assertEquals(5, sets.size)
-        assertEquals(listOf(1, 2, 3, 4, 5), sets.map { it.setNumber })
-        assertEquals(List(5) { 5 }, sets.map { it.reps })
-        assertEquals(List(5) { kg(80) }, sets.map { it.weight })
     }
 
     @Test

@@ -7,6 +7,13 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.Flow
 
+/*
+ * Twenty-one methods, one past detekt's threshold, and deliberately so: this is the store for a
+ * whole aggregate — sessions, their exercises and their sets — and the alternative is three
+ * interfaces whose implementations would all wrap the same database and whose callers would all
+ * take two of them. The read/write pairs are what make it long, not a lack of a seam.
+ */
+@Suppress("TooManyFunctions")
 interface SessionRepository {
     fun getAll(): Flow<List<WorkoutSession>>
     fun getById(id: Long): Flow<WorkoutSession?>
@@ -150,6 +157,25 @@ interface SessionRepository {
      *   caller's; [updateSets] is what a renumbering is written through.
      */
     suspend fun insertSet(set: WorkoutSet): Long
+
+    /**
+     * Writes several sets **atomically**, and returns their ids in the order given.
+     *
+     * The batch counterpart of [insertSet], and it exists for one caller:
+     * [com.opengym.core.domain.usecase.StartPlannedSessionUseCase], which lays a template's
+     * whole plan down as the session starts. A loop over [insertSet] would let a failure
+     * halfway leave a lifter in a workout holding the first two sets of a five-set exercise,
+     * with nothing to say which three are missing — the same argument [insertExercises] makes
+     * one level up, and the reason both are one call.
+     *
+     * **The bounds are not checked here**, per [insertSet]. Nor are the numbers: `setNumber`
+     * is the caller's, as it is for a single insert, and a caller writing a table from
+     * nothing is the one case where numbering it from 1 is trivially correct.
+     *
+     * An empty list writes nothing and returns nothing — an exercise that plans no sets is
+     * ordinary, and laying out none of them is not a failure.
+     */
+    suspend fun insertSets(sets: List<WorkoutSet>): List<Long>
 
     /**
      * Replaces one `workout_set` row.

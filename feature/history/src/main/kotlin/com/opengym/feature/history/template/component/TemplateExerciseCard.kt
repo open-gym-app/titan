@@ -3,17 +3,20 @@ package com.opengym.feature.history.template.component
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -21,51 +24,63 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.OpenGymValueField
+import com.opengym.core.ui.component.PlannedSetHeader
+import com.opengym.core.ui.component.PlannedSetRow
 import com.opengym.core.ui.component.SupersetBadge
+import com.opengym.core.ui.component.SwipeToDelete
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.template.TemplateExerciseRow
-import com.opengym.feature.history.template.TemplateField
+import com.opengym.feature.history.template.TemplateSetField
 
 /**
- * One exercise of a template: what it is, and what a set of it is meant to be.
+ * One exercise of a template: what it is, and every set of it that is planned.
  *
  * ```text
  * ┌──────────────────────────────────────────┐
  * │ 1  Bench press                 SS A1   × │
- * │   ┌────┐ ┌────┐ ┌────┐ ┌────┐            │
- * │   │ 4  │ │ 8  │ │ 80 │ │ 90 │            │
- * │   SETS   REPS    KG     REST             │
+ * │    SET   KG   ×  REPS                    │
+ * │    W    [40]  ×  [12]                    │
+ * │    2    [80]  ×  [8]                     │
+ * │    D    [60]  ×  [10]                    │
+ * │    + Add set                  REST [90]  │
  * └──────────────────────────────────────────┘
  * ```
  *
- * ### Four figures, all optional
+ * ### A plan is a list of sets, not four numbers
  *
- * A template is a plan, not a prescription: an exercise with nothing filled in still says "do
- * this, here, in this order", which is most of what a template is for. So every field may be
- * blank, and a blank one means the line declines to say — the session falls back to the user's
- * default rest and to an empty set row, exactly as a session built by hand does.
+ * This card used to hold `SETS · REPS · KG · REST` — four cells describing *n identical sets*.
+ * Almost nobody trains that way: the first set is a warm-up, the working sets are not always the
+ * same weight, and what ends an exercise is often a drop set. A template that could only say
+ * "4 × 8 × 80" could not hold any of that, so the plan a user wrote down was never the workout
+ * they did.
  *
- * The cells are [OpenGymValueField]s, the same box a set is logged into on the workout screen,
- * because that is what these numbers *become*. Their captions are under them rather than in a
- * header row: a card carries one line of them, and a header over four cells would be a second
- * row of text saying what four three-character boxes already imply.
+ * What is drawn now is the table the workout screen draws, one row per set, in the order they
+ * are performed — see [PlannedSetRow]. Ticks and ratings are not on it, because a plan has not
+ * happened yet; everything else lines up cell for cell with the session it becomes, which is the
+ * point: a lifter should recognise their template when it opens as a workout.
  *
- * ### Why the × is a button and not a swipe
+ * Rest sits beside ADD SET rather than in the table, because there is one of it per exercise
+ * however many sets are planned.
  *
- * Deleting a *set* is a swipe, because a row of a table is nearest the thumb and a destructive
- * action should be the hardest gesture on it. Here the destructive action is the only one on the
- * card that is not typing, and the card is also the thing being dragged — a horizontal swipe on
- * an item that is picked up by holding it is two gestures competing for the same finger.
+ * ### The two destructive gestures are deliberately different
+ *
+ * A **set** is swiped away, matching the workout's own table: a row's fields are the width of the
+ * row, so a horizontal drag is the only gesture left that is not typing, and it should be the
+ * hardest one on it. The **exercise** is closed with the × in its header, because the card is
+ * also the thing being dragged to reorder the plan — a swipe on an item that is picked up by
+ * holding it is two gestures competing for one finger.
  *
  * @param position where it sits in the plan, from 0. The *drawn* order, which while a drag is in
  *   flight is not the stored one.
- * @param unitSystem what the weight cell is captioned and spoken in. Passed rather than read off
- *   `LocalUnitSystem`, because it has to be the unit the draft was *formatted in and will be
+ * @param unitSystem what the weight column is captioned and spoken in. Passed rather than read
+ *   off `LocalUnitSystem`, because it has to be the unit the draft was *formatted in and will be
  *   parsed back with* — see `TemplateEditorUiState.unitSystem`.
  * @param enabled false makes the whole card read-only — a write is out. The fields keep what
  *   they hold, because that is still the user's copy of it.
@@ -74,7 +89,11 @@ import com.opengym.feature.history.template.TemplateField
 internal fun TemplateExerciseCard(
     row: TemplateExerciseRow,
     position: Int,
-    onFieldChange: (TemplateField, String) -> Unit,
+    onSetFieldChange: (setKey: Long, TemplateSetField, String) -> Unit,
+    onSetTypeChange: (setKey: Long, SetType) -> Unit,
+    onSetAdd: () -> Unit,
+    onSetRemove: (setKey: Long) -> Unit,
+    onRestChange: (String) -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier,
     unitSystem: UnitSystem = UnitSystem.METRIC,
@@ -84,147 +103,189 @@ internal fun TemplateExerciseCard(
 
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(OpenGymTheme.spacing.card),
-            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+            modifier = Modifier.padding(vertical = OpenGymTheme.spacing.card),
+            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = (position + 1).toString(),
-                    style = OpenGymTheme.typography.numericSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (row.supersetLabel != null) SupersetBadge(label = row.supersetLabel)
-                IconButton(onClick = onRemove, enabled = enabled) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = stringResource(R.string.template_remove_exercise, name),
-                        modifier = Modifier.size(REMOVE_ICON_SIZE),
-                    )
-                }
-            }
+            Header(
+                name = name,
+                position = position,
+                supersetLabel = row.supersetLabel,
+                onRemove = onRemove,
+                enabled = enabled,
+            )
 
-            DefaultsRow(
+            PlanTable(
                 row = row,
-                onFieldChange = onFieldChange,
+                name = name,
                 unitSystem = unitSystem,
                 enabled = enabled,
+                onSetFieldChange = onSetFieldChange,
+                onSetTypeChange = onSetTypeChange,
+                onSetRemove = onSetRemove,
+            )
+
+            Footer(
+                row = row,
+                name = name,
+                enabled = enabled,
+                onSetAdd = onSetAdd,
+                onRestChange = onRestChange,
+            )
+        }
+    }
+}
+
+/** The exercise's own line: where it sits, what it is, and the way to cut it. */
+@Composable
+private fun Header(
+    name: String,
+    position: Int,
+    supersetLabel: String?,
+    onRemove: () -> Unit,
+    enabled: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = OpenGymTheme.spacing.card),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = (position + 1).toString(),
+            style = OpenGymTheme.typography.numericSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        if (supersetLabel != null) SupersetBadge(label = supersetLabel)
+        IconButton(onClick = onRemove, enabled = enabled) {
+            Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.template_remove_exercise, name),
+                modifier = Modifier.size(REMOVE_ICON_SIZE),
             )
         }
     }
 }
 
 /**
- * The four cells, equally weighted.
+ * The sets, in the order they are performed.
  *
- * Equal because none of them is the important one: a lifter reading a plan wants the sets and
- * the reps, and one filling one in wants the weight, and giving any of them more room would be
- * this screen guessing which. Four equal thirds of a 360dp card is three characters each, which
- * is what every value here is — `12`, `80`, `90`.
+ * Keyed on the set's own key rather than on its index, for the reason the workout's table is: a
+ * set removed from the middle would otherwise hand its half-finished swipe to the row that moves
+ * up into its place.
+ *
+ * An exercise with nothing planned draws no table at all — not an empty header over a rule. It is
+ * a legitimate line ("do this, sets to be decided") and ADD SET is directly under it.
  */
 @Composable
-private fun DefaultsRow(
+private fun PlanTable(
     row: TemplateExerciseRow,
-    onFieldChange: (TemplateField, String) -> Unit,
+    name: String,
     unitSystem: UnitSystem,
     enabled: Boolean,
+    onSetFieldChange: (setKey: Long, TemplateSetField, String) -> Unit,
+    onSetTypeChange: (setKey: Long, SetType) -> Unit,
+    onSetRemove: (setKey: Long) -> Unit,
 ) {
-    val name = row.exercise?.name ?: stringResource(R.string.template_exercise_removed)
-    val invalid = stringResource(R.string.template_field_invalid)
-    val unit = unitSystem.weightSuffix
+    if (row.sets.isEmpty()) return
 
+    val invalid = stringResource(R.string.template_field_invalid)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PlannedSetHeader(weightUnit = unitSystem.weightSuffix)
+
+        row.sets.forEachIndexed { index, set ->
+            HairlineDivider()
+
+            key(set.key) {
+                SwipeToDelete(
+                    onDelete = { onSetRemove(set.key) },
+                    actionLabel = stringResource(R.string.template_remove_set, index + 1, name),
+                    enabled = enabled,
+                ) {
+                    PlannedSetRow(
+                        setNumber = index + 1,
+                        weight = set.weight,
+                        reps = set.reps,
+                        onWeightChange = { onSetFieldChange(set.key, TemplateSetField.WEIGHT, it) },
+                        onRepsChange = { onSetFieldChange(set.key, TemplateSetField.REPS, it) },
+                        setType = set.setType,
+                        onSetTypeChange = { onSetTypeChange(set.key, it) },
+                        error = invalid.takeIf { set.errors.isNotEmpty() },
+                        enabled = enabled,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * ADD SET, and the rest that follows every one of them.
+ *
+ * On one line because they are the two things left to say about the exercise once its table is
+ * written, and because the rest field is three characters wide — a row of its own for it would
+ * be a caption, a box and an expanse of nothing.
+ */
+@Composable
+private fun Footer(
+    row: TemplateExerciseRow,
+    name: String,
+    enabled: Boolean,
+    onSetAdd: () -> Unit,
+    onRestChange: (String) -> Unit,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = OpenGymTheme.spacing.card),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        DefaultField(
-            value = row.sets,
-            field = TemplateField.SETS,
-            caption = stringResource(R.string.template_field_sets),
-            description = stringResource(R.string.template_field_sets_description, name),
-            row = row,
-            invalid = invalid,
-            enabled = enabled,
-            onFieldChange = onFieldChange,
-        )
-        DefaultField(
-            value = row.reps,
-            field = TemplateField.REPS,
-            caption = stringResource(R.string.template_field_reps),
-            description = stringResource(R.string.template_field_reps_description, name),
-            row = row,
-            invalid = invalid,
-            enabled = enabled,
-            onFieldChange = onFieldChange,
-        )
-        DefaultField(
-            value = row.weight,
-            field = TemplateField.WEIGHT,
-            // The draft's own unit, so both the caption and the spoken description say which
-            // number the user is typing — and say the unit the save will parse it back with,
-            // which the ambient one stops being the moment the setting is changed from under
-            // an editor sitting on the tab's back stack.
-            caption = unit,
-            description = stringResource(R.string.template_field_weight_description, name, unit),
-            row = row,
-            invalid = invalid,
-            enabled = enabled,
-            onFieldChange = onFieldChange,
-        )
-        DefaultField(
+        TextButton(
+            onClick = onSetAdd,
+            // Inert at the ceiling rather than absent: a control that vanishes when a plan gets
+            // long reads as a bug, where a greyed one reads as a limit.
+            enabled = enabled && row.canAddSet,
+            modifier = Modifier.weight(1f),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Add,
+                contentDescription = null,
+                modifier = Modifier.size(ADD_ICON_SIZE),
+            )
+            Text(
+                text = stringResource(R.string.template_add_set),
+                modifier = Modifier.padding(start = OpenGymTheme.spacing.xs),
+            )
+        }
+
+        OpenGymValueField(
             value = row.rest,
-            field = TemplateField.REST,
-            caption = stringResource(R.string.template_field_rest),
+            onValueChange = onRestChange,
             description = stringResource(R.string.template_field_rest_description, name),
-            row = row,
-            invalid = invalid,
+            keyboardType = KeyboardType.Number,
             enabled = enabled,
-            onFieldChange = onFieldChange,
+            error = stringResource(R.string.template_field_invalid).takeIf { row.hasRestError },
+            caption = stringResource(R.string.template_field_rest),
+            modifier = Modifier.width(REST_FIELD_WIDTH),
         )
     }
 }
 
-/** One cell of [DefaultsRow], wired to the row's error set. */
-@Composable
-private fun RowScope.DefaultField(
-    value: String,
-    field: TemplateField,
-    caption: String,
-    description: String,
-    row: TemplateExerciseRow,
-    invalid: String,
-    enabled: Boolean,
-    onFieldChange: (TemplateField, String) -> Unit,
-) {
-    OpenGymValueField(
-        value = value,
-        onValueChange = { onFieldChange(field, it) },
-        description = description,
-        // Decimal for the weight, which is legitimately `72.5`, and whole numbers for the three
-        // that count things. The keyboard is a hint rather than a constraint — a hardware
-        // keyboard can type anything — which is why the parse still guards all four.
-        keyboardType = if (field == TemplateField.WEIGHT) {
-            KeyboardType.Decimal
-        } else {
-            KeyboardType.Number
-        },
-        enabled = enabled,
-        error = invalid.takeIf { field in row.errors },
-        modifier = Modifier.weight(1f),
-        caption = caption,
-    )
-}
-
 /** Matches the icon size of the workout card's own slot controls. */
 private val REMOVE_ICON_SIZE: Dp = 18.dp
+
+/** The same, for the one control that adds rather than removes. */
+private val ADD_ICON_SIZE: Dp = 18.dp
+
+/** Three characters and their caption — `90`, `120` — which is every rest anybody plans. */
+private val REST_FIELD_WIDTH: Dp = 72.dp

@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
@@ -125,6 +126,7 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
     ): List<Long> = unsupported()
 
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> = unsupported()
     override suspend fun updateSet(set: WorkoutSet) = unsupported()
     override suspend fun updateSets(sets: List<WorkoutSet>) = unsupported()
     override suspend fun deleteSet(setId: Long) = unsupported()
@@ -273,6 +275,6 @@ fun template(
             templateId = id,
             exerciseId = position + 1L,
             position = position,
-            defaultSets = 3,
+            sets = List(3) { PlannedSet() },
         )
     }

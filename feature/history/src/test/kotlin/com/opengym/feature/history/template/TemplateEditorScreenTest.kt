@@ -19,6 +19,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
@@ -59,24 +60,47 @@ class TemplateEditorScreenTest {
     }
 
     @Test
-    fun `typing into a figure reports which exercise and which field`() {
+    fun `typing into a set reports which exercise, which set and which figure`() {
         setContent(populated())
 
-        composeTestRule.onNodeWithContentDescription("Sets for Bench press").performTextInput("1")
+        // Typed at the cursor, which starts before the "8" the field already holds.
+        composeTestRule.onNodeWithContentDescription("Reps, set 2").performTextInput("1")
 
         assertEquals(
-            listOf(TemplateEditorEvent.FieldChanged(1L, TemplateField.SETS, "14")),
+            listOf(TemplateEditorEvent.SetFieldChanged(1L, 12L, TemplateSetField.REPS, "18")),
             events,
         )
     }
 
     @Test
-    fun `the weight cell says which unit it is typed in`() {
+    fun `every planned set is drawn, not just a count of them`() {
+        // The plan is four rows: a warm-up, two working sets and a drop set. The card used to
+        // draw the number 4 in a box.
+        setContent(populated())
+
+        (1..4).forEach { setNumber ->
+            scrollTo(hasContentDescription("Weight, set $setNumber")).assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun `adding a set reports the exercise it was added to`() {
+        setContent(populated())
+
+        // The action rather than a touch, as the × above: the control sits low on a scrolling
+        // card, and where it lands under a finger is the layout's business.
+        scrollTo(hasText("Add set")).performSemanticsAction(SemanticsActions.OnClick)
+
+        assertEquals(listOf(TemplateEditorEvent.SetAdded(1L)), events)
+    }
+
+    @Test
+    fun `the rest cell says which exercise it belongs to`() {
         setContent(populated())
 
         // On the field rather than on the caption under it, which is cleared from the semantics
         // tree — see `OpenGymValueField`.
-        scrollTo(hasContentDescription("Weight for Bench press in kg")).assertIsDisplayed()
+        scrollTo(hasContentDescription("Rest in seconds for Bench press")).assertIsDisplayed()
     }
 
     @Test
@@ -156,7 +180,8 @@ class TemplateEditorScreenTest {
             populated().copy(
                 isDirty = true,
                 exercises = populated().exercises.mapIndexed { index, row ->
-                    if (index == 0) row.copy(reps = "0", errors = setOf(TemplateField.REPS)) else row
+                    if (index != 0) return@mapIndexed row
+                    row.copy(sets = row.sets.map { it.copy(reps = "0", errors = setOf(TemplateSetField.REPS)) })
                 },
             ),
         )
@@ -308,19 +333,36 @@ class TemplateEditorScreenTest {
         estimatedDuration = 45.minutes,
         isLoading = false,
         exercises = listOf(
-            row(1L, "Bench press", sets = "4", reps = "8", weight = "80"),
-            row(2L, "Cable fly", sets = "3", supersetLabel = "A1", isLinkedToNext = true),
-            row(3L, "Tricep pushdown", sets = "3", supersetLabel = "A2"),
+            row(
+                key = 1L,
+                name = "Bench press",
+                sets = listOf(
+                    set(11L, SetType.WARMUP, weight = "40", reps = "12"),
+                    set(12L, weight = "80", reps = "8"),
+                    set(13L, weight = "80", reps = "8"),
+                    set(14L, SetType.DROP_SET, weight = "60", reps = "10"),
+                ),
+            ),
+            row(2L, "Cable fly", sets = plan(20L, 3), supersetLabel = "A1", isLinkedToNext = true),
+            row(3L, "Tricep pushdown", sets = plan(30L, 3), supersetLabel = "A2"),
         ),
     )
 
-    @Suppress("LongParameterList")
+    /** [count] plain sets, keyed from [firstKey], for a card whose plan is not the point. */
+    private fun plan(firstKey: Long, count: Int) = List(count) { set(firstKey + it) }
+
+    private fun set(
+        key: Long,
+        setType: SetType = SetType.NORMAL,
+        weight: String = "",
+        reps: String = "",
+        errors: Set<TemplateSetField> = emptySet(),
+    ) = TemplateSetRow(key = key, setType = setType, weight = weight, reps = reps, errors = errors)
+
     private fun row(
         key: Long,
         name: String,
-        sets: String = "",
-        reps: String = "",
-        weight: String = "",
+        sets: List<TemplateSetRow> = emptyList(),
         supersetLabel: String? = null,
         isLinkedToNext: Boolean = false,
     ) = TemplateExerciseRow(
@@ -328,8 +370,6 @@ class TemplateEditorScreenTest {
         exerciseId = key,
         exercise = Exercise(id = key, name = name),
         sets = sets,
-        reps = reps,
-        weight = weight,
         rest = "90",
         supersetGroup = if (supersetLabel != null) 0 else null,
         supersetLabel = supersetLabel,

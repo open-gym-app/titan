@@ -1,5 +1,7 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.WorkoutTemplate
@@ -66,15 +68,13 @@ class CreateTemplateUseCaseTest {
     }
 
     @Test
-    fun `creating keeps the per-exercise defaults`() = runTest {
+    fun `creating keeps the plan and the rest between its sets`() = runTest {
         val created = createTemplate(
             "Leg day",
             listOf(
                 draft(
                     exerciseId = 3L,
-                    defaultSets = 4,
-                    defaultReps = 8,
-                    defaultWeight = 60_000L,
+                    sets = plannedSets(count = 4, reps = 8, weight = 60_000L),
                     restDuration = 120L,
                     notes = "belt on",
                 ),
@@ -82,11 +82,25 @@ class CreateTemplateUseCaseTest {
         ).getOrThrow()
 
         val stored = templates.storedExercises(created.id).single()
-        assertEquals(4, stored.defaultSets)
-        assertEquals(8, stored.defaultReps)
-        assertEquals(60_000L, stored.defaultWeight)
+        assertEquals(4, stored.sets.size)
+        assertEquals(listOf(8, 8, 8, 8), stored.sets.map { it.reps })
         assertEquals(120L, stored.restDuration)
         assertEquals("belt on", stored.notes)
+    }
+
+    @Test
+    fun `creating keeps a plan whose sets differ from one another`() = runTest {
+        val plan = listOf(
+            PlannedSet(setType = SetType.WARMUP, reps = 10, weight = 40_000L),
+            PlannedSet(reps = 5, weight = 100_000L),
+            PlannedSet(reps = 5, weight = 105_000L),
+            PlannedSet(setType = SetType.DROP_SET, reps = 12, weight = 50_000L),
+        )
+
+        val created = createTemplate("Leg day", listOf(draft(exerciseId = 3L, sets = plan)))
+            .getOrThrow()
+
+        assertEquals(plan, templates.storedExercises(created.id).single().sets)
     }
 
     @Test

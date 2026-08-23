@@ -259,7 +259,7 @@
     <string name="sessions_template_rename_title">Rename template</string>
     <string name="sessions_template_rename_confirm">Rename</string>
     <string name="sessions_template_duplicate_title">Duplicate template</string>
-    <string name="sessions_template_duplicate_body">The same exercises, in the same order, with the same defaults. Give the copy a name of its own.</string>
+    <string name="sessions_template_duplicate_body">The same exercises, in the same order, with the same sets. Give the copy a name of its own.</string>
     <string name="sessions_template_duplicate_confirm">Duplicate</string>
     <!-- Drawn under the name field, not in the snackbar: the dialog is still up with the name
          the user typed in it, and that is the thing they have to change. -->
@@ -323,16 +323,13 @@
     <string name="template_exercise_removed">Removed from your library</string>
     <string name="template_remove_exercise">Remove %1$s from this template</string>
 
-    <!-- The four figures a template line carries. Captions are drawn under the cells, so they
-         are as short as the boxes they name; the descriptions are what a screen reader hears. -->
-    <string name="template_field_sets">Sets</string>
-    <string name="template_field_reps">Reps</string>
+    <!-- The plan's own table: a row per set, and the one rest that follows all of them. The
+         set rows' own labels come from :core:ui, which draws the same cells in the workout. -->
+    <string name="template_add_set">Add set</string>
+    <string name="template_remove_set">Remove set %1$d of %2$s</string>
+    <!-- Captions are drawn under the cells, so they are as short as the boxes they name; the
+         descriptions are what a screen reader hears. -->
     <string name="template_field_rest">Rest</string>
-    <string name="template_field_sets_description">Sets for %1$s</string>
-    <string name="template_field_reps_description">Reps for %1$s</string>
-    <!-- The unit is in the description because the caption under the cell is cleared from
-         the semantics tree: without it a screen reader hears a number and no unit. -->
-    <string name="template_field_weight_description">Weight for %1$s in %2$s</string>
     <string name="template_field_rest_description">Rest in seconds for %1$s</string>
     <!-- Said of the field itself, which is where a screen reader will hear it. The bounds are
          not spelled out: what is wrong is nearly always a stray character. -->

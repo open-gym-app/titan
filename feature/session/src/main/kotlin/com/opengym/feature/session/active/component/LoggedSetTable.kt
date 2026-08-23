@@ -142,7 +142,7 @@ fun LoggedSetTable(
                         // dialog is: the fields are the only copy of what was typed, and a second
                         // commit would write the same correction twice.
                         enabled = enabled && !set.isSaving,
-                        canComplete = enabled && set.id !in togglingSetIds,
+                        canComplete = enabled && set.id !in togglingSetIds && set.canComplete,
                     )
                 }
             }
