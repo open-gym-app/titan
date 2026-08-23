@@ -14,7 +14,14 @@ concurrency:
 jobs:
   seed:
     name: Seed assets
-    runs-on: ubuntu-latest
+    # Targets the runner named by the org-level CI_RUNNER variable, normally the
+    # self-hosted scale set in the homelab cluster. Self-hosted execution consumes no
+    # Actions minutes, which is what keeps this free-tier private repository inside its
+    # quota. GitHub has no automatic failover, so when the cluster is down that one
+    # variable is the switch: set it to `ubuntu-latest` and every job in the org moves
+    # back onto GitHub-hosted runners. The literal below is not that switch — it only
+    # covers the case where the variable was never created at all.
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -41,7 +48,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -72,7 +79,7 @@ jobs:
 
   unit-test:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -129,7 +136,7 @@ jobs:
 
   build:
     name: Build (debug APK)
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     needs: [lint, unit-test]
     steps:
       - name: Checkout
