@@ -16,6 +16,20 @@ package com.opengym.core.domain.model
  * is the type — and then two fields would say the same thing, with nothing keeping them in
  * step. The unused figures are null.
  *
+ * Six [PrType]s share these five figures, not six of their own: [weight] doubles for
+ * [PrType.MAX_VOLUME], which stores the session's total milligram-reps for the exercise (see
+ * `VolumeCalculator.totalVolume`) rather than a lift's weight. A sixth `Long?` field for a
+ * quantity that is never live at the same time as [PrType.MAX_WEIGHT] would only restate the
+ * type in a second place; [duration] already sets the precedent by doubling for a timed hold
+ * on top of [PrType.BEST_PACE].
+ *
+ * A [PrType.BEST_PACE] record carries **both** [distance] and [duration] — the winning set's
+ * own figures, not a precomputed ratio — because seconds-per-centimetre is not a quantity
+ * this schema stores anywhere else, and a reader (`:core:ui`'s `format` package) needs the
+ * two raw figures to render pace in whatever unit the user's [UnitSystem] calls for anyway.
+ * "Better" for this type means the *lower* `duration / distance`, the one comparison in this
+ * model that does not mean "bigger" — see [com.opengym.core.domain.usecase.PrDetectionUseCase].
+ *
  * Units are the canonical ones the whole app stores in: milligrams for [weight] and
  * [estimated1Rm], centimetres for [distance], seconds for [duration], epoch milliseconds for
  * [achievedAt]. Formatting them for a reader is `:core:ui`'s `format` package.
@@ -25,11 +39,11 @@ data class PersonalRecord(
     val exerciseId: Long,
     val workoutSetId: Long,
     val type: PrType,
-    /** Milligrams, for [PrType.MAX_WEIGHT]. */
+    /** Milligrams, for [PrType.MAX_WEIGHT] — or milligram-reps, for [PrType.MAX_VOLUME]. */
     val weight: Long? = null,
     /** For [PrType.MAX_REPS]. */
     val reps: Int? = null,
-    /** Centimetres, for [PrType.MAX_DISTANCE]. */
+    /** Centimetres, for [PrType.MAX_DISTANCE] and [PrType.BEST_PACE]. */
     val distance: Long? = null,
     /** Seconds, for [PrType.BEST_PACE] and for a timed hold. */
     val duration: Long? = null,

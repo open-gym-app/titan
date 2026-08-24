@@ -6,18 +6,19 @@ import com.opengym.core.domain.model.PrType
 import javax.inject.Inject
 
 /**
- * [PersonalRecordEntity] to [PersonalRecord].
+ * [PersonalRecordEntity] to and from [PersonalRecord].
  *
- * One direction only. Records are written by the PR engine (#30) and by nothing else, so
- * there is no caller for the reverse and an unused `toEntity` would be a shape nobody has
- * checked against the engine's actual needs.
+ * [toEntity] exists for exactly one caller, [PersonalRecordRepositoryImpl.insert] — the PR
+ * engine (#30) is the only writer this table has, per [PersonalRecordRepository]'s contract.
  *
- * A row whose `pr_type` this build cannot read is **dropped**, which is why [toDomainOrNull]
- * is nullable where the other mappers are not. Every other enum column has a defensible
- * fallback — an unknown equipment is `OTHER`, an unknown exercise type is `STRENGTH` — but
- * the type here says which of the five figures carries the value, so guessing it would put a
- * weight under "most reps" on a screen. Not showing a record the app cannot read is the
- * honest outcome; showing the wrong one is not.
+ * A row whose `pr_type` this build cannot read is **dropped** on the way in, which is why
+ * [toDomainOrNull] is nullable where the other mappers are not. Every other enum column has
+ * a defensible fallback — an unknown equipment is `OTHER`, an unknown exercise type is
+ * `STRENGTH` — but the type here says which of the five figures carries the value, so
+ * guessing it would put a weight under "most reps" on a screen. Not showing a record the app
+ * cannot read is the honest outcome; showing the wrong one is not. [toEntity] has no such
+ * case to handle: [PersonalRecord.type] is the domain's own enum, not a string that arrived
+ * from somewhere less trustworthy.
  */
 class PersonalRecordMapper @Inject constructor() {
 
@@ -36,4 +37,17 @@ class PersonalRecordMapper @Inject constructor() {
             achievedAt = entity.achievedAt,
         )
     }
+
+    fun toEntity(record: PersonalRecord): PersonalRecordEntity = PersonalRecordEntity(
+        id = record.id,
+        exerciseId = record.exerciseId,
+        workoutSetId = record.workoutSetId,
+        prType = record.type.name,
+        weight = record.weight,
+        reps = record.reps,
+        distance = record.distance,
+        duration = record.duration,
+        estimated1Rm = record.estimated1Rm,
+        achievedAt = record.achievedAt,
+    )
 }

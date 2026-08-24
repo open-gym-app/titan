@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.data.di.UserPreferencesStore
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -200,6 +201,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.TRAINING_GOAL] = trainingGoal.name }
     }
 
+    override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) {
+        dataStore.edit { it[UserPreferencesKeys.ONE_REP_MAX_FORMULA] = formula.name }
+    }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
     }
@@ -256,6 +261,7 @@ private object UserPreferencesKeys {
     val PLATE_INVENTORY = stringPreferencesKey("plate_inventory_milligrams")
     val TRAINING_GOAL = stringPreferencesKey("training_goal")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
+    val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
 }
 
 /**
@@ -282,6 +288,7 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
         plateInventory = stored[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull(),
         trainingGoal = stored[UserPreferencesKeys.TRAINING_GOAL].toEnumOrDefault(defaults.trainingGoal),
         onboardingCompleted = stored[UserPreferencesKeys.ONBOARDING_COMPLETED] ?: defaults.onboardingCompleted,
+        oneRepMaxFormula = stored[UserPreferencesKeys.ONE_REP_MAX_FORMULA].toEnumOrDefault(defaults.oneRepMaxFormula),
     )
 }
 

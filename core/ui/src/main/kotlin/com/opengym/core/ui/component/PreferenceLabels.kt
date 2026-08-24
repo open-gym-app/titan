@@ -4,13 +4,14 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.R
 
 /*
- * The display names of the three *stored preferences* the user is asked about by name.
+ * The display names of the *stored preferences* the user is asked about by name.
  *
  * The same rule as `DomainLabels.kt`, applied to the settings enums: an extension in
  * `:core:ui` rather than a `labelRes` on the enum, because `:core:domain` is a plain Kotlin
@@ -117,5 +118,31 @@ fun TrainingGoal.detail(): String =
             TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy_detail
             TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance_detail
             TrainingGoal.CUSTOM -> R.string.preference_goal_custom_detail
+        },
+    )
+
+/** What a one-rep-max formula is called: `Epley`, `Brzycki`. */
+@Composable
+@ReadOnlyComposable
+fun OneRepMaxFormula.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun OneRepMaxFormula.labelRes(): Int =
+    when (this) {
+        OneRepMaxFormula.EPLEY -> R.string.preference_one_rep_max_epley
+        OneRepMaxFormula.BRZYCKI -> R.string.preference_one_rep_max_brzycki
+    }
+
+/**
+ * The tradeoff, in one line — the reason this is worth choosing between rather than a fixed
+ * constant. See [com.opengym.core.domain.pr.OneRepMaxCalculator] for the arithmetic itself.
+ */
+@Composable
+@ReadOnlyComposable
+fun OneRepMaxFormula.detail(): String =
+    stringResource(
+        when (this) {
+            OneRepMaxFormula.EPLEY -> R.string.preference_one_rep_max_epley_detail
+            OneRepMaxFormula.BRZYCKI -> R.string.preference_one_rep_max_brzycki_detail
         },
     )

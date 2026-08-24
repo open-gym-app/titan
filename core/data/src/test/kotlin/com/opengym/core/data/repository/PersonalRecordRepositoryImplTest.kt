@@ -7,10 +7,12 @@ import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.db.workoutSet
 import com.opengym.core.data.mapper.PersonalRecordMapper
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -127,5 +129,57 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
             // The type says which figure carries the value, so a fallback would put a weight
             // under the wrong heading. Showing nothing is the honest outcome.
             assertTrue(repository.getHeadlineRecords().first().isEmpty())
+        }
+
+    @Test
+    fun `getBest is null before anything has been written`() =
+        runBlocking {
+            val (exerciseId, _) = seedSet("Bench Press")
+
+            assertNull(repository.getBest(exerciseId, PrType.MAX_WEIGHT).first())
+        }
+
+    @Test
+    fun `insert writes a row through the mapper and getBest reads it back`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+
+            val id = repository.insert(
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = setId,
+                    type = PrType.MAX_WEIGHT,
+                    weight = 92_000_000,
+                    achievedAt = 100,
+                ),
+            )
+
+            val best = repository.getBest(exerciseId, PrType.MAX_WEIGHT).first()
+            assertEquals(id, best?.id)
+            assertEquals(92_000_000L, best?.weight)
+        }
+
+    @Test
+    fun `getBest reads the most recently achieved row of a type, not the largest`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+            record(exerciseId, setId, PrType.MAX_WEIGHT, achievedAt = 100, weight = 92_000_000)
+            record(exerciseId, setId, PrType.MAX_WEIGHT, achievedAt = 200, weight = 95_000_000)
+
+            val best = repository.getBest(exerciseId, PrType.MAX_WEIGHT).first()
+
+            assertEquals(95_000_000L, best?.weight)
+        }
+
+    @Test
+    fun `getBest does not cross exercises or types`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            val (pullUp, pullUpSet) = seedSet("Pull-Up")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 92_000_000)
+            record(pullUp, pullUpSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 1_000_000)
+
+            assertNull(repository.getBest(bench, PrType.MAX_REPS).first())
+            assertEquals(1_000_000L, repository.getBest(pullUp, PrType.MAX_WEIGHT).first()?.weight)
         }
 }

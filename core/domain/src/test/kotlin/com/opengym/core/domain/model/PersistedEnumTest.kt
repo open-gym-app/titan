@@ -114,11 +114,17 @@ class PersistedEnumTest {
 
     @Test
     fun `pr type names are the ones personal_record pr_type holds`() {
-        // Nothing writes these yet — the PR engine is M5-01 — but the column and its
-        // `getLatestByType` query already exist, so the vocabulary is already a contract.
         assertEquals(
             setOf("MAX_WEIGHT", "MAX_REPS", "MAX_VOLUME", "ESTIMATED_1RM", "MAX_DISTANCE", "BEST_PACE"),
             PrType.entries.map(PrType::name).toSet(),
+        )
+    }
+
+    @Test
+    fun `one rep max formula names are the ones the settings store holds`() {
+        assertEquals(
+            setOf("EPLEY", "BRZYCKI"),
+            OneRepMaxFormula.entries.map(OneRepMaxFormula::name).toSet(),
         )
     }
 }

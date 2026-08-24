@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -82,6 +83,7 @@ class UserPreferencesRepositoryImplTest {
             assertEquals(90.seconds, preferences.defaultRestDuration)
             assertEquals(20_000_000L, preferences.barWeight)
             assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
+            assertEquals(OneRepMaxFormula.EPLEY, preferences.oneRepMaxFormula)
             assertFalse(preferences.onboardingCompleted)
             // Null, not the metric rack: the derived `plates` is what follows the unit system,
             // and it can only do that while nothing has been stored. See `UserPreferences`.
@@ -108,6 +110,9 @@ class UserPreferencesRepositoryImplTest {
 
             repository.setTrainingGoal(TrainingGoal.HYPERTROPHY)
             assertEquals(TrainingGoal.HYPERTROPHY, repository.observe().first().trainingGoal)
+
+            repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
+            assertEquals(OneRepMaxFormula.BRZYCKI, repository.observe().first().oneRepMaxFormula)
 
             repository.setOnboardingCompleted(true)
             assertTrue(repository.observe().first().onboardingCompleted)
@@ -232,6 +237,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setBarWeight(15_000_000)
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
+            repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
         }
 
@@ -246,6 +252,7 @@ class UserPreferencesRepositoryImplTest {
                     barWeight = 15_000_000,
                     plateInventory = HOME_RACK,
                     trainingGoal = TrainingGoal.CUSTOM,
+                    oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                     onboardingCompleted = true,
                 ),
                 repository.observe().first(),
@@ -274,6 +281,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setBarWeight(15_000_000)
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
+            repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
 
             repository.clear()
@@ -311,6 +319,14 @@ class UserPreferencesRepositoryImplTest {
             store.edit { it[stringPreferencesKey("unit_system")] = "NAUTICAL" }
 
             assertEquals(UnitSystem.METRIC, repository.observe().first().unitSystem)
+        }
+
+    @Test
+    fun `a one-rep-max formula name this build does not know falls back to the default`() =
+        withRawStore { repository, store ->
+            store.edit { it[stringPreferencesKey("one_rep_max_formula")] = "LOMBARDI" }
+
+            assertEquals(OneRepMaxFormula.EPLEY, repository.observe().first().oneRepMaxFormula)
         }
 
     @Test
