@@ -35,10 +35,17 @@ import com.opengym.feature.settings.navigation.SettingsDestination
  *
  * Screens outside the tabs draw their own top bar. A workout's chrome is not a title and a
  * settings gear; it is elapsed time, a finish action and a discard action, and it belongs
- * to the screen that owns those (#25, #26, #27).
+ * to the screen that owns those (#25, #26, #27). Onboarding draws neither bar and no bar of
+ * its own: it is four questions with a progress rail over them.
+ *
+ * @param startsOnOnboarding where this launch opens — see `MainUiState.Ready`. Passed down
+ *   rather than read here, because the answer is a *latched* one and a composable that read
+ *   the live preference would rebuild the graph the moment onboarding recorded its own
+ *   completion.
  */
 @Composable
 fun OpenGymApp(
+    startsOnOnboarding: Boolean,
     modifier: Modifier = Modifier,
     appState: OpenGymAppState = rememberOpenGymAppState(),
 ) {
@@ -82,6 +89,7 @@ fun OpenGymApp(
         // already spent that space on a destination with no bottom bar of its own.
         OpenGymNavHost(
             appState = appState,
+            startsOnOnboarding = startsOnOnboarding,
             modifier = Modifier
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),

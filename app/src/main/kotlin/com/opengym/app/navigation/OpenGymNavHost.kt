@@ -24,6 +24,8 @@ import com.opengym.feature.history.navigation.libraryGraph
 import com.opengym.feature.history.navigation.plateCalculatorGraph
 import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
+import com.opengym.feature.onboarding.navigation.OnboardingDestination
+import com.opengym.feature.onboarding.navigation.onboardingGraph
 import com.opengym.feature.progression.navigation.progressionGraph
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import com.opengym.feature.session.navigation.ExercisePicker
@@ -50,10 +52,16 @@ import com.opengym.feature.settings.navigation.settingsGraph
  * answers accordingly, so a tab switch, a push and an entry into the session flow look
  * different from each other everywhere in the app without any destination having to opt in.
  * See [NavMotion].
+ *
+ * @param startsOnOnboarding whether this launch opens on the first-run flow rather than on the
+ *   tabs. It is the graph's *start destination*, so it is read once — Navigation Compose
+ *   rebuilds the graph and empties the back stack when it changes, and the value it is derived
+ *   from flips at the end of onboarding. `MainViewModel` latches it for exactly that reason.
  */
 @Composable
 fun OpenGymNavHost(
     appState: OpenGymAppState,
+    startsOnOnboarding: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val navController = appState.navController
@@ -97,13 +105,28 @@ fun OpenGymNavHost(
 
     NavHost(
         navController = navController,
-        startDestination = TabsGraphDestination,
+        startDestination = if (startsOnOnboarding) OnboardingDestination else TabsGraphDestination,
         modifier = modifier,
         enterTransition = { enter() },
         exitTransition = { exit() },
         popEnterTransition = { popEnter() },
         popExitTransition = { popExit() },
     ) {
+        onboardingGraph(
+            // Home, with the flow dropped behind it. The `popUpTo` is the acceptance
+            // criterion: a back gesture from Home after setting the app up must leave the
+            // app, not put four questions the user has just answered back on the screen.
+            //
+            // Registered whether or not this launch started on it. A graph whose destinations
+            // depend on which one it starts at is a graph that behaves differently on the
+            // second launch, and the entry is inert on every launch that does not open here.
+            onFinished = {
+                navController.navigate(TabsGraphDestination) {
+                    popUpTo<OnboardingDestination> { inclusive = true }
+                }
+            },
+        )
+
         navigation<TabsGraphDestination>(startDestination = HomeGraphDestination) {
             homeGraph(
                 // Straight into the workout, not through the flow that sets one up: the

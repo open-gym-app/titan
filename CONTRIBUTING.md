@@ -186,6 +186,8 @@ Text(
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
+  | `SelectableOption` | one choice in a list where exactly one is taken, as a card: a radio, the name, and a mono line saying what the option means. What a question asked *as a screen* looks like | a label, an optional detail, and a selected flag |
+  | `StepProgress` | how far through a numbered flow the user is, as one filled rail | the step and how many there are |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
   | `ReorderableItem` / `Modifier.reorderable` / `DragHandle` | a list whose items are picked up by holding one, dragged, and dropped by letting go; the glyph that marks a row as movable | the list, hoisted, plus `onMove` per crossing and `onCommit` per gesture |
   | `CollapsedReorderRow` | what every item of such a list shrinks to while one is held: its place, its name, one fact and its superset | a position and a name |
@@ -246,6 +248,13 @@ Text(
   | --- | --- |
   | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()`, `TemplateCategory.label()` |
   | `component/ExerciseLabels.kt` | `EquipmentType.labelOrNull()`, `ExerciseType.label()` / `trackedLabel()`, `MechanicType.label()`, `DifficultyLevel.label()`, `Discipline.label()` |
+  | `component/PreferenceLabels.kt` | `ThemePreference.label()` / `detailOrNull()`, `UnitSystem.label()` / `detail()`, `TrainingGoal.label()` / `detail()` |
+
+  `PreferenceLabels.kt` is the same rule applied to the *stored settings*, and it is where they
+  live because two screens ask for them: onboarding asks for the training goal and the unit
+  system on first launch, and settings offers all three for the rest of the app's life. Each
+  label is paired with a `detail` saying what the value means, because `Auto` says nothing
+  without "Follows your device" and `Hypertrophy` means little to somebody three weeks in.
 
   `ExerciseType.label()` and `ExerciseType.trackedLabel()` are the same fact at two lengths —
   `Weight & reps` for a chip, `Weight, reps, RPE` where there is room to say what a set

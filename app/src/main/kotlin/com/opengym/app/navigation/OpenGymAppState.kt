@@ -106,9 +106,11 @@ data class ShellChrome(
      * The session flow takes the whole screen.
      *
      * Phrased as "am I inside the session graph" rather than "am I inside the tab scaffold"
-     * on purpose: those are the same thing today, but onboarding (#96) and settings are
-     * also outside the tabs, and only one of the three should be able to hide the bar by
-     * being a mode. Anything else that ends up bar-less should have to say so here.
+     * on purpose: settings and onboarding are outside the tabs too, and they are bar-less for
+     * a weaker reason — they have no tab to keep selected, so [currentTopLevelDestination] is
+     * already null there and [shouldShowBottomBar] is already false. Only the session flow
+     * hides the bar from *inside* a tab's hierarchy, which is what makes it a mode. Anything
+     * else that needs to be bar-less over a tab has to say so here.
      */
     val isInSessionFlow: Boolean,
 ) {

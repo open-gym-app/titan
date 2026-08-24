@@ -46,7 +46,7 @@ class MainActivity : ComponentActivity() {
                     unitSystem = state.preferences.unitSystem,
                 ) {
                     SystemBars(isDark = state.preferences.theme.isDark())
-                    OpenGymApp()
+                    OpenGymApp(startsOnOnboarding = state.startsOnOnboarding)
                 }
             }
         }

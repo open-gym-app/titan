@@ -32,6 +32,7 @@ include(":core:ui")
 // One module per vertical slice. A feature is reachable only from `:app`, which owns the
 // `NavHost` and supplies every cross-feature navigation action — see docs/ARCHITECTURE.md.
 // `checkArchitecture` fails the build if one of them ever depends on another.
+include(":feature:onboarding")
 include(":feature:home")
 include(":feature:session")
 include(":feature:history")

@@ -121,6 +121,7 @@ dependencies {
     // Every feature, because `:app` is the composition root: it calls each feature's
     // `NavGraphBuilder` extension and supplies the lambdas that carry the user across a
     // module boundary. This is the only module allowed to depend on more than one.
+    implementation(project(":feature:onboarding"))
     implementation(project(":feature:home"))
     implementation(project(":feature:session"))
     implementation(project(":feature:history"))

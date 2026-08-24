@@ -15,15 +15,7 @@
 
     <!-- Appearance -->
     <string name="settings_theme">Theme</string>
-    <string name="settings_theme_light">Light</string>
-    <string name="settings_theme_dark">Dark</string>
-    <string name="settings_theme_system">Auto</string>
-    <string name="settings_theme_system_detail">Follows your device</string>
     <string name="settings_units">Units</string>
-    <string name="settings_units_metric">Metric</string>
-    <string name="settings_units_metric_detail">Kilograms and kilometres</string>
-    <string name="settings_units_imperial">Imperial</string>
-    <string name="settings_units_imperial_detail">Pounds and miles</string>
     <string name="settings_font_scale">Font scale</string>
     <string name="settings_font_scale_value">System</string>
     <string name="settings_font_scale_detail">Follows your device text size</string>
@@ -35,14 +27,6 @@
     <string name="settings_bar_weight_detail">The empty bar, before plates</string>
     <string name="settings_bar_weight_custom">Custom</string>
     <string name="settings_training_goal">Training goal</string>
-    <string name="settings_goal_strength">Strength</string>
-    <string name="settings_goal_strength_detail">Heavy, low reps, long rests</string>
-    <string name="settings_goal_hypertrophy">Hypertrophy</string>
-    <string name="settings_goal_hypertrophy_detail">Volume and time under tension</string>
-    <string name="settings_goal_endurance">Endurance</string>
-    <string name="settings_goal_endurance_detail">High reps, short rests</string>
-    <string name="settings_goal_custom">Custom</string>
-    <string name="settings_goal_custom_detail">Your own programme</string>
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>
