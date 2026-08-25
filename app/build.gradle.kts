@@ -95,11 +95,11 @@ android {
         }
     }
 
+    // `htmlReport`/`xmlReport` are deliberately absent, as in `AndroidLibraryConventionPlugin`:
+    // AGP deprecated both and writes every report format unconditionally now.
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
-        htmlReport = true
-        xmlReport = true
     }
 }
 

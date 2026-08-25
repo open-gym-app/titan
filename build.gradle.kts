@@ -77,7 +77,30 @@ val checkBuildLogic by tasks.registering {
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
 }
 
+// Deprecation is an error, not a warning, in every module's Kotlin.
+//
+// A warning that nothing fails on is a warning nobody reads: this repository had accumulated
+// 47 of them across the test source sets alone, which is exactly the volume at which the one
+// that matters becomes invisible. `-Xwarning-level` (Kotlin 2.2+) promotes a single diagnostic
+// rather than turning on `allWarningsAsErrors`, which would also fail the build on unused
+// parameters and non-exhaustive `when`s — real signals, but not ones worth blocking a merge on.
+//
+// The escape hatch is per-call and stays per-call: `@Suppress("DEPRECATION")` at the narrowest
+// scope that covers the call, with a comment saying why there is no replacement to move to.
+// `RestTimerAlert.defaultVibrator` is the shape to copy — a deprecated API kept because a
+// `minSdk`-era device has no other one.
+//
+// Deliberately not `DEPRECATION_ERROR:error`: that diagnostic is already an error.
+//
+// `:build-logic` is a separate build and is not reached from here; it carries the same block in
+// `build-logic/convention/build.gradle.kts`.
 subprojects {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+        compilerOptions {
+            freeCompilerArgs.add("-Xwarning-level=DEPRECATION:error")
+        }
+    }
+
     afterEvaluate {
         tasks.withType<Test>().configureEach {
             // The zone every JVM test runs in, and the counterpart to the locale

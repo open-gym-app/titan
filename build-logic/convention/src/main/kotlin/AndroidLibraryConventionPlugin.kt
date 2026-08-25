@@ -27,11 +27,14 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
             }
 
+            // No `htmlReport`/`xmlReport` here: AGP deprecated both and now writes every
+            // report format unconditionally, so setting them said nothing and warned. The
+            // XML one is still consumed — `sonar.androidLint.reportPaths` in the root
+            // build script points at `build/reports/lint-results-debug.xml`, which is
+            // exactly where AGP puts it on its own.
             lint {
                 abortOnError = true
                 lintConfig = rootProject.file("lint.xml")
-                htmlReport = true
-                xmlReport = true
             }
         }
 

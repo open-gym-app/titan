@@ -2,7 +2,7 @@ package com.opengym.feature.history.sessions
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.opengym.core.ui.format.formatSessionDate
@@ -75,7 +75,7 @@ class DateFilterPanelTest {
     }
 
     @Test
-    fun `a chosen range labels its own chip rather than saying "pick dates"`() {
+    fun `a chosen range labels its own chip rather than saying pick dates`() {
         // The chip that opens the picker is also the one that says what came out of it. A
         // separate "custom" chip beside a range nobody can read is two controls for one fact.
         setContent(DateFilter.Between(APRIL_10, APRIL_28))

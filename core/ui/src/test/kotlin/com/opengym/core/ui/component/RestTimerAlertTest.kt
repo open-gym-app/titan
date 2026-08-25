@@ -8,7 +8,7 @@ import android.os.VibratorManager
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
@@ -70,10 +70,11 @@ class RestTimerAlertTest {
         state.value = RestTimerState.Finished
 
         composeTestRule.runOnIdle {
-            // The platform turns the audio attributes the alert passes into the vibration
-            // attributes the vibrator actually runs under, which is where the usage has to
-            // land: an alarm-usage buzz claims exemptions from Do Not Disturb that a rest
-            // between two sets has no business claiming.
+            // The attributes the vibrator actually ran under, which is where the usage has
+            // to land: an alarm-usage buzz claims exemptions from Do Not Disturb that a rest
+            // between two sets has no business claiming. Robolectric runs at API 34, so this
+            // is the `VibrationAttributes` the alert passes directly; below API 33 the same
+            // usage arrives via the platform's own conversion from `AudioAttributes`.
             val attributes = vibrator.vibrationAttributesFromLastVibration as VibrationAttributes
             assertEquals(VibrationAttributes.USAGE_NOTIFICATION, attributes.usage)
         }

@@ -90,7 +90,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
-    @UserPreferencesStore private val dataStore: DataStore<Preferences>,
+    @param:UserPreferencesStore private val dataStore: DataStore<Preferences>,
 ) : UserPreferencesRepository {
 
     /**
