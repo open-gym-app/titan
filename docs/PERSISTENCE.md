@@ -149,13 +149,15 @@ RESTRICT is what stops an exercise that history points at from being deleted; th
 
 ## Analytics assumptions
 
-The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so results scale with the number of buckets, not the number of sets. They assume:
+The aggregates in `WorkoutSetDao`, `WorkoutSessionDao` and `PersonalRecordDao` run in SQLite so results scale with the number of buckets, not the number of sets. They assume:
 
 - **Volume = `weight x reps`**, in milligram-reps. A set missing `weight` or `reps` (cardio,
   holds) contributes 0 rather than dropping its bucket from the series.
 - **Only completed sets count** (`is_completed = 1`).
 - **Weeks start Monday, UTC.** `getVolumeByWeek` derives the epoch day as `completed_at / 86400000` and shifts by `+ 3` because epoch day 0 was a Thursday. There is no local-timezone or DST handling: a session logged late on a Sunday evening west of UTC lands in the following week's bucket.
-- **Day ranges are half-open** `[startEpochDay, endEpochDayExclusive)` and are expressed in epoch days, converted to milliseconds inside the query.
+- **The week boundary has a domain twin too.** `getTrainingByWeek` repeats that arithmetic against `workout_session`, and `:core:domain`'s `TrainingWeek` states it a third time in `java.time` — the use cases have to know which weeks a period contains *before* any row is read, since a week nobody trained in produces no row and has to be drawn as a zero rather than skipped. `TrainingWeekParityTest` holds all three to one answer; if they drift, a week's training silently falls into a gap the domain then zeroes.
+- **Day ranges are half-open** `[startEpochDay, endEpochDayExclusive)` and are expressed in epoch days, converted to milliseconds inside the query. Both weekly series are bounded at *both* ends, so a period-over-period comparison can ask for a window that stops; a range whose ends fall mid-week returns partial boundary buckets, which is why `VolumeTrendUseCase` snaps its period to Mondays before asking.
+- **Consistency counts days, not sessions.** `getTrainingByWeek` returns `COUNT(DISTINCT completed_at / 86400000)` beside the raw `COUNT(*)`: two sessions finished on one day are one day trained. It counts only sessions that were *finished* — `is_in_progress = 0` and a non-null `completed_at`, which `FinishSessionUseCase` writes together — and buckets by when the session was closed out, not when it started. A discarded session is deleted rather than flagged, so there is no third state to filter.
 - **Muscle attribution is per link, not per set.** `getVolumeByMuscleGroup` fans a set out across `exercise_muscle_group`, so `total_volume` credits the full volume to every linked group and intentionally sums to more than the session total. `weighted_volume` applies 100% to a primary link and 50% to a secondary one, with integer division truncating the halved value.
 - **`weighted_volume` has a domain twin.** `MuscleVolumeCalculator` in `:core:domain` applies the identical rule to sets already held in memory, for a session or window that has been loaded anyway; the SQL aggregate is for ranges wide enough that materialising the sets would be wasteful. Both halve *each set* before summing, so the truncation matches figure for figure — `MuscleVolumeParityTest` pins that, and an edit to either rule has to change both.
 - **Attributed volume is not conserved, and the 17-row taxonomy sharpens that.** A secondary link takes a flat 50% however many secondaries the exercise has, so a 1-primary/9-secondary movement attributes 5.5x the volume actually lifted, against 2x for a bench press. The figures therefore track a muscle against itself over time; they are not a share-of-effort split, and no consumer should render them as parts of a whole.
@@ -168,6 +170,7 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 | `WorkoutSessionDao.getAll` / `getAllPaginated` | `workout_session(created_at)` |
 | `WorkoutSetDao.getHistoryByExercise` (+ paginated) | `session_exercise(exercise_id)`, `workout_set(session_exercise_id)`, `(completed_at)` |
 | `WorkoutSetDao.getVolumeByWeek` / `getVolumeByMuscleGroup` | `workout_set(completed_at)`, `exercise_muscle_group(muscle_group_id)` |
+| `WorkoutSessionDao.getTrainingByWeek` | nothing — see below |
 | `PersonalRecordDao.getRecentRecords` | `personal_record(achieved_at)` |
 | `PersonalRecordDao.getByExercise` | `personal_record(exercise_id, achieved_at)` |
 | `PersonalRecordDao.getHeadlineRecords` | `personal_record(exercise_id, achieved_at)`, **and its query shape** - see below |
@@ -175,6 +178,8 @@ The aggregates in `WorkoutSetDao` and `PersonalRecordDao` run in SQLite so resul
 | `BodyWeightLogDao.getAll` / `getLatest` | `body_weight_log(created_at)` |
 
 `LargeHistoryBenchmarkTest` seeds a power-user history (10k sessions, ~30k session exercises, 100k sets, 10k personal records) and asserts each of these stays under 500 ms. The budget is generous on purpose: it catches a dropped index turning a join quadratic, not micro-regressions. Unbounded reads (`getHistoryByExercise`, `getAll`) keep a `PagingSource` variant - screens should use it and leave the `Flow<List<...>>` form to charts and exports.
+
+**`getTrainingByWeek` deliberately has no index behind it.** `workout_session` carries no index on `completed_at`, so the consistency series is a full scan of that table — and that is the right trade: the table it scans is one to two orders of magnitude smaller than `workout_set` (10k rows against 100k at the benchmark's stress scale), and the `GROUP BY` is on a computed expression that an index could not serve anyway, so all one would buy is pruning the range filter. It measures well inside the same budget the set aggregates are held to. If session counts ever reach set counts, add the index and a migration with it.
 
 **An index is not always the whole story.** `getHeadlineRecords` picks one record per exercise, which needs a per-exercise "best" and cannot be served by an index alone: its preference order leads on a `CASE` over `pr_type`, and a sort whose leading key is an expression builds a temporary b-tree however the table is indexed. What decides its cost is therefore *how many times that sort runs*. Written the obvious way - a subquery correlated on the outer row - it runs once per record and measures **1,263 ms** on the fixture above; driven from `SELECT DISTINCT exercise_id` it runs once per exercise and measures **6 ms**. The benchmark is what holds it there, so treat the query's shape as load-bearing rather than stylistic, and re-measure rather than reason about it if you rewrite it.
 

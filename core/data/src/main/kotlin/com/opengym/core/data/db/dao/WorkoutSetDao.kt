@@ -223,15 +223,26 @@ interface WorkoutSetDao {
     fun getHistoryByExercisePaginated(exerciseId: Long): PagingSource<Int, WorkoutSetEntity>
 
     /**
-     * Weekly training volume from [sinceEpochDay] onwards, one row per week that
-     * has at least one completed set. The chart on the progression screen reads
-     * this instead of loading the underlying sets: the `SUM` runs in SQLite, so
-     * the result grows with the number of *weeks*, not the number of sets.
+     * Weekly training volume over the half-open day range
+     * `[startEpochDay, endEpochDayExclusive)`, one row per week that has at least
+     * one completed set in it. The chart on the progression screen reads this
+     * instead of loading the underlying sets: the `SUM` runs in SQLite, so the
+     * result grows with the number of *weeks*, not the number of sets.
      *
      * Weeks start on Monday, UTC. `completed_at` holds epoch milliseconds, so
      * `completed_at / 86400000` is the epoch day; epoch day 0 was a Thursday,
      * hence the `+ 3` that shifts Monday onto a multiple of 7 before rounding
-     * the day down to the start of its week.
+     * the day down to the start of its week. The same arithmetic appears in
+     * [WorkoutSessionDao.getTrainingByWeek] and in `:core:domain`'s `TrainingWeek`,
+     * and `TrainingWeekParityTest` is what holds the three to one answer.
+     *
+     * Bounded at both ends, like [getVolumeByMuscleGroup], because the progression
+     * screen's "vs previous period" needs a window that stops: an open-ended query
+     * would fold everything after the period into its last bucket. A caller that
+     * wants all of history passes a range that covers it. **A range whose ends fall
+     * mid-week returns partial buckets** — the boundary weeks are summed over the
+     * days asked for and no others — so callers charting whole weeks should align
+     * the range to Mondays first, which is what `VolumeTrendUseCase` does.
      *
      * Sets with no `weight` or no `reps` (cardio, holds) count as zero volume
      * rather than dropping their week from the series.
@@ -242,12 +253,17 @@ interface WorkoutSetDao {
             (ws.completed_at / 86400000) - (((ws.completed_at / 86400000) + 3) % 7) AS week_start,
             SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
         FROM workout_set ws
-        WHERE ws.is_completed = 1 AND ws.completed_at >= :sinceEpochDay * 86400000
+        WHERE ws.is_completed = 1
+            AND ws.completed_at >= :startEpochDay * 86400000
+            AND ws.completed_at < :endEpochDayExclusive * 86400000
         GROUP BY week_start
         ORDER BY week_start ASC
         """,
     )
-    fun getVolumeByWeek(sinceEpochDay: Long): Flow<List<WeeklyVolumeRow>>
+    fun getVolumeByWeek(
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<List<WeeklyVolumeRow>>
 
     /**
      * Volume per muscle group over the half-open day range

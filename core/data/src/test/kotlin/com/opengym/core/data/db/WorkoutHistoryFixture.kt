@@ -112,8 +112,14 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
         exerciseIds: List<Long>,
     ): Long {
         val createdAt = sessionCreatedAt(sessionIndex)
+        val finishedAt = sessionFinishedAt(spec, sessionIndex)
         val sessionId = db.workoutSessionDao().insert(
-            session(isInProgress = false, lastActiveAt = createdAt, createdAt = createdAt),
+            session(
+                isInProgress = false,
+                lastActiveAt = finishedAt,
+                createdAt = createdAt,
+                completedAt = finishedAt,
+            ),
         )
         (0 until spec.exercisesPerSession).forEach { exerciseSlot ->
             val exerciseId = exerciseIds[exerciseSlotOf(sessionIndex, exerciseSlot, exerciseIds.size)]
@@ -194,6 +200,18 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
             exerciseSlot: Int,
             exerciseCount: Int,
         ): Int = (sessionIndex + exerciseSlot) % exerciseCount
+
+        /**
+         * Epoch millis at which session [sessionIndex] was closed out: one rest interval
+         * after its last set, so a session is a block of work with an end rather than a
+         * row whose `completed_at` the consistency aggregate would have to guess at.
+         */
+        fun sessionFinishedAt(spec: HistorySpec, sessionIndex: Int): Long = setCompletedAt(
+            spec = spec,
+            sessionIndex = sessionIndex,
+            exerciseSlot = spec.exercisesPerSession - 1,
+            setNumber = spec.setsPerExercise,
+        ) + SET_INTERVAL_MILLIS
 
         fun setCompletedAt(
             spec: HistorySpec,

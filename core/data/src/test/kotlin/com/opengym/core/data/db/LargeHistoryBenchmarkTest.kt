@@ -58,6 +58,14 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         const val STRESS_BUDGET_MS = 500L
 
         const val PAGE_SIZE = 20
+
+        /**
+         * An exclusive end day past the last session [spec] seeds, for the range
+         * aggregates: "the whole history" as a bounded window, since those queries no
+         * longer take an open-ended one.
+         */
+        fun wholeHistoryEndDay(spec: HistorySpec): Long =
+            WorkoutHistoryFixture.sessionEpochDay(spec.sessionCount) + 1
     }
 
     @Test
@@ -76,7 +84,13 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             // The volume aggregates behind the progression screens, first over the
             // whole history - the worst case for each.
             assertUnder("getVolumeByWeek over the whole history", TARGET_BUDGET_MS) {
-                db.workoutSetDao().getVolumeByWeek(0).first()
+                db.workoutSetDao().getVolumeByWeek(0, wholeHistoryEndDay(TARGET_SCALE)).first()
+            }
+            // The consistency series. It groups `workout_session` rather than `workout_set`,
+            // so it scans two orders of magnitude fewer rows than the query above - which is
+            // the point of counting sessions in SQL rather than loading them.
+            assertUnder("getTrainingByWeek over the whole history", TARGET_BUDGET_MS) {
+                db.workoutSessionDao().getTrainingByWeek(0, wholeHistoryEndDay(TARGET_SCALE)).first()
             }
             assertUnder("getVolumeByMuscleGroup over the whole history", FULL_HISTORY_AGGREGATE_BUDGET_MS) {
                 db.workoutSetDao()
@@ -132,7 +146,11 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             // Analytics aggregates: these scan a date range across all history, so
             // they are the queries most exposed to a missing completed_at index.
             assertUnder("getVolumeByWeek over the whole history", STRESS_BUDGET_MS) {
-                db.workoutSetDao().getVolumeByWeek(0).first()
+                db.workoutSetDao().getVolumeByWeek(0, wholeHistoryEndDay(STRESS_SCALE)).first()
+            }
+
+            assertUnder("getTrainingByWeek over the whole history", STRESS_BUDGET_MS) {
+                db.workoutSessionDao().getTrainingByWeek(0, wholeHistoryEndDay(STRESS_SCALE)).first()
             }
 
             assertUnder("getVolumeByMuscleGroup over a one-month range", STRESS_BUDGET_MS) {
