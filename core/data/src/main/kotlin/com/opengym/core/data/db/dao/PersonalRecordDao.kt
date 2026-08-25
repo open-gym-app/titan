@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.opengym.core.data.db.entity.PersonalRecordEntity
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,28 @@ interface PersonalRecordDao {
 
     @Query("DELETE FROM personal_record WHERE id = :id")
     suspend fun delete(id: Long)
+
+    /**
+     * Writes [record] under [exerciseId]/[prType], but only if [isBetter] accepts the row
+     * [getLatestByTypeOnce] currently returns for that exercise and type — evaluated and
+     * acted on inside one transaction, so a second call for the same exercise and type
+     * cannot read the same "current" row before this one's insert commits. Returns the new
+     * row's id, or **null** if [isBetter] rejected the current one.
+     *
+     * A suspend one-shot read rather than a `Flow`: a `Flow` has no "now", and reading one
+     * inside a transaction would not itself make the read part of it.
+     */
+    @Transaction
+    suspend fun insertIfBetter(
+        exerciseId: Long,
+        prType: String,
+        record: PersonalRecordEntity,
+        isBetter: (current: PersonalRecordEntity?) -> Boolean,
+    ): Long? {
+        val current = getLatestByTypeOnce(exerciseId, prType)
+        if (!isBetter(current)) return null
+        return insert(record)
+    }
 
     @Query("SELECT * FROM personal_record WHERE exercise_id = :exerciseId ORDER BY achieved_at DESC")
     fun getByExercise(exerciseId: Long): Flow<List<PersonalRecordEntity>>
@@ -40,10 +63,10 @@ interface PersonalRecordDao {
         LIMIT 1
         """,
     )
-    fun getLatestByType(
+    suspend fun getLatestByTypeOnce(
         exerciseId: Long,
         prType: String,
-    ): Flow<PersonalRecordEntity?>
+    ): PersonalRecordEntity?
 
     /**
      * The [limit] most recently achieved records across every exercise, for the

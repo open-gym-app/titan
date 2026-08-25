@@ -3,9 +3,13 @@ package com.opengym.core.data.db
 import androidx.paging.PagingConfig
 import androidx.paging.PagingSource
 import androidx.paging.testing.TestPager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -347,7 +351,7 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         }
 
     @Test
-    fun `getLatestByType returns the most recent record of that type`() =
+    fun `getLatestByTypeOnce returns the most recent record of that type`() =
         runBlocking {
             val (exerciseId, sessionExerciseId) = seedSessionExercise()
             val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
@@ -355,8 +359,65 @@ class WorkoutFlowDaoTest : RoomTestBase() {
             dao.insert(personalRecord(exerciseId, setId, prType = "MAX_WEIGHT", achievedAt = 100))
             dao.insert(personalRecord(exerciseId, setId, prType = "MAX_WEIGHT", achievedAt = 400))
             dao.insert(personalRecord(exerciseId, setId, prType = "MAX_REPS", achievedAt = 900))
-            assertEquals(400L, dao.getLatestByType(exerciseId, "MAX_WEIGHT").first()?.achievedAt)
+            assertEquals(400L, dao.getLatestByTypeOnce(exerciseId, "MAX_WEIGHT")?.achievedAt)
         }
+
+    @Test
+    fun `insertIfBetter writes only when isBetter accepts the current row`() =
+        runBlocking {
+            val (exerciseId, sessionExerciseId) = seedSessionExercise()
+            val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
+            val dao = db.personalRecordDao()
+            dao.insert(weightRecord(exerciseId, setId, achievedAt = 100, weight = 92_000_000))
+
+            val rejected = dao.insertIfBetter(
+                exerciseId = exerciseId,
+                prType = "MAX_WEIGHT",
+                record = weightRecord(exerciseId, setId, achievedAt = 200, weight = 90_000_000),
+            ) { current -> current == null || 90_000_000L > (current.weight ?: 0L) }
+            assertEquals(null, rejected)
+            assertEquals(1, dao.getByExercise(exerciseId).first().size)
+
+            val accepted = dao.insertIfBetter(
+                exerciseId = exerciseId,
+                prType = "MAX_WEIGHT",
+                record = weightRecord(exerciseId, setId, achievedAt = 300, weight = 95_000_000),
+            ) { current -> current == null || 95_000_000L > (current.weight ?: 0L) }
+            assertNotNull(accepted)
+            assertEquals(2, dao.getByExercise(exerciseId).first().size)
+        }
+
+    @Test
+    fun `insertIfBetter serializes concurrent calls so only one write survives`() =
+        runBlocking {
+            val (exerciseId, sessionExerciseId) = seedSessionExercise()
+            val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
+            val dao = db.personalRecordDao()
+
+            // Every attempt only ever sees "nothing on file yet" as an improvement, so if the
+            // read of the current row and the insert were not one transaction, two callers could
+            // each read the empty table before either writes and both would insert.
+            coroutineScope {
+                repeat(20) { attempt ->
+                    launch(Dispatchers.IO) {
+                        dao.insertIfBetter(
+                            exerciseId = exerciseId,
+                            prType = "MAX_WEIGHT",
+                            record = weightRecord(exerciseId, setId, achievedAt = attempt.toLong(), weight = 1L),
+                        ) { current -> current == null }
+                    }
+                }
+            }
+
+            assertEquals(1, dao.getByExercise(exerciseId).first().size)
+        }
+
+    private fun weightRecord(
+        exerciseId: Long,
+        setId: Long,
+        achievedAt: Long,
+        weight: Long,
+    ) = personalRecord(exerciseId, setId, prType = "MAX_WEIGHT", achievedAt = achievedAt).copy(weight = weight)
 
     @Test
     fun `deleting the source set cascades to its personal records`() =

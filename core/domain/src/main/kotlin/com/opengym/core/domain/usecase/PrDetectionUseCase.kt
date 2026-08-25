@@ -33,12 +33,18 @@ import kotlin.math.roundToLong
  * tried against that group; a type with no eligible set (no cardio logged, say) is silently
  * skipped rather than producing an empty or zeroed row.
  *
- * "Better" is a strict comparison against [PersonalRecordRepository.getBest] — bigger for
+ * "Better" is a strict comparison against whatever [PersonalRecordRepository.insertIfBetter]
+ * finds on file — bigger for
  * every type except [PrType.BEST_PACE], where a lower pace wins. Strict, not
  * greater-or-equal, which is what makes this idempotent for free: re-running the same
  * session finds the same candidate value it found last time, that value is no longer
  * *strictly* better than the record it already wrote, and nothing new is inserted. The same
  * rule is why tying an existing record never creates a second row.
+ *
+ * The read of "what's on file" and the write are one atomic operation inside
+ * [PersonalRecordRepository.insertIfBetter], not two separate calls from here — two sessions
+ * for the same exercise finishing at once cannot both read the same current best before
+ * either writes, which a read-then-insert pair from this class could not have ruled out.
  *
  * ### Where a candidate's value comes from
  *
@@ -84,10 +90,9 @@ class PrDetectionUseCase(
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
     ): List<PersonalRecord> = candidates(exerciseId, sets, formula).mapNotNull { candidate ->
-        val current = personalRecordRepository.getBest(exerciseId, candidate.type).first()
-        if (!isBetter(candidate, current)) return@mapNotNull null
-        val id = personalRecordRepository.insert(candidate)
-        candidate.copy(id = id)
+        personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
+            isBetter(candidate, current)
+        }
     }
 
     /** Every [PrType] [sets] has an eligible candidate for, one each at most. */

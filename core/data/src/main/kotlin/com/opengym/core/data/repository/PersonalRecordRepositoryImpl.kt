@@ -30,10 +30,17 @@ class PersonalRecordRepositoryImpl @Inject constructor(
             rows.mapNotNull(personalRecordMapper::toDomainOrNull).associateBy { it.exerciseId }
         }
 
-    override fun getBest(exerciseId: Long, type: PrType): Flow<PersonalRecord?> =
-        personalRecordDao.getLatestByType(exerciseId, type.name)
-            .map { it?.let(personalRecordMapper::toDomainOrNull) }
-
-    override suspend fun insert(record: PersonalRecord): Long =
-        personalRecordDao.insert(personalRecordMapper.toEntity(record))
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? {
+        val id = personalRecordDao.insertIfBetter(
+            exerciseId = exerciseId,
+            prType = type.name,
+            record = personalRecordMapper.toEntity(record),
+        ) { current -> isBetter(current?.let(personalRecordMapper::toDomainOrNull)) }
+        return id?.let { record.copy(id = it) }
+    }
 }

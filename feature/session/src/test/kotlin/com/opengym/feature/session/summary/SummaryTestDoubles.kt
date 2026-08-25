@@ -164,17 +164,18 @@ class FakeSummaryCatalogue(
  *
  * One per exercise, which is all [getHeadlineRecords] exposes — see the note on the recap's
  * ViewModel for what that costs and when it stops costing it. Nothing in this feature writes
- * a record, so [insert] has no caller to satisfy here.
+ * a record, so [insertIfBetter] has no caller to satisfy here.
  */
 class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
 
-    override fun getBest(exerciseId: Long, type: PrType): Flow<PersonalRecord?> =
-        MutableStateFlow(records[exerciseId]?.takeIf { it.type == type })
-
-    override suspend fun insert(record: PersonalRecord): Long =
-        throw UnsupportedOperationException("no test here writes a personal record")
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
 }
 
 /**

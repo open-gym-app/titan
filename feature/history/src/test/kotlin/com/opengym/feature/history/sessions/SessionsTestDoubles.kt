@@ -98,15 +98,16 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     private fun unsupported(): Nothing = throw UnsupportedOperationException("the sessions browser only reads")
 }
 
-/** The records the PR engine (#30) writes. Nothing here writes one, so [insert] is unsupported. */
+/** The records the PR engine (#30) writes. Nothing here writes one, so [insertIfBetter] is unsupported. */
 class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
 
-    override fun getBest(exerciseId: Long, type: PrType): Flow<PersonalRecord?> =
-        MutableStateFlow(records[exerciseId]?.takeIf { it.type == type })
-
-    override suspend fun insert(record: PersonalRecord): Long =
-        throw UnsupportedOperationException("no test here writes a personal record")
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
 }
 
 /** A record of the only kind that matters here: one achieved at a known instant. */
