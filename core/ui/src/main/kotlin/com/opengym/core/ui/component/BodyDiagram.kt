@@ -187,14 +187,14 @@ private fun DrawScope.drawRegion(
 private fun BodyRegion.emphasis(
     primary: Set<BodyRegion>,
     secondary: Set<BodyRegion>,
-): MuscleEmphasis = when {
-    this in primary -> MuscleEmphasis.PRIMARY
-    this in secondary -> MuscleEmphasis.SECONDARY
-    else -> MuscleEmphasis.NONE
-}
+): MuscleEmphasis =
+    when {
+        this in primary -> MuscleEmphasis.PRIMARY
+        this in secondary -> MuscleEmphasis.SECONDARY
+        else -> MuscleEmphasis.NONE
+    }
 
-private fun Collection<MuscleGroup>.toRegions(): Set<BodyRegion> =
-    mapNotNullTo(mutableSetOf()) { it.bodyRegion() }
+private fun Collection<MuscleGroup>.toRegions(): Set<BodyRegion> = mapNotNullTo(mutableSetOf()) { it.bodyRegion() }
 
 /**
  * What TalkBack reads instead of the picture.
@@ -230,7 +230,9 @@ private fun bodyDiagramDescription(
             stringResource(R.string.body_diagram_primary_and_secondary, primaryNames, secondaryNames)
 
         primaryNames.isNotEmpty() -> stringResource(R.string.body_diagram_primary, primaryNames)
+
         secondaryNames.isNotEmpty() -> stringResource(R.string.body_diagram_secondary, secondaryNames)
+
         else -> stringResource(R.string.body_diagram_none)
     }
 }

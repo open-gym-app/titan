@@ -357,29 +357,33 @@ class TemplateEditorScreenTest {
     }
 
     /** A push day whose last two exercises are one superset. */
-    private fun populated() = TemplateEditorUiState(
-        name = "Push Day · Upper",
-        category = TemplateCategory.STRENGTH,
-        estimatedDuration = 45.minutes,
-        isLoading = false,
-        exercises = listOf(
-            row(
-                key = 1L,
-                name = "Bench press",
-                sets = listOf(
-                    set(11L, SetType.WARMUP, weight = "40", reps = "12"),
-                    set(12L, weight = "80", reps = "8"),
-                    set(13L, weight = "80", reps = "8"),
-                    set(14L, SetType.DROP_SET, weight = "60", reps = "10"),
+    private fun populated() =
+        TemplateEditorUiState(
+            name = "Push Day · Upper",
+            category = TemplateCategory.STRENGTH,
+            estimatedDuration = 45.minutes,
+            isLoading = false,
+            exercises = listOf(
+                row(
+                    key = 1L,
+                    name = "Bench press",
+                    sets = listOf(
+                        set(11L, SetType.WARMUP, weight = "40", reps = "12"),
+                        set(12L, weight = "80", reps = "8"),
+                        set(13L, weight = "80", reps = "8"),
+                        set(14L, SetType.DROP_SET, weight = "60", reps = "10"),
+                    ),
                 ),
+                row(2L, "Cable fly", sets = plan(20L, 3), supersetLabel = "A1", isLinkedToNext = true),
+                row(3L, "Tricep pushdown", sets = plan(30L, 3), supersetLabel = "A2"),
             ),
-            row(2L, "Cable fly", sets = plan(20L, 3), supersetLabel = "A1", isLinkedToNext = true),
-            row(3L, "Tricep pushdown", sets = plan(30L, 3), supersetLabel = "A2"),
-        ),
-    )
+        )
 
     /** [count] plain sets, keyed from [firstKey], for a card whose plan is not the point. */
-    private fun plan(firstKey: Long, count: Int) = List(count) { set(firstKey + it) }
+    private fun plan(
+        firstKey: Long,
+        count: Int,
+    ) = List(count) { set(firstKey + it) }
 
     private fun set(
         key: Long,

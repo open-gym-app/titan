@@ -73,17 +73,18 @@ internal fun motionBetween(
     from: ShellChrome,
     to: ShellChrome,
     sameDestination: Boolean = false,
-): NavMotion = when {
-    from.isInSessionFlow != to.isInSessionFlow -> NavMotion.MODAL
+): NavMotion =
+    when {
+        from.isInSessionFlow != to.isInSessionFlow -> NavMotion.MODAL
 
-    sameDestination -> NavMotion.RESET
+        sameDestination -> NavMotion.RESET
 
-    from.currentTopLevelDestination != to.currentTopLevelDestination &&
-        from.currentTopLevelDestination != null &&
-        to.currentTopLevelDestination != null -> NavMotion.LATERAL
+        from.currentTopLevelDestination != to.currentTopLevelDestination &&
+            from.currentTopLevelDestination != null &&
+            to.currentTopLevelDestination != null -> NavMotion.LATERAL
 
-    else -> NavMotion.FORWARD
-}
+        else -> NavMotion.FORWARD
+    }
 
 /**
  * A tab switch is a jump, not a journey — there is no direction to show, so a fast fade is
@@ -119,9 +120,12 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.motion(): NavMotio
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTransition =
     when (motion()) {
         NavMotion.LATERAL -> fadeIn(tween(LATERAL_MS))
+
         NavMotion.FORWARD -> slideInHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeIn(tween(FORWARD_MS))
+
         NavMotion.MODAL -> slideInVertically(tween(MODAL_MS)) { height -> height }
+
         NavMotion.RESET -> EnterTransition.None
     }
 
@@ -129,13 +133,16 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.enter(): EnterTra
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTransition =
     when (motion()) {
         NavMotion.LATERAL -> fadeOut(tween(LATERAL_MS))
+
         NavMotion.FORWARD ->
             slideOutHorizontally(tween(FORWARD_MS)) { width -> -width / PARALLAX_DIVISOR } +
                 fadeOut(tween(FORWARD_MS))
+
         // The mode slides up over the tab rather than the tab getting out of its way: what is
         // underneath is where the user is going back to, and it should look like it is still
         // there.
         NavMotion.MODAL -> fadeOut(tween(MODAL_MS))
+
         NavMotion.RESET -> ExitTransition.None
     }
 
@@ -150,10 +157,13 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.exit(): ExitTrans
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): EnterTransition =
     when (motion()) {
         NavMotion.LATERAL -> fadeIn(tween(LATERAL_MS))
+
         NavMotion.FORWARD ->
             slideInHorizontally(tween(FORWARD_MS)) { width -> -width / PARALLAX_DIVISOR } +
                 fadeIn(tween(FORWARD_MS))
+
         NavMotion.MODAL -> fadeIn(tween(MODAL_MS))
+
         NavMotion.RESET -> EnterTransition.None
     }
 
@@ -161,8 +171,11 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popEnter(): Enter
 internal fun AnimatedContentTransitionScope<NavBackStackEntry>.popExit(): ExitTransition =
     when (motion()) {
         NavMotion.LATERAL -> fadeOut(tween(LATERAL_MS))
+
         NavMotion.FORWARD -> slideOutHorizontally(tween(FORWARD_MS)) { width -> width } +
             fadeOut(tween(FORWARD_MS))
+
         NavMotion.MODAL -> slideOutVertically(tween(MODAL_MS)) { height -> height }
+
         NavMotion.RESET -> ExitTransition.None
     }

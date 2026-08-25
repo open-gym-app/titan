@@ -375,7 +375,10 @@ class ReorderableItemTest {
     }
 
     /** Performs one of an item's own move actions, the way an assistive technology would. */
-    private fun move(item: Int, label: String) {
+    private fun move(
+        item: Int,
+        label: String,
+    ) {
         val action = items()[item].moveActions().first { it.label == label }
         composeTestRule.runOnUiThread { action.action() }
         composeTestRule.waitForIdle()
@@ -393,8 +396,7 @@ class ReorderableItemTest {
      * Measured off the item rather than off the text inside it: the text is twenty pixels tall
      * in a row of sixty-four, and a drag scaled to the wrong one of those crosses nothing.
      */
-    private fun rowStep(): Float =
-        items().first().fetchSemanticsNode().size.height.toFloat()
+    private fun rowStep(): Float = items().first().fetchSemanticsNode().size.height.toFloat()
 
     private companion object {
         val EXERCISES = listOf("Bench press", "Incline dumbbell press", "Cable fly")

@@ -106,10 +106,11 @@ data class ActiveSession(
      * Never [SessionState.Finished]: a finished session is not in progress, and its
      * draft should have been cleared.
      */
-    fun toSessionState(): SessionState = when (pausedAt) {
-        null -> SessionState.Active(sessionId = sessionId, startedAt = startedAt)
-        else -> SessionState.Paused(sessionId = sessionId, pausedAt = pausedAt)
-    }
+    fun toSessionState(): SessionState =
+        when (pausedAt) {
+            null -> SessionState.Active(sessionId = sessionId, startedAt = startedAt)
+            else -> SessionState.Paused(sessionId = sessionId, pausedAt = pausedAt)
+        }
 
     /**
      * How long the user has actually been working out as of [nowMillis], epoch millis

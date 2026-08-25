@@ -24,7 +24,10 @@ internal object DatabaseSeed {
 
     const val ASSET_PATH = "seed/exercises.sql"
 
-    fun insertInto(db: SupportSQLiteDatabase, assets: AssetManager) {
+    fun insertInto(
+        db: SupportSQLiteDatabase,
+        assets: AssetManager,
+    ) {
         // A partially applied catalogue would leave exercises without their
         // muscle links, so the whole batch commits or none of it does. Room
         // already runs onCreate inside a transaction; SQLite nests this one as

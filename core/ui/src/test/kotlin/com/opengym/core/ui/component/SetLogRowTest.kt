@@ -555,13 +555,14 @@ class SetLogRowTest {
         assertEquals(0, commits)
     }
 
-    private fun loggedSet() = ActiveSet(
-        reps = 8,
-        weight = 70_000_000,
-        rpe = 75,
-        isCompleted = true,
-        completedAt = 1,
-    )
+    private fun loggedSet() =
+        ActiveSet(
+            reps = 8,
+            weight = 70_000_000,
+            rpe = 75,
+            isCompleted = true,
+            completedAt = 1,
+        )
 
     private fun setRow(
         weight: String,

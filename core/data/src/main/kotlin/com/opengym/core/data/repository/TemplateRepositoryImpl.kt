@@ -41,13 +41,14 @@ class TemplateRepositoryImpl @Inject constructor(
     override suspend fun insert(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
-    ): Long = templateDao.insertWithExercises(
-        // id = 0 is what makes Room's autoGenerate assign one, and the contract says
-        // any id the caller supplied is ignored — an insert that honoured it would
-        // overwrite whichever template already held it.
-        template = templateMapper.toEntity(template.copy(id = 0)),
-        exercises = templateExerciseMapper.toEntities(templateId = 0, drafts = exercises),
-    )
+    ): Long =
+        templateDao.insertWithExercises(
+            // id = 0 is what makes Room's autoGenerate assign one, and the contract says
+            // any id the caller supplied is ignored — an insert that honoured it would
+            // overwrite whichever template already held it.
+            template = templateMapper.toEntity(template.copy(id = 0)),
+            exercises = templateExerciseMapper.toEntities(templateId = 0, drafts = exercises),
+        )
 
     override suspend fun update(
         template: WorkoutTemplate,

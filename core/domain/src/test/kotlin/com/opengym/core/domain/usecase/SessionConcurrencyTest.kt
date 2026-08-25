@@ -28,60 +28,63 @@ class SessionConcurrencyTest {
     private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock, lock)
 
     @Test
-    fun `a second start cannot slip in between the first one's check and insert`() = runTest {
-        val reachedInsert = CompletableDeferred<Unit>()
-        val releaseInsert = CompletableDeferred<Unit>()
-        sessions.beforeInsert = {
-            sessions.beforeInsert = null // only the first caller parks
-            reachedInsert.complete(Unit)
-            releaseInsert.await()
+    fun `a second start cannot slip in between the first one's check and insert`() =
+        runTest {
+            val reachedInsert = CompletableDeferred<Unit>()
+            val releaseInsert = CompletableDeferred<Unit>()
+            sessions.beforeInsert = {
+                sessions.beforeInsert = null // only the first caller parks
+                reachedInsert.complete(Unit)
+                releaseInsert.await()
+            }
+
+            val first = async { startSession() }
+            reachedInsert.await() // the first start is now mid-transition
+            val second = async { startSession() } // the racing double-tap
+            releaseInsert.complete(Unit)
+
+            val results = listOf(first.await(), second.await())
+            assertEquals(1, results.count { it.isSuccess })
+            assertEquals(1, results.count { it.isFailure })
+            assertEquals(1, sessions.getAll().first().size)
         }
 
-        val first = async { startSession() }
-        reachedInsert.await() // the first start is now mid-transition
-        val second = async { startSession() } // the racing double-tap
-        releaseInsert.complete(Unit)
-
-        val results = listOf(first.await(), second.await())
-        assertEquals(1, results.count { it.isSuccess })
-        assertEquals(1, results.count { it.isFailure })
-        assertEquals(1, sessions.getAll().first().size)
-    }
-
     @Test
-    fun `the loser of a start race is told a session is already active`() = runTest {
-        val reachedInsert = CompletableDeferred<Unit>()
-        val releaseInsert = CompletableDeferred<Unit>()
-        sessions.beforeInsert = {
-            sessions.beforeInsert = null
-            reachedInsert.complete(Unit)
-            releaseInsert.await()
+    fun `the loser of a start race is told a session is already active`() =
+        runTest {
+            val reachedInsert = CompletableDeferred<Unit>()
+            val releaseInsert = CompletableDeferred<Unit>()
+            sessions.beforeInsert = {
+                sessions.beforeInsert = null
+                reachedInsert.complete(Unit)
+                releaseInsert.await()
+            }
+
+            val first = async { startSession() }
+            reachedInsert.await()
+            val second = async { startSession() }
+            releaseInsert.complete(Unit)
+
+            first.await()
+            val refusal = second.await().exceptionOrNull()
+            assertEquals(
+                "cannot start a session while session 1 is still in progress",
+                refusal?.message,
+            )
         }
 
-        val first = async { startSession() }
-        reachedInsert.await()
-        val second = async { startSession() }
-        releaseInsert.complete(Unit)
-
-        first.await()
-        val refusal = second.await().exceptionOrNull()
-        assertEquals(
-            "cannot start a session while session 1 is still in progress",
-            refusal?.message,
-        )
-    }
-
     @Test
-    fun `concurrent finishes close the session out once`() = runTest {
-        val started = startSession().getOrThrow()
-        sessions.addSet(sessions.addExercise(started.sessionId))
-        val updatesBefore = sessions.updateCount
+    fun `concurrent finishes close the session out once`() =
+        runTest {
+            val started = startSession().getOrThrow()
+            sessions.addSet(sessions.addExercise(started.sessionId))
+            val updatesBefore = sessions.updateCount
 
-        val results = listOf(async { finishSession() }, async { finishSession() })
-            .map { it.await() }
+            val results = listOf(async { finishSession() }, async { finishSession() })
+                .map { it.await() }
 
-        assertEquals(1, results.count { it.isSuccess })
-        assertEquals(1, results.count { it.isFailure })
-        assertEquals(updatesBefore + 1, sessions.updateCount)
-    }
+            assertEquals(1, results.count { it.isSuccess })
+            assertEquals(1, results.count { it.isFailure })
+            assertEquals(updatesBefore + 1, sessions.updateCount)
+        }
 }

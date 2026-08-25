@@ -86,21 +86,21 @@ class SessionRepositoryImpl @Inject constructor(
             }
         }
 
-    override suspend fun insert(session: WorkoutSession): Long =
-        sessionDao.insert(sessionMapper.toEntity(session))
+    override suspend fun insert(session: WorkoutSession): Long = sessionDao.insert(sessionMapper.toEntity(session))
 
     override suspend fun insertExercises(
         sessionId: Long,
         exercises: List<SessionExerciseDraft>,
         createdAt: Long,
-    ): List<Long> = sessionExerciseDao.appendAll(
-        sessionId = sessionId,
-        rows = sessionExerciseMapper.toEntities(
+    ): List<Long> =
+        sessionExerciseDao.appendAll(
             sessionId = sessionId,
-            drafts = exercises,
-            createdAt = createdAt,
-        ),
-    )
+            rows = sessionExerciseMapper.toEntities(
+                sessionId = sessionId,
+                drafts = exercises,
+                createdAt = createdAt,
+            ),
+        )
 
     override suspend fun updateExercise(exercise: SessionExercise) =
         sessionExerciseDao.update(sessionExerciseMapper.toEntity(exercise))
@@ -112,8 +112,7 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun updateExercises(exercises: List<SessionExercise>) =
         sessionExerciseDao.rewriteLayout(exercises.map(sessionExerciseMapper::toEntity))
 
-    override suspend fun deleteExercise(sessionExerciseId: Long) =
-        sessionExerciseDao.delete(sessionExerciseId)
+    override suspend fun deleteExercise(sessionExerciseId: Long) = sessionExerciseDao.delete(sessionExerciseId)
 
     override suspend fun insertSet(set: WorkoutSet): Long = setDao.insert(setMapper.toEntity(set))
 
@@ -124,13 +123,11 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun updateSet(set: WorkoutSet) = setDao.update(setMapper.toEntity(set))
 
     /** One transaction, which is Room's own for a multi-row `@Update` — see `WorkoutSetDao`. */
-    override suspend fun updateSets(sets: List<WorkoutSet>) =
-        setDao.updateAll(sets.map(setMapper::toEntity))
+    override suspend fun updateSets(sets: List<WorkoutSet>) = setDao.updateAll(sets.map(setMapper::toEntity))
 
     override suspend fun deleteSet(setId: Long) = setDao.delete(setId)
 
-    override suspend fun update(session: WorkoutSession) =
-        sessionDao.update(sessionMapper.toEntity(session))
+    override suspend fun update(session: WorkoutSession) = sessionDao.update(sessionMapper.toEntity(session))
 
     override suspend fun delete(id: Long) = sessionDao.delete(id)
 }

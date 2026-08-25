@@ -39,7 +39,10 @@ import com.opengym.feature.session.summary.SummaryRecord
  * what they did.
  */
 @Composable
-internal fun NewRecordsCard(records: List<SummaryRecord>, modifier: Modifier = Modifier) {
+internal fun NewRecordsCard(
+    records: List<SummaryRecord>,
+    modifier: Modifier = Modifier,
+) {
     OpenGymCard(modifier = modifier.fillMaxWidth(), accented = true) {
         records.forEachIndexed { index, record ->
             if (index > 0) HairlineDivider()

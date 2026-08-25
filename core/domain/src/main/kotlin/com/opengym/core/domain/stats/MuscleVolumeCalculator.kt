@@ -117,6 +117,8 @@ object MuscleVolumeCalculator {
      * One link's share of a set: all of [volume] for a primary mover, half of it -
      * rounded towards zero, as SQLite's integer `/` does - for a secondary.
      */
-    private fun attribute(volume: Long, isPrimary: Boolean): Long =
-        if (isPrimary) volume else volume / SECONDARY_DIVISOR
+    private fun attribute(
+        volume: Long,
+        isPrimary: Boolean,
+    ): Long = if (isPrimary) volume else volume / SECONDARY_DIVISOR
 }

@@ -62,20 +62,21 @@ data class SeededHistory(
  */
 class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
 
-    suspend fun seed(spec: HistorySpec): SeededHistory = db.withTransaction {
-        val muscleGroupIds = seedMuscleGroups()
-        val exerciseIds = seedExercises(spec, muscleGroupIds)
-        val sessionIds = (0 until spec.sessionCount).map { sessionIndex ->
-            seedSession(spec, sessionIndex, exerciseIds)
+    suspend fun seed(spec: HistorySpec): SeededHistory =
+        db.withTransaction {
+            val muscleGroupIds = seedMuscleGroups()
+            val exerciseIds = seedExercises(spec, muscleGroupIds)
+            val sessionIds = (0 until spec.sessionCount).map { sessionIndex ->
+                seedSession(spec, sessionIndex, exerciseIds)
+            }
+            SeededHistory(
+                spec = spec,
+                muscleGroupIds = muscleGroupIds,
+                exerciseIds = exerciseIds,
+                sessionIds = sessionIds,
+                activeSessionId = if (spec.withActiveSession) seedActiveSession(spec) else null,
+            )
         }
-        SeededHistory(
-            spec = spec,
-            muscleGroupIds = muscleGroupIds,
-            exerciseIds = exerciseIds,
-            sessionIds = sessionIds,
-            activeSessionId = if (spec.withActiveSession) seedActiveSession(spec) else null,
-        )
-    }
 
     private suspend fun seedMuscleGroups(): List<Long> {
         db.muscleGroupDao().insertAll(MUSCLE_GROUPS.map { muscleGroup(it) })
@@ -87,7 +88,10 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
      * secondary muscle groups, so the muscle-group aggregate has a realistic
      * fan-out instead of an empty join.
      */
-    private suspend fun seedExercises(spec: HistorySpec, muscleGroupIds: List<Long>): List<Long> =
+    private suspend fun seedExercises(
+        spec: HistorySpec,
+        muscleGroupIds: List<Long>,
+    ): List<Long> =
         (0 until spec.exerciseCount).map { exerciseIndex ->
             val exerciseId = db.exerciseDao().insert(exercise(name = "Exercise $exerciseIndex"))
             repeat(spec.muscleGroupsPerExercise) { slot ->
@@ -179,29 +183,35 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
         private const val MILLIGRAMS_PER_KILOGRAM = 1_000_000L
 
         /** Epoch millis at which session [sessionIndex] (0-based, oldest first) started. */
-        fun sessionCreatedAt(sessionIndex: Int): Long =
-            sessionIndex * SESSION_INTERVAL_MILLIS + SESSION_START_MILLIS
+        fun sessionCreatedAt(sessionIndex: Int): Long = sessionIndex * SESSION_INTERVAL_MILLIS + SESSION_START_MILLIS
 
         /** Epoch day of session [sessionIndex], for the day-range analytics queries. */
         fun sessionEpochDay(sessionIndex: Int): Long = sessionCreatedAt(sessionIndex) / MILLIS_PER_DAY
 
         /** Index into the exercise catalogue used at [exerciseSlot] of a session. */
-        fun exerciseSlotOf(sessionIndex: Int, exerciseSlot: Int, exerciseCount: Int): Int =
-            (sessionIndex + exerciseSlot) % exerciseCount
+        fun exerciseSlotOf(
+            sessionIndex: Int,
+            exerciseSlot: Int,
+            exerciseCount: Int,
+        ): Int = (sessionIndex + exerciseSlot) % exerciseCount
 
         fun setCompletedAt(
             spec: HistorySpec,
             sessionIndex: Int,
             exerciseSlot: Int,
             setNumber: Int,
-        ): Long = sessionCreatedAt(sessionIndex) +
-            (exerciseSlot * spec.setsPerExercise + setNumber - 1) * SET_INTERVAL_MILLIS
+        ): Long =
+            sessionCreatedAt(sessionIndex) +
+                (exerciseSlot * spec.setsPerExercise + setNumber - 1) * SET_INTERVAL_MILLIS
 
         /** Reps taper as a set gets heavier, and never drop below one. */
         fun repsFor(setNumber: Int): Int = maxOf(1, REPS_ON_FIRST_SET - setNumber + 1)
 
         /** Weight in milligrams - the canonical storage unit. */
-        fun weightFor(exerciseSlot: Int, setNumber: Int): Long =
+        fun weightFor(
+            exerciseSlot: Int,
+            setNumber: Int,
+        ): Long =
             (BASE_WEIGHT_KG + exerciseSlot * WEIGHT_STEP_PER_SLOT_KG + setNumber * WEIGHT_STEP_PER_SET_KG) *
                 MILLIGRAMS_PER_KILOGRAM
 

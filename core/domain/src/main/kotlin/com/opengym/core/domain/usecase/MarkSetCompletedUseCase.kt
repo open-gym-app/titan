@@ -120,6 +120,7 @@ class MarkSetCompletedUseCase(
 
         return when (val result = SetValidator.validate(edited, exerciseType)) {
             is ValidationResult.Invalid -> Result.failure(SessionError.SetRejected(result.reason))
+
             ValidationResult.Valid -> runCatching {
                 sessionRepository.updateSet(edited)
                 edited

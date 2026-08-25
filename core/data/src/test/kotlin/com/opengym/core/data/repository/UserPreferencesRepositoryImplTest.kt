@@ -73,135 +73,142 @@ class UserPreferencesRepositoryImplTest {
     private val storeFile: File get() = File(temporaryFolder.root, "user-preferences.preferences_pb")
 
     @Test
-    fun `a fresh install reads the defaults, with nothing ever written`() = withStore { repository ->
-        val preferences = repository.observe().first()
+    fun `a fresh install reads the defaults, with nothing ever written`() =
+        withStore { repository ->
+            val preferences = repository.observe().first()
 
-        assertEquals(UnitSystem.METRIC, preferences.unitSystem)
-        assertEquals(ThemePreference.SYSTEM, preferences.theme)
-        assertEquals(90.seconds, preferences.defaultRestDuration)
-        assertEquals(20_000_000L, preferences.barWeight)
-        assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
-        assertFalse(preferences.onboardingCompleted)
-        // Null, not the metric rack: the derived `plates` is what follows the unit system,
-        // and it can only do that while nothing has been stored. See `UserPreferences`.
-        assertNull(preferences.plateInventory)
-    }
-
-    @Test
-    fun `each setter writes its own preference and reads it back`() = withStore { repository ->
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
-        assertEquals(UnitSystem.IMPERIAL, repository.observe().first().unitSystem)
-
-        repository.setTheme(ThemePreference.DARK)
-        assertEquals(ThemePreference.DARK, repository.observe().first().theme)
-
-        repository.setDefaultRestDuration(120.seconds)
-        assertEquals(120.seconds, repository.observe().first().defaultRestDuration)
-
-        repository.setBarWeight(15_000_000)
-        assertEquals(15_000_000L, repository.observe().first().barWeight)
-
-        repository.setPlateInventory(HOME_RACK)
-        assertEquals(HOME_RACK, repository.observe().first().plateInventory)
-
-        repository.setTrainingGoal(TrainingGoal.HYPERTROPHY)
-        assertEquals(TrainingGoal.HYPERTROPHY, repository.observe().first().trainingGoal)
-
-        repository.setOnboardingCompleted(true)
-        assertTrue(repository.observe().first().onboardingCompleted)
-    }
+            assertEquals(UnitSystem.METRIC, preferences.unitSystem)
+            assertEquals(ThemePreference.SYSTEM, preferences.theme)
+            assertEquals(90.seconds, preferences.defaultRestDuration)
+            assertEquals(20_000_000L, preferences.barWeight)
+            assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
+            assertFalse(preferences.onboardingCompleted)
+            // Null, not the metric rack: the derived `plates` is what follows the unit system,
+            // and it can only do that while nothing has been stored. See `UserPreferences`.
+            assertNull(preferences.plateInventory)
+        }
 
     @Test
-    fun `a setter leaves every other preference alone`() = withStore { repository ->
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
-        repository.setBarWeight(15_000_000)
+    fun `each setter writes its own preference and reads it back`() =
+        withStore { repository ->
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            assertEquals(UnitSystem.IMPERIAL, repository.observe().first().unitSystem)
 
-        repository.setTheme(ThemePreference.LIGHT)
+            repository.setTheme(ThemePreference.DARK)
+            assertEquals(ThemePreference.DARK, repository.observe().first().theme)
 
-        val preferences = repository.observe().first()
-        assertEquals(UnitSystem.IMPERIAL, preferences.unitSystem)
-        assertEquals(15_000_000L, preferences.barWeight)
-    }
+            repository.setDefaultRestDuration(120.seconds)
+            assertEquals(120.seconds, repository.observe().first().defaultRestDuration)
+
+            repository.setBarWeight(15_000_000)
+            assertEquals(15_000_000L, repository.observe().first().barWeight)
+
+            repository.setPlateInventory(HOME_RACK)
+            assertEquals(HOME_RACK, repository.observe().first().plateInventory)
+
+            repository.setTrainingGoal(TrainingGoal.HYPERTROPHY)
+            assertEquals(TrainingGoal.HYPERTROPHY, repository.observe().first().trainingGoal)
+
+            repository.setOnboardingCompleted(true)
+            assertTrue(repository.observe().first().onboardingCompleted)
+        }
 
     @Test
-    fun `a collector that arrives after the write still sees the current value`() = withStore { repository ->
-        // The criterion that makes observe().first() usable as a screen's first frame:
-        // no write happens while this collector is subscribed.
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
+    fun `a setter leaves every other preference alone`() =
+        withStore { repository ->
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            repository.setBarWeight(15_000_000)
 
-        assertEquals(UnitSystem.IMPERIAL, repository.observe().first().unitSystem)
-    }
+            repository.setTheme(ThemePreference.LIGHT)
+
+            val preferences = repository.observe().first()
+            assertEquals(UnitSystem.IMPERIAL, preferences.unitSystem)
+            assertEquals(15_000_000L, preferences.barWeight)
+        }
 
     @Test
-    fun `observe re-emits on every change`() = withStore { repository ->
-        val seen = mutableListOf<UserPreferences>()
-        val collector = launch { repository.observe().toList(seen) }
-        awaitEmissions(seen, count = 1)
+    fun `a collector that arrives after the write still sees the current value`() =
+        withStore { repository ->
+            // The criterion that makes observe().first() usable as a screen's first frame:
+            // no write happens while this collector is subscribed.
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
 
-        repository.setTheme(ThemePreference.DARK)
-        awaitEmissions(seen, count = 2)
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
-        awaitEmissions(seen, count = 3)
-        collector.cancel()
+            assertEquals(UnitSystem.IMPERIAL, repository.observe().first().unitSystem)
+        }
 
-        assertEquals(
+    @Test
+    fun `observe re-emits on every change`() =
+        withStore { repository ->
+            val seen = mutableListOf<UserPreferences>()
+            val collector = launch { repository.observe().toList(seen) }
+            awaitEmissions(seen, count = 1)
+
+            repository.setTheme(ThemePreference.DARK)
+            awaitEmissions(seen, count = 2)
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            awaitEmissions(seen, count = 3)
+            collector.cancel()
+
+            assertEquals(
+                listOf(
+                    UserPreferences(),
+                    UserPreferences(theme = ThemePreference.DARK),
+                    UserPreferences(theme = ThemePreference.DARK, unitSystem = UnitSystem.IMPERIAL),
+                ),
+                seen,
+            )
+        }
+
+    @Test
+    fun `a write that changes nothing publishes nothing`() =
+        withStore { repository ->
+            // distinctUntilChanged, so the flow behaves like the StateFlow this contract was
+            // written against: re-selecting the setting a user is already on is not an event.
+            val seen = mutableListOf<UserPreferences>()
+            val collector = launch { repository.observe().toList(seen) }
+            awaitEmissions(seen, count = 1)
+
+            repository.setTheme(ThemePreference.SYSTEM)
+            quiesce()
+            // A real change after it, so the assertion has something to be relative to: a
+            // spurious emission from the no-op above would sit between the two below.
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            awaitEmissions(seen, count = 2)
+            quiesce()
+            collector.cancel()
+
+            assertEquals(
+                listOf(UserPreferences(), UserPreferences(unitSystem = UnitSystem.IMPERIAL)),
+                seen,
+            )
+        }
+
+    @Test
+    fun `concurrent writes to different preferences do not clobber each other`() =
+        withStore { repository ->
+            // Six writers, genuinely overlapping on the IO pool, each naming a different
+            // setting. A read-modify-write of the whole document would lose five of them.
             listOf(
-                UserPreferences(),
-                UserPreferences(theme = ThemePreference.DARK),
-                UserPreferences(theme = ThemePreference.DARK, unitSystem = UnitSystem.IMPERIAL),
-            ),
-            seen,
-        )
-    }
+                async(Dispatchers.IO) { repository.setUnitSystem(UnitSystem.IMPERIAL) },
+                async(Dispatchers.IO) { repository.setTheme(ThemePreference.DARK) },
+                async(Dispatchers.IO) { repository.setDefaultRestDuration(45.seconds) },
+                async(Dispatchers.IO) { repository.setBarWeight(15_000_000) },
+                async(Dispatchers.IO) { repository.setTrainingGoal(TrainingGoal.ENDURANCE) },
+                async(Dispatchers.IO) { repository.setOnboardingCompleted(true) },
+            ).awaitAll()
 
-    @Test
-    fun `a write that changes nothing publishes nothing`() = withStore { repository ->
-        // distinctUntilChanged, so the flow behaves like the StateFlow this contract was
-        // written against: re-selecting the setting a user is already on is not an event.
-        val seen = mutableListOf<UserPreferences>()
-        val collector = launch { repository.observe().toList(seen) }
-        awaitEmissions(seen, count = 1)
-
-        repository.setTheme(ThemePreference.SYSTEM)
-        quiesce()
-        // A real change after it, so the assertion has something to be relative to: a
-        // spurious emission from the no-op above would sit between the two below.
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
-        awaitEmissions(seen, count = 2)
-        quiesce()
-        collector.cancel()
-
-        assertEquals(
-            listOf(UserPreferences(), UserPreferences(unitSystem = UnitSystem.IMPERIAL)),
-            seen,
-        )
-    }
-
-    @Test
-    fun `concurrent writes to different preferences do not clobber each other`() = withStore { repository ->
-        // Six writers, genuinely overlapping on the IO pool, each naming a different
-        // setting. A read-modify-write of the whole document would lose five of them.
-        listOf(
-            async(Dispatchers.IO) { repository.setUnitSystem(UnitSystem.IMPERIAL) },
-            async(Dispatchers.IO) { repository.setTheme(ThemePreference.DARK) },
-            async(Dispatchers.IO) { repository.setDefaultRestDuration(45.seconds) },
-            async(Dispatchers.IO) { repository.setBarWeight(15_000_000) },
-            async(Dispatchers.IO) { repository.setTrainingGoal(TrainingGoal.ENDURANCE) },
-            async(Dispatchers.IO) { repository.setOnboardingCompleted(true) },
-        ).awaitAll()
-
-        assertEquals(
-            UserPreferences(
-                unitSystem = UnitSystem.IMPERIAL,
-                theme = ThemePreference.DARK,
-                defaultRestDuration = 45.seconds,
-                barWeight = 15_000_000,
-                trainingGoal = TrainingGoal.ENDURANCE,
-                onboardingCompleted = true,
-            ),
-            repository.observe().first(),
-        )
-    }
+            assertEquals(
+                UserPreferences(
+                    unitSystem = UnitSystem.IMPERIAL,
+                    theme = ThemePreference.DARK,
+                    defaultRestDuration = 45.seconds,
+                    barWeight = 15_000_000,
+                    trainingGoal = TrainingGoal.ENDURANCE,
+                    onboardingCompleted = true,
+                ),
+                repository.observe().first(),
+            )
+        }
 
     @Test
     fun `concurrent writes to the same preference leave one of them stored, not a mix`() =
@@ -259,19 +266,20 @@ class UserPreferencesRepositoryImplTest {
     }
 
     @Test
-    fun `clear puts every preference back to its default`() = withStore { repository ->
-        repository.setUnitSystem(UnitSystem.IMPERIAL)
-        repository.setTheme(ThemePreference.DARK)
-        repository.setDefaultRestDuration(150.seconds)
-        repository.setBarWeight(15_000_000)
-        repository.setPlateInventory(HOME_RACK)
-        repository.setTrainingGoal(TrainingGoal.CUSTOM)
-        repository.setOnboardingCompleted(true)
+    fun `clear puts every preference back to its default`() =
+        withStore { repository ->
+            repository.setUnitSystem(UnitSystem.IMPERIAL)
+            repository.setTheme(ThemePreference.DARK)
+            repository.setDefaultRestDuration(150.seconds)
+            repository.setBarWeight(15_000_000)
+            repository.setPlateInventory(HOME_RACK)
+            repository.setTrainingGoal(TrainingGoal.CUSTOM)
+            repository.setOnboardingCompleted(true)
 
-        repository.clear()
+            repository.clear()
 
-        assertEquals(UserPreferences(), repository.observe().first())
-    }
+            assertEquals(UserPreferences(), repository.observe().first())
+        }
 
     @Test
     fun `clear removes keys this build does not know about, not just the ones it does`() =
@@ -297,72 +305,77 @@ class UserPreferencesRepositoryImplTest {
     }
 
     @Test
-    fun `an enum name this build does not know falls back to the default`() = withRawStore { repository, store ->
-        // What a downgrade looks like: a value a later build wrote, sitting in the file.
-        store.edit { it[stringPreferencesKey("unit_system")] = "NAUTICAL" }
+    fun `an enum name this build does not know falls back to the default`() =
+        withRawStore { repository, store ->
+            // What a downgrade looks like: a value a later build wrote, sitting in the file.
+            store.edit { it[stringPreferencesKey("unit_system")] = "NAUTICAL" }
 
-        assertEquals(UnitSystem.METRIC, repository.observe().first().unitSystem)
-    }
+            assertEquals(UnitSystem.METRIC, repository.observe().first().unitSystem)
+        }
 
     @Test
-    fun `a stored number the model refuses falls back to the default`() = withRawStore { repository, store ->
-        // No setter can write these — both `require` — so this is the corrupt-file case.
-        // Constructing UserPreferences from them would throw inside the flow's `map`,
-        // killing a collector that is drawing a screen.
-        store.edit {
-            it[longPreferencesKey("default_rest_duration_seconds")] = 0
-            it[longPreferencesKey("bar_weight_milligrams")] = -1
-        }
+    fun `a stored number the model refuses falls back to the default`() =
+        withRawStore { repository, store ->
+            // No setter can write these — both `require` — so this is the corrupt-file case.
+            // Constructing UserPreferences from them would throw inside the flow's `map`,
+            // killing a collector that is drawing a screen.
+            store.edit {
+                it[longPreferencesKey("default_rest_duration_seconds")] = 0
+                it[longPreferencesKey("bar_weight_milligrams")] = -1
+            }
 
-        val preferences = repository.observe().first()
-        assertEquals(90.seconds, preferences.defaultRestDuration)
-        assertEquals(20_000_000L, preferences.barWeight)
-    }
+            val preferences = repository.observe().first()
+            assertEquals(90.seconds, preferences.defaultRestDuration)
+            assertEquals(20_000_000L, preferences.barWeight)
+        }
 
     @Test
-    fun `the setters reject a value the model would refuse`() = withStore { repository ->
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repository.setDefaultRestDuration(Duration.ZERO) }
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repository.setDefaultRestDuration(Duration.INFINITE) }
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repository.setBarWeight(0) }
-        }
-        // Positive, and still not storable: seconds are the resolution, so this would go
-        // in as zero and come back out as the default — a setting that did not take.
-        assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { repository.setDefaultRestDuration(500.milliseconds) }
-        }
+    fun `the setters reject a value the model would refuse`() =
+        withStore { repository ->
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setDefaultRestDuration(Duration.ZERO) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setDefaultRestDuration(Duration.INFINITE) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setBarWeight(0) }
+            }
+            // Positive, and still not storable: seconds are the resolution, so this would go
+            // in as zero and come back out as the default — a setting that did not take.
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setDefaultRestDuration(500.milliseconds) }
+            }
 
-        // Rejected before the store was touched, so the defaults are still what is read.
-        assertEquals(UserPreferences(), repository.observe().first())
-    }
+            // Rejected before the store was touched, so the defaults are still what is read.
+            assertEquals(UserPreferences(), repository.observe().first())
+        }
 
     @Test
-    fun `a rest duration finer than a second is stored to the second`() = withStore { repository ->
-        // Truncated, not rounded, and not rejected: only a value that would truncate to
-        // nothing is refused, and 90.5s is a whole rest either way.
-        repository.setDefaultRestDuration(90_500.milliseconds)
+    fun `a rest duration finer than a second is stored to the second`() =
+        withStore { repository ->
+            // Truncated, not rounded, and not rejected: only a value that would truncate to
+            // nothing is refused, and 90.5s is a whole rest either way.
+            repository.setDefaultRestDuration(90_500.milliseconds)
 
-        assertEquals(90.seconds, repository.observe().first().defaultRestDuration)
-    }
+            assertEquals(90.seconds, repository.observe().first().defaultRestDuration)
+        }
 
     // ─── The plate inventory ────────────────────────────────────────────────────────────
 
     @Test
-    fun `a rack is stored as a line of text and read back whole`() = withRawStore { repository, store ->
-        repository.setPlateInventory(HOME_RACK)
+    fun `a rack is stored as a line of text and read back whole`() =
+        withRawStore { repository, store ->
+            repository.setPlateInventory(HOME_RACK)
 
-        // Asserted as the stored line as well as as the value, because the encoding is a
-        // persisted format: changing it silently resets the rack for every existing install.
-        assertEquals(
-            "25000000x2;20000000x4;10000000x1",
-            store.data.first()[stringPreferencesKey("plate_inventory_milligrams")],
-        )
-        assertEquals(HOME_RACK, repository.observe().first().plateInventory)
-    }
+            // Asserted as the stored line as well as as the value, because the encoding is a
+            // persisted format: changing it silently resets the rack for every existing install.
+            assertEquals(
+                "25000000x2;20000000x4;10000000x1",
+                store.data.first()[stringPreferencesKey("plate_inventory_milligrams")],
+            )
+            assertEquals(HOME_RACK, repository.observe().first().plateInventory)
+        }
 
     @Test
     fun `a rack with nothing on it is a different answer from never having been asked`() =
@@ -401,27 +414,29 @@ class UserPreferencesRepositoryImplTest {
     // ─── One size at a time ─────────────────────────────────────────────────────────────
 
     @Test
-    fun `a size edited before anything is stored edits the standard rack`() = withStore { repository ->
-        // The rack the editor was showing them: an unset key draws the standard set, so an edit
-        // against it has to start there rather than from an empty rack.
-        repository.setPlatePairs(weight = 20_000_000, pairs = 3)
+    fun `a size edited before anything is stored edits the standard rack`() =
+        withStore { repository ->
+            // The rack the editor was showing them: an unset key draws the standard set, so an edit
+            // against it has to start there rather than from an empty rack.
+            repository.setPlatePairs(weight = 20_000_000, pairs = 3)
 
-        val rack = repository.observe().first().plates
-        assertEquals(PlateInventory.METRIC.stock.map { it.weight }, rack.stock.map { it.weight })
-        assertEquals(3, rack.stock.single { it.weight == 20_000_000L }.pairs)
-    }
+            val rack = repository.observe().first().plates
+            assertEquals(PlateInventory.METRIC.stock.map { it.weight }, rack.stock.map { it.weight })
+            assertEquals(3, rack.stock.single { it.weight == 20_000_000L }.pairs)
+        }
 
     @Test
-    fun `a size the stored rack does not list is added to it`() = withStore { repository ->
-        repository.setPlateInventory(HOME_RACK)
+    fun `a size the stored rack does not list is added to it`() =
+        withStore { repository ->
+            repository.setPlateInventory(HOME_RACK)
 
-        repository.setPlatePairs(weight = 5_000_000, pairs = 2)
+            repository.setPlatePairs(weight = 5_000_000, pairs = 2)
 
-        assertEquals(
-            listOf(25_000_000L, 20_000_000L, 10_000_000L, 5_000_000L),
-            repository.observe().first().plateInventory?.stock?.map { it.weight },
-        )
-    }
+            assertEquals(
+                listOf(25_000_000L, 20_000_000L, 10_000_000L, 5_000_000L),
+                repository.observe().first().plateInventory?.stock?.map { it.weight },
+            )
+        }
 
     @Test
     fun `a weight or a count the model refuses is rejected rather than stored`() =
@@ -438,105 +453,112 @@ class UserPreferencesRepositoryImplTest {
         }
 
     @Test
-    fun `concurrent edits to different sizes compose rather than clobbering`() = withStore { repository ->
-        // The reason this method exists at all. A caller doing the read-modify-write itself —
-        // read the rack, copy it with one count changed, write the whole thing back — would keep
-        // whichever of these finished last and silently revert the other three. Editing inside
-        // the store's own transaction is what makes four presses four edits.
-        listOf(
-            async(Dispatchers.IO) { repository.setPlatePairs(20_000_000, 1) },
-            async(Dispatchers.IO) { repository.setPlatePairs(10_000_000, 2) },
-            async(Dispatchers.IO) { repository.setPlatePairs(5_000_000, 3) },
-            async(Dispatchers.IO) { repository.setPlatePairs(2_500_000, 4) },
-        ).awaitAll()
+    fun `concurrent edits to different sizes compose rather than clobbering`() =
+        withStore { repository ->
+            // The reason this method exists at all. A caller doing the read-modify-write itself —
+            // read the rack, copy it with one count changed, write the whole thing back — would keep
+            // whichever of these finished last and silently revert the other three. Editing inside
+            // the store's own transaction is what makes four presses four edits.
+            listOf(
+                async(Dispatchers.IO) { repository.setPlatePairs(20_000_000, 1) },
+                async(Dispatchers.IO) { repository.setPlatePairs(10_000_000, 2) },
+                async(Dispatchers.IO) { repository.setPlatePairs(5_000_000, 3) },
+                async(Dispatchers.IO) { repository.setPlatePairs(2_500_000, 4) },
+            ).awaitAll()
 
-        val rack = repository.observe().first().plates
-        assertEquals(1, rack.stock.single { it.weight == 20_000_000L }.pairs)
-        assertEquals(2, rack.stock.single { it.weight == 10_000_000L }.pairs)
-        assertEquals(3, rack.stock.single { it.weight == 5_000_000L }.pairs)
-        assertEquals(4, rack.stock.single { it.weight == 2_500_000L }.pairs)
-    }
-
-    @Test
-    fun `a rack that cannot be read reads as never having been asked`() = withRawStore { repository, store ->
-        // Every way the line goes wrong is the same event to a screen: a truncated write, a
-        // hand-edited file, a size some later build allowed and this one does not.
-        listOf("not a rack", "25000000", "25000000x", "-1x2", "25000000xmany", "1x2").forEach { line ->
-            store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = line }
-
-            assertNull("\"$line\" should not have parsed", repository.observe().first().plateInventory)
+            val rack = repository.observe().first().plates
+            assertEquals(1, rack.stock.single { it.weight == 20_000_000L }.pairs)
+            assertEquals(2, rack.stock.single { it.weight == 10_000_000L }.pairs)
+            assertEquals(3, rack.stock.single { it.weight == 5_000_000L }.pairs)
+            assertEquals(4, rack.stock.single { it.weight == 2_500_000L }.pairs)
         }
-    }
 
     @Test
-    fun `a rack stored out of order is repaired rather than discarded`() = withRawStore { repository, store ->
-        // Nothing about a reordered line is ambiguous. The ordering invariant exists to make
-        // two racks holding the same plates compare equal, not to police the file.
-        store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = "10000000x1;25000000x2" }
+    fun `a rack that cannot be read reads as never having been asked`() =
+        withRawStore { repository, store ->
+            // Every way the line goes wrong is the same event to a screen: a truncated write, a
+            // hand-edited file, a size some later build allowed and this one does not.
+            listOf("not a rack", "25000000", "25000000x", "-1x2", "25000000xmany", "1x2").forEach { line ->
+                store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = line }
 
-        assertEquals(
-            listOf(25_000_000L, 10_000_000L),
-            repository.observe().first().plateInventory?.stock?.map { it.weight },
-        )
-    }
+                assertNull("\"$line\" should not have parsed", repository.observe().first().plateInventory)
+            }
+        }
 
     @Test
-    fun `a store that cannot be read at all emits the defaults instead of throwing`() = runTest {
-        val repository = UserPreferencesRepositoryImpl(UnreadableDataStore)
+    fun `a rack stored out of order is repaired rather than discarded`() =
+        withRawStore { repository, store ->
+            // Nothing about a reordered line is ambiguous. The ordering invariant exists to make
+            // two racks holding the same plates compare equal, not to police the file.
+            store.edit { it[stringPreferencesKey("plate_inventory_milligrams")] = "10000000x1;25000000x2" }
 
-        assertEquals(UserPreferences(), repository.observe().first())
-    }
+            assertEquals(
+                listOf(25_000_000L, 10_000_000L),
+                repository.observe().first().plateInventory?.stock?.map { it.weight },
+            )
+        }
+
+    @Test
+    fun `a store that cannot be read at all emits the defaults instead of throwing`() =
+        runTest {
+            val repository = UserPreferencesRepositoryImpl(UnreadableDataStore)
+
+            assertEquals(UserPreferences(), repository.observe().first())
+        }
 
     @Test
     @OptIn(ExperimentalCoroutinesApi::class) // advanceTimeBy(Duration)
-    fun `a store that never becomes readable keeps retrying rather than ending the collection`() = runTest {
-        // The regression that `retryWhen` exists for. `catch` emits the defaults and then
-        // *completes* the flow, so this collector would be finished — and a screen holding
-        // it would sit on the defaults, ignoring every later write, until the process
-        // restarted. Staying subscribed is the contract; the defaults are the stopgap.
-        val repository = UserPreferencesRepositoryImpl(UnreadableDataStore)
-        val seen = mutableListOf<UserPreferences>()
+    fun `a store that never becomes readable keeps retrying rather than ending the collection`() =
+        runTest {
+            // The regression that `retryWhen` exists for. `catch` emits the defaults and then
+            // *completes* the flow, so this collector would be finished — and a screen holding
+            // it would sit on the defaults, ignoring every later write, until the process
+            // restarted. Staying subscribed is the contract; the defaults are the stopgap.
+            val repository = UserPreferencesRepositoryImpl(UnreadableDataStore)
+            val seen = mutableListOf<UserPreferences>()
 
-        val collector = launch { repository.observe().toList(seen) }
-        advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
-        val stillCollecting = collector.isActive
-        collector.cancel()
+            val collector = launch { repository.observe().toList(seen) }
+            advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
+            val stillCollecting = collector.isActive
+            collector.cancel()
 
-        assertTrue("the collection ended on a read failure instead of retrying", stillCollecting)
-        // Once, not once per retry: distinctUntilChanged, and the defaults are only
-        // published on the first failure in the first place.
-        assertEquals(listOf(UserPreferences()), seen)
-    }
+            assertTrue("the collection ended on a read failure instead of retrying", stillCollecting)
+            // Once, not once per retry: distinctUntilChanged, and the defaults are only
+            // published on the first failure in the first place.
+            assertEquals(listOf(UserPreferences()), seen)
+        }
 
     @Test
     @OptIn(ExperimentalCoroutinesApi::class) // advanceTimeBy(Duration)
-    fun `a store that recovers publishes again, without the collector having resubscribed`() = runTest {
-        // The other side of the same contract: whatever the defaults stood in for, the
-        // real value reaches the collector that was already there when the read failed.
-        val repository = UserPreferencesRepositoryImpl(FlakyDataStore(failures = 1))
-        val seen = mutableListOf<UserPreferences>()
+    fun `a store that recovers publishes again, without the collector having resubscribed`() =
+        runTest {
+            // The other side of the same contract: whatever the defaults stood in for, the
+            // real value reaches the collector that was already there when the read failed.
+            val repository = UserPreferencesRepositoryImpl(FlakyDataStore(failures = 1))
+            val seen = mutableListOf<UserPreferences>()
 
-        val collector = launch { repository.observe().toList(seen) }
-        advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
-        collector.cancel()
+            val collector = launch { repository.observe().toList(seen) }
+            advanceTimeBy(RETRY_DELAY * RETRY_ROUNDS)
+            collector.cancel()
 
-        assertEquals(
-            listOf(UserPreferences(), UserPreferences(theme = ThemePreference.DARK)),
-            seen,
-        )
-    }
+            assertEquals(
+                listOf(UserPreferences(), UserPreferences(theme = ThemePreference.DARK)),
+                seen,
+            )
+        }
 
     @Test
-    fun `a store that fails for a reason other than IO still throws`() = runTest {
-        // The other half of the `retryWhen`: a mapping bug must not be swallowed into a
-        // screenful of defaults — nor retried forever, which is the same failure wearing a
-        // different hat — and neither would happen if the predicate caught Throwable.
-        val repository = UserPreferencesRepositoryImpl(BrokenDataStore)
+    fun `a store that fails for a reason other than IO still throws`() =
+        runTest {
+            // The other half of the `retryWhen`: a mapping bug must not be swallowed into a
+            // screenful of defaults — nor retried forever, which is the same failure wearing a
+            // different hat — and neither would happen if the predicate caught Throwable.
+            val repository = UserPreferencesRepositoryImpl(BrokenDataStore)
 
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking { repository.observe().first() }
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking { repository.observe().first() }
+            }
         }
-    }
 
     /** [withRawStore] for the tests that have no reason to reach past the repository. */
     private fun withStore(block: suspend CoroutineScope.(UserPreferencesRepositoryImpl) -> Unit) =
@@ -575,7 +597,10 @@ class UserPreferencesRepositoryImplTest {
      * pool, so there is no virtual clock to drain, and a fixed sleep would be both slower
      * and flakier than waiting for the thing itself.
      */
-    private suspend fun awaitEmissions(seen: List<*>, count: Int) {
+    private suspend fun awaitEmissions(
+        seen: List<*>,
+        count: Int,
+    ) {
         withTimeout(TEST_TIMEOUT_MILLIS) {
             while (seen.size < count) yield()
         }

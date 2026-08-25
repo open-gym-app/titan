@@ -24,9 +24,7 @@ import kotlin.time.Duration
  * preference flow emits the current value on subscribe and again on every change, and the
  * setters validate exactly what the real ones validate.
  */
-class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
+class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()) : UserPreferencesRepository {
 
     private val preferences = MutableStateFlow(initial)
 
@@ -35,8 +33,7 @@ class FakeUserPreferencesRepository(
 
     override fun observe(): Flow<UserPreferences> = preferences
 
-    override suspend fun setUnitSystem(unitSystem: UnitSystem) =
-        write { it.copy(unitSystem = unitSystem) }
+    override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }
 
     override suspend fun setTheme(theme: ThemePreference) = write { it.copy(theme = theme) }
 
@@ -50,20 +47,20 @@ class FakeUserPreferencesRepository(
         write { it.copy(barWeight = barWeight) }
     }
 
-    override suspend fun setPlateInventory(inventory: PlateInventory?) =
-        write { it.copy(plateInventory = inventory) }
+    override suspend fun setPlateInventory(inventory: PlateInventory?) = write { it.copy(plateInventory = inventory) }
 
     /** The rack edited inside the update, the way the real one edits inside `edit`. */
-    override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) {
         val edited = PlateStock(weight = weight, pairs = pairs)
         write { it.copy(plateInventory = it.plates.withPairs(edited.weight, edited.pairs)) }
     }
 
-    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
-        write { it.copy(trainingGoal = trainingGoal) }
+    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
 
-    override suspend fun setOnboardingCompleted(completed: Boolean) =
-        write { it.copy(onboardingCompleted = completed) }
+    override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun clear() = write { UserPreferences() }
 
@@ -73,9 +70,7 @@ class FakeUserPreferencesRepository(
     }
 }
 
-class FakeLocalDataRepository(
-    initial: DataFootprint = DataFootprint(),
-) : LocalDataRepository {
+class FakeLocalDataRepository(initial: DataFootprint = DataFootprint()) : LocalDataRepository {
 
     private val footprint = MutableStateFlow(initial)
 

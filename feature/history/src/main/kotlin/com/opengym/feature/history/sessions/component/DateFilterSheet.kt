@@ -224,16 +224,16 @@ private fun DateRangeDialog(
 
 /** `Mon 28 Apr 2026 – Sun 3 May 2026`, or just the one day when both ends match. */
 @Composable
-private fun DateFilter.Between.label(): String = if (start == end) {
-    formatSessionDate(start)
-} else {
-    stringResource(R.string.sessions_dates_range, formatSessionDate(start), formatSessionDate(end))
-}
+private fun DateFilter.Between.label(): String =
+    if (start == end) {
+        formatSessionDate(start)
+    } else {
+        stringResource(R.string.sessions_dates_range, formatSessionDate(start), formatSessionDate(end))
+    }
 
 private fun LocalDate.toUtcMillis(): Long = atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 
-private fun Long.toUtcDate(): LocalDate =
-    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
+private fun Long.toUtcDate(): LocalDate = Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate()
 
 /**
  * The windows worth a chip: a week, a month, a training block.

@@ -39,13 +39,14 @@ private const val SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR
  * precision is truncated rather than rounded — a rest timer showing `0:01` with 400 ms left
  * is right, and showing `0:00` for the last half-second is not.
  */
-fun Duration.formatAsClock(): String = with(ClockFields(this)) {
-    if (hours > 0) {
-        String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
-    } else {
-        String.format(Locale.getDefault(), "%s%d:%02d", sign, minutes, seconds)
+fun Duration.formatAsClock(): String =
+    with(ClockFields(this)) {
+        if (hours > 0) {
+            String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
+        } else {
+            String.format(Locale.getDefault(), "%s%d:%02d", sign, minutes, seconds)
+        }
     }
-}
 
 /**
  * `H:MM:SS`, always, however short: `0:00:07`, `0:52:14`, `2:03:00`.
@@ -55,9 +56,10 @@ fun Duration.formatAsClock(): String = with(ClockFields(this)) {
  * length of the workout, and a field that grows from `52:14` to `1:00:00` at the hour mark
  * moves everything beside it — the one thing tabular figures were chosen to prevent.
  */
-fun Duration.formatAsElapsed(): String = with(ClockFields(this)) {
-    String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
-}
+fun Duration.formatAsElapsed(): String =
+    with(ClockFields(this)) {
+        String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
+    }
 
 /**
  * How long something is expected to take: `~55m`, `~1h 05m`, `~5m`.

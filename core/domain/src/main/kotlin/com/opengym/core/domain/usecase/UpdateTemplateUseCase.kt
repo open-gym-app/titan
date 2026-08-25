@@ -28,9 +28,7 @@ import com.opengym.core.domain.repository.TemplateRepository
  * the fields because it is not a field: it follows from the new exercise list without a
  * write ([com.opengym.core.domain.template.TemplateDuration]).
  */
-class UpdateTemplateUseCase(
-    private val templateRepository: TemplateRepository,
-) {
+class UpdateTemplateUseCase(private val templateRepository: TemplateRepository) {
 
     suspend operator fun invoke(
         templateId: Long,

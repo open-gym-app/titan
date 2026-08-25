@@ -107,7 +107,10 @@ class SessionNameDialogTest {
         composeTestRule.onNodeWithText("Cancel").assertIsNotEnabled()
     }
 
-    private fun setDialog(value: String, isSaving: Boolean = false) {
+    private fun setDialog(
+        value: String,
+        isSaving: Boolean = false,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 SessionNameDialog(

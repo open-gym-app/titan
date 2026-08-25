@@ -46,7 +46,10 @@ interface TemplateRepository {
      * [exercises] is stored in list order, numbered from position 0 — see
      * [TemplateExerciseDraft]. `template.id` is ignored; the store assigns it.
      */
-    suspend fun insert(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>): Long
+    suspend fun insert(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ): Long
 
     /**
      * Replaces `template.id`'s row *and* its whole exercise list, numbered from
@@ -64,7 +67,10 @@ interface TemplateRepository {
      * edit screen racing a delete from another screen is the ordinary way to reach
      * it — not a case worth its own error path.
      */
-    suspend fun update(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>)
+    suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    )
 
     /** Deletes the template and, by cascade, its exercises. A no-op when [id] is absent. */
     suspend fun delete(id: Long)

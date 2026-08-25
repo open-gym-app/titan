@@ -50,7 +50,10 @@ class SetValidatorTest {
         isCompleted = isCompleted,
     )
 
-    private fun reasonOf(set: WorkoutSet, exerciseType: ExerciseType? = null): String {
+    private fun reasonOf(
+        set: WorkoutSet,
+        exerciseType: ExerciseType? = null,
+    ): String {
         val result = SetValidator.validate(set, exerciseType)
         assertTrue("expected $set to be refused, got $result", result is ValidationResult.Invalid)
         return (result as ValidationResult.Invalid).reason

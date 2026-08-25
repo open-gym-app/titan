@@ -51,7 +51,10 @@ sealed interface RestTimerSnapshot {
      */
     @Serializable
     @SerialName("running")
-    data class Running(val deadline: Long, val total: Duration) : RestTimerSnapshot {
+    data class Running(
+        val deadline: Long,
+        val total: Duration,
+    ) : RestTimerSnapshot {
         init {
             require(total > Duration.ZERO) { "a rest has a positive total, was $total" }
         }
@@ -65,7 +68,10 @@ sealed interface RestTimerSnapshot {
      */
     @Serializable
     @SerialName("paused")
-    data class Paused(val remaining: Duration, val total: Duration) : RestTimerSnapshot {
+    data class Paused(
+        val remaining: Duration,
+        val total: Duration,
+    ) : RestTimerSnapshot {
         init {
             require(remaining >= Duration.ZERO) { "a paused timer cannot owe time, was $remaining" }
             require(total >= remaining) { "remaining ($remaining) cannot exceed the total ($total)" }
@@ -96,19 +102,23 @@ sealed interface RestTimerSnapshot {
      * backwards between the save and the load — is clamped to the total rather than
      * refused, since a draft is not worth losing over a clock correction.
      */
-    fun toStateAt(nowMillis: Long): RestTimerState = when (this) {
-        Idle -> RestTimerState.Idle
-        Finished -> RestTimerState.Finished
-        is Paused -> RestTimerState.Paused(remaining, total)
-        is Running -> {
-            val remaining = (deadline - nowMillis).milliseconds
-            if (remaining <= Duration.ZERO) {
-                RestTimerState.Finished
-            } else {
-                RestTimerState.Running(remaining.coerceAtMost(total), total)
+    fun toStateAt(nowMillis: Long): RestTimerState =
+        when (this) {
+            Idle -> RestTimerState.Idle
+
+            Finished -> RestTimerState.Finished
+
+            is Paused -> RestTimerState.Paused(remaining, total)
+
+            is Running -> {
+                val remaining = (deadline - nowMillis).milliseconds
+                if (remaining <= Duration.ZERO) {
+                    RestTimerState.Finished
+                } else {
+                    RestTimerState.Running(remaining.coerceAtMost(total), total)
+                }
             }
         }
-    }
 
     companion object {
 
@@ -121,14 +131,21 @@ sealed interface RestTimerSnapshot {
          * but it does mean a round trip through this type is not the identity on a
          * `Running` whose remainder is a fraction of a millisecond.
          */
-        fun of(state: RestTimerState, nowMillis: Long): RestTimerSnapshot = when (state) {
-            RestTimerState.Idle -> Idle
-            RestTimerState.Finished -> Finished
-            is RestTimerState.Paused -> Paused(state.remaining, state.total)
-            is RestTimerState.Running -> Running(
-                deadline = nowMillis + state.remaining.inWholeMilliseconds,
-                total = state.total,
-            )
-        }
+        fun of(
+            state: RestTimerState,
+            nowMillis: Long,
+        ): RestTimerSnapshot =
+            when (state) {
+                RestTimerState.Idle -> Idle
+
+                RestTimerState.Finished -> Finished
+
+                is RestTimerState.Paused -> Paused(state.remaining, state.total)
+
+                is RestTimerState.Running -> Running(
+                    deadline = nowMillis + state.remaining.inWholeMilliseconds,
+                    total = state.total,
+                )
+            }
     }
 }

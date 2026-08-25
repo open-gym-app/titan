@@ -158,7 +158,10 @@ fun ResumeSessionDialog(
  * before a word of it has been read.
  */
 @Composable
-private fun RunningWorkoutBanner(workout: RunningWorkout, modifier: Modifier = Modifier) {
+private fun RunningWorkoutBanner(
+    workout: RunningWorkout,
+    modifier: Modifier = Modifier,
+) {
     val chrome = OpenGymTheme.sessionChrome
     val logged = if (workout.loggedSets > 0) {
         pluralStringResource(R.plurals.new_session_resume_sets, workout.loggedSets, workout.loggedSets)

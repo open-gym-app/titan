@@ -190,7 +190,11 @@ class RestTimerController(
      * violated, and the shortening that runs off the end are the same three questions either
      * way, and only the landing state differs.
      */
-    private fun moveTo(remaining: Duration, total: Duration, running: Boolean) {
+    private fun moveTo(
+        remaining: Duration,
+        total: Duration,
+        running: Boolean,
+    ) {
         if (remaining <= Duration.ZERO) {
             stopCountdown()
             _state.value = RestTimerState.Finished
@@ -250,6 +254,7 @@ class RestTimerController(
     fun restore(state: RestTimerState) {
         when (state) {
             is RestTimerState.Running -> countDownFrom(state.remaining, state.total)
+
             RestTimerState.Idle, RestTimerState.Finished, is RestTimerState.Paused -> {
                 stopCountdown()
                 _state.value = state
@@ -258,7 +263,10 @@ class RestTimerController(
     }
 
     /** Replaces whatever is running with a countdown of [remaining], out of [total]. */
-    private fun countDownFrom(remaining: Duration, total: Duration) {
+    private fun countDownFrom(
+        remaining: Duration,
+        total: Duration,
+    ) {
         stopCountdown()
         val stamp = generation.get()
         if (remaining <= Duration.ZERO) {
@@ -289,7 +297,10 @@ class RestTimerController(
      * whole number of ticks (a resumed one, usually) finish on time rather than at the
      * next tick boundary past its deadline.
      */
-    private suspend fun countDown(run: Run, stamp: Long) {
+    private suspend fun countDown(
+        run: Run,
+        stamp: Long,
+    ) {
         var target = tick.coerceAtMost(run.from)
         while (true) {
             delay(target - run.mark.elapsedNow())
@@ -309,7 +320,11 @@ class RestTimerController(
      * that moment ([from], which is below [total] for a resumed run) and the total it is
      * a remainder of.
      */
-    private class Run(val mark: TimeMark, val from: Duration, val total: Duration) {
+    private class Run(
+        val mark: TimeMark,
+        val from: Duration,
+        val total: Duration,
+    ) {
 
         /** What is left right now, floored at zero once the deadline has passed. */
         fun remainingNow(): Duration = (from - mark.elapsedNow()).coerceAtLeast(Duration.ZERO)

@@ -7,7 +7,7 @@ import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import kotlinx.coroutines.flow.first
 
-/**
+/*
  * The two halves [LinkSupersetUseCase] and [UnlinkSupersetUseCase] have in common: finding the
  * exercise a tap was aimed at, and writing a new grouping over the session.
  *
@@ -22,7 +22,10 @@ import kotlinx.coroutines.flow.first
  *   order a grouping is indexed by.
  * @param index where the exercise the caller named sits in [exercises].
  */
-internal class SupersetTarget(val exercises: List<SessionExercise>, val index: Int) {
+internal class SupersetTarget(
+    val exercises: List<SessionExercise>,
+    val index: Int,
+) {
 
     /** The session's grouping, in the shape `Supersets` works on. */
     val grouping: List<Int?> get() = exercises.map(SessionExercise::supersetGroup)

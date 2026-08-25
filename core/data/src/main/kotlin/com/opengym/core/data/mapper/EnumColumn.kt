@@ -1,6 +1,6 @@
 package com.opengym.core.data.mapper
 
-/**
+/*
  * Reading enum-valued columns back into the domain's enums.
  *
  * The schema stores these as `TEXT` holding the constant's `name` (see

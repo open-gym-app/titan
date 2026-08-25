@@ -92,17 +92,14 @@ class SettingsViewModel @Inject constructor(
 
     private fun setTheme(theme: ThemePreference) = write { userPreferencesRepository.setTheme(theme) }
 
-    private fun setUnitSystem(unitSystem: UnitSystem) =
-        write { userPreferencesRepository.setUnitSystem(unitSystem) }
+    private fun setUnitSystem(unitSystem: UnitSystem) = write { userPreferencesRepository.setUnitSystem(unitSystem) }
 
     private fun setRestDuration(duration: Duration) =
         write { userPreferencesRepository.setDefaultRestDuration(duration) }
 
-    private fun setBarWeight(milligrams: Long) =
-        write { userPreferencesRepository.setBarWeight(milligrams) }
+    private fun setBarWeight(milligrams: Long) = write { userPreferencesRepository.setBarWeight(milligrams) }
 
-    private fun setTrainingGoal(goal: TrainingGoal) =
-        write { userPreferencesRepository.setTrainingGoal(goal) }
+    private fun setTrainingGoal(goal: TrainingGoal) = write { userPreferencesRepository.setTrainingGoal(goal) }
 
     /**
      * Closes the picker, then stores the choice.

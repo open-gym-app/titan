@@ -68,34 +68,36 @@ data class ExerciseDraft(
 internal fun exerciseDraftOf(
     exercise: Exercise,
     links: List<ExerciseMuscleGroupLink>,
-): ExerciseDraft = ExerciseDraft(
-    id = exercise.id,
-    name = exercise.name,
-    type = exercise.type,
-    // The form has no chip for OTHER — `EquipmentType.labelOrNull` returns null for it — and
-    // a null column is the ordinary case for a row written before the field existed. Either
-    // way the form has to show something, and bodyweight is the honest default for an
-    // exercise nobody recorded kit for.
-    equipment = exercise.equipmentType?.takeIf { it != EquipmentType.OTHER }
-        ?: EquipmentType.BODYWEIGHT,
-    primaryMuscleGroupId = links.firstOrNull { it.isPrimary }?.muscleGroup?.id,
-    secondaryMuscleGroupIds = links.filterNot { it.isPrimary }.mapTo(mutableSetOf()) { it.muscleGroup.id },
-    notes = exercise.notes.orEmpty(),
-)
+): ExerciseDraft =
+    ExerciseDraft(
+        id = exercise.id,
+        name = exercise.name,
+        type = exercise.type,
+        // The form has no chip for OTHER — `EquipmentType.labelOrNull` returns null for it — and
+        // a null column is the ordinary case for a row written before the field existed. Either
+        // way the form has to show something, and bodyweight is the honest default for an
+        // exercise nobody recorded kit for.
+        equipment = exercise.equipmentType?.takeIf { it != EquipmentType.OTHER }
+            ?: EquipmentType.BODYWEIGHT,
+        primaryMuscleGroupId = links.firstOrNull { it.isPrimary }?.muscleGroup?.id,
+        secondaryMuscleGroupIds = links.filterNot { it.isPrimary }.mapTo(mutableSetOf()) { it.muscleGroup.id },
+        notes = exercise.notes.orEmpty(),
+    )
 
 /** The exercise a completed *new* draft describes. */
-internal fun ExerciseDraft.toExercise(): Exercise = Exercise(
-    name = name.trim(),
-    type = type,
-    equipmentType = equipment,
-    notes = notes.trim().ifEmpty { null },
-    // The whole point of the flag: a custom exercise is the user's, and a future catalogue
-    // refresh must not overwrite or drop it.
-    isCustom = true,
-    // No bundled image. `ExerciseImage` draws the name's initial, which is the honest
-    // placeholder for an exercise nobody has photographed.
-    icon = null,
-)
+internal fun ExerciseDraft.toExercise(): Exercise =
+    Exercise(
+        name = name.trim(),
+        type = type,
+        equipmentType = equipment,
+        notes = notes.trim().ifEmpty { null },
+        // The whole point of the flag: a custom exercise is the user's, and a future catalogue
+        // refresh must not overwrite or drop it.
+        isCustom = true,
+        // No bundled image. `ExerciseImage` draws the name's initial, which is the honest
+        // placeholder for an exercise nobody has photographed.
+        icon = null,
+    )
 
 /**
  * [exercise] with the four fields this form edits taken from the draft.
@@ -105,12 +107,13 @@ internal fun ExerciseDraft.toExercise(): Exercise = Exercise(
  * not ask about — `defaultRest`, `instructions`, `isUnilateral` — and building from scratch
  * would blank every one of them on the first correction of a typo.
  */
-internal fun ExerciseDraft.applyTo(exercise: Exercise): Exercise = exercise.copy(
-    name = name.trim(),
-    type = type,
-    equipmentType = equipment,
-    notes = notes.trim().ifEmpty { null },
-)
+internal fun ExerciseDraft.applyTo(exercise: Exercise): Exercise =
+    exercise.copy(
+        name = name.trim(),
+        type = type,
+        equipmentType = equipment,
+        notes = notes.trim().ifEmpty { null },
+    )
 
 /**
  * The draft's muscle selections as domain links, primary first.
@@ -121,9 +124,7 @@ internal fun ExerciseDraft.applyTo(exercise: Exercise): Exercise = exercise.copy
  * primary one — the form does not allow it, and a link table with a duplicate key would
  * reject the write rather than merge them.
  */
-internal fun ExerciseDraft.resolveMuscleGroups(
-    taxonomy: List<MuscleGroup>,
-): List<ExerciseMuscleGroupLink> {
+internal fun ExerciseDraft.resolveMuscleGroups(taxonomy: List<MuscleGroup>): List<ExerciseMuscleGroupLink> {
     val byId = taxonomy.associateBy { it.id }
     val primary = primaryMuscleGroupId?.let(byId::get)
     val secondaries = (secondaryMuscleGroupIds - setOfNotNull(primaryMuscleGroupId))

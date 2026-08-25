@@ -30,7 +30,10 @@ sealed interface PlateCalculatorEvent {
      * How many pairs of one size the user has. Zero is "none", which keeps the row in the
      * editor — see `PlateInventory.withPairs`.
      */
-    data class PlatePairsSelected(val weight: Long, val pairs: Int) : PlateCalculatorEvent
+    data class PlatePairsSelected(
+        val weight: Long,
+        val pairs: Int,
+    ) : PlateCalculatorEvent
 
     /**
      * "Use the standard set": forget the stored rack rather than overwrite it with a copy of

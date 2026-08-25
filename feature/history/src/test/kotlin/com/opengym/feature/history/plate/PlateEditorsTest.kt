@@ -60,7 +60,10 @@ class PlateEditorsTest {
     }
 
     /** The editor's contents, with the sheet around them left out. See the note on this class. */
-    private fun setEquipmentContent(preferences: UserPreferences, message: String? = null) {
+    private fun setEquipmentContent(
+        preferences: UserPreferences,
+        message: String? = null,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme(theme = ThemePreference.LIGHT, unitSystem = preferences.unitSystem) {
                 EquipmentPanel(
@@ -219,14 +222,15 @@ class PlateEditorsTest {
      * collide with the bar presets (20 / 15 / 10 kg), so `onNodeWithText("15 kg")` can only be
      * the chip.
      */
-    private fun threeSizeRack(barWeight: Long = 20_000_000) = UserPreferences(
-        barWeight = barWeight,
-        plateInventory = PlateInventory.of(
-            listOf(
-                PlateStock(weight = 25_000_000, pairs = 6),
-                PlateStock(weight = 5_000_000, pairs = 2),
-                PlateStock(weight = 2_500_000, pairs = 0),
+    private fun threeSizeRack(barWeight: Long = 20_000_000) =
+        UserPreferences(
+            barWeight = barWeight,
+            plateInventory = PlateInventory.of(
+                listOf(
+                    PlateStock(weight = 25_000_000, pairs = 6),
+                    PlateStock(weight = 5_000_000, pairs = 2),
+                    PlateStock(weight = 2_500_000, pairs = 0),
+                ),
             ),
-        ),
-    )
+        )
 }

@@ -55,7 +55,11 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = totals
 
     /** Records what a session logged, as the grouped query would report it. */
-    fun setTotals(sessionId: Long, sets: Int, volume: Long) {
+    fun setTotals(
+        sessionId: Long,
+        sets: Int,
+        volume: Long,
+    ) {
         totals.value += sessionId to SessionTotals(totalSets = sets, totalVolume = volume)
     }
 
@@ -91,26 +95,27 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
      * The sessions browser reads three things and writes none. Anything else reached from here
      * is a change of behaviour worth failing on rather than a gap worth stubbing.
      */
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("the sessions browser only reads")
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("the sessions browser only reads")
 }
 
 /** The records the PR engine will one day write. Read-only, like the contract. */
-class FakePersonalRecordStore(
-    private val records: Map<Long, PersonalRecord> = emptyMap(),
-) : PersonalRecordRepository {
+class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
 }
 
 /** A record of the only kind that matters here: one achieved at a known instant. */
-fun recordAt(exerciseId: Long, achievedAt: Long): PersonalRecord = PersonalRecord(
-    id = exerciseId,
-    exerciseId = exerciseId,
-    workoutSetId = exerciseId,
-    type = PrType.MAX_WEIGHT,
-    weight = 100_000_000,
-    achievedAt = achievedAt,
-)
+fun recordAt(
+    exerciseId: Long,
+    achievedAt: Long,
+): PersonalRecord =
+    PersonalRecord(
+        id = exerciseId,
+        exerciseId = exerciseId,
+        workoutSetId = exerciseId,
+        type = PrType.MAX_WEIGHT,
+        weight = 100_000_000,
+        achievedAt = achievedAt,
+    )
 
 /**
  * The saved templates, in memory, with the writes the tab's row actions make.
@@ -208,8 +213,11 @@ class FakeTemplateStore(
 }
 
 /** A template with a name and a category, and nothing else the row draws. */
-fun namedTemplate(id: Long, name: String, category: TemplateCategory? = null): WorkoutTemplate =
-    WorkoutTemplate(id = id, name = name, category = category)
+fun namedTemplate(
+    id: Long,
+    name: String,
+    category: TemplateCategory? = null,
+): WorkoutTemplate = WorkoutTemplate(id = id, name = name, category = category)
 
 // ─── Session fixtures ───────────────────────────────────────────────────────────────────
 
@@ -225,8 +233,7 @@ fun namedTemplate(id: Long, name: String, category: TemplateCategory? = null): W
 val TEST_ZONE: ZoneId = ZoneId.systemDefault()
 
 /** Midday on [date] in [TEST_ZONE], as epoch millis — far enough from either midnight. */
-fun middayOn(date: LocalDate): Long =
-    date.atTime(LocalTime.NOON).atZone(TEST_ZONE).toInstant().toEpochMilli()
+fun middayOn(date: LocalDate): Long = date.atTime(LocalTime.NOON).atZone(TEST_ZONE).toInstant().toEpochMilli()
 
 /**
  * A finished session that started at midday on [date] and ran for [duration].

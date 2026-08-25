@@ -189,10 +189,11 @@ class UnitRoundTripTest {
      * shows no decimals, so a list of only those would assert the round trip vacuously for
      * exactly the units whose round trip is in question.
      */
-    private fun distancesIn(unit: DistanceUnit): List<Double> = when (unit.fractionDigits) {
-        0 -> listOf(0.0, 25.0, 25.5, 100.0, 400.0, 1_609.0)
-        else -> listOf(0.0, 0.25, 1.0, 5.25, 21.1, 42.19)
-    }
+    private fun distancesIn(unit: DistanceUnit): List<Double> =
+        when (unit.fractionDigits) {
+            0 -> listOf(0.0, 25.0, 25.5, 100.0, 400.0, 1_609.0)
+            else -> listOf(0.0, 0.25, 1.0, 5.25, 21.1, 42.19)
+        }
 
     private fun forEachLocale(block: (Locale) -> Unit) {
         locales.forEach { locale -> withLocale(locale) { block(locale) } }

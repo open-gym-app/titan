@@ -323,7 +323,10 @@ class SettingsScreenTest {
     // --- helpers ----------------------------------------------------------
 
     /** Runs [block] with [locale] as the default, and puts the previous one back. */
-    private fun withLocale(locale: Locale, block: () -> Unit) {
+    private fun withLocale(
+        locale: Locale,
+        block: () -> Unit,
+    ) {
         val previous = Locale.getDefault()
         Locale.setDefault(locale)
         try {

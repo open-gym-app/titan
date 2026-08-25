@@ -302,7 +302,10 @@ fun LoggedSetRow(
  *   cells.
  */
 @Composable
-fun SetLogHeader(modifier: Modifier = Modifier, showPrevious: Boolean = true) {
+fun SetLogHeader(
+    modifier: Modifier = Modifier,
+    showPrevious: Boolean = true,
+) {
     val weightUnit = LocalUnitSystem.current.weightSuffix
 
     Row(
@@ -402,7 +405,11 @@ internal fun SetRowFrame(
  * alone is not a word and the number it replaced is still the answer to "which set".
  */
 @Composable
-internal fun SetIndexCell(setNumber: Int, setType: SetType, isActive: Boolean) {
+internal fun SetIndexCell(
+    setNumber: Int,
+    setType: SetType,
+    isActive: Boolean,
+) {
     val spoken = stringResource(R.string.set_log_position, setType.label(), setNumber)
 
     SetMarker(
@@ -484,7 +491,10 @@ internal fun RpeValueCell(
  * wrong for the other reader.
  */
 @Composable
-internal fun PreviousCell(previous: PreviousSet?, showPrevious: Boolean) {
+internal fun PreviousCell(
+    previous: PreviousSet?,
+    showPrevious: Boolean,
+) {
     if (!showPrevious) return
     val placeholder = stringResource(R.string.set_log_previous_none)
     val compact = previous?.let { formatSetCompact(it.weight, it.reps) }
@@ -525,7 +535,10 @@ internal fun PreviousCell(previous: PreviousSet?, showPrevious: Boolean) {
  * is the one thing a reader wanted.
  */
 @Composable
-internal fun RpeCell(setNumber: Int, rpe: Int?) {
+internal fun RpeCell(
+    setNumber: Int,
+    rpe: Int?,
+) {
     val unset = stringResource(R.string.set_log_rpe_unset)
     val spoken = if (rpe != null) {
         stringResource(R.string.set_log_rpe_value, setNumber, formatRpe(rpe))
@@ -703,7 +716,10 @@ private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
  * @param reps how many, or null for a set that recorded none.
  */
 @Immutable
-data class PreviousSet(val weight: Long?, val reps: Int?)
+data class PreviousSet(
+    val weight: Long?,
+    val reps: Int?,
+)
 
 // ─── The grid ───────────────────────────────────────────────────────────────────────────
 

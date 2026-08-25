@@ -43,7 +43,10 @@ class RenameSessionUseCase(private val sessionRepository: SessionRepository) {
      * Fails with [com.opengym.core.domain.model.SessionError.SessionNotFound] for an id that no
      * longer resolves — a recap left open on a session deleted from the history list.
      */
-    suspend operator fun invoke(sessionId: Long, name: String?): Result<String?> {
+    suspend operator fun invoke(
+        sessionId: Long,
+        name: String?,
+    ): Result<String?> {
         val session = sessionRepository.loadSession(sessionId)
             .getOrElse { return Result.failure(it) }
 

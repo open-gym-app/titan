@@ -12,16 +12,18 @@ import org.junit.Test
  */
 class WorkoutSetTest {
 
-    private fun set(rpe: Int? = null, setType: SetType = SetType.NORMAL) =
-        WorkoutSet(
-            sessionExerciseId = 1,
-            setNumber = 1,
-            rpe = rpe,
-            setType = setType,
-            completedAt = 0,
-            createdAt = 0,
-            updatedAt = 0,
-        )
+    private fun set(
+        rpe: Int? = null,
+        setType: SetType = SetType.NORMAL,
+    ) = WorkoutSet(
+        sessionExerciseId = 1,
+        setNumber = 1,
+        rpe = rpe,
+        setType = setType,
+        completedAt = 0,
+        createdAt = 0,
+        updatedAt = 0,
+    )
 
     @Test
     fun `rpe null is allowed`() {

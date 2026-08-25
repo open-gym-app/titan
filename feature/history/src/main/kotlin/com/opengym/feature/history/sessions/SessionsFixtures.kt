@@ -112,11 +112,12 @@ private fun previewTemplate(
     exercises: Int,
     minutes: Int,
     category: TemplateCategory,
-): TemplateSummary = TemplateSummary(
-    template = WorkoutTemplate(id = id, name = name, category = category),
-    exerciseCount = exercises,
-    estimatedDuration = minutes.minutes,
-)
+): TemplateSummary =
+    TemplateSummary(
+        template = WorkoutTemplate(id = id, name = name, category = category),
+        exerciseCount = exercises,
+        estimatedDuration = minutes.minutes,
+    )
 
 /** The heatmap the four sessions in April make, with one heavy day and three light ones. */
 private val PREVIEW_CALENDAR = CalendarPage(

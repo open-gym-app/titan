@@ -21,10 +21,11 @@ class AppModuleTest {
     }
 
     @Test
-    fun `use case is invoked with correct argument`() = runTest {
-        useCase.execute("input")
-        verify(exactly = 1) { useCase.execute("input") }
-    }
+    fun `use case is invoked with correct argument`() =
+        runTest {
+            useCase.execute("input")
+            verify(exactly = 1) { useCase.execute("input") }
+        }
 
     @Test
     fun `negative - absent value is null`() {

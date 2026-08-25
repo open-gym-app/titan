@@ -46,13 +46,14 @@ import java.util.Locale
 fun SetType.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun SetType.labelRes(): Int = when (this) {
-    SetType.NORMAL -> R.string.set_type_normal
-    SetType.WARMUP -> R.string.set_type_warmup
-    SetType.DROP_SET -> R.string.set_type_drop
-    SetType.FAILURE -> R.string.set_type_failure
-    SetType.INTERVAL -> R.string.set_type_interval
-}
+internal fun SetType.labelRes(): Int =
+    when (this) {
+        SetType.NORMAL -> R.string.set_type_normal
+        SetType.WARMUP -> R.string.set_type_warmup
+        SetType.DROP_SET -> R.string.set_type_drop
+        SetType.FAILURE -> R.string.set_type_failure
+        SetType.INTERVAL -> R.string.set_type_interval
+    }
 
 /**
  * The single glyph a set-number cell shows in place of the number — `W`, `D`, `F`, `I` — or
@@ -69,13 +70,14 @@ internal fun SetType.labelRes(): Int = when (this) {
 fun SetType.markerOrNull(): String? = markerRes()?.let { stringResource(it) }
 
 @StringRes
-private fun SetType.markerRes(): Int? = when (this) {
-    SetType.NORMAL -> null
-    SetType.WARMUP -> R.string.set_type_warmup_marker
-    SetType.DROP_SET -> R.string.set_type_drop_marker
-    SetType.FAILURE -> R.string.set_type_failure_marker
-    SetType.INTERVAL -> R.string.set_type_interval_marker
-}
+private fun SetType.markerRes(): Int? =
+    when (this) {
+        SetType.NORMAL -> null
+        SetType.WARMUP -> R.string.set_type_warmup_marker
+        SetType.DROP_SET -> R.string.set_type_drop_marker
+        SetType.FAILURE -> R.string.set_type_failure_marker
+        SetType.INTERVAL -> R.string.set_type_interval_marker
+    }
 
 /**
  * What a personal record is a record *of*: `Heaviest`, `Most reps`, `1RM`.
@@ -88,14 +90,15 @@ private fun SetType.markerRes(): Int? = when (this) {
 fun PrType.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun PrType.labelRes(): Int = when (this) {
-    PrType.MAX_WEIGHT -> R.string.pr_max_weight
-    PrType.MAX_REPS -> R.string.pr_max_reps
-    PrType.MAX_VOLUME -> R.string.pr_max_volume
-    PrType.ESTIMATED_1RM -> R.string.pr_estimated_1rm
-    PrType.MAX_DISTANCE -> R.string.pr_max_distance
-    PrType.BEST_PACE -> R.string.pr_best_pace
-}
+internal fun PrType.labelRes(): Int =
+    when (this) {
+        PrType.MAX_WEIGHT -> R.string.pr_max_weight
+        PrType.MAX_REPS -> R.string.pr_max_reps
+        PrType.MAX_VOLUME -> R.string.pr_max_volume
+        PrType.ESTIMATED_1RM -> R.string.pr_estimated_1rm
+        PrType.MAX_DISTANCE -> R.string.pr_max_distance
+        PrType.BEST_PACE -> R.string.pr_best_pace
+    }
 
 /**
  * What a saved template trains, as the chip on a template row: `Strength`, `Mobility`.
@@ -110,13 +113,14 @@ internal fun PrType.labelRes(): Int = when (this) {
 fun TemplateCategory.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun TemplateCategory.labelRes(): Int = when (this) {
-    TemplateCategory.STRENGTH -> R.string.template_category_strength
-    TemplateCategory.HYPERTROPHY -> R.string.template_category_hypertrophy
-    TemplateCategory.ENDURANCE -> R.string.template_category_endurance
-    TemplateCategory.MOBILITY -> R.string.template_category_mobility
-    TemplateCategory.GENERAL -> R.string.template_category_general
-}
+internal fun TemplateCategory.labelRes(): Int =
+    when (this) {
+        TemplateCategory.STRENGTH -> R.string.template_category_strength
+        TemplateCategory.HYPERTROPHY -> R.string.template_category_hypertrophy
+        TemplateCategory.ENDURANCE -> R.string.template_category_endurance
+        TemplateCategory.MOBILITY -> R.string.template_category_mobility
+        TemplateCategory.GENERAL -> R.string.template_category_general
+    }
 
 /**
  * A muscle group as a reader should see it: `Lats`, `Lower back`, `Quads`.
@@ -145,11 +149,12 @@ fun MuscleGroup.displayName(): String {
  * Sentence case rather than title case: it is a fallback for a name a user typed, and a
  * user who typed `rear delts` should not be shown `Rear Delts`.
  */
-internal fun MuscleGroup.prettifiedName(): String = name
-    .replace('_', ' ')
-    .trim()
-    .lowercase(Locale.getDefault())
-    .replaceFirstChar { it.titlecase(Locale.getDefault()) }
+internal fun MuscleGroup.prettifiedName(): String =
+    name
+        .replace('_', ' ')
+        .trim()
+        .lowercase(Locale.getDefault())
+        .replaceFirstChar { it.titlecase(Locale.getDefault()) }
 
 private val SEEDED_MUSCLE_LABELS: Map<String, Int> = mapOf(
     "ABDOMINALS" to R.string.muscle_abdominals,

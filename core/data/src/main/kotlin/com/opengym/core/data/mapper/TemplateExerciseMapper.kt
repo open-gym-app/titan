@@ -27,16 +27,17 @@ class TemplateExerciseMapper @Inject constructor() {
      * back in insertion order by chance today would come back rearranged the first time
      * SQLite chose a different path, which is a warm-up drawn after the working sets.
      */
-    fun toDomain(row: TemplateExerciseWithSets): TemplateExercise = TemplateExercise(
-        id = row.exercise.id,
-        templateId = row.exercise.templateId,
-        exerciseId = row.exercise.exerciseId,
-        position = row.exercise.position,
-        supersetGroup = row.exercise.supersetGroup,
-        sets = row.sets.sortedBy(TemplateSetEntity::setNumber).map(::toDomain),
-        restDuration = row.exercise.restDuration,
-        notes = row.exercise.notes,
-    )
+    fun toDomain(row: TemplateExerciseWithSets): TemplateExercise =
+        TemplateExercise(
+            id = row.exercise.id,
+            templateId = row.exercise.templateId,
+            exerciseId = row.exercise.exerciseId,
+            position = row.exercise.position,
+            supersetGroup = row.exercise.supersetGroup,
+            sets = row.sets.sortedBy(TemplateSetEntity::setNumber).map(::toDomain),
+            restDuration = row.exercise.restDuration,
+            notes = row.exercise.notes,
+        )
 
     /**
      * [drafts] as the rows of [templateId], numbered from position 0 in the order given,
@@ -57,7 +58,10 @@ class TemplateExerciseMapper @Inject constructor() {
      * template use cases, and re-deriving them here would only give a caller a second,
      * quieter answer to the same question.
      */
-    fun toEntities(templateId: Long, drafts: List<TemplateExerciseDraft>): List<TemplateExerciseWithSets> =
+    fun toEntities(
+        templateId: Long,
+        drafts: List<TemplateExerciseDraft>,
+    ): List<TemplateExerciseWithSets> =
         drafts.mapIndexed { position, draft ->
             TemplateExerciseWithSets(
                 exercise = TemplateExerciseEntity(
@@ -88,9 +92,10 @@ class TemplateExerciseMapper @Inject constructor() {
      * the set — and with it the whole template — unreadable, matching how every other
      * enum-like column is decoded. See `TemplateMapper`.
      */
-    private fun toDomain(entity: TemplateSetEntity): PlannedSet = PlannedSet(
-        setType = decodeEnum<SetType>(entity.setType) ?: SetType.NORMAL,
-        reps = entity.reps,
-        weight = entity.weight,
-    )
+    private fun toDomain(entity: TemplateSetEntity): PlannedSet =
+        PlannedSet(
+            setType = decodeEnum<SetType>(entity.setType) ?: SetType.NORMAL,
+            reps = entity.reps,
+            weight = entity.weight,
+        )
 }

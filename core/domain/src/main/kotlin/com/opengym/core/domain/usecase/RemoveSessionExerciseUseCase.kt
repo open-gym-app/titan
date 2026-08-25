@@ -57,28 +57,29 @@ class RemoveSessionExerciseUseCase(
      *
      * @return the id that was removed, so a caller can name it in what it shows.
      */
-    suspend operator fun invoke(sessionExerciseId: Long): Result<Long> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val active = current as? SessionState.Active
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    suspend operator fun invoke(sessionExerciseId: Long): Result<Long> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val active = current as? SessionState.Active
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        val exercises = sessionRepository.getExercises(active.sessionId).first()
-            .sortedBy(SessionExercise::position)
+            val exercises = sessionRepository.getExercises(active.sessionId).first()
+                .sortedBy(SessionExercise::position)
 
-        refusal(sessionExerciseId, exercises, active.sessionId)
-            ?.let { return@withTransition Result.failure(it) }
+            refusal(sessionExerciseId, exercises, active.sessionId)
+                ?.let { return@withTransition Result.failure(it) }
 
-        runCatching {
-            sessionRepository.deleteExercise(sessionExerciseId)
-            // Separately, and best-effort, because by here the exercise is gone: a repair that
-            // failed would otherwise be reported as a removal that did not happen, over a card
-            // the caller can see leaving the list — and the caller's cleanup of what it had
-            // typed against the row would be skipped with it. What a failure costs is a group
-            // left with one member in it, which is the tolerable outcome described above.
-            runCatching { repairSupersets(exercises.filterNot { it.id == sessionExerciseId }) }
-            sessionExerciseId
+            runCatching {
+                sessionRepository.deleteExercise(sessionExerciseId)
+                // Separately, and best-effort, because by here the exercise is gone: a repair that
+                // failed would otherwise be reported as a removal that did not happen, over a card
+                // the caller can see leaving the list — and the caller's cleanup of what it had
+                // typed against the row would be skipped with it. What a failure costs is a group
+                // left with one member in it, which is the tolerable outcome described above.
+                runCatching { repairSupersets(exercises.filterNot { it.id == sessionExerciseId }) }
+                sessionExerciseId
+            }
         }
-    }
 
     /**
      * Why this exercise cannot go, or null.

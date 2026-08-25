@@ -99,19 +99,22 @@ class NavMotionTest {
         assertEquals(NavMotion.FORWARD, motionBetween(outsideTabs(), outsideTabs()))
     }
 
-    private fun tab(destination: TopLevelDestination) = ShellChrome(
-        currentTopLevelDestination = destination,
-        isInSessionFlow = false,
-    )
+    private fun tab(destination: TopLevelDestination) =
+        ShellChrome(
+            currentTopLevelDestination = destination,
+            isInSessionFlow = false,
+        )
 
-    private fun sessionFlow() = ShellChrome(
-        currentTopLevelDestination = null,
-        isInSessionFlow = true,
-    )
+    private fun sessionFlow() =
+        ShellChrome(
+            currentTopLevelDestination = null,
+            isInSessionFlow = true,
+        )
 
     /** Settings, onboarding — outside the tabs without being the session mode. */
-    private fun outsideTabs() = ShellChrome(
-        currentTopLevelDestination = null,
-        isInSessionFlow = false,
-    )
+    private fun outsideTabs() =
+        ShellChrome(
+            currentTopLevelDestination = null,
+            isInSessionFlow = false,
+        )
 }

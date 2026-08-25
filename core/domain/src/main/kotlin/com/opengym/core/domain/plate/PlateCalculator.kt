@@ -53,7 +53,11 @@ object PlateCalculator {
      *   missing answer rather than a preference, which is the same rule
      *   [com.opengym.core.domain.model.UserPreferences] applies to the stored value.
      */
-    fun solve(target: Long, barWeight: Long, inventory: PlateInventory): PlateSolution {
+    fun solve(
+        target: Long,
+        barWeight: Long,
+        inventory: PlateInventory,
+    ): PlateSolution {
         require(barWeight > 0) { "the bar must weigh something, was $barWeight mg" }
 
         if (target < barWeight - PlateSolution.WEIGHT_TOLERANCE) {
@@ -91,7 +95,10 @@ object PlateCalculator {
      *
      * @param plates sizes held in at least one pair, heaviest first.
      */
-    private fun load(capacity: Long, plates: List<PlateStock>): List<PlateCount> {
+    private fun load(
+        capacity: Long,
+        plates: List<PlateStock>,
+    ): List<PlateCount> {
         val step = plates.map { it.weight }.reduce(::greatestCommonDivisor)
 
         // Capped by the rack as well as by the target: a lifter with two 20s and a 500 kg target
@@ -126,7 +133,12 @@ object PlateCalculator {
      *   afterwards because the arithmetic that finds it is the arithmetic being done anyway.
      * @return the table for every size up to and including this one.
      */
-    private fun admit(reachable: IntArray, counts: IntArray, weight: Int, pairs: Int): IntArray {
+    private fun admit(
+        reachable: IntArray,
+        counts: IntArray,
+        weight: Int,
+        pairs: Int,
+    ): IntArray {
         val next = IntArray(reachable.size) { UNREACHABLE }
 
         for (cell in reachable.indices) {
@@ -194,7 +206,10 @@ object PlateCalculator {
      * same answer; where it can differ is the case [PlateCalculator]'s own note describes, and a
      * loading two plates off beats a frozen screen.
      */
-    private fun greedy(capacity: Long, plates: List<PlateStock>): List<PlateCount> {
+    private fun greedy(
+        capacity: Long,
+        plates: List<PlateStock>,
+    ): List<PlateCount> {
         var remaining = capacity
         val loading = mutableListOf<PlateCount>()
 
@@ -210,8 +225,10 @@ object PlateCalculator {
     }
 
     /** Euclid, iteratively. Both arguments are positive plate weights, so neither can be zero. */
-    private tailrec fun greatestCommonDivisor(a: Long, b: Long): Long =
-        if (b == 0L) a else greatestCommonDivisor(b, a % b)
+    private tailrec fun greatestCommonDivisor(
+        a: Long,
+        b: Long,
+    ): Long = if (b == 0L) a else greatestCommonDivisor(b, a % b)
 
     /** No combination of plates makes this weight. Not a plate count, so it cannot be zero. */
     private const val UNREACHABLE = -1

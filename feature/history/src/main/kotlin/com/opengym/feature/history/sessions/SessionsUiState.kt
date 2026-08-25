@@ -188,7 +188,10 @@ sealed interface DateFilter {
      * for one day, since a single day *is* a window whose ends match and the sheet renders it
      * as one either way.
      */
-    data class Between(val start: LocalDate, val end: LocalDate) : DateFilter
+    data class Between(
+        val start: LocalDate,
+        val end: LocalDate,
+    ) : DateFilter
 }
 
 /**

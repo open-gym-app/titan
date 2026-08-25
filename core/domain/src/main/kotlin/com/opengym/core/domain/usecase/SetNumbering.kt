@@ -42,7 +42,11 @@ internal object SetNumbering {
      *   whole table is numbered from; a caller renumbering only the tail of one passes the
      *   number the tail starts at.
      */
-    fun renumber(sets: List<WorkoutSet>, now: Long, from: Int = FIRST): List<WorkoutSet> =
+    fun renumber(
+        sets: List<WorkoutSet>,
+        now: Long,
+        from: Int = FIRST,
+    ): List<WorkoutSet> =
         sets.mapIndexedNotNull { index, set ->
             val number = from + index
             set.copy(setNumber = number, updatedAt = now).takeIf { set.setNumber != number }
@@ -69,10 +73,12 @@ internal object SetNumbering {
 internal suspend fun SessionRepository.applyRenumbering(
     renumbered: List<WorkoutSet>,
     written: WorkoutSet,
-): Result<Unit> = when {
-    renumbered.isEmpty() -> Result.success(Unit)
-    else -> runCatching { updateSets(renumbered) }.fold(
-        onSuccess = { Result.success(Unit) },
-        onFailure = { Result.failure(SessionError.SetTableNotRenumbered(written, it)) },
-    )
-}
+): Result<Unit> =
+    when {
+        renumbered.isEmpty() -> Result.success(Unit)
+
+        else -> runCatching { updateSets(renumbered) }.fold(
+            onSuccess = { Result.success(Unit) },
+            onFailure = { Result.failure(SessionError.SetTableNotRenumbered(written, it)) },
+        )
+    }

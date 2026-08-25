@@ -86,10 +86,11 @@ abstract class UserPreferencesModule {
         fun provideUserPreferencesDataStore(
             @ApplicationContext context: Context,
             @IoDispatcher ioDispatcher: CoroutineDispatcher,
-        ): DataStore<Preferences> = PreferenceDataStoreFactory.create(
-            corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
-            scope = CoroutineScope(ioDispatcher + SupervisorJob()),
-            produceFile = { context.preferencesDataStoreFile(STORE_NAME) },
-        )
+        ): DataStore<Preferences> =
+            PreferenceDataStoreFactory.create(
+                corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
+                scope = CoroutineScope(ioDispatcher + SupervisorJob()),
+                produceFile = { context.preferencesDataStoreFile(STORE_NAME) },
+            )
     }
 }

@@ -107,8 +107,10 @@ class ExerciseCardTest {
         composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
     }
 
-    private fun link(name: String, primary: Boolean) =
-        ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
+    private fun link(
+        name: String,
+        primary: Boolean,
+    ) = ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
 
     private fun setContent(content: @Composable () -> Unit) {
         composeTestRule.setContent { OpenGymTheme(content = content) }

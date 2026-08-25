@@ -29,56 +29,57 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
  * one point guaranteed to run after every plugin, AGP and KGP included, has finished.
  */
 class AndroidJacocoConventionPlugin : Plugin<Project> {
-    override fun apply(target: Project) = with(target) {
-        pluginManager.apply("jacoco")
+    override fun apply(target: Project) =
+        with(target) {
+            pluginManager.apply("jacoco")
 
-        extensions.configure<JacocoPluginExtension> {
-            toolVersion = libs.findVersion("jacoco").get().requiredVersion
-        }
-
-        tasks.withType<Test>().configureEach {
-            configure<JacocoTaskExtension> {
-                // Robolectric loads classes from the boot classpath with no attributable
-                // source location; without this, JaCoCo throws instead of skipping them.
-                // https://github.com/robolectric/robolectric/issues/2230
-                isIncludeNoLocationClasses = true
-                excludes = listOf("jdk.internal.*")
+            extensions.configure<JacocoPluginExtension> {
+                toolVersion = libs.findVersion("jacoco").get().requiredVersion
             }
-        }
 
-        afterEvaluate {
-            val test = tasks.named<Test>("testDebugUnitTest")
-
-            // The classes JaCoCo instruments come straight from the Kotlin compile task's
-            // own output directory rather than a guessed `build/...` path, so this keeps
-            // working if AGP moves where it stages this task's output.
-            val compileKotlin = tasks.named<KotlinCompile>("compileDebugKotlin")
-
-            val reportTask = tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
-                group = "verification"
-                description = "Generates a JaCoCo coverage report for the debug unit tests."
-                dependsOn(test)
-                reports {
-                    xml.required.set(true)
-                    html.required.set(true)
-                    csv.required.set(false)
+            tasks.withType<Test>().configureEach {
+                configure<JacocoTaskExtension> {
+                    // Robolectric loads classes from the boot classpath with no attributable
+                    // source location; without this, JaCoCo throws instead of skipping them.
+                    // https://github.com/robolectric/robolectric/issues/2230
+                    isIncludeNoLocationClasses = true
+                    excludes = listOf("jdk.internal.*")
                 }
-                sourceDirectories.setFrom(files("src/main/kotlin", "src/main/java"))
-                classDirectories.setFrom(
-                    compileKotlin.flatMap { it.destinationDirectory }.map { dir ->
-                        fileTree(dir) { exclude(jacocoCoverageExclusions) }
-                    },
-                )
-                // The exec data path the `jacoco` plugin already wired onto this exact
-                // test task, not a re-derived guess at where it writes it.
-                executionData.setFrom(
-                    test.map { it.extensions.getByType<JacocoTaskExtension>().destinationFile },
-                )
             }
 
-            test.configure { finalizedBy(reportTask) }
+            afterEvaluate {
+                val test = tasks.named<Test>("testDebugUnitTest")
+
+                // The classes JaCoCo instruments come straight from the Kotlin compile task's
+                // own output directory rather than a guessed `build/...` path, so this keeps
+                // working if AGP moves where it stages this task's output.
+                val compileKotlin = tasks.named<KotlinCompile>("compileDebugKotlin")
+
+                val reportTask = tasks.register<JacocoReport>("jacocoDebugUnitTestReport") {
+                    group = "verification"
+                    description = "Generates a JaCoCo coverage report for the debug unit tests."
+                    dependsOn(test)
+                    reports {
+                        xml.required.set(true)
+                        html.required.set(true)
+                        csv.required.set(false)
+                    }
+                    sourceDirectories.setFrom(files("src/main/kotlin", "src/main/java"))
+                    classDirectories.setFrom(
+                        compileKotlin.flatMap { it.destinationDirectory }.map { dir ->
+                            fileTree(dir) { exclude(jacocoCoverageExclusions) }
+                        },
+                    )
+                    // The exec data path the `jacoco` plugin already wired onto this exact
+                    // test task, not a re-derived guess at where it writes it.
+                    executionData.setFrom(
+                        test.map { it.extensions.getByType<JacocoTaskExtension>().destinationFile },
+                    )
+                }
+
+                test.configure { finalizedBy(reportTask) }
+            }
         }
-    }
 }
 
 // Generated code that a coverage floor would end up measuring instead of anything

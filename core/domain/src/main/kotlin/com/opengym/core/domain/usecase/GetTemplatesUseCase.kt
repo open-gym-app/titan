@@ -12,9 +12,7 @@ import kotlinx.coroutines.flow.Flow
  * directly — which is what would have to be unpicked the first time this list needs
  * a filter, an exercise count, or a "last used" ordering.
  */
-class GetTemplatesUseCase(
-    private val templateRepository: TemplateRepository,
-) {
+class GetTemplatesUseCase(private val templateRepository: TemplateRepository) {
 
     operator fun invoke(): Flow<List<WorkoutTemplate>> = templateRepository.getAll()
 }

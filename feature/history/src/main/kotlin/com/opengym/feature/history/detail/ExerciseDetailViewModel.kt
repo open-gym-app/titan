@@ -109,20 +109,28 @@ class ExerciseDetailViewModel @Inject constructor(
     fun onEvent(event: ExerciseDetailEvent) {
         when (event) {
             ExerciseDetailEvent.NoteEditRequested -> openNote()
+
             is ExerciseDetailEvent.NoteChanged ->
                 screenState.update { it.copy(noteDraft = event.text) }
+
             ExerciseDetailEvent.NoteEditCancelled ->
                 screenState.update { it.copy(noteDraft = null, isSavingNotes = false) }
+
             ExerciseDetailEvent.NoteSaved -> saveNote()
 
             ExerciseDetailEvent.EditRequested -> openEdit()
+
             is ExerciseDetailEvent.EditChanged ->
                 screenState.update { it.copy(editDraft = event.draft.copy(saveFailed = false)) }
+
             ExerciseDetailEvent.EditSubmitted -> saveEdit()
+
             ExerciseDetailEvent.EditDismissed -> screenState.update { it.copy(editDraft = null) }
 
             ExerciseDetailEvent.DeleteRequested -> screenState.update { it.copy(confirmingDelete = true) }
+
             ExerciseDetailEvent.DeleteConfirmed -> delete()
+
             ExerciseDetailEvent.DeleteDismissed ->
                 screenState.update { it.copy(confirmingDelete = false) }
 
@@ -278,19 +286,20 @@ class ExerciseDetailViewModel @Inject constructor(
         links: List<ExerciseMuscleGroupLink>,
         vocabulary: Vocabulary,
         screen: ScreenState,
-    ): ExerciseDetailUiState = ExerciseDetailUiState(
-        exercise = loaded?.exercise,
-        muscleLinks = links,
-        taxonomy = vocabulary.taxonomy,
-        notesDraft = screen.noteDraft,
-        isSavingNotes = screen.isSavingNotes,
-        editDraft = screen.editDraft?.let { it.copy(isDuplicateName = it.isDuplicateIn(vocabulary.catalogue)) },
-        confirmingDelete = screen.confirmingDelete,
-        isDeleting = screen.isDeleting,
-        isDeleted = screen.isDeleted,
-        isLoading = loaded == null,
-        message = screen.message,
-    )
+    ): ExerciseDetailUiState =
+        ExerciseDetailUiState(
+            exercise = loaded?.exercise,
+            muscleLinks = links,
+            taxonomy = vocabulary.taxonomy,
+            notesDraft = screen.noteDraft,
+            isSavingNotes = screen.isSavingNotes,
+            editDraft = screen.editDraft?.let { it.copy(isDuplicateName = it.isDuplicateIn(vocabulary.catalogue)) },
+            confirmingDelete = screen.confirmingDelete,
+            isDeleting = screen.isDeleting,
+            isDeleted = screen.isDeleted,
+            isLoading = loaded == null,
+            message = screen.message,
+        )
 
     /** What the user is in the middle of, which the store has no opinion about. */
     private data class ScreenState(

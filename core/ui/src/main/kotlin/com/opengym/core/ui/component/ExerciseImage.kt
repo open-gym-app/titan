@@ -71,7 +71,10 @@ fun ExerciseImage(
  * are not distinguishable until Coil has tried.
  */
 @Composable
-fun ExerciseHeroImage(exercise: Exercise, modifier: Modifier = Modifier) {
+fun ExerciseHeroImage(
+    exercise: Exercise,
+    modifier: Modifier = Modifier,
+) {
     ExerciseImageBox(
         exercise = exercise,
         letterStyle = OpenGymTheme.typography.numericLarge,

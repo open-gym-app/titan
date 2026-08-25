@@ -39,7 +39,10 @@ import kotlin.time.Duration.Companion.seconds
  * caller can pass whatever the store gave it without first asking whether it is drawable.
  */
 @Composable
-fun PrValue(record: PersonalRecord, modifier: Modifier = Modifier) {
+fun PrValue(
+    record: PersonalRecord,
+    modifier: Modifier = Modifier,
+) {
     val value = record.formattedValue() ?: return
     val label = stringResource(R.string.pr_badge)
     val spoken = stringResource(R.string.pr_value_description, record.type.label(), value)
@@ -74,18 +77,23 @@ fun PrValue(record: PersonalRecord, modifier: Modifier = Modifier) {
  */
 @Composable
 @ReadOnlyComposable
-fun PersonalRecord.formattedValue(): String? = when (type) {
-    PrType.MAX_WEIGHT -> weight?.let { formatWeight(it) }
-    PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatWeight(it) }
-    PrType.MAX_REPS -> reps?.let { pluralStringResource(R.plurals.pr_value_reps, it, it) }
-    PrType.MAX_VOLUME -> weight?.let { formatVolume(it) }
-    PrType.MAX_DISTANCE -> distance?.let { formatDistance(it) }
-    PrType.BEST_PACE -> duration?.let { it.seconds.formatAsElapsed() }
-}
+fun PersonalRecord.formattedValue(): String? =
+    when (type) {
+        PrType.MAX_WEIGHT -> weight?.let { formatWeight(it) }
+        PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatWeight(it) }
+        PrType.MAX_REPS -> reps?.let { pluralStringResource(R.plurals.pr_value_reps, it, it) }
+        PrType.MAX_VOLUME -> weight?.let { formatVolume(it) }
+        PrType.MAX_DISTANCE -> distance?.let { formatDistance(it) }
+        PrType.BEST_PACE -> duration?.let { it.seconds.formatAsElapsed() }
+    }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-private fun previewRecord(type: PrType, weight: Long? = null, reps: Int? = null) = PersonalRecord(
+private fun previewRecord(
+    type: PrType,
+    weight: Long? = null,
+    reps: Int? = null,
+) = PersonalRecord(
     id = type.ordinal.toLong(),
     exerciseId = 1,
     workoutSetId = 1,

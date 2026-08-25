@@ -25,7 +25,11 @@ object SessionStatsCalculator {
      * A window that runs backwards — which a device clock adjusted mid-session can
      * produce — is clamped to zero rather than reported as a negative duration.
      */
-    fun calculate(sets: List<WorkoutSet>, startedAt: Long, endedAt: Long): SessionStats {
+    fun calculate(
+        sets: List<WorkoutSet>,
+        startedAt: Long,
+        endedAt: Long,
+    ): SessionStats {
         val performed = sets.filter(WorkoutSet::isCompleted)
 
         // groupBy keeps insertion order, so the breakdown comes out in the order the
@@ -55,14 +59,19 @@ object SessionStatsCalculator {
      * up again to change one number. It answers that caller with the arithmetic [calculate]
      * itself uses, rather than leaving the same expression written out in two places to drift.
      */
-    fun durationSeconds(startedAt: Long, endedAt: Long): Long =
-        (endedAt - startedAt).coerceAtLeast(0) / MILLIS_PER_SECOND
+    fun durationSeconds(
+        startedAt: Long,
+        endedAt: Long,
+    ): Long = (endedAt - startedAt).coerceAtLeast(0) / MILLIS_PER_SECOND
 
     /**
      * Same aggregation for a [session] and its [sets], taking the window from the
      * session row: it began at `createdAt`, and it ends at `completedAt` once it has
      * been closed out or at [now] while it is still running.
      */
-    fun calculate(session: WorkoutSession, sets: List<WorkoutSet>, now: Long): SessionStats =
-        calculate(sets, session.createdAt, session.completedAt ?: now)
+    fun calculate(
+        session: WorkoutSession,
+        sets: List<WorkoutSet>,
+        now: Long,
+    ): SessionStats = calculate(sets, session.createdAt, session.completedAt ?: now)
 }

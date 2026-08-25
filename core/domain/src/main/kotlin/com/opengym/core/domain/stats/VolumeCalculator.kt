@@ -32,6 +32,5 @@ object VolumeCalculator {
      * Placeholder sets (`isCompleted = false`) are skipped here rather than by the
      * caller, so no call site can inflate a total by forgetting to filter.
      */
-    fun totalVolume(sets: Iterable<WorkoutSet>): Long =
-        sets.sumOf { if (it.isCompleted) setVolume(it) else 0L }
+    fun totalVolume(sets: Iterable<WorkoutSet>): Long = sets.sumOf { if (it.isCompleted) setVolume(it) else 0L }
 }

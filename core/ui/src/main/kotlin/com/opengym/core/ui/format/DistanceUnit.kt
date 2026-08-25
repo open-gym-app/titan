@@ -45,21 +45,22 @@ enum class DistanceUnit(
  * The imperial short unit is the yard rather than the foot because that is what a track is
  * marked in; the metric one is the metre for the same reason.
  */
-fun UnitSystem.distanceUnitFor(centimetres: Long): DistanceUnit = when (this) {
-    UnitSystem.METRIC ->
-        if (centimetres.readsUnder(DistanceUnit.KILOMETRE.centimetres, DistanceUnit.METRE)) {
-            DistanceUnit.METRE
-        } else {
-            DistanceUnit.KILOMETRE
-        }
+fun UnitSystem.distanceUnitFor(centimetres: Long): DistanceUnit =
+    when (this) {
+        UnitSystem.METRIC ->
+            if (centimetres.readsUnder(DistanceUnit.KILOMETRE.centimetres, DistanceUnit.METRE)) {
+                DistanceUnit.METRE
+            } else {
+                DistanceUnit.KILOMETRE
+            }
 
-    UnitSystem.IMPERIAL ->
-        if (centimetres.readsUnder(DistanceUnit.MILE.centimetres * MILE_THRESHOLD, DistanceUnit.YARD)) {
-            DistanceUnit.YARD
-        } else {
-            DistanceUnit.MILE
-        }
-}
+        UnitSystem.IMPERIAL ->
+            if (centimetres.readsUnder(DistanceUnit.MILE.centimetres * MILE_THRESHOLD, DistanceUnit.YARD)) {
+                DistanceUnit.YARD
+            } else {
+                DistanceUnit.MILE
+            }
+    }
 
 /**
  * Whether [this] many centimetres are still under [threshold] *as [unit] would show them*.
@@ -69,8 +70,10 @@ fun UnitSystem.distanceUnitFor(centimetres: Long): DistanceUnit = when (this) {
  * and `1000 m` is the app spelling out a kilometre in the unit it just decided not to use.
  * Rounding first sends that value to `1 km`, which is what it reads as anyway.
  */
-private fun Long.readsUnder(threshold: Double, unit: DistanceUnit): Boolean =
-    (this / unit.centimetres).roundToFractionDigits(unit.fractionDigits) * unit.centimetres < threshold
+private fun Long.readsUnder(
+    threshold: Double,
+    unit: DistanceUnit,
+): Boolean = (this / unit.centimetres).roundToFractionDigits(unit.fractionDigits) * unit.centimetres < threshold
 
 /** The fraction of a mile under which a distance reads better in yards. */
 private const val MILE_THRESHOLD = 0.5

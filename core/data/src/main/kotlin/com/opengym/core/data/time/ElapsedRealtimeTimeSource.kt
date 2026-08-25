@@ -43,7 +43,6 @@ object ElapsedRealtimeTimeSource : TimeSource {
      */
     private class Mark(private val readingMillis: Long) : TimeMark {
 
-        override fun elapsedNow(): Duration =
-            (SystemClock.elapsedRealtime() - readingMillis).milliseconds
+        override fun elapsedNow(): Duration = (SystemClock.elapsedRealtime() - readingMillis).milliseconds
     }
 }

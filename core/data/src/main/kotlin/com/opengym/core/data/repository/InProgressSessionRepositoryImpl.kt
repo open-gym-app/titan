@@ -74,15 +74,16 @@ class InProgressSessionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun load(): ActiveSession? = withContext(ioDispatcher) {
-        val text = try {
-            document.takeIf { it.exists() }?.readText()
-        } catch (_: IOException) {
-            // Unreadable is indistinguishable from absent to a caller, by contract.
-            null
+    override suspend fun load(): ActiveSession? =
+        withContext(ioDispatcher) {
+            val text = try {
+                document.takeIf { it.exists() }?.readText()
+            } catch (_: IOException) {
+                // Unreadable is indistinguishable from absent to a caller, by contract.
+                null
+            }
+            text?.let(ActiveSessionFormat::decode)
         }
-        text?.let(ActiveSessionFormat::decode)
-    }
 
     override suspend fun clear() {
         withContext(ioDispatcher) {

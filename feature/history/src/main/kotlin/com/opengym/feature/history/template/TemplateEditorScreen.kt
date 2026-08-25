@@ -146,7 +146,11 @@ fun TemplateEditorRoute(
  * which has already inset its content and drawn its own bar under this one.
  */
 @Composable
-private fun SaveBar(enabled: Boolean, onSave: () -> Unit, modifier: Modifier = Modifier) {
+private fun SaveBar(
+    enabled: Boolean,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Button(
@@ -518,7 +522,10 @@ private fun TemplateEditorBody(
  * the screen has just been sealed off from.
  */
 @Composable
-private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEditorEvent) -> Unit) {
+private fun TemplateHeader(
+    state: TemplateEditorUiState,
+    onEvent: (TemplateEditorEvent) -> Unit,
+) {
     val summary = state.summary
     val untitled = stringResource(R.string.template_editor_untitled)
 
@@ -549,12 +556,13 @@ private fun TemplateHeader(state: TemplateEditorUiState, onEvent: (TemplateEdito
 }
 
 /** The sentence a message is shown as. */
-private fun TemplateEditorMessage.labelRes(): Int = when (this) {
-    TemplateEditorMessage.EXERCISES_UNAVAILABLE -> R.string.template_editor_exercises_unavailable
-    TemplateEditorMessage.EXERCISE_UNAVAILABLE -> R.string.template_editor_exercise_unavailable
-    TemplateEditorMessage.EDITOR_RESTARTED -> R.string.template_editor_restarted
-    TemplateEditorMessage.SAVE_FAILED -> R.string.template_editor_save_failed
-}
+private fun TemplateEditorMessage.labelRes(): Int =
+    when (this) {
+        TemplateEditorMessage.EXERCISES_UNAVAILABLE -> R.string.template_editor_exercises_unavailable
+        TemplateEditorMessage.EXERCISE_UNAVAILABLE -> R.string.template_editor_exercise_unavailable
+        TemplateEditorMessage.EDITOR_RESTARTED -> R.string.template_editor_restarted
+        TemplateEditorMessage.SAVE_FAILED -> R.string.template_editor_save_failed
+    }
 
 /* Stable keys for the items that are not exercises. */
 private const val HEADER_KEY = "header"
@@ -671,52 +679,57 @@ fun TemplateEditorScreenMissingPreview() {
 private const val PREVIEW_REFUSED_KEY = 1L
 
 /** A push day with its last two exercises paired up. */
-private fun previewState() = TemplateEditorUiState(
-    name = "Push Day · Upper",
-    category = TemplateCategory.STRENGTH,
-    estimatedDuration = 52.minutes,
-    isLoading = false,
-    exercises = listOf(
-        // A warm-up, two working sets and a drop set — the plan the old four-cell card could
-        // not express, which is why the preview leads with it.
-        previewRow(
-            key = 1L,
-            name = "Bench press",
-            sets = listOf(
-                previewSet(key = 1L, setType = SetType.WARMUP, weight = "40", reps = "12"),
-                previewSet(key = 2L, weight = "80", reps = "8"),
-                previewSet(key = 3L, weight = "80", reps = "8"),
-                previewSet(key = 4L, setType = SetType.DROP_SET, weight = "60", reps = "10"),
+private fun previewState() =
+    TemplateEditorUiState(
+        name = "Push Day · Upper",
+        category = TemplateCategory.STRENGTH,
+        estimatedDuration = 52.minutes,
+        isLoading = false,
+        exercises = listOf(
+            // A warm-up, two working sets and a drop set — the plan the old four-cell card could
+            // not express, which is why the preview leads with it.
+            previewRow(
+                key = 1L,
+                name = "Bench press",
+                sets = listOf(
+                    previewSet(key = 1L, setType = SetType.WARMUP, weight = "40", reps = "12"),
+                    previewSet(key = 2L, weight = "80", reps = "8"),
+                    previewSet(key = 3L, weight = "80", reps = "8"),
+                    previewSet(key = 4L, setType = SetType.DROP_SET, weight = "60", reps = "10"),
+                ),
+            ),
+            previewRow(
+                key = 2L,
+                name = "Incline dumbbell press",
+                sets = previewPlan(firstKey = 10L, count = 3, weight = "28", reps = "10"),
+            ),
+            previewRow(
+                key = 3L,
+                name = "Cable fly",
+                sets = previewPlan(firstKey = 20L, count = 3, weight = "15", reps = "12"),
+                supersetGroup = 0,
+                supersetLabel = "A1",
+                supersetGroupName = "A",
+                isLinkedToNext = true,
+            ),
+            previewRow(
+                key = 4L,
+                name = "Tricep pushdown",
+                sets = previewPlan(firstKey = 30L, count = 3, weight = "25", reps = "12"),
+                supersetGroup = 0,
+                supersetLabel = "A2",
+                supersetGroupName = "A",
             ),
         ),
-        previewRow(
-            key = 2L,
-            name = "Incline dumbbell press",
-            sets = previewPlan(firstKey = 10L, count = 3, weight = "28", reps = "10"),
-        ),
-        previewRow(
-            key = 3L,
-            name = "Cable fly",
-            sets = previewPlan(firstKey = 20L, count = 3, weight = "15", reps = "12"),
-            supersetGroup = 0,
-            supersetLabel = "A1",
-            supersetGroupName = "A",
-            isLinkedToNext = true,
-        ),
-        previewRow(
-            key = 4L,
-            name = "Tricep pushdown",
-            sets = previewPlan(firstKey = 30L, count = 3, weight = "25", reps = "12"),
-            supersetGroup = 0,
-            supersetLabel = "A2",
-            supersetGroupName = "A",
-        ),
-    ),
-)
+    )
 
 /** [count] identical working sets, keyed from [firstKey], for a card whose plan is not the point. */
-private fun previewPlan(firstKey: Long, count: Int, weight: String, reps: String) =
-    List(count) { previewSet(key = firstKey + it, weight = weight, reps = reps) }
+private fun previewPlan(
+    firstKey: Long,
+    count: Int,
+    weight: String,
+    reps: String,
+) = List(count) { previewSet(key = firstKey + it, weight = weight, reps = reps) }
 
 private fun previewSet(
     key: Long,

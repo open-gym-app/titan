@@ -31,14 +31,20 @@ sealed interface SessionState {
     data object Idle : SessionState
 
     /** A session is running and accepting logged sets. [startedAt] is when it was created. */
-    data class Active(val sessionId: Long, val startedAt: Long) : SessionState
+    data class Active(
+        val sessionId: Long,
+        val startedAt: Long,
+    ) : SessionState
 
     /**
      * A session exists but is suspended. [pausedAt] is when it was suspended; the
      * session's own `createdAt` remains the authority on when it began, so a
      * paused session does not need to carry its start time around.
      */
-    data class Paused(val sessionId: Long, val pausedAt: Long) : SessionState
+    data class Paused(
+        val sessionId: Long,
+        val pausedAt: Long,
+    ) : SessionState
 
     /** The session has been closed out and its row marked `is_in_progress = 0`. */
     data class Finished(val summary: SessionSummary) : SessionState

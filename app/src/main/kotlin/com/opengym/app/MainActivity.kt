@@ -41,6 +41,7 @@ class MainActivity : ComponentActivity() {
             // theme, corrected while the user watches". See [MainUiState].
             when (val state = uiState) {
                 MainUiState.Loading -> Unit
+
                 is MainUiState.Ready -> OpenGymTheme(
                     theme = state.preferences.theme,
                     unitSystem = state.preferences.unitSystem,

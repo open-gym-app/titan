@@ -15,42 +15,46 @@ class GetTemplatesUseCaseTest {
     private val deleteTemplate = DeleteTemplateUseCase(templates)
 
     @Test
-    fun `an empty store emits an empty list rather than nothing`() = runTest {
-        assertEquals(emptyList<WorkoutTemplate>(), getTemplates().first())
-    }
-
-    @Test
-    fun `templates are emitted ordered by name`() = runTest {
-        templates.seed("Push day")
-        templates.seed("Arms")
-        templates.seed("Legs")
-
-        assertEquals(listOf("Arms", "Legs", "Push day"), getTemplates().first().map { it.name })
-    }
-
-    @Test
-    fun `the list re-emits when a template is created`() = runTest {
-        getTemplates().test {
-            assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
-
-            createTemplate("Push day", listOf(draft(exerciseId = 1L))).getOrThrow()
-
-            assertEquals(listOf("Push day"), awaitItem().map { it.name })
-            cancelAndIgnoreRemainingEvents()
+    fun `an empty store emits an empty list rather than nothing`() =
+        runTest {
+            assertEquals(emptyList<WorkoutTemplate>(), getTemplates().first())
         }
-    }
 
     @Test
-    fun `the list re-emits when a template is deleted`() = runTest {
-        val id = templates.seed("Push day")
+    fun `templates are emitted ordered by name`() =
+        runTest {
+            templates.seed("Push day")
+            templates.seed("Arms")
+            templates.seed("Legs")
 
-        getTemplates().test {
-            assertEquals(listOf("Push day"), awaitItem().map { it.name })
-
-            deleteTemplate(id).getOrThrow()
-
-            assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
-            cancelAndIgnoreRemainingEvents()
+            assertEquals(listOf("Arms", "Legs", "Push day"), getTemplates().first().map { it.name })
         }
-    }
+
+    @Test
+    fun `the list re-emits when a template is created`() =
+        runTest {
+            getTemplates().test {
+                assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
+
+                createTemplate("Push day", listOf(draft(exerciseId = 1L))).getOrThrow()
+
+                assertEquals(listOf("Push day"), awaitItem().map { it.name })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
+
+    @Test
+    fun `the list re-emits when a template is deleted`() =
+        runTest {
+            val id = templates.seed("Push day")
+
+            getTemplates().test {
+                assertEquals(listOf("Push day"), awaitItem().map { it.name })
+
+                deleteTemplate(id).getOrThrow()
+
+                assertEquals(emptyList<WorkoutTemplate>(), awaitItem())
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 }

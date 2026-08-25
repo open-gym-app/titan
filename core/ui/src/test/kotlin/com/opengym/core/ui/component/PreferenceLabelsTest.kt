@@ -65,7 +65,10 @@ class PreferenceLabelsTest {
      * One `setContent` per test, taking every string a value carries in one pass — the rule
      * refuses a second call, and the label and its detail are the same question anyway.
      */
-    private fun <T> assertAllLabelled(values: List<T>, strings: @Composable (T) -> List<String>) {
+    private fun <T> assertAllLabelled(
+        values: List<T>,
+        strings: @Composable (T) -> List<String>,
+    ) {
         val rendered = mutableListOf<String>()
         composeTestRule.setContent {
             OpenGymTheme {

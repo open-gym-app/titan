@@ -217,7 +217,10 @@ private val PlateCalculatorUiState.perSide
  * your hands. The suffix is drawn separately and small, the way every big figure in the app is.
  */
 @Composable
-private fun TargetWeight(target: Long, onEdit: () -> Unit) {
+private fun TargetWeight(
+    target: Long,
+    onEdit: () -> Unit,
+) {
     val description = stringResource(R.string.plate_target_edit, formatWeight(target))
 
     Column(
@@ -371,9 +374,10 @@ private fun PlateCalculatorTopBar(onBack: () -> Unit) {
     }
 }
 
-private fun PlateCalculatorMessage.textRes(): Int = when (this) {
-    PlateCalculatorMessage.SAVE_FAILED -> R.string.plate_save_failed
-}
+private fun PlateCalculatorMessage.textRes(): Int =
+    when (this) {
+        PlateCalculatorMessage.SAVE_FAILED -> R.string.plate_save_failed
+    }
 
 /** The big step is four of the small one: 10 kg on a metric rack, 20 lb on an imperial one. */
 private const val LARGE_STEP_MULTIPLE = 4
@@ -401,8 +405,10 @@ private const val PREVIEW_HOME_TARGET = 120_000_000L
 private const val PREVIEW_HOME_BIG_PLATE = 20_000_000L
 private const val PREVIEW_HOME_SMALL_PLATE = 5_000_000L
 
-private fun previewState(target: Long, preferences: UserPreferences = UserPreferences()) =
-    PlateCalculatorUiState(target = target, preferences = preferences)
+private fun previewState(
+    target: Long,
+    preferences: UserPreferences = UserPreferences(),
+) = PlateCalculatorUiState(target = target, preferences = preferences)
 
 @Preview(name = "Plate calculator", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable

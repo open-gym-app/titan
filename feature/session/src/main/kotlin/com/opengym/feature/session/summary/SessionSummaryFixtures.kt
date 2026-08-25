@@ -52,82 +52,86 @@ internal fun previewState(
     )
 }
 
-internal fun previewStats(): SessionStats = SessionStats(
-    totalSets = 17,
-    totalVolume = 4_820_000_000,
-    durationSeconds = 3_144,
-    exerciseBreakdown = List(PREVIEW_EXERCISE_COUNT) { index ->
-        ExerciseStats(sessionExerciseId = index + 1L, totalSets = 3, totalVolume = 964_000_000)
-    },
-)
+internal fun previewStats(): SessionStats =
+    SessionStats(
+        totalSets = 17,
+        totalVolume = 4_820_000_000,
+        durationSeconds = 3_144,
+        exerciseBreakdown = List(PREVIEW_EXERCISE_COUNT) { index ->
+            ExerciseStats(sessionExerciseId = index + 1L, totalSets = 3, totalVolume = 964_000_000)
+        },
+    )
 
-internal fun previewRecords(): List<SummaryRecord> = listOf(
-    SummaryRecord(
-        record = PersonalRecord(
-            id = 1,
-            exerciseId = 1,
-            workoutSetId = 4,
-            type = PrType.ESTIMATED_1RM,
-            estimated1Rm = 92_000_000,
-            achievedAt = PREVIEW_FINISHED_AT,
+internal fun previewRecords(): List<SummaryRecord> =
+    listOf(
+        SummaryRecord(
+            record = PersonalRecord(
+                id = 1,
+                exerciseId = 1,
+                workoutSetId = 4,
+                type = PrType.ESTIMATED_1RM,
+                estimated1Rm = 92_000_000,
+                achievedAt = PREVIEW_FINISHED_AT,
+            ),
+            exerciseName = "Barbell bench press",
         ),
-        exerciseName = "Barbell bench press",
-    ),
-)
+    )
 
-internal fun previewExercises(): List<SummaryExerciseRow> = listOf(
-    SummaryExerciseRow(
-        sessionExerciseId = 1,
-        name = "Barbell bench press",
-        setCount = 4,
-        lowestReps = 5,
-        highestReps = 10,
-        topWeight = 80_000_000,
-        record = previewRecords().first().record,
-    ),
-    SummaryExerciseRow(
-        sessionExerciseId = 2,
-        name = "Incline dumbbell press",
-        setCount = 4,
-        lowestReps = 10,
-        highestReps = 10,
-        topWeight = 22_000_000,
-    ),
-    SummaryExerciseRow(
-        sessionExerciseId = 3,
-        name = "Cable fly",
-        setCount = 3,
-        lowestReps = 12,
-        highestReps = 12,
-        topWeight = 18_000_000,
-    ),
-    SummaryExerciseRow(
-        sessionExerciseId = 4,
-        name = "Triceps pushdown",
-        setCount = 3,
-        lowestReps = 12,
-        highestReps = 15,
-        topWeight = 30_000_000,
-    ),
-    // No weight and no reps: a plank belongs in a push day and logs neither, so the meta line
-    // is absent rather than reading `3 × 0 · 0 kg max`.
-    SummaryExerciseRow(
-        sessionExerciseId = 5,
-        name = "Plank",
-        setCount = 3,
-        lowestReps = null,
-        highestReps = null,
-        topWeight = null,
-    ),
-)
+internal fun previewExercises(): List<SummaryExerciseRow> =
+    listOf(
+        SummaryExerciseRow(
+            sessionExerciseId = 1,
+            name = "Barbell bench press",
+            setCount = 4,
+            lowestReps = 5,
+            highestReps = 10,
+            topWeight = 80_000_000,
+            record = previewRecords().first().record,
+        ),
+        SummaryExerciseRow(
+            sessionExerciseId = 2,
+            name = "Incline dumbbell press",
+            setCount = 4,
+            lowestReps = 10,
+            highestReps = 10,
+            topWeight = 22_000_000,
+        ),
+        SummaryExerciseRow(
+            sessionExerciseId = 3,
+            name = "Cable fly",
+            setCount = 3,
+            lowestReps = 12,
+            highestReps = 12,
+            topWeight = 18_000_000,
+        ),
+        SummaryExerciseRow(
+            sessionExerciseId = 4,
+            name = "Triceps pushdown",
+            setCount = 3,
+            lowestReps = 12,
+            highestReps = 15,
+            topWeight = 30_000_000,
+        ),
+        // No weight and no reps: a plank belongs in a push day and logs neither, so the meta line
+        // is absent rather than reading `3 × 0 · 0 kg max`.
+        SummaryExerciseRow(
+            sessionExerciseId = 5,
+            name = "Plank",
+            setCount = 3,
+            lowestReps = null,
+            highestReps = null,
+            topWeight = null,
+        ),
+    )
 
 /** Ordered highest first, as `MuscleVolumeCalculator` returns it. */
-private fun previewMuscleVolume(): Map<MuscleGroup, Long> = linkedMapOf(
-    MuscleGroup(id = CHEST_ID, name = "CHEST") to CHEST_VOLUME,
-    MuscleGroup(id = SHOULDERS_ID, name = "SHOULDERS") to SHOULDERS_VOLUME,
-    MuscleGroup(id = TRICEPS_ID, name = "TRICEPS") to TRICEPS_VOLUME,
-    MuscleGroup(id = ABS_ID, name = "ABDOMINALS") to ABS_VOLUME,
-)
+private fun previewMuscleVolume(): Map<MuscleGroup, Long> =
+    linkedMapOf(
+        MuscleGroup(id = CHEST_ID, name = "CHEST") to CHEST_VOLUME,
+        MuscleGroup(id = SHOULDERS_ID, name = "SHOULDERS") to SHOULDERS_VOLUME,
+        MuscleGroup(id = TRICEPS_ID, name = "TRICEPS") to TRICEPS_VOLUME,
+        MuscleGroup(id = ABS_ID, name = "ABDOMINALS") to ABS_VOLUME,
+    )
 
 /** How many exercises the fixture's session performed. */
 private const val PREVIEW_EXERCISE_COUNT = 5

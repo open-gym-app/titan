@@ -163,7 +163,6 @@ data class PlannedExerciseRow(
  * screen's resources.
  */
 enum class NewSessionMessage {
-
     /*
      * A refused start used to be one of these, and is not any more: a session already running
      * is not something to say once, it is something to offer — see

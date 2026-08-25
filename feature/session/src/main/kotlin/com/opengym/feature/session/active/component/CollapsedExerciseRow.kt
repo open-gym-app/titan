@@ -85,35 +85,39 @@ private fun CollapsedWorkoutCatalogue() {
     }
 }
 
-private fun previewRows(): List<SessionExerciseRow> = listOf(
-    SessionExerciseRow(
-        sessionExerciseId = 1L,
-        position = 0,
-        exercise = Exercise(id = 1L, name = "Bench press"),
-        sets = previewSets(sessionExerciseId = 1L, count = 3),
-    ),
-    SessionExerciseRow(
-        sessionExerciseId = 2L,
-        position = 1,
-        exercise = Exercise(id = 2L, name = "Incline dumbbell press"),
-        sets = previewSets(sessionExerciseId = 2L, count = 2),
-    ),
-    SessionExerciseRow(
-        sessionExerciseId = 3L,
-        position = 2,
-        exercise = Exercise(id = 3L, name = "Cable fly"),
-        supersetLabel = "A1",
-        isLinkedToNext = true,
-    ),
-    SessionExerciseRow(
-        sessionExerciseId = 4L,
-        position = 3,
-        exercise = Exercise(id = 4L, name = "Tricep pushdown"),
-        supersetLabel = "A2",
-    ),
-)
+private fun previewRows(): List<SessionExerciseRow> =
+    listOf(
+        SessionExerciseRow(
+            sessionExerciseId = 1L,
+            position = 0,
+            exercise = Exercise(id = 1L, name = "Bench press"),
+            sets = previewSets(sessionExerciseId = 1L, count = 3),
+        ),
+        SessionExerciseRow(
+            sessionExerciseId = 2L,
+            position = 1,
+            exercise = Exercise(id = 2L, name = "Incline dumbbell press"),
+            sets = previewSets(sessionExerciseId = 2L, count = 2),
+        ),
+        SessionExerciseRow(
+            sessionExerciseId = 3L,
+            position = 2,
+            exercise = Exercise(id = 3L, name = "Cable fly"),
+            supersetLabel = "A1",
+            isLinkedToNext = true,
+        ),
+        SessionExerciseRow(
+            sessionExerciseId = 4L,
+            position = 3,
+            exercise = Exercise(id = 4L, name = "Tricep pushdown"),
+            supersetLabel = "A2",
+        ),
+    )
 
-private fun previewSets(sessionExerciseId: Long, count: Int): List<LoggedSet> =
+private fun previewSets(
+    sessionExerciseId: Long,
+    count: Int,
+): List<LoggedSet> =
     (1..count).map { number ->
         LoggedSet(
             id = sessionExerciseId * 100 + number,

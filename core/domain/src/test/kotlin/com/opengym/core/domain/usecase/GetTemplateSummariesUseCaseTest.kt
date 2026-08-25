@@ -19,121 +19,133 @@ class GetTemplateSummariesUseCaseTest {
     private val summaries = GetTemplateSummariesUseCase(templates, preferences)
 
     @Test
-    fun `summarising carries the template's own fields through`() = runTest {
-        templates.seed("Push day", listOf(draft(exerciseId = 1L)), category = TemplateCategory.STRENGTH)
+    fun `summarising carries the template's own fields through`() =
+        runTest {
+            templates.seed("Push day", listOf(draft(exerciseId = 1L)), category = TemplateCategory.STRENGTH)
 
-        val summary = summaries().first().single()
+            val summary = summaries().first().single()
 
-        assertEquals("Push day", summary.template.name)
-        assertEquals(TemplateCategory.STRENGTH, summary.template.category)
-    }
-
-    @Test
-    fun `summarising counts the exercises a template lays out`() = runTest {
-        templates.seed("Push day", listOf(draft(exerciseId = 1L), draft(exerciseId = 2L)))
-        templates.seed("Leg day", listOf(draft(exerciseId = 3L)))
-
-        assertEquals(listOf(1, 2), summaries().first().map(TemplateSummary::exerciseCount))
-    }
+            assertEquals("Push day", summary.template.name)
+            assertEquals(TemplateCategory.STRENGTH, summary.template.category)
+        }
 
     @Test
-    fun `summarising counts a superset's members individually`() = runTest {
-        // What the row says is what the user is about to perform, and a superset is two
-        // exercises done back to back — not one exercise.
-        templates.seed(
-            "Push day",
-            listOf(
-                draft(exerciseId = 1L, supersetGroup = 0),
-                draft(exerciseId = 2L, supersetGroup = 0),
-            ),
-        )
+    fun `summarising counts the exercises a template lays out`() =
+        runTest {
+            templates.seed("Push day", listOf(draft(exerciseId = 1L), draft(exerciseId = 2L)))
+            templates.seed("Leg day", listOf(draft(exerciseId = 3L)))
 
-        assertEquals(2, summaries().first().single().exerciseCount)
-    }
+            assertEquals(listOf(1, 2), summaries().first().map(TemplateSummary::exerciseCount))
+        }
 
     @Test
-    fun `summarising estimates the duration from the template's contents`() = runTest {
-        val body = listOf(draft(exerciseId = 1L, sets = plannedSets(3)), draft(exerciseId = 2L, sets = plannedSets(3)))
-        templates.seed("Push day", body)
-
-        val summary = summaries().first().single()
-
-        assertEquals(
-            TemplateDuration.estimate(templates.storedExercises(1L), UserPreferences().defaultRestDuration),
-            summary.estimatedDuration,
-        )
-    }
-
-    @Test
-    fun `summarising prices the estimate off the user's own default rest`() = runTest {
-        // The reason the preferences are read here rather than left to a screen: an
-        // estimate against the shipped default is right on most phones and quietly wrong
-        // on the ones belonging to users who changed it.
-        templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
-        val shipped = summaries().first().single().estimatedDuration
-
-        preferences.setDefaultRestDuration(300.seconds)
-
-        val theirs = summaries().first().single().estimatedDuration
-        assertEquals(true, theirs > shipped)
-    }
-
-    @Test
-    fun `editing a template's exercises changes its estimate with no write`() = runTest {
-        val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
-        val writesBefore = templates.writeCount
-
-        summaries().test {
-            val before = awaitItem().single().estimatedDuration
-
-            templates.update(
-                templates.stored(id)!!,
+    fun `summarising counts a superset's members individually`() =
+        runTest {
+            // What the row says is what the user is about to perform, and a superset is two
+            // exercises done back to back — not one exercise.
+            templates.seed(
+                "Push day",
                 listOf(
-                    draft(exerciseId = 1L, sets = plannedSets(3)),
-                    draft(exerciseId = 2L, sets = plannedSets(3)),
+                    draft(exerciseId = 1L, supersetGroup = 0),
+                    draft(exerciseId = 2L, supersetGroup = 0),
                 ),
             )
 
-            assertEquals(true, awaitItem().single().estimatedDuration > before)
-            cancelAndIgnoreRemainingEvents()
+            assertEquals(2, summaries().first().single().exerciseCount)
         }
 
-        // The one update above and nothing else: no estimate was persisted alongside it.
-        assertEquals(writesBefore + 1, templates.writeCount)
-    }
+    @Test
+    fun `summarising estimates the duration from the template's contents`() =
+        runTest {
+            val body = listOf(
+                draft(exerciseId = 1L, sets = plannedSets(3)),
+                draft(exerciseId = 2L, sets = plannedSets(3)),
+            )
+            templates.seed("Push day", body)
+
+            val summary = summaries().first().single()
+
+            assertEquals(
+                TemplateDuration.estimate(templates.storedExercises(1L), UserPreferences().defaultRestDuration),
+                summary.estimatedDuration,
+            )
+        }
 
     @Test
-    fun `a template whose exercises were removed underneath summarises as empty`() = runTest {
-        templates.seedEmpty("Push day")
+    fun `summarising prices the estimate off the user's own default rest`() =
+        runTest {
+            // The reason the preferences are read here rather than left to a screen: an
+            // estimate against the shipped default is right on most phones and quietly wrong
+            // on the ones belonging to users who changed it.
+            templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
+            val shipped = summaries().first().single().estimatedDuration
 
-        val summary = summaries().first().single()
+            preferences.setDefaultRestDuration(300.seconds)
 
-        assertEquals(0, summary.exerciseCount)
-        assertEquals(Duration.ZERO, summary.estimatedDuration)
-    }
+            val theirs = summaries().first().single().estimatedDuration
+            assertEquals(true, theirs > shipped)
+        }
 
     @Test
-    fun `no templates summarises to nothing`() = runTest {
-        assertEquals(emptyList<TemplateSummary>(), summaries().first())
-    }
+    fun `editing a template's exercises changes its estimate with no write`() =
+        runTest {
+            val id = templates.seed("Push day", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
+            val writesBefore = templates.writeCount
+
+            summaries().test {
+                val before = awaitItem().single().estimatedDuration
+
+                templates.update(
+                    templates.stored(id)!!,
+                    listOf(
+                        draft(exerciseId = 1L, sets = plannedSets(3)),
+                        draft(exerciseId = 2L, sets = plannedSets(3)),
+                    ),
+                )
+
+                assertEquals(true, awaitItem().single().estimatedDuration > before)
+                cancelAndIgnoreRemainingEvents()
+            }
+
+            // The one update above and nothing else: no estimate was persisted alongside it.
+            assertEquals(writesBefore + 1, templates.writeCount)
+        }
 
     @Test
-    fun `summarising re-sorts a store that hands its exercises back out of order`() = runTest {
-        // Position order is what both the estimate and the superset grouping are read in,
-        // so the sort is the same defence `ApplyTemplateUseCase` keeps — and, as there,
-        // only a store that breaks the promise can show it doing anything.
-        templates.seed(
-            "Push day",
-            listOf(
-                draft(exerciseId = 1L, sets = plannedSets(3), supersetGroup = 0),
-                draft(exerciseId = 2L, sets = plannedSets(3), supersetGroup = 0),
-                draft(exerciseId = 3L, sets = plannedSets(1)),
-            ),
-        )
-        val ordered = summaries().first().single().estimatedDuration
+    fun `a template whose exercises were removed underneath summarises as empty`() =
+        runTest {
+            templates.seedEmpty("Push day")
 
-        templates.honoursPositionOrder = false
+            val summary = summaries().first().single()
 
-        assertEquals(ordered, summaries().first().single().estimatedDuration)
-    }
+            assertEquals(0, summary.exerciseCount)
+            assertEquals(Duration.ZERO, summary.estimatedDuration)
+        }
+
+    @Test
+    fun `no templates summarises to nothing`() =
+        runTest {
+            assertEquals(emptyList<TemplateSummary>(), summaries().first())
+        }
+
+    @Test
+    fun `summarising re-sorts a store that hands its exercises back out of order`() =
+        runTest {
+            // Position order is what both the estimate and the superset grouping are read in,
+            // so the sort is the same defence `ApplyTemplateUseCase` keeps — and, as there,
+            // only a store that breaks the promise can show it doing anything.
+            templates.seed(
+                "Push day",
+                listOf(
+                    draft(exerciseId = 1L, sets = plannedSets(3), supersetGroup = 0),
+                    draft(exerciseId = 2L, sets = plannedSets(3), supersetGroup = 0),
+                    draft(exerciseId = 3L, sets = plannedSets(1)),
+                ),
+            )
+            val ordered = summaries().first().single().estimatedDuration
+
+            templates.honoursPositionOrder = false
+
+            assertEquals(ordered, summaries().first().single().estimatedDuration)
+        }
 }

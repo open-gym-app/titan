@@ -236,7 +236,10 @@ class ActiveSessionSerializationTest {
      * are its primary-constructor properties, computed properties have none, and the
      * module does not otherwise need the dependency.
      */
-    private fun assertFieldParity(type: Class<*>, descriptor: SerialDescriptor) {
+    private fun assertFieldParity(
+        type: Class<*>,
+        descriptor: SerialDescriptor,
+    ) {
         val declared = type.declaredFields
             .filterNot { it.isSynthetic || Modifier.isStatic(it.modifiers) }
             .map { it.name }

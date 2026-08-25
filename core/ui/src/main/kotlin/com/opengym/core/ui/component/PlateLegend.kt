@@ -79,7 +79,10 @@ fun PlateLegend(
  * three unrelated nodes otherwise, and the multiplication sign is not a word.
  */
 @Composable
-private fun PlateLegendRow(plate: PlateCount, rank: Int) {
+private fun PlateLegendRow(
+    plate: PlateCount,
+    rank: Int,
+) {
     val tone = OpenGymTheme.plateColors.toneFor(rank)
     val description = pluralStringResource(
         R.plurals.plate_count_description,

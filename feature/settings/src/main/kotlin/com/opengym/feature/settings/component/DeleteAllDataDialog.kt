@@ -178,7 +178,10 @@ private fun FootprintList(footprint: DataFootprint) {
 
 /** One `184  sessions` line. Renders nothing at all when the count is zero. */
 @Composable
-private fun FootprintLine(count: Int, pluralId: Int) {
+private fun FootprintLine(
+    count: Int,
+    pluralId: Int,
+) {
     if (count == 0) return
 
     Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {

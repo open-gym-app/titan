@@ -19,43 +19,45 @@ import javax.inject.Inject
  */
 class ExerciseMapper @Inject constructor() {
 
-    fun toDomain(entity: ExerciseEntity): Exercise = Exercise(
-        id = entity.id,
-        name = entity.name,
-        // Falls back to the same value the column defaults to, so a row carrying a
-        // type this build does not know reads as an ordinary strength exercise
-        // rather than dropping out of the catalogue.
-        type = decodeEnum<ExerciseType>(entity.exerciseType) ?: ExerciseType.STRENGTH,
-        discipline = decodeEnum<Discipline>(entity.discipline),
-        // OTHER, not null, for an unrecognised value: EquipmentType declares it as
-        // the catch-all, and null here would mean "no equipment recorded", which is
-        // a different claim from "equipment we cannot name".
-        equipmentType = entity.equipmentType?.let { decodeEnum<EquipmentType>(it) ?: EquipmentType.OTHER },
-        machineBrand = entity.machineBrand,
-        mechanicType = decodeEnum<MechanicType>(entity.mechanicType),
-        difficultyLevel = decodeEnum<DifficultyLevel>(entity.difficultyLevel),
-        isUnilateral = entity.isUnilateral,
-        defaultRest = entity.defaultRest,
-        notes = entity.notes,
-        instructions = entity.instructions,
-        isCustom = entity.isCustom,
-        icon = entity.icon,
-    )
+    fun toDomain(entity: ExerciseEntity): Exercise =
+        Exercise(
+            id = entity.id,
+            name = entity.name,
+            // Falls back to the same value the column defaults to, so a row carrying a
+            // type this build does not know reads as an ordinary strength exercise
+            // rather than dropping out of the catalogue.
+            type = decodeEnum<ExerciseType>(entity.exerciseType) ?: ExerciseType.STRENGTH,
+            discipline = decodeEnum<Discipline>(entity.discipline),
+            // OTHER, not null, for an unrecognised value: EquipmentType declares it as
+            // the catch-all, and null here would mean "no equipment recorded", which is
+            // a different claim from "equipment we cannot name".
+            equipmentType = entity.equipmentType?.let { decodeEnum<EquipmentType>(it) ?: EquipmentType.OTHER },
+            machineBrand = entity.machineBrand,
+            mechanicType = decodeEnum<MechanicType>(entity.mechanicType),
+            difficultyLevel = decodeEnum<DifficultyLevel>(entity.difficultyLevel),
+            isUnilateral = entity.isUnilateral,
+            defaultRest = entity.defaultRest,
+            notes = entity.notes,
+            instructions = entity.instructions,
+            isCustom = entity.isCustom,
+            icon = entity.icon,
+        )
 
-    fun toEntity(exercise: Exercise): ExerciseEntity = ExerciseEntity(
-        id = exercise.id,
-        name = exercise.name,
-        exerciseType = exercise.type.name,
-        discipline = exercise.discipline?.name,
-        equipmentType = exercise.equipmentType?.name,
-        machineBrand = exercise.machineBrand,
-        mechanicType = exercise.mechanicType?.name,
-        difficultyLevel = exercise.difficultyLevel?.name,
-        isUnilateral = exercise.isUnilateral,
-        defaultRest = exercise.defaultRest,
-        notes = exercise.notes,
-        instructions = exercise.instructions,
-        isCustom = exercise.isCustom,
-        icon = exercise.icon,
-    )
+    fun toEntity(exercise: Exercise): ExerciseEntity =
+        ExerciseEntity(
+            id = exercise.id,
+            name = exercise.name,
+            exerciseType = exercise.type.name,
+            discipline = exercise.discipline?.name,
+            equipmentType = exercise.equipmentType?.name,
+            machineBrand = exercise.machineBrand,
+            mechanicType = exercise.mechanicType?.name,
+            difficultyLevel = exercise.difficultyLevel?.name,
+            isUnilateral = exercise.isUnilateral,
+            defaultRest = exercise.defaultRest,
+            notes = exercise.notes,
+            instructions = exercise.instructions,
+            isCustom = exercise.isCustom,
+            icon = exercise.icon,
+        )
 }

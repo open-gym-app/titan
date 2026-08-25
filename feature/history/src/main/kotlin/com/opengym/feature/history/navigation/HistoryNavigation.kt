@@ -87,7 +87,10 @@ data object ExerciseLibraryDestination
  *   to add to.
  */
 @Serializable
-data class ExerciseDetailDestination(val exerciseId: Long, val addToSession: Boolean)
+data class ExerciseDetailDestination(
+    val exerciseId: Long,
+    val addToSession: Boolean,
+)
 
 /**
  * The plate calculator (#95).
@@ -247,9 +250,7 @@ fun NavGraphBuilder.historyGraph(
  * @param onExerciseClick open an exercise's detail screen. Null draws the rows inert rather
  *   than giving them a ripple that does nothing.
  */
-fun NavGraphBuilder.libraryGraph(
-    onExerciseClick: ((exerciseId: Long) -> Unit)? = null,
-) {
+fun NavGraphBuilder.libraryGraph(onExerciseClick: ((exerciseId: Long) -> Unit)? = null) {
     navigation<LibraryGraphDestination>(startDestination = ExerciseLibraryDestination) {
         composable<ExerciseLibraryDestination> {
             ExerciseLibraryRoute(onExerciseClick = onExerciseClick)

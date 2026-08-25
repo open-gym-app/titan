@@ -45,7 +45,11 @@ internal object ArchitectureRules {
     )
 
     /** A dependency the architecture does not allow, with the reason it does not. */
-    data class Violation(val from: String, val to: String, val reason: String) {
+    data class Violation(
+        val from: String,
+        val to: String,
+        val reason: String,
+    ) {
         override fun toString(): String = "$from -> $to: $reason"
     }
 
@@ -58,6 +62,7 @@ internal object ArchitectureRules {
             val permitted = permittedFor(module)
             when (permitted) {
                 null -> emptyList()
+
                 else -> dependencies.sorted()
                     .filterNot { it in permitted }
                     .map { Violation(module, it, reasonFor(module, it, permitted)) }
@@ -79,14 +84,22 @@ internal object ArchitectureRules {
             )
         }
 
-    private fun reasonFor(from: String, to: String, permitted: Set<String>): String = when {
-        from.startsWith(":feature:") && to.startsWith(":feature:") ->
-            "features are independent vertical slices; cross-feature navigation goes through :app"
-        to == ":core:data" ->
-            "only :app and :core:data itself may touch the data layer — go through :core:domain"
-        permitted.isEmpty() ->
-            "$from must depend on nothing at all"
-        else ->
-            "$from may only depend on ${permitted.sorted().joinToString(", ")}"
-    }
+    private fun reasonFor(
+        from: String,
+        to: String,
+        permitted: Set<String>,
+    ): String =
+        when {
+            from.startsWith(":feature:") && to.startsWith(":feature:") ->
+                "features are independent vertical slices; cross-feature navigation goes through :app"
+
+            to == ":core:data" ->
+                "only :app and :core:data itself may touch the data layer — go through :core:domain"
+
+            permitted.isEmpty() ->
+                "$from must depend on nothing at all"
+
+            else ->
+                "$from may only depend on ${permitted.sorted().joinToString(", ")}"
+        }
 }

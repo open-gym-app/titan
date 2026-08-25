@@ -15,7 +15,10 @@ import org.junit.Test
  */
 class PlateSolutionTest {
 
-    private fun loaded(target: Long, perSide: List<PlateCount>) = PlateSolution.Loaded(
+    private fun loaded(
+        target: Long,
+        perSide: List<PlateCount>,
+    ) = PlateSolution.Loaded(
         target = target,
         barWeight = kg(20.0),
         perSide = perSide,

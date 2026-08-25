@@ -27,161 +27,172 @@ import kotlin.time.Duration.Companion.seconds
 class RestTimerRestoreTest {
 
     @Test
-    fun `restoring a running rest continues from the persisted remainder`() = runTest {
-        val timer = restTimer()
+    fun `restoring a running rest continues from the persisted remainder`() =
+        runTest {
+            val timer = restTimer()
 
-        timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
+            timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
 
-        assertEquals(RestTimerState.Running(60.seconds, 90.seconds), timer.state.value)
-    }
-
-    @Test
-    fun `a restored rest finishes exactly its remainder later`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
-        val restoredAt = testScheduler.currentTime
-
-        timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
-        runOutTheClock()
-
-        assertEquals(RestTimerState.Finished, timer.state.value)
-        assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
-    }
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), timer.state.value)
+        }
 
     @Test
-    fun `a restored rest honours a sub-second remainder`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
-        val restoredAt = testScheduler.currentTime
+    fun `a restored rest finishes exactly its remainder later`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
+            val restoredAt = testScheduler.currentTime
 
-        timer.restore(RestTimerState.Running(2_400.milliseconds, 90.seconds))
-        runOutTheClock()
+            timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
+            runOutTheClock()
 
-        assertEquals(2_400L, recording.instantOf(RestTimerState.Finished) - restoredAt)
-        assertEquals(
-            listOf(2_400.milliseconds, 1_400.milliseconds, 400.milliseconds),
-            recording.states.filterIsInstance<RestTimerState.Running>().map { it.remaining },
-        )
-    }
+            assertEquals(RestTimerState.Finished, timer.state.value)
+            assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
+        }
 
     @Test
-    fun `a restored rest keeps the original total`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
+    fun `a restored rest honours a sub-second remainder`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
+            val restoredAt = testScheduler.currentTime
 
-        timer.restore(RestTimerState.Running(3.seconds, 90.seconds))
-        runOutTheClock()
+            timer.restore(RestTimerState.Running(2_400.milliseconds, 90.seconds))
+            runOutTheClock()
 
-        assertEquals(
-            listOf(
-                RestTimerState.Idle,
-                RestTimerState.Running(3.seconds, 90.seconds),
-                RestTimerState.Running(2.seconds, 90.seconds),
-                RestTimerState.Running(1.seconds, 90.seconds),
-                RestTimerState.Finished,
-            ),
-            recording.states,
-        )
-    }
+            assertEquals(2_400L, recording.instantOf(RestTimerState.Finished) - restoredAt)
+            assertEquals(
+                listOf(2_400.milliseconds, 1_400.milliseconds, 400.milliseconds),
+                recording.states.filterIsInstance<RestTimerState.Running>().map { it.remaining },
+            )
+        }
 
     @Test
-    fun `a restored rest can still be paused and resumed`() = runTest {
-        val timer = restTimer()
+    fun `a restored rest keeps the original total`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
 
-        timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
-        advanceTimeTo(1_500.milliseconds)
-        timer.pause()
+            timer.restore(RestTimerState.Running(3.seconds, 90.seconds))
+            runOutTheClock()
 
-        assertEquals(RestTimerState.Paused(58_500.milliseconds, 90.seconds), timer.state.value)
-    }
-
-    @Test
-    fun `restoring a paused rest does not start counting`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
-
-        timer.restore(RestTimerState.Paused(60.seconds, 90.seconds))
-        runOutTheClock()
-
-        assertEquals(RestTimerState.Paused(60.seconds, 90.seconds), timer.state.value)
-        assertEquals(
-            listOf(RestTimerState.Idle, RestTimerState.Paused(60.seconds, 90.seconds)),
-            recording.states,
-        )
-    }
+            assertEquals(
+                listOf(
+                    RestTimerState.Idle,
+                    RestTimerState.Running(3.seconds, 90.seconds),
+                    RestTimerState.Running(2.seconds, 90.seconds),
+                    RestTimerState.Running(1.seconds, 90.seconds),
+                    RestTimerState.Finished,
+                ),
+                recording.states,
+            )
+        }
 
     @Test
-    fun `a restored paused rest resumes from its remainder`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
+    fun `a restored rest can still be paused and resumed`() =
+        runTest {
+            val timer = restTimer()
 
-        timer.restore(RestTimerState.Paused(60.seconds, 90.seconds))
-        advanceTimeTo(10.seconds)
-        val resumedAt = testScheduler.currentTime
-        timer.resume()
-        runOutTheClock()
+            timer.restore(RestTimerState.Running(60.seconds, 90.seconds))
+            advanceTimeTo(1_500.milliseconds)
+            timer.pause()
 
-        assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - resumedAt)
-    }
+            assertEquals(RestTimerState.Paused(58_500.milliseconds, 90.seconds), timer.state.value)
+        }
 
     @Test
-    fun `a rest that elapsed while the process was gone is restored as finished`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
+    fun `restoring a paused rest does not start counting`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
 
-        timer.restore(RestTimerState.Finished)
-        runOutTheClock()
+            timer.restore(RestTimerState.Paused(60.seconds, 90.seconds))
+            runOutTheClock()
 
-        assertEquals(RestTimerState.Finished, timer.state.value)
-        assertTrue(
-            "restoring Finished must not count anything down",
-            recording.states.none { it is RestTimerState.Running },
-        )
-    }
-
-    @Test
-    fun `restoring idle abandons a countdown without finishing it`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
-
-        timer.start(90.seconds)
-        advanceTimeTo(10.seconds)
-        timer.restore(RestTimerState.Idle)
-        runOutTheClock()
-
-        assertEquals(RestTimerState.Idle, timer.state.value)
-        assertTrue("cancelling via restore must not publish Finished", RestTimerState.Finished !in recording.states)
-    }
+            assertEquals(RestTimerState.Paused(60.seconds, 90.seconds), timer.state.value)
+            assertEquals(
+                listOf(RestTimerState.Idle, RestTimerState.Paused(60.seconds, 90.seconds)),
+                recording.states,
+            )
+        }
 
     @Test
-    fun `restoring replaces a countdown that is already running`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
+    fun `a restored paused rest resumes from its remainder`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
 
-        timer.start(90.seconds)
-        advanceTimeTo(10.seconds)
-        val restoredAt = testScheduler.currentTime
-        timer.restore(RestTimerState.Running(5.seconds, 90.seconds))
-        runOutTheClock()
+            timer.restore(RestTimerState.Paused(60.seconds, 90.seconds))
+            advanceTimeTo(10.seconds)
+            val resumedAt = testScheduler.currentTime
+            timer.resume()
+            runOutTheClock()
 
-        assertEquals(5_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
-        assertEquals(1, recording.states.count { it is RestTimerState.Finished })
-    }
+            assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - resumedAt)
+        }
 
     @Test
-    fun `restoring a paused rest stops a countdown that is already running`() = runTest {
-        val timer = restTimer()
-        val recording = record(timer)
+    fun `a rest that elapsed while the process was gone is restored as finished`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
 
-        timer.start(90.seconds)
-        advanceTimeTo(10.seconds)
-        timer.restore(RestTimerState.Paused(5.seconds, 90.seconds))
-        runOutTheClock()
+            timer.restore(RestTimerState.Finished)
+            runOutTheClock()
 
-        assertEquals(RestTimerState.Paused(5.seconds, 90.seconds), timer.state.value)
-        assertTrue(
-            "the replaced countdown must not go on publishing",
-            RestTimerState.Finished !in recording.states,
-        )
-    }
+            assertEquals(RestTimerState.Finished, timer.state.value)
+            assertTrue(
+                "restoring Finished must not count anything down",
+                recording.states.none { it is RestTimerState.Running },
+            )
+        }
+
+    @Test
+    fun `restoring idle abandons a countdown without finishing it`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
+
+            timer.start(90.seconds)
+            advanceTimeTo(10.seconds)
+            timer.restore(RestTimerState.Idle)
+            runOutTheClock()
+
+            assertEquals(RestTimerState.Idle, timer.state.value)
+            assertTrue("cancelling via restore must not publish Finished", RestTimerState.Finished !in recording.states)
+        }
+
+    @Test
+    fun `restoring replaces a countdown that is already running`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
+
+            timer.start(90.seconds)
+            advanceTimeTo(10.seconds)
+            val restoredAt = testScheduler.currentTime
+            timer.restore(RestTimerState.Running(5.seconds, 90.seconds))
+            runOutTheClock()
+
+            assertEquals(5_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
+            assertEquals(1, recording.states.count { it is RestTimerState.Finished })
+        }
+
+    @Test
+    fun `restoring a paused rest stops a countdown that is already running`() =
+        runTest {
+            val timer = restTimer()
+            val recording = record(timer)
+
+            timer.start(90.seconds)
+            advanceTimeTo(10.seconds)
+            timer.restore(RestTimerState.Paused(5.seconds, 90.seconds))
+            runOutTheClock()
+
+            assertEquals(RestTimerState.Paused(5.seconds, 90.seconds), timer.state.value)
+            assertTrue(
+                "the replaced countdown must not go on publishing",
+                RestTimerState.Finished !in recording.states,
+            )
+        }
 }

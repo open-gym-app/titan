@@ -83,297 +83,318 @@ class ExerciseDetailViewModelTest {
     // ─── What loads ─────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the exercise and its links load, primary movers first`() = runTest {
-        val state = viewModel(DETAIL_BENCH.id).uiState.value
+    fun `the exercise and its links load, primary movers first`() =
+        runTest {
+            val state = viewModel(DETAIL_BENCH.id).uiState.value
 
-        assertFalse(state.isLoading)
-        assertEquals(DETAIL_BENCH, state.exercise)
-        assertEquals(listOf(CHEST), state.primaryMuscles)
-        assertEquals(listOf(TRICEPS), state.secondaryMuscles)
-    }
-
-    @Test
-    fun `the how-to is split into steps, with blank lines dropped`() = runTest {
-        val state = viewModel(DETAIL_BENCH.id).uiState.value
-
-        assertEquals(
-            listOf("Unrack the bar.", "Lower it to the chest.", "Press back to lockout."),
-            state.instructionSteps,
-        )
-    }
+            assertFalse(state.isLoading)
+            assertEquals(DETAIL_BENCH, state.exercise)
+            assertEquals(listOf(CHEST), state.primaryMuscles)
+            assertEquals(listOf(TRICEPS), state.secondaryMuscles)
+        }
 
     @Test
-    fun `an id that is not in the catalogue reads as missing, not as loading forever`() = runTest {
-        val state = viewModel(NO_SUCH_ID).uiState.value
+    fun `the how-to is split into steps, with blank lines dropped`() =
+        runTest {
+            val state = viewModel(DETAIL_BENCH.id).uiState.value
 
-        assertFalse(state.isLoading)
-        assertTrue(state.isMissing)
-    }
+            assertEquals(
+                listOf("Unrack the bar.", "Lower it to the chest.", "Press back to lockout."),
+                state.instructionSteps,
+            )
+        }
 
     @Test
-    fun `only a custom exercise may be rewritten`() = runTest {
-        assertFalse(viewModel(DETAIL_BENCH.id).uiState.value.canEdit)
-        assertTrue(viewModel(DETAIL_CUSTOM.id).uiState.value.canEdit)
-    }
+    fun `an id that is not in the catalogue reads as missing, not as loading forever`() =
+        runTest {
+            val state = viewModel(NO_SUCH_ID).uiState.value
+
+            assertFalse(state.isLoading)
+            assertTrue(state.isMissing)
+        }
+
+    @Test
+    fun `only a custom exercise may be rewritten`() =
+        runTest {
+            assertFalse(viewModel(DETAIL_BENCH.id).uiState.value.canEdit)
+            assertTrue(viewModel(DETAIL_CUSTOM.id).uiState.value.canEdit)
+        }
 
     // ─── The note ───────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `editing the note opens it seeded with what is stored`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
+    fun `editing the note opens it seeded with what is stored`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
 
-        assertEquals(DETAIL_BENCH.notes, viewModel.uiState.value.notesDraft)
-    }
-
-    @Test
-    fun `a saved note persists and closes the field`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
-
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
-        viewModel.onEvent(ExerciseDetailEvent.NoteChanged("  Seat on 4. Elbows in.  "))
-        viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
-
-        // Read back through the repository, not off the state: the point of the write is that
-        // it landed, and the state redraws from the store's own re-emission.
-        val stored = repository.getById(DETAIL_BENCH.id).first()
-        assertEquals("Seat on 4. Elbows in.", stored?.notes)
-        assertNull(viewModel.uiState.value.notesDraft)
-    }
+            assertEquals(DETAIL_BENCH.notes, viewModel.uiState.value.notesDraft)
+        }
 
     @Test
-    fun `a blank note clears the column rather than storing whitespace`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
+    fun `a saved note persists and closes the field`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
-        viewModel.onEvent(ExerciseDetailEvent.NoteChanged("   "))
-        viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.NoteChanged("  Seat on 4. Elbows in.  "))
+            viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
 
-        assertNull(repository.getById(DETAIL_BENCH.id).first()?.notes)
-    }
-
-    @Test
-    fun `a note the store refuses keeps the field open with the text in it`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
-        repository.updateFailure = IllegalStateException("disk full")
-
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
-        viewModel.onEvent(ExerciseDetailEvent.NoteChanged("Elbows in."))
-        viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
-
-        val state = viewModel.uiState.value
-        assertEquals("Elbows in.", state.notesDraft)
-        assertFalse(state.isSavingNotes)
-        assertEquals(ExerciseDetailMessage.NOTES_SAVE_FAILED, state.message)
-    }
+            // Read back through the repository, not off the state: the point of the write is that
+            // it landed, and the state redraws from the store's own re-emission.
+            val stored = repository.getById(DETAIL_BENCH.id).first()
+            assertEquals("Seat on 4. Elbows in.", stored?.notes)
+            assertNull(viewModel.uiState.value.notesDraft)
+        }
 
     @Test
-    fun `cancelling the note leaves what is stored alone`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
+    fun `a blank note clears the column rather than storing whitespace`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
-        viewModel.onEvent(ExerciseDetailEvent.NoteChanged("Discarded."))
-        viewModel.onEvent(ExerciseDetailEvent.NoteEditCancelled)
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.NoteChanged("   "))
+            viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
 
-        assertNull(viewModel.uiState.value.notesDraft)
-        assertEquals(DETAIL_BENCH.notes, repository.getById(DETAIL_BENCH.id).first()?.notes)
-    }
+            assertNull(repository.getById(DETAIL_BENCH.id).first()?.notes)
+        }
+
+    @Test
+    fun `a note the store refuses keeps the field open with the text in it`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
+            repository.updateFailure = IllegalStateException("disk full")
+
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.NoteChanged("Elbows in."))
+            viewModel.onEvent(ExerciseDetailEvent.NoteSaved)
+
+            val state = viewModel.uiState.value
+            assertEquals("Elbows in.", state.notesDraft)
+            assertFalse(state.isSavingNotes)
+            assertEquals(ExerciseDetailMessage.NOTES_SAVE_FAILED, state.message)
+        }
+
+    @Test
+    fun `cancelling the note leaves what is stored alone`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
+
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.NoteChanged("Discarded."))
+            viewModel.onEvent(ExerciseDetailEvent.NoteEditCancelled)
+
+            assertNull(viewModel.uiState.value.notesDraft)
+            assertEquals(DETAIL_BENCH.notes, repository.getById(DETAIL_BENCH.id).first()?.notes)
+        }
 
     // ─── The whole-exercise edit ────────────────────────────────────────────────────────
 
     @Test
-    fun `the edit form opens on what the exercise currently is`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `the edit form opens on what the exercise currently is`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
 
-        val draft = requireNotNull(viewModel.uiState.value.editDraft)
-        assertEquals(DETAIL_CUSTOM.id, draft.id)
-        assertEquals(DETAIL_CUSTOM.name, draft.name)
-        assertEquals(EquipmentType.MACHINE, draft.equipment)
-        assertEquals(LATS.id, draft.primaryMuscleGroupId)
-        assertFalse(draft.isNew)
-    }
-
-    @Test
-    fun `negative - a seeded exercise cannot be opened for editing`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
-
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-
-        assertNull(viewModel.uiState.value.editDraft)
-    }
+            val draft = requireNotNull(viewModel.uiState.value.editDraft)
+            assertEquals(DETAIL_CUSTOM.id, draft.id)
+            assertEquals(DETAIL_CUSTOM.name, draft.name)
+            assertEquals(EquipmentType.MACHINE, draft.equipment)
+            assertEquals(LATS.id, draft.primaryMuscleGroupId)
+            assertFalse(draft.isNew)
+        }
 
     @Test
-    fun `a saved edit rewrites the row and replaces its muscle links`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `negative - a seeded exercise cannot be opened for editing`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(
-            ExerciseDetailEvent.EditChanged(
-                viewModel.uiState.value.editDraft!!.copy(
-                    name = "Hammer incline press",
-                    primaryMuscleGroupId = CHEST.id,
-                    secondaryMuscleGroupIds = setOf(TRICEPS.id),
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+
+            assertNull(viewModel.uiState.value.editDraft)
+        }
+
+    @Test
+    fun `a saved edit rewrites the row and replaces its muscle links`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
+
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(
+                ExerciseDetailEvent.EditChanged(
+                    viewModel.uiState.value.editDraft!!.copy(
+                        name = "Hammer incline press",
+                        primaryMuscleGroupId = CHEST.id,
+                        secondaryMuscleGroupIds = setOf(TRICEPS.id),
+                    ),
                 ),
-            ),
-        )
-        viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
+            )
+            viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
 
-        val stored = repository.getById(DETAIL_CUSTOM.id).first()
-        assertEquals("Hammer incline press", stored?.name)
-        // Still the user's own, and still a machine exercise: the form edits four fields and
-        // copies the rest of the row rather than rebuilding it.
-        assertTrue(stored?.isCustom == true)
+            val stored = repository.getById(DETAIL_CUSTOM.id).first()
+            assertEquals("Hammer incline press", stored?.name)
+            // Still the user's own, and still a machine exercise: the form edits four fields and
+            // copies the rest of the row rather than rebuilding it.
+            assertTrue(stored?.isCustom == true)
 
-        val links = repository.getMuscleGroupLinks(DETAIL_CUSTOM.id).first()
-        assertEquals(listOf(CHEST, TRICEPS), links.map { it.muscleGroup })
-        assertEquals(listOf(true, false), links.map { it.isPrimary })
-        assertNull(viewModel.uiState.value.editDraft)
-        assertEquals(ExerciseDetailMessage.EXERCISE_UPDATED, viewModel.uiState.value.message)
-    }
-
-    @Test
-    fun `an exercise is not a duplicate of itself`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
-
-        // Nothing changed but the note — which is the ordinary edit, and the one a duplicate
-        // check that ignored the draft's own id would refuse.
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(
-            ExerciseDetailEvent.EditChanged(viewModel.uiState.value.editDraft!!.copy(notes = "Seat 2")),
-        )
-
-        val draft = viewModel.uiState.value.editDraft!!
-        assertFalse(draft.isDuplicateName)
-        assertTrue(draft.canSave)
-    }
+            val links = repository.getMuscleGroupLinks(DETAIL_CUSTOM.id).first()
+            assertEquals(listOf(CHEST, TRICEPS), links.map { it.muscleGroup })
+            assertEquals(listOf(true, false), links.map { it.isPrimary })
+            assertNull(viewModel.uiState.value.editDraft)
+            assertEquals(ExerciseDetailMessage.EXERCISE_UPDATED, viewModel.uiState.value.message)
+        }
 
     @Test
-    fun `a name another exercise already holds is flagged before the write`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `an exercise is not a duplicate of itself`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(
-            ExerciseDetailEvent.EditChanged(
-                viewModel.uiState.value.editDraft!!.copy(
-                    name = DETAIL_BENCH.name,
-                    equipment = EquipmentType.BARBELL,
+            // Nothing changed but the note — which is the ordinary edit, and the one a duplicate
+            // check that ignored the draft's own id would refuse.
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(
+                ExerciseDetailEvent.EditChanged(viewModel.uiState.value.editDraft!!.copy(notes = "Seat 2")),
+            )
+
+            val draft = viewModel.uiState.value.editDraft!!
+            assertFalse(draft.isDuplicateName)
+            assertTrue(draft.canSave)
+        }
+
+    @Test
+    fun `a name another exercise already holds is flagged before the write`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
+
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(
+                ExerciseDetailEvent.EditChanged(
+                    viewModel.uiState.value.editDraft!!.copy(
+                        name = DETAIL_BENCH.name,
+                        equipment = EquipmentType.BARBELL,
+                    ),
                 ),
-            ),
-        )
+            )
 
-        val draft = viewModel.uiState.value.editDraft!!
-        assertTrue(draft.isDuplicateName)
-        assertFalse(draft.canSave)
-    }
+            val draft = viewModel.uiState.value.editDraft!!
+            assertTrue(draft.isDuplicateName)
+            assertFalse(draft.canSave)
+        }
 
     @Test
-    fun `negative - a duplicate name is refused even when the draft says it is free`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `negative - a duplicate name is refused even when the draft says it is free`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
 
-        // The submitted draft carries a stale `false` — which is what the form holds when the
-        // submit is dispatched from a keyboard action or a second tap in the same frame as the
-        // keystroke that made the name a collision. The guard has to ask the catalogue itself,
-        // or the write goes to the unique index and comes back as a generic failure.
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(
-            ExerciseDetailEvent.EditChanged(
-                viewModel.uiState.value.editDraft!!.copy(
-                    name = DETAIL_BENCH.name,
-                    equipment = EquipmentType.BARBELL,
-                    isDuplicateName = false,
+            // The submitted draft carries a stale `false` — which is what the form holds when the
+            // submit is dispatched from a keyboard action or a second tap in the same frame as the
+            // keystroke that made the name a collision. The guard has to ask the catalogue itself,
+            // or the write goes to the unique index and comes back as a generic failure.
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(
+                ExerciseDetailEvent.EditChanged(
+                    viewModel.uiState.value.editDraft!!.copy(
+                        name = DETAIL_BENCH.name,
+                        equipment = EquipmentType.BARBELL,
+                        isDuplicateName = false,
+                    ),
                 ),
-            ),
-        )
-        viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
+            )
+            viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
 
-        assertEquals(DETAIL_CUSTOM.name, repository.getById(DETAIL_CUSTOM.id).first()?.name)
-        // Still up, with the collision flagged, so the user is told which field is the problem.
-        assertTrue(viewModel.uiState.value.editDraft?.isDuplicateName == true)
-    }
-
-    @Test
-    fun `an edit the store refuses keeps the form up and says so on it`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
-        repository.updateFailure = IllegalStateException("unique index")
-
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(
-            ExerciseDetailEvent.EditChanged(viewModel.uiState.value.editDraft!!.copy(name = "Renamed")),
-        )
-        viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
-
-        val draft = viewModel.uiState.value.editDraft
-        assertEquals("Renamed", draft?.name)
-        assertTrue(draft?.saveFailed == true)
-        assertFalse(draft?.isSaving == true)
-        // On the form, not in a snackbar the sheet would be covering.
-        assertNull(viewModel.uiState.value.message)
-    }
+            assertEquals(DETAIL_CUSTOM.name, repository.getById(DETAIL_CUSTOM.id).first()?.name)
+            // Still up, with the collision flagged, so the user is told which field is the problem.
+            assertTrue(viewModel.uiState.value.editDraft?.isDuplicateName == true)
+        }
 
     @Test
-    fun `negative - an incomplete draft is not written`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `an edit the store refuses keeps the form up and says so on it`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
+            repository.updateFailure = IllegalStateException("unique index")
 
-        viewModel.onEvent(ExerciseDetailEvent.EditRequested)
-        viewModel.onEvent(ExerciseDetailEvent.EditChanged(ExerciseDraft(id = DETAIL_CUSTOM.id, name = "")))
-        viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(
+                ExerciseDetailEvent.EditChanged(viewModel.uiState.value.editDraft!!.copy(name = "Renamed")),
+            )
+            viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
 
-        assertEquals(DETAIL_CUSTOM.name, repository.getById(DETAIL_CUSTOM.id).first()?.name)
-    }
+            val draft = viewModel.uiState.value.editDraft
+            assertEquals("Renamed", draft?.name)
+            assertTrue(draft?.saveFailed == true)
+            assertFalse(draft?.isSaving == true)
+            // On the form, not in a snackbar the sheet would be covering.
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `negative - an incomplete draft is not written`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
+
+            viewModel.onEvent(ExerciseDetailEvent.EditRequested)
+            viewModel.onEvent(ExerciseDetailEvent.EditChanged(ExerciseDraft(id = DETAIL_CUSTOM.id, name = "")))
+            viewModel.onEvent(ExerciseDetailEvent.EditSubmitted)
+
+            assertEquals(DETAIL_CUSTOM.name, repository.getById(DETAIL_CUSTOM.id).first()?.name)
+        }
 
     // ─── Deleting ───────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the delete action confirms before it deletes anything`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
+    fun `the delete action confirms before it deletes anything`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
 
-        assertTrue(viewModel.uiState.value.confirmingDelete)
-        assertNotNull(repository.getById(DETAIL_CUSTOM.id).first())
-    }
-
-    @Test
-    fun `a confirmed delete removes the exercise and says the screen should leave`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
-
-        viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
-        viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
-
-        assertNull(repository.getById(DETAIL_CUSTOM.id).first())
-        assertTrue(viewModel.uiState.value.isDeleted)
-        // Not the "no longer exists" page on the way out, which is the whole reason the flag
-        // exists rather than the row's own disappearance standing for it.
-        assertFalse(viewModel.uiState.value.isMissing)
-    }
+            assertTrue(viewModel.uiState.value.confirmingDelete)
+            assertNotNull(repository.getById(DETAIL_CUSTOM.id).first())
+        }
 
     @Test
-    fun `negative - a seeded exercise cannot be deleted`() = runTest {
-        val viewModel = viewModel(DETAIL_BENCH.id)
+    fun `a confirmed delete removes the exercise and says the screen should leave`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
-        viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
 
-        assertNotNull(repository.getById(DETAIL_BENCH.id).first())
-        assertFalse(viewModel.uiState.value.isDeleted)
-    }
+            assertNull(repository.getById(DETAIL_CUSTOM.id).first())
+            assertTrue(viewModel.uiState.value.isDeleted)
+            // Not the "no longer exists" page on the way out, which is the whole reason the flag
+            // exists rather than the row's own disappearance standing for it.
+            assertFalse(viewModel.uiState.value.isMissing)
+        }
 
     @Test
-    fun `a delete the schema refuses closes the dialog and says so`() = runTest {
-        val viewModel = viewModel(DETAIL_CUSTOM.id)
-        repository.deleteFailure = IllegalStateException("foreign key")
+    fun `negative - a seeded exercise cannot be deleted`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_BENCH.id)
 
-        viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
-        viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
 
-        val state = viewModel.uiState.value
-        assertFalse(state.isDeleted)
-        assertFalse(state.confirmingDelete)
-        assertEquals(ExerciseDetailMessage.DELETE_FAILED, state.message)
-    }
+            assertNotNull(repository.getById(DETAIL_BENCH.id).first())
+            assertFalse(viewModel.uiState.value.isDeleted)
+        }
+
+    @Test
+    fun `a delete the schema refuses closes the dialog and says so`() =
+        runTest {
+            val viewModel = viewModel(DETAIL_CUSTOM.id)
+            repository.deleteFailure = IllegalStateException("foreign key")
+
+            viewModel.onEvent(ExerciseDetailEvent.DeleteRequested)
+            viewModel.onEvent(ExerciseDetailEvent.DeleteConfirmed)
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isDeleted)
+            assertFalse(state.confirmingDelete)
+            assertEquals(ExerciseDetailMessage.DELETE_FAILED, state.message)
+        }
 
     private companion object {
         /** Above every fixture's id, so it resolves to nothing. */

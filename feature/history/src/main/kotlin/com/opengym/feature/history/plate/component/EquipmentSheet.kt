@@ -180,7 +180,10 @@ fun EquipmentPanel(
  * made for. Converting the metric set would offer an American lifter a 44.09 lb bar.
  */
 @Composable
-private fun BarWeightRow(barWeight: Long, onChange: (Long) -> Unit) {
+private fun BarWeightRow(
+    barWeight: Long,
+    onChange: (Long) -> Unit,
+) {
     val unitSystem = LocalUnitSystem.current
     val step = weightToMilligrams(unitSystem.plateIncrement, unitSystem)
 
@@ -223,7 +226,11 @@ private fun BarWeightRow(barWeight: Long, onChange: (Long) -> Unit) {
 
 /** One size on the rack: its colour in the diagram, its weight, and how many pairs of it. */
 @Composable
-private fun PlateRow(plate: PlateStock, rank: Int, onChange: (Int) -> Unit) {
+private fun PlateRow(
+    plate: PlateStock,
+    rank: Int,
+    onChange: (Int) -> Unit,
+) {
     val tone = OpenGymTheme.plateColors.toneFor(rank)
     val weight = formatWeight(plate.weight)
 

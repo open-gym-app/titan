@@ -23,22 +23,25 @@ class DataModuleTest {
     }
 
     @Test
-    fun `insert triggers dao write exactly once`() = runTest {
-        dao.insert("record")
-        coVerify(exactly = 1) { dao.insert("record") }
-    }
+    fun `insert triggers dao write exactly once`() =
+        runTest {
+            dao.insert("record")
+            coVerify(exactly = 1) { dao.insert("record") }
+        }
 
     @Test
-    fun `findById returns null when record does not exist`() = runTest {
-        coEvery { dao.findById(MISSING_ID) } returns null
-        assertNull(dao.findById(MISSING_ID))
-    }
+    fun `findById returns null when record does not exist`() =
+        runTest {
+            coEvery { dao.findById(MISSING_ID) } returns null
+            assertNull(dao.findById(MISSING_ID))
+        }
 
     @Test
-    fun `findById returns value when record exists`() = runTest {
-        coEvery { dao.findById(1) } returns "record"
-        assertEquals("record", dao.findById(1))
-    }
+    fun `findById returns value when record exists`() =
+        runTest {
+            coEvery { dao.findById(1) } returns "record"
+            assertEquals("record", dao.findById(1))
+        }
 
     companion object {
         private const val MISSING_ID = 99

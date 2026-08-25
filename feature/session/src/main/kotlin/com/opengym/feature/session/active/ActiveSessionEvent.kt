@@ -16,10 +16,16 @@ import kotlin.time.Duration
 sealed interface ActiveSessionEvent {
 
     /** The weight field changed. Carries text, not a number — see [SetEntry]. */
-    data class WeightChanged(val sessionExerciseId: Long, val text: String) : ActiveSessionEvent
+    data class WeightChanged(
+        val sessionExerciseId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
 
     /** The rep field changed. */
-    data class RepsChanged(val sessionExerciseId: Long, val text: String) : ActiveSessionEvent
+    data class RepsChanged(
+        val sessionExerciseId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
 
     /**
      * The rating changed, or was cleared with null.
@@ -27,13 +33,22 @@ sealed interface ActiveSessionEvent {
      * Null is reachable: the rating menu's last item is "not rated", which is the only way back
      * to an unrated set.
      */
-    data class RpeChanged(val sessionExerciseId: Long, val rpe: Int?) : ActiveSessionEvent
+    data class RpeChanged(
+        val sessionExerciseId: Long,
+        val rpe: Int?,
+    ) : ActiveSessionEvent
 
     /** The kind of set changed. */
-    data class SetTypeChanged(val sessionExerciseId: Long, val setType: SetType) : ActiveSessionEvent
+    data class SetTypeChanged(
+        val sessionExerciseId: Long,
+        val setType: SetType,
+    ) : ActiveSessionEvent
 
     /** The per-set note field was opened, or closed again with null. */
-    data class NotesChanged(val sessionExerciseId: Long, val text: String?) : ActiveSessionEvent
+    data class NotesChanged(
+        val sessionExerciseId: Long,
+        val text: String?,
+    ) : ActiveSessionEvent
 
     /** Write this exercise's entry row as a set. */
     data class SetLogged(val sessionExerciseId: Long) : ActiveSessionEvent
@@ -94,7 +109,10 @@ sealed interface ActiveSessionEvent {
      * unchanged writes nothing, and one whose values `SetValidator` refuses keeps them, with the
      * reason under it, until they are a set again.
      */
-    data class SetEditCommitted(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+    data class SetEditCommitted(
+        val sessionExerciseId: Long,
+        val setId: Long,
+    ) : ActiveSessionEvent
 
     /**
      * Take one set out of the workout.
@@ -106,7 +124,10 @@ sealed interface ActiveSessionEvent {
      * Not confirmed, and reversible instead: what follows is an offer to undo, which the
      * screen puts on screen for as long as it stands. See `DeleteSetUseCase`.
      */
-    data class SetDeleted(val sessionExerciseId: Long, val setId: Long) : ActiveSessionEvent
+    data class SetDeleted(
+        val sessionExerciseId: Long,
+        val setId: Long,
+    ) : ActiveSessionEvent
 
     /**
      * Tick a logged set off, or take the tick back off it.

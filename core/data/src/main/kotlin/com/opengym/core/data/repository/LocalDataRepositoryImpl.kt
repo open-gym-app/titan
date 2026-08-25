@@ -95,37 +95,38 @@ class LocalDataRepositoryImpl @Inject constructor(
      * sessions. Emitting the zeroes and staying subscribed keeps the interface's "re-emitted as
      * it changes" true past the first hiccup.
      */
-    override fun observeFootprint(): Flow<DataFootprint> = combine(
-        localDataDao.countSessions(),
-        localDataDao.countSets(),
-        localDataDao.countTemplates(),
-        localDataDao.countPersonalRecords(),
-        localDataDao.countCustomExercises(),
-        localDataDao.countBodyWeightLogs(),
-    ) { counts ->
-        DataFootprint(
-            sessions = counts[SESSIONS],
-            sets = counts[SETS],
-            templates = counts[TEMPLATES],
-            personalRecords = counts[PERSONAL_RECORDS],
-            customExercises = counts[CUSTOM_EXERCISES],
-            bodyWeightLogs = counts[BODY_WEIGHT_LOGS],
-        )
-    }
-        .retryWhen { cause, attempt ->
-            // Only storage failures. A wrong index in the mapping above is a bug, and
-            // retrying it forever would hide it behind a dialog full of zeroes.
-            if (cause !is SQLiteException && cause !is IOException) return@retryWhen false
-            // An unreadable database is not a reason to withhold the confirmation dialog, so
-            // a collector that has not been handed anything yet still gets its first frame.
-            // The delete action stays available either way, and the cost of a wrong zero is
-            // one imprecise sentence rather than a user locked out of erasing their own data.
-            if (attempt == 0L) emit(DataFootprint())
-            delay(RETRY_DELAY)
-            true
+    override fun observeFootprint(): Flow<DataFootprint> =
+        combine(
+            localDataDao.countSessions(),
+            localDataDao.countSets(),
+            localDataDao.countTemplates(),
+            localDataDao.countPersonalRecords(),
+            localDataDao.countCustomExercises(),
+            localDataDao.countBodyWeightLogs(),
+        ) { counts ->
+            DataFootprint(
+                sessions = counts[SESSIONS],
+                sets = counts[SETS],
+                templates = counts[TEMPLATES],
+                personalRecords = counts[PERSONAL_RECORDS],
+                customExercises = counts[CUSTOM_EXERCISES],
+                bodyWeightLogs = counts[BODY_WEIGHT_LOGS],
+            )
         }
-        .distinctUntilChanged()
-        .conflate()
+            .retryWhen { cause, attempt ->
+                // Only storage failures. A wrong index in the mapping above is a bug, and
+                // retrying it forever would hide it behind a dialog full of zeroes.
+                if (cause !is SQLiteException && cause !is IOException) return@retryWhen false
+                // An unreadable database is not a reason to withhold the confirmation dialog, so
+                // a collector that has not been handed anything yet still gets its first frame.
+                // The delete action stays available either way, and the cost of a wrong zero is
+                // one imprecise sentence rather than a user locked out of erasing their own data.
+                if (attempt == 0L) emit(DataFootprint())
+                delay(RETRY_DELAY)
+                true
+            }
+            .distinctUntilChanged()
+            .conflate()
 
     /**
      * [NonCancellable], which is the one place in the app that earns it.

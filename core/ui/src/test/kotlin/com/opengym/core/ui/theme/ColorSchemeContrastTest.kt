@@ -30,7 +30,11 @@ import kotlin.math.pow
  */
 class ColorSchemeContrastTest {
 
-    private data class ContrastPair(val foreground: String, val background: String, val minimum: Double)
+    private data class ContrastPair(
+        val foreground: String,
+        val background: String,
+        val minimum: Double,
+    )
 
     private val textPairs = listOf(
         ContrastPair("onPrimary", "primary", TEXT),
@@ -172,7 +176,11 @@ class ColorSchemeContrastTest {
         assertTrue(contrast(Color(0xFF8A8A8A), Color(0xFFFFFFFF)) < TEXT)
     }
 
-    private fun assertMeetsMinimum(name: String, scheme: ColorScheme, pairs: List<ContrastPair>) {
+    private fun assertMeetsMinimum(
+        name: String,
+        scheme: ColorScheme,
+        pairs: List<ContrastPair>,
+    ) {
         val failures = pairs.mapNotNull { pair ->
             val ratio = contrast(scheme.slot(pair.foreground), scheme.slot(pair.background))
             "%s on %s = %.2f:1 (needs %.1f:1)".format(pair.foreground, pair.background, ratio, pair.minimum)
@@ -186,38 +194,39 @@ class ColorSchemeContrastTest {
      * A hex value in the output would send the reader hunting for which token it was.
      */
     @Suppress("CyclomaticComplexMethod")
-    private fun ColorScheme.slot(name: String): Color = when (name) {
-        "primary" -> primary
-        "onPrimary" -> onPrimary
-        "primaryContainer" -> primaryContainer
-        "onPrimaryContainer" -> onPrimaryContainer
-        "secondary" -> secondary
-        "onSecondary" -> onSecondary
-        "secondaryContainer" -> secondaryContainer
-        "onSecondaryContainer" -> onSecondaryContainer
-        "tertiary" -> tertiary
-        "onTertiary" -> onTertiary
-        "tertiaryContainer" -> tertiaryContainer
-        "onTertiaryContainer" -> onTertiaryContainer
-        "error" -> error
-        "onError" -> onError
-        "errorContainer" -> errorContainer
-        "onErrorContainer" -> onErrorContainer
-        "background" -> background
-        "onBackground" -> onBackground
-        "surface" -> surface
-        "onSurface" -> onSurface
-        "surfaceVariant" -> surfaceVariant
-        "onSurfaceVariant" -> onSurfaceVariant
-        "surfaceContainerLow" -> surfaceContainerLow
-        "surfaceContainer" -> surfaceContainer
-        "surfaceContainerHigh" -> surfaceContainerHigh
-        "surfaceContainerHighest" -> surfaceContainerHighest
-        "inverseSurface" -> inverseSurface
-        "inverseOnSurface" -> inverseOnSurface
-        "outline" -> outline
-        else -> throw IllegalArgumentException("Unknown colour slot '$name'")
-    }
+    private fun ColorScheme.slot(name: String): Color =
+        when (name) {
+            "primary" -> primary
+            "onPrimary" -> onPrimary
+            "primaryContainer" -> primaryContainer
+            "onPrimaryContainer" -> onPrimaryContainer
+            "secondary" -> secondary
+            "onSecondary" -> onSecondary
+            "secondaryContainer" -> secondaryContainer
+            "onSecondaryContainer" -> onSecondaryContainer
+            "tertiary" -> tertiary
+            "onTertiary" -> onTertiary
+            "tertiaryContainer" -> tertiaryContainer
+            "onTertiaryContainer" -> onTertiaryContainer
+            "error" -> error
+            "onError" -> onError
+            "errorContainer" -> errorContainer
+            "onErrorContainer" -> onErrorContainer
+            "background" -> background
+            "onBackground" -> onBackground
+            "surface" -> surface
+            "onSurface" -> onSurface
+            "surfaceVariant" -> surfaceVariant
+            "onSurfaceVariant" -> onSurfaceVariant
+            "surfaceContainerLow" -> surfaceContainerLow
+            "surfaceContainer" -> surfaceContainer
+            "surfaceContainerHigh" -> surfaceContainerHigh
+            "surfaceContainerHighest" -> surfaceContainerHighest
+            "inverseSurface" -> inverseSurface
+            "inverseOnSurface" -> inverseOnSurface
+            "outline" -> outline
+            else -> throw IllegalArgumentException("Unknown colour slot '$name'")
+        }
 
     private companion object {
         /** WCAG 2.1 §1.4.3, normal-size text. */
@@ -229,7 +238,10 @@ class ColorSchemeContrastTest {
         /** Not a WCAG figure: two big filled shapes next to each other, told apart. */
         const val ADJACENT_PLATES = 1.3
 
-        fun contrast(a: Color, b: Color): Double {
+        fun contrast(
+            a: Color,
+            b: Color,
+        ): Double {
             val (lighter, darker) = listOf(luminance(a), luminance(b)).sortedDescending()
             return (lighter + 0.05) / (darker + 0.05)
         }

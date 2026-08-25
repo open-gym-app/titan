@@ -1406,8 +1406,7 @@ class ActiveSessionScreenTest {
     }
 
     /** How tall a collapsed row is, which is how far the finger travels to cross one. */
-    private fun collapsedRowHeight(): Float =
-        reorderableItems().first().fetchSemanticsNode().size.height.toFloat()
+    private fun collapsedRowHeight(): Float = reorderableItems().first().fetchSemanticsNode().size.height.toFloat()
 
     /** Fails unless nothing on the screen matches, which is how a gone thing is asserted. */
     private fun assertMissing(matcher: SemanticsMatcher) {
@@ -1427,8 +1426,10 @@ class ActiveSessionScreenTest {
      * against it puts its entry row under the same name as the first card's first set. Naming the
      * value as well is what picks one out, and it is what these tests mean anyway.
      */
-    private fun scrollToField(description: String, value: String): SemanticsNodeInteraction =
-        scrollTo(hasContentDescription(description) and hasText(value))
+    private fun scrollToField(
+        description: String,
+        value: String,
+    ): SemanticsNodeInteraction = scrollTo(hasContentDescription(description) and hasText(value))
 
     private fun setScreen(state: ActiveSessionUiState) {
         composeTestRule.setContent {
@@ -1485,11 +1486,12 @@ class ActiveSessionScreenTest {
         performSemanticsAction(SemanticsActions.OnClick)
 
     /** The push day, mid-rest, with the sheet up over it. */
-    private fun resting() = state().copy(
-        rest = RestTimerState.Running(remaining = 83.seconds, total = 2.minutes),
-        isRestSheetOpen = true,
-        restTarget = RestTarget(weight = 80_000_000L, reps = 5),
-    )
+    private fun resting() =
+        state().copy(
+            rest = RestTimerState.Running(remaining = 83.seconds, total = 2.minutes),
+            isRestSheetOpen = true,
+            restTarget = RestTarget(weight = 80_000_000L, reps = 5),
+        )
 
     /** The bench press, first in the workout, two sets in. */
     private fun benchRow(
@@ -1513,37 +1515,39 @@ class ActiveSessionScreenTest {
      * screen is about a card with nothing behind it and would otherwise carry a reference it
      * never looks at.
      */
-    private fun benchedBefore() = benchRow(
-        sets = listOf(
-            loggedRow(id = 1L, weight = "60", reps = "10")
-                .copy(previous = PreviousSet(weight = 60_000_000L, reps = 10)),
-            loggedRow(id = 2L, weight = "70", reps = "8")
-                .copy(previous = PreviousSet(weight = 70_000_000L, reps = 8)),
-        ),
-    ).copy(
-        entryPrevious = PreviousSet(weight = 75_000_000L, reps = 6),
-        hasHistory = true,
-    )
+    private fun benchedBefore() =
+        benchRow(
+            sets = listOf(
+                loggedRow(id = 1L, weight = "60", reps = "10")
+                    .copy(previous = PreviousSet(weight = 60_000_000L, reps = 10)),
+                loggedRow(id = 2L, weight = "70", reps = "8")
+                    .copy(previous = PreviousSet(weight = 70_000_000L, reps = 8)),
+            ),
+        ).copy(
+            entryPrevious = PreviousSet(weight = 75_000_000L, reps = 6),
+            hasHistory = true,
+        )
 
     /** The same three exercises, with the last two run as a superset. */
-    private fun supersetExercises() = listOf(
-        benchRow(),
-        SessionExerciseRow(
-            sessionExerciseId = INCLINE_ROW,
-            position = 1,
-            exercise = INCLINE,
-            supersetLabel = "A1",
-            supersetGroupName = "A",
-            isLinkedToNext = true,
-        ),
-        SessionExerciseRow(
-            sessionExerciseId = FLY_ROW,
-            position = 2,
-            exercise = FLY,
-            supersetLabel = "A2",
-            supersetGroupName = "A",
-        ),
-    )
+    private fun supersetExercises() =
+        listOf(
+            benchRow(),
+            SessionExerciseRow(
+                sessionExerciseId = INCLINE_ROW,
+                position = 1,
+                exercise = INCLINE,
+                supersetLabel = "A1",
+                supersetGroupName = "A",
+                isLinkedToNext = true,
+            ),
+            SessionExerciseRow(
+                sessionExerciseId = FLY_ROW,
+                position = 2,
+                exercise = FLY,
+                supersetLabel = "A2",
+                supersetGroupName = "A",
+            ),
+        )
 
     private companion object {
         /** Past the hold, with room for the frame the timeout lands on. */
@@ -1552,7 +1556,8 @@ class ActiveSessionScreenTest {
         /** A tap, in other words. */
         const val TOO_SHORT = 200L
 
-        /** The `session_exercise` ids this fixture writes, in position order. */
+        /* The `session_exercise` ids this fixture writes, in position order. */
+
         /**
          * Further than any row is wide, for a drag that is meant to take the row off the screen.
          * `SwipeToDelete` clamps to the row, so overshooting cannot overshoot the threshold.

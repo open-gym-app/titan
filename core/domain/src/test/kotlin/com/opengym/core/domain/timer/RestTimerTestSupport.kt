@@ -9,7 +9,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 
-/**
+/*
  * Shared rig for the rest timer tests.
  *
  * The countdown is driven entirely by virtual time: the controller sleeps on the test
@@ -23,11 +23,12 @@ import kotlin.time.Duration.Companion.hours
  * The countdown belongs to [TestScope.backgroundScope], so a test that deliberately
  * leaves a timer running still finishes instead of hanging on an un-awaited child.
  */
-fun TestScope.restTimer(tick: Duration = RestTimerController.DEFAULT_TICK) = RestTimerController(
-    scope = backgroundScope,
-    timeSource = testScheduler.timeSource,
-    tick = tick,
-)
+fun TestScope.restTimer(tick: Duration = RestTimerController.DEFAULT_TICK) =
+    RestTimerController(
+        scope = backgroundScope,
+        timeSource = testScheduler.timeSource,
+        tick = tick,
+    )
 
 /**
  * Everything a controller has published, with the virtual instant of each publication.
@@ -49,10 +50,14 @@ class RestTimerRecording {
         published.filter { predicate(it.first) }.map { it.second }
 
     /** The instant [state] was first published, in virtual milliseconds. */
-    fun instantOf(state: RestTimerState): Long = instantsOf { it == state }.firstOrNull()
-        ?: throw AssertionError("$state was never published; saw $states")
+    fun instantOf(state: RestTimerState): Long =
+        instantsOf { it == state }.firstOrNull()
+            ?: throw AssertionError("$state was never published; saw $states")
 
-    internal fun add(state: RestTimerState, atMillis: Long) {
+    internal fun add(
+        state: RestTimerState,
+        atMillis: Long,
+    ) {
         published += state to atMillis
     }
 }

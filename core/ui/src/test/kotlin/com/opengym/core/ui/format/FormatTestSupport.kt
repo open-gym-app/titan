@@ -5,7 +5,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.WorkoutSet
 import java.util.Locale
 
-/**
+/*
  * Fixtures shared by the formatter tests.
  *
  * The formatters are locale-sensitive by design, so every assertion on a literal string has
@@ -23,7 +23,10 @@ import java.util.Locale
  * `Locale.setDefault` sets both the display and the formatting category, which is what the
  * formatters read.
  */
-fun withLocale(locale: Locale, block: () -> Unit) {
+fun withLocale(
+    locale: Locale,
+    block: () -> Unit,
+) {
     val previous = Locale.getDefault()
     Locale.setDefault(locale)
     try {
@@ -37,18 +40,22 @@ fun withLocale(locale: Locale, block: () -> Unit) {
  * A completed strength set carrying [weight] milligrams and [distance] centimetres, so a
  * parsed value can be handed to `SetValidator` the way a form would hand it over.
  */
-fun strengthSet(weight: Long? = null, distance: Long? = null): WorkoutSet = WorkoutSet(
-    sessionExerciseId = 1,
-    setNumber = 1,
-    reps = 8,
-    weight = weight,
-    distance = distance,
-    setType = SetType.NORMAL,
-    completedAt = 0,
-    isCompleted = true,
-    createdAt = 0,
-    updatedAt = 0,
-)
+fun strengthSet(
+    weight: Long? = null,
+    distance: Long? = null,
+): WorkoutSet =
+    WorkoutSet(
+        sessionExerciseId = 1,
+        setNumber = 1,
+        reps = 8,
+        weight = weight,
+        distance = distance,
+        setType = SetType.NORMAL,
+        completedAt = 0,
+        isCompleted = true,
+        createdAt = 0,
+        updatedAt = 0,
+    )
 
 /**
  * The weights a gym can actually load, in [unitSystem]'s own units — the "realistic gym

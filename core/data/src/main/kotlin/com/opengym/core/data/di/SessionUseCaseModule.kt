@@ -61,75 +61,81 @@ object SessionUseCaseModule {
     fun provideStartSessionUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): StartSessionUseCase = StartSessionUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        // Named rather than defaulted, because this is the argument the invariant rests
-        // on: one lock per process is what makes two concurrent starts queue instead of
-        // both passing the check. An unscoped provider handing each injection site its
-        // own use case is fine exactly because the lock is not one of the things it
-        // constructs.
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): StartSessionUseCase =
+        StartSessionUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            // Named rather than defaulted, because this is the argument the invariant rests
+            // on: one lock per process is what makes two concurrent starts queue instead of
+            // both passing the check. An unscoped provider handing each injection site its
+            // own use case is fine exactly because the lock is not one of the things it
+            // constructs.
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideStartPlannedSessionUseCase(
         startSession: StartSessionUseCase,
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): StartPlannedSessionUseCase = StartPlannedSessionUseCase(
-        startSession = startSession,
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-    )
+    ): StartPlannedSessionUseCase =
+        StartPlannedSessionUseCase(
+            startSession = startSession,
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+        )
 
     @Provides
     fun providePauseSessionUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): PauseSessionUseCase = PauseSessionUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): PauseSessionUseCase =
+        PauseSessionUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideResumeSessionUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): ResumeSessionUseCase = ResumeSessionUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): ResumeSessionUseCase =
+        ResumeSessionUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideFinishSessionUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
         inProgressSessionRepository: InProgressSessionRepository,
-    ): FinishSessionUseCase = FinishSessionUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        inProgressSessionRepository = inProgressSessionRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): FinishSessionUseCase =
+        FinishSessionUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            inProgressSessionRepository = inProgressSessionRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideDiscardSessionUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
         inProgressSessionRepository: InProgressSessionRepository,
-    ): DiscardSessionUseCase = DiscardSessionUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        inProgressSessionRepository = inProgressSessionRepository,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): DiscardSessionUseCase =
+        DiscardSessionUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            inProgressSessionRepository = inProgressSessionRepository,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     /*
      * The ones below that rewrite a session's *layout* take the lock, and the rest do not.
@@ -153,120 +159,130 @@ object SessionUseCaseModule {
     fun provideAddSessionExercisesUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): AddSessionExercisesUseCase = AddSessionExercisesUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): AddSessionExercisesUseCase =
+        AddSessionExercisesUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 
     @Provides
     fun provideRemoveSessionExerciseUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): RemoveSessionExerciseUseCase = RemoveSessionExerciseUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): RemoveSessionExerciseUseCase =
+        RemoveSessionExerciseUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideReorderSessionExercisesUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): ReorderSessionExercisesUseCase = ReorderSessionExercisesUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): ReorderSessionExercisesUseCase =
+        ReorderSessionExercisesUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideSwapSessionExerciseUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): SwapSessionExerciseUseCase = SwapSessionExerciseUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): SwapSessionExerciseUseCase =
+        SwapSessionExerciseUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideLinkSupersetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): LinkSupersetUseCase = LinkSupersetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): LinkSupersetUseCase =
+        LinkSupersetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     @Provides
     fun provideUnlinkSupersetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): UnlinkSupersetUseCase = UnlinkSupersetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-        lock = SessionLifecycleLock.SHARED,
-    )
+    ): UnlinkSupersetUseCase =
+        UnlinkSupersetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
 
     /** No state check either — a session logged last March is renamed the same way. */
     @Provides
-    fun provideRenameSessionUseCase(
-        sessionRepository: SessionRepository,
-    ): RenameSessionUseCase = RenameSessionUseCase(sessionRepository)
+    fun provideRenameSessionUseCase(sessionRepository: SessionRepository): RenameSessionUseCase =
+        RenameSessionUseCase(sessionRepository)
 
     @Provides
     fun provideLogSetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): LogSetUseCase = LogSetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): LogSetUseCase =
+        LogSetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 
     @Provides
     fun provideEditSetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): EditSetUseCase = EditSetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): EditSetUseCase =
+        EditSetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 
     @Provides
     fun provideMarkSetCompletedUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): MarkSetCompletedUseCase = MarkSetCompletedUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): MarkSetCompletedUseCase =
+        MarkSetCompletedUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 
     @Provides
     fun provideDeleteSetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): DeleteSetUseCase = DeleteSetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): DeleteSetUseCase =
+        DeleteSetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 
     @Provides
     fun provideRestoreSetUseCase(
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
-    ): RestoreSetUseCase = RestoreSetUseCase(
-        sessionRepository = sessionRepository,
-        sessionStateRepository = sessionStateRepository,
-        clock = Clock.SYSTEM,
-    )
+    ): RestoreSetUseCase =
+        RestoreSetUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+        )
 }

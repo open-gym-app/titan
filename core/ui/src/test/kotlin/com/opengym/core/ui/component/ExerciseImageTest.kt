@@ -64,6 +64,5 @@ class ExerciseImageTest {
         composeTestRule.onNodeWithText("B").assertDoesNotExist()
     }
 
-    private fun exercise(name: String) =
-        Exercise(id = 1, name = name, equipmentType = EquipmentType.BARBELL)
+    private fun exercise(name: String) = Exercise(id = 1, name = name, equipmentType = EquipmentType.BARBELL)
 }

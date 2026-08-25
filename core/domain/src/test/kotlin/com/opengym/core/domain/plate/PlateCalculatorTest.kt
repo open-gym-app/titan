@@ -24,8 +24,11 @@ class PlateCalculatorTest {
     /** The 45 lb plate as the rack holds it — see `PlateInventory.rack` for why it is not `lb(45.0)`. */
     private val fortyFivePound = imperial.stock.first().weight
 
-    private fun solve(target: Long, bar: Long = olympicBar, rack: PlateInventory = metric) =
-        PlateCalculator.solve(target = target, barWeight = bar, inventory = rack)
+    private fun solve(
+        target: Long,
+        bar: Long = olympicBar,
+        rack: PlateInventory = metric,
+    ) = PlateCalculator.solve(target = target, barWeight = bar, inventory = rack)
 
     // ─── Metric, reachable ──────────────────────────────────────────────────────────────
 

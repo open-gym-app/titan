@@ -289,10 +289,16 @@ class TemplateDurationTest {
      * [TemplateDuration.estimate] with the user's configured default rest, which the
      * function requires and most cases here do not vary.
      */
-    private fun estimate(exercises: List<PlannedExercise>, rest: Duration = defaultRest) =
-        TemplateDuration.estimate(exercises, rest)
+    private fun estimate(
+        exercises: List<PlannedExercise>,
+        rest: Duration = defaultRest,
+    ) = TemplateDuration.estimate(exercises, rest)
 
-    private fun exercise(sets: Int, rest: Long? = null, group: Int? = null) = TemplateExercise(
+    private fun exercise(
+        sets: Int,
+        rest: Long? = null,
+        group: Int? = null,
+    ) = TemplateExercise(
         templateId = 1,
         exerciseId = 1,
         position = 0,

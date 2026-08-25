@@ -41,8 +41,10 @@ private fun set(
     updatedAt = 0,
 )
 
-private fun sessionExercise(id: Long, exerciseId: Long) =
-    SessionExercise(id = id, sessionId = 1, exerciseId = exerciseId, position = 0, createdAt = 0, updatedAt = 0)
+private fun sessionExercise(
+    id: Long,
+    exerciseId: Long,
+) = SessionExercise(id = id, sessionId = 1, exerciseId = exerciseId, position = 0, createdAt = 0, updatedAt = 0)
 
 /**
  * Volume is integer milligram-reps, so every expectation below is an exact equality.

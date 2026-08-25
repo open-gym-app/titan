@@ -144,11 +144,12 @@ class LibraryFilterPanelTest {
 
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
-    private fun filters() = ExerciseLibraryUiState(
-        muscleGroups = TAXONOMY,
-        equipmentTypes = listOf(EquipmentType.BARBELL, EquipmentType.CABLE),
-        catalogueSize = CATALOGUE.size,
-        matchCount = CATALOGUE.size,
-        isLoading = false,
-    )
+    private fun filters() =
+        ExerciseLibraryUiState(
+            muscleGroups = TAXONOMY,
+            equipmentTypes = listOf(EquipmentType.BARBELL, EquipmentType.CABLE),
+            catalogueSize = CATALOGUE.size,
+            matchCount = CATALOGUE.size,
+            isLoading = false,
+        )
 }

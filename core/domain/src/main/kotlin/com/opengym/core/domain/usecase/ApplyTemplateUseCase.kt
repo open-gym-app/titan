@@ -37,9 +37,7 @@ import kotlinx.coroutines.flow.first
  * create, so seeing it means the rows were changed underneath (an import, a manual
  * edit) and starting an empty session from it would be worse than saying so.
  */
-class ApplyTemplateUseCase(
-    private val templateRepository: TemplateRepository,
-) {
+class ApplyTemplateUseCase(private val templateRepository: TemplateRepository) {
 
     suspend operator fun invoke(templateId: Long): Result<TemplatePlan> {
         val template = templateRepository.loadTemplate(templateId)

@@ -26,19 +26,20 @@ class PauseSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Paused> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val active = current as? SessionState.Active
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    suspend operator fun invoke(): Result<SessionState.Paused> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val active = current as? SessionState.Active
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        val session = sessionRepository.loadSession(active.sessionId)
-            .getOrElse { return@withTransition Result.failure(it) }
+            val session = sessionRepository.loadSession(active.sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
 
-        val now = clock.nowMillis()
-        sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
+            val now = clock.nowMillis()
+            sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
 
-        val paused = SessionState.Paused(sessionId = active.sessionId, pausedAt = now)
-        sessionStateRepository.update(paused)
-        Result.success(paused)
-    }
+            val paused = SessionState.Paused(sessionId = active.sessionId, pausedAt = now)
+            sessionStateRepository.update(paused)
+            Result.success(paused)
+        }
 }

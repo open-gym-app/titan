@@ -31,14 +31,20 @@ fun exercise(
     machineBrand = machineBrand,
 )
 
-fun muscleGroup(name: String = "CHEST", icon: String? = null) =
-    MuscleGroupEntity(name = name, icon = icon)
+fun muscleGroup(
+    name: String = "CHEST",
+    icon: String? = null,
+) = MuscleGroupEntity(name = name, icon = icon)
 
-fun tag(name: String = "PUSH", isSystem: Boolean = false) =
-    TagEntity(name = name, isSystem = isSystem)
+fun tag(
+    name: String = "PUSH",
+    isSystem: Boolean = false,
+) = TagEntity(name = name, isSystem = isSystem)
 
-fun template(name: String = "Push Day", category: String? = null) =
-    WorkoutTemplateEntity(name = name, category = category)
+fun template(
+    name: String = "Push Day",
+    category: String? = null,
+) = WorkoutTemplateEntity(name = name, category = category)
 
 fun templateExercise(
     templateId: Long,
@@ -125,5 +131,7 @@ fun personalRecord(
     achievedAt = achievedAt,
 )
 
-fun bodyWeightLog(weight: Long = 80_000_000, createdAt: Long = 0) =
-    BodyWeightLogEntity(weight = weight, createdAt = createdAt, updatedAt = createdAt)
+fun bodyWeightLog(
+    weight: Long = 80_000_000,
+    createdAt: Long = 0,
+) = BodyWeightLogEntity(weight = weight, createdAt = createdAt, updatedAt = createdAt)

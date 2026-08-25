@@ -30,63 +30,73 @@ class SetFormatTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun `a weighted set reads as its weight by its reps`() = withLocale(Locale.UK) {
-        setLine(weightMilligrams = 80_000_000L, reps = 5)
+    fun `a weighted set reads as its weight by its reps`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = 80_000_000L, reps = 5)
 
-        composeTestRule.onNodeWithText("80 kg × 5").assertIsDisplayed()
-    }
-
-    @Test
-    fun `a bodyweight set is its reps alone`() = withLocale(Locale.UK) {
-        // Pull-ups, dips, push-ups: the movement has no weight to name, and `0 kg × 12` would
-        // be the line claiming one.
-        setLine(weightMilligrams = null, reps = 12)
-
-        composeTestRule.onNodeWithText("12 reps").assertIsDisplayed()
-    }
+            composeTestRule.onNodeWithText("80 kg × 5").assertIsDisplayed()
+        }
 
     @Test
-    fun `a set with a weight and no reps is the weight alone`() = withLocale(Locale.UK) {
-        setLine(weightMilligrams = 60_000_000L, reps = null)
+    fun `a bodyweight set is its reps alone`() =
+        withLocale(Locale.UK) {
+            // Pull-ups, dips, push-ups: the movement has no weight to name, and `0 kg × 12` would
+            // be the line claiming one.
+            setLine(weightMilligrams = null, reps = 12)
 
-        composeTestRule.onNodeWithText("60 kg").assertIsDisplayed()
-    }
-
-    @Test
-    fun `a set with neither has no line at all`() = withLocale(Locale.UK) {
-        // Null rather than a dash, so the caller decides: a table draws a placeholder to keep
-        // its columns lined up, and a sentence quoting the set leaves the clause out.
-        setLine(weightMilligrams = null, reps = null)
-
-        assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
-    }
+            composeTestRule.onNodeWithText("12 reps").assertIsDisplayed()
+        }
 
     @Test
-    fun `the compact form drops the unit and the spaces`() = withLocale(Locale.UK) {
-        // What the `PREV` column draws. `80 kg × 5` is nine characters in a 52dp cell between
-        // two fields somebody is typing into; the row's own header says which unit it is in.
-        compactLine(weightMilligrams = 80_000_000L, reps = 5)
+    fun `a set with a weight and no reps is the weight alone`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = 60_000_000L, reps = null)
 
-        composeTestRule.onNodeWithText("80×5").assertIsDisplayed()
-    }
-
-    @Test
-    fun `the compact form keeps the sign in front of a bodyweight set`() = withLocale(Locale.UK) {
-        // `12` alone in that column would read as a weight with the reps clipped off, which is
-        // the one mistake a cell this narrow can actually cause.
-        compactLine(weightMilligrams = null, reps = 12)
-
-        composeTestRule.onNodeWithText("×12").assertIsDisplayed()
-    }
+            composeTestRule.onNodeWithText("60 kg").assertIsDisplayed()
+        }
 
     @Test
-    fun `the compact form of a set with neither is no cell at all`() = withLocale(Locale.UK) {
-        compactLine(weightMilligrams = null, reps = null)
+    fun `a set with neither has no line at all`() =
+        withLocale(Locale.UK) {
+            // Null rather than a dash, so the caller decides: a table draws a placeholder to keep
+            // its columns lined up, and a sentence quoting the set leaves the clause out.
+            setLine(weightMilligrams = null, reps = null)
 
-        assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
-    }
+            assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
+        }
 
-    private fun setLine(weightMilligrams: Long?, reps: Int?) {
+    @Test
+    fun `the compact form drops the unit and the spaces`() =
+        withLocale(Locale.UK) {
+            // What the `PREV` column draws. `80 kg × 5` is nine characters in a 52dp cell between
+            // two fields somebody is typing into; the row's own header says which unit it is in.
+            compactLine(weightMilligrams = 80_000_000L, reps = 5)
+
+            composeTestRule.onNodeWithText("80×5").assertIsDisplayed()
+        }
+
+    @Test
+    fun `the compact form keeps the sign in front of a bodyweight set`() =
+        withLocale(Locale.UK) {
+            // `12` alone in that column would read as a weight with the reps clipped off, which is
+            // the one mistake a cell this narrow can actually cause.
+            compactLine(weightMilligrams = null, reps = 12)
+
+            composeTestRule.onNodeWithText("×12").assertIsDisplayed()
+        }
+
+    @Test
+    fun `the compact form of a set with neither is no cell at all`() =
+        withLocale(Locale.UK) {
+            compactLine(weightMilligrams = null, reps = null)
+
+            assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
+        }
+
+    private fun setLine(
+        weightMilligrams: Long?,
+        reps: Int?,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 formatSet(weightMilligrams, reps)?.let { Text(text = it) }
@@ -94,7 +104,10 @@ class SetFormatTest {
         }
     }
 
-    private fun compactLine(weightMilligrams: Long?, reps: Int?) {
+    private fun compactLine(
+        weightMilligrams: Long?,
+        reps: Int?,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 formatSetCompact(weightMilligrams, reps)?.let { Text(text = it) }

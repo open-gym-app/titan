@@ -71,7 +71,7 @@ sonar {
 // anything the main build or CI invokes, so without this wiring `ArchitectureRulesTest` would
 // only ever run when somebody thought to ask for it by name — and the rules it covers are
 // exactly the ones nobody would notice had stopped working.
-val checkBuildLogic by tasks.registering {
+val checkBuildLogic = tasks.register("checkBuildLogic") {
     group = "verification"
     description = "Runs the build-logic convention plugins' unit tests."
     dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))

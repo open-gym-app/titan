@@ -141,13 +141,19 @@ class SessionsViewModel @Inject constructor(
 
         when (event) {
             is SessionsEvent.TabSelected -> screenState.update { it.copy(tab = event.tab) }
+
             is SessionsEvent.QueryChanged -> screenState.update { it.copy(query = event.query) }
+
             is SessionsEvent.DateFilterSelected ->
                 screenState.update { it.copy(dateFilter = event.filter) }
+
             SessionsEvent.SearchAndFiltersCleared ->
                 screenState.update { it.copy(query = "", dateFilter = DateFilter.All) }
+
             is SessionsEvent.CalendarDaySelected -> selectDay(event.date)
+
             is SessionsEvent.CalendarMonthChanged -> changeMonth(event.forward)
+
             else -> Unit
         }
     }
@@ -378,8 +384,10 @@ class SessionsViewModel @Inject constructor(
                     templateAction = null,
                     message = when {
                         outcome.isSuccess -> SessionsMessage.TEMPLATE_DELETED
+
                         outcome.exceptionOrNull() is TemplateError.NotFound ->
                             SessionsMessage.TEMPLATE_GONE
+
                         else -> SessionsMessage.TEMPLATE_ACTION_FAILED
                     },
                 )
@@ -399,19 +407,20 @@ class SessionsViewModel @Inject constructor(
      *   dialog has already been closed and the failure reported, and there is nothing left for
      *   the caller to decide.
      */
-    private suspend fun runTemplateWrite(write: suspend () -> Result<Unit>): Result<Unit>? = try {
-        write()
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (_: Throwable) {
-        screenState.update {
-            it.copy(
-                templateAction = null,
-                message = SessionsMessage.TEMPLATE_ACTION_FAILED,
-            )
+    private suspend fun runTemplateWrite(write: suspend () -> Result<Unit>): Result<Unit>? =
+        try {
+            write()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            screenState.update {
+                it.copy(
+                    templateAction = null,
+                    message = SessionsMessage.TEMPLATE_ACTION_FAILED,
+                )
+            }
+            null
         }
-        null
-    }
 
     /**
      * The row the action is about, or null once the list no longer holds it.
@@ -431,12 +440,13 @@ class SessionsViewModel @Inject constructor(
      * Both halves matter: a filter applied to a tab the user cannot see reads as a tap that
      * did nothing, and then surprises them the next time they open the history.
      */
-    private fun selectDay(date: LocalDate) = screenState.update {
-        it.copy(
-            tab = SessionsTab.HISTORY,
-            dateFilter = DateFilter.Between(start = date, end = date),
-        )
-    }
+    private fun selectDay(date: LocalDate) =
+        screenState.update {
+            it.copy(
+                tab = SessionsTab.HISTORY,
+                dateFilter = DateFilter.Between(start = date, end = date),
+            )
+        }
 
     /**
      * Page the calendar one month either way.
@@ -445,9 +455,10 @@ class SessionsViewModel @Inject constructor(
      * yesterday evening and comes back to it after midnight is still looking at "this month"
      * rather than at whichever month it was when the ViewModel was constructed.
      */
-    private fun changeMonth(forward: Boolean) = screenState.update {
-        it.copy(monthOffset = it.monthOffset + if (forward) 1 else -1)
-    }
+    private fun changeMonth(forward: Boolean) =
+        screenState.update {
+            it.copy(monthOffset = it.monthOffset + if (forward) 1 else -1)
+        }
 
     /**
      * Assemble the whole screen.
@@ -606,15 +617,18 @@ private fun HistoryRow.matches(query: String): Boolean {
 }
 
 /** The window this filter means, resolved against [today]. */
-private fun DateFilter.resolve(today: LocalDate): ClosedRange<LocalDate> = when (this) {
-    DateFilter.All -> LocalDate.MIN..LocalDate.MAX
-    // `days - 1` because the window includes today: "last 7 days" is today and the six
-    // before it, not today and the seven before it.
-    is DateFilter.LastDays -> today.minusDays(days - 1L)..today
-    // Normalised rather than trusted: a range picker can hand back its ends either way
-    // round, and a backwards range silently matches nothing.
-    is DateFilter.Between -> minOf(start, end)..maxOf(start, end)
-}
+private fun DateFilter.resolve(today: LocalDate): ClosedRange<LocalDate> =
+    when (this) {
+        DateFilter.All -> LocalDate.MIN..LocalDate.MAX
+
+        // `days - 1` because the window includes today: "last 7 days" is today and the six
+        // before it, not today and the seven before it.
+        is DateFilter.LastDays -> today.minusDays(days - 1L)..today
+
+        // Normalised rather than trusted: a range picker can hand back its ends either way
+        // round, and a backwards range silently matches nothing.
+        is DateFilter.Between -> minOf(start, end)..maxOf(start, end)
+    }
 
 /**
  * The rows grouped under the month each fell in, newest month first.
@@ -630,7 +644,10 @@ private fun List<HistoryRow>.groupIntoMonths(): List<SessionMonth> =
  * The heatmap for one month, built from every logged session rather than from the filtered
  * ones — see [CalendarPage].
  */
-private fun List<HistoryRow>.calendarPage(month: YearMonth, today: LocalDate): CalendarPage {
+private fun List<HistoryRow>.calendarPage(
+    month: YearMonth,
+    today: LocalDate,
+): CalendarPage {
     val inMonth = filter { YearMonth.from(it.startedOn) == month }
     val byDay = inMonth.groupBy { it.startedOn.dayOfMonth }
     val volumeByDay = byDay.mapValues { (_, rows) -> rows.sumOf { it.session.totalVolume } }
@@ -659,8 +676,10 @@ private fun List<HistoryRow>.calendarPage(month: YearMonth, today: LocalDate): C
  * which is what `0 >= 0` would give, and would paint a rest-heavy month of running as the
  * hardest one the user has had.
  */
-private fun loadOf(volume: Long, heaviest: Long): TrainingLoad =
-    if (heaviest > 0 && volume * 2 >= heaviest) TrainingLoad.HEAVY else TrainingLoad.LIGHT
+private fun loadOf(
+    volume: Long,
+    heaviest: Long,
+): TrainingLoad = if (heaviest > 0 && volume * 2 >= heaviest) TrainingLoad.HEAVY else TrainingLoad.LIGHT
 
 /**
  * Whether this sorted array holds a value inside `[start, end]`.
@@ -669,7 +688,10 @@ private fun loadOf(volume: Long, heaviest: Long): TrainingLoad =
  * replaces is O(records) per session, and both grow: the records with the catalogue, the
  * sessions with every workout the user logs.
  */
-private fun LongArray.hasValueIn(start: Long, end: Long): Boolean {
+private fun LongArray.hasValueIn(
+    start: Long,
+    end: Long,
+): Boolean {
     if (isEmpty()) return false
 
     var low = 0
@@ -688,8 +710,9 @@ private fun LongArray.hasValueIn(start: Long, end: Long): Boolean {
  * Both cases carry a flag of their own — they are written by different use cases and mean
  * different things — and every caller asking "can this be dismissed" wants them together.
  */
-private fun TemplateAction?.isBusy(): Boolean = when (this) {
-    is TemplateAction.Naming -> isSaving
-    is TemplateAction.Deleting -> isDeleting
-    null -> false
-}
+private fun TemplateAction?.isBusy(): Boolean =
+    when (this) {
+        is TemplateAction.Naming -> isSaving
+        is TemplateAction.Deleting -> isDeleting
+        null -> false
+    }

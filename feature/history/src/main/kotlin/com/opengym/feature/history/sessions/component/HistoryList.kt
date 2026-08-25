@@ -100,7 +100,10 @@ internal fun HistoryList(
  * apart.
  */
 @Composable
-private fun MonthHeading(month: SessionMonth, modifier: Modifier = Modifier) {
+private fun MonthHeading(
+    month: SessionMonth,
+    modifier: Modifier = Modifier,
+) {
     val heading = stringResource(
         R.string.sessions_month_heading,
         formatMonthAndYear(month.month),

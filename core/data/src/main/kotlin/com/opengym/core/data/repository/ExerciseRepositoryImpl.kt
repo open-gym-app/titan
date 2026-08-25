@@ -77,10 +77,12 @@ class ExerciseRepositoryImpl @Inject constructor(
     override fun getTags(exerciseId: Long): Flow<List<Tag>> =
         exerciseDao.getTags(exerciseId).map { rows -> rows.map(tagMapper::toDomain) }
 
-    override suspend fun insert(exercise: Exercise): Long =
-        exerciseDao.insert(exerciseMapper.toEntity(exercise))
+    override suspend fun insert(exercise: Exercise): Long = exerciseDao.insert(exerciseMapper.toEntity(exercise))
 
-    override suspend fun insert(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>): Long =
+    override suspend fun insert(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ): Long =
         exerciseDao.insertWithMuscleGroups(
             exercise = exerciseMapper.toEntity(exercise),
             // The exercise id is a placeholder: the row does not exist yet, so there is
@@ -88,14 +90,15 @@ class ExerciseRepositoryImpl @Inject constructor(
             links = muscleGroups.map(::linkEntity),
         )
 
-    override suspend fun update(exercise: Exercise) =
-        exerciseDao.update(exerciseMapper.toEntity(exercise))
+    override suspend fun update(exercise: Exercise) = exerciseDao.update(exerciseMapper.toEntity(exercise))
 
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) =
-        exerciseDao.updateWithMuscleGroups(
-            exercise = exerciseMapper.toEntity(exercise),
-            links = muscleGroups.map(::linkEntity),
-        )
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) = exerciseDao.updateWithMuscleGroups(
+        exercise = exerciseMapper.toEntity(exercise),
+        links = muscleGroups.map(::linkEntity),
+    )
 
     override suspend fun delete(id: Long) = exerciseDao.delete(id)
 
@@ -106,9 +109,10 @@ class ExerciseRepositoryImpl @Inject constructor(
      * yet, and an update has one the caller has already put on the exercise — so neither
      * caller has anything truthful to put here.
      */
-    private fun linkEntity(link: ExerciseMuscleGroupLink) = ExerciseMuscleGroupEntity(
-        exerciseId = 0,
-        muscleGroupId = link.muscleGroup.id,
-        isPrimary = link.isPrimary,
-    )
+    private fun linkEntity(link: ExerciseMuscleGroupLink) =
+        ExerciseMuscleGroupEntity(
+            exerciseId = 0,
+            muscleGroupId = link.muscleGroup.id,
+            isPrimary = link.isPrimary,
+        )
 }

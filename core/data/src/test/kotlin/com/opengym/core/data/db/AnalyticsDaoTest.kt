@@ -39,27 +39,28 @@ class AnalyticsDaoTest : RoomTestBase() {
     // --- getVolumeByWeek --------------------------------------------------
 
     @Test
-    fun `weekly volume is summed per Monday-aligned week`() = runBlocking {
-        val (_, sessionExerciseId) = seedSessionExercise()
-        val dao = db.workoutSetDao()
-        // week 1: 100kg x 10 + 80kg x 5   = 1_000_000_000 + 400_000_000
-        logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
-        logSet(sessionExerciseId, 2, at(WEEK_1 + 2), reps = 5, weight = kg(80))
-        // week 2: 60kg x 12               = 720_000_000
-        logSet(sessionExerciseId, 3, at(WEEK_2 + 1), reps = 12, weight = kg(60))
-        // week 3: 100kg x 3 + 50kg x 8    = 300_000_000 + 400_000_000
-        //         the second one falls on the Sunday that closes week 3
-        logSet(sessionExerciseId, 4, at(WEEK_3), reps = 3, weight = kg(100))
-        logSet(sessionExerciseId, 5, at(WEEK_3 + 6), reps = 8, weight = kg(50))
+    fun `weekly volume is summed per Monday-aligned week`() =
+        runBlocking {
+            val (_, sessionExerciseId) = seedSessionExercise()
+            val dao = db.workoutSetDao()
+            // week 1: 100kg x 10 + 80kg x 5   = 1_000_000_000 + 400_000_000
+            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(sessionExerciseId, 2, at(WEEK_1 + 2), reps = 5, weight = kg(80))
+            // week 2: 60kg x 12               = 720_000_000
+            logSet(sessionExerciseId, 3, at(WEEK_2 + 1), reps = 12, weight = kg(60))
+            // week 3: 100kg x 3 + 50kg x 8    = 300_000_000 + 400_000_000
+            //         the second one falls on the Sunday that closes week 3
+            logSet(sessionExerciseId, 4, at(WEEK_3), reps = 3, weight = kg(100))
+            logSet(sessionExerciseId, 5, at(WEEK_3 + 6), reps = 8, weight = kg(50))
 
-        val series = dao.getVolumeByWeek(WEEK_1).first()
+            val series = dao.getVolumeByWeek(WEEK_1).first()
 
-        assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), series.map { it.weekStartEpochDay })
-        assertEquals(
-            listOf(1_400_000_000L, 720_000_000L, 700_000_000L),
-            series.map { it.totalVolume },
-        )
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), series.map { it.weekStartEpochDay })
+            assertEquals(
+                listOf(1_400_000_000L, 720_000_000L, 700_000_000L),
+                series.map { it.totalVolume },
+            )
+        }
 
     @Test
     fun `weekly volume ignores sets before the cutoff and sets that were never completed`() =
@@ -102,57 +103,60 @@ class AnalyticsDaoTest : RoomTestBase() {
         }
 
     @Test
-    fun `weekly volume is an empty series when there is no completed history`() = runBlocking {
-        val (_, sessionExerciseId) = seedSessionExercise()
-        logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100), isCompleted = false)
+    fun `weekly volume is an empty series when there is no completed history`() =
+        runBlocking {
+            val (_, sessionExerciseId) = seedSessionExercise()
+            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100), isCompleted = false)
 
-        assertTrue(db.workoutSetDao().getVolumeByWeek(WEEK_1).first().isEmpty())
-    }
+            assertTrue(db.workoutSetDao().getVolumeByWeek(WEEK_1).first().isEmpty())
+        }
 
     // --- getVolumeByMuscleGroup -------------------------------------------
 
     @Test
-    fun `each linked muscle group is credited with the full volume of the set`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
-        val exerciseId = db.exerciseDao().insert(exercise(name = "Bench Press"))
-        link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
-        link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
-        link(exerciseId, muscles.getValue("SHOULDERS"), isPrimary = false)
-        val sessionExerciseId = seedSessionExerciseFor(exerciseId)
-        // one set, 100kg x 10 = 1_000_000_000
-        logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
+    fun `each linked muscle group is credited with the full volume of the set`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
+            val exerciseId = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
+            link(exerciseId, muscles.getValue("SHOULDERS"), isPrimary = false)
+            val sessionExerciseId = seedSessionExerciseFor(exerciseId)
+            // one set, 100kg x 10 = 1_000_000_000
+            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
 
-        val rows = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+            val rows = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
 
-        // Every linked group appears exactly once: three links, three rows.
-        assertEquals(listOf("CHEST", "SHOULDERS", "TRICEPS"), rows.map { it.muscleGroupName }.sorted())
-        assertEquals(setOf(1_000_000_000L), rows.map { it.totalVolume }.toSet())
-    }
+            // Every linked group appears exactly once: three links, three rows.
+            assertEquals(listOf("CHEST", "SHOULDERS", "TRICEPS"), rows.map { it.muscleGroupName }.sorted())
+            assertEquals(setOf(1_000_000_000L), rows.map { it.totalVolume }.toSet())
+        }
 
     @Test
-    fun `a second secondary muscle does not double-count the set against the first`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
-        val oneSecondary = db.exerciseDao().insert(exercise(name = "Floor Press"))
-        link(oneSecondary, muscles.getValue("CHEST"), isPrimary = true)
-        link(oneSecondary, muscles.getValue("TRICEPS"), isPrimary = false)
-        val twoSecondaries = db.exerciseDao().insert(exercise(name = "Incline Press"))
-        link(twoSecondaries, muscles.getValue("CHEST"), isPrimary = true)
-        link(twoSecondaries, muscles.getValue("TRICEPS"), isPrimary = false)
-        link(twoSecondaries, muscles.getValue("SHOULDERS"), isPrimary = false)
+    fun `a second secondary muscle does not double-count the set against the first`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
+            val oneSecondary = db.exerciseDao().insert(exercise(name = "Floor Press"))
+            link(oneSecondary, muscles.getValue("CHEST"), isPrimary = true)
+            link(oneSecondary, muscles.getValue("TRICEPS"), isPrimary = false)
+            val twoSecondaries = db.exerciseDao().insert(exercise(name = "Incline Press"))
+            link(twoSecondaries, muscles.getValue("CHEST"), isPrimary = true)
+            link(twoSecondaries, muscles.getValue("TRICEPS"), isPrimary = false)
+            link(twoSecondaries, muscles.getValue("SHOULDERS"), isPrimary = false)
 
-        // One identical set on each exercise: 100kg x 10 = 1_000_000_000 apiece.
-        logSet(seedSessionExerciseFor(oneSecondary), 1, at(WEEK_1), reps = 10, weight = kg(100))
-        logSet(seedSessionExerciseFor(twoSecondaries), 1, at(WEEK_1 + 1), reps = 10, weight = kg(100))
+            // One identical set on each exercise: 100kg x 10 = 1_000_000_000 apiece.
+            logSet(seedSessionExerciseFor(oneSecondary), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(seedSessionExerciseFor(twoSecondaries), 1, at(WEEK_1 + 1), reps = 10, weight = kg(100))
 
-        val byName = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
-            .associateBy { it.muscleGroupName }
+            val byName = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+                .associateBy { it.muscleGroupName }
 
-        // CHEST is primary on both sets: 2 x 1_000_000_000, not multiplied by the
-        // number of secondary muscles the two exercises happen to have.
-        assertEquals(2_000_000_000L, byName.getValue("CHEST").totalVolume)
-        assertEquals(2_000_000_000L, byName.getValue("TRICEPS").totalVolume)
-        assertEquals(1_000_000_000L, byName.getValue("SHOULDERS").totalVolume)
-    }
+            // CHEST is primary on both sets: 2 x 1_000_000_000, not multiplied by the
+            // number of secondary muscles the two exercises happen to have.
+            assertEquals(2_000_000_000L, byName.getValue("CHEST").totalVolume)
+            assertEquals(2_000_000_000L, byName.getValue("TRICEPS").totalVolume)
+            assertEquals(1_000_000_000L, byName.getValue("SHOULDERS").totalVolume)
+        }
 
     @Test
     fun `weighted volume gives a primary link all of the set and a secondary link half`() =
@@ -190,55 +194,59 @@ class AnalyticsDaoTest : RoomTestBase() {
         }
 
     @Test
-    fun `muscle volume is empty when nothing was trained in the range`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST")
-        val exerciseId = db.exerciseDao().insert(exercise())
-        link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
-        logSet(seedSessionExerciseFor(exerciseId), 1, at(WEEK_1), reps = 10, weight = kg(100))
+    fun `muscle volume is empty when nothing was trained in the range`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST")
+            val exerciseId = db.exerciseDao().insert(exercise())
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            logSet(seedSessionExerciseFor(exerciseId), 1, at(WEEK_1), reps = 10, weight = kg(100))
 
-        assertTrue(db.workoutSetDao().getVolumeByMuscleGroup(WEEK_3, WEEK_4).first().isEmpty())
-    }
+            assertTrue(db.workoutSetDao().getVolumeByMuscleGroup(WEEK_3, WEEK_4).first().isEmpty())
+        }
 
     // --- getRecentRecords -------------------------------------------------
 
     @Test
-    fun `recent records are newest-achieved first across every exercise`() = runBlocking {
-        val dao = db.personalRecordDao()
-        val benchId = db.exerciseDao().insert(exercise(name = "Bench Press"))
-        val squatId = db.exerciseDao().insert(exercise(name = "Squat"))
-        val benchSetId = db.workoutSetDao().insert(
-            workoutSet(seedSessionExerciseFor(benchId), setNumber = 1),
-        )
-        val squatSetId = db.workoutSetDao().insert(
-            workoutSet(seedSessionExerciseFor(squatId), setNumber = 1),
-        )
-        dao.insert(personalRecord(benchId, benchSetId, achievedAt = at(WEEK_1)))
-        dao.insert(personalRecord(squatId, squatSetId, achievedAt = at(WEEK_3)))
-        dao.insert(personalRecord(benchId, benchSetId, achievedAt = at(WEEK_2)))
+    fun `recent records are newest-achieved first across every exercise`() =
+        runBlocking {
+            val dao = db.personalRecordDao()
+            val benchId = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            val squatId = db.exerciseDao().insert(exercise(name = "Squat"))
+            val benchSetId = db.workoutSetDao().insert(
+                workoutSet(seedSessionExerciseFor(benchId), setNumber = 1),
+            )
+            val squatSetId = db.workoutSetDao().insert(
+                workoutSet(seedSessionExerciseFor(squatId), setNumber = 1),
+            )
+            dao.insert(personalRecord(benchId, benchSetId, achievedAt = at(WEEK_1)))
+            dao.insert(personalRecord(squatId, squatSetId, achievedAt = at(WEEK_3)))
+            dao.insert(personalRecord(benchId, benchSetId, achievedAt = at(WEEK_2)))
 
-        val achieved = dao.getRecentRecords(limit = 10).first().map { it.achievedAt }
+            val achieved = dao.getRecentRecords(limit = 10).first().map { it.achievedAt }
 
-        assertEquals(listOf(at(WEEK_3), at(WEEK_2), at(WEEK_1)), achieved)
-    }
-
-    @Test
-    fun `recent records are capped at the requested limit`() = runBlocking {
-        val dao = db.personalRecordDao()
-        val (exerciseId, sessionExerciseId) = seedSessionExercise()
-        val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
-        (1..5).forEach { day ->
-            dao.insert(personalRecord(exerciseId, setId, achievedAt = at(WEEK_1 + day)))
+            assertEquals(listOf(at(WEEK_3), at(WEEK_2), at(WEEK_1)), achieved)
         }
 
-        val achieved = dao.getRecentRecords(limit = 2).first().map { it.achievedAt }
+    @Test
+    fun `recent records are capped at the requested limit`() =
+        runBlocking {
+            val dao = db.personalRecordDao()
+            val (exerciseId, sessionExerciseId) = seedSessionExercise()
+            val setId = db.workoutSetDao().insert(workoutSet(sessionExerciseId, setNumber = 1))
+            (1..5).forEach { day ->
+                dao.insert(personalRecord(exerciseId, setId, achievedAt = at(WEEK_1 + day)))
+            }
 
-        assertEquals(listOf(at(WEEK_1 + 5), at(WEEK_1 + 4)), achieved)
-    }
+            val achieved = dao.getRecentRecords(limit = 2).first().map { it.achievedAt }
+
+            assertEquals(listOf(at(WEEK_1 + 5), at(WEEK_1 + 4)), achieved)
+        }
 
     @Test
-    fun `recent records is empty when no personal record has been set`() = runBlocking {
-        assertTrue(db.personalRecordDao().getRecentRecords(limit = 10).first().isEmpty())
-    }
+    fun `recent records is empty when no personal record has been set`() =
+        runBlocking {
+            assertTrue(db.personalRecordDao().getRecentRecords(limit = 10).first().isEmpty())
+        }
 
     // --- fixture helpers --------------------------------------------------
 
@@ -259,8 +267,11 @@ class AnalyticsDaoTest : RoomTestBase() {
         return db.muscleGroupDao().getAll().first().associate { it.name to it.id }
     }
 
-    private suspend fun link(exerciseId: Long, muscleGroupId: Long, isPrimary: Boolean) =
-        db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId, muscleGroupId, isPrimary))
+    private suspend fun link(
+        exerciseId: Long,
+        muscleGroupId: Long,
+        isPrimary: Boolean,
+    ) = db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId, muscleGroupId, isPrimary))
 
     private suspend fun logSet(
         sessionExerciseId: Long,

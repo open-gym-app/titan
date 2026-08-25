@@ -7,7 +7,7 @@ import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.superset.Supersets
 import kotlinx.coroutines.flow.first
 
-/**
+/*
  * The rules [CreateTemplateUseCase] and [UpdateTemplateUseCase] share, kept in one
  * place so the two cannot drift: a template that could not be created must not be
  * reachable by editing an existing one into the same shape.
@@ -81,8 +81,10 @@ private fun List<TemplateExerciseDraft>.withNormalizedSupersets(): List<Template
  * with the persistence contract in M3-07; until then this is the only enforcement,
  * and it holds for the one-user-one-screen case it exists for.
  */
-private suspend fun TemplateRepository.nameTaken(name: String, selfId: Long): Boolean =
-    getAll().first().any { it.id != selfId && it.name.equals(name, ignoreCase = true) }
+private suspend fun TemplateRepository.nameTaken(
+    name: String,
+    selfId: Long,
+): Boolean = getAll().first().any { it.id != selfId && it.name.equals(name, ignoreCase = true) }
 
 /**
  * Reads one template row, failing with [TemplateError.NotFound] instead of returning

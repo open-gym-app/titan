@@ -192,9 +192,10 @@ fun HomeScreen(
 
 /** What a message says. Resolved in the screen, so the ViewModel never holds a `Context`. */
 @StringRes
-internal fun HomeMessage.textRes(): Int = when (this) {
-    HomeMessage.DISCARD_FAILED -> R.string.home_discard_failed
-}
+internal fun HomeMessage.textRes(): Int =
+    when (this) {
+        HomeMessage.DISCARD_FAILED -> R.string.home_discard_failed
+    }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

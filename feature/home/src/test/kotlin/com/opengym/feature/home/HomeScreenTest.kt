@@ -319,12 +319,13 @@ class HomeScreenTest {
     }
 
     /** A settled Home: a week with three sessions in it, and two saved templates. */
-    private fun state(resume: ResumeState? = null) = HomeUiState(
-        resume = resume,
-        week = WeekState(days = WEEK, sessionCount = 3),
-        templates = TEMPLATES,
-        isLoading = false,
-    )
+    private fun state(resume: ResumeState? = null) =
+        HomeUiState(
+            resume = resume,
+            week = WeekState(days = WEEK, sessionCount = 3),
+            templates = TEMPLATES,
+            isLoading = false,
+        )
 
     private companion object {
         /**

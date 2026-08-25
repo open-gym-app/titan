@@ -63,7 +63,10 @@ internal fun ExerciseBreakdownCard(
  * a sentence, with the words the figures abbreviate.
  */
 @Composable
-private fun ExerciseRow(position: Int, row: SummaryExerciseRow) {
+private fun ExerciseRow(
+    position: Int,
+    row: SummaryExerciseRow,
+) {
     val name = row.name ?: stringResource(R.string.summary_exercise_unknown)
     val meta = row.metaLine()
     val spoken = row.spokenDescription(position = position, name = name)
@@ -170,13 +173,17 @@ private fun SummaryExerciseRow.repRange(): String? {
  */
 @Composable
 @ReadOnlyComposable
-private fun SummaryExerciseRow.spokenDescription(position: Int, name: String): String = listOfNotNull(
-    stringResource(R.string.summary_exercise_description_position, position, name),
-    pluralStringResource(R.plurals.summary_exercise_description_sets, setCount, setCount),
-    spokenReps(),
-    topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) },
-    record?.let { stringResource(CoreR.string.pr_description, it.type.label()) },
-).joinToString(SPOKEN_SEPARATOR)
+private fun SummaryExerciseRow.spokenDescription(
+    position: Int,
+    name: String,
+): String =
+    listOfNotNull(
+        stringResource(R.string.summary_exercise_description_position, position, name),
+        pluralStringResource(R.plurals.summary_exercise_description_sets, setCount, setCount),
+        spokenReps(),
+        topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) },
+        record?.let { stringResource(CoreR.string.pr_description, it.type.label()) },
+    ).joinToString(SPOKEN_SEPARATOR)
 
 /** `8 to 10 reps`, or `10 reps`, or nothing for an exercise that logs none. */
 @Composable

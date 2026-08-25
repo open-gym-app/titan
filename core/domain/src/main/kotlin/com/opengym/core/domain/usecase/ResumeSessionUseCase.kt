@@ -40,26 +40,30 @@ class ResumeSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Active> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val sessionId = resumableSessionId(current)
-            ?: return@withTransition Result.failure(SessionError.SessionNotPaused(current))
+    suspend operator fun invoke(): Result<SessionState.Active> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val sessionId = resumableSessionId(current)
+                ?: return@withTransition Result.failure(SessionError.SessionNotPaused(current))
 
-        val session = sessionRepository.loadSession(sessionId)
-            .getOrElse { return@withTransition Result.failure(it) }
+            val session = sessionRepository.loadSession(sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
 
-        val now = clock.nowMillis()
-        sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
+            val now = clock.nowMillis()
+            sessionRepository.update(session.copy(lastActiveAt = now, updatedAt = now))
 
-        val active = SessionState.Active(sessionId = session.id, startedAt = session.createdAt)
-        sessionStateRepository.update(active)
-        Result.success(active)
-    }
+            val active = SessionState.Active(sessionId = session.id, startedAt = session.createdAt)
+            sessionStateRepository.update(active)
+            Result.success(active)
+        }
 
-    private suspend fun resumableSessionId(current: SessionState): Long? = when (current) {
-        // Already running: resuming it would be a no-op that hid a caller's bug.
-        is SessionState.Active -> null
-        is SessionState.Paused -> current.sessionId
-        SessionState.Idle, is SessionState.Finished -> sessionRepository.getActive().first()?.id
-    }
+    private suspend fun resumableSessionId(current: SessionState): Long? =
+        when (current) {
+            // Already running: resuming it would be a no-op that hid a caller's bug.
+            is SessionState.Active -> null
+
+            is SessionState.Paused -> current.sessionId
+
+            SessionState.Idle, is SessionState.Finished -> sessionRepository.getActive().first()?.id
+        }
 }

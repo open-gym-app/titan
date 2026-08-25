@@ -35,20 +35,21 @@ import com.opengym.core.ui.R
 fun EquipmentType.labelOrNull(): String? = labelRes()?.let { stringResource(it) }
 
 @StringRes
-private fun EquipmentType.labelRes(): Int? = when (this) {
-    EquipmentType.BARBELL -> R.string.equipment_barbell
-    EquipmentType.DUMBBELL -> R.string.equipment_dumbbell
-    EquipmentType.MACHINE -> R.string.equipment_machine
-    EquipmentType.BODYWEIGHT -> R.string.equipment_bodyweight
-    EquipmentType.CABLE -> R.string.equipment_cable
-    EquipmentType.KETTLEBELL -> R.string.equipment_kettlebell
-    EquipmentType.BAND -> R.string.equipment_band
-    EquipmentType.EZ_CURL_BAR -> R.string.equipment_ez_curl_bar
-    EquipmentType.MEDICINE_BALL -> R.string.equipment_medicine_ball
-    EquipmentType.EXERCISE_BALL -> R.string.equipment_exercise_ball
-    EquipmentType.FOAM_ROLL -> R.string.equipment_foam_roll
-    EquipmentType.OTHER -> null
-}
+private fun EquipmentType.labelRes(): Int? =
+    when (this) {
+        EquipmentType.BARBELL -> R.string.equipment_barbell
+        EquipmentType.DUMBBELL -> R.string.equipment_dumbbell
+        EquipmentType.MACHINE -> R.string.equipment_machine
+        EquipmentType.BODYWEIGHT -> R.string.equipment_bodyweight
+        EquipmentType.CABLE -> R.string.equipment_cable
+        EquipmentType.KETTLEBELL -> R.string.equipment_kettlebell
+        EquipmentType.BAND -> R.string.equipment_band
+        EquipmentType.EZ_CURL_BAR -> R.string.equipment_ez_curl_bar
+        EquipmentType.MEDICINE_BALL -> R.string.equipment_medicine_ball
+        EquipmentType.EXERCISE_BALL -> R.string.equipment_exercise_ball
+        EquipmentType.FOAM_ROLL -> R.string.equipment_foam_roll
+        EquipmentType.OTHER -> null
+    }
 
 /**
  * How an exercise is measured: `Weight & reps`, `Distance & time`, `Hold`.
@@ -63,11 +64,12 @@ private fun EquipmentType.labelRes(): Int? = when (this) {
 fun ExerciseType.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun ExerciseType.labelRes(): Int = when (this) {
-    ExerciseType.STRENGTH -> R.string.exercise_type_strength
-    ExerciseType.ENDURANCE -> R.string.exercise_type_endurance
-    ExerciseType.ISOMETRIC -> R.string.exercise_type_isometric
-}
+internal fun ExerciseType.labelRes(): Int =
+    when (this) {
+        ExerciseType.STRENGTH -> R.string.exercise_type_strength
+        ExerciseType.ENDURANCE -> R.string.exercise_type_endurance
+        ExerciseType.ISOMETRIC -> R.string.exercise_type_isometric
+    }
 
 /**
  * The fields a set of this exercise is logged with: `Weight, reps, RPE`.
@@ -85,11 +87,12 @@ internal fun ExerciseType.labelRes(): Int = when (this) {
 fun ExerciseType.trackedLabel(): String = stringResource(trackedLabelRes())
 
 @StringRes
-internal fun ExerciseType.trackedLabelRes(): Int = when (this) {
-    ExerciseType.STRENGTH -> R.string.exercise_tracked_strength
-    ExerciseType.ENDURANCE -> R.string.exercise_tracked_endurance
-    ExerciseType.ISOMETRIC -> R.string.exercise_tracked_isometric
-}
+internal fun ExerciseType.trackedLabelRes(): Int =
+    when (this) {
+        ExerciseType.STRENGTH -> R.string.exercise_tracked_strength
+        ExerciseType.ENDURANCE -> R.string.exercise_tracked_endurance
+        ExerciseType.ISOMETRIC -> R.string.exercise_tracked_isometric
+    }
 
 /**
  * Whether the movement is a compound or an isolation: `Compound`, `Isolation`.
@@ -103,10 +106,11 @@ internal fun ExerciseType.trackedLabelRes(): Int = when (this) {
 fun MechanicType.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun MechanicType.labelRes(): Int = when (this) {
-    MechanicType.COMPOUND -> R.string.mechanic_compound
-    MechanicType.ISOLATION -> R.string.mechanic_isolation
-}
+internal fun MechanicType.labelRes(): Int =
+    when (this) {
+        MechanicType.COMPOUND -> R.string.mechanic_compound
+        MechanicType.ISOLATION -> R.string.mechanic_isolation
+    }
 
 /**
  * How much practice the movement demands: `Beginner`, `Intermediate`, `Expert`.
@@ -120,11 +124,12 @@ internal fun MechanicType.labelRes(): Int = when (this) {
 fun DifficultyLevel.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun DifficultyLevel.labelRes(): Int = when (this) {
-    DifficultyLevel.BEGINNER -> R.string.difficulty_beginner
-    DifficultyLevel.INTERMEDIATE -> R.string.difficulty_intermediate
-    DifficultyLevel.EXPERT -> R.string.difficulty_expert
-}
+internal fun DifficultyLevel.labelRes(): Int =
+    when (this) {
+        DifficultyLevel.BEGINNER -> R.string.difficulty_beginner
+        DifficultyLevel.INTERMEDIATE -> R.string.difficulty_intermediate
+        DifficultyLevel.EXPERT -> R.string.difficulty_expert
+    }
 
 /**
  * The tradition the movement comes from: `Powerlifting`, `Stretching`, `Cardio`.
@@ -137,12 +142,13 @@ internal fun DifficultyLevel.labelRes(): Int = when (this) {
 fun Discipline.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun Discipline.labelRes(): Int = when (this) {
-    Discipline.STRENGTH -> R.string.discipline_strength
-    Discipline.POWERLIFTING -> R.string.discipline_powerlifting
-    Discipline.OLYMPIC_WEIGHTLIFTING -> R.string.discipline_olympic_weightlifting
-    Discipline.STRONGMAN -> R.string.discipline_strongman
-    Discipline.PLYOMETRICS -> R.string.discipline_plyometrics
-    Discipline.STRETCHING -> R.string.discipline_stretching
-    Discipline.CARDIO -> R.string.discipline_cardio
-}
+internal fun Discipline.labelRes(): Int =
+    when (this) {
+        Discipline.STRENGTH -> R.string.discipline_strength
+        Discipline.POWERLIFTING -> R.string.discipline_powerlifting
+        Discipline.OLYMPIC_WEIGHTLIFTING -> R.string.discipline_olympic_weightlifting
+        Discipline.STRONGMAN -> R.string.discipline_strongman
+        Discipline.PLYOMETRICS -> R.string.discipline_plyometrics
+        Discipline.STRETCHING -> R.string.discipline_stretching
+        Discipline.CARDIO -> R.string.discipline_cardio
+    }

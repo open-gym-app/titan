@@ -126,7 +126,10 @@ interface WorkoutTemplateDao {
      * insert and the replace can be guaranteed to store the same thing. Not transactional
      * on its own — both callers already are, and this must not commit half a body.
      */
-    suspend fun insertBodies(templateId: Long, exercises: List<TemplateExerciseWithSets>) {
+    suspend fun insertBodies(
+        templateId: Long,
+        exercises: List<TemplateExerciseWithSets>,
+    ) {
         exercises.forEach { body ->
             val exerciseId = insertExercise(body.exercise.copy(templateId = templateId))
             if (body.sets.isNotEmpty()) {

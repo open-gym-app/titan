@@ -298,25 +298,30 @@ class NewSessionScreenTest {
         }
     }
 
-    private fun readyFromTemplate() = NewSessionStep.ReadyToStart(
-        name = "Push Day · Upper",
-        estimatedDuration = 55.minutes,
-        exercises = listOf(
-            row("Bench press"),
-            row("Incline press", supersetLabel = "A1"),
-            row("Cable fly", supersetLabel = "A2"),
-        ),
-    )
+    private fun readyFromTemplate() =
+        NewSessionStep.ReadyToStart(
+            name = "Push Day · Upper",
+            estimatedDuration = 55.minutes,
+            exercises = listOf(
+                row("Bench press"),
+                row("Incline press", supersetLabel = "A1"),
+                row("Cable fly", supersetLabel = "A2"),
+            ),
+        )
 
-    private fun row(name: String, supersetLabel: String? = null) = PlannedExerciseRow(
+    private fun row(
+        name: String,
+        supersetLabel: String? = null,
+    ) = PlannedExerciseRow(
         exercise = Exercise(id = name.hashCode().toLong(), name = name),
         supersetLabel = supersetLabel,
     )
 
-    private fun templates(): List<TemplateSummary> = listOf(
-        summary(1L, "Push Day · Upper", 8, 55.minutes, TemplateCategory.STRENGTH),
-        summary(2L, "Leg Day · Heavy", 6, 62.minutes, TemplateCategory.HYPERTROPHY),
-    )
+    private fun templates(): List<TemplateSummary> =
+        listOf(
+            summary(1L, "Push Day · Upper", 8, 55.minutes, TemplateCategory.STRENGTH),
+            summary(2L, "Leg Day · Heavy", 6, 62.minutes, TemplateCategory.HYPERTROPHY),
+        )
 
     private fun summary(
         id: Long,

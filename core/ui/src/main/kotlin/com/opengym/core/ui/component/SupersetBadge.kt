@@ -22,7 +22,10 @@ import com.opengym.core.ui.R
  *   user is looking at, and on two cards drawn one above the other that is the whole point.
  */
 @Composable
-fun SupersetBadge(label: String, modifier: Modifier = Modifier) {
+fun SupersetBadge(
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     OpenGymBadge(
         text = stringResource(R.string.superset_badge, label),
         tone = BadgeTone.ACCENT,

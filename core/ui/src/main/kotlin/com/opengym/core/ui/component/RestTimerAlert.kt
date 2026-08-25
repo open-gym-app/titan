@@ -83,7 +83,10 @@ import kotlinx.coroutines.withContext
  *   noise — a preview, a test, a screen showing somebody else's finished workout.
  */
 @Composable
-fun RestExpiryAlert(state: RestTimerState, enabled: Boolean = true) {
+fun RestExpiryAlert(
+    state: RestTimerState,
+    enabled: Boolean = true,
+) {
     val context = LocalContext.current
     val tone = rememberNotificationTone(enabled)
 

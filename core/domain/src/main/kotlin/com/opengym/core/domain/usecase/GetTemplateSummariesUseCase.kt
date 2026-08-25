@@ -41,25 +41,26 @@ class GetTemplateSummariesUseCase(
     private val userPreferencesRepository: UserPreferencesRepository,
 ) {
 
-    operator fun invoke(): Flow<List<TemplateSummary>> = combine(
-        templateRepository.getAll(),
-        templateRepository.getAllExercises(),
-        userPreferencesRepository.observe(),
-    ) { templates, exercises, preferences ->
-        val byTemplate = exercises.groupBy(TemplateExercise::templateId)
+    operator fun invoke(): Flow<List<TemplateSummary>> =
+        combine(
+            templateRepository.getAll(),
+            templateRepository.getAllExercises(),
+            userPreferencesRepository.observe(),
+        ) { templates, exercises, preferences ->
+            val byTemplate = exercises.groupBy(TemplateExercise::templateId)
 
-        templates.map { template ->
-            // Re-sorted rather than trusted, as `ApplyTemplateUseCase` does and for the
-            // same reason: position order is what both the estimate and the superset
-            // grouping are read in, and it is worth one sort over a handful of rows to
-            // not depend on an implementation honouring a contract.
-            val body = byTemplate[template.id].orEmpty().sortedBy(TemplateExercise::position)
+            templates.map { template ->
+                // Re-sorted rather than trusted, as `ApplyTemplateUseCase` does and for the
+                // same reason: position order is what both the estimate and the superset
+                // grouping are read in, and it is worth one sort over a handful of rows to
+                // not depend on an implementation honouring a contract.
+                val body = byTemplate[template.id].orEmpty().sortedBy(TemplateExercise::position)
 
-            TemplateSummary(
-                template = template,
-                exerciseCount = body.size,
-                estimatedDuration = TemplateDuration.estimate(body, preferences.defaultRestDuration),
-            )
+                TemplateSummary(
+                    template = template,
+                    exerciseCount = body.size,
+                    estimatedDuration = TemplateDuration.estimate(body, preferences.defaultRestDuration),
+                )
+            }
         }
-    }
 }

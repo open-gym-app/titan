@@ -51,7 +51,10 @@ class DeleteSetUseCase(
      *   after the row has gone carries the same set on
      *   [SessionError.SetTableNotRenumbered], so the undo can still be offered over it.
      */
-    suspend operator fun invoke(sessionExerciseId: Long, setId: Long): Result<WorkoutSet> {
+    suspend operator fun invoke(
+        sessionExerciseId: Long,
+        setId: Long,
+    ): Result<WorkoutSet> {
         val sets = orderedSetsOf(sessionRepository, sessionStateRepository, sessionExerciseId)
             .getOrElse { return Result.failure(it) }
         val deleted = sets.firstOrNull { it.id == setId }
@@ -66,7 +69,10 @@ class DeleteSetUseCase(
      * Split off [invoke] so the checks that stand between the caller and the store are one
      * half and the writes are the other, rather than one function of five exits.
      */
-    private suspend fun remove(deleted: WorkoutSet, from: List<WorkoutSet>): Result<WorkoutSet> {
+    private suspend fun remove(
+        deleted: WorkoutSet,
+        from: List<WorkoutSet>,
+    ): Result<WorkoutSet> {
         runCatching { sessionRepository.deleteSet(deleted.id) }
             .getOrElse { return Result.failure(it) }
 

@@ -37,11 +37,12 @@ import com.opengym.core.ui.R
 fun ThemePreference.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun ThemePreference.labelRes(): Int = when (this) {
-    ThemePreference.LIGHT -> R.string.preference_theme_light
-    ThemePreference.DARK -> R.string.preference_theme_dark
-    ThemePreference.SYSTEM -> R.string.preference_theme_system
-}
+internal fun ThemePreference.labelRes(): Int =
+    when (this) {
+        ThemePreference.LIGHT -> R.string.preference_theme_light
+        ThemePreference.DARK -> R.string.preference_theme_dark
+        ThemePreference.SYSTEM -> R.string.preference_theme_system
+    }
 
 /**
  * What following the device means, or **null** for the two schemes that are what they say.
@@ -51,10 +52,11 @@ internal fun ThemePreference.labelRes(): Int = when (this) {
  */
 @Composable
 @ReadOnlyComposable
-fun ThemePreference.detailOrNull(): String? = when (this) {
-    ThemePreference.SYSTEM -> stringResource(R.string.preference_theme_system_detail)
-    ThemePreference.LIGHT, ThemePreference.DARK -> null
-}
+fun ThemePreference.detailOrNull(): String? =
+    when (this) {
+        ThemePreference.SYSTEM -> stringResource(R.string.preference_theme_system_detail)
+        ThemePreference.LIGHT, ThemePreference.DARK -> null
+    }
 
 /** What a unit system is called: `Metric`, `Imperial`. */
 @Composable
@@ -62,10 +64,11 @@ fun ThemePreference.detailOrNull(): String? = when (this) {
 fun UnitSystem.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun UnitSystem.labelRes(): Int = when (this) {
-    UnitSystem.METRIC -> R.string.preference_units_metric
-    UnitSystem.IMPERIAL -> R.string.preference_units_imperial
-}
+internal fun UnitSystem.labelRes(): Int =
+    when (this) {
+        UnitSystem.METRIC -> R.string.preference_units_metric
+        UnitSystem.IMPERIAL -> R.string.preference_units_imperial
+    }
 
 /**
  * The units themselves — `Kilograms and kilometres`.
@@ -75,12 +78,13 @@ internal fun UnitSystem.labelRes(): Int = when (this) {
  */
 @Composable
 @ReadOnlyComposable
-fun UnitSystem.detail(): String = stringResource(
-    when (this) {
-        UnitSystem.METRIC -> R.string.preference_units_metric_detail
-        UnitSystem.IMPERIAL -> R.string.preference_units_imperial_detail
-    },
-)
+fun UnitSystem.detail(): String =
+    stringResource(
+        when (this) {
+            UnitSystem.METRIC -> R.string.preference_units_metric_detail
+            UnitSystem.IMPERIAL -> R.string.preference_units_imperial_detail
+        },
+    )
 
 /** What a training goal is called: `Strength`, `Hypertrophy`, `Endurance`, `Custom`. */
 @Composable
@@ -88,12 +92,13 @@ fun UnitSystem.detail(): String = stringResource(
 fun TrainingGoal.label(): String = stringResource(labelRes())
 
 @StringRes
-internal fun TrainingGoal.labelRes(): Int = when (this) {
-    TrainingGoal.STRENGTH -> R.string.preference_goal_strength
-    TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy
-    TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance
-    TrainingGoal.CUSTOM -> R.string.preference_goal_custom
-}
+internal fun TrainingGoal.labelRes(): Int =
+    when (this) {
+        TrainingGoal.STRENGTH -> R.string.preference_goal_strength
+        TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy
+        TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance
+        TrainingGoal.CUSTOM -> R.string.preference_goal_custom
+    }
 
 /**
  * What training for that goal looks like — `Heavy, low reps, long rests`.
@@ -105,11 +110,12 @@ internal fun TrainingGoal.labelRes(): Int = when (this) {
  */
 @Composable
 @ReadOnlyComposable
-fun TrainingGoal.detail(): String = stringResource(
-    when (this) {
-        TrainingGoal.STRENGTH -> R.string.preference_goal_strength_detail
-        TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy_detail
-        TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance_detail
-        TrainingGoal.CUSTOM -> R.string.preference_goal_custom_detail
-    },
-)
+fun TrainingGoal.detail(): String =
+    stringResource(
+        when (this) {
+            TrainingGoal.STRENGTH -> R.string.preference_goal_strength_detail
+            TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy_detail
+            TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance_detail
+            TrainingGoal.CUSTOM -> R.string.preference_goal_custom_detail
+        },
+    )

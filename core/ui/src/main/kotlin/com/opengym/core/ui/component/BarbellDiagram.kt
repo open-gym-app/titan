@@ -131,7 +131,10 @@ fun BarbellDiagram(
 }
 
 /** One plate on the bar, with its rank in the rack — which is what picks its colour. */
-private data class LoadedPlate(val weight: Long, val rank: Int)
+private data class LoadedPlate(
+    val weight: Long,
+    val rank: Int,
+)
 
 /**
  * One disc.
@@ -141,7 +144,11 @@ private data class LoadedPlate(val weight: Long, val rank: Int)
  * than the disc, and the legend under the diagram carries every weight anyway.
  */
 @Composable
-private fun Plate(plate: LoadedPlate, heaviest: Long, squeeze: Float) {
+private fun Plate(
+    plate: LoadedPlate,
+    heaviest: Long,
+    squeeze: Float,
+) {
     val fraction = (plate.weight.toFloat() / heaviest).coerceIn(0f, 1f)
     val height = PLATE_MIN_HEIGHT + (PLATE_MAX_HEIGHT - PLATE_MIN_HEIGHT) * fraction
     val tone = OpenGymTheme.plateColors.toneFor(plate.rank)
@@ -190,24 +197,25 @@ private fun Collar(squeeze: Float) {
 
 /** The whole bar as one sentence: what is on each end, biggest first, or that nothing is. */
 @Composable
-private fun barbellDescription(perSide: List<PlateCount>): String = if (perSide.isEmpty()) {
-    stringResource(R.string.plate_diagram_empty)
-} else {
-    // Resolved into a list first: `joinToString`'s transform is not inline, so a composable
-    // call cannot happen inside it.
-    val sizes = perSide.map { plate ->
-        pluralStringResource(
-            R.plurals.plate_count_description,
-            plate.count,
-            plate.count,
-            formatWeight(plate.weight),
+private fun barbellDescription(perSide: List<PlateCount>): String =
+    if (perSide.isEmpty()) {
+        stringResource(R.string.plate_diagram_empty)
+    } else {
+        // Resolved into a list first: `joinToString`'s transform is not inline, so a composable
+        // call cannot happen inside it.
+        val sizes = perSide.map { plate ->
+            pluralStringResource(
+                R.plurals.plate_count_description,
+                plate.count,
+                plate.count,
+                formatWeight(plate.weight),
+            )
+        }
+        stringResource(
+            R.string.plate_diagram_loaded,
+            sizes.joinToString(stringResource(R.string.plate_list_separator)),
         )
     }
-    stringResource(
-        R.string.plate_diagram_loaded,
-        sizes.joinToString(stringResource(R.string.plate_list_separator)),
-    )
-}
 
 // ─── Metrics ────────────────────────────────────────────────────────────────────────────
 

@@ -47,53 +47,56 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `a device that has not been through onboarding starts there`() = runTest {
-        val viewModel = MainViewModel(FakePreferences(UserPreferences()))
-        collectState(viewModel)
+    fun `a device that has not been through onboarding starts there`() =
+        runTest {
+            val viewModel = MainViewModel(FakePreferences(UserPreferences()))
+            collectState(viewModel)
 
-        assertTrue(ready(viewModel).startsOnOnboarding)
-    }
-
-    @Test
-    fun `a device that has starts on the tabs`() = runTest {
-        val viewModel = MainViewModel(FakePreferences(UserPreferences(onboardingCompleted = true)))
-        collectState(viewModel)
-
-        assertFalse(ready(viewModel).startsOnOnboarding)
-    }
+            assertTrue(ready(viewModel).startsOnOnboarding)
+        }
 
     @Test
-    fun `completing onboarding does not change where this launch started`() = runTest {
-        val store = FakePreferences(UserPreferences())
-        val viewModel = MainViewModel(store)
-        collectState(viewModel)
+    fun `a device that has starts on the tabs`() =
+        runTest {
+            val viewModel = MainViewModel(FakePreferences(UserPreferences(onboardingCompleted = true)))
+            collectState(viewModel)
 
-        store.setOnboardingCompleted(true)
-
-        // The field is the `NavHost`'s start destination, and Navigation Compose rebuilds the
-        // graph — emptying the back stack — when it changes. Following the flag here would
-        // therefore tear the graph down underneath the navigation onboarding makes as it
-        // records its own completion.
-        assertTrue(ready(viewModel).startsOnOnboarding)
-        // The preferences themselves *do* follow, which is the distinction under test.
-        assertTrue(ready(viewModel).preferences.onboardingCompleted)
-    }
+            assertFalse(ready(viewModel).startsOnOnboarding)
+        }
 
     @Test
-    fun `a preference change is published`() = runTest {
-        val store = FakePreferences(UserPreferences())
-        val viewModel = MainViewModel(store)
-        collectState(viewModel)
+    fun `completing onboarding does not change where this launch started`() =
+        runTest {
+            val store = FakePreferences(UserPreferences())
+            val viewModel = MainViewModel(store)
+            collectState(viewModel)
 
-        store.setTheme(ThemePreference.DARK)
+            store.setOnboardingCompleted(true)
 
-        assertEquals(ThemePreference.DARK, ready(viewModel).preferences.theme)
-    }
+            // The field is the `NavHost`'s start destination, and Navigation Compose rebuilds the
+            // graph — emptying the back stack — when it changes. Following the flag here would
+            // therefore tear the graph down underneath the navigation onboarding makes as it
+            // records its own completion.
+            assertTrue(ready(viewModel).startsOnOnboarding)
+            // The preferences themselves *do* follow, which is the distinction under test.
+            assertTrue(ready(viewModel).preferences.onboardingCompleted)
+        }
+
+    @Test
+    fun `a preference change is published`() =
+        runTest {
+            val store = FakePreferences(UserPreferences())
+            val viewModel = MainViewModel(store)
+            collectState(viewModel)
+
+            store.setTheme(ThemePreference.DARK)
+
+            assertEquals(ThemePreference.DARK, ready(viewModel).preferences.theme)
+        }
 
     // --- helpers ----------------------------------------------------------
 
-    private fun ready(viewModel: MainViewModel): MainUiState.Ready =
-        viewModel.uiState.value as MainUiState.Ready
+    private fun ready(viewModel: MainViewModel): MainUiState.Ready = viewModel.uiState.value as MainUiState.Ready
 
     /** `Eagerly` still needs the flow to have run; collecting is what pumps the fold. */
     private fun TestScope.collectState(viewModel: MainViewModel) {
@@ -144,7 +147,10 @@ class MainViewModelTest {
             preferences.update { it.copy(plateInventory = inventory) }
         }
 
-        override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+        override suspend fun setPlatePairs(
+            weight: Long,
+            pairs: Int,
+        ) {
             preferences.update { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
         }
 

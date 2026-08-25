@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
-/**
+/*
  * Hand-written fakes rather than mocks: these tests exercise a state machine over
  * several calls, and asserting on the resulting store is both shorter and stricter
  * than stubbing each read in turn.
@@ -74,12 +74,12 @@ class FakeSessionRepository : SessionRepository {
 
     override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
 
-    override fun getActive(): Flow<WorkoutSession?> = sessions.map { stored ->
-        stored.values.filter { it.isInProgress }.maxByOrNull { it.lastActiveAt }
-    }
+    override fun getActive(): Flow<WorkoutSession?> =
+        sessions.map { stored ->
+            stored.values.filter { it.isInProgress }.maxByOrNull { it.lastActiveAt }
+        }
 
-    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
-        exercises.map { it[sessionId].orEmpty() }
+    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> = exercises.map { it[sessionId].orEmpty() }
 
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> =
         sets.map { stored ->
@@ -296,12 +296,13 @@ class FakeSessionRepository : SessionRepository {
         sessions.value += session.id to session
     }
 
-    /**
+    /*
      * Deletes the session and everything under it, matching the schema's cascade from
      * `workout_session` through `session_exercise` to `workout_set`. A fake that dropped
      * the session and kept its sets would let a discard test pass over rows the real
      * store would have taken with it.
      */
+
     /**
      * Thrown by [delete] instead of deleting, when set. The only way to reach
      * `DiscardSessionUseCase`'s failure branch, which is what proves a discard that cannot
@@ -329,11 +330,14 @@ class FakeSessionRepository : SessionRepository {
     fun stored(id: Long): WorkoutSession? = sessions.value[id]
 
     /** Direct read of a session's layout, bypassing the Flow, for assertions. */
-    fun storedExercises(sessionId: Long): List<SessionExercise> =
-        exercises.value[sessionId].orEmpty()
+    fun storedExercises(sessionId: Long): List<SessionExercise> = exercises.value[sessionId].orEmpty()
 
     /** Seeds an exercise on [sessionId], in [supersetGroup] or standalone, and returns its id. */
-    fun addExercise(sessionId: Long, exerciseId: Long = 1L, supersetGroup: Int? = null): Long {
+    fun addExercise(
+        sessionId: Long,
+        exerciseId: Long = 1L,
+        supersetGroup: Int? = null,
+    ): Long {
         val id = nextExerciseId++
         val existing = exercises.value[sessionId].orEmpty()
         exercises.value += sessionId to existing + SessionExercise(
@@ -379,7 +383,10 @@ class FakeSessionRepository : SessionRepository {
      * a real set of reps and weight, say, whose figures then have to come back out of the
      * summary.
      */
-    fun addSet(sessionExerciseId: Long, set: WorkoutSet): WorkoutSet {
+    fun addSet(
+        sessionExerciseId: Long,
+        set: WorkoutSet,
+    ): WorkoutSet {
         val existing = sets.value[sessionExerciseId].orEmpty()
         return store(
             sessionExerciseId,
@@ -395,13 +402,19 @@ class FakeSessionRepository : SessionRepository {
      * renumbering — and this is how a test stages one without going through the use case that
      * exists to prevent it.
      */
-    fun removeSet(sessionExerciseId: Long, setNumber: Int) {
+    fun removeSet(
+        sessionExerciseId: Long,
+        setNumber: Int,
+    ) {
         sets.value += sessionExerciseId to
             sets.value[sessionExerciseId].orEmpty().filterNot { it.setNumber == setNumber }
     }
 
     /** Files [set] under [sessionExerciseId] with a fresh id, and returns it as stored. */
-    private fun store(sessionExerciseId: Long, set: WorkoutSet): WorkoutSet {
+    private fun store(
+        sessionExerciseId: Long,
+        set: WorkoutSet,
+    ): WorkoutSet {
         val stored = set.copy(id = nextSetId++)
         sets.value += sessionExerciseId to sets.value[sessionExerciseId].orEmpty() + stored
         return stored

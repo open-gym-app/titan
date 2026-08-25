@@ -67,10 +67,11 @@ internal class BodyGeometry(
 )
 
 /** The geometry for [view]. */
-internal fun bodyGeometry(view: BodyView): BodyGeometry = when (view) {
-    BodyView.FRONT -> FRONT_BODY
-    BodyView.BACK -> BACK_BODY
-}
+internal fun bodyGeometry(view: BodyView): BodyGeometry =
+    when (view) {
+        BodyView.FRONT -> FRONT_BODY
+        BodyView.BACK -> BACK_BODY
+    }
 
 private val FRONT_BODY: BodyGeometry by lazy {
     BodyGeometry(
@@ -120,12 +121,13 @@ private val BACK_BODY: BodyGeometry by lazy {
  * silhouette, and keeping two copies would be two things to hold in step for no visible
  * difference.
  */
-private fun commonStructure(): List<Path> = buildList {
-    addAll(shape { head() })
-    addAll(shape { torso() })
-    addAll(mirrored { arm() })
-    addAll(mirrored { leg() })
-}
+private fun commonStructure(): List<Path> =
+    buildList {
+        addAll(shape { head() })
+        addAll(shape { torso() })
+        addAll(mirrored { arm() })
+        addAll(mirrored { leg() })
+    }
 
 // ─── Structure ──────────────────────────────────────────────────────────────────────────
 
@@ -195,14 +197,14 @@ private fun Sketch.pectoral() {
     close()
 }
 
-private fun Sketch.abdominals() =
-    roundRect(left = 42f, top = 66f, right = 58f, bottom = 100f, radius = 3f)
+private fun Sketch.abdominals() = roundRect(left = 42f, top = 66f, right = 58f, bottom = 100f, radius = 3f)
 
 /** The six-pack, as hairlines rather than as separate fillable shapes. */
-private fun abdominalSegments(): List<Path> = buildList {
-    addAll(shape { line(50f, 68f, 50f, 96f) })
-    listOf(76f, 85f, 94f).forEach { y -> addAll(shape { line(43.5f, y, 56.5f, y) }) }
-}
+private fun abdominalSegments(): List<Path> =
+    buildList {
+        addAll(shape { line(50f, 68f, 50f, 96f) })
+        listOf(76f, 85f, 94f).forEach { y -> addAll(shape { line(43.5f, y, 56.5f, y) }) }
+    }
 
 private fun Sketch.upperArmMuscle() = oval(cx = 23.5f, cy = 55f, rx = 5.5f, ry = 12f)
 
@@ -237,11 +239,9 @@ private fun Sketch.latissimus() {
     close()
 }
 
-private fun Sketch.middleBack() =
-    roundRect(left = 44f, top = 68f, right = 56f, bottom = 88f, radius = 3f)
+private fun Sketch.middleBack() = roundRect(left = 44f, top = 68f, right = 56f, bottom = 88f, radius = 3f)
 
-private fun Sketch.lowerBack() =
-    roundRect(left = 45f, top = 90f, right = 55f, bottom = 108f, radius = 3f)
+private fun Sketch.lowerBack() = roundRect(left = 45f, top = 90f, right = 55f, bottom = 108f, radius = 3f)
 
 private fun Sketch.gluteus() = oval(cx = 42f, cy = 110f, rx = 8f, ry = 9.5f)
 
@@ -262,10 +262,11 @@ private fun Sketch.spine() = line(50f, 26f, 50f, 106f)
 private fun shape(block: Sketch.() -> Unit): List<Path> = listOf(Sketch(mirror = false).apply(block).path)
 
 /** Builds [block] twice — as written, and reflected about the figure's midline. */
-private fun mirrored(block: Sketch.() -> Unit): List<Path> = listOf(
-    Sketch(mirror = false).apply(block).path,
-    Sketch(mirror = true).apply(block).path,
-)
+private fun mirrored(block: Sketch.() -> Unit): List<Path> =
+    listOf(
+        Sketch(mirror = false).apply(block).path,
+        Sketch(mirror = true).apply(block).path,
+    )
 
 /**
  * A [Path] builder whose x coordinates are reflected about the figure's midline as they are
@@ -281,27 +282,55 @@ private class Sketch(private val mirror: Boolean) {
 
     private fun x(value: Float): Float = if (mirror) BODY_WIDTH - value else value
 
-    fun moveTo(x: Float, y: Float) = path.moveTo(x(x), y)
+    fun moveTo(
+        x: Float,
+        y: Float,
+    ) = path.moveTo(x(x), y)
 
-    fun lineTo(x: Float, y: Float) = path.lineTo(x(x), y)
+    fun lineTo(
+        x: Float,
+        y: Float,
+    ) = path.lineTo(x(x), y)
 
-    fun cubicTo(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
-        path.cubicTo(x(x1), y1, x(x2), y2, x(x3), y3)
+    fun cubicTo(
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        x3: Float,
+        y3: Float,
+    ) = path.cubicTo(x(x1), y1, x(x2), y2, x(x3), y3)
 
     fun close() = path.close()
 
-    fun oval(cx: Float, cy: Float, rx: Float, ry: Float) {
+    fun oval(
+        cx: Float,
+        cy: Float,
+        rx: Float,
+        ry: Float,
+    ) {
         val centre = x(cx)
         path.addOval(Rect(centre - rx, cy - ry, centre + rx, cy + ry))
     }
 
-    fun roundRect(left: Float, top: Float, right: Float, bottom: Float, radius: Float) {
+    fun roundRect(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        radius: Float,
+    ) {
         val edges = listOf(x(left), x(right))
         path.addRoundRect(RoundRect(Rect(edges.min(), top, edges.max(), bottom), CornerRadius(radius)))
     }
 
     /** A stroke-only mark. Closed shapes are filled; this one has no interior on purpose. */
-    fun line(startX: Float, startY: Float, endX: Float, endY: Float) {
+    fun line(
+        startX: Float,
+        startY: Float,
+        endX: Float,
+        endY: Float,
+    ) {
         path.moveTo(x(startX), startY)
         path.lineTo(x(endX), endY)
     }

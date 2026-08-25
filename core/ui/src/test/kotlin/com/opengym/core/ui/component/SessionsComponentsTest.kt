@@ -214,7 +214,10 @@ class SessionsComponentsTest {
     /** A day of the fixture's month, spelled the way the calendar cell spells it. */
     private fun day(dayOfMonth: Int): String = formatSessionDate(MONTH.atDay(dayOfMonth))
 
-    private fun setRow(name: String?, hasRecord: Boolean = false) {
+    private fun setRow(
+        name: String?,
+        hasRecord: Boolean = false,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 SessionRow(

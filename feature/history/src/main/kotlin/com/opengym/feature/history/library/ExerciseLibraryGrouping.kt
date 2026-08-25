@@ -33,12 +33,13 @@ internal fun List<Exercise>.filterBy(
     muscleGroupId: Long?,
     equipment: Set<EquipmentType>,
     links: Map<Long, List<ExerciseMuscleGroupLink>>,
-): List<Exercise> = filter { exercise ->
-    val muscleMatches = muscleGroupId == null ||
-        links[exercise.id].orEmpty().any { it.muscleGroup.id == muscleGroupId }
-    val equipmentMatches = equipment.isEmpty() || exercise.equipmentType in equipment
-    muscleMatches && equipmentMatches
-}
+): List<Exercise> =
+    filter { exercise ->
+        val muscleMatches = muscleGroupId == null ||
+            links[exercise.id].orEmpty().any { it.muscleGroup.id == muscleGroupId }
+        val equipmentMatches = equipment.isEmpty() || exercise.equipmentType in equipment
+        muscleMatches && equipmentMatches
+    }
 
 /**
  * Group into sections by prime mover, ordered by muscle group name, unlinked exercises last.
@@ -61,21 +62,22 @@ internal fun List<Exercise>.filterBy(
 internal fun List<Exercise>.groupIntoSections(
     links: Map<Long, List<ExerciseMuscleGroupLink>>,
     records: Map<Long, PersonalRecord>,
-): List<ExerciseSection> = groupBy { exercise -> links[exercise.id]?.firstOrNull()?.muscleGroup }
-    .entries
-    .sortedWith(compareBy(nullsLast()) { (group, _) -> group?.name })
-    .map { (group, exercises) ->
-        ExerciseSection(
-            muscleGroup = group,
-            exercises = exercises.map { exercise ->
-                LibraryExercise(
-                    exercise = exercise,
-                    muscleGroups = links[exercise.id].orEmpty(),
-                    record = records[exercise.id],
-                )
-            },
-        )
-    }
+): List<ExerciseSection> =
+    groupBy { exercise -> links[exercise.id]?.firstOrNull()?.muscleGroup }
+        .entries
+        .sortedWith(compareBy(nullsLast()) { (group, _) -> group?.name })
+        .map { (group, exercises) ->
+            ExerciseSection(
+                muscleGroup = group,
+                exercises = exercises.map { exercise ->
+                    LibraryExercise(
+                        exercise = exercise,
+                        muscleGroups = links[exercise.id].orEmpty(),
+                        record = records[exercise.id],
+                    )
+                },
+            )
+        }
 
 /**
  * The equipment kinds worth offering as chips: the ones the catalogue actually contains, in

@@ -144,7 +144,10 @@ class DomainLabelsTest {
     }
 
     /** Renders every value's label and asserts each one is a non-blank, distinct string. */
-    private fun <T> assertAllLabelled(values: List<T>, label: @Composable (T) -> String) {
+    private fun <T> assertAllLabelled(
+        values: List<T>,
+        label: @Composable (T) -> String,
+    ) {
         val labels = mutableListOf<String>()
         composeTestRule.setContent {
             OpenGymTheme {
@@ -156,7 +159,10 @@ class DomainLabelsTest {
         assertEquals("labels must be distinct", labels.size, labels.toSet().size)
     }
 
-    private fun <T> renderAll(values: List<T>, label: @Composable (T) -> String) {
+    private fun <T> renderAll(
+        values: List<T>,
+        label: @Composable (T) -> String,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 values.forEach { value -> Text(text = label(value)) }

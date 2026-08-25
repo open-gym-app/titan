@@ -29,30 +29,33 @@ class DomainModuleTest {
     }
 
     @Test
-    fun `mocked suspend call returns expected value`() = runTest {
-        coEvery { repository.fetch() } returns "ok"
-        assertEquals("ok", repository.fetch())
-    }
+    fun `mocked suspend call returns expected value`() =
+        runTest {
+            coEvery { repository.fetch() } returns "ok"
+            assertEquals("ok", repository.fetch())
+        }
 
     @Test
-    fun `flow emits expected sequence via turbine`() = runTest {
-        coEvery { repository.stream() } returns flowOf(1, 2)
+    fun `flow emits expected sequence via turbine`() =
+        runTest {
+            coEvery { repository.stream() } returns flowOf(1, 2)
 
-        repository.stream().test {
-            assertEquals(1, awaitItem())
-            assertEquals(2, awaitItem())
-            awaitComplete()
+            repository.stream().test {
+                assertEquals(1, awaitItem())
+                assertEquals(2, awaitItem())
+                awaitComplete()
+            }
         }
-    }
 
     @Test
-    fun `flow error path propagates exception`() = runTest {
-        coEvery { repository.stream() } returns flow { throw TestException("network error") }
+    fun `flow error path propagates exception`() =
+        runTest {
+            coEvery { repository.stream() } returns flow { throw TestException("network error") }
 
-        repository.stream().test {
-            assertEquals("network error", awaitError().message)
+            repository.stream().test {
+                assertEquals("network error", awaitError().message)
+            }
         }
-    }
 
     @Test
     fun `negative - empty list is not non-empty`() {

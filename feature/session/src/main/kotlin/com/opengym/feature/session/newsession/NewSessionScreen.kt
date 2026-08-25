@@ -303,7 +303,10 @@ fun NewSessionScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun NewSessionTopBar(reviewing: Boolean, onBack: () -> Unit) {
+private fun NewSessionTopBar(
+    reviewing: Boolean,
+    onBack: () -> Unit,
+) {
     Column {
         TopAppBar(
             navigationIcon = {
@@ -407,7 +410,10 @@ private fun TemplateList(
  * else. The template rows underneath are deliberately quiet by comparison.
  */
 @Composable
-private fun EmptySessionAction(enabled: Boolean, onClick: () -> Unit) {
+private fun EmptySessionAction(
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
     Button(
         onClick = onClick,
         enabled = enabled,
@@ -504,7 +510,10 @@ private fun ReadyToStartList(
 
 /** What the session will be called, and what it costs. */
 @Composable
-private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart, onRename: () -> Unit) {
+private fun ReadyToStartHeader(
+    step: NewSessionStep.ReadyToStart,
+    onRename: () -> Unit,
+) {
     val count = pluralStringResource(
         R.plurals.new_session_exercise_count,
         step.exercises.size,
@@ -538,6 +547,7 @@ private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart, onRename: () -
         Text(
             text = when (val estimate = step.estimatedDuration) {
                 null -> count
+
                 else -> stringResource(
                     R.string.new_session_ready_meta,
                     count,
@@ -559,7 +569,10 @@ private fun ReadyToStartHeader(step: NewSessionStep.ReadyToStart, onRename: () -
  * the picker's own confirm bar.
  */
 @Composable
-private fun StartBar(enabled: Boolean, onStart: () -> Unit) {
+private fun StartBar(
+    enabled: Boolean,
+    onStart: () -> Unit,
+) {
     Column(modifier = Modifier.navigationBarsPadding()) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Button(
@@ -579,12 +592,13 @@ private fun StartBar(enabled: Boolean, onStart: () -> Unit) {
 }
 
 /** The sentence a message is shown as. */
-private fun NewSessionMessage.labelRes(): Int = when (this) {
-    NewSessionMessage.START_FAILED -> R.string.new_session_error_start_failed
-    NewSessionMessage.DISCARD_FAILED -> R.string.new_session_error_discard
-    NewSessionMessage.TEMPLATE_UNAVAILABLE -> R.string.new_session_error_template
-    NewSessionMessage.EXERCISES_UNAVAILABLE -> R.string.new_session_error_exercises_missing
-}
+private fun NewSessionMessage.labelRes(): Int =
+    when (this) {
+        NewSessionMessage.START_FAILED -> R.string.new_session_error_start_failed
+        NewSessionMessage.DISCARD_FAILED -> R.string.new_session_error_discard
+        NewSessionMessage.TEMPLATE_UNAVAILABLE -> R.string.new_session_error_template
+        NewSessionMessage.EXERCISES_UNAVAILABLE -> R.string.new_session_error_exercises_missing
+    }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
@@ -656,43 +670,44 @@ private fun PreviewScreen(
     }
 }
 
-private fun previewTemplates(): List<TemplateSummary> = listOf(
-    previewTemplate(
-        id = 1L,
-        name = "Push Day · Upper",
-        exerciseCount = 8,
-        duration = 55.minutes,
-        category = TemplateCategory.STRENGTH,
-    ),
-    previewTemplate(
-        id = 2L,
-        name = "Pull Day",
-        exerciseCount = 7,
-        duration = 50.minutes,
-        category = TemplateCategory.STRENGTH,
-    ),
-    previewTemplate(
-        id = 3L,
-        name = "Leg Day · Heavy",
-        exerciseCount = 6,
-        duration = 62.minutes,
-        category = TemplateCategory.HYPERTROPHY,
-    ),
-    previewTemplate(
-        id = 4L,
-        name = "Full Body Beginner",
-        exerciseCount = 5,
-        duration = 40.minutes,
-        category = TemplateCategory.GENERAL,
-    ),
-    previewTemplate(
-        id = 5L,
-        name = "HIIT Cardio",
-        exerciseCount = 3,
-        duration = 28.minutes,
-        category = TemplateCategory.ENDURANCE,
-    ),
-)
+private fun previewTemplates(): List<TemplateSummary> =
+    listOf(
+        previewTemplate(
+            id = 1L,
+            name = "Push Day · Upper",
+            exerciseCount = 8,
+            duration = 55.minutes,
+            category = TemplateCategory.STRENGTH,
+        ),
+        previewTemplate(
+            id = 2L,
+            name = "Pull Day",
+            exerciseCount = 7,
+            duration = 50.minutes,
+            category = TemplateCategory.STRENGTH,
+        ),
+        previewTemplate(
+            id = 3L,
+            name = "Leg Day · Heavy",
+            exerciseCount = 6,
+            duration = 62.minutes,
+            category = TemplateCategory.HYPERTROPHY,
+        ),
+        previewTemplate(
+            id = 4L,
+            name = "Full Body Beginner",
+            exerciseCount = 5,
+            duration = 40.minutes,
+            category = TemplateCategory.GENERAL,
+        ),
+        previewTemplate(
+            id = 5L,
+            name = "HIIT Cardio",
+            exerciseCount = 3,
+            duration = 28.minutes,
+            category = TemplateCategory.ENDURANCE,
+        ),
+    )
 
 private fun previewTemplate(
     id: Long,
@@ -706,7 +721,10 @@ private fun previewTemplate(
     estimatedDuration = duration,
 )
 
-private fun previewRow(name: String, supersetLabel: String? = null) = PlannedExerciseRow(
+private fun previewRow(
+    name: String,
+    supersetLabel: String? = null,
+) = PlannedExerciseRow(
     exercise = Exercise(id = name.hashCode().toLong(), name = name),
     supersetLabel = supersetLabel,
 )

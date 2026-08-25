@@ -81,7 +81,10 @@ sealed interface TemplateEditorEvent {
      * be decided" and a legitimate thing to save. Dropping the exercise is
      * [ExerciseRemoved], and the user has a control for that.
      */
-    data class SetRemoved(val exerciseKey: Long, val setKey: Long) : TemplateEditorEvent
+    data class SetRemoved(
+        val exerciseKey: Long,
+        val setKey: Long,
+    ) : TemplateEditorEvent
 
     /**
      * An exercise was dropped from the plan.

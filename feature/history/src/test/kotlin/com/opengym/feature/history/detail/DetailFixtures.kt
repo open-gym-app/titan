@@ -47,15 +47,17 @@ val DETAIL_BENCH_LINKS = listOf(
 val DETAIL_CUSTOM_LINKS = listOf(ExerciseMuscleGroupLink(LATS, isPrimary = true))
 
 /** The state the screen draws for a fully-populated seeded exercise. */
-fun benchState() = ExerciseDetailUiState(
-    exercise = DETAIL_BENCH,
-    muscleLinks = DETAIL_BENCH_LINKS,
-    isLoading = false,
-)
+fun benchState() =
+    ExerciseDetailUiState(
+        exercise = DETAIL_BENCH,
+        muscleLinks = DETAIL_BENCH_LINKS,
+        isLoading = false,
+    )
 
 /** The state the screen draws for a user-authored one: every optional section absent. */
-fun customState() = ExerciseDetailUiState(
-    exercise = DETAIL_CUSTOM,
-    muscleLinks = DETAIL_CUSTOM_LINKS,
-    isLoading = false,
-)
+fun customState() =
+    ExerciseDetailUiState(
+        exercise = DETAIL_CUSTOM,
+        muscleLinks = DETAIL_CUSTOM_LINKS,
+        isLoading = false,
+    )

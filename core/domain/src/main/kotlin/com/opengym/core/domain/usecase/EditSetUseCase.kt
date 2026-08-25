@@ -78,6 +78,7 @@ class EditSetUseCase(
 
         return when (val result = SetValidator.validate(edited, exerciseType)) {
             is ValidationResult.Invalid -> Result.failure(SessionError.SetRejected(result.reason))
+
             ValidationResult.Valid -> runCatching {
                 sessionRepository.updateSet(edited)
                 edited
@@ -93,16 +94,20 @@ class EditSetUseCase(
  * what keeps the identity columns out of a caller's reach: anything this does not name is
  * whatever the row already held.
  */
-private fun WorkoutSet.corrected(draft: ActiveSet, now: Long): WorkoutSet = copy(
-    reps = draft.reps,
-    weight = draft.weight,
-    duration = draft.duration,
-    distance = draft.distance,
-    heartRateAvg = draft.heartRateAvg,
-    heartRateMax = draft.heartRateMax,
-    restAfter = draft.restAfter,
-    rpe = draft.rpe,
-    setType = draft.setType,
-    notes = draft.notes,
-    updatedAt = now,
-)
+private fun WorkoutSet.corrected(
+    draft: ActiveSet,
+    now: Long,
+): WorkoutSet =
+    copy(
+        reps = draft.reps,
+        weight = draft.weight,
+        duration = draft.duration,
+        distance = draft.distance,
+        heartRateAvg = draft.heartRateAvg,
+        heartRateMax = draft.heartRateMax,
+        restAfter = draft.restAfter,
+        rpe = draft.rpe,
+        setType = draft.setType,
+        notes = draft.notes,
+        updatedAt = now,
+    )

@@ -181,6 +181,5 @@ class DatabaseMigrationTest {
             .sorted()
     }
 
-    private fun olderExportedVersions(): List<Int> =
-        exportedSchemaVersions().filter { it < currentVersion }
+    private fun olderExportedVersions(): List<Int> = exportedSchemaVersions().filter { it < currentVersion }
 }

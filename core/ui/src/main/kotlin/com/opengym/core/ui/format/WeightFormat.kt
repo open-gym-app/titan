@@ -7,7 +7,7 @@ import com.opengym.core.domain.model.milligramsPerUnit
 import com.opengym.core.ui.theme.LocalUnitSystem
 import kotlin.math.roundToLong
 
-/**
+/*
  * Weights, from the milligrams everything is stored in to the string a user reads — and
  * back again.
  *
@@ -113,8 +113,10 @@ fun roundToPlateIncrement(
  * [milligrams] in [unitSystem], as a number with no unit — for a call site that draws the
  * suffix itself, in its own colour or type role.
  */
-fun formatWeightValue(milligrams: Long, unitSystem: UnitSystem): String =
-    formatNumber(milligrams / unitSystem.milligramsPerUnit, WEIGHT_FRACTION_DIGITS)
+fun formatWeightValue(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String = formatNumber(milligrams / unitSystem.milligramsPerUnit, WEIGHT_FRACTION_DIGITS)
 
 /**
  * [milligrams] in [unitSystem], with the unit: `20 kg`, `44.09 lb`, `2.5 kg`.
@@ -123,8 +125,10 @@ fun formatWeightValue(milligrams: Long, unitSystem: UnitSystem): String =
  * makes every test and every accessibility label match on a character nobody types, which
  * has cost more than it has ever bought. Rows that could wrap constrain the text instead.
  */
-fun formatWeight(milligrams: Long, unitSystem: UnitSystem): String =
-    "${formatWeightValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+fun formatWeight(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String = "${formatWeightValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
 
 /** [milligrams] in the ambient [LocalUnitSystem], with the unit. See the note above. */
 @Composable
@@ -134,8 +138,7 @@ fun formatWeight(milligrams: Long): String = formatWeight(milligrams, LocalUnitS
 /** [milligrams] in the ambient [LocalUnitSystem], without the unit. See the note above. */
 @Composable
 @ReadOnlyComposable
-fun formatWeightValue(milligrams: Long): String =
-    formatWeightValue(milligrams, LocalUnitSystem.current)
+fun formatWeightValue(milligrams: Long): String = formatWeightValue(milligrams, LocalUnitSystem.current)
 
 /**
  * A user's typed weight back into storage: [text] read as [unitSystem]'s unit, as
@@ -157,8 +160,10 @@ fun formatWeightValue(milligrams: Long): String =
  * SetValidator.validate(set.copy(weight = milligrams), exercise.type)
  * ```
  */
-fun parseWeightMilligrams(text: String, unitSystem: UnitSystem): Long? =
-    parseNumber(text)?.let { weightToMilligrams(it, unitSystem) }
+fun parseWeightMilligrams(
+    text: String,
+    unitSystem: UnitSystem,
+): Long? = parseNumber(text)?.let { weightToMilligrams(it, unitSystem) }
 
 /**
  * [value] of [unitSystem]'s unit as milligrams — the conversion without the parsing.
@@ -167,11 +172,12 @@ fun parseWeightMilligrams(text: String, unitSystem: UnitSystem): Long? =
  * seeded default, a stepper's next value. Text goes through [parseWeightMilligrams]
  * instead, which is this function with a locale-aware reader in front of it.
  */
-fun weightToMilligrams(value: Double, unitSystem: UnitSystem): Long =
-    (value * unitSystem.milligramsPerUnit).roundToLong()
+fun weightToMilligrams(
+    value: Double,
+    unitSystem: UnitSystem,
+): Long = (value * unitSystem.milligramsPerUnit).roundToLong()
 
 /** [text] in the ambient [LocalUnitSystem], as milligrams. See [parseWeightMilligrams]. */
 @Composable
 @ReadOnlyComposable
-fun parseWeightMilligrams(text: String): Long? =
-    parseWeightMilligrams(text, LocalUnitSystem.current)
+fun parseWeightMilligrams(text: String): Long? = parseWeightMilligrams(text, LocalUnitSystem.current)

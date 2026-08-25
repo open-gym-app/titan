@@ -206,7 +206,10 @@ class SessionStatsCalculatorTest {
         stats.exerciseBreakdown.forEach { assertEquals(12_500 * KG, it.totalVolume) }
     }
 
-    private fun session(createdAt: Long, completedAt: Long?) = WorkoutSession(
+    private fun session(
+        createdAt: Long,
+        completedAt: Long?,
+    ) = WorkoutSession(
         id = 1,
         completedAt = completedAt,
         isInProgress = completedAt == null,
