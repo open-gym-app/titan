@@ -5,6 +5,7 @@ import com.opengym.core.domain.stats.TrainingWeek
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -148,6 +149,8 @@ class ConsistencyUseCaseTest {
         assertEquals(0.0, trend.averagePerWeek, 1e-9)
         assertNull(trend.previousAveragePerWeek)
         assertNull(trend.changePerWeek)
+        assertTrue(trend.isFirstRun)
+        assertFalse(trend.isQuietPeriod)
     }
 
     @Test
@@ -160,6 +163,23 @@ class ConsistencyUseCaseTest {
         assertEquals(4.0, trend.previousAveragePerWeek!!, 1e-9)
         // Stopped altogether: four days a week fewer than before.
         assertEquals(-4.0, trend.changePerWeek!!, 1e-9)
+        assertTrue(trend.isQuietPeriod)
+        assertFalse(trend.isFirstRun)
+    }
+
+    @Test
+    fun `a lapse longer than both periods is still a lapse, not a first run`() = runTest {
+        // The training is real, it just predates the window and its comparison period both,
+        // so no seeded week can stand for it — which is the whole reason the all-history
+        // predicate exists.
+        repository.setHasTrainingHistory(true)
+
+        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+
+        assertTrue(trend.weeks.isEmpty())
+        assertNull(trend.previousAveragePerWeek)
+        assertTrue(trend.isQuietPeriod)
+        assertFalse(trend.isFirstRun)
     }
 
     @Test

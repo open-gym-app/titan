@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.WeeklyVolume
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -44,10 +45,9 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
 
     @Test
     fun `weekly volume comes back as domain buckets keyed by their Monday`() = runBlocking {
-        val sessionExerciseId = seedSessionExercise()
         // week 1: 100kg x 10. week 3: 60kg x 5.
-        logSet(sessionExerciseId, 1, at(WEEK_1.plusDays(2)), reps = 10, weight = kg(100))
-        logSet(sessionExerciseId, 2, at(WEEK_3), reps = 5, weight = kg(60))
+        logSet(workoutOn(WEEK_1.plusDays(2)), 1, at(WEEK_1.plusDays(2)), reps = 10, weight = kg(100))
+        logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 5, weight = kg(60))
 
         val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first()
 
@@ -59,9 +59,9 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
 
     @Test
     fun `a bucket on the last day of the period is inside it`() = runBlocking {
-        val sessionExerciseId = seedSessionExercise()
         // The Sunday that closes week 2, which is also the last day asked for.
-        logSet(sessionExerciseId, 1, at(WEEK_2.plusDays(6)), reps = 10, weight = kg(100))
+        val day = WEEK_2.plusDays(6)
+        logSet(workoutOn(day), 1, at(day), reps = 10, weight = kg(100))
 
         val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first()
 
@@ -70,11 +70,20 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
 
     @Test
     fun `a week outside the period is not read`() = runBlocking {
-        val sessionExerciseId = seedSessionExercise()
-        logSet(sessionExerciseId, 1, at(WEEK_3), reps = 10, weight = kg(100))
+        logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 10, weight = kg(100))
 
         assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first().isEmpty())
     }
+
+    @Test
+    fun `training history is true once a session has been finished, whatever the period`() =
+        runBlocking {
+            assertFalse(repository.hasTrainingHistory().first())
+
+            finishSession(at(WEEK_1))
+
+            assertTrue(repository.hasTrainingHistory().first())
+        }
 
     @Test
     fun `weekly training comes back as domain buckets carrying both counts`() = runBlocking {
@@ -101,9 +110,17 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
         assertTrue(repository.getWeeklyTraining(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
     }
 
-    private suspend fun seedSessionExercise(): Long {
-        val exerciseId = db.exerciseDao().insert(exercise())
-        val sessionId = db.workoutSessionDao().insert(session())
+    private var sharedExercise: Long? = null
+
+    /**
+     * A workout finished on [day], returning the session_exercise id its sets go under. The
+     * volume aggregate reads closed-out sessions only and buckets them by their close-out,
+     * so a week is a workout rather than a stamp on a set.
+     */
+    private suspend fun workoutOn(day: LocalDate): Long {
+        val exerciseId = sharedExercise
+            ?: db.exerciseDao().insert(exercise()).also { sharedExercise = it }
+        val sessionId = finishSession(at(day))
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
     }
 

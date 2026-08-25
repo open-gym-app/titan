@@ -56,6 +56,11 @@ interface WorkoutSessionDao {
      * [WorkoutSetDao.getVolumeByWeek] uses so the volume and consistency series line up
      * bucket for bucket; see that method for what the `+ 3` is doing.
      *
+     * The two line up on more than the boundary: both count only finished sessions and both
+     * place a session by the day it was closed out, so every week that has volume in it has
+     * a training day behind it and vice versa. [WorkoutSetDao.getVolumeByWeek] carries what
+     * that costs.
+     *
      * `COUNT(DISTINCT day)` rather than `COUNT(*)`: two sessions finished on the same day
      * are one day trained, which is what a consistency figure means and what
      * `ConsistencyUseCase` reads. The raw count comes back beside it for the surfaces
@@ -65,6 +70,7 @@ interface WorkoutSessionDao {
      * `completed_at` to bucket by, which `FinishSessionUseCase` writes together. A
      * session still being logged has not happened yet, and a discarded one is deleted
      * rather than flagged, so there is no third state to exclude.
+     *
      */
     @Query(
         """
@@ -85,4 +91,30 @@ interface WorkoutSessionDao {
         startEpochDay: Long,
         endEpochDayExclusive: Long,
     ): Flow<List<WeeklyTrainingRow>>
+
+    /**
+     * Whether the user has ever finished a session — with no window on it, unlike everything
+     * else the progression screens read.
+     *
+     * A period-bounded series cannot answer this. An empty window means "nothing here", and
+     * "nothing here" covers both a user who has never trained and one who stopped: the
+     * comparison period separates the two only while the lapse is shorter than twice the
+     * window, and a six-month break under a twelve-week chart empties that too. This is the
+     * bit that stays true however wide the gap, so a screen can show a returning lifter their
+     * quiet chart instead of the first-run prompt.
+     *
+     * `EXISTS` rather than a count: SQLite stops at the first qualifying row, which the
+     * `is_in_progress` index takes it straight to. The filter is the one
+     * [getTrainingByWeek] and [WorkoutSetDao.getVolumeByWeek] apply, so "has history" means
+     * exactly "would appear in those series given a wide enough range".
+     */
+    @Query(
+        """
+        SELECT EXISTS(
+            SELECT 1 FROM workout_session
+            WHERE is_in_progress = 0 AND completed_at IS NOT NULL
+        )
+        """,
+    )
+    fun hasFinishedSession(): Flow<Boolean>
 }

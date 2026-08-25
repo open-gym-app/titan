@@ -88,7 +88,7 @@ object TrainingWeek {
 
     /**
      * The trailing window of [weeks] whole weeks ending with the one [endingOn] falls in —
-     * the shape the consistency metric is read over ("sessions per week, last 12 weeks").
+     * the shape the consistency metric is read over ("days trained per week, last 12 weeks").
      *
      * The current, incomplete week is *included* rather than dropped: it is the one the user
      * is living in, and a consistency figure that ignored it would not move until Monday.

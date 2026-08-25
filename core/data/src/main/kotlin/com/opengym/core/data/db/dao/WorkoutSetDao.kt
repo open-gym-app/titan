@@ -229,6 +229,31 @@ interface WorkoutSetDao {
      * instead of loading the underlying sets: the `SUM` runs in SQLite, so the
      * result grows with the number of *weeks*, not the number of sets.
      *
+     * ### A week is a set of finished sessions
+     *
+     * A set counts when it is completed **and** the session holding it was closed out —
+     * `is_in_progress = 0` with a `completed_at`, the pair `FinishSessionUseCase` writes,
+     * exactly the filter [WorkoutSessionDao.getTrainingByWeek] applies. The session is also
+     * what the bucket is cut on: every set of a workout lands in the week that workout was
+     * finished in, whatever its own stamp says.
+     *
+     * Both halves of that are what put this series and the consistency series on one axis,
+     * and neither is free:
+     *
+     *  - Volume from a session still being logged is **not** charted until the user finishes
+     *    it, so the current week's bar fills in at the end of a workout rather than set by
+     *    set. The alternative charts work that has no training day behind it, and leaves an
+     *    abandoned session's volume in the chart for good.
+     *  - A session that starts 23:30 Sunday UTC and ends after midnight is wholly in the
+     *    second week — its volume and its training day together — rather than split across
+     *    the boundary.
+     *
+     * A session's *own* recap does not go through here: [getTotalsBySession] is per session
+     * and unfiltered by session state, so a workout in progress still totals live on the
+     * screen the user is looking at.
+     *
+     * ### Where the week boundary comes from
+     *
      * Weeks start on Monday, UTC. `completed_at` holds epoch milliseconds, so
      * `completed_at / 86400000` is the epoch day; epoch day 0 was a Thursday,
      * hence the `+ 3` that shifts Monday onto a multiple of 7 before rounding
@@ -240,9 +265,9 @@ interface WorkoutSetDao {
      * screen's "vs previous period" needs a window that stops: an open-ended query
      * would fold everything after the period into its last bucket. A caller that
      * wants all of history passes a range that covers it. **A range whose ends fall
-     * mid-week returns partial buckets** — the boundary weeks are summed over the
-     * days asked for and no others — so callers charting whole weeks should align
-     * the range to Mondays first, which is what `VolumeTrendUseCase` does.
+     * mid-week returns partial buckets** — the boundary weeks hold the sessions
+     * finished on the days asked for and no others — so callers charting whole weeks
+     * should align the range to Mondays first, which is what `VolumeTrendUseCase` does.
      *
      * Sets with no `weight` or no `reps` (cardio, holds) count as zero volume
      * rather than dropping their week from the series.
@@ -250,12 +275,16 @@ interface WorkoutSetDao {
     @Query(
         """
         SELECT
-            (ws.completed_at / 86400000) - (((ws.completed_at / 86400000) + 3) % 7) AS week_start,
+            (s.completed_at / 86400000) - (((s.completed_at / 86400000) + 3) % 7) AS week_start,
             SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
         FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN workout_session s ON s.id = se.session_id
         WHERE ws.is_completed = 1
-            AND ws.completed_at >= :startEpochDay * 86400000
-            AND ws.completed_at < :endEpochDayExclusive * 86400000
+            AND s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+            AND s.completed_at >= :startEpochDay * 86400000
+            AND s.completed_at < :endEpochDayExclusive * 86400000
         GROUP BY week_start
         ORDER BY week_start ASC
         """,
@@ -275,6 +304,11 @@ interface WorkoutSetDao {
      * `GROUP BY` then collapses each group back to a single row, which is what
      * keeps a multi-secondary exercise from counting a set twice against the
      * same muscle. See [MuscleVolumeRow] for how the two sums differ.
+     *
+     * Which sets fall in the range is decided exactly as [getVolumeByWeek] decides it —
+     * finished sessions only, placed by the day the session was closed out — so a period's
+     * breakdown is built from the same workouts as its total volume. Two figures on one
+     * screen disagreeing about what "this month" holds is what sharing the filter avoids.
      */
     @Query(
         """
@@ -290,11 +324,14 @@ interface WorkoutSetDao {
             ) AS weighted_volume
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN workout_session s ON s.id = se.session_id
         INNER JOIN exercise_muscle_group emg ON emg.exercise_id = se.exercise_id
         INNER JOIN muscle_group mg ON mg.id = emg.muscle_group_id
         WHERE ws.is_completed = 1
-            AND ws.completed_at >= :startEpochDay * 86400000
-            AND ws.completed_at < :endEpochDayExclusive * 86400000
+            AND s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+            AND s.completed_at >= :startEpochDay * 86400000
+            AND s.completed_at < :endEpochDayExclusive * 86400000
         GROUP BY mg.id, mg.name
         ORDER BY total_volume DESC, mg.name ASC
         """,

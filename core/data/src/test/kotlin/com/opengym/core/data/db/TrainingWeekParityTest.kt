@@ -17,8 +17,9 @@ import java.time.LocalDate
  * fill a week the query never bucketed into and the series silently loses a week's training
  * to a gap that gets zeroed. Nothing but this test stops that.
  *
- * Both aggregates are checked, since they carry the arithmetic separately: volume buckets
- * `workout_set.completed_at`, consistency buckets `workout_session.completed_at`.
+ * Both aggregates are checked, since they carry the arithmetic separately — they read the
+ * same `workout_session.completed_at`, but each spells the bucket expression out in its own
+ * query and a typo in either would drift alone.
  */
 class TrainingWeekParityTest : RoomTestBase() {
 
@@ -34,31 +35,10 @@ class TrainingWeekParityTest : RoomTestBase() {
 
     @Test
     fun `every day of a week buckets to the Monday the domain names`() = runBlocking {
-        val sessionExerciseId = seedSessionExercise()
-
-        // A fortnight, one set and one session a day, so every weekday - and the two
-        // boundaries either side of a Monday - is exercised in both queries.
+        // A fortnight, one finished workout a day, so every weekday - and the two boundaries
+        // either side of a Monday - is exercised in both queries.
         val days = (0L until 14L).map { ANCHOR.minusDays(3).plusDays(it) }
-        days.forEachIndexed { index, day ->
-            db.workoutSetDao().insert(
-                workoutSet(
-                    sessionExerciseId = sessionExerciseId,
-                    setNumber = index + 1,
-                    isCompleted = true,
-                    completedAt = at(day),
-                    reps = 1,
-                    weight = 1_000_000L,
-                ),
-            )
-            db.workoutSessionDao().insert(
-                session(
-                    isInProgress = false,
-                    lastActiveAt = at(day),
-                    createdAt = at(day),
-                    completedAt = at(day),
-                ),
-            )
-        }
+        days.forEach { workoutOn(it) }
 
         val expected = days.map { TrainingWeek.startOf(it) }.distinct().sorted()
         val range = days.first().toEpochDay() to days.last().toEpochDay() + 1
@@ -74,22 +54,8 @@ class TrainingWeekParityTest : RoomTestBase() {
 
     @Test
     fun `the week's own days all land in it and none of its neighbours do`() = runBlocking {
-        val sessionExerciseId = seedSessionExercise()
-
         // The Sunday before, the whole of ANCHOR's week, and the Monday after.
-        (-1L..7L).forEach { offset ->
-            val day = ANCHOR.plusDays(offset)
-            db.workoutSetDao().insert(
-                workoutSet(
-                    sessionExerciseId = sessionExerciseId,
-                    setNumber = (offset + 2).toInt(),
-                    isCompleted = true,
-                    completedAt = at(day),
-                    reps = 1,
-                    weight = 1_000_000L,
-                ),
-            )
-        }
+        (-1L..7L).forEach { offset -> workoutOn(ANCHOR.plusDays(offset)) }
 
         val byWeek = db.workoutSetDao()
             .getVolumeByWeek(ANCHOR.minusDays(7).toEpochDay(), ANCHOR.plusDays(14).toEpochDay())
@@ -102,9 +68,38 @@ class TrainingWeekParityTest : RoomTestBase() {
         assertEquals(1_000_000L, byWeek.getValue(TrainingWeek.startOf(ANCHOR.plusDays(7))))
     }
 
-    private suspend fun seedSessionExercise(): Long {
-        val exerciseId = db.exerciseDao().insert(exercise())
-        val sessionId = db.workoutSessionDao().insert(session())
-        return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+    private var sharedExercise: Long? = null
+
+    /**
+     * One finished workout on [day] holding a single 1kg x 1 set, so a week's volume is
+     * simply the number of days trained in it multiplied by a milligram-rep.
+     *
+     * A workout per day rather than a session per day plus sets under one shared slot: both
+     * queries now bucket on the session's close-out, so a set only reaches the week its own
+     * session was finished in.
+     */
+    private suspend fun workoutOn(day: LocalDate): Long {
+        val exerciseId = sharedExercise
+            ?: db.exerciseDao().insert(exercise()).also { sharedExercise = it }
+        val sessionId = db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = at(day),
+                createdAt = at(day),
+                completedAt = at(day),
+            ),
+        )
+        val slot = db.sessionExerciseDao()
+            .insert(sessionExercise(sessionId, exerciseId, position = 0))
+        return db.workoutSetDao().insert(
+            workoutSet(
+                sessionExerciseId = slot,
+                setNumber = 1,
+                isCompleted = true,
+                completedAt = at(day),
+                reps = 1,
+                weight = 1_000_000L,
+            ),
+        )
     }
 }

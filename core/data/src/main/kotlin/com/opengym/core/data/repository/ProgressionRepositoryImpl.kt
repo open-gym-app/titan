@@ -50,4 +50,6 @@ class ProgressionRepositoryImpl @Inject constructor(
                     )
                 }
             }
+
+    override fun hasTrainingHistory(): Flow<Boolean> = sessionDao.hasFinishedSession()
 }

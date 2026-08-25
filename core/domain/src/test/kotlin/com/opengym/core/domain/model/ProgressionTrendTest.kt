@@ -1,6 +1,7 @@
 package com.opengym.core.domain.model
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -25,6 +26,25 @@ class ProgressionTrendTest {
         assertEquals(0L, trend.totalVolume)
         assertNull(trend.previousTotalVolume)
         assertNull(trend.volumeChangeRatio)
+        assertTrue(trend.isFirstRun)
+        assertFalse(trend.isQuietPeriod)
+    }
+
+    @Test
+    fun `an empty period tells a break apart from a first run`() {
+        val lapsed = VolumeTrend(
+            weeks = emptyList(),
+            previousTotalVolume = null,
+            hasEverTrained = true,
+        )
+
+        // Identical to VolumeTrend.EMPTY in every figure a chart reads; the one bit that
+        // differs is the one that decides whether a first-session prompt is shown.
+        assertEquals(VolumeTrend.EMPTY.weeks, lapsed.weeks)
+        assertEquals(VolumeTrend.EMPTY.totalVolume, lapsed.totalVolume)
+        assertEquals(VolumeTrend.EMPTY.previousTotalVolume, lapsed.previousTotalVolume)
+        assertTrue(lapsed.isQuietPeriod)
+        assertFalse(lapsed.isFirstRun)
     }
 
     @Test
@@ -32,6 +52,7 @@ class ProgressionTrendTest {
         val trend = VolumeTrend(
             weeks = listOf(WeeklyVolume(WEEK_1, 3_000L), WeeklyVolume(WEEK_2, 4_500L)),
             previousTotalVolume = 5_000L,
+            hasEverTrained = true,
         )
 
         assertEquals(7_500L, trend.totalVolume)
@@ -49,6 +70,8 @@ class ProgressionTrendTest {
         assertEquals(0.0, trend.averagePerWeek, 1e-9)
         assertNull(trend.previousAveragePerWeek)
         assertNull(trend.changePerWeek)
+        assertTrue(trend.isFirstRun)
+        assertFalse(trend.isQuietPeriod)
     }
 
     @Test
@@ -59,6 +82,7 @@ class ProgressionTrendTest {
                 WeeklyTraining(WEEK_2, trainingDays = 3, sessionCount = 3),
             ),
             previousAveragePerWeek = 2.0,
+            hasEverTrained = true,
         )
 
         assertEquals(7, trend.totalTrainingDays)

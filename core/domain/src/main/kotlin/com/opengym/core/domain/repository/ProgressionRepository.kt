@@ -44,6 +44,12 @@ interface ProgressionRepository {
      * chart weights nobody lifted. Warm-ups **are** included, unlike the PR engine's
      * reading of the same table: a warm-up set is volume the lifter actually moved, and
      * this figure is how much work was done rather than how hard it was.
+     *
+     * The set's session must also be finished, and the week a set lands in is the week its
+     * **session** was finished in — the same rule [getWeeklyTraining] applies, so the two
+     * series always agree about which weeks held training. A workout in progress therefore
+     * contributes nothing here until it is closed out; see `WorkoutSetDao.getVolumeByWeek`
+     * for why that is the side to err on.
      */
     fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>>
 
@@ -57,4 +63,20 @@ interface ProgressionRepository {
      * one filter and nothing respectively.
      */
     fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>>
+
+    /**
+     * Whether the user has ever finished a session, over all of history.
+     *
+     * The one method here that takes no period, because it answers the one question a
+     * period cannot: an empty window says "nothing in this window", and that reads the same
+     * for somebody who has never trained and somebody who stopped six months ago. The
+     * comparison period tells the two apart only while the lapse is shorter than twice the
+     * window. This does not run out.
+     *
+     * Same filter as [getWeeklyTraining], so it is exactly "the series would return
+     * something over a wide enough range" — never true for a user the series are empty for
+     * because they have no history, always true for one they are empty for because the
+     * window is quiet.
+     */
+    fun hasTrainingHistory(): Flow<Boolean>
 }

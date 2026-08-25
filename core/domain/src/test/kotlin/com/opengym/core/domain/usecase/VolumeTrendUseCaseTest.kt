@@ -1,9 +1,11 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.WeeklyVolume
+import com.opengym.core.domain.stats.TrainingWeek
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -150,6 +152,8 @@ class VolumeTrendUseCaseTest {
         assertEquals(0L, trend.totalVolume)
         assertNull(trend.previousTotalVolume)
         assertNull(trend.volumeChangeRatio)
+        assertTrue(trend.isFirstRun)
+        assertFalse(trend.isQuietPeriod)
     }
 
     @Test
@@ -161,6 +165,35 @@ class VolumeTrendUseCaseTest {
 
         assertTrue(trend.weeks.isEmpty())
         assertEquals(kg(21_000), trend.previousTotalVolume)
+        assertTrue(trend.isQuietPeriod)
+        assertFalse(trend.isFirstRun)
+    }
+
+    @Test
+    fun `a lapse longer than both periods is still a lapse, not a first run`() = runTest {
+        // Six months off a twelve-week chart: the comparison period is empty too, so
+        // nothing inside the window says this user has trained. The all-history predicate
+        // is the only thing that does, and it is what stops a three-year lifter being
+        // offered the "log your first session" prompt.
+        repository.setHasTrainingHistory(true)
+
+        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+
+        assertTrue(trend.weeks.isEmpty())
+        assertNull(trend.previousTotalVolume)
+        assertTrue(trend.isQuietPeriod)
+        assertFalse(trend.isFirstRun)
+    }
+
+    @Test
+    fun `a period with training in it is neither empty state`() = runTest {
+        repository.setVolume(WEEK_1 to kg(12_000))
+
+        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+
+        assertFalse(trend.isFirstRun)
+        assertFalse(trend.isQuietPeriod)
+        assertTrue(trend.hasEverTrained)
     }
 
     @Test

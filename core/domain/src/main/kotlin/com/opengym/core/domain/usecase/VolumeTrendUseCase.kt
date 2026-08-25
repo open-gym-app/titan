@@ -5,7 +5,7 @@ import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.core.domain.stats.TrainingWeek
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
 
 /**
@@ -33,19 +33,34 @@ import java.time.LocalDate
  * would join the week either side of a rest week with a line that says training continued.
  * So every week of the period is emitted, the untrained ones as zero.
  *
- * The exception is a period with **no** rows at all, which comes back as [VolumeTrend.EMPTY]
- * rather than as a run of zeroes. A brand-new user has to reach a "log your first session"
- * prompt and not a flat chart of nothing, and the empty list is what a screen keys that off.
- * The same reading applies to a lapsed user's quiet window, which is the honest one: the
- * period holds nothing, and [VolumeTrend.previousTotalVolume] still says what came before it.
+ * The exception is a period with **no** rows at all, whose [VolumeTrend.weeks] comes back
+ * empty rather than as a run of zeroes. A brand-new user has to reach a "log your first
+ * session" prompt and not a flat chart of nothing, and the empty list is what a screen keys
+ * that off. [VolumeTrend.previousTotalVolume] is still filled in when the period before held
+ * training, so the answer is not [VolumeTrend.EMPTY] itself and must not be compared against
+ * it — test [VolumeTrend.isFirstRun].
+ *
+ * ### An empty period is not on its own a new user
+ *
+ * A lapsed user's window is empty too, and the previous period separates the two only while
+ * the lapse is shorter than the window plus its comparison: six months off a twelve-week
+ * chart empties both, and someone with three years of history would land on the first-run
+ * prompt. So [ProgressionRepository.hasTrainingHistory] is read alongside the series and
+ * carried on [VolumeTrend.hasEverTrained], which no length of gap can flip.
+ *
+ * That is the one thing here fetched separately, and it is the case the objection below does
+ * not apply to: it is a predicate over all of history rather than a slice of the same series,
+ * so no single query can answer both. A torn pair costs nothing either — it is only consulted
+ * when [VolumeTrend.weeks] is empty, and a stale answer to "has this user ever trained"
+ * settles within the same frame as the read that changed it.
  *
  * ### One read, two periods
  *
  * The comparison period is fetched by widening the query rather than by making a second one:
  * both periods are contiguous whole weeks, so `[previous.start, period.end]` is a single
  * range that splits on the boundary once the rows come back. Two flows would also have to be
- * combined, and a combine of two database reads emits a torn pair on the way to a settled one
- * every time a set is logged.
+ * combined, and a combine of two *series* reads emits a torn pair — half of one period beside
+ * all of the other — on the way to a settled one every time a set is logged.
  */
 class VolumeTrendUseCase(
     private val progressionRepository: ProgressionRepository,
@@ -62,16 +77,28 @@ class VolumeTrendUseCase(
     operator fun invoke(period: ClosedRange<LocalDate>): Flow<VolumeTrend> {
         val weeks = TrainingWeek.snap(period)
         val previous = TrainingWeek.preceding(weeks)
-        return progressionRepository.getWeeklyVolume(previous.start..weeks.endInclusive)
-            .map { rows -> trend(weeks, rows) }
+        return combine(
+            progressionRepository.getWeeklyVolume(previous.start..weeks.endInclusive),
+            progressionRepository.hasTrainingHistory(),
+        ) { rows, hasEverTrained -> trend(weeks, rows, hasEverTrained) }
     }
 
-    private fun trend(weeks: ClosedRange<LocalDate>, rows: List<WeeklyVolume>): VolumeTrend {
+    private fun trend(
+        weeks: ClosedRange<LocalDate>,
+        rows: List<WeeklyVolume>,
+        hasEverTrained: Boolean,
+    ): VolumeTrend {
         val (current, earlier) = rows.partition { it.weekStart >= weeks.start }
         // Null, not 0: see `VolumeTrend.previousTotalVolume` for why an absent period and a
         // period that lifted nothing are different answers.
         val previousTotal = if (earlier.isEmpty()) null else earlier.sumOf(WeeklyVolume::totalVolume)
-        if (current.isEmpty()) return VolumeTrend(weeks = emptyList(), previousTotalVolume = previousTotal)
+        if (current.isEmpty()) {
+            return VolumeTrend(
+                weeks = emptyList(),
+                previousTotalVolume = previousTotal,
+                hasEverTrained = hasEverTrained,
+            )
+        }
 
         val byWeek = current.associateBy(WeeklyVolume::weekStart)
         return VolumeTrend(
@@ -79,6 +106,7 @@ class VolumeTrendUseCase(
                 byWeek[start] ?: WeeklyVolume(weekStart = start, totalVolume = 0L)
             },
             previousTotalVolume = previousTotal,
+            hasEverTrained = hasEverTrained,
         )
     }
 }

@@ -5,7 +5,7 @@ import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.core.domain.stats.TrainingWeek
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import java.time.LocalDate
 
 /**
@@ -26,7 +26,7 @@ import java.time.LocalDate
  * ### Whole weeks, filled gaps, and the empty period
  *
  * The period is widened to whole weeks, untrained weeks are emitted as zero, and a period
- * with nothing in it comes back as [ConsistencyTrend.EMPTY] — the same three rules
+ * with nothing in it comes back with [ConsistencyTrend.weeks] empty — the same three rules
  * [VolumeTrendUseCase] follows, and for the same reasons, with one that matters more here:
  * the average divides by every week of the period, so a fortnight off has to be present as
  * two zeroes. An average over only the weeks that had training in them would be a figure
@@ -35,6 +35,18 @@ import java.time.LocalDate
  * That is also why [ConsistencyTrend.averagePerWeek] cannot divide by zero: the week count
  * it divides by is the period's, which is at least one whenever there is anything to
  * average, and the empty period short-circuits to `0.0` without the division.
+ *
+ * [ConsistencyTrend.previousAveragePerWeek] is still filled in when the period before held
+ * training, so an empty period is not [ConsistencyTrend.EMPTY] itself and must not be
+ * compared against it — test [ConsistencyTrend.isFirstRun].
+ *
+ * ### Telling a break apart from a first run
+ *
+ * An empty period alone cannot: a long enough lapse empties the comparison period too, and a
+ * lifter of three years would then read exactly as somebody who has never trained. So
+ * [ProgressionRepository.hasTrainingHistory] is read beside the series and carried on
+ * [ConsistencyTrend.hasEverTrained] — the same arrangement, and the same reasoning, as
+ * [VolumeTrendUseCase], which spells out why this one extra flow is worth combining.
  */
 class ConsistencyUseCase(
     private val progressionRepository: ProgressionRepository,
@@ -51,14 +63,17 @@ class ConsistencyUseCase(
     operator fun invoke(period: ClosedRange<LocalDate>): Flow<ConsistencyTrend> {
         val weeks = TrainingWeek.snap(period)
         val previous = TrainingWeek.preceding(weeks)
-        return progressionRepository.getWeeklyTraining(previous.start..weeks.endInclusive)
-            .map { rows -> trend(weeks, previous, rows) }
+        return combine(
+            progressionRepository.getWeeklyTraining(previous.start..weeks.endInclusive),
+            progressionRepository.hasTrainingHistory(),
+        ) { rows, hasEverTrained -> trend(weeks, previous, rows, hasEverTrained) }
     }
 
     private fun trend(
         weeks: ClosedRange<LocalDate>,
         previous: ClosedRange<LocalDate>,
         rows: List<WeeklyTraining>,
+        hasEverTrained: Boolean,
     ): ConsistencyTrend {
         val (current, earlier) = rows.partition { it.weekStart >= weeks.start }
         // Averaged over the previous period's whole width, zero weeks included, exactly as
@@ -69,7 +84,13 @@ class ConsistencyUseCase(
         } else {
             earlier.sumOf(WeeklyTraining::trainingDays).toDouble() / TrainingWeek.countIn(previous)
         }
-        if (current.isEmpty()) return ConsistencyTrend(weeks = emptyList(), previousAveragePerWeek = previousAverage)
+        if (current.isEmpty()) {
+            return ConsistencyTrend(
+                weeks = emptyList(),
+                previousAveragePerWeek = previousAverage,
+                hasEverTrained = hasEverTrained,
+            )
+        }
 
         val byWeek = current.associateBy(WeeklyTraining::weekStart)
         return ConsistencyTrend(
@@ -77,6 +98,7 @@ class ConsistencyUseCase(
                 byWeek[start] ?: WeeklyTraining(weekStart = start, trainingDays = 0, sessionCount = 0)
             },
             previousAveragePerWeek = previousAverage,
+            hasEverTrained = hasEverTrained,
         )
     }
 }
