@@ -2,6 +2,7 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.test.runTest
@@ -12,11 +13,10 @@ import org.junit.Test
 
 class PrDetectionUseCaseTest {
 
-    private val clock = MutableClock(now = 1_000L)
     private val sessions = FakeSessionRepository()
     private val records = FakePersonalRecordRepository()
     private val preferences = FakeUserPreferencesRepository()
-    private val detectPrs = PrDetectionUseCase(sessions, records, preferences, clock)
+    private val detectPrs = PrDetectionUseCase(sessions, records, preferences)
 
     @Test
     fun `writes one row per pr type actually broken, not one per set`() = runTest {
@@ -160,6 +160,33 @@ class PrDetectionUseCaseTest {
     }
 
     @Test
+    fun `a warm-up set does not set or break any personal record`() = runTest {
+        val exerciseId = 90L
+        val sessionId = startSession(exerciseId)
+        // A heavy single warm-up rep, easy for its own sake, followed by the real work set.
+        addSet(sessionId, weight = 200_000_000, reps = 1, completedAt = 1L, setType = SetType.WARMUP)
+        addSet(sessionId, weight = 100_000_000, reps = 5, completedAt = 2L)
+
+        val created = detectPrs(sessionId)
+
+        val maxWeight = created.single { it.type == PrType.MAX_WEIGHT }
+        assertEquals(100_000_000L, maxWeight.weight)
+        // 100M × 5 only — the warm-up's weight × reps must not be in the sum.
+        val maxVolume = created.single { it.type == PrType.MAX_VOLUME }
+        assertEquals(500_000_000L, maxVolume.weight)
+    }
+
+    @Test
+    fun `a session that is only warm-ups detects nothing`() = runTest {
+        val exerciseId = 91L
+        val sessionId = startSession(exerciseId)
+        addSet(sessionId, weight = 200_000_000, reps = 1, completedAt = 1L, setType = SetType.WARMUP)
+
+        assertEquals(emptyList<Any>(), detectPrs(sessionId))
+        assertTrue(records.inserted.isEmpty())
+    }
+
+    @Test
     fun `the max volume record is anchored on the exercise's last completed set`() = runTest {
         val exerciseId = 80L
         val sessionId = startSession(exerciseId)
@@ -184,7 +211,13 @@ class PrDetectionUseCaseTest {
     /** Which `session_exercise` row [startSession] created for a given session. */
     private val sessionExerciseIds = mutableMapOf<Long, Long>()
 
-    private fun addSet(sessionId: Long, weight: Long?, reps: Int?, completedAt: Long): Long =
+    private fun addSet(
+        sessionId: Long,
+        weight: Long?,
+        reps: Int?,
+        completedAt: Long,
+        setType: SetType = SetType.NORMAL,
+    ): Long =
         sessions.addSet(
             sessionExerciseIds.getValue(sessionId),
             WorkoutSet(
@@ -192,6 +225,7 @@ class PrDetectionUseCaseTest {
                 setNumber = 0,
                 weight = weight,
                 reps = reps,
+                setType = setType,
                 isCompleted = true,
                 completedAt = completedAt,
                 createdAt = completedAt,

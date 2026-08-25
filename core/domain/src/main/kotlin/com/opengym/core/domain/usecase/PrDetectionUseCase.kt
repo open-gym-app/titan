@@ -3,13 +3,13 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.pr.OneRepMaxCalculator
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.stats.VolumeCalculator
-import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
 import kotlin.math.roundToLong
 
@@ -23,12 +23,15 @@ import kotlin.math.roundToLong
  *
  * ### One exercise, every [PrType], one comparison rule
  *
- * A session's completed sets are grouped by **catalogue** exercise — not by
+ * A session's completed, non-warm-up sets are grouped by **catalogue** exercise — not by
  * `session_exercise`, so an exercise performed twice in one session (two slots of a
  * superset, say) is judged as a whole rather than as two smaller attempts that individually
- * fall short of what the pair achieved together. Every [PrType] is then tried against that
- * group; a type with no eligible set (no cardio logged, say) is silently skipped rather than
- * producing an empty or zeroed row.
+ * fall short of what the pair achieved together. [SetType.WARMUP] sets are excluded before
+ * grouping, the same rule [SessionRepository.getPreviousSets] applies to its own reference
+ * figure and for the same reason: a warm-up is chosen to be easy, so a record built off one
+ * would not be a record of anything the lifter actually tried to do. Every [PrType] is then
+ * tried against that group; a type with no eligible set (no cardio logged, say) is silently
+ * skipped rather than producing an empty or zeroed row.
  *
  * "Better" is a strict comparison against [PersonalRecordRepository.getBest] — bigger for
  * every type except [PrType.BEST_PACE], where a lower pace wins. Strict, not
@@ -43,12 +46,16 @@ import kotlin.math.roundToLong
  * sixth, [PrType.MAX_VOLUME], is a session property rather than a set's — see
  * [VolumeCalculator.totalVolume] — so its `workout_set_id` anchor is the group's *last*
  * completed set rather than the one set that "achieved" a sum several sets contributed to.
+ *
+ * Each record's [PersonalRecord.achievedAt] is its own originating set's `completedAt` —
+ * the moment the lift actually happened — rather than the moment this use case runs, so a
+ * record's timestamp stays correct even if detection is invoked well after the fact (a
+ * retried failure, a backfilled session).
  */
 class PrDetectionUseCase(
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val clock: Clock = Clock.SYSTEM,
 ) {
 
     /**
@@ -59,25 +66,24 @@ class PrDetectionUseCase(
      * re-check — detects nothing and returns an empty list rather than failing.
      */
     suspend operator fun invoke(sessionId: Long): List<PersonalRecord> {
-        val performed = sessionRepository.getSetsForSession(sessionId).first().filter(WorkoutSet::isCompleted)
+        val performed = sessionRepository.getSetsForSession(sessionId).first()
+            .filter { it.isCompleted && it.setType != SetType.WARMUP }
         if (performed.isEmpty()) return emptyList()
 
         val exerciseIdBySessionExercise = sessionRepository.getExercises(sessionId).first()
             .associate { it.id to it.exerciseId }
         val formula = userPreferencesRepository.observe().first().oneRepMaxFormula
-        val achievedAt = clock.nowMillis()
 
         return performed
             .groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
-            .flatMap { (exerciseId, sets) -> detect(exerciseId, sets, formula, achievedAt) }
+            .flatMap { (exerciseId, sets) -> detect(exerciseId, sets, formula) }
     }
 
     private suspend fun detect(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
-        achievedAt: Long,
-    ): List<PersonalRecord> = candidates(exerciseId, sets, formula, achievedAt).mapNotNull { candidate ->
+    ): List<PersonalRecord> = candidates(exerciseId, sets, formula).mapNotNull { candidate ->
         val current = personalRecordRepository.getBest(exerciseId, candidate.type).first()
         if (!isBetter(candidate, current)) return@mapNotNull null
         val id = personalRecordRepository.insert(candidate)
@@ -89,7 +95,6 @@ class PrDetectionUseCase(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
-        achievedAt: Long,
     ): List<PersonalRecord> = listOfNotNull(
         bestByWeight(sets)?.let { set ->
             PersonalRecord(
@@ -97,7 +102,7 @@ class PrDetectionUseCase(
                 workoutSetId = set.id,
                 type = PrType.MAX_WEIGHT,
                 weight = set.weight,
-                achievedAt = achievedAt,
+                achievedAt = set.completedAt,
             )
         },
         bestByReps(sets)?.let { set ->
@@ -106,7 +111,7 @@ class PrDetectionUseCase(
                 workoutSetId = set.id,
                 type = PrType.MAX_REPS,
                 reps = set.reps,
-                achievedAt = achievedAt,
+                achievedAt = set.completedAt,
             )
         },
         bestByDistance(sets)?.let { set ->
@@ -115,7 +120,7 @@ class PrDetectionUseCase(
                 workoutSetId = set.id,
                 type = PrType.MAX_DISTANCE,
                 distance = set.distance,
-                achievedAt = achievedAt,
+                achievedAt = set.completedAt,
             )
         },
         // Requires both a distance and a duration, per the class doc: a set carrying only a
@@ -127,7 +132,7 @@ class PrDetectionUseCase(
                 type = PrType.BEST_PACE,
                 distance = set.distance,
                 duration = set.duration,
-                achievedAt = achievedAt,
+                achievedAt = set.completedAt,
             )
         },
         bestVolume(sets)?.let { (anchor, volume) ->
@@ -136,7 +141,7 @@ class PrDetectionUseCase(
                 workoutSetId = anchor.id,
                 type = PrType.MAX_VOLUME,
                 weight = volume,
-                achievedAt = achievedAt,
+                achievedAt = anchor.completedAt,
             )
         },
         bestEstimated1Rm(sets, formula)?.let { (set, estimate) ->
@@ -145,7 +150,7 @@ class PrDetectionUseCase(
                 workoutSetId = set.id,
                 type = PrType.ESTIMATED_1RM,
                 estimated1Rm = estimate,
-                achievedAt = achievedAt,
+                achievedAt = set.completedAt,
             )
         },
     )
@@ -170,7 +175,9 @@ class PrDetectionUseCase(
     private fun bestVolume(sets: List<WorkoutSet>): Pair<WorkoutSet, Long>? {
         val volume = VolumeCalculator.totalVolume(sets)
         if (volume <= 0L) return null
-        val anchor = sets.filter(WorkoutSet::isCompleted).maxByOrNull(WorkoutSet::completedAt) ?: return null
+        // `sets` is already completed-only and warm-up-free — see `invoke` — so no second
+        // filter is needed to pick the anchor.
+        val anchor = sets.maxByOrNull(WorkoutSet::completedAt) ?: return null
         return anchor to volume
     }
 
