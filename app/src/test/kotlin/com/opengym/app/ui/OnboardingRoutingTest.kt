@@ -102,6 +102,19 @@ class OnboardingRoutingTest {
     fun `the answers are on disk before Home is drawn`() {
         answerEveryStep()
 
+        // Read once Home is up, because Home being up is the deadline this asserts against —
+        // and because it is the only event that means the write has had its chance. The
+        // completion write runs on the store's own dispatcher, so `waitForIdle` returning
+        // says the main looper and the recomposer are quiet, not that anything reached disk;
+        // reading here without waiting passes or fails on how busy the machine is.
+        //
+        // Waiting does not weaken the assertion. `finish` flips `isFinished` only after
+        // `setOnboardingCompleted` returns, and the move to Home follows `isFinished`, so a
+        // version that navigated first would draw Home with the flag still false and be
+        // caught right here. What the wait removes is the case where this test fails while
+        // the app is behaving correctly.
+        awaitHome()
+
         val stored = runBlocking { preferences.observe().first() }
         assertEquals(TrainingGoal.HYPERTROPHY, stored.trainingGoal)
         assertEquals(UnitSystem.IMPERIAL, stored.unitSystem)
