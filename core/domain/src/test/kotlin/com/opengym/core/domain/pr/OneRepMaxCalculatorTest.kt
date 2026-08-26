@@ -88,7 +88,12 @@ class OneRepMaxCalculatorTest {
     }
 
     /** Float precision over eight-figure milligram weights loses a handful of units; ±1 tolerates it. */
-    private fun assertEstimate(expected: Double, weight: Long, reps: Int, formula: OneRepMaxFormula) {
+    private fun assertEstimate(
+        expected: Double,
+        weight: Long,
+        reps: Int,
+        formula: OneRepMaxFormula,
+    ) {
         val actual = OneRepMaxCalculator.calculate(weight, reps, formula)
         assertEquals(expected, actual.toDouble(), EPSILON)
     }

@@ -38,19 +38,29 @@ object OneRepMaxCalculator {
      *   A set with no weight or no reps logged is not a candidate for this at all — that
      *   decision belongs to the caller, before it ever reaches here.
      */
-    fun calculate(weight: Long, reps: Int, formula: OneRepMaxFormula): Float {
+    fun calculate(
+        weight: Long,
+        reps: Int,
+        formula: OneRepMaxFormula,
+    ): Float {
         require(weight > 0) { "weight must be positive, was $weight" }
         require(reps >= 1) { "reps must be at least 1, was $reps" }
 
         return when (formula) {
             OneRepMaxFormula.EPLEY -> epley(weight, reps)
+
             OneRepMaxFormula.BRZYCKI ->
                 if (reps >= BRZYCKI_FALLBACK_REPS) epley(weight, reps) else brzycki(weight, reps)
         }
     }
 
-    private fun epley(weight: Long, reps: Int): Float = weight * (1f + reps / EPLEY_REP_DIVISOR)
+    private fun epley(
+        weight: Long,
+        reps: Int,
+    ): Float = weight * (1f + reps / EPLEY_REP_DIVISOR)
 
-    private fun brzycki(weight: Long, reps: Int): Float =
-        weight * (BRZYCKI_NUMERATOR / (BRZYCKI_DENOMINATOR_BASE - reps))
+    private fun brzycki(
+        weight: Long,
+        reps: Int,
+    ): Float = weight * (BRZYCKI_NUMERATOR / (BRZYCKI_DENOMINATOR_BASE - reps))
 }

@@ -27,9 +27,10 @@ object PrUseCaseModule {
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         userPreferencesRepository: UserPreferencesRepository,
-    ): PrDetectionUseCase = PrDetectionUseCase(
-        sessionRepository = sessionRepository,
-        personalRecordRepository = personalRecordRepository,
-        userPreferencesRepository = userPreferencesRepository,
-    )
+    ): PrDetectionUseCase =
+        PrDetectionUseCase(
+            sessionRepository = sessionRepository,
+            personalRecordRepository = personalRecordRepository,
+            userPreferencesRepository = userPreferencesRepository,
+        )
 }

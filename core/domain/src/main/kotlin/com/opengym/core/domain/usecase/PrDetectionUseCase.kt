@@ -89,76 +89,78 @@ class PrDetectionUseCase(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
-    ): List<PersonalRecord> = candidates(exerciseId, sets, formula).mapNotNull { candidate ->
-        personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
-            isBetter(candidate, current)
+    ): List<PersonalRecord> =
+        candidates(exerciseId, sets, formula).mapNotNull { candidate ->
+            personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
+                isBetter(candidate, current)
+            }
         }
-    }
 
     /** Every [PrType] [sets] has an eligible candidate for, one each at most. */
     private fun candidates(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
-    ): List<PersonalRecord> = listOfNotNull(
-        bestByWeight(sets)?.let { set ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = set.id,
-                type = PrType.MAX_WEIGHT,
-                weight = set.weight,
-                achievedAt = set.completedAt,
-            )
-        },
-        bestByReps(sets)?.let { set ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = set.id,
-                type = PrType.MAX_REPS,
-                reps = set.reps,
-                achievedAt = set.completedAt,
-            )
-        },
-        bestByDistance(sets)?.let { set ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = set.id,
-                type = PrType.MAX_DISTANCE,
-                distance = set.distance,
-                achievedAt = set.completedAt,
-            )
-        },
-        // Requires both a distance and a duration, per the class doc: a set carrying only a
-        // distance yields no pace to compare.
-        bestByPace(sets)?.let { set ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = set.id,
-                type = PrType.BEST_PACE,
-                distance = set.distance,
-                duration = set.duration,
-                achievedAt = set.completedAt,
-            )
-        },
-        bestVolume(sets)?.let { (anchor, volume) ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = anchor.id,
-                type = PrType.MAX_VOLUME,
-                weight = volume,
-                achievedAt = anchor.completedAt,
-            )
-        },
-        bestEstimated1Rm(sets, formula)?.let { (set, estimate) ->
-            PersonalRecord(
-                exerciseId = exerciseId,
-                workoutSetId = set.id,
-                type = PrType.ESTIMATED_1RM,
-                estimated1Rm = estimate,
-                achievedAt = set.completedAt,
-            )
-        },
-    )
+    ): List<PersonalRecord> =
+        listOfNotNull(
+            bestByWeight(sets)?.let { set ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = set.id,
+                    type = PrType.MAX_WEIGHT,
+                    weight = set.weight,
+                    achievedAt = set.completedAt,
+                )
+            },
+            bestByReps(sets)?.let { set ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = set.id,
+                    type = PrType.MAX_REPS,
+                    reps = set.reps,
+                    achievedAt = set.completedAt,
+                )
+            },
+            bestByDistance(sets)?.let { set ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = set.id,
+                    type = PrType.MAX_DISTANCE,
+                    distance = set.distance,
+                    achievedAt = set.completedAt,
+                )
+            },
+            // Requires both a distance and a duration, per the class doc: a set carrying only a
+            // distance yields no pace to compare.
+            bestByPace(sets)?.let { set ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = set.id,
+                    type = PrType.BEST_PACE,
+                    distance = set.distance,
+                    duration = set.duration,
+                    achievedAt = set.completedAt,
+                )
+            },
+            bestVolume(sets)?.let { (anchor, volume) ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = anchor.id,
+                    type = PrType.MAX_VOLUME,
+                    weight = volume,
+                    achievedAt = anchor.completedAt,
+                )
+            },
+            bestEstimated1Rm(sets, formula)?.let { (set, estimate) ->
+                PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = set.id,
+                    type = PrType.ESTIMATED_1RM,
+                    estimated1Rm = estimate,
+                    achievedAt = set.completedAt,
+                )
+            },
+        )
 
     private fun bestByWeight(sets: List<WorkoutSet>): WorkoutSet? =
         sets.filter { (it.weight ?: 0L) > 0L }.maxByOrNull { it.weight!! }
@@ -169,9 +171,10 @@ class PrDetectionUseCase(
     private fun bestByDistance(sets: List<WorkoutSet>): WorkoutSet? =
         sets.filter { (it.distance ?: 0L) > 0L }.maxByOrNull { it.distance!! }
 
-    private fun bestByPace(sets: List<WorkoutSet>): WorkoutSet? = sets
-        .filter { (it.distance ?: 0L) > 0L && (it.duration ?: 0L) > 0L }
-        .minByOrNull { it.duration!!.toDouble() / it.distance!! }
+    private fun bestByPace(sets: List<WorkoutSet>): WorkoutSet? =
+        sets
+            .filter { (it.distance ?: 0L) > 0L && (it.duration ?: 0L) > 0L }
+            .minByOrNull { it.duration!!.toDouble() / it.distance!! }
 
     /**
      * The session's total volume for this exercise's sets, anchored to the last of them —
@@ -186,16 +189,23 @@ class PrDetectionUseCase(
         return anchor to volume
     }
 
-    private fun bestEstimated1Rm(sets: List<WorkoutSet>, formula: OneRepMaxFormula): Pair<WorkoutSet, Long>? = sets
-        .mapNotNull { set ->
-            val weight = set.weight?.takeIf { it > 0L } ?: return@mapNotNull null
-            val reps = set.reps?.takeIf { it > 0 } ?: return@mapNotNull null
-            set to OneRepMaxCalculator.calculate(weight, reps, formula).roundToLong()
-        }
-        .maxByOrNull { it.second }
+    private fun bestEstimated1Rm(
+        sets: List<WorkoutSet>,
+        formula: OneRepMaxFormula,
+    ): Pair<WorkoutSet, Long>? =
+        sets
+            .mapNotNull { set ->
+                val weight = set.weight?.takeIf { it > 0L } ?: return@mapNotNull null
+                val reps = set.reps?.takeIf { it > 0 } ?: return@mapNotNull null
+                set to OneRepMaxCalculator.calculate(weight, reps, formula).roundToLong()
+            }
+            .maxByOrNull { it.second }
 
     /** `true` for `null` — nothing on file yet is beaten by anything. */
-    private fun isBetter(candidate: PersonalRecord, current: PersonalRecord?): Boolean {
+    private fun isBetter(
+        candidate: PersonalRecord,
+        current: PersonalRecord?,
+    ): Boolean {
         current ?: return true
         return if (candidate.type == PrType.BEST_PACE) {
             pace(candidate) < pace(current)
@@ -204,13 +214,14 @@ class PrDetectionUseCase(
         }
     }
 
-    private fun metric(record: PersonalRecord): Long = when (record.type) {
-        PrType.MAX_WEIGHT, PrType.MAX_VOLUME -> record.weight
-        PrType.MAX_REPS -> record.reps?.toLong()
-        PrType.MAX_DISTANCE -> record.distance
-        PrType.ESTIMATED_1RM -> record.estimated1Rm
-        PrType.BEST_PACE -> error("BEST_PACE is compared by pace(), not metric()")
-    } ?: error("a ${record.type} candidate must carry the figure it is compared on")
+    private fun metric(record: PersonalRecord): Long =
+        when (record.type) {
+            PrType.MAX_WEIGHT, PrType.MAX_VOLUME -> record.weight
+            PrType.MAX_REPS -> record.reps?.toLong()
+            PrType.MAX_DISTANCE -> record.distance
+            PrType.ESTIMATED_1RM -> record.estimated1Rm
+            PrType.BEST_PACE -> error("BEST_PACE is compared by pace(), not metric()")
+        } ?: error("a ${record.type} candidate must carry the figure it is compared on")
 
     private fun pace(record: PersonalRecord): Double {
         val duration = record.duration ?: error("a BEST_PACE candidate must carry a duration")

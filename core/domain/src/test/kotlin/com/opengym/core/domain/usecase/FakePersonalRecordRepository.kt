@@ -30,11 +30,12 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
     /** Every row written, oldest first, for assertions a `Flow` read would be clumsy for. */
     val inserted: List<PersonalRecord> get() = records.value
 
-    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = records.map { rows ->
-        rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->
-            group.maxBy(PersonalRecord::achievedAt)
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
+        records.map { rows ->
+            rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->
+                group.maxBy(PersonalRecord::achievedAt)
+            }
         }
-    }
 
     override suspend fun insertIfBetter(
         exerciseId: Long,

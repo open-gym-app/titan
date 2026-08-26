@@ -38,16 +38,17 @@ class PersonalRecordMapper @Inject constructor() {
         )
     }
 
-    fun toEntity(record: PersonalRecord): PersonalRecordEntity = PersonalRecordEntity(
-        id = record.id,
-        exerciseId = record.exerciseId,
-        workoutSetId = record.workoutSetId,
-        prType = record.type.name,
-        weight = record.weight,
-        reps = record.reps,
-        distance = record.distance,
-        duration = record.duration,
-        estimated1Rm = record.estimated1Rm,
-        achievedAt = record.achievedAt,
-    )
+    fun toEntity(record: PersonalRecord): PersonalRecordEntity =
+        PersonalRecordEntity(
+            id = record.id,
+            exerciseId = record.exerciseId,
+            workoutSetId = record.workoutSetId,
+            prType = record.type.name,
+            weight = record.weight,
+            reps = record.reps,
+            distance = record.distance,
+            duration = record.duration,
+            estimated1Rm = record.estimated1Rm,
+            achievedAt = record.achievedAt,
+        )
 }
