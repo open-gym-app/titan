@@ -33,31 +33,28 @@ import dagger.hilt.components.SingletonComponent
 object TemplateUseCaseModule {
 
     @Provides
-    fun provideApplyTemplateUseCase(
-        templateRepository: TemplateRepository,
-    ): ApplyTemplateUseCase = ApplyTemplateUseCase(templateRepository)
+    fun provideApplyTemplateUseCase(templateRepository: TemplateRepository): ApplyTemplateUseCase =
+        ApplyTemplateUseCase(templateRepository)
 
     @Provides
-    fun provideCreateTemplateUseCase(
-        templateRepository: TemplateRepository,
-    ): CreateTemplateUseCase = CreateTemplateUseCase(templateRepository)
+    fun provideCreateTemplateUseCase(templateRepository: TemplateRepository): CreateTemplateUseCase =
+        CreateTemplateUseCase(templateRepository)
 
     @Provides
-    fun provideUpdateTemplateUseCase(
-        templateRepository: TemplateRepository,
-    ): UpdateTemplateUseCase = UpdateTemplateUseCase(templateRepository)
+    fun provideUpdateTemplateUseCase(templateRepository: TemplateRepository): UpdateTemplateUseCase =
+        UpdateTemplateUseCase(templateRepository)
 
     @Provides
-    fun provideDeleteTemplateUseCase(
-        templateRepository: TemplateRepository,
-    ): DeleteTemplateUseCase = DeleteTemplateUseCase(templateRepository)
+    fun provideDeleteTemplateUseCase(templateRepository: TemplateRepository): DeleteTemplateUseCase =
+        DeleteTemplateUseCase(templateRepository)
 
     @Provides
     fun provideGetTemplateSummariesUseCase(
         templateRepository: TemplateRepository,
         userPreferencesRepository: UserPreferencesRepository,
-    ): GetTemplateSummariesUseCase = GetTemplateSummariesUseCase(
-        templateRepository = templateRepository,
-        userPreferencesRepository = userPreferencesRepository,
-    )
+    ): GetTemplateSummariesUseCase =
+        GetTemplateSummariesUseCase(
+            templateRepository = templateRepository,
+            userPreferencesRepository = userPreferencesRepository,
+        )
 }

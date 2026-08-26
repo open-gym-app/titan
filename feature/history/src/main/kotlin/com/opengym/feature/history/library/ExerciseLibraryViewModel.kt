@@ -137,35 +137,47 @@ class ExerciseLibraryViewModel @Inject constructor(
     fun onEvent(event: ExerciseLibraryEvent) {
         when (event) {
             is ExerciseLibraryEvent.QueryChanged -> screenState.update { it.copy(query = event.query) }
+
             is ExerciseLibraryEvent.MuscleFilterSelected ->
                 screenState.update { it.copy(muscleGroupId = event.muscleGroupId) }
+
             is ExerciseLibraryEvent.EquipmentFilterToggled -> toggleEquipment(event.equipment)
+
             ExerciseLibraryEvent.FiltersReset ->
                 screenState.update { it.copy(muscleGroupId = null, equipment = emptySet()) }
+
             ExerciseLibraryEvent.SearchAndFiltersCleared ->
                 screenState.update { it.copy(query = "", muscleGroupId = null, equipment = emptySet()) }
+
             is ExerciseLibraryEvent.ExerciseToggled ->
                 toggleSelection(event.exerciseId, exclusive = event.exclusive)
+
             is ExerciseLibraryEvent.ExerciseSelected ->
                 select(event.exerciseId, exclusive = event.exclusive)
+
             ExerciseLibraryEvent.NewExerciseRequested ->
                 screenState.update { it.copy(draft = ExerciseDraft()) }
+
             is ExerciseLibraryEvent.NewExerciseChanged ->
                 screenState.update { it.copy(draft = event.draft.withDuplicateCheck()) }
+
             ExerciseLibraryEvent.NewExerciseSubmitted -> saveDraft()
+
             ExerciseLibraryEvent.NewExerciseDismissed -> screenState.update { it.copy(draft = null) }
+
             ExerciseLibraryEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
 
-    private fun toggleEquipment(equipment: EquipmentType) = screenState.update { state ->
-        val next = if (equipment in state.equipment) {
-            state.equipment - equipment
-        } else {
-            state.equipment + equipment
+    private fun toggleEquipment(equipment: EquipmentType) =
+        screenState.update { state ->
+            val next = if (equipment in state.equipment) {
+                state.equipment - equipment
+            } else {
+                state.equipment + equipment
+            }
+            state.copy(equipment = next)
         }
-        state.copy(equipment = next)
-    }
 
     /**
      * Add or remove an exercise from the selection, keeping the order it was picked in.
@@ -179,7 +191,10 @@ class ExerciseLibraryViewModel @Inject constructor(
      * refuses the second tap: a picker that ignored it would leave the user tapping an
      * exercise that never ticks, with the one blocking it somewhere up a list of 873.
      */
-    private fun toggleSelection(exerciseId: Long, exclusive: Boolean) = screenState.update { state ->
+    private fun toggleSelection(
+        exerciseId: Long,
+        exclusive: Boolean,
+    ) = screenState.update { state ->
         val next = when {
             exerciseId in state.selection -> state.selection - exerciseId
             exclusive -> listOf(exerciseId)
@@ -194,7 +209,10 @@ class ExerciseLibraryViewModel @Inject constructor(
      * Idempotent, which is what separates it from [toggleSelection] — see
      * [ExerciseLibraryEvent.ExerciseSelected] for the case that made the difference matter.
      */
-    private fun select(exerciseId: Long, exclusive: Boolean) = screenState.update { state ->
+    private fun select(
+        exerciseId: Long,
+        exclusive: Boolean,
+    ) = screenState.update { state ->
         when {
             exerciseId in state.selection -> state
             exclusive -> state.copy(selection = listOf(exerciseId))

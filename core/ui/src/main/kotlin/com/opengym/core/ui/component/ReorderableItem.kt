@@ -167,23 +167,24 @@ fun ReorderableItem(
  * items report where they are, and the press names a point. A press that lands between two of
  * them picks up neither.
  */
-fun Modifier.reorderable(state: ReorderState): Modifier = this
-    .onGloballyPositioned { state.container = it }
-    .pointerInput(state) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            if (!state.isEnabled) return@awaitEachGesture
-            if (!awaitHold(down, state.holdDuration)) return@awaitEachGesture
+fun Modifier.reorderable(state: ReorderState): Modifier =
+    this
+        .onGloballyPositioned { state.container = it }
+        .pointerInput(state) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (!state.isEnabled) return@awaitEachGesture
+                if (!awaitHold(down, state.holdDuration)) return@awaitEachGesture
 
-            val container = state.container ?: return@awaitEachGesture
-            val pressedAt = container.localToWindow(down.position).y
-            val key = state.keyAt(pressedAt) ?: return@awaitEachGesture
-            state.lift(key, pressedAt)
+                val container = state.container ?: return@awaitEachGesture
+                val pressedAt = container.localToWindow(down.position).y
+                val key = state.keyAt(pressedAt) ?: return@awaitEachGesture
+                state.lift(key, pressedAt)
 
-            dragHeld(pointer = down.id, container = container, state = state)
-            state.drop()
+                dragHeld(pointer = down.id, container = container, state = state)
+                state.drop()
+            }
         }
-    }
 
 /**
  * Where the reorder is: which item is held, where the finger is, and where everything sits.
@@ -313,7 +314,11 @@ class ReorderState internal constructor(
     internal val translation: Float
         get() = virtualY - (placements[heldKey]?.centre ?: virtualY)
 
-    internal fun place(key: Any, index: Int, bounds: androidx.compose.ui.geometry.Rect) {
+    internal fun place(
+        key: Any,
+        index: Int,
+        bounds: androidx.compose.ui.geometry.Rect,
+    ) {
         val placement = Placement(index = index, top = bounds.top, bottom = bounds.bottom)
         placements[key] = placement
         if (key != heldKey) return
@@ -324,7 +329,10 @@ class ReorderState internal constructor(
         if (!grabbed) grab = pointerY - placement.centre
     }
 
-    internal fun lift(key: Any, pointerWindowY: Float) {
+    internal fun lift(
+        key: Any,
+        pointerWindowY: Float,
+    ) {
         heldKey = key
         pointerY = pointerWindowY
         grab = pointerWindowY - (placements[key]?.centre ?: pointerWindowY)
@@ -392,16 +400,20 @@ class ReorderState internal constructor(
      * @return true always, which is how an accessibility action says it handled the request.
      *   They are only offered where there is somewhere to move to.
      */
-    internal fun step(from: Int, by: Int): Boolean {
+    internal fun step(
+        from: Int,
+        by: Int,
+    ): Boolean {
         onMove(from, from + by)
         onCommit()
         return true
     }
 
     /** Which item covers [windowY], or null for a press that landed between two of them. */
-    internal fun keyAt(windowY: Float): Any? = placements.entries
-        .firstOrNull { (_, placement) -> windowY >= placement.top && windowY <= placement.bottom }
-        ?.key
+    internal fun keyAt(windowY: Float): Any? =
+        placements.entries
+            .firstOrNull { (_, placement) -> windowY >= placement.top && windowY <= placement.bottom }
+            ?.key
 
     /** Forgets an item that has left the list, so nothing aims a drop at where it used to be. */
     internal fun forget(key: Any) {
@@ -423,7 +435,11 @@ class ReorderState internal constructor(
     }
 
     /** Where one item is, in window coordinates. */
-    private data class Placement(val index: Int, val top: Float, val bottom: Float) {
+    private data class Placement(
+        val index: Int,
+        val top: Float,
+        val bottom: Float,
+    ) {
         val centre: Float get() = (top + bottom) / 2f
     }
 }
@@ -509,22 +525,23 @@ private suspend fun AwaitPointerEventScope.dragHeld(
 private suspend fun AwaitPointerEventScope.awaitHold(
     down: PointerInputChange,
     holdDuration: Duration,
-): Boolean = try {
-    withTimeout(holdDuration.inWholeMilliseconds) {
-        while (true) {
-            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
-            if (change == null || !change.pressed) return@withTimeout false
-            if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
-                return@withTimeout false
+): Boolean =
+    try {
+        withTimeout(holdDuration.inWholeMilliseconds) {
+            while (true) {
+                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                if (change == null || !change.pressed) return@withTimeout false
+                if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                    return@withTimeout false
+                }
             }
+            @Suppress("UNREACHABLE_CODE")
+            false
         }
-        @Suppress("UNREACHABLE_CODE")
-        false
+    } catch (_: PointerEventTimeoutCancellationException) {
+        // Nothing happened for long enough, which is exactly what a hold is.
+        true
     }
-} catch (_: PointerEventTimeoutCancellationException) {
-    // Nothing happened for long enough, which is exactly what a hold is.
-    true
-}
 
 /**
  * The grab glyph: a hint that a row is one of the ones that move.

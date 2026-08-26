@@ -174,20 +174,24 @@ class HomeViewModel @Inject constructor(
         )
 
     /** One reading, or one a second for as long as this state is the current one. */
-    private fun Assembled.ticking(): Flow<HomeUiState> = when {
-        workout?.isRunning != true -> flowOf(at(clock.nowMillis()))
-        else -> flow {
-            while (true) {
-                emit(at(clock.nowMillis()))
-                delay(TICK)
+    private fun Assembled.ticking(): Flow<HomeUiState> =
+        when {
+            workout?.isRunning != true -> flowOf(at(clock.nowMillis()))
+
+            else -> flow {
+                while (true) {
+                    emit(at(clock.nowMillis()))
+                    delay(TICK)
+                }
             }
         }
-    }
 
     fun onEvent(event: HomeEvent) {
         when (event) {
             HomeEvent.DiscardRequested -> screenState.update { it.copy(confirmingDiscard = true) }
+
             HomeEvent.DiscardConfirmed -> discard()
+
             // Ignored while the delete is in flight, as `ActiveSessionViewModel` ignores its
             // own: the dialog disables both buttons and holds its dismiss, but the invariant
             // belongs to the layer that owns the flag rather than to the one drawing it.
@@ -195,6 +199,7 @@ class HomeViewModel @Inject constructor(
                 if (!screenState.value.isDiscarding) {
                     screenState.update { it.copy(confirmingDiscard = false) }
                 }
+
             HomeEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
     }
@@ -297,17 +302,18 @@ class HomeViewModel @Inject constructor(
         templates: List<TemplateSummary>,
         screen: ScreenState,
         today: LocalDate,
-    ): Assembled = Assembled(
-        state = HomeUiState(
-            week = sessions.weekOf(today = today, weekStart = firstDayOfWeek()),
-            templates = templates.quickStart(sessions),
-            isLoading = false,
-            confirmingDiscard = screen.confirmingDiscard,
-            isDiscarding = screen.isDiscarding,
-            message = screen.message,
-        ),
-        workout = workout,
-    )
+    ): Assembled =
+        Assembled(
+            state = HomeUiState(
+                week = sessions.weekOf(today = today, weekStart = firstDayOfWeek()),
+                templates = templates.quickStart(sessions),
+                isLoading = false,
+                confirmingDiscard = screen.confirmingDiscard,
+                isDiscarding = screen.isDiscarding,
+                message = screen.message,
+            ),
+            workout = workout,
+        )
 
     /**
      * The templates the quick-start strip offers: the ones this user actually trains from,
@@ -379,20 +385,21 @@ class HomeViewModel @Inject constructor(
         /** Whether its clock is still moving. A paused workout's is not. */
         val isRunning: Boolean get() = draft?.isPaused != true
 
-        fun at(nowMillis: Long) = ResumeState(
-            sessionId = sessionId,
-            name = name,
-            startedAt = startedAt,
-            // The draft is the only thing that knows about paused stretches. Without one —
-            // a session opened and never worked in — the wall clock since it started is the
-            // honest answer, and `coerceAtLeast` keeps a device whose clock has gone
-            // backwards from drawing a negative one.
-            elapsed = draft?.elapsedAt(nowMillis)
-                ?: (nowMillis - startedAt).coerceAtLeast(0).milliseconds,
-            isPaused = draft?.isPaused == true,
-            loggedSets = loggedSets,
-            position = position,
-        )
+        fun at(nowMillis: Long) =
+            ResumeState(
+                sessionId = sessionId,
+                name = name,
+                startedAt = startedAt,
+                // The draft is the only thing that knows about paused stretches. Without one —
+                // a session opened and never worked in — the wall clock since it started is the
+                // honest answer, and `coerceAtLeast` keeps a device whose clock has gone
+                // backwards from drawing a negative one.
+                elapsed = draft?.elapsedAt(nowMillis)
+                    ?: (nowMillis - startedAt).coerceAtLeast(0).milliseconds,
+                isPaused = draft?.isPaused == true,
+                loggedSets = loggedSets,
+                position = position,
+            )
     }
 
     private companion object {
@@ -432,7 +439,10 @@ class HomeViewModel @Inject constructor(
  * week-so-far — and each of those is marked [WeekDay.isFuture] so it is drawn and announced as
  * a day that has not happened rather than as one that was skipped.
  */
-private fun List<WorkoutSession>.weekOf(today: LocalDate, weekStart: DayOfWeek): WeekState? {
+private fun List<WorkoutSession>.weekOf(
+    today: LocalDate,
+    weekStart: DayOfWeek,
+): WeekState? {
     val logged = filterNot(WorkoutSession::isInProgress)
     if (logged.isEmpty()) return null
 
@@ -469,7 +479,10 @@ private const val DAYS_PER_WEEK = 7
  * Floored at one millisecond so the caller cannot spin: a clock that steps forward over the
  * midnight this was measured to would otherwise return zero for as long as it took to notice.
  */
-private fun millisUntilTomorrow(nowMillis: Long, zone: ZoneId = ZoneId.systemDefault()): Long {
+private fun millisUntilTomorrow(
+    nowMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+): Long {
     val tomorrow = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate().plusDays(1)
     return (tomorrow.atStartOfDay(zone).toInstant().toEpochMilli() - nowMillis).coerceAtLeast(1L)
 }

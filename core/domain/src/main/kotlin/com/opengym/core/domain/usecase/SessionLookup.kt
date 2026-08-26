@@ -51,10 +51,11 @@ internal suspend fun SessionStateRepository.activeSessionId(): Result<Long> =
 internal suspend fun SessionRepository.requireExerciseOf(
     sessionExerciseId: Long,
     sessionId: Long,
-): Result<Unit> = when {
-    getExercises(sessionId).first().any { it.id == sessionExerciseId } -> Result.success(Unit)
-    else -> Result.failure(SessionError.ExerciseNotInSession(sessionExerciseId, sessionId))
-}
+): Result<Unit> =
+    when {
+        getExercises(sessionId).first().any { it.id == sessionExerciseId } -> Result.success(Unit)
+        else -> Result.failure(SessionError.ExerciseNotInSession(sessionExerciseId, sessionId))
+    }
 
 /**
  * One exercise's sets, in the order they were performed, with every check between them and the

@@ -302,7 +302,10 @@ private fun ExerciseDetailBody(
 
 /** A [SectionHeading] and the block it introduces, at the gap the design gives that pair. */
 @Composable
-private fun Section(title: String, content: @Composable () -> Unit) {
+private fun Section(
+    title: String,
+    content: @Composable () -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg)) {
         SectionHeading(text = title)
         content()
@@ -318,14 +321,15 @@ private fun Section(title: String, content: @Composable () -> Unit) {
  * fact that changes what the app will ask the user for.
  */
 @Composable
-private fun Exercise.metaEntries(): List<MetaEntry> = listOfNotNull(
-    discipline?.let { MetaEntry(stringResource(R.string.detail_meta_discipline), it.label()) },
-    equipmentType?.labelOrNull()
-        ?.let { MetaEntry(stringResource(R.string.detail_meta_equipment), it) },
-    mechanicType?.let { MetaEntry(stringResource(R.string.detail_meta_mechanic), it.label()) },
-    difficultyLevel?.let { MetaEntry(stringResource(R.string.detail_meta_difficulty), it.label()) },
-    MetaEntry(stringResource(R.string.detail_meta_tracked), type.trackedLabel()),
-)
+private fun Exercise.metaEntries(): List<MetaEntry> =
+    listOfNotNull(
+        discipline?.let { MetaEntry(stringResource(R.string.detail_meta_discipline), it.label()) },
+        equipmentType?.labelOrNull()
+            ?.let { MetaEntry(stringResource(R.string.detail_meta_equipment), it) },
+        mechanicType?.let { MetaEntry(stringResource(R.string.detail_meta_mechanic), it.label()) },
+        difficultyLevel?.let { MetaEntry(stringResource(R.string.detail_meta_difficulty), it.label()) },
+        MetaEntry(stringResource(R.string.detail_meta_tracked), type.trackedLabel()),
+    )
 
 /**
  * The two jumps off this screen, drawn only where there is somewhere to jump to.
@@ -555,12 +559,13 @@ private fun DeleteExerciseDialog(
     )
 }
 
-private fun ExerciseDetailMessage.textRes(): Int = when (this) {
-    ExerciseDetailMessage.NOTES_SAVE_FAILED -> R.string.detail_notes_save_failed
-    ExerciseDetailMessage.EXERCISE_UPDATED -> R.string.detail_exercise_updated
-    ExerciseDetailMessage.EXERCISE_SAVE_FAILED -> R.string.detail_exercise_save_failed
-    ExerciseDetailMessage.DELETE_FAILED -> R.string.detail_delete_failed
-}
+private fun ExerciseDetailMessage.textRes(): Int =
+    when (this) {
+        ExerciseDetailMessage.NOTES_SAVE_FAILED -> R.string.detail_notes_save_failed
+        ExerciseDetailMessage.EXERCISE_UPDATED -> R.string.detail_exercise_updated
+        ExerciseDetailMessage.EXERCISE_SAVE_FAILED -> R.string.detail_exercise_save_failed
+        ExerciseDetailMessage.DELETE_FAILED -> R.string.detail_delete_failed
+    }
 
 /** Wide enough for `12.`, which is more steps than the seed's longest how-to has. */
 private val STEP_NUMBER_WIDTH = 20.dp
@@ -570,7 +575,10 @@ private const val TITLE_MAX_LINES = 2
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-private fun previewMuscle(id: Long, name: String) = MuscleGroup(id = id, name = name)
+private fun previewMuscle(
+    id: Long,
+    name: String,
+) = MuscleGroup(id = id, name = name)
 
 private val PREVIEW_CHEST = previewMuscle(1, "CHEST")
 private val PREVIEW_TRICEPS = previewMuscle(2, "TRICEPS")

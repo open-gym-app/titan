@@ -120,28 +120,30 @@ class RestTimerSnapshotTest {
     }
 
     @Test
-    fun `a restored rest counts down the time that was actually left`() = runTest {
-        val timer = restTimer()
-        val snapshot = RestTimerSnapshot.of(RestTimerState.Running(90.seconds, 90.seconds), NOW)
-        val recording = record(timer)
-        val restoredAt = testScheduler.currentTime
+    fun `a restored rest counts down the time that was actually left`() =
+        runTest {
+            val timer = restTimer()
+            val snapshot = RestTimerSnapshot.of(RestTimerState.Running(90.seconds, 90.seconds), NOW)
+            val recording = record(timer)
+            val restoredAt = testScheduler.currentTime
 
-        timer.restore(snapshot.toStateAt(NOW + 30_000))
-        runOutTheClock()
+            timer.restore(snapshot.toStateAt(NOW + 30_000))
+            runOutTheClock()
 
-        assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
-    }
+            assertEquals(60_000L, recording.instantOf(RestTimerState.Finished) - restoredAt)
+        }
 
     @Test
-    fun `a rest that elapsed while the process was gone never starts counting`() = runTest {
-        val timer = restTimer()
-        val snapshot = RestTimerSnapshot.of(RestTimerState.Running(90.seconds, 90.seconds), NOW)
-        val recording = record(timer)
+    fun `a rest that elapsed while the process was gone never starts counting`() =
+        runTest {
+            val timer = restTimer()
+            val snapshot = RestTimerSnapshot.of(RestTimerState.Running(90.seconds, 90.seconds), NOW)
+            val recording = record(timer)
 
-        timer.restore(snapshot.toStateAt(NOW + 10.minutes.inWholeMilliseconds))
-        runOutTheClock()
+            timer.restore(snapshot.toStateAt(NOW + 10.minutes.inWholeMilliseconds))
+            runOutTheClock()
 
-        assertEquals(RestTimerState.Finished, timer.state.value)
-        assertEquals(emptyList<RestTimerState>(), recording.states.filterIsInstance<RestTimerState.Running>())
-    }
+            assertEquals(RestTimerState.Finished, timer.state.value)
+            assertEquals(emptyList<RestTimerState>(), recording.states.filterIsInstance<RestTimerState.Running>())
+        }
 }

@@ -73,486 +73,520 @@ class SessionSummaryViewModelTest {
     // ─── The figures ────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the stats are the ones SessionStatsCalculator computes for the session`() = runTest {
-        val sets = pushDaySets()
-        val state = viewModel(sets = sets).uiState.value
+    fun `the stats are the ones SessionStatsCalculator computes for the session`() =
+        runTest {
+            val sets = pushDaySets()
+            val state = viewModel(sets = sets).uiState.value
 
-        assertEquals(
-            SessionStatsCalculator.calculate(sets, STARTED_AT, FINISHED_AT),
-            state.stats,
-        )
-    }
-
-    @Test
-    fun `the window runs from the session's creation to the moment it was closed out`() = runTest {
-        val state = viewModel(sets = pushDaySets()).uiState.value
-
-        assertEquals(STARTED_AT, state.header?.startedAt)
-        assertEquals(FINISHED_AT, state.header?.finishedAt)
-    }
+            assertEquals(
+                SessionStatsCalculator.calculate(sets, STARTED_AT, FINISHED_AT),
+                state.stats,
+            )
+        }
 
     @Test
-    fun `a session never closed out is measured to when it was last running, not to now`() = runTest {
-        // A recap whose duration ticked upwards while it was being read would be a static
-        // screen with a live number on it.
-        val state = viewModel(
-            session = finishedSession(completedAt = null),
-            sets = pushDaySets(),
-        ).uiState.value
+    fun `the window runs from the session's creation to the moment it was closed out`() =
+        runTest {
+            val state = viewModel(sets = pushDaySets()).uiState.value
 
-        assertEquals(FINISHED_AT, state.header?.finishedAt)
-    }
+            assertEquals(STARTED_AT, state.header?.startedAt)
+            assertEquals(FINISHED_AT, state.header?.finishedAt)
+        }
 
     @Test
-    fun `only completed sets count, matching every other figure in the app`() = runTest {
-        val abandoned = workoutSet(
-            id = NO_SUCH_SET,
-            sessionExerciseId = 1,
-            setNumber = 5,
-            reps = 10,
-            weight = 100_000_000,
-            isCompleted = false,
-        )
-        val state = viewModel(sets = pushDaySets() + abandoned).uiState.value
+    fun `a session never closed out is measured to when it was last running, not to now`() =
+        runTest {
+            // A recap whose duration ticked upwards while it was being read would be a static
+            // screen with a live number on it.
+            val state = viewModel(
+                session = finishedSession(completedAt = null),
+                sets = pushDaySets(),
+            ).uiState.value
 
-        assertEquals(
-            SessionStatsCalculator.calculate(pushDaySets(), STARTED_AT, FINISHED_AT).totalVolume,
-            state.stats?.totalVolume,
-        )
-    }
+            assertEquals(FINISHED_AT, state.header?.finishedAt)
+        }
 
     @Test
-    fun `the muscle breakdown is MuscleVolumeCalculator's, scaled against the hardest worked`() = runTest {
-        val sets = pushDaySets()
-        val state = viewModel(sets = sets).uiState.value
+    fun `only completed sets count, matching every other figure in the app`() =
+        runTest {
+            val abandoned = workoutSet(
+                id = NO_SUCH_SET,
+                sessionExerciseId = 1,
+                setNumber = 5,
+                reps = 10,
+                weight = 100_000_000,
+                isCompleted = false,
+            )
+            val state = viewModel(sets = pushDaySets() + abandoned).uiState.value
 
-        val expected = MuscleVolumeCalculator.volumeByMuscle(
-            sets = sets,
-            sessionExercises = pushDayExercises(),
-            linksByExerciseId = CATALOGUE_LINKS,
-        )
-        assertEquals(expected.keys.toList(), state.muscles.map { it.muscle })
-        assertEquals(expected.values.toList(), state.muscles.map { it.volume })
-        // The top muscle is the one the rest are read against, so its bar is full.
-        assertEquals(1f, state.muscles.first().share)
-    }
-
-    @Test
-    fun `primary and secondary are split from the exercises that were actually performed`() = runTest {
-        val state = viewModel(sets = pushDaySets()).uiState.value
-
-        // The bench presses the chest and assists the triceps; the pushdown makes the triceps
-        // a prime mover too, so it appears in the primary half rather than in both.
-        assertEquals(listOf(CHEST, TRICEPS), state.primaryMuscles)
-        assertTrue(state.secondaryMuscles.isEmpty())
-    }
+            assertEquals(
+                SessionStatsCalculator.calculate(pushDaySets(), STARTED_AT, FINISHED_AT).totalVolume,
+                state.stats?.totalVolume,
+            )
+        }
 
     @Test
-    fun `a muscle nothing was completed for is on neither the diagram nor the bars`() = runTest {
-        // A squat laid out and never performed. The attribution ignores it, so the diagram
-        // must not light the quads up with no bar beside them.
-        val state = viewModel(
-            exercises = pushDayExercises() + sessionExercise(id = 3, exerciseId = 12, position = 2),
-            sets = pushDaySets(),
-        ).uiState.value
+    fun `the muscle breakdown is MuscleVolumeCalculator's, scaled against the hardest worked`() =
+        runTest {
+            val sets = pushDaySets()
+            val state = viewModel(sets = sets).uiState.value
 
-        assertFalse(state.muscles.any { it.muscle == QUADS })
-        assertFalse(state.primaryMuscles.contains(QUADS))
-        assertFalse(state.secondaryMuscles.contains(QUADS))
-    }
+            val expected = MuscleVolumeCalculator.volumeByMuscle(
+                sets = sets,
+                sessionExercises = pushDayExercises(),
+                linksByExerciseId = CATALOGUE_LINKS,
+            )
+            assertEquals(expected.keys.toList(), state.muscles.map { it.muscle })
+            assertEquals(expected.values.toList(), state.muscles.map { it.volume })
+            // The top muscle is the one the rest are read against, so its bar is full.
+            assertEquals(1f, state.muscles.first().share)
+        }
+
+    @Test
+    fun `primary and secondary are split from the exercises that were actually performed`() =
+        runTest {
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            // The bench presses the chest and assists the triceps; the pushdown makes the triceps
+            // a prime mover too, so it appears in the primary half rather than in both.
+            assertEquals(listOf(CHEST, TRICEPS), state.primaryMuscles)
+            assertTrue(state.secondaryMuscles.isEmpty())
+        }
+
+    @Test
+    fun `a muscle nothing was completed for is on neither the diagram nor the bars`() =
+        runTest {
+            // A squat laid out and never performed. The attribution ignores it, so the diagram
+            // must not light the quads up with no bar beside them.
+            val state = viewModel(
+                exercises = pushDayExercises() + sessionExercise(id = 3, exerciseId = 12, position = 2),
+                sets = pushDaySets(),
+            ).uiState.value
+
+            assertFalse(state.muscles.any { it.muscle == QUADS })
+            assertFalse(state.primaryMuscles.contains(QUADS))
+            assertFalse(state.secondaryMuscles.contains(QUADS))
+        }
 
     // ─── The breakdown ──────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the breakdown is in the order the exercises were performed, with their figures`() = runTest {
-        val state = viewModel(sets = pushDaySets()).uiState.value
+    fun `the breakdown is in the order the exercises were performed, with their figures`() =
+        runTest {
+            val state = viewModel(sets = pushDaySets()).uiState.value
 
-        assertEquals(listOf("Barbell bench press", "Triceps pushdown"), state.exercises.map { it.name })
-        val bench = state.exercises.first()
-        assertEquals(3, bench.setCount)
-        assertEquals(5, bench.lowestReps)
-        assertEquals(10, bench.highestReps)
-        assertEquals(80_000_000L, bench.topWeight)
-    }
-
-    @Test
-    fun `an exercise with no completed set is left out, as it is out of the stats`() = runTest {
-        // The tile counts `exerciseBreakdown`, so a longer list than the tile would be the
-        // screen contradicting itself.
-        val state = viewModel(
-            exercises = pushDayExercises() + sessionExercise(id = 3, exerciseId = 12, position = 2),
-            sets = pushDaySets(),
-        ).uiState.value
-
-        assertEquals(state.stats?.exerciseBreakdown?.size, state.exercises.size)
-    }
+            assertEquals(listOf("Barbell bench press", "Triceps pushdown"), state.exercises.map { it.name })
+            val bench = state.exercises.first()
+            assertEquals(3, bench.setCount)
+            assertEquals(5, bench.lowestReps)
+            assertEquals(10, bench.highestReps)
+            assertEquals(80_000_000L, bench.topWeight)
+        }
 
     @Test
-    fun `an exercise deleted from the catalogue keeps its row and loses only its name`() = runTest {
-        val state = viewModel(
-            catalogue = FakeSummaryCatalogue(exercises = listOf(PUSHDOWN), links = CATALOGUE_LINKS),
-            sets = pushDaySets(),
-        ).uiState.value
+    fun `an exercise with no completed set is left out, as it is out of the stats`() =
+        runTest {
+            // The tile counts `exerciseBreakdown`, so a longer list than the tile would be the
+            // screen contradicting itself.
+            val state = viewModel(
+                exercises = pushDayExercises() + sessionExercise(id = 3, exerciseId = 12, position = 2),
+                sets = pushDaySets(),
+            ).uiState.value
 
-        assertEquals(2, state.exercises.size)
-        assertNull(state.exercises.first().name)
-    }
+            assertEquals(state.stats?.exerciseBreakdown?.size, state.exercises.size)
+        }
+
+    @Test
+    fun `an exercise deleted from the catalogue keeps its row and loses only its name`() =
+        runTest {
+            val state = viewModel(
+                catalogue = FakeSummaryCatalogue(exercises = listOf(PUSHDOWN), links = CATALOGUE_LINKS),
+                sets = pushDaySets(),
+            ).uiState.value
+
+            assertEquals(2, state.exercises.size)
+            assertNull(state.exercises.first().name)
+        }
 
     // ─── Records ────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a record set on one of this session's sets is reported`() = runTest {
-        val state = viewModel(
-            sets = pushDaySets(),
-            records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
-        ).uiState.value
+    fun `a record set on one of this session's sets is reported`() =
+        runTest {
+            val state = viewModel(
+                sets = pushDaySets(),
+                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
+            ).uiState.value
 
-        assertEquals(1, state.records.size)
-        assertEquals("Barbell bench press", state.records.first().exerciseName)
-        // And the row that set it is marked, so the card and the list agree.
-        assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
-    }
-
-    @Test
-    fun `a record set in some other session is not this session's`() = runTest {
-        // The record points at the set it was read off, which is what tells the two apart —
-        // an all-time best on the bench is not something this workout achieved.
-        val state = viewModel(
-            sets = pushDaySets(),
-            records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = NO_SUCH_SET)),
-        ).uiState.value
-
-        assertTrue(state.records.isEmpty())
-        assertNull(state.exercises.first().record)
-    }
+            assertEquals(1, state.records.size)
+            assertEquals("Barbell bench press", state.records.first().exerciseName)
+            // And the row that set it is marked, so the card and the list agree.
+            assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
+        }
 
     @Test
-    fun `a record marks the row whose set beat it, not every row of that exercise`() = runTest {
-        // `session_exercise` is unique on (session_id, position) and not on the exercise, so a
-        // session that opened and closed on the bench is two rows of one movement — and only
-        // one of them holds the set the record was read off.
-        val state = viewModel(
-            exercises = pushDayExercises() +
-                sessionExercise(id = 3, exerciseId = BENCH.id, position = 2),
-            sets = pushDaySets() +
-                workoutSet(id = 6, sessionExerciseId = 3, setNumber = 1, reps = 8, weight = 65_000_000),
-            records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
-        ).uiState.value
+    fun `a record set in some other session is not this session's`() =
+        runTest {
+            // The record points at the set it was read off, which is what tells the two apart —
+            // an all-time best on the bench is not something this workout achieved.
+            val state = viewModel(
+                sets = pushDaySets(),
+                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = NO_SUCH_SET)),
+            ).uiState.value
 
-        assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
-        assertNull(state.exercises.last().record)
-        // Still one record on the screen: it is one record, shown once in its own card.
-        assertEquals(1, state.records.size)
-    }
+            assertTrue(state.records.isEmpty())
+            assertNull(state.exercises.first().record)
+        }
 
     @Test
-    fun `a session that beat nothing has no records, which is the ordinary case`() = runTest {
-        val state = viewModel(sets = pushDaySets()).uiState.value
+    fun `a record marks the row whose set beat it, not every row of that exercise`() =
+        runTest {
+            // `session_exercise` is unique on (session_id, position) and not on the exercise, so a
+            // session that opened and closed on the bench is two rows of one movement — and only
+            // one of them holds the set the record was read off.
+            val state = viewModel(
+                exercises = pushDayExercises() +
+                    sessionExercise(id = 3, exerciseId = BENCH.id, position = 2),
+                sets = pushDaySets() +
+                    workoutSet(id = 6, sessionExerciseId = 3, setNumber = 1, reps = 8, weight = 65_000_000),
+                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
+            ).uiState.value
 
-        assertTrue(state.records.isEmpty())
-    }
+            assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
+            assertNull(state.exercises.last().record)
+            // Still one record on the screen: it is one record, shown once in its own card.
+            assertEquals(1, state.records.size)
+        }
+
+    @Test
+    fun `a session that beat nothing has no records, which is the ordinary case`() =
+        runTest {
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertTrue(state.records.isEmpty())
+        }
 
     // ─── The note ───────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the note opens seeded with what is stored and saves what was typed`() = runTest {
-        val store = FakeSummarySessionStore(
-            session = finishedSession(notes = "Felt strong"),
-            exercises = pushDayExercises(),
-            sets = pushDaySets(),
-        )
-        val viewModel = viewModel(store = store)
+    fun `the note opens seeded with what is stored and saves what was typed`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(notes = "Felt strong"),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            )
+            val viewModel = viewModel(store = store)
 
-        viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
-        assertEquals("Felt strong", viewModel.uiState.value.notesDraft)
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            assertEquals("Felt strong", viewModel.uiState.value.notesDraft)
 
-        viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong, bumped to 80"))
-        viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong, bumped to 80"))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
 
-        assertEquals("Felt strong, bumped to 80", store.stored(SESSION_ID)?.notes)
-        // Closed on success, and drawn from the re-read rather than from a local copy.
-        assertNull(viewModel.uiState.value.notesDraft)
-    }
-
-    @Test
-    fun `an emptied note clears the column rather than storing whitespace`() = runTest {
-        val store = FakeSummarySessionStore(
-            session = finishedSession(notes = "Felt strong"),
-            exercises = pushDayExercises(),
-            sets = pushDaySets(),
-        )
-        val viewModel = viewModel(store = store)
-
-        viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NoteChanged("   "))
-        viewModel.onEvent(SessionSummaryEvent.NoteSaved)
-
-        assertNull(store.stored(SESSION_ID)?.notes)
-    }
+            assertEquals("Felt strong, bumped to 80", store.stored(SESSION_ID)?.notes)
+            // Closed on success, and drawn from the re-read rather than from a local copy.
+            assertNull(viewModel.uiState.value.notesDraft)
+        }
 
     @Test
-    fun `a note that could not be written leaves the field open with the text in it`() = runTest {
-        val store = FakeSummarySessionStore(
-            session = finishedSession(),
-            exercises = pushDayExercises(),
-            sets = pushDaySets(),
-        ).apply { writeFailure = IllegalStateException("disk full") }
-        val viewModel = viewModel(store = store)
+    fun `an emptied note clears the column rather than storing whitespace`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(notes = "Felt strong"),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            )
+            val viewModel = viewModel(store = store)
 
-        viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong"))
-        viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("   "))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
 
-        val state = viewModel.uiState.value
-        assertEquals("Felt strong", state.notesDraft)
-        assertFalse(state.isSavingNotes)
-        assertEquals(SessionSummaryMessage.NOTES_SAVE_FAILED, state.message)
-    }
+            assertNull(store.stored(SESSION_ID)?.notes)
+        }
+
+    @Test
+    fun `a note that could not be written leaves the field open with the text in it`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            ).apply { writeFailure = IllegalStateException("disk full") }
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("Felt strong"))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+
+            val state = viewModel.uiState.value
+            assertEquals("Felt strong", state.notesDraft)
+            assertFalse(state.isSavingNotes)
+            assertEquals(SessionSummaryMessage.NOTES_SAVE_FAILED, state.message)
+        }
 
     // ─── Save as template ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `the template is the session's exercises in order, set for set as they were done`() = runTest {
-        val viewModel = viewModel(sets = pushDaySets())
+    fun `the template is the session's exercises in order, set for set as they were done`() =
+        runTest {
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
-        val saved = templates.stored().single()
-        assertEquals("Push Day · Upper", saved.name)
-        assertEquals(
-            listOf(
-                // The ramp is kept as a ramp. This used to come back as "3 × 10 × 80", which
-                // is a workout nobody did: the modal rep count against the heaviest load.
-                TemplateExerciseDraft(
-                    exerciseId = BENCH.id,
-                    sets = listOf(
-                        PlannedSet(reps = 10, weight = 60_000_000),
-                        PlannedSet(reps = 10, weight = 70_000_000),
-                        PlannedSet(reps = 5, weight = 80_000_000),
+            val saved = templates.stored().single()
+            assertEquals("Push Day · Upper", saved.name)
+            assertEquals(
+                listOf(
+                    // The ramp is kept as a ramp. This used to come back as "3 × 10 × 80", which
+                    // is a workout nobody did: the modal rep count against the heaviest load.
+                    TemplateExerciseDraft(
+                        exerciseId = BENCH.id,
+                        sets = listOf(
+                            PlannedSet(reps = 10, weight = 60_000_000),
+                            PlannedSet(reps = 10, weight = 70_000_000),
+                            PlannedSet(reps = 5, weight = 80_000_000),
+                        ),
+                    ),
+                    TemplateExerciseDraft(
+                        exerciseId = PUSHDOWN.id,
+                        sets = listOf(
+                            PlannedSet(reps = 12, weight = 30_000_000),
+                            PlannedSet(reps = 12, weight = 25_000_000),
+                        ),
                     ),
                 ),
-                TemplateExerciseDraft(
-                    exerciseId = PUSHDOWN.id,
-                    sets = listOf(
-                        PlannedSet(reps = 12, weight = 30_000_000),
-                        PlannedSet(reps = 12, weight = 25_000_000),
-                    ),
+                templates.storedExercises(saved.id),
+            )
+        }
+
+    @Test
+    fun `a set's type is kept, so a warm-up saved as a template is still a warm-up`() =
+        runTest {
+            val viewModel = viewModel(
+                sets = listOf(
+                    workoutSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 12, weight = 40_000_000)
+                        .copy(setType = SetType.WARMUP),
+                    workoutSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 5, weight = 80_000_000),
                 ),
-            ),
-            templates.storedExercises(saved.id),
-        )
-    }
+            )
+
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+            val saved = templates.stored().single()
+            assertEquals(
+                listOf(SetType.WARMUP, SetType.NORMAL),
+                templates.storedExercises(saved.id).first().sets.map(PlannedSet::setType),
+            )
+        }
 
     @Test
-    fun `a set's type is kept, so a warm-up saved as a template is still a warm-up`() = runTest {
-        val viewModel = viewModel(
-            sets = listOf(
-                workoutSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 12, weight = 40_000_000)
-                    .copy(setType = SetType.WARMUP),
-                workoutSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 5, weight = 80_000_000),
-            ),
-        )
+    fun `the dialog opens on the session's own name`() =
+        runTest {
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
 
-        val saved = templates.stored().single()
-        assertEquals(
-            listOf(SetType.WARMUP, SetType.NORMAL),
-            templates.storedExercises(saved.id).first().sets.map(PlannedSet::setType),
-        )
-    }
+            assertEquals("Push Day · Upper", viewModel.uiState.value.templateName)
+        }
 
     @Test
-    fun `the dialog opens on the session's own name`() = runTest {
-        val viewModel = viewModel(sets = pushDaySets())
+    fun `a name already in use is reported and the dialog stays up to fix it`() =
+        runTest {
+            templates.seed("Push Day · Upper")
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
-        assertEquals("Push Day · Upper", viewModel.uiState.value.templateName)
-    }
-
-    @Test
-    fun `a name already in use is reported and the dialog stays up to fix it`() = runTest {
-        templates.seed("Push Day · Upper")
-        val viewModel = viewModel(sets = pushDaySets())
-
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
-
-        val state = viewModel.uiState.value
-        // Reported under the field rather than in the snackbar, which is where the name the user
-        // has to change actually is.
-        assertTrue(state.templateNameTaken)
-        assertNull(state.message)
-        // Still open, with the name still in it: the fix is a word, not the whole thing again.
-        assertEquals("Push Day · Upper", state.templateName)
-        assertEquals(1, templates.stored().size)
-    }
+            val state = viewModel.uiState.value
+            // Reported under the field rather than in the snackbar, which is where the name the user
+            // has to change actually is.
+            assertTrue(state.templateNameTaken)
+            assertNull(state.message)
+            // Still open, with the name still in it: the fix is a word, not the whole thing again.
+            assertEquals("Push Day · Upper", state.templateName)
+            assertEquals(1, templates.stored().size)
+        }
 
     @Test
-    fun `the category chosen in the dialog is what the template is saved with`() = runTest {
-        val viewModel = viewModel(sets = pushDaySets())
+    fun `the category chosen in the dialog is what the template is saved with`() =
+        runTest {
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.TemplateCategoryChanged(TemplateCategory.HYPERTROPHY))
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.TemplateCategoryChanged(TemplateCategory.HYPERTROPHY))
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
-        assertEquals(TemplateCategory.HYPERTROPHY, templates.stored().single().category)
-    }
-
-    @Test
-    fun `a template saved without being asked has no category, which is not GENERAL`() = runTest {
-        val viewModel = viewModel(sets = pushDaySets())
-
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
-
-        assertNull(templates.stored().single().category)
-    }
+            assertEquals(TemplateCategory.HYPERTROPHY, templates.stored().single().category)
+        }
 
     @Test
-    fun `a template that could not be written closes the dialog and says so`() = runTest {
-        templates.writeFailure = IllegalStateException("disk full")
-        val viewModel = viewModel(sets = pushDaySets())
+    fun `a template saved without being asked has no category, which is not GENERAL`() =
+        runTest {
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
-        val state = viewModel.uiState.value
-        assertEquals(SessionSummaryMessage.TEMPLATE_SAVE_FAILED, state.message)
-        // Nothing a second press would resolve, so the dialog goes rather than sitting there.
-        assertNull(state.templateName)
-    }
+            assertNull(templates.stored().single().category)
+        }
 
     @Test
-    fun `dismissing the dialog mid-write cannot start a second, racing save`() = runTest {
-        // The buttons go inert while the write is in flight, but a back press or a tap outside
-        // reaches the dismiss whatever they look like. Clearing the in-flight flag on the way
-        // out would re-arm the action: two templates, or a name the first write has just taken.
-        val gate = CompletableDeferred<Unit>()
-        templates.writeGate = gate
-        val viewModel = viewModel(sets = pushDaySets())
+    fun `a template that could not be written closes the dialog and says so`() =
+        runTest {
+            templates.writeFailure = IllegalStateException("disk full")
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateDismissed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
 
-        assertTrue(viewModel.uiState.value.isSavingTemplate)
-
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
-        gate.complete(Unit)
-
-        assertEquals(1, templates.stored().size)
-        assertEquals(SessionSummaryMessage.TEMPLATE_SAVED, viewModel.uiState.value.message)
-    }
+            val state = viewModel.uiState.value
+            assertEquals(SessionSummaryMessage.TEMPLATE_SAVE_FAILED, state.message)
+            // Nothing a second press would resolve, so the dialog goes rather than sitting there.
+            assertNull(state.templateName)
+        }
 
     @Test
-    fun `a session with nothing performed has no template to save`() = runTest {
-        val viewModel = viewModel(sets = emptyList())
+    fun `dismissing the dialog mid-write cannot start a second, racing save`() =
+        runTest {
+            // The buttons go inert while the write is in flight, but a back press or a tap outside
+            // reaches the dismiss whatever they look like. Clearing the in-flight flag on the way
+            // out would re-arm the action: two templates, or a name the first write has just taken.
+            val gate = CompletableDeferred<Unit>()
+            templates.writeGate = gate
+            val viewModel = viewModel(sets = pushDaySets())
 
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
-        viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateDismissed)
 
-        assertFalse(viewModel.uiState.value.canSaveAsTemplate)
-        assertTrue(templates.stored().isEmpty())
-    }
+            assertTrue(viewModel.uiState.value.isSavingTemplate)
+
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+            gate.complete(Unit)
+
+            assertEquals(1, templates.stored().size)
+            assertEquals(SessionSummaryMessage.TEMPLATE_SAVED, viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `a session with nothing performed has no template to save`() =
+        runTest {
+            val viewModel = viewModel(sets = emptyList())
+
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateConfirmed)
+
+            assertFalse(viewModel.uiState.value.canSaveAsTemplate)
+            assertTrue(templates.stored().isEmpty())
+        }
 
     // ─── The modes, and the edges ───────────────────────────────────────────────────────
 
     @Test
-    fun `the route argument decides which recap this is`() = runTest {
-        assertEquals(
-            SessionSummaryMode.JUST_FINISHED,
-            viewModel(sets = pushDaySets()).uiState.value.mode,
-        )
-        assertEquals(
-            SessionSummaryMode.HISTORICAL,
-            viewModel(sets = pushDaySets(), historical = true).uiState.value.mode,
-        )
-    }
+    fun `the route argument decides which recap this is`() =
+        runTest {
+            assertEquals(
+                SessionSummaryMode.JUST_FINISHED,
+                viewModel(sets = pushDaySets()).uiState.value.mode,
+            )
+            assertEquals(
+                SessionSummaryMode.HISTORICAL,
+                viewModel(sets = pushDaySets(), historical = true).uiState.value.mode,
+            )
+        }
 
     @Test
-    fun `the recap waits for the catalogue instead of drawing a session of deleted exercises`() = runTest {
-        // The session's own read is the lighter of the two and routinely lands first. Treated
-        // as loaded-but-empty, the catalogue would draw a whole recap of "Removed from your
-        // library" with no muscles and no records, replaced a frame later.
-        val state = viewModel(
-            catalogue = FakeSummaryCatalogue(unread = true),
-            sets = pushDaySets(),
-        ).uiState.value
+    fun `the recap waits for the catalogue instead of drawing a session of deleted exercises`() =
+        runTest {
+            // The session's own read is the lighter of the two and routinely lands first. Treated
+            // as loaded-but-empty, the catalogue would draw a whole recap of "Removed from your
+            // library" with no muscles and no records, replaced a frame later.
+            val state = viewModel(
+                catalogue = FakeSummaryCatalogue(unread = true),
+                sets = pushDaySets(),
+            ).uiState.value
 
-        assertTrue(state.isLoading)
-        assertFalse(state.isMissing)
-    }
+            assertTrue(state.isLoading)
+            assertFalse(state.isMissing)
+        }
 
     @Test
-    fun `an id that resolves to nothing reads as missing, not as loading forever`() = runTest {
-        val state = viewModel(store = FakeSummarySessionStore()).uiState.value
+    fun `an id that resolves to nothing reads as missing, not as loading forever`() =
+        runTest {
+            val state = viewModel(store = FakeSummarySessionStore()).uiState.value
 
-        assertFalse(state.isLoading)
-        assertTrue(state.isMissing)
-    }
+            assertFalse(state.isLoading)
+            assertTrue(state.isMissing)
+        }
 
     // ─── Naming ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the rename dialog opens on the name the session already has`() = runTest {
-        val viewModel = viewModel()
+    fun `the rename dialog opens on the name the session already has`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
 
-        assertEquals("Push Day · Upper", viewModel.uiState.value.nameDraft)
-    }
-
-    @Test
-    fun `renaming writes the name and closes the dialog`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
-        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
-
-        assertEquals("Leg day", viewModel.uiState.value.header?.name)
-        assertNull(viewModel.uiState.value.nameDraft)
-    }
+            assertEquals("Push Day · Upper", viewModel.uiState.value.nameDraft)
+        }
 
     @Test
-    fun `clearing the field takes the session back to unnamed`() = runTest {
-        val viewModel = viewModel()
+    fun `renaming writes the name and closes the dialog`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NameChanged("  "))
-        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+            viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
 
-        assertNull(viewModel.uiState.value.header?.name)
-    }
-
-    @Test
-    fun `a session logged months ago is renamed the same way as the one just finished`() = runTest {
-        // No state check anywhere in this path: the recap is one screen with two modes, and what
-        // the user can still do to a workout does not expire.
-        val viewModel = viewModel(historical = true)
-
-        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
-        viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
-
-        assertEquals("Leg day", viewModel.uiState.value.header?.name)
-    }
+            assertEquals("Leg day", viewModel.uiState.value.header?.name)
+            assertNull(viewModel.uiState.value.nameDraft)
+        }
 
     @Test
-    fun `cancelling the dialog leaves the name alone`() = runTest {
-        val viewModel = viewModel()
+    fun `clearing the field takes the session back to unnamed`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
-        viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
-        viewModel.onEvent(SessionSummaryEvent.NameEditCancelled)
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameChanged("  "))
+            viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
 
-        assertNull(viewModel.uiState.value.nameDraft)
-        assertEquals("Push Day · Upper", viewModel.uiState.value.header?.name)
-    }
+            assertNull(viewModel.uiState.value.header?.name)
+        }
+
+    @Test
+    fun `a session logged months ago is renamed the same way as the one just finished`() =
+        runTest {
+            // No state check anywhere in this path: the recap is one screen with two modes, and what
+            // the user can still do to a workout does not expire.
+            val viewModel = viewModel(historical = true)
+
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+            viewModel.onEvent(SessionSummaryEvent.NameConfirmed)
+
+            assertEquals("Leg day", viewModel.uiState.value.header?.name)
+        }
+
+    @Test
+    fun `cancelling the dialog leaves the name alone`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(SessionSummaryEvent.NameEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NameChanged("Leg day"))
+            viewModel.onEvent(SessionSummaryEvent.NameEditCancelled)
+
+            assertNull(viewModel.uiState.value.nameDraft)
+            assertEquals("Push Day · Upper", viewModel.uiState.value.header?.name)
+        }
 
     /**
      * The ViewModel for one session, with its state already flowing.
@@ -594,10 +628,11 @@ class SessionSummaryViewModelTest {
 }
 
 /** Bench press then triceps pushdown, in that order. */
-private fun pushDayExercises() = listOf(
-    sessionExercise(id = 1, exerciseId = BENCH.id, position = 0),
-    sessionExercise(id = 2, exerciseId = PUSHDOWN.id, position = 1),
-)
+private fun pushDayExercises() =
+    listOf(
+        sessionExercise(id = 1, exerciseId = BENCH.id, position = 0),
+        sessionExercise(id = 2, exerciseId = PUSHDOWN.id, position = 1),
+    )
 
 /**
  * Three sets of bench and two of pushdowns.
@@ -605,10 +640,11 @@ private fun pushDayExercises() = listOf(
  * The bench's reps are `10, 10, 5` on purpose: the modal count is what a template takes as its
  * default, and a fixture where every set agrees could not tell the mode from the maximum.
  */
-private fun pushDaySets() = listOf(
-    workoutSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000),
-    workoutSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 10, weight = 70_000_000),
-    workoutSet(id = 3, sessionExerciseId = 1, setNumber = 3, reps = 5, weight = 80_000_000),
-    workoutSet(id = 4, sessionExerciseId = 2, setNumber = 1, reps = 12, weight = 30_000_000),
-    workoutSet(id = 5, sessionExerciseId = 2, setNumber = 2, reps = 12, weight = 25_000_000),
-)
+private fun pushDaySets() =
+    listOf(
+        workoutSet(id = 1, sessionExerciseId = 1, setNumber = 1, reps = 10, weight = 60_000_000),
+        workoutSet(id = 2, sessionExerciseId = 1, setNumber = 2, reps = 10, weight = 70_000_000),
+        workoutSet(id = 3, sessionExerciseId = 1, setNumber = 3, reps = 5, weight = 80_000_000),
+        workoutSet(id = 4, sessionExerciseId = 2, setNumber = 1, reps = 12, weight = 30_000_000),
+        workoutSet(id = 5, sessionExerciseId = 2, setNumber = 2, reps = 12, weight = 25_000_000),
+    )

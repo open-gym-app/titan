@@ -286,12 +286,15 @@ class TemplateEditorViewModel @Inject constructor(
                 if (build(editorState.value).isDirty && !editorState.value.isSaving) {
                     editorState.update { it.copy(confirmingDiscard = true) }
                 }
+
             TemplateEditorEvent.DiscardConfirmed ->
                 editorState.update { it.copy(confirmingDiscard = false, isSaved = true) }
+
             TemplateEditorEvent.DiscardDismissed ->
                 editorState.update { it.copy(confirmingDiscard = false) }
 
             TemplateEditorEvent.MessageShown -> editorState.update { it.copy(message = null) }
+
             else -> Unit
         }
     }
@@ -354,6 +357,7 @@ class TemplateEditorViewModel @Inject constructor(
             is TemplateEditorEvent.ExercisesReordered -> editDraft { draft -> draft.reorder(event.order) }
 
             is TemplateEditorEvent.SupersetLinked -> editDraft { draft -> draft.regroup(event.key, link = true) }
+
             is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.key, link = false) }
 
             is TemplateEditorEvent.ExerciseSwapRequested -> {
@@ -368,8 +372,10 @@ class TemplateEditorViewModel @Inject constructor(
                 swappingKey = null
                 editorState.update { it.copy(isPickingExercises = true) }
             }
+
             TemplateEditorEvent.ExercisesPickClosed ->
                 editorState.update { it.copy(isPickingExercises = false) }
+
             // Consumed, so the same answer cannot be applied twice, and refused when this
             // screen never asked — see [pickWasRequested].
             is TemplateEditorEvent.ExercisesPicked ->
@@ -542,7 +548,10 @@ class TemplateEditorViewModel @Inject constructor(
      * @param exerciseId what to put in it, or null for a picker that came back with nothing —
      *   which is not a failure and says nothing: the user backed out.
      */
-    private fun swapExercise(key: Long, exerciseId: Long?) {
+    private fun swapExercise(
+        key: Long,
+        exerciseId: Long?,
+    ) {
         if (exerciseId == null) return
 
         viewModelScope.launch {
@@ -604,22 +613,23 @@ class TemplateEditorViewModel @Inject constructor(
      * either one of them can do that the other cannot is [TemplateError.NotFound], which belongs
      * to the id an insert does not have.
      */
-    private suspend fun write(draft: Draft): Result<WorkoutTemplate> = if (isNew) {
-        createTemplate(
-            name = draft.name,
-            exercises = draft.toDrafts(unitSystem),
-            category = draft.category,
-            icon = draft.icon,
-        )
-    } else {
-        updateTemplate(
-            templateId = templateId,
-            name = draft.name,
-            exercises = draft.toDrafts(unitSystem),
-            category = draft.category,
-            icon = draft.icon,
-        )
-    }
+    private suspend fun write(draft: Draft): Result<WorkoutTemplate> =
+        if (isNew) {
+            createTemplate(
+                name = draft.name,
+                exercises = draft.toDrafts(unitSystem),
+                category = draft.category,
+                icon = draft.icon,
+            )
+        } else {
+            updateTemplate(
+                templateId = templateId,
+                name = draft.name,
+                exercises = draft.toDrafts(unitSystem),
+                category = draft.category,
+                icon = draft.icon,
+            )
+        }
 
     /**
      * How a refused save is drawn.
@@ -630,7 +640,10 @@ class TemplateEditorViewModel @Inject constructor(
      * to save into; only an update can be refused that way, since an insert has no id to be
      * missing. Everything else is said once and leaves the draft exactly where it is.
      */
-    private fun reportSaveFailure(failure: Throwable, draft: Draft) {
+    private fun reportSaveFailure(
+        failure: Throwable,
+        draft: Draft,
+    ) {
         when (failure) {
             is TemplateError.DuplicateName -> editorState.update {
                 it.copy(
@@ -788,10 +801,14 @@ private data class DraftSet(
 )
 
 /** The set with one of its two figures replaced. */
-private fun DraftSet.withField(field: TemplateSetField, text: String): DraftSet = when (field) {
-    TemplateSetField.WEIGHT -> copy(weight = text)
-    TemplateSetField.REPS -> copy(reps = text)
-}
+private fun DraftSet.withField(
+    field: TemplateSetField,
+    text: String,
+): DraftSet =
+    when (field) {
+        TemplateSetField.WEIGHT -> copy(weight = text)
+        TemplateSetField.REPS -> copy(reps = text)
+    }
 
 /**
  * The line with another set on the end of it, copied from the one it follows.
@@ -818,45 +835,48 @@ private fun DraftRow.withSetAdded(key: Long): DraftRow {
  * logged set to: a template whose sets a session could not log is a plan the user would meet a
  * refusal in the middle of.
  */
-private fun DraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> = buildSet {
-    if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
+private fun DraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> =
+    buildSet {
+        if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
 
-    if (weight.isNotBlank()) {
-        val milligrams = parseWeightMilligrams(weight, unitSystem)
-        if (milligrams == null || milligrams !in SetValidator.WEIGHT_MIN_MG..SetValidator.WEIGHT_MAX_MG) {
-            add(TemplateSetField.WEIGHT)
+        if (weight.isNotBlank()) {
+            val milligrams = parseWeightMilligrams(weight, unitSystem)
+            if (milligrams == null || milligrams !in SetValidator.WEIGHT_MIN_MG..SetValidator.WEIGHT_MAX_MG) {
+                add(TemplateSetField.WEIGHT)
+            }
         }
     }
-}
 
 /** Whether this field holds nothing at all, or a whole number inside [range]. */
-private fun String.isValidCount(range: LongRange): Boolean =
-    isBlank() || toLongOrNull()?.let { it in range } == true
+private fun String.isValidCount(range: LongRange): Boolean = isBlank() || toLongOrNull()?.let { it in range } == true
 
 /** [SetValidator]'s own bounds on a logged set's reps, as the range this field is held to. */
 private val REP_COUNT_RANGE = SetValidator.REPS_MIN.toLong()..SetValidator.REPS_MAX.toLong()
 
 /** The plan as the drafts a write takes, with every figure parsed and the blanks left null. */
-private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> = rows.map { row ->
-    TemplateExerciseDraft(
-        exerciseId = row.exerciseId,
-        sets = row.sets.map { set ->
-            PlannedSet(
-                setType = set.setType,
-                reps = set.reps.toIntOrNull(),
-                weight = set.weight.takeIf { it.isNotBlank() }
-                    ?.let { parseWeightMilligrams(it, unitSystem) },
-            )
-        },
-        restDuration = row.restDuration,
-        notes = row.notes,
-        supersetGroup = row.supersetGroup,
-    )
-}
+private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> =
+    rows.map { row ->
+        TemplateExerciseDraft(
+            exerciseId = row.exerciseId,
+            sets = row.sets.map { set ->
+                PlannedSet(
+                    setType = set.setType,
+                    reps = set.reps.toIntOrNull(),
+                    weight = set.weight.takeIf { it.isNotBlank() }
+                        ?.let { parseWeightMilligrams(it, unitSystem) },
+                )
+            },
+            restDuration = row.restDuration,
+            notes = row.notes,
+            supersetGroup = row.supersetGroup,
+        )
+    }
 
 /** The draft with one row replaced. A key the plan no longer holds is a no-op. */
-private fun Draft.mapRow(key: Long, change: (DraftRow) -> DraftRow): Draft =
-    copy(rows = rows.map { if (it.key == key) change(it) else it })
+private fun Draft.mapRow(
+    key: Long,
+    change: (DraftRow) -> DraftRow,
+): Draft = copy(rows = rows.map { if (it.key == key) change(it) else it })
 
 /**
  * The draft with one set of one row replaced. A key either list no longer holds is a no-op.
@@ -865,7 +885,11 @@ private fun Draft.mapRow(key: Long, change: (DraftRow) -> DraftRow): Draft =
  * they are handed out by a counter that a caller has no contract with, and resolving a keystroke
  * against every exercise at once would make that an invariant the screen depends on.
  */
-private fun Draft.mapSet(exerciseKey: Long, setKey: Long, change: (DraftSet) -> DraftSet): Draft =
+private fun Draft.mapSet(
+    exerciseKey: Long,
+    setKey: Long,
+    change: (DraftSet) -> DraftSet,
+): Draft =
     mapRow(exerciseKey) { row ->
         row.copy(sets = row.sets.map { if (it.key == setKey) change(it) else it })
     }
@@ -900,7 +924,10 @@ private fun Draft.reorder(order: List<Long>): Draft {
  * cannot make — the control is drawn between two neighbours, which is the one ask that is always
  * contiguous — so there is nothing to report, only nothing to do.
  */
-private fun Draft.regroup(key: Long, link: Boolean): Draft {
+private fun Draft.regroup(
+    key: Long,
+    link: Boolean,
+): Draft {
     val index = rows.indexOfFirst { it.key == key }
     if (index < 0 || index == rows.lastIndex) return this
 

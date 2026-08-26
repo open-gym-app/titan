@@ -83,7 +83,10 @@ object SetValidator {
      * PERSISTENCE.md), and refusing to store those would make a workout
      * impossible to plan ahead.
      */
-    fun validate(set: WorkoutSet, exerciseType: ExerciseType? = null): ValidationResult {
+    fun validate(
+        set: WorkoutSet,
+        exerciseType: ExerciseType? = null,
+    ): ValidationResult {
         val violations = set.boundViolations() + set.shapeViolations(exerciseType)
 
         return if (violations.isEmpty()) {
@@ -94,45 +97,46 @@ object SetValidator {
     }
 
     /** Range checks on whichever dimensions this set actually carries. */
-    private fun WorkoutSet.boundViolations(): List<String> = buildList {
-        reps?.let { value ->
-            if (value !in REPS_MIN..REPS_MAX) {
-                add("reps must be within $REPS_MIN..$REPS_MAX, was $value")
+    private fun WorkoutSet.boundViolations(): List<String> =
+        buildList {
+            reps?.let { value ->
+                if (value !in REPS_MIN..REPS_MAX) {
+                    add("reps must be within $REPS_MIN..$REPS_MAX, was $value")
+                }
+            }
+            weight?.let { value ->
+                if (value !in WEIGHT_MIN_MG..WEIGHT_MAX_MG) {
+                    add(
+                        "weight must be within ${WEIGHT_MIN_MG / MG_PER_KG} kg.." +
+                            "${WEIGHT_MAX_MG / MG_PER_KG} kg " +
+                            "($WEIGHT_MIN_MG..$WEIGHT_MAX_MG mg), was $value mg",
+                    )
+                }
+            }
+            duration?.let { value ->
+                if (value !in DURATION_MIN_SECONDS..DURATION_MAX_SECONDS) {
+                    add(
+                        "duration must be within $DURATION_MIN_SECONDS s.." +
+                            "${DURATION_MAX_SECONDS / SECONDS_PER_DAY} days " +
+                            "($DURATION_MIN_SECONDS..$DURATION_MAX_SECONDS s), was $value s",
+                    )
+                }
+            }
+            distance?.let { value ->
+                if (value !in DISTANCE_MIN_CM..DISTANCE_MAX_CM) {
+                    add(
+                        "distance must be within ${DISTANCE_MIN_CM / CM_PER_KM} km.." +
+                            "${DISTANCE_MAX_CM / CM_PER_KM} km " +
+                            "($DISTANCE_MIN_CM..$DISTANCE_MAX_CM cm), was $value cm",
+                    )
+                }
+            }
+            restAfter?.let { value ->
+                if (value < REST_MIN_SECONDS) {
+                    add("restAfter must be at least $REST_MIN_SECONDS s, was $value s")
+                }
             }
         }
-        weight?.let { value ->
-            if (value !in WEIGHT_MIN_MG..WEIGHT_MAX_MG) {
-                add(
-                    "weight must be within ${WEIGHT_MIN_MG / MG_PER_KG} kg.." +
-                        "${WEIGHT_MAX_MG / MG_PER_KG} kg " +
-                        "($WEIGHT_MIN_MG..$WEIGHT_MAX_MG mg), was $value mg",
-                )
-            }
-        }
-        duration?.let { value ->
-            if (value !in DURATION_MIN_SECONDS..DURATION_MAX_SECONDS) {
-                add(
-                    "duration must be within $DURATION_MIN_SECONDS s.." +
-                        "${DURATION_MAX_SECONDS / SECONDS_PER_DAY} days " +
-                        "($DURATION_MIN_SECONDS..$DURATION_MAX_SECONDS s), was $value s",
-                )
-            }
-        }
-        distance?.let { value ->
-            if (value !in DISTANCE_MIN_CM..DISTANCE_MAX_CM) {
-                add(
-                    "distance must be within ${DISTANCE_MIN_CM / CM_PER_KM} km.." +
-                        "${DISTANCE_MAX_CM / CM_PER_KM} km " +
-                        "($DISTANCE_MIN_CM..$DISTANCE_MAX_CM cm), was $value cm",
-                )
-            }
-        }
-        restAfter?.let { value ->
-            if (value < REST_MIN_SECONDS) {
-                add("restAfter must be at least $REST_MIN_SECONDS s, was $value s")
-            }
-        }
-    }
 
     /**
      * Which dimension a completed set of [exerciseType] has to record.
@@ -145,10 +149,11 @@ object SetValidator {
      * Distance is not among them, deliberately: a plank has none and a treadmill set logged by
      * time alone is still a complete record of what was done, so it stays optional everywhere.
      */
-    fun requiredDimension(exerciseType: ExerciseType): SetDimension = when (exerciseType) {
-        ExerciseType.STRENGTH -> SetDimension.REPS
-        ExerciseType.ENDURANCE, ExerciseType.ISOMETRIC -> SetDimension.DURATION
-    }
+    fun requiredDimension(exerciseType: ExerciseType): SetDimension =
+        when (exerciseType) {
+            ExerciseType.STRENGTH -> SetDimension.REPS
+            ExerciseType.ENDURANCE, ExerciseType.ISOMETRIC -> SetDimension.DURATION
+        }
 
     /**
      * The dimension the logging mode is built around must be present once the set

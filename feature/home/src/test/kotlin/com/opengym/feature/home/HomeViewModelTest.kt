@@ -67,304 +67,326 @@ class HomeViewModelTest {
     // ─── The resume banner ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `nothing in progress leaves the banner off`() = runTest {
-        sessions.setSessions(listOf(loggedSession(1, TODAY)))
+    fun `nothing in progress leaves the banner off`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
 
-        val home = viewModel().uiState.value
+            val home = viewModel().uiState.value
 
-        assertNull(home.resume)
-        assertFalse(home.isLoading)
-    }
-
-    @Test
-    fun `an open session becomes a banner with its name, clock, position and cost`() = runTest {
-        val startedAt = clock.now - 23.minutes.inWholeMilliseconds
-        sessions.setSessions(listOf(openSession(7, startedAt = startedAt)))
-        sessions.seedSets(sessionId = 7, count = 11)
-        drafts.save(draft(sessionId = 7, startedAt = startedAt, completed = 2, sets = 2))
-
-        val resume = requireNotNull(viewModel().uiState.value.resume)
-
-        assertEquals(7L, resume.sessionId)
-        assertEquals("Push Day", resume.name)
-        assertEquals(23.minutes, resume.elapsed)
-        assertEquals(11, resume.loggedSets)
-        // Two ticked off, so the set they came back to do is the third — even though the draft
-        // holds two rows and knows of no third. A draft counts what happened, never what was
-        // laid out, which is why the banner offers no total to put this out of.
-        assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 3), resume.position)
-        assertFalse(resume.isPaused)
-    }
+            assertNull(home.resume)
+            assertFalse(home.isLoading)
+        }
 
     @Test
-    fun `an exercise nothing has been logged on yet reads as its first set`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        // One row being typed and nothing ticked: the shape the draft is actually written in
-        // when a lifter has just moved onto an exercise.
-        drafts.save(draft(sessionId = 7, completed = 0, sets = 1))
+    fun `an open session becomes a banner with its name, clock, position and cost`() =
+        runTest {
+            val startedAt = clock.now - 23.minutes.inWholeMilliseconds
+            sessions.setSessions(listOf(openSession(7, startedAt = startedAt)))
+            sessions.seedSets(sessionId = 7, count = 11)
+            drafts.save(draft(sessionId = 7, startedAt = startedAt, completed = 2, sets = 2))
 
-        val resume = requireNotNull(viewModel().uiState.value.resume)
+            val resume = requireNotNull(viewModel().uiState.value.resume)
 
-        assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 1), resume.position)
-    }
-
-    @Test
-    fun `a paused workout says so, and its clock stops where it was paused`() = runTest {
-        val startedAt = clock.now - 30.minutes.inWholeMilliseconds
-        sessions.setSessions(listOf(openSession(7, startedAt = startedAt)))
-        drafts.save(
-            draft(sessionId = 7, startedAt = startedAt)
-                .copy(pausedAt = startedAt + 8.minutes.inWholeMilliseconds),
-        )
-
-        val resume = requireNotNull(viewModel().uiState.value.resume)
-
-        assertTrue(resume.isPaused)
-        // Eight minutes in, whatever the wall clock has done in the twenty-two since.
-        assertEquals(8.minutes, resume.elapsed)
-    }
+            assertEquals(7L, resume.sessionId)
+            assertEquals("Push Day", resume.name)
+            assertEquals(23.minutes, resume.elapsed)
+            assertEquals(11, resume.loggedSets)
+            // Two ticked off, so the set they came back to do is the third — even though the draft
+            // holds two rows and knows of no third. A draft counts what happened, never what was
+            // laid out, which is why the banner offers no total to put this out of.
+            assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 3), resume.position)
+            assertFalse(resume.isPaused)
+        }
 
     @Test
-    fun `a session with no draft is still offered, timed from its own row`() = runTest {
-        // The workout the process died under before anything was written to the draft slot.
-        sessions.setSessions(listOf(openSession(7, startedAt = clock.now - 5.minutes.inWholeMilliseconds)))
+    fun `an exercise nothing has been logged on yet reads as its first set`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            // One row being typed and nothing ticked: the shape the draft is actually written in
+            // when a lifter has just moved onto an exercise.
+            drafts.save(draft(sessionId = 7, completed = 0, sets = 1))
 
-        val resume = requireNotNull(viewModel().uiState.value.resume)
+            val resume = requireNotNull(viewModel().uiState.value.resume)
 
-        assertEquals(5.minutes, resume.elapsed)
-        assertNull(resume.position)
-    }
-
-    @Test
-    fun `a draft belonging to another session is not read onto this one`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        drafts.save(draft(sessionId = 99, completed = 2, sets = 2))
-
-        assertNull(requireNotNull(viewModel().uiState.value.resume).position)
-    }
+            assertEquals(SessionPosition(exerciseName = "Bench press", setNumber = 1), resume.position)
+        }
 
     @Test
-    fun `an exercise deleted from the library drops the position rather than blanking it`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        drafts.save(draft(sessionId = 7, exerciseId = 404L))
+    fun `a paused workout says so, and its clock stops where it was paused`() =
+        runTest {
+            val startedAt = clock.now - 30.minutes.inWholeMilliseconds
+            sessions.setSessions(listOf(openSession(7, startedAt = startedAt)))
+            drafts.save(
+                draft(sessionId = 7, startedAt = startedAt)
+                    .copy(pausedAt = startedAt + 8.minutes.inWholeMilliseconds),
+            )
 
-        assertNull(requireNotNull(viewModel().uiState.value.resume).position)
-    }
+            val resume = requireNotNull(viewModel().uiState.value.resume)
+
+            assertTrue(resume.isPaused)
+            // Eight minutes in, whatever the wall clock has done in the twenty-two since.
+            assertEquals(8.minutes, resume.elapsed)
+        }
+
+    @Test
+    fun `a session with no draft is still offered, timed from its own row`() =
+        runTest {
+            // The workout the process died under before anything was written to the draft slot.
+            sessions.setSessions(listOf(openSession(7, startedAt = clock.now - 5.minutes.inWholeMilliseconds)))
+
+            val resume = requireNotNull(viewModel().uiState.value.resume)
+
+            assertEquals(5.minutes, resume.elapsed)
+            assertNull(resume.position)
+        }
+
+    @Test
+    fun `a draft belonging to another session is not read onto this one`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            drafts.save(draft(sessionId = 99, completed = 2, sets = 2))
+
+            assertNull(requireNotNull(viewModel().uiState.value.resume).position)
+        }
+
+    @Test
+    fun `an exercise deleted from the library drops the position rather than blanking it`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            drafts.save(draft(sessionId = 7, exerciseId = 404L))
+
+            assertNull(requireNotNull(viewModel().uiState.value.resume).position)
+        }
 
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `discarding is asked about before anything is deleted`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        val viewModel = viewModel()
+    fun `discarding is asked about before anything is deleted`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            val viewModel = viewModel()
 
-        viewModel.onEvent(HomeEvent.DiscardRequested)
+            viewModel.onEvent(HomeEvent.DiscardRequested)
 
-        assertTrue(viewModel.uiState.value.confirmingDiscard)
-        assertEquals(listOf(7L), sessions.storedSessions().map(WorkoutSession::id))
-    }
-
-    @Test
-    fun `confirming the discard deletes the session, clears the draft and drops the banner`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        drafts.save(draft(sessionId = 7))
-        val viewModel = viewModel()
-
-        viewModel.onEvent(HomeEvent.DiscardRequested)
-        viewModel.onEvent(HomeEvent.DiscardConfirmed)
-
-        val home = viewModel.uiState.value
-        assertNull(home.resume)
-        assertFalse(home.confirmingDiscard)
-        assertEquals(emptyList<WorkoutSession>(), sessions.storedSessions())
-        assertEquals(1, drafts.clearCount)
-        assertEquals(SessionState.Idle, state.current)
-    }
+            assertTrue(viewModel.uiState.value.confirmingDiscard)
+            assertEquals(listOf(7L), sessions.storedSessions().map(WorkoutSession::id))
+        }
 
     @Test
-    fun `a discard reached after a process restart still finds the session to delete`() = runTest {
-        // The case Home exists for: the row says in progress, the in-memory state machine has
-        // been reset to Idle by the restart. Without the resume that precedes the discard,
-        // `DiscardSessionUseCase` has no open session and refuses.
-        sessions.setSessions(listOf(openSession(7)))
-        val viewModel = viewModel(state = FakeSessionStateStore(SessionState.Idle))
+    fun `confirming the discard deletes the session, clears the draft and drops the banner`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            drafts.save(draft(sessionId = 7))
+            val viewModel = viewModel()
 
-        viewModel.onEvent(HomeEvent.DiscardConfirmed)
+            viewModel.onEvent(HomeEvent.DiscardRequested)
+            viewModel.onEvent(HomeEvent.DiscardConfirmed)
 
-        assertEquals(emptyList<WorkoutSession>(), sessions.storedSessions())
-        assertNull(viewModel.uiState.value.message)
-    }
-
-    @Test
-    fun `a discard that fails leaves the workout where it is and says so`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        sessions.deleteFailure = IllegalStateException("the store is gone")
-        val viewModel = viewModel()
-
-        viewModel.onEvent(HomeEvent.DiscardRequested)
-        viewModel.onEvent(HomeEvent.DiscardConfirmed)
-
-        val home = viewModel.uiState.value
-        assertEquals(HomeMessage.DISCARD_FAILED, home.message)
-        assertEquals(listOf(7L), sessions.storedSessions().map(WorkoutSession::id))
-        // The banner is still up, because the workout is still there and still in the way.
-        assertEquals(7L, home.resume?.sessionId)
-        assertFalse(home.isDiscarding)
-    }
+            val home = viewModel.uiState.value
+            assertNull(home.resume)
+            assertFalse(home.confirmingDiscard)
+            assertEquals(emptyList<WorkoutSession>(), sessions.storedSessions())
+            assertEquals(1, drafts.clearCount)
+            assertEquals(SessionState.Idle, state.current)
+        }
 
     @Test
-    fun `a message is dropped once it has been shown`() = runTest {
-        sessions.setSessions(listOf(openSession(7)))
-        sessions.deleteFailure = IllegalStateException("the store is gone")
-        val viewModel = viewModel()
+    fun `a discard reached after a process restart still finds the session to delete`() =
+        runTest {
+            // The case Home exists for: the row says in progress, the in-memory state machine has
+            // been reset to Idle by the restart. Without the resume that precedes the discard,
+            // `DiscardSessionUseCase` has no open session and refuses.
+            sessions.setSessions(listOf(openSession(7)))
+            val viewModel = viewModel(state = FakeSessionStateStore(SessionState.Idle))
 
-        viewModel.onEvent(HomeEvent.DiscardConfirmed)
-        viewModel.onEvent(HomeEvent.MessageShown)
+            viewModel.onEvent(HomeEvent.DiscardConfirmed)
 
-        assertNull(viewModel.uiState.value.message)
-    }
+            assertEquals(emptyList<WorkoutSession>(), sessions.storedSessions())
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `a discard that fails leaves the workout where it is and says so`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            sessions.deleteFailure = IllegalStateException("the store is gone")
+            val viewModel = viewModel()
+
+            viewModel.onEvent(HomeEvent.DiscardRequested)
+            viewModel.onEvent(HomeEvent.DiscardConfirmed)
+
+            val home = viewModel.uiState.value
+            assertEquals(HomeMessage.DISCARD_FAILED, home.message)
+            assertEquals(listOf(7L), sessions.storedSessions().map(WorkoutSession::id))
+            // The banner is still up, because the workout is still there and still in the way.
+            assertEquals(7L, home.resume?.sessionId)
+            assertFalse(home.isDiscarding)
+        }
+
+    @Test
+    fun `a message is dropped once it has been shown`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            sessions.deleteFailure = IllegalStateException("the store is gone")
+            val viewModel = viewModel()
+
+            viewModel.onEvent(HomeEvent.DiscardConfirmed)
+            viewModel.onEvent(HomeEvent.MessageShown)
+
+            assertNull(viewModel.uiState.value.message)
+        }
 
     // ─── This week ──────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the week marks the days trained and counts them`() = runTest {
-        sessions.setSessions(
-            listOf(
-                loggedSession(1, MONDAY),
-                loggedSession(2, TODAY),
-                // Outside the week, whichever day the locale opens one on.
-                loggedSession(3, LAST_SATURDAY),
-            ),
-        )
+    fun `the week marks the days trained and counts them`() =
+        runTest {
+            sessions.setSessions(
+                listOf(
+                    loggedSession(1, MONDAY),
+                    loggedSession(2, TODAY),
+                    // Outside the week, whichever day the locale opens one on.
+                    loggedSession(3, LAST_SATURDAY),
+                ),
+            )
 
-        val week = requireNotNull(viewModel().uiState.value.week)
+            val week = requireNotNull(viewModel().uiState.value.week)
 
-        assertEquals(7, week.days.size)
-        assertEquals(2, week.sessionCount)
-        assertEquals(1, week.days.single { it.date == MONDAY }.sessionCount)
-        assertEquals(1, week.days.single { it.date == TODAY }.sessionCount)
-        assertTrue(week.days.none { it.date == LAST_SATURDAY })
-        assertTrue(week.days.single { it.date == TODAY }.isToday)
-    }
-
-    @Test
-    fun `the days the week has not reached are marked, today is not one of them`() = runTest {
-        sessions.setSessions(listOf(loggedSession(1, MONDAY)))
-
-        val week = requireNotNull(viewModel().uiState.value.week)
-
-        // Without this the strip cannot tell a day that was skipped from one that has not
-        // happened, and a Monday morning reads as a week already lost — see WeekStrip.
-        assertTrue(week.days.single { it.date == TOMORROW }.isFuture)
-        assertFalse(week.days.single { it.date == TODAY }.isFuture)
-        assertFalse(week.days.single { it.date == MONDAY }.isFuture)
-    }
+            assertEquals(7, week.days.size)
+            assertEquals(2, week.sessionCount)
+            assertEquals(1, week.days.single { it.date == MONDAY }.sessionCount)
+            assertEquals(1, week.days.single { it.date == TODAY }.sessionCount)
+            assertTrue(week.days.none { it.date == LAST_SATURDAY })
+            assertTrue(week.days.single { it.date == TODAY }.isToday)
+        }
 
     @Test
-    fun `two sessions on one day count twice on one cell`() = runTest {
-        sessions.setSessions(listOf(loggedSession(1, TODAY), loggedSession(2, TODAY)))
+    fun `the days the week has not reached are marked, today is not one of them`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, MONDAY)))
 
-        val week = requireNotNull(viewModel().uiState.value.week)
+            val week = requireNotNull(viewModel().uiState.value.week)
 
-        assertEquals(2, week.sessionCount)
-        assertEquals(2, week.days.single { it.date == TODAY }.sessionCount)
-    }
-
-    @Test
-    fun `a user who has never finished a session gets no week at all`() = runTest {
-        // Not an empty strip over a zero — see HomeUiState.week. The open session below is
-        // deliberately in the store: a workout that has not happened yet is not a week's
-        // worth of training.
-        sessions.setSessions(listOf(openSession(7)))
-
-        val home = viewModel().uiState.value
-
-        assertNull(home.week)
-        assertFalse(home.isLoading)
-    }
+            // Without this the strip cannot tell a day that was skipped from one that has not
+            // happened, and a Monday morning reads as a week already lost — see WeekStrip.
+            assertTrue(week.days.single { it.date == TOMORROW }.isFuture)
+            assertFalse(week.days.single { it.date == TODAY }.isFuture)
+            assertFalse(week.days.single { it.date == MONDAY }.isFuture)
+        }
 
     @Test
-    fun `the session still running is not counted in the week`() = runTest {
-        sessions.setSessions(listOf(loggedSession(1, TODAY), openSession(7)))
+    fun `two sessions on one day count twice on one cell`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY), loggedSession(2, TODAY)))
 
-        val week = requireNotNull(viewModel().uiState.value.week)
+            val week = requireNotNull(viewModel().uiState.value.week)
 
-        assertEquals(1, week.sessionCount)
-    }
+            assertEquals(2, week.sessionCount)
+            assertEquals(2, week.days.single { it.date == TODAY }.sessionCount)
+        }
 
     @Test
-    fun `midnight moves the week on with nobody touching the screen`() = runTest {
-        // Home is the screen the app is left sitting on. Nothing else re-emits overnight, so a
-        // day read while assembling would leave the ring on yesterday until something did.
-        sessions.setSessions(listOf(loggedSession(1, TODAY)))
-        val viewModel = viewModel()
-        assertTrue(requireNotNull(viewModel.uiState.value.week).days.single { it.date == TODAY }.isToday)
+    fun `a user who has never finished a session gets no week at all`() =
+        runTest {
+            // Not an empty strip over a zero — see HomeUiState.week. The open session below is
+            // deliberately in the store: a workout that has not happened yet is not a week's
+            // worth of training.
+            sessions.setSessions(listOf(openSession(7)))
 
-        clock.now = middayOn(TOMORROW)
-        // Past the midnight twelve hours out, and short of the one after it.
-        advanceTimeBy(25.hours)
+            val home = viewModel().uiState.value
 
-        val week = requireNotNull(viewModel.uiState.value.week)
-        assertTrue(week.days.single { it.date == TOMORROW }.isToday)
-        assertFalse(week.days.single { it.date == TODAY }.isToday)
-    }
+            assertNull(home.week)
+            assertFalse(home.isLoading)
+        }
+
+    @Test
+    fun `the session still running is not counted in the week`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY), openSession(7)))
+
+            val week = requireNotNull(viewModel().uiState.value.week)
+
+            assertEquals(1, week.sessionCount)
+        }
+
+    @Test
+    fun `midnight moves the week on with nobody touching the screen`() =
+        runTest {
+            // Home is the screen the app is left sitting on. Nothing else re-emits overnight, so a
+            // day read while assembling would leave the ring on yesterday until something did.
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            val viewModel = viewModel()
+            assertTrue(requireNotNull(viewModel.uiState.value.week).days.single { it.date == TODAY }.isToday)
+
+            clock.now = middayOn(TOMORROW)
+            // Past the midnight twelve hours out, and short of the one after it.
+            advanceTimeBy(25.hours)
+
+            val week = requireNotNull(viewModel.uiState.value.week)
+            assertTrue(week.days.single { it.date == TOMORROW }.isToday)
+            assertFalse(week.days.single { it.date == TODAY }.isToday)
+        }
 
     // ─── Quick start ────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the quick-start strip holds the templates, cut to what fits`() = runTest {
-        val home = viewModel(templates = eightTemplates()).uiState.value
+    fun `the quick-start strip holds the templates, cut to what fits`() =
+        runTest {
+            val home = viewModel(templates = eightTemplates()).uiState.value
 
-        assertEquals(6, home.templates.size)
-        // Nothing has been trained from, so nothing outranks anything and the name order the
-        // repository promises is what is left.
-        assertEquals("Template 1", home.templates.first().template.name)
-    }
-
-    @Test
-    fun `the strip leads with the templates most recently trained from`() = runTest {
-        // The finding the alphabetical cut hid: a user with more templates than the strip holds
-        // saw the first six names for ever, and never their own rotation.
-        sessions.setSessions(
-            listOf(
-                loggedSession(1, LAST_SATURDAY, templateId = 8L),
-                loggedSession(2, TODAY, templateId = 7L),
-            ),
-        )
-
-        val home = viewModel(templates = eightTemplates()).uiState.value
-
-        assertEquals(
-            listOf("Template 7", "Template 8") + (1..4).map { "Template $it" },
-            home.templates.map { it.template.name },
-        )
-    }
+            assertEquals(6, home.templates.size)
+            // Nothing has been trained from, so nothing outranks anything and the name order the
+            // repository promises is what is left.
+            assertEquals("Template 1", home.templates.first().template.name)
+        }
 
     @Test
-    fun `a template is ranked on the last time it was trained from, not the first`() = runTest {
-        sessions.setSessions(
-            listOf(
-                loggedSession(1, TODAY, templateId = 8L),
-                loggedSession(2, LAST_SATURDAY, templateId = 8L),
-                loggedSession(3, MONDAY, templateId = 7L),
-            ),
-        )
+    fun `the strip leads with the templates most recently trained from`() =
+        runTest {
+            // The finding the alphabetical cut hid: a user with more templates than the strip holds
+            // saw the first six names for ever, and never their own rotation.
+            sessions.setSessions(
+                listOf(
+                    loggedSession(1, LAST_SATURDAY, templateId = 8L),
+                    loggedSession(2, TODAY, templateId = 7L),
+                ),
+            )
 
-        val home = viewModel(templates = eightTemplates()).uiState.value
+            val home = viewModel(templates = eightTemplates()).uiState.value
 
-        assertEquals(
-            listOf("Template 8", "Template 7"),
-            home.templates.take(2).map { it.template.name },
-        )
-    }
+            assertEquals(
+                listOf("Template 7", "Template 8") + (1..4).map { "Template $it" },
+                home.templates.map { it.template.name },
+            )
+        }
 
     @Test
-    fun `no saved templates is a real answer rather than a loading one`() = runTest {
-        val home = viewModel().uiState.value
+    fun `a template is ranked on the last time it was trained from, not the first`() =
+        runTest {
+            sessions.setSessions(
+                listOf(
+                    loggedSession(1, TODAY, templateId = 8L),
+                    loggedSession(2, LAST_SATURDAY, templateId = 8L),
+                    loggedSession(3, MONDAY, templateId = 7L),
+                ),
+            )
 
-        assertEquals(emptyList<Long>(), home.templates.map { it.template.id })
-        assertFalse(home.isLoading)
-    }
+            val home = viewModel(templates = eightTemplates()).uiState.value
+
+            assertEquals(
+                listOf("Template 8", "Template 7"),
+                home.templates.take(2).map { it.template.name },
+            )
+        }
+
+    @Test
+    fun `no saved templates is a real answer rather than a loading one`() =
+        runTest {
+            val home = viewModel().uiState.value
+
+            assertEquals(emptyList<Long>(), home.templates.map { it.template.id })
+            assertFalse(home.isLoading)
+        }
 
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
 
@@ -404,7 +426,11 @@ class HomeViewModelTest {
     }
 
     /** A workout that is over: the rows the week is counted from. */
-    private fun loggedSession(id: Long, date: LocalDate, templateId: Long? = null) = WorkoutSession(
+    private fun loggedSession(
+        id: Long,
+        date: LocalDate,
+        templateId: Long? = null,
+    ) = WorkoutSession(
         id = id,
         templateId = templateId,
         name = "Session $id",
@@ -416,7 +442,10 @@ class HomeViewModelTest {
     )
 
     /** The workout the app is still holding open. */
-    private fun openSession(id: Long, startedAt: Long = clock.now) = WorkoutSession(
+    private fun openSession(
+        id: Long,
+        startedAt: Long = clock.now,
+    ) = WorkoutSession(
         id = id,
         name = "Push Day",
         isInProgress = true,

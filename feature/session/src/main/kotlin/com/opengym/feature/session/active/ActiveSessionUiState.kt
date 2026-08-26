@@ -200,7 +200,10 @@ data class ActiveSessionUiState(
  * @param reps how many, or null for a set that recorded none.
  */
 @Immutable
-data class RestTarget(val weight: Long?, val reps: Int?)
+data class RestTarget(
+    val weight: Long?,
+    val reps: Int?,
+)
 
 /**
  * The bar over the workout: what it is, and how long it has been going.
@@ -335,8 +338,10 @@ data class SessionExerciseRow(
 internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
     when (exerciseType?.let(SetValidator::requiredDimension)) {
         SetDimension.REPS -> reps.isNotBlank()
+
         // Nothing the user can type on this screen fills this in. See [SessionExerciseRow.isLoggedByDuration].
         SetDimension.DURATION -> false
+
         null -> true
     }
 

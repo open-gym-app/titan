@@ -40,7 +40,7 @@ import com.opengym.core.ui.component.label
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.onboarding.R
 
-/**
+/*
  * The four step bodies, and the heading every one of them opens with.
  *
  * Each is stateless and hoisted like any other screen half: it takes what is stored and emits
@@ -166,7 +166,11 @@ internal fun WelcomeStep(modifier: Modifier = Modifier) {
 
 /** One claim: its mark, what it does, and the line saying how. */
 @Composable
-private fun HighlightRow(icon: ImageVector, label: String, detail: String) {
+private fun HighlightRow(
+    icon: ImageVector,
+    label: String,
+    detail: String,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -354,7 +358,11 @@ internal fun ReadyStep(
  * same rule `MetaGrid` follows for the metadata blocks elsewhere in the app.
  */
 @Composable
-private fun RecapRow(icon: ImageVector, label: String, value: String) {
+private fun RecapRow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+) {
     val spoken = stringResource(R.string.onboarding_ready_recap_description, label, value)
 
     Row(

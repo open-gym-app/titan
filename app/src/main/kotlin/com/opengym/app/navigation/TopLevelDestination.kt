@@ -2,14 +2,14 @@ package com.opengym.app.navigation
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Insights
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.outlined.FitnessCenter
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.opengym.app.R
 import com.opengym.feature.history.navigation.HistoryGraphDestination
@@ -60,8 +60,8 @@ enum class TopLevelDestination(
     LIBRARY(
         graphDestination = LibraryGraphDestination,
         labelRes = R.string.nav_library,
-        selectedIcon = Icons.Filled.MenuBook,
-        unselectedIcon = Icons.Outlined.MenuBook,
+        selectedIcon = Icons.AutoMirrored.Filled.MenuBook,
+        unselectedIcon = Icons.AutoMirrored.Outlined.MenuBook,
     ),
     STATS(
         graphDestination = ProgressionGraphDestination,

@@ -188,19 +188,25 @@ class SessionSummaryViewModel @Inject constructor(
 
         when (event) {
             SessionSummaryEvent.NoteEditRequested -> openNote()
+
             is SessionSummaryEvent.NoteChanged ->
                 screenState.update { it.copy(noteDraft = event.text) }
+
             SessionSummaryEvent.NoteEditCancelled ->
                 screenState.update { it.copy(noteDraft = null, isSavingNotes = false) }
+
             SessionSummaryEvent.NoteSaved -> saveNote()
 
             SessionSummaryEvent.SaveAsTemplateRequested -> openTemplateDialog()
+
             // Typing clears the refusal: it was about the name that *was* in the field, and an
             // error left under a name nobody has claimed reads as one that cannot be fixed.
             is SessionSummaryEvent.TemplateNameChanged ->
                 screenState.update { it.copy(templateName = event.name, templateNameTaken = false) }
+
             is SessionSummaryEvent.TemplateCategoryChanged ->
                 screenState.update { it.copy(templateCategory = event.category) }
+
             // Ignored while the write is in flight, which is the dialog's own rule — it goes
             // inert rather than closing, so a refusal has somewhere to be reported. Enforced
             // here as well because clearing the flag on the way out would re-arm the action
@@ -210,9 +216,11 @@ class SessionSummaryViewModel @Inject constructor(
                 if (!screenState.value.isSavingTemplate) {
                     screenState.update { it.closeTemplateDialog() }
                 }
+
             SessionSummaryEvent.SaveAsTemplateConfirmed -> saveTemplate()
 
             SessionSummaryEvent.MessageShown -> screenState.update { it.copy(message = null) }
+
             else -> Unit
         }
     }
@@ -241,6 +249,7 @@ class SessionSummaryViewModel @Inject constructor(
                 }
 
             SessionSummaryEvent.NameConfirmed -> saveName()
+
             else -> return false
         }
         return true
@@ -416,7 +425,10 @@ class SessionSummaryViewModel @Inject constructor(
      * read still outstanding is a loading screen; a read that came back with no row is a
      * missing one — see [SessionSummaryUiState.isMissing].
      */
-    private fun buildContent(loaded: Loaded?, catalogue: Catalogue?): SessionSummaryUiState {
+    private fun buildContent(
+        loaded: Loaded?,
+        catalogue: Catalogue?,
+    ): SessionSummaryUiState {
         if (loaded == null || catalogue == null) return SessionSummaryUiState(mode = mode)
 
         val session = loaded.session
@@ -482,12 +494,13 @@ private data class ScreenState(
 ) {
 
     /** The dialog gone, and everything it was holding with it. */
-    fun closeTemplateDialog(): ScreenState = copy(
-        templateName = null,
-        templateCategory = null,
-        isSavingTemplate = false,
-        templateNameTaken = false,
-    )
+    fun closeTemplateDialog(): ScreenState =
+        copy(
+            templateName = null,
+            templateCategory = null,
+            isSavingTemplate = false,
+            templateNameTaken = false,
+        )
 }
 
 /** The three catalogue-wide reads, as one value. */
@@ -566,19 +579,20 @@ private class Loaded(
     fun breakdown(
         names: Map<Long, Exercise>,
         recordsByExercise: Map<Long, PersonalRecord>,
-    ): List<SummaryExerciseRow> = performed.map { (exercise, performedSets) ->
-        val reps = performedSets.mapNotNull(WorkoutSet::reps)
-        SummaryExerciseRow(
-            sessionExerciseId = exercise.id,
-            name = names[exercise.exerciseId]?.name,
-            setCount = performedSets.size,
-            lowestReps = reps.minOrNull(),
-            highestReps = reps.maxOrNull(),
-            topWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
-            record = recordsByExercise[exercise.exerciseId]
-                ?.takeIf { record -> performedSets.any { it.id == record.workoutSetId } },
-        )
-    }
+    ): List<SummaryExerciseRow> =
+        performed.map { (exercise, performedSets) ->
+            val reps = performedSets.mapNotNull(WorkoutSet::reps)
+            SummaryExerciseRow(
+                sessionExerciseId = exercise.id,
+                name = names[exercise.exerciseId]?.name,
+                setCount = performedSets.size,
+                lowestReps = reps.minOrNull(),
+                highestReps = reps.maxOrNull(),
+                topWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
+                record = recordsByExercise[exercise.exerciseId]
+                    ?.takeIf { record -> performedSets.any { it.id == record.workoutSetId } },
+            )
+        }
 
     /**
      * The muscle half of the recap, in one pass.
@@ -634,15 +648,16 @@ private class Loaded(
      * work that did not happen, and planning next week around it would be planning around a
      * set the lifter skipped.
      */
-    fun templateDrafts(): List<TemplateExerciseDraft> = performed.map { (exercise, performedSets) ->
-        TemplateExerciseDraft(
-            exerciseId = exercise.exerciseId,
-            sets = performedSets.map { set ->
-                PlannedSet(setType = set.setType, reps = set.reps, weight = set.weight)
-            },
-            supersetGroup = exercise.supersetGroup,
-        )
-    }
+    fun templateDrafts(): List<TemplateExerciseDraft> =
+        performed.map { (exercise, performedSets) ->
+            TemplateExerciseDraft(
+                exerciseId = exercise.exerciseId,
+                sets = performedSets.map { set ->
+                    PlannedSet(setType = set.setType, reps = set.reps, weight = set.weight)
+                },
+                supersetGroup = exercise.supersetGroup,
+            )
+        }
 }
 
 /** One exercise of the session and the sets it was actually performed with. */

@@ -352,12 +352,13 @@ object RestTimerDefaults {
 
     /** [RestTimerIndicator] on the colour scheme, which is where any ordinary screen puts it. */
     @Composable
-    fun indicatorColors(): RestTimerIndicatorColors = RestTimerIndicatorColors(
-        runningContainer = MaterialTheme.colorScheme.primaryContainer,
-        runningContent = MaterialTheme.colorScheme.onPrimaryContainer,
-        restingContainer = MaterialTheme.colorScheme.surfaceContainer,
-        restingContent = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    fun indicatorColors(): RestTimerIndicatorColors =
+        RestTimerIndicatorColors(
+            runningContainer = MaterialTheme.colorScheme.primaryContainer,
+            runningContent = MaterialTheme.colorScheme.onPrimaryContainer,
+            restingContainer = MaterialTheme.colorScheme.surfaceContainer,
+            restingContent = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
 
     /**
      * [RestTimerIndicator] on the active workout's own near-black band.
@@ -368,14 +369,15 @@ object RestTimerDefaults {
      * Both pairs here are ones the chrome already carries and the contrast test already holds.
      */
     @Composable
-    fun sessionChromeIndicatorColors(): RestTimerIndicatorColors = with(OpenGymTheme.sessionChrome) {
-        RestTimerIndicatorColors(
-            runningContainer = accent,
-            runningContent = onAccent,
-            restingContainer = fill,
-            restingContent = onSurface,
-        )
-    }
+    fun sessionChromeIndicatorColors(): RestTimerIndicatorColors =
+        with(OpenGymTheme.sessionChrome) {
+            RestTimerIndicatorColors(
+                runningContainer = accent,
+                runningContent = onAccent,
+                restingContainer = fill,
+                restingContent = onSurface,
+            )
+        }
 }
 
 // ─── State, read four ways ──────────────────────────────────────────────────────────────
@@ -385,18 +387,20 @@ object RestTimerDefaults {
  * a state added to the domain is a compile error here rather than a sheet that renders blank.
  */
 
-private fun RestTimerState.remaining(): Duration = when (this) {
-    is RestTimerState.Running -> remaining
-    is RestTimerState.Paused -> remaining
-    RestTimerState.Finished, RestTimerState.Idle -> Duration.ZERO
-}
+private fun RestTimerState.remaining(): Duration =
+    when (this) {
+        is RestTimerState.Running -> remaining
+        is RestTimerState.Paused -> remaining
+        RestTimerState.Finished, RestTimerState.Idle -> Duration.ZERO
+    }
 
 /** The countdown's denominator, or null where there is nothing being counted down. */
-private fun RestTimerState.total(): Duration? = when (this) {
-    is RestTimerState.Running -> total
-    is RestTimerState.Paused -> total
-    RestTimerState.Finished, RestTimerState.Idle -> null
-}
+private fun RestTimerState.total(): Duration? =
+    when (this) {
+        is RestTimerState.Running -> total
+        is RestTimerState.Paused -> total
+        RestTimerState.Finished, RestTimerState.Idle -> null
+    }
 
 /**
  * How much of the rest has gone, 0..1.
@@ -412,12 +416,13 @@ private fun RestTimerState.elapsedFraction(): Float {
 }
 
 @Composable
-private fun RestTimerState.statusLabel(): String = when (this) {
-    is RestTimerState.Running -> stringResource(R.string.rest_timer_running)
-    is RestTimerState.Paused -> stringResource(R.string.rest_timer_paused)
-    RestTimerState.Finished -> stringResource(R.string.rest_timer_finished)
-    RestTimerState.Idle -> stringResource(R.string.rest_timer_idle)
-}
+private fun RestTimerState.statusLabel(): String =
+    when (this) {
+        is RestTimerState.Running -> stringResource(R.string.rest_timer_running)
+        is RestTimerState.Paused -> stringResource(R.string.rest_timer_paused)
+        RestTimerState.Finished -> stringResource(R.string.rest_timer_finished)
+        RestTimerState.Idle -> stringResource(R.string.rest_timer_idle)
+    }
 
 /**
  * The accent while the rest is live, a neutral once it is not.
@@ -427,10 +432,11 @@ private fun RestTimerState.statusLabel(): String = when (this) {
  * it is not.
  */
 @Composable
-private fun RestTimerState.accentOrMuted(): Color = when (this) {
-    is RestTimerState.Running, RestTimerState.Finished -> MaterialTheme.colorScheme.primary
-    is RestTimerState.Paused, RestTimerState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant
-}
+private fun RestTimerState.accentOrMuted(): Color =
+    when (this) {
+        is RestTimerState.Running, RestTimerState.Finished -> MaterialTheme.colorScheme.primary
+        is RestTimerState.Paused, RestTimerState.Idle -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
 
 @Composable
 private fun spokenRemaining(remaining: Duration): String =
@@ -520,7 +526,10 @@ fun RestTimerIndicatorPreview() {
 }
 
 @Composable
-private fun RestSheetPreview(theme: ThemePreference, state: RestTimerState) {
+private fun RestSheetPreview(
+    theme: ThemePreference,
+    state: RestTimerState,
+) {
     OpenGymTheme(theme = theme) {
         Column(
             modifier = Modifier

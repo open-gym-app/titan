@@ -295,6 +295,7 @@ private fun TemplateSummary.spokenDescription(): String {
 
     return when (val category = template.category) {
         null -> stringResource(R.string.template_description, template.name, body)
+
         else -> stringResource(
             R.string.template_description_category,
             template.name,

@@ -27,9 +27,10 @@ sealed class TemplateError(message: String) : IllegalArgumentException(message) 
      * [name] is the *requested* name, trimmed — not the name of the template it
      * collided with, whose casing may differ.
      */
-    data class DuplicateName(val name: String) : TemplateError(
-        "a template named \"$name\" already exists",
-    )
+    data class DuplicateName(val name: String) :
+        TemplateError(
+            "a template named \"$name\" already exists",
+        )
 
     /**
      * The superset grouping of the exercise list is not one that can be stored:
@@ -44,7 +45,8 @@ sealed class TemplateError(message: String) : IllegalArgumentException(message) 
     data class InvalidSuperset(val reason: String) : TemplateError(reason)
 
     /** The template being updated, deleted or applied is not in the repository. */
-    data class NotFound(val templateId: Long) : TemplateError(
-        "template $templateId does not exist",
-    )
+    data class NotFound(val templateId: Long) :
+        TemplateError(
+            "template $templateId does not exist",
+        )
 }

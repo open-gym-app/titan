@@ -18,25 +18,26 @@ import org.gradle.kotlin.dsl.withType
  * neither the cause nor the fix. Applying is idempotent, so a module listing both is fine.
  */
 class AndroidHiltConventionPlugin : Plugin<Project> {
-    override fun apply(target: Project) = with(target) {
-        pluginManager.apply("opengym.android.library")
-        pluginManager.apply("com.google.devtools.ksp")
-        pluginManager.apply("com.google.dagger.hilt.android")
+    override fun apply(target: Project) =
+        with(target) {
+            pluginManager.apply("opengym.android.library")
+            pluginManager.apply("com.google.devtools.ksp")
+            pluginManager.apply("com.google.dagger.hilt.android")
 
-        // Hilt aggregates its components through javac, which needs a real compiler
-        // rather than whichever JVM happens to be running Gradle.
-        val toolchains = extensions.getByType<JavaToolchainService>()
-        tasks.withType<JavaCompile>().configureEach {
-            javaCompiler.set(
-                toolchains.compilerFor {
-                    languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
-                },
-            )
-        }
+            // Hilt aggregates its components through javac, which needs a real compiler
+            // rather than whichever JVM happens to be running Gradle.
+            val toolchains = extensions.getByType<JavaToolchainService>()
+            tasks.withType<JavaCompile>().configureEach {
+                javaCompiler.set(
+                    toolchains.compilerFor {
+                        languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
+                    },
+                )
+            }
 
-        dependencies {
-            add("implementation", library("hilt-android"))
-            add("ksp", library("hilt-compiler"))
+            dependencies {
+                add("implementation", library("hilt-android"))
+                add("ksp", library("hilt-compiler"))
+            }
         }
-    }
 }

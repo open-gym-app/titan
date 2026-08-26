@@ -75,10 +75,12 @@ class PlateCalculatorViewModel @Inject constructor(
     fun onEvent(event: PlateCalculatorEvent) {
         when (event) {
             is PlateCalculatorEvent.TargetStepped -> step(event.delta)
+
             is PlateCalculatorEvent.TargetEntered ->
                 screenState.update { it.copy(target = event.milligrams.coerceAtLeast(0), sheet = null) }
 
             is PlateCalculatorEvent.BarWeightSelected -> save { setBarWeight(event.milligrams) }
+
             // The whole rack is never rewritten from here. `setPlatePairs` names the one size
             // that changed and composes the edit inside the store's transaction; rebuilding the
             // rack from `uiState` would revert any earlier press that has not round-tripped
@@ -90,6 +92,7 @@ class PlateCalculatorViewModel @Inject constructor(
             PlateCalculatorEvent.InventoryReset -> save { setPlateInventory(null) }
 
             is PlateCalculatorEvent.SheetRequested -> screenState.update { it.copy(sheet = event.sheet) }
+
             // The message goes with the sheet: a failure raised by one of the sheet's own
             // steppers is shown *in* the sheet, so closing it is the user having read it. Left
             // set, it would resurface as a snackbar over the screen behind, about a press they

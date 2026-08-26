@@ -293,7 +293,10 @@ fun ChoiceCatalog(modifier: Modifier = Modifier) {
 
 /** A card row at the density the settings screen uses it. */
 @Composable
-private fun CatalogCardRow(label: String, value: String) {
+private fun CatalogCardRow(
+    label: String,
+    value: String,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -316,7 +319,10 @@ private fun CatalogCardRow(label: String, value: String) {
 }
 
 @Composable
-private fun CatalogSheet(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun CatalogSheet(
+    modifier: Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Surface(modifier = modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.background) {
         Column(
             modifier = Modifier.padding(OpenGymTheme.spacing.screen),
@@ -327,7 +333,10 @@ private fun CatalogSheet(modifier: Modifier, content: @Composable ColumnScope.()
 }
 
 @Composable
-private fun CatalogSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun CatalogSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
         Text(
             text = title,
@@ -340,7 +349,11 @@ private fun CatalogSection(title: String, content: @Composable ColumnScope.() ->
 }
 
 @Composable
-private fun ColorSpecimen(name: String, color: Color, onColor: Color) {
+private fun ColorSpecimen(
+    name: String,
+    color: Color,
+    onColor: Color,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -363,7 +376,11 @@ private fun ColorSpecimen(name: String, color: Color, onColor: Color) {
 }
 
 @Composable
-private fun TypeSpecimen(name: String, style: TextStyle, sample: String = "Bench press") {
+private fun TypeSpecimen(
+    name: String,
+    style: TextStyle,
+    sample: String = "Bench press",
+) {
     Row(
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -381,7 +398,10 @@ private fun TypeSpecimen(name: String, style: TextStyle, sample: String = "Bench
 }
 
 @Composable
-private fun SpacingSpecimen(name: String, value: Dp) {
+private fun SpacingSpecimen(
+    name: String,
+    value: Dp,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -407,7 +427,10 @@ private fun SpacingSpecimen(name: String, value: Dp) {
 }
 
 @Composable
-private fun ShapeSpecimen(name: String, shape: Shape) {
+private fun ShapeSpecimen(
+    name: String,
+    shape: Shape,
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),

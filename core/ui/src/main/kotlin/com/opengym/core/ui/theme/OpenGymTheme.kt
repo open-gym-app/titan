@@ -80,11 +80,12 @@ fun OpenGymTheme(
  */
 @Composable
 @ReadOnlyComposable
-fun ThemePreference.isDark(): Boolean = when (this) {
-    ThemePreference.LIGHT -> false
-    ThemePreference.DARK -> true
-    ThemePreference.SYSTEM -> isSystemInDarkTheme()
-}
+fun ThemePreference.isDark(): Boolean =
+    when (this) {
+        ThemePreference.LIGHT -> false
+        ThemePreference.DARK -> true
+        ThemePreference.SYSTEM -> isSystemInDarkTheme()
+    }
 
 /**
  * The accessor for the tokens Material's own `MaterialTheme` object does not carry.

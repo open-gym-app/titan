@@ -20,14 +20,15 @@ import com.opengym.core.domain.model.TemplateExerciseDraft
  * the rows are replaced, not updated, so the drafts have no identity to keep. See
  * [com.opengym.core.domain.repository.TemplateRepository.update] for what that costs.
  */
-internal fun List<TemplateExercise>.toDrafts(): List<TemplateExerciseDraft> = map { exercise ->
-    TemplateExerciseDraft(
-        exerciseId = exercise.exerciseId,
-        // The plan carries over whole. A duplicate that kept the exercises and dropped what they
-        // planned would be a copy of the template's table of contents.
-        sets = exercise.sets,
-        restDuration = exercise.restDuration,
-        notes = exercise.notes,
-        supersetGroup = exercise.supersetGroup,
-    )
-}
+internal fun List<TemplateExercise>.toDrafts(): List<TemplateExerciseDraft> =
+    map { exercise ->
+        TemplateExerciseDraft(
+            exerciseId = exercise.exerciseId,
+            // The plan carries over whole. A duplicate that kept the exercises and dropped what they
+            // planned would be a copy of the template's table of contents.
+            sets = exercise.sets,
+            restDuration = exercise.restDuration,
+            notes = exercise.notes,
+            supersetGroup = exercise.supersetGroup,
+        )
+    }

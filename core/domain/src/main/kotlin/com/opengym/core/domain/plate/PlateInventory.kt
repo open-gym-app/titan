@@ -54,7 +54,10 @@ data class PlateInventory(val stock: List<PlateStock>) {
      * What the inventory editor's steppers call. Setting a count to zero keeps the row, which
      * is the difference between "I do not have any 15s" and "I have never heard of a 15".
      */
-    fun withPairs(weight: Long, pairs: Int): PlateInventory =
+    fun withPairs(
+        weight: Long,
+        pairs: Int,
+    ): PlateInventory =
         if (stock.any { it.weight == weight }) {
             PlateInventory(stock.map { if (it.weight == weight) it.copy(pairs = pairs) else it })
         } else {
@@ -71,13 +74,14 @@ data class PlateInventory(val stock: List<PlateStock>) {
          * count — the forgiving door in, for a decoder reading a file somebody hand-edited or
          * an editor that has just added a size.
          */
-        fun of(stock: List<PlateStock>): PlateInventory = PlateInventory(
-            stock.groupBy { it.weight }
-                .map { (weight, duplicates) ->
-                    PlateStock(weight = weight, pairs = duplicates.maxOf { it.pairs })
-                }
-                .sortedByDescending { it.weight },
-        )
+        fun of(stock: List<PlateStock>): PlateInventory =
+            PlateInventory(
+                stock.groupBy { it.weight }
+                    .map { (weight, duplicates) ->
+                        PlateStock(weight = weight, pairs = duplicates.maxOf { it.pairs })
+                    }
+                    .sortedByDescending { it.weight },
+            )
 
         /**
          * The rack a user gets before they have said anything about their own.
@@ -94,10 +98,11 @@ data class PlateInventory(val stock: List<PlateStock>) {
          * low is a shortfall warning on a perfectly ordinary lift, which reads as a broken
          * calculator. The user corrects either one in the same editor.
          */
-        fun defaultFor(unitSystem: UnitSystem): PlateInventory = when (unitSystem) {
-            UnitSystem.METRIC -> METRIC
-            UnitSystem.IMPERIAL -> IMPERIAL
-        }
+        fun defaultFor(unitSystem: UnitSystem): PlateInventory =
+            when (unitSystem) {
+                UnitSystem.METRIC -> METRIC
+                UnitSystem.IMPERIAL -> IMPERIAL
+            }
 
         /**
          * 20 / 10 / 5 / 2.5 / 1.25 kg. See [defaultFor].

@@ -165,6 +165,7 @@ fun ActiveSessionRoute(
                     swappingExerciseId = event.sessionExerciseId
 
                 ActiveSessionEvent.AddExercisesRequested -> swappingExerciseId = null
+
                 else -> Unit
             }
             viewModel.onEvent(event)
@@ -462,7 +463,10 @@ fun ActiveSessionScreen(
  */
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-private fun RestSheet(state: ActiveSessionUiState, onEvent: (ActiveSessionEvent) -> Unit) {
+private fun RestSheet(
+    state: ActiveSessionUiState,
+    onEvent: (ActiveSessionEvent) -> Unit,
+) {
     val sheetState = rememberModalBottomSheetState()
     // Composed while the sheet is up *or* on its way down, which is the one thing the screen
     // state cannot say: it went false the moment the rest ended.
@@ -730,11 +734,12 @@ private val REFLOW = spring<IntOffset>(
  * genuinely unnamed rather than named badly.
  */
 @Composable
-private fun ActiveSessionHeader?.title(): String = when {
-    this == null -> ""
-    !name.isNullOrBlank() -> name
-    else -> formatSessionDate(startedAt)
-}
+private fun ActiveSessionHeader?.title(): String =
+    when {
+        this == null -> ""
+        !name.isNullOrBlank() -> name
+        else -> formatSessionDate(startedAt)
+    }
 
 /**
  * What an exercise is called, for the places that have to say it in a sentence.
@@ -743,8 +748,7 @@ private fun ActiveSessionHeader?.title(): String = when {
  * exercise deleted from the library says what the card above it says.
  */
 @Composable
-private fun SessionExerciseRow.name(): String =
-    exercise?.name ?: stringResource(R.string.active_exercise_removed)
+private fun SessionExerciseRow.name(): String = exercise?.name ?: stringResource(R.string.active_exercise_removed)
 
 /**
  * The words a message is said in.
@@ -880,107 +884,111 @@ fun ActiveSessionScreenPausedPreview() {
 }
 
 /** A push day, three exercises in, with its two accessories run as a superset. */
-private fun previewState(): ActiveSessionUiState = ActiveSessionUiState(
-    header = ActiveSessionHeader(
-        name = "Push day · Upper",
-        startedAt = 1_700_000_000_000L,
-        elapsed = 23.minutes + 14.seconds,
-        progress = SessionProgress.of(completed = 2, total = 4),
-    ),
-    stats = SessionStats(
-        totalSets = 5,
-        totalVolume = 2_800_000_000L,
-        durationSeconds = 1_394,
-        exerciseBreakdown = emptyList(),
-    ),
-    exercises = previewExercises(),
-    isLoading = false,
-)
+private fun previewState(): ActiveSessionUiState =
+    ActiveSessionUiState(
+        header = ActiveSessionHeader(
+            name = "Push day · Upper",
+            startedAt = 1_700_000_000_000L,
+            elapsed = 23.minutes + 14.seconds,
+            progress = SessionProgress.of(completed = 2, total = 4),
+        ),
+        stats = SessionStats(
+            totalSets = 5,
+            totalVolume = 2_800_000_000L,
+            durationSeconds = 1_394,
+            exerciseBreakdown = emptyList(),
+        ),
+        exercises = previewExercises(),
+        isLoading = false,
+    )
 
 /**
  * The four exercises the previews are drawn from, in the four states this screen has to show at
  * once: one with a full reference behind it, one with a shorter one, one that has never been
  * performed, and one waiting for its first set of the day.
  */
-private fun previewExercises(): List<SessionExerciseRow> = listOf(
-    previewBench(),
-    previewIncline(),
-    // Never performed, which is the state the badge under the name is for.
-    SessionExerciseRow(
-        sessionExerciseId = 3L,
-        position = 2,
-        exercise = Exercise(id = 3L, name = "Cable fly"),
-        supersetLabel = "A1",
-        supersetGroupName = "A",
-        isLinkedToNext = true,
-    ),
-    SessionExerciseRow(
-        sessionExerciseId = 4L,
-        position = 3,
-        exercise = Exercise(id = 4L, name = "Tricep pushdown"),
-        supersetLabel = "A2",
-        supersetGroupName = "A",
-        entryPrevious = previously(weightKg = 30.0, reps = 15),
-        hasHistory = true,
-    ),
-)
+private fun previewExercises(): List<SessionExerciseRow> =
+    listOf(
+        previewBench(),
+        previewIncline(),
+        // Never performed, which is the state the badge under the name is for.
+        SessionExerciseRow(
+            sessionExerciseId = 3L,
+            position = 2,
+            exercise = Exercise(id = 3L, name = "Cable fly"),
+            supersetLabel = "A1",
+            supersetGroupName = "A",
+            isLinkedToNext = true,
+        ),
+        SessionExerciseRow(
+            sessionExerciseId = 4L,
+            position = 3,
+            exercise = Exercise(id = 4L, name = "Tricep pushdown"),
+            supersetLabel = "A2",
+            supersetGroupName = "A",
+            entryPrevious = previously(weightKg = 30.0, reps = 15),
+            hasHistory = true,
+        ),
+    )
 
 /** Three sets in, with last week's numbers against every row of it and against the next one. */
-private fun previewBench() = SessionExerciseRow(
-    sessionExerciseId = 1L,
-    position = 0,
-    exercise = Exercise(id = 1L, name = "Bench press"),
-    sets = listOf(
-        previewSet(
-            number = 1,
-            weight = "60",
-            reps = 10,
-            rpe = 60,
-            previous = previously(weightKg = 60.0, reps = 10),
+private fun previewBench() =
+    SessionExerciseRow(
+        sessionExerciseId = 1L,
+        position = 0,
+        exercise = Exercise(id = 1L, name = "Bench press"),
+        sets = listOf(
+            previewSet(
+                number = 1,
+                weight = "60",
+                reps = 10,
+                rpe = 60,
+                previous = previously(weightKg = 60.0, reps = 10),
+            ),
+            previewSet(
+                number = 2,
+                weight = "70",
+                reps = 8,
+                rpe = 75,
+                previous = previously(weightKg = 70.0, reps = 8),
+            ),
+            // The decimal case the previous column is sized against: `72.5×6` is about the widest
+            // thing that cell has to hold without clipping.
+            previewSet(
+                number = 3,
+                weight = "75",
+                reps = 6,
+                rpe = 85,
+                previous = previously(weightKg = 72.5, reps = 6),
+            ),
         ),
-        previewSet(
-            number = 2,
-            weight = "70",
-            reps = 8,
-            rpe = 75,
-            previous = previously(weightKg = 70.0, reps = 8),
-        ),
-        // The decimal case the previous column is sized against: `72.5×6` is about the widest
-        // thing that cell has to hold without clipping.
-        previewSet(
-            number = 3,
-            weight = "75",
-            reps = 6,
-            rpe = 85,
-            previous = previously(weightKg = 72.5, reps = 6),
-        ),
-    ),
-    // What the fourth set was last time, which is the row that reads as a target.
-    entryPrevious = previously(weightKg = 80.0, reps = 5),
-    hasHistory = true,
-)
+        // What the fourth set was last time, which is the row that reads as a target.
+        entryPrevious = previously(weightKg = 80.0, reps = 5),
+        hasHistory = true,
+    )
 
 /** Two sets today against one last time, and mid-set — which is what brings the note out. */
-private fun previewIncline() = SessionExerciseRow(
-    sessionExerciseId = 2L,
-    position = 1,
-    exercise = Exercise(id = 2L, name = "Incline dumbbell press"),
-    sets = listOf(
-        previewSet(
-            number = 1,
-            weight = "26",
-            reps = 12,
-            rpe = 70,
-            sessionExerciseId = 2L,
-            previous = previously(weightKg = 24.0, reps = 12),
+private fun previewIncline() =
+    SessionExerciseRow(
+        sessionExerciseId = 2L,
+        position = 1,
+        exercise = Exercise(id = 2L, name = "Incline dumbbell press"),
+        sets = listOf(
+            previewSet(
+                number = 1,
+                weight = "26",
+                reps = 12,
+                rpe = 70,
+                sessionExerciseId = 2L,
+                previous = previously(weightKg = 24.0, reps = 12),
+            ),
+            // The column is empty on this row, and the exercise still has history behind it: the
+            // two states the "first time" badge has to stay out of.
+            previewSet(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
         ),
-        // The column is empty on this row, and the exercise still has history behind it: the
-        // two states the "first time" badge has to stay out of.
-        previewSet(number = 2, weight = "28", reps = 10, rpe = 80, sessionExerciseId = 2L),
-    ),
-    entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),
-    hasHistory = true,
-)
+        entry = SetEntry(weight = "30", reps = "8", rpe = 90, setType = SetType.NORMAL),
+        hasHistory = true,
+    )
 
 /**
  * A logged set as the row it is drawn in: the values already in the fields, because every row of
@@ -1005,5 +1013,7 @@ private fun previewSet(
  * Last week's set. Written in kilograms and converted, because what this type carries is the
  * milligrams everything is stored in, and `72_500_000` reads as nothing at a glance.
  */
-private fun previously(weightKg: Double, reps: Int) =
-    PreviousSet(weight = (weightKg * MILLIGRAMS_PER_KILOGRAM).toLong(), reps = reps)
+private fun previously(
+    weightKg: Double,
+    reps: Int,
+) = PreviousSet(weight = (weightKg * MILLIGRAMS_PER_KILOGRAM).toLong(), reps = reps)

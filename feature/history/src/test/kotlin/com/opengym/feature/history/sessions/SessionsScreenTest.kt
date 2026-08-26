@@ -1,7 +1,7 @@
 package com.opengym.feature.history.sessions
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -391,54 +391,55 @@ class SessionsScreenTest {
     }
 
     /** Two sessions in one month, one template, and a calendar page with both days on it. */
-    private fun populated(tab: SessionsTab = SessionsTab.HISTORY) = SessionsUiState(
-        tab = tab,
-        months = listOf(
-            SessionMonth(
-                month = YearMonth.of(2026, 4),
-                sessions = listOf(
-                    HistorySession(
-                        id = 1,
-                        name = "Push Day · Upper",
-                        startedAt = middayOn(APRIL_28),
-                        duration = 52.minutes,
-                        totalSets = 12,
-                        totalVolume = 4_820_000_000,
-                        hasRecord = true,
-                    ),
-                    HistorySession(
-                        id = 2,
-                        name = "Leg Day",
-                        startedAt = middayOn(APRIL_10),
-                        duration = 64.minutes,
-                        totalSets = 16,
-                        totalVolume = 6_820_000_000,
+    private fun populated(tab: SessionsTab = SessionsTab.HISTORY) =
+        SessionsUiState(
+            tab = tab,
+            months = listOf(
+                SessionMonth(
+                    month = YearMonth.of(2026, 4),
+                    sessions = listOf(
+                        HistorySession(
+                            id = 1,
+                            name = "Push Day · Upper",
+                            startedAt = middayOn(APRIL_28),
+                            duration = 52.minutes,
+                            totalSets = 12,
+                            totalVolume = 4_820_000_000,
+                            hasRecord = true,
+                        ),
+                        HistorySession(
+                            id = 2,
+                            name = "Leg Day",
+                            startedAt = middayOn(APRIL_10),
+                            duration = 64.minutes,
+                            totalSets = 16,
+                            totalVolume = 6_820_000_000,
+                        ),
                     ),
                 ),
             ),
-        ),
-        sessionCount = 2,
-        matchCount = 2,
-        templates = listOf(
-            com.opengym.core.domain.model.TemplateSummary(
-                template = namedTemplate(1, "Push Day"),
-                exerciseCount = 8,
-                estimatedDuration = 55.minutes,
-            ),
-        ),
-        calendar = CalendarPage(
-            month = YearMonth.of(2026, 4),
-            days = mapOf(
-                10 to TrainingDay(sessionCount = 1, load = TrainingLoad.HEAVY),
-                28 to TrainingDay(sessionCount = 1, load = TrainingLoad.LIGHT),
-            ),
             sessionCount = 2,
-            totalVolume = 11_640_000_000,
-            totalDuration = 116.minutes,
-        ),
-        isLoading = false,
-        isLoadingTemplates = false,
-    )
+            matchCount = 2,
+            templates = listOf(
+                com.opengym.core.domain.model.TemplateSummary(
+                    template = namedTemplate(1, "Push Day"),
+                    exerciseCount = 8,
+                    estimatedDuration = 55.minutes,
+                ),
+            ),
+            calendar = CalendarPage(
+                month = YearMonth.of(2026, 4),
+                days = mapOf(
+                    10 to TrainingDay(sessionCount = 1, load = TrainingLoad.HEAVY),
+                    28 to TrainingDay(sessionCount = 1, load = TrainingLoad.LIGHT),
+                ),
+                sessionCount = 2,
+                totalVolume = 11_640_000_000,
+                totalDuration = 116.minutes,
+            ),
+            isLoading = false,
+            isLoadingTemplates = false,
+        )
 
     private companion object {
         val APRIL_28: LocalDate = LocalDate.of(2026, 4, 28)

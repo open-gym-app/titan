@@ -90,122 +90,135 @@ class InProgressSessionRepositoryImplTest {
     )
 
     @Test
-    fun `load returns null when nothing has ever been saved`() = runBlocking {
-        assertNull(repository.load())
-    }
+    fun `load returns null when nothing has ever been saved`() =
+        runBlocking {
+            assertNull(repository.load())
+        }
 
     @Test
-    fun `a saved draft comes back whole`() = runBlocking {
-        val session = draft(currentExerciseIndex = 1, restTimer = RestTimerSnapshot.Running(9_000, 90.seconds))
+    fun `a saved draft comes back whole`() =
+        runBlocking {
+            val session = draft(currentExerciseIndex = 1, restTimer = RestTimerSnapshot.Running(9_000, 90.seconds))
 
-        repository.save(session)
+            repository.save(session)
 
-        assertEquals(session, repository.load())
-    }
-
-    @Test
-    fun `save writes the document the domain defines`() = runBlocking {
-        val session = draft()
-
-        repository.save(session)
-
-        // The format is the domain's; all this owes is storing it verbatim.
-        assertEquals(session, ActiveSessionFormat.decode(document.readText()))
-    }
+            assertEquals(session, repository.load())
+        }
 
     @Test
-    fun `save overwrites the previous draft rather than appending to it`() = runBlocking {
-        repository.save(draft(sessionId = 7))
-        repository.save(draft(sessionId = 8, currentExerciseIndex = 1))
+    fun `save writes the document the domain defines`() =
+        runBlocking {
+            val session = draft()
 
-        val loaded = repository.load()
-        assertEquals(8L, loaded?.sessionId)
-        assertEquals(1, loaded?.currentExerciseIndex)
-        // The document holds the second draft alone — a save that appended would
-        // still start with valid JSON and still load, so assert on the file.
-        assertEquals(loaded, ActiveSessionFormat.decode(document.readText()))
-    }
+            repository.save(session)
+
+            // The format is the domain's; all this owes is storing it verbatim.
+            assertEquals(session, ActiveSessionFormat.decode(document.readText()))
+        }
 
     @Test
-    fun `save leaves no scratch file behind`() = runBlocking {
-        repository.save(draft())
+    fun `save overwrites the previous draft rather than appending to it`() =
+        runBlocking {
+            repository.save(draft(sessionId = 7))
+            repository.save(draft(sessionId = 8, currentExerciseIndex = 1))
 
-        assertTrue(document.exists())
-        assertFalse("the scratch file must be renamed onto the document, not copied", scratch.exists())
-    }
-
-    @Test
-    fun `concurrent saves leave one whole draft, not a mixture`() = runBlocking {
-        val sessionIds = (1L..20L).toList()
-
-        sessionIds.map { id -> async { repository.save(draft(sessionId = id)) } }.awaitAll()
-
-        val loaded = repository.load()
-        assertNotNull("a draft written by concurrent savers must still be readable", loaded)
-        assertTrue(loaded!!.sessionId in sessionIds)
-        assertFalse(scratch.exists())
-    }
+            val loaded = repository.load()
+            assertEquals(8L, loaded?.sessionId)
+            assertEquals(1, loaded?.currentExerciseIndex)
+            // The document holds the second draft alone — a save that appended would
+            // still start with valid JSON and still load, so assert on the file.
+            assertEquals(loaded, ActiveSessionFormat.decode(document.readText()))
+        }
 
     @Test
-    fun `clear discards the draft`() = runBlocking {
-        repository.save(draft())
+    fun `save leaves no scratch file behind`() =
+        runBlocking {
+            repository.save(draft())
 
-        repository.clear()
-
-        assertNull(repository.load())
-        assertFalse(document.exists())
-    }
-
-    @Test
-    fun `clearing twice is not an error`() = runBlocking {
-        repository.save(draft())
-
-        repository.clear()
-        repository.clear()
-
-        assertNull(repository.load())
-    }
+            assertTrue(document.exists())
+            assertFalse("the scratch file must be renamed onto the document, not copied", scratch.exists())
+        }
 
     @Test
-    fun `clearing when there was never a draft is not an error`() = runBlocking {
-        repository.clear()
+    fun `concurrent saves leave one whole draft, not a mixture`() =
+        runBlocking {
+            val sessionIds = (1L..20L).toList()
 
-        assertNull(repository.load())
-    }
+            sessionIds.map { id -> async { repository.save(draft(sessionId = id)) } }.awaitAll()
 
-    @Test
-    fun `clear removes a scratch file a killed save left behind`() = runBlocking {
-        scratch.writeText("{\"version\":1,\"session\":{")
-
-        repository.clear()
-
-        assertFalse(scratch.exists())
-    }
+            val loaded = repository.load()
+            assertNotNull("a draft written by concurrent savers must still be readable", loaded)
+            assertTrue(loaded!!.sessionId in sessionIds)
+            assertFalse(scratch.exists())
+        }
 
     @Test
-    fun `a truncated document reads as no draft`() = runBlocking {
-        repository.save(draft())
-        document.writeText(document.readText().take(40))
+    fun `clear discards the draft`() =
+        runBlocking {
+            repository.save(draft())
 
-        assertNull(repository.load())
-    }
+            repository.clear()
 
-    @Test
-    fun `a document from a version this build does not read is refused`() = runBlocking {
-        repository.save(draft())
-        val future = document.readText().replace("\"version\":${ActiveSessionFormat.VERSION}", "\"version\":9999")
-        document.writeText(future)
-
-        assertNull(repository.load())
-    }
+            assertNull(repository.load())
+            assertFalse(document.exists())
+        }
 
     @Test
-    fun `a draft can be saved again after being cleared`() = runBlocking {
-        repository.save(draft(sessionId = 7))
-        repository.clear()
+    fun `clearing twice is not an error`() =
+        runBlocking {
+            repository.save(draft())
 
-        repository.save(draft(sessionId = 8))
+            repository.clear()
+            repository.clear()
 
-        assertEquals(8L, repository.load()?.sessionId)
-    }
+            assertNull(repository.load())
+        }
+
+    @Test
+    fun `clearing when there was never a draft is not an error`() =
+        runBlocking {
+            repository.clear()
+
+            assertNull(repository.load())
+        }
+
+    @Test
+    fun `clear removes a scratch file a killed save left behind`() =
+        runBlocking {
+            scratch.writeText("{\"version\":1,\"session\":{")
+
+            repository.clear()
+
+            assertFalse(scratch.exists())
+        }
+
+    @Test
+    fun `a truncated document reads as no draft`() =
+        runBlocking {
+            repository.save(draft())
+            document.writeText(document.readText().take(40))
+
+            assertNull(repository.load())
+        }
+
+    @Test
+    fun `a document from a version this build does not read is refused`() =
+        runBlocking {
+            repository.save(draft())
+            val future = document.readText().replace("\"version\":${ActiveSessionFormat.VERSION}", "\"version\":9999")
+            document.writeText(future)
+
+            assertNull(repository.load())
+        }
+
+    @Test
+    fun `a draft can be saved again after being cleared`() =
+        runBlocking {
+            repository.save(draft(sessionId = 7))
+            repository.clear()
+
+            repository.save(draft(sessionId = 8))
+
+            assertEquals(8L, repository.load()?.sessionId)
+        }
 }

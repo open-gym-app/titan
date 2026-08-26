@@ -40,7 +40,10 @@ sealed interface RestTimerState {
      * After a pause and resume, [total] stays the *original* total rather than the
      * paused remainder, so the progress ring does not jump when the timer is resumed.
      */
-    data class Running(val remaining: Duration, val total: Duration) : RestTimerState {
+    data class Running(
+        val remaining: Duration,
+        val total: Duration,
+    ) : RestTimerState {
         init {
             require(remaining > Duration.ZERO) { "a running timer has time left, was $remaining" }
             require(total >= remaining) { "remaining ($remaining) cannot exceed the total ($total)" }
@@ -58,7 +61,10 @@ sealed interface RestTimerState {
      * [total] is carried for the same reason [Running] carries it: a paused progress
      * indicator still needs its denominator.
      */
-    data class Paused(val remaining: Duration, val total: Duration) : RestTimerState {
+    data class Paused(
+        val remaining: Duration,
+        val total: Duration,
+    ) : RestTimerState {
         init {
             require(remaining >= Duration.ZERO) { "a paused timer cannot owe time, was $remaining" }
             require(total >= remaining) { "remaining ($remaining) cannot exceed the total ($total)" }

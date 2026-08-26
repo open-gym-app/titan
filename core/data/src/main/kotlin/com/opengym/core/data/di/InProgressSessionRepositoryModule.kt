@@ -23,7 +23,5 @@ abstract class InProgressSessionRepositoryModule {
 
     @Binds
     @Singleton
-    abstract fun bindInProgressSessionRepository(
-        impl: InProgressSessionRepositoryImpl,
-    ): InProgressSessionRepository
+    abstract fun bindInProgressSessionRepository(impl: InProgressSessionRepositoryImpl): InProgressSessionRepository
 }

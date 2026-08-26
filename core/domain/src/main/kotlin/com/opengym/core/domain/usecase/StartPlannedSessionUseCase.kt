@@ -145,19 +145,20 @@ private fun List<SessionExerciseDraft>.normalizeSupersets(): List<SessionExercis
 private fun SessionExerciseDraft.plannedSets(
     sessionExerciseId: Long,
     createdAt: Long,
-): List<WorkoutSet> = sets.mapIndexed { index, planned ->
-    WorkoutSet(
-        sessionExerciseId = sessionExerciseId,
-        setNumber = index + 1,
-        reps = planned.reps,
-        weight = planned.weight,
-        setType = planned.setType,
-        completedAt = UNPERFORMED,
-        isCompleted = false,
-        createdAt = createdAt,
-        updatedAt = createdAt,
-    )
-}
+): List<WorkoutSet> =
+    sets.mapIndexed { index, planned ->
+        WorkoutSet(
+            sessionExerciseId = sessionExerciseId,
+            setNumber = index + 1,
+            reps = planned.reps,
+            weight = planned.weight,
+            setType = planned.setType,
+            completedAt = UNPERFORMED,
+            isCompleted = false,
+            createdAt = createdAt,
+            updatedAt = createdAt,
+        )
+    }
 
 /**
  * What `workout_set.completed_at` holds for a set nobody has performed.

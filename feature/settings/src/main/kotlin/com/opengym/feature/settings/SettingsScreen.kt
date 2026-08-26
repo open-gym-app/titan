@@ -169,7 +169,10 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun AppearanceGroup(preferences: UserPreferences, onEvent: (SettingsEvent) -> Unit) {
+private fun AppearanceGroup(
+    preferences: UserPreferences,
+    onEvent: (SettingsEvent) -> Unit,
+) {
     SettingsGroup(title = stringResource(R.string.settings_group_appearance)) {
         SettingsRow(
             label = stringResource(R.string.settings_theme),
@@ -195,7 +198,10 @@ private fun AppearanceGroup(preferences: UserPreferences, onEvent: (SettingsEven
 }
 
 @Composable
-private fun WorkoutGroup(preferences: UserPreferences, onEvent: (SettingsEvent) -> Unit) {
+private fun WorkoutGroup(
+    preferences: UserPreferences,
+    onEvent: (SettingsEvent) -> Unit,
+) {
     SettingsGroup(title = stringResource(R.string.settings_group_workout)) {
         SettingsRow(
             label = stringResource(R.string.settings_rest_timer),
@@ -253,7 +259,10 @@ private fun NotificationsGroup() {
 }
 
 @Composable
-private fun AboutGroup(appVersion: String, onOpenLink: (String) -> Unit) {
+private fun AboutGroup(
+    appVersion: String,
+    onOpenLink: (String) -> Unit,
+) {
     SettingsGroup(title = stringResource(R.string.settings_group_about)) {
         SettingsInfoRow(label = stringResource(R.string.settings_version), value = appVersion)
         HairlineDivider()
@@ -289,7 +298,10 @@ private fun Footer() {
 }
 
 @Composable
-private fun SettingsDialogs(state: SettingsUiState, onEvent: (SettingsEvent) -> Unit) {
+private fun SettingsDialogs(
+    state: SettingsUiState,
+    onEvent: (SettingsEvent) -> Unit,
+) {
     val dismiss = { onEvent(SettingsEvent.DialogDismissed) }
 
     when (state.dialog) {

@@ -120,7 +120,10 @@ internal fun TemplateList(
  * template held in memory until a snackbar times out.
  */
 @Composable
-private fun TemplateMenu(summary: TemplateSummary, onEvent: (SessionsEvent) -> Unit) {
+private fun TemplateMenu(
+    summary: TemplateSummary,
+    onEvent: (SessionsEvent) -> Unit,
+) {
     var expanded by remember { mutableStateOf(false) }
     val templateId = summary.template.id
     // Resolved here rather than in the ViewModel, which has no `Context` — see
@@ -183,7 +186,10 @@ private fun TemplateMenu(summary: TemplateSummary, onEvent: (SessionsEvent) -> U
  * road exists.
  */
 @Composable
-private fun TemplatesEmptyState(onNewTemplate: () -> Unit, modifier: Modifier = Modifier) {
+private fun TemplatesEmptyState(
+    onNewTemplate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     EmptyState(
         glyph = stringResource(R.string.sessions_templates_glyph),
         title = stringResource(R.string.sessions_templates_empty_title),

@@ -1,7 +1,7 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.ui.theme.OpenGymTheme

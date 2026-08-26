@@ -133,156 +133,164 @@ class FullSessionIntegrationTest {
     }
 
     @Test
-    fun `a full workout produces the summary the stats calculator computes from its sets`() = runTest {
-        val logged = runWorkout()
-        val startedAt = (state.current as SessionState.Active).startedAt
+    fun `a full workout produces the summary the stats calculator computes from its sets`() =
+        runTest {
+            val logged = runWorkout()
+            val startedAt = (state.current as SessionState.Active).startedAt
 
-        val summary = finishSession().getOrThrow().summary
+            val summary = finishSession().getOrThrow().summary
 
-        val stats = SessionStatsCalculator.calculate(logged, startedAt, summary.finishedAt)
-        assertEquals(stats.totalSets, summary.totalSets)
-        assertEquals(stats.totalVolume, summary.totalVolume)
-        assertEquals(stats.exerciseBreakdown.size, summary.exerciseCount)
-        assertEquals(stats.durationSeconds, summary.durationMillis / 1_000L)
-    }
-
-    @Test
-    fun `the summary counts every logged set across both exercises`() = runTest {
-        runWorkout()
-
-        val summary = finishSession().getOrThrow().summary
-
-        assertEquals(benchSets.size + plankHolds.size, summary.totalSets)
-        assertEquals(2, summary.exerciseCount)
-        // Only the bench sets carry load; the planks are real sets with no volume.
-        assertEquals(benchSets.sumOf { (reps, weight) -> weight * reps }, summary.totalVolume)
-    }
+            val stats = SessionStatsCalculator.calculate(logged, startedAt, summary.finishedAt)
+            assertEquals(stats.totalSets, summary.totalSets)
+            assertEquals(stats.totalVolume, summary.totalVolume)
+            assertEquals(stats.exerciseBreakdown.size, summary.exerciseCount)
+            assertEquals(stats.durationSeconds, summary.durationMillis / 1_000L)
+        }
 
     @Test
-    fun `the session lasts as long as the work, the rests and the break between them`() = runTest {
-        val timeline = Timeline(this, clock)
-        val started = startSession().getOrThrow()
-        sessions.addSet(sessions.addExercise(started.sessionId, Catalogue.benchPress.id))
+    fun `the summary counts every logged set across both exercises`() =
+        runTest {
+            runWorkout()
 
-        timeline.advance(WORK_SET + REST + BREAK)
-        val summary = finishSession().getOrThrow().summary
+            val summary = finishSession().getOrThrow().summary
 
-        // Paused stretches count in, which is SessionSummary's documented choice: the
-        // figure is how long the workout took, not how long it was moving.
-        assertEquals(timeline.elapsedMillis, summary.durationMillis)
-    }
-
-    @Test
-    fun `the state machine walks idle active paused active finished in order`() = runTest {
-        runWorkout()
-        val started = state.current as SessionState.Active
-
-        val finished = finishSession().getOrThrow()
-
-        // Resuming restores the original start time rather than restarting the clock, so
-        // the two Active values are the same value — which is the point of asserting on
-        // the whole sequence instead of on each transition's type.
-        assertEquals(
-            listOf(
-                SessionState.Idle,
-                started,
-                SessionState.Paused(started.sessionId, pausedAt = started.startedAt + pausedAfterMillis),
-                started,
-                finished,
-            ),
-            state.recorded,
-        )
-    }
+            assertEquals(benchSets.size + plankHolds.size, summary.totalSets)
+            assertEquals(2, summary.exerciseCount)
+            // Only the bench sets carry load; the planks are real sets with no volume.
+            assertEquals(benchSets.sumOf { (reps, weight) -> weight * reps }, summary.totalVolume)
+        }
 
     @Test
-    fun `finishing closes the row out and frees the next session to start`() = runTest {
-        runWorkout()
-        val sessionId = (state.current as SessionState.Active).sessionId
+    fun `the session lasts as long as the work, the rests and the break between them`() =
+        runTest {
+            val timeline = Timeline(this, clock)
+            val started = startSession().getOrThrow()
+            sessions.addSet(sessions.addExercise(started.sessionId, Catalogue.benchPress.id))
 
-        finishSession().getOrThrow()
+            timeline.advance(WORK_SET + REST + BREAK)
+            val summary = finishSession().getOrThrow().summary
 
-        val closed = sessions.stored(sessionId)
-        assertEquals(false, closed?.isInProgress)
-        assertEquals(clock.now, closed?.completedAt)
-        assertTrue("a finished session must not block the next one", startSession().isSuccess)
-    }
-
-    @Test
-    fun `the session's volume attributes to the muscles its exercises trained`() = runTest {
-        val logged = runWorkout()
-        val summary = finishSession().getOrThrow().summary
-        val exercises = sessions.getExercises(summary.sessionId).first()
-        val links = exercises.associate { it.exerciseId to catalogue.getMuscleGroupLinks(it.exerciseId).first() }
-
-        val byMuscle = MuscleVolumeCalculator.volumeByMuscle(logged, exercises, links)
-
-        // The primary mover carries the whole of the volume the summary reports, so the
-        // two figures reconcile — the attribution is a split of this session, not a
-        // separate count of it. Triceps take their documented half on top, which is why
-        // the map sums to more than the session's volume.
-        assertEquals(summary.totalVolume, byMuscle.getValue(Catalogue.chest))
-
-        // The secondary figure is halved per *set* and then summed, while this expectation
-        // sums and then halves. The two agree only because every set volume in these
-        // fixtures is even, which is a fact about the fixtures and not about the
-        // calculator — MuscleVolumeCalculator truncates towards zero on purpose, matching
-        // SQLite's integer division. Pinned here so an odd-volume fixture fails saying
-        // that, rather than failing as an off-by-one in the attribution.
-        assertTrue(
-            "these fixtures must halve exactly for the reconciliation below to hold",
-            logged.all { VolumeCalculator.setVolume(it) % 2L == 0L },
-        )
-        assertEquals(summary.totalVolume / 2, byMuscle.getValue(Catalogue.triceps))
-        // The planks carry no load, so abdominals are trained but earn no volume.
-        assertEquals(0L, byMuscle.getValue(Catalogue.abdominals))
-        assertEquals(
-            listOf(Catalogue.chest, Catalogue.triceps, Catalogue.abdominals),
-            byMuscle.keys.toList(),
-        )
-    }
+            // Paused stretches count in, which is SessionSummary's documented choice: the
+            // figure is how long the workout took, not how long it was moving.
+            assertEquals(timeline.elapsedMillis, summary.durationMillis)
+        }
 
     @Test
-    fun `the session's top set beats everything logged before it`() = runTest {
-        // The observation a PR engine makes, expressed with the domain primitives that
-        // exist today. See the class doc: the engine itself is M5-01.
-        //
-        // Two of PrType's questions, and deliberately both, because they do not have the
-        // same answer: the heaviest set here is the 6 at 100 kg, while the highest-volume
-        // one is an 8 at 80 kg. An engine that conflated them would report the wrong set.
-        val history = listOf(
-            completedSet(completedAt = 1L, reps = 5, weight = kg(90)),
-            completedSet(completedAt = 2L, reps = 8, weight = kg(70)),
-        )
-        val logged = runWorkout()
+    fun `the state machine walks idle active paused active finished in order`() =
+        runTest {
+            runWorkout()
+            val started = state.current as SessionState.Active
 
-        val heaviest = logged.mapNotNull(WorkoutSet::weight).max()
-        val bestVolume = logged.maxOf(VolumeCalculator::setVolume)
+            val finished = finishSession().getOrThrow()
 
-        val previousHeaviest = history.mapNotNull(WorkoutSet::weight).max()
-        val previousBestVolume = history.maxOf(VolumeCalculator::setVolume)
-        assertEquals(kg(100), heaviest)
-        assertEquals(kg(80) * 8, bestVolume)
-        assertTrue("$heaviest should beat $previousHeaviest", heaviest > previousHeaviest)
-        assertTrue("$bestVolume should beat $previousBestVolume", bestVolume > previousBestVolume)
-    }
+            // Resuming restores the original start time rather than restarting the clock, so
+            // the two Active values are the same value — which is the point of asserting on
+            // the whole sequence instead of on each transition's type.
+            assertEquals(
+                listOf(
+                    SessionState.Idle,
+                    started,
+                    SessionState.Paused(started.sessionId, pausedAt = started.startedAt + pausedAfterMillis),
+                    started,
+                    finished,
+                ),
+                state.recorded,
+            )
+        }
 
     @Test
-    fun `a rest still running when the session is finished is the caller's to dismiss`() = runTest {
-        // The two state machines are independent by design: finishing a session does not
-        // reach into the timer, so a caller that wants the countdown gone cancels it.
-        val timeline = Timeline(this, clock)
-        val timer = restTimer()
-        val started = startSession().getOrThrow()
-        sessions.addSet(sessions.addExercise(started.sessionId, Catalogue.benchPress.id))
+    fun `finishing closes the row out and frees the next session to start`() =
+        runTest {
+            runWorkout()
+            val sessionId = (state.current as SessionState.Active).sessionId
 
-        timer.start(REST)
-        timeline.advance(REST / 2)
-        finishSession().getOrThrow()
+            finishSession().getOrThrow()
 
-        assertEquals(RestTimerState.Running(REST / 2, REST), timer.state.value)
-        timer.cancel()
-        assertEquals(RestTimerState.Idle, timer.state.value)
-    }
+            val closed = sessions.stored(sessionId)
+            assertEquals(false, closed?.isInProgress)
+            assertEquals(clock.now, closed?.completedAt)
+            assertTrue("a finished session must not block the next one", startSession().isSuccess)
+        }
+
+    @Test
+    fun `the session's volume attributes to the muscles its exercises trained`() =
+        runTest {
+            val logged = runWorkout()
+            val summary = finishSession().getOrThrow().summary
+            val exercises = sessions.getExercises(summary.sessionId).first()
+            val links = exercises.associate { it.exerciseId to catalogue.getMuscleGroupLinks(it.exerciseId).first() }
+
+            val byMuscle = MuscleVolumeCalculator.volumeByMuscle(logged, exercises, links)
+
+            // The primary mover carries the whole of the volume the summary reports, so the
+            // two figures reconcile — the attribution is a split of this session, not a
+            // separate count of it. Triceps take their documented half on top, which is why
+            // the map sums to more than the session's volume.
+            assertEquals(summary.totalVolume, byMuscle.getValue(Catalogue.chest))
+
+            // The secondary figure is halved per *set* and then summed, while this expectation
+            // sums and then halves. The two agree only because every set volume in these
+            // fixtures is even, which is a fact about the fixtures and not about the
+            // calculator — MuscleVolumeCalculator truncates towards zero on purpose, matching
+            // SQLite's integer division. Pinned here so an odd-volume fixture fails saying
+            // that, rather than failing as an off-by-one in the attribution.
+            assertTrue(
+                "these fixtures must halve exactly for the reconciliation below to hold",
+                logged.all { VolumeCalculator.setVolume(it) % 2L == 0L },
+            )
+            assertEquals(summary.totalVolume / 2, byMuscle.getValue(Catalogue.triceps))
+            // The planks carry no load, so abdominals are trained but earn no volume.
+            assertEquals(0L, byMuscle.getValue(Catalogue.abdominals))
+            assertEquals(
+                listOf(Catalogue.chest, Catalogue.triceps, Catalogue.abdominals),
+                byMuscle.keys.toList(),
+            )
+        }
+
+    @Test
+    fun `the session's top set beats everything logged before it`() =
+        runTest {
+            // The observation a PR engine makes, expressed with the domain primitives that
+            // exist today. See the class doc: the engine itself is M5-01.
+            //
+            // Two of PrType's questions, and deliberately both, because they do not have the
+            // same answer: the heaviest set here is the 6 at 100 kg, while the highest-volume
+            // one is an 8 at 80 kg. An engine that conflated them would report the wrong set.
+            val history = listOf(
+                completedSet(completedAt = 1L, reps = 5, weight = kg(90)),
+                completedSet(completedAt = 2L, reps = 8, weight = kg(70)),
+            )
+            val logged = runWorkout()
+
+            val heaviest = logged.mapNotNull(WorkoutSet::weight).max()
+            val bestVolume = logged.maxOf(VolumeCalculator::setVolume)
+
+            val previousHeaviest = history.mapNotNull(WorkoutSet::weight).max()
+            val previousBestVolume = history.maxOf(VolumeCalculator::setVolume)
+            assertEquals(kg(100), heaviest)
+            assertEquals(kg(80) * 8, bestVolume)
+            assertTrue("$heaviest should beat $previousHeaviest", heaviest > previousHeaviest)
+            assertTrue("$bestVolume should beat $previousBestVolume", bestVolume > previousBestVolume)
+        }
+
+    @Test
+    fun `a rest still running when the session is finished is the caller's to dismiss`() =
+        runTest {
+            // The two state machines are independent by design: finishing a session does not
+            // reach into the timer, so a caller that wants the countdown gone cancels it.
+            val timeline = Timeline(this, clock)
+            val timer = restTimer()
+            val started = startSession().getOrThrow()
+            sessions.addSet(sessions.addExercise(started.sessionId, Catalogue.benchPress.id))
+
+            timer.start(REST)
+            timeline.advance(REST / 2)
+            finishSession().getOrThrow()
+
+            assertEquals(RestTimerState.Running(REST / 2, REST), timer.state.value)
+            timer.cancel()
+            assertEquals(RestTimerState.Idle, timer.state.value)
+        }
 
     private companion object {
         /** How long a working set takes to perform. */

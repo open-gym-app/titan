@@ -90,7 +90,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Singleton
 class UserPreferencesRepositoryImpl @Inject constructor(
-    @UserPreferencesStore private val dataStore: DataStore<Preferences>,
+    @param:UserPreferencesStore private val dataStore: DataStore<Preferences>,
 ) : UserPreferencesRepository {
 
     /**
@@ -107,21 +107,22 @@ class UserPreferencesRepositoryImpl @Inject constructor(
      * The delay before retrying is what stops a store that is *permanently* unreadable
      * from spinning the IO pool for as long as a screen is open.
      */
-    override fun observe(): Flow<UserPreferences> = dataStore.data
-        .retryWhen { cause, attempt ->
-            // Only IO: a bug in the mapping below is not something to paper over with a
-            // screen full of defaults.
-            if (cause !is IOException) return@retryWhen false
-            // Defaults once, so a collector that has not been handed anything yet still
-            // gets its first frame. Past that, retrying in the background is the better
-            // answer than flashing defaults over a value that was good a moment ago.
-            if (attempt == 0L) emit(emptyPreferences())
-            delay(RETRY_DELAY)
-            true
-        }
-        .map(::toUserPreferences)
-        .distinctUntilChanged()
-        .conflate()
+    override fun observe(): Flow<UserPreferences> =
+        dataStore.data
+            .retryWhen { cause, attempt ->
+                // Only IO: a bug in the mapping below is not something to paper over with a
+                // screen full of defaults.
+                if (cause !is IOException) return@retryWhen false
+                // Defaults once, so a collector that has not been handed anything yet still
+                // gets its first frame. Past that, retrying in the background is the better
+                // answer than flashing defaults over a value that was good a moment ago.
+                if (attempt == 0L) emit(emptyPreferences())
+                delay(RETRY_DELAY)
+                true
+            }
+            .map(::toUserPreferences)
+            .distinctUntilChanged()
+            .conflate()
 
     override suspend fun setUnitSystem(unitSystem: UnitSystem) {
         dataStore.edit { it[UserPreferencesKeys.UNIT_SYSTEM] = unitSystem.name }
@@ -178,7 +179,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
      * [PlateStock] is built before the edit so a weight or a count the model refuses is rejected
      * without opening a transaction — the file's rule that setters reject and readers fall back.
      */
-    override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) {
         val edited = PlateStock(weight = weight, pairs = pairs)
         dataStore.edit { preferences ->
             val stored = preferences[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull()
@@ -310,22 +314,23 @@ private fun PlateInventory.encode(): String =
  * of order is repaired rather than discarded — the ordering invariant is there to make equality
  * meaningful, and nothing about a reordered line is ambiguous.
  */
-private fun String.toPlateInventoryOrNull(): PlateInventory? = try {
-    PlateInventory.of(
-        split(PLATE_SEPARATOR)
-            .filter { it.isNotEmpty() }
-            .map { entry ->
-                val parts = entry.split(PAIRS_SEPARATOR)
-                require(parts.size == 2) { "a plate entry must be <milligrams>x<pairs>, was $entry" }
-                PlateStock(weight = parts[0].toLong(), pairs = parts[1].toInt())
-            },
-    )
-} catch (_: IllegalArgumentException) {
-    // Covers all three ways a line goes bad: `toLong`/`toInt` throw `NumberFormatException`,
-    // the shape check above throws directly, and `PlateStock`/`PlateInventory` throw on a
-    // weight or a count outside what the model admits.
-    null
-}
+private fun String.toPlateInventoryOrNull(): PlateInventory? =
+    try {
+        PlateInventory.of(
+            split(PLATE_SEPARATOR)
+                .filter { it.isNotEmpty() }
+                .map { entry ->
+                    val parts = entry.split(PAIRS_SEPARATOR)
+                    require(parts.size == 2) { "a plate entry must be <milligrams>x<pairs>, was $entry" }
+                    PlateStock(weight = parts[0].toLong(), pairs = parts[1].toInt())
+                },
+        )
+    } catch (_: IllegalArgumentException) {
+        // Covers all three ways a line goes bad: `toLong`/`toInt` throw `NumberFormatException`,
+        // the shape check above throws directly, and `PlateStock`/`PlateInventory` throw on a
+        // weight or a count outside what the model admits.
+        null
+    }
 
 /**
  * The entry named by this string, or [default] when it names nothing.

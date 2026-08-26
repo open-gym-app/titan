@@ -13,20 +13,22 @@ import javax.inject.Inject
  */
 class TemplateMapper @Inject constructor() {
 
-    fun toDomain(entity: WorkoutTemplateEntity): WorkoutTemplate = WorkoutTemplate(
-        id = entity.id,
-        name = entity.name,
-        // Null for a category this build does not know — a value from a newer version
-        // or an import. The column is nullable anyway, so an unreadable category reads
-        // as an uncategorised template rather than making the whole row unreadable.
-        category = decodeEnum<TemplateCategory>(entity.category),
-        icon = entity.icon,
-    )
+    fun toDomain(entity: WorkoutTemplateEntity): WorkoutTemplate =
+        WorkoutTemplate(
+            id = entity.id,
+            name = entity.name,
+            // Null for a category this build does not know — a value from a newer version
+            // or an import. The column is nullable anyway, so an unreadable category reads
+            // as an uncategorised template rather than making the whole row unreadable.
+            category = decodeEnum<TemplateCategory>(entity.category),
+            icon = entity.icon,
+        )
 
-    fun toEntity(template: WorkoutTemplate): WorkoutTemplateEntity = WorkoutTemplateEntity(
-        id = template.id,
-        name = template.name,
-        category = template.category?.name,
-        icon = template.icon,
-    )
+    fun toEntity(template: WorkoutTemplate): WorkoutTemplateEntity =
+        WorkoutTemplateEntity(
+            id = template.id,
+            name = template.name,
+            category = template.category?.name,
+            icon = template.icon,
+        )
 }

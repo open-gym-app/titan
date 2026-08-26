@@ -1,0 +1,108 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":assignAndReview(BoxBoxJason)",
+    ":assignAndReview(paulmascarilla)",
+    ":combinePatchMinorReleases",
+    ":dependencyDashboard",
+    ":disableRateLimiting",
+    ":docker",
+    ":enableRenovate",
+    ":enableVulnerabilityAlertsWithAdditionalLabel(security)",
+    ":gitSignOff",
+    ":ignoreModulesAndTests",
+    ":labels(type:chore,priority:1,source:bot)",
+    ":rebaseStalePrs",
+    ":renovatePrefix",
+    ":semanticCommits",
+    ":semanticCommitScope(deps)",
+    ":semanticCommitType(chore)",
+    "group:all",
+    "helpers:githubDigestChangelogs",
+    "helpers:gitlabDigestChangelogs",
+    "helpers:renovateChangelog",
+    "security:openssf-scorecard",
+    "workarounds:all"
+  ],
+  "minimumReleaseAge": "7 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "lockFileMaintenance": {
+    "enabled": true
+  },
+  "updateInternalDeps": true,
+  "cloneSubmodules": true,
+  "dependencyDashboardAutoclose": true,
+  "dependencyDashboardLabels": [
+    "type:chore",
+    "priority:1",
+    "source:bot"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The upstream exercise catalogue, pinned by commit in tools/seed/source.lock. The Gradle managers cannot see it: it is a GitHub repository this build downloads a tarball of, not an artifact any dependency block names.",
+      "managerFilePatterns": [
+        "/^tools/seed/source\\.lock$/"
+      ],
+      "matchStrings": [
+        "\"repo\":\\s*\"(?<depName>[^\"]+)\",\\s*\"branch\":\\s*\"(?<currentValue>[^\"]+)\",\\s*\"commit\":\\s*\"(?<currentDigest>[0-9a-f]{40})\""
+      ],
+      "datasourceTemplate": "git-refs",
+      "packageNameTemplate": "https://github.com/{{{depName}}}"
+    },
+    {
+      "customType": "regex",
+      "description": "The Python the seed job runs on. `actions/setup-python` takes the series as a literal, so the github-actions manager reads the action's own version but not the interpreter's.",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/[^/]+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "uses: actions/setup-python@[^\\n]+\\n[\\s\\S]*?python-version:\\s*\"(?<currentValue>\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "python",
+      "datasourceTemplate": "python-version",
+      "versioningTemplate": "python"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "The catalogue bump is half an update: `source.lock` also carries `sql_sha256`, and the committed SQL and images under the seed assets are generated from the commit above. Renovate moves the pin; regenerating what hangs off it is a local `make seed`. Pulled out of `group:all` so that manual step is never the reason an otherwise-mergeable dependency PR is stuck.",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDepNames": [
+        "yuhonas/free-exercise-db"
+      ],
+      "groupName": "exercise catalogue",
+      "semanticCommitType": "feat",
+      "semanticCommitScope": "seed",
+      "prBodyNotes": [
+        "⚠️ **Needs `make seed` before it can merge.** This PR moves the pinned upstream commit only. Check out the branch, run `make seed`, and commit the regenerated `exercises.sql`, images and `sql_sha256` — otherwise the `Seed assets` job fails on `make seed-check`."
+      ]
+    },
+    {
+      "description": "KSP tracks the Kotlin compiler it runs inside, and a KSP built against a different compiler fails at `Unsupported plugin option` or on a metadata version it cannot read. They are one upgrade, so they are one PR — separate from `group:all`, which would otherwise let an unrelated failure hold the pair hostage.",
+      "matchPackageNames": [
+        "org.jetbrains.kotlin:{/,}**",
+        "com.google.devtools.ksp{/,}**"
+      ],
+      "groupName": "kotlin and ksp"
+    },
+    {
+      "description": "Coil is held back by Hilt, not by choice: Hilt bundles a kotlin-metadata-jvm that reads only up to a given metadata version, and a Coil compiled by a newer Kotlin fails `:app:hiltJavaCompileDebug` with an error that names neither library. gradle/libs.versions.toml says the same thing at the `coil` entry. Grouping them means the bump that fixes the constraint arrives with the bump that needs it.",
+      "matchPackageNames": [
+        "com.google.dagger:{/,}**",
+        "io.coil-kt.coil3:{/,}**"
+      ],
+      "groupName": "hilt and coil"
+    },
+    {
+      "description": "The Compose BOM is the single source of truth for every androidx.compose artifact (they are declared without a version.ref on purpose). Renovate has nothing to pin on them, but this states the intent so a future contributor does not add one.",
+      "matchPackageNames": [
+        "androidx.compose:compose-bom"
+      ],
+      "groupName": "compose bom"
+    }
+  ]
+}

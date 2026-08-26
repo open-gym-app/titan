@@ -25,9 +25,7 @@ import kotlin.time.Duration
  * [writeFailure] fails every write. That is the shape of the failure that matters here: a
  * store that cannot be written is not selective about which preference it refuses.
  */
-class FakeUserPreferencesRepository(
-    initial: UserPreferences = UserPreferences(),
-) : UserPreferencesRepository {
+class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()) : UserPreferencesRepository {
 
     private val preferences = MutableStateFlow(initial)
 
@@ -39,8 +37,7 @@ class FakeUserPreferencesRepository(
 
     override fun observe(): Flow<UserPreferences> = preferences
 
-    override suspend fun setUnitSystem(unitSystem: UnitSystem) =
-        write { it.copy(unitSystem = unitSystem) }
+    override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }
 
     override suspend fun setTheme(theme: ThemePreference) = write { it.copy(theme = theme) }
 
@@ -54,19 +51,19 @@ class FakeUserPreferencesRepository(
         write { it.copy(barWeight = barWeight) }
     }
 
-    override suspend fun setPlateInventory(inventory: PlateInventory?) =
-        write { it.copy(plateInventory = inventory) }
+    override suspend fun setPlateInventory(inventory: PlateInventory?) = write { it.copy(plateInventory = inventory) }
 
-    override suspend fun setPlatePairs(weight: Long, pairs: Int) {
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) {
         val edited = PlateStock(weight = weight, pairs = pairs)
         write { it.copy(plateInventory = it.plates.withPairs(edited.weight, edited.pairs)) }
     }
 
-    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
-        write { it.copy(trainingGoal = trainingGoal) }
+    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
 
-    override suspend fun setOnboardingCompleted(completed: Boolean) =
-        write { it.copy(onboardingCompleted = completed) }
+    override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun clear() = write { UserPreferences() }
 

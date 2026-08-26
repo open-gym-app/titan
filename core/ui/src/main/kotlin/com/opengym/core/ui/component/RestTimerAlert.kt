@@ -6,9 +6,11 @@ import android.media.AudioManager
 import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -73,15 +75,18 @@ import kotlinx.coroutines.withContext
  * The buzz is the device's vibrator, and it runs one step wider than the tone: a phone in
  * *vibrate* mode buzzes, because vibrate is the mode that asks for exactly this. Silent stops
  * it, on the same reasoning that stops the tone — a phone told to be still is not overridden
- * from a gym. It is played with notification audio attributes, so the system applies the user's
- * own notification-vibration setting to it rather than this deciding.
+ * from a gym. It is played under notification vibration attributes, so the system applies the
+ * user's own notification-vibration setting to it rather than this deciding.
  *
  * @param state the rest timer, as the screen already has it.
  * @param enabled false silences it. For the caller that has its own reason not to make a
  *   noise — a preview, a test, a screen showing somebody else's finished workout.
  */
 @Composable
-fun RestExpiryAlert(state: RestTimerState, enabled: Boolean = true) {
+fun RestExpiryAlert(
+    state: RestTimerState,
+    enabled: Boolean = true,
+) {
     val context = LocalContext.current
     val tone = rememberNotificationTone(enabled)
 
@@ -183,11 +188,14 @@ private fun Context.vibrateRestOver() {
     val vibrator = defaultVibrator() ?: return
     if (!vibrator.hasVibrator()) return
 
+    val effect = VibrationEffect.createWaveform(REST_OVER_PATTERN, NO_REPEAT)
     runCatching {
-        vibrator.vibrate(
-            VibrationEffect.createWaveform(REST_OVER_PATTERN, NO_REPEAT),
-            VIBRATION_ATTRIBUTES,
-        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            vibrator.vibrate(effect, notificationVibrationAttributes())
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(effect, NOTIFICATION_AUDIO_ATTRIBUTES)
+        }
     }
 }
 
@@ -210,8 +218,29 @@ private const val NO_REPEAT = -1
  * Announced as a notification rather than as an alarm, so the system files it under the
  * setting the user would look for it under — and so it does not claim the exemptions an alarm
  * gets from Do Not Disturb.
+ *
+ * Built per call rather than held in a top-level `val`: [VibrationAttributes] arrives in API
+ * 33, and a file-level property is initialised when the file's class is first touched — so on
+ * a 26-to-32 device the very call that goes on to take the [AudioAttributes] branch below
+ * would first have to construct a class that platform does not have. Inside a method of its
+ * own, the class is not loaded until the branch that needs it is actually taken.
  */
-private val VIBRATION_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun notificationVibrationAttributes(): VibrationAttributes =
+    VibrationAttributes.Builder()
+        .setUsage(VibrationAttributes.USAGE_NOTIFICATION)
+        .build()
+
+/**
+ * The same intent as [notificationVibrationAttributes], said the only way API 26 through 32
+ * can hear it.
+ *
+ * `Vibrator.vibrate(VibrationEffect, AudioAttributes)` is deprecated as of API 33 in favour of
+ * the [VibrationAttributes] overload, and on those platforms it is the platform itself that
+ * converts one into the other — same `USAGE_NOTIFICATION`, arrived at by a longer route. This
+ * is the route API 26 through 32 have and 33 upwards no longer take.
+ */
+private val NOTIFICATION_AUDIO_ATTRIBUTES: AudioAttributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_NOTIFICATION)
     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
     .build()

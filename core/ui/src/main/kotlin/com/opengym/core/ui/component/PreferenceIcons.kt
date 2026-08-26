@@ -33,15 +33,17 @@ import com.opengym.core.domain.model.UnitSystem
  * nothing consumes [TrainingGoal] in v1 — so `Custom` gets the tuning slider that means "you
  * set the terms", not a question mark that would read as the app not knowing.
  */
-fun TrainingGoal.icon(): ImageVector = when (this) {
-    TrainingGoal.STRENGTH -> Icons.Outlined.FitnessCenter
-    TrainingGoal.HYPERTROPHY -> Icons.Outlined.Bolt
-    TrainingGoal.ENDURANCE -> Icons.AutoMirrored.Outlined.DirectionsRun
-    TrainingGoal.CUSTOM -> Icons.Outlined.Tune
-}
+fun TrainingGoal.icon(): ImageVector =
+    when (this) {
+        TrainingGoal.STRENGTH -> Icons.Outlined.FitnessCenter
+        TrainingGoal.HYPERTROPHY -> Icons.Outlined.Bolt
+        TrainingGoal.ENDURANCE -> Icons.AutoMirrored.Outlined.DirectionsRun
+        TrainingGoal.CUSTOM -> Icons.Outlined.Tune
+    }
 
 /** What a unit system looks like: a balance for kilograms, a ruler for pounds and miles. */
-fun UnitSystem.icon(): ImageVector = when (this) {
-    UnitSystem.METRIC -> Icons.Outlined.Scale
-    UnitSystem.IMPERIAL -> Icons.Outlined.Straighten
-}
+fun UnitSystem.icon(): ImageVector =
+    when (this) {
+        UnitSystem.METRIC -> Icons.Outlined.Scale
+        UnitSystem.IMPERIAL -> Icons.Outlined.Straighten
+    }

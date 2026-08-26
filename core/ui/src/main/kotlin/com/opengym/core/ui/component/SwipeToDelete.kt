@@ -155,7 +155,10 @@ fun SwipeToDelete(
  * a user who has dragged far enough can see that they have without letting go to find out.
  */
 @Composable
-private fun DeleteTrack(isCommitted: Boolean, modifier: Modifier = Modifier) {
+private fun DeleteTrack(
+    isCommitted: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val scheme = MaterialTheme.colorScheme
 
     Box(

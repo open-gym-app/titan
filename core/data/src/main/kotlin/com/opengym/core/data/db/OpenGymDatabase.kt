@@ -73,11 +73,12 @@ abstract class OpenGymDatabase : RoomDatabase() {
          * [AssetManager] rather than a `Context` because reading the generated
          * SQL asset is the only thing the seed needs from the platform.
          */
-        fun seedCallback(assets: AssetManager) = object : Callback() {
-            override fun onCreate(db: SupportSQLiteDatabase) {
-                DatabaseSeed.insertInto(db, assets)
+        fun seedCallback(assets: AssetManager) =
+            object : Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    DatabaseSeed.insertInto(db, assets)
+                }
             }
-        }
 
         /**
          * Every version bump beyond 1 must add its `Migration` here and a matching

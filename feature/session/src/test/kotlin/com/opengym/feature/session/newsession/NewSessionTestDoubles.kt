@@ -61,15 +61,17 @@ class FakeTemplateStore : TemplateRepository {
     override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> =
         exercises.map { it[templateId].orEmpty() }
 
-    override fun getAllExercises(): Flow<List<TemplateExercise>> =
-        exercises.map { stored -> stored.values.flatten() }
+    override fun getAllExercises(): Flow<List<TemplateExercise>> = exercises.map { stored -> stored.values.flatten() }
 
     override suspend fun insert(
         template: WorkoutTemplate,
         exercises: List<TemplateExerciseDraft>,
     ): Long = seed(template.name, exercises, template.category)
 
-    override suspend fun update(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>) {
+    override suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ) {
         templates.update { it + (template.id to template) }
         store(template.id, exercises)
     }
@@ -92,10 +94,12 @@ class FakeTemplateStore : TemplateRepository {
     }
 
     /** The ids of [templateId]'s exercise rows, in position order, for assertions. */
-    fun exerciseRowIds(templateId: Long): List<Long> =
-        exercises.value[templateId].orEmpty().map(TemplateExercise::id)
+    fun exerciseRowIds(templateId: Long): List<Long> = exercises.value[templateId].orEmpty().map(TemplateExercise::id)
 
-    private fun store(templateId: Long, drafts: List<TemplateExerciseDraft>) {
+    private fun store(
+        templateId: Long,
+        drafts: List<TemplateExerciseDraft>,
+    ) {
         exercises.update { stored ->
             stored + (
                 templateId to drafts.mapIndexed { position, draft ->
@@ -133,20 +137,19 @@ class FakeSessionStore : SessionRepository {
 
     override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
 
-    override fun getActive(): Flow<WorkoutSession?> = sessions.map { stored ->
-        stored.values.filter { it.isInProgress }.maxByOrNull { it.lastActiveAt }
-    }
+    override fun getActive(): Flow<WorkoutSession?> =
+        sessions.map { stored ->
+            stored.values.filter { it.isInProgress }.maxByOrNull { it.lastActiveAt }
+        }
 
-    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
-        exercises.map { it[sessionId].orEmpty() }
+    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> = exercises.map { it[sessionId].orEmpty() }
 
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
 
     // Read, not written: the flow logs nothing, but the offer to pick a running workout back
     // up shows how much is in it — see `NewSessionUiState.RunningWorkout`.
-    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
-        sets.map { it[sessionId].orEmpty() }
+    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> = sets.map { it[sessionId].orEmpty() }
 
     override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> =
         throw UnsupportedOperationException("the new-session flow logs nothing")
@@ -230,7 +233,10 @@ class FakeSessionStore : SessionRepository {
     }
 
     /** [count] completed sets against [sessionId], for the workout that is already running. */
-    fun seedSets(sessionId: Long, count: Int) {
+    fun seedSets(
+        sessionId: Long,
+        count: Int,
+    ) {
         sets.update {
             it + (
                 sessionId to (1..count).map { number ->
@@ -281,8 +287,7 @@ class FakeExerciseCatalogue(
 
     override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
 
-    override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> =
-        MutableStateFlow(links)
+    override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> = MutableStateFlow(links)
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.find { it.id == id })
 
@@ -307,8 +312,10 @@ class FakeExerciseCatalogue(
 
     override suspend fun update(exercise: Exercise) = unsupported()
 
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) =
-        unsupported()
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
 
@@ -324,28 +331,25 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
 
     override fun observe(): Flow<UserPreferences> = preferences
 
-    override suspend fun setUnitSystem(unitSystem: UnitSystem) =
-        write { it.copy(unitSystem = unitSystem) }
+    override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }
 
     override suspend fun setTheme(theme: ThemePreference) = write { it.copy(theme = theme) }
 
-    override suspend fun setDefaultRestDuration(duration: Duration) =
-        write { it.copy(defaultRestDuration = duration) }
+    override suspend fun setDefaultRestDuration(duration: Duration) = write { it.copy(defaultRestDuration = duration) }
 
     override suspend fun setBarWeight(barWeight: Long) = write { it.copy(barWeight = barWeight) }
 
-    override suspend fun setPlateInventory(inventory: PlateInventory?) =
-        write { it.copy(plateInventory = inventory) }
+    override suspend fun setPlateInventory(inventory: PlateInventory?) = write { it.copy(plateInventory = inventory) }
 
     /** Present to satisfy the interface. No screen in this flow reaches a rack. */
-    override suspend fun setPlatePairs(weight: Long, pairs: Int) =
-        write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
-    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
-        write { it.copy(trainingGoal = trainingGoal) }
+    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
 
-    override suspend fun setOnboardingCompleted(completed: Boolean) =
-        write { it.copy(onboardingCompleted = completed) }
+    override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun clear() = write { UserPreferences() }
 

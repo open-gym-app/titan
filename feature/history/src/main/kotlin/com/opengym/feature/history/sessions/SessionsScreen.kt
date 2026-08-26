@@ -243,7 +243,10 @@ fun SessionsScreen(
  * because it asks whether rather than what.
  */
 @Composable
-private fun TemplateActionDialogs(action: TemplateAction?, onEvent: (SessionsEvent) -> Unit) {
+private fun TemplateActionDialogs(
+    action: TemplateAction?,
+    onEvent: (SessionsEvent) -> Unit,
+) {
     when (action) {
         null -> Unit
 
@@ -285,12 +288,13 @@ private fun TemplateActionDialogs(action: TemplateAction?, onEvent: (SessionsEve
 }
 
 /** The sentence a message is shown as. */
-private fun SessionsMessage.labelRes(): Int = when (this) {
-    SessionsMessage.TEMPLATE_DUPLICATED -> R.string.sessions_template_duplicated
-    SessionsMessage.TEMPLATE_DELETED -> R.string.sessions_template_deleted
-    SessionsMessage.TEMPLATE_GONE -> R.string.sessions_template_gone
-    SessionsMessage.TEMPLATE_ACTION_FAILED -> R.string.sessions_template_failed
-}
+private fun SessionsMessage.labelRes(): Int =
+    when (this) {
+        SessionsMessage.TEMPLATE_DUPLICATED -> R.string.sessions_template_duplicated
+        SessionsMessage.TEMPLATE_DELETED -> R.string.sessions_template_deleted
+        SessionsMessage.TEMPLATE_GONE -> R.string.sessions_template_gone
+        SessionsMessage.TEMPLATE_ACTION_FAILED -> R.string.sessions_template_failed
+    }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

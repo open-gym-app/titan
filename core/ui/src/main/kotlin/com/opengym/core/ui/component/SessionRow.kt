@@ -167,7 +167,11 @@ fun SessionRow(
  * most one of these on screen by construction — there is only one today.
  */
 @Composable
-private fun DateRail(startedAt: Long, isToday: Boolean, modifier: Modifier = Modifier) {
+private fun DateRail(
+    startedAt: Long,
+    isToday: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val date = localDateOf(startedAt)
     val color = if (isToday) {
         MaterialTheme.colorScheme.primary
@@ -192,7 +196,11 @@ private fun DateRail(startedAt: Long, isToday: Boolean, modifier: Modifier = Mod
 
 /** `52m · 12 sets · 4,820 kg` — the three figures, in the order a lifter reads them. */
 @Composable
-private fun sessionMeta(duration: Duration, totalSets: Int, totalVolume: Long): String {
+private fun sessionMeta(
+    duration: Duration,
+    totalSets: Int,
+    totalVolume: Long,
+): String {
     val separator = stringResource(R.string.exercise_meta_separator)
     val sets = pluralStringResource(R.plurals.session_set_count, totalSets, totalSets)
 

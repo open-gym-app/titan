@@ -10,4 +10,7 @@ import androidx.compose.runtime.Immutable
  *   next is a formatted weight, the next a count.
  */
 @Immutable
-data class MetaEntry(val label: String, val value: String)
+data class MetaEntry(
+    val label: String,
+    val value: String,
+)

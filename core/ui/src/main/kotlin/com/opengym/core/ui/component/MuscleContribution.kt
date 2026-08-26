@@ -193,7 +193,10 @@ fun MuscleContributionRow(
  * already carries the semantics; this is a rectangle.
  */
 @Composable
-private fun MuscleContributionBar(share: Float, isPrimary: Boolean) {
+private fun MuscleContributionBar(
+    share: Float,
+    isPrimary: Boolean,
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -231,7 +234,10 @@ private const val MIN_VISIBLE_SHARE = 0.02f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-private fun previewMuscle(id: Long, name: String) = MuscleGroup(id = id, name = name)
+private fun previewMuscle(
+    id: Long,
+    name: String,
+) = MuscleGroup(id = id, name = name)
 
 /** A push day's attributed volume, in milligram-reps, ordered as the calculator returns it. */
 private const val PREVIEW_CHEST = 2_480_000_000L
@@ -244,15 +250,16 @@ private const val PREVIEW_SHOULDERS_ID = 2L
 private const val PREVIEW_TRICEPS_ID = 3L
 private const val PREVIEW_ABS_ID = 4L
 
-private fun previewContributions(): List<MuscleContribution> = muscleContributions(
-    volumeByMuscle = linkedMapOf(
-        previewMuscle(PREVIEW_CHEST_ID, "CHEST") to PREVIEW_CHEST,
-        previewMuscle(PREVIEW_SHOULDERS_ID, "SHOULDERS") to PREVIEW_SHOULDERS,
-        previewMuscle(PREVIEW_TRICEPS_ID, "TRICEPS") to PREVIEW_TRICEPS,
-        previewMuscle(PREVIEW_ABS_ID, "ABDOMINALS") to PREVIEW_ABS,
-    ),
-    primaryMuscleIds = setOf(PREVIEW_CHEST_ID, PREVIEW_SHOULDERS_ID),
-)
+private fun previewContributions(): List<MuscleContribution> =
+    muscleContributions(
+        volumeByMuscle = linkedMapOf(
+            previewMuscle(PREVIEW_CHEST_ID, "CHEST") to PREVIEW_CHEST,
+            previewMuscle(PREVIEW_SHOULDERS_ID, "SHOULDERS") to PREVIEW_SHOULDERS,
+            previewMuscle(PREVIEW_TRICEPS_ID, "TRICEPS") to PREVIEW_TRICEPS,
+            previewMuscle(PREVIEW_ABS_ID, "ABDOMINALS") to PREVIEW_ABS,
+        ),
+        primaryMuscleIds = setOf(PREVIEW_CHEST_ID, PREVIEW_SHOULDERS_ID),
+    )
 
 @Preview(name = "Muscle contribution", widthDp = 360)
 @Composable

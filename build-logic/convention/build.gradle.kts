@@ -40,6 +40,17 @@ dependencies {
 // `jacoco` is a Gradle core plugin — no version catalog entry, no `compileOnly`, it is
 // always on the Gradle API classpath `AndroidJacocoConventionPlugin` compiles against.
 
+// The counterpart to the `subprojects` block in the root `build.gradle.kts`: deprecation is an
+// error here too. This build is where a convention plugin configures AGP and KGP, which is
+// where a deprecated DSL property is most likely to be reached for and least likely to be
+// noticed — the warning lands during `:build-logic:convention:compileKotlin`, above every line
+// of the main build's output. See that block for the rationale and the escape hatch.
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
+    compilerOptions {
+        freeCompilerArgs.add("-Xwarning-level=DEPRECATION:error")
+    }
+}
+
 gradlePlugin {
     plugins {
         register("androidLibrary") {

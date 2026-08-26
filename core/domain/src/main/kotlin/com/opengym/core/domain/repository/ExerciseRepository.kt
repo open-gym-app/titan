@@ -66,7 +66,10 @@ interface ExerciseRepository {
      *
      * @return the new exercise's id.
      */
-    suspend fun insert(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>): Long
+    suspend fun insert(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ): Long
 
     /** The muscle group taxonomy, ordered by name — the vocabulary a custom exercise picks from. */
     fun getMuscleGroups(): Flow<List<MuscleGroup>>
@@ -97,7 +100,10 @@ interface ExerciseRepository {
      * Linking to a group id that does not exist fails the write, as does a name and equipment
      * pair another exercise already holds.
      */
-    suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>)
+    suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    )
 
     suspend fun delete(id: Long)
 }

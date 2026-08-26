@@ -39,8 +39,7 @@ abstract class RoomTestBase {
     }
 
     /** Seeds a whole workout history through the DAO layer. See [HistorySpec]. */
-    protected suspend fun seedHistory(spec: HistorySpec): SeededHistory =
-        WorkoutHistoryFixture(db).seed(spec)
+    protected suspend fun seedHistory(spec: HistorySpec): SeededHistory = WorkoutHistoryFixture(db).seed(spec)
 
     /**
      * Number of rows in [table]. Orphan-row assertions need a count over a table

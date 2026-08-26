@@ -1,7 +1,7 @@
 package com.opengym.core.ui.component
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -65,7 +65,10 @@ class PreferenceLabelsTest {
      * One `setContent` per test, taking every string a value carries in one pass — the rule
      * refuses a second call, and the label and its detail are the same question anyway.
      */
-    private fun <T> assertAllLabelled(values: List<T>, strings: @Composable (T) -> List<String>) {
+    private fun <T> assertAllLabelled(
+        values: List<T>,
+        strings: @Composable (T) -> List<String>,
+    ) {
         val rendered = mutableListOf<String>()
         composeTestRule.setContent {
             OpenGymTheme {

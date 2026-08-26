@@ -150,7 +150,10 @@ private fun MonthNavigation(
  * distinction `StatChip` and `StatTile` are documented by.
  */
 @Composable
-private fun MonthTotals(page: CalendarPage, modifier: Modifier = Modifier) {
+private fun MonthTotals(
+    page: CalendarPage,
+    modifier: Modifier = Modifier,
+) {
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
         // Wrapping rather than a `Row`: three labelled chips are already within a few dp of
         // 360, and a month of long sessions ("12h 40m") or a larger font scale puts the last

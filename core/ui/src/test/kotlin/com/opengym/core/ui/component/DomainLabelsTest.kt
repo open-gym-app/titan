@@ -3,7 +3,7 @@ package com.opengym.core.ui.component
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.opengym.core.domain.model.DifficultyLevel
 import com.opengym.core.domain.model.Discipline
@@ -144,7 +144,10 @@ class DomainLabelsTest {
     }
 
     /** Renders every value's label and asserts each one is a non-blank, distinct string. */
-    private fun <T> assertAllLabelled(values: List<T>, label: @Composable (T) -> String) {
+    private fun <T> assertAllLabelled(
+        values: List<T>,
+        label: @Composable (T) -> String,
+    ) {
         val labels = mutableListOf<String>()
         composeTestRule.setContent {
             OpenGymTheme {
@@ -156,7 +159,10 @@ class DomainLabelsTest {
         assertEquals("labels must be distinct", labels.size, labels.toSet().size)
     }
 
-    private fun <T> renderAll(values: List<T>, label: @Composable (T) -> String) {
+    private fun <T> renderAll(
+        values: List<T>,
+        label: @Composable (T) -> String,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 values.forEach { value -> Text(text = label(value)) }

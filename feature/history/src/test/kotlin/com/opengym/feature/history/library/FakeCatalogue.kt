@@ -82,8 +82,7 @@ class FakeExerciseRepository(
         combine(exercises, catalogueArrived) { rows, arrived -> rows.takeIf { arrived } }
             .filterNotNull()
 
-    override fun getById(id: Long): Flow<Exercise?> =
-        exercises.map { all -> all.firstOrNull { it.id == id } }
+    override fun getById(id: Long): Flow<Exercise?> = exercises.map { all -> all.firstOrNull { it.id == id } }
 
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> =
         exercises.map { all -> all.filter { it.type == type } }
@@ -129,7 +128,10 @@ class FakeExerciseRepository(
         exercises.update { all -> all.map { if (it.id == exercise.id) exercise else it } }
     }
 
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) {
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) {
         update(exercise)
         // Replaced rather than merged, and dropped rather than stored empty — both are what
         // the contract says and what `getAllMuscleGroupLinks` depends on.
@@ -154,9 +156,7 @@ class FakeExerciseRepository(
 }
 
 /** The records, as a map the test writes directly. */
-class FakePersonalRecordRepository(
-    records: Map<Long, PersonalRecord> = emptyMap(),
-) : PersonalRecordRepository {
+class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
 
     private val records = MutableStateFlow(records)
 
@@ -194,8 +194,9 @@ val BENCH_RECORD = PersonalRecord(
     achievedAt = 0,
 )
 
-fun catalogueRepository() = FakeExerciseRepository(
-    exercises = CATALOGUE,
-    links = CATALOGUE_LINKS,
-    taxonomy = TAXONOMY,
-)
+fun catalogueRepository() =
+    FakeExerciseRepository(
+        exercises = CATALOGUE,
+        links = CATALOGUE_LINKS,
+        taxonomy = TAXONOMY,
+    )

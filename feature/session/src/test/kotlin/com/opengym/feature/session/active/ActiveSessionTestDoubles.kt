@@ -125,8 +125,7 @@ class FakeActiveSessionStore(
         return stored.id
     }
 
-    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> =
-        sets.map { insertSet(it) }
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> = sets.map { insertSet(it) }
 
     /** Every set rewritten through [updateSet] or [updateSets], oldest first. */
     val updated = mutableListOf<WorkoutSet>()
@@ -149,7 +148,7 @@ class FakeActiveSessionStore(
         sets.value = sets.value.map { if (it.id == set.id) set else it }
     }
 
-    /**
+    /*
      * Writes several sets at once, and checks the invariant the schema does not.
      *
      * `workout_set` has no unique index on `(session_exercise_id, set_number)` — the numbers are
@@ -157,6 +156,7 @@ class FakeActiveSessionStore(
      * renumbering that leaves two sets on one number pass here and be read as "set 2" twice on a
      * device.
      */
+
     /**
      * Thrown by [updateSets] alone, when set.
      *
@@ -358,15 +358,16 @@ val FLY = Exercise(id = 3L, name = "Cable fly")
 val PUSHDOWN = Exercise(id = 4L, name = "Tricep pushdown")
 
 /** The session row as it stands mid-workout: in progress, with no `completedAt`. */
-fun runningSession(name: String? = "Push day · Upper") = WorkoutSession(
-    id = ACTIVE_SESSION_ID,
-    name = name,
-    completedAt = null,
-    isInProgress = true,
-    lastActiveAt = STARTED_AT,
-    createdAt = STARTED_AT,
-    updatedAt = STARTED_AT,
-)
+fun runningSession(name: String? = "Push day · Upper") =
+    WorkoutSession(
+        id = ACTIVE_SESSION_ID,
+        name = name,
+        completedAt = null,
+        isInProgress = true,
+        lastActiveAt = STARTED_AT,
+        createdAt = STARTED_AT,
+        updatedAt = STARTED_AT,
+    )
 
 fun activeExercise(
     id: Long,

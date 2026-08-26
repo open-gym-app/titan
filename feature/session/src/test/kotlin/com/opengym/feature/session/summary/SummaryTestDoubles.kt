@@ -120,8 +120,7 @@ class FakeSummaryCatalogue(
     private val unread: Boolean = false,
 ) : ExerciseRepository {
 
-    override fun getAll(): Flow<List<Exercise>> =
-        if (unread) emptyFlow() else MutableStateFlow(exercises)
+    override fun getAll(): Flow<List<Exercise>> = if (unread) emptyFlow() else MutableStateFlow(exercises)
 
     override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> =
         if (unread) emptyFlow() else MutableStateFlow(links)
@@ -149,8 +148,10 @@ class FakeSummaryCatalogue(
 
     override suspend fun update(exercise: Exercise) = unsupported()
 
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) =
-        unsupported()
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
 
@@ -164,8 +165,7 @@ class FakeSummaryCatalogue(
  * One per exercise, which is all the repository exposes today — see the note on the recap's
  * ViewModel for what that costs and when it stops costing it.
  */
-class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) :
-    PersonalRecordRepository {
+class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
 }
@@ -214,8 +214,7 @@ class FakeTemplateWriteStore : TemplateRepository {
     /** What was written, for assertions. */
     fun stored(): List<WorkoutTemplate> = templates.value.values.toList()
 
-    fun storedExercises(templateId: Long): List<TemplateExerciseDraft> =
-        exercises.value[templateId].orEmpty()
+    fun storedExercises(templateId: Long): List<TemplateExerciseDraft> = exercises.value[templateId].orEmpty()
 
     override fun getById(id: Long): Flow<WorkoutTemplate?> = unsupported()
 
@@ -223,13 +222,14 @@ class FakeTemplateWriteStore : TemplateRepository {
 
     override fun getAllExercises(): Flow<List<TemplateExercise>> = unsupported()
 
-    override suspend fun update(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>) =
-        unsupported()
+    override suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ) = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
 
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("the recap only creates templates")
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("the recap only creates templates")
 }
 
 // ─── The session under test ─────────────────────────────────────────────────────────────
@@ -271,16 +271,20 @@ fun finishedSession(
     updatedAt = FINISHED_AT,
 )
 
-fun sessionExercise(id: Long, exerciseId: Long, position: Int, supersetGroup: Int? = null) =
-    SessionExercise(
-        id = id,
-        sessionId = SESSION_ID,
-        exerciseId = exerciseId,
-        position = position,
-        supersetGroup = supersetGroup,
-        createdAt = STARTED_AT,
-        updatedAt = STARTED_AT,
-    )
+fun sessionExercise(
+    id: Long,
+    exerciseId: Long,
+    position: Int,
+    supersetGroup: Int? = null,
+) = SessionExercise(
+    id = id,
+    sessionId = SESSION_ID,
+    exerciseId = exerciseId,
+    position = position,
+    supersetGroup = supersetGroup,
+    createdAt = STARTED_AT,
+    updatedAt = STARTED_AT,
+)
 
 fun workoutSet(
     id: Long,

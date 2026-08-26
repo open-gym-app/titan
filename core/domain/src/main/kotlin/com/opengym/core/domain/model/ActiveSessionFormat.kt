@@ -76,8 +76,7 @@ object ActiveSessionFormat {
     private val rawEnvelopeSerializer = Envelope.serializer(JsonElement.serializer())
 
     /** [session] as a JSON document, stamped with [VERSION]. */
-    fun encode(session: ActiveSession): String =
-        json.encodeToString(envelopeSerializer, Envelope(VERSION, session))
+    fun encode(session: ActiveSession): String = json.encodeToString(envelopeSerializer, Envelope(VERSION, session))
 
     /**
      * The draft [text] holds, or **null** when it does not hold one this build can
@@ -115,5 +114,8 @@ object ActiveSessionFormat {
      * cannot parse does not stop it reading the version.
      */
     @Serializable
-    private data class Envelope<T>(val version: Int, val session: T)
+    private data class Envelope<T>(
+        val version: Int,
+        val session: T,
+    )
 }

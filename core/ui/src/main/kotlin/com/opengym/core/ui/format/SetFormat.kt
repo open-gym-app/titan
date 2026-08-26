@@ -24,14 +24,20 @@ import com.opengym.core.ui.theme.LocalUnitSystem
  *   columns lined up, and a sentence simply leaves the clause out.
  */
 @Composable
-fun formatSet(weightMilligrams: Long?, reps: Int?): String? = when {
-    weightMilligrams != null && reps != null ->
-        stringResource(R.string.set_log_weight_and_reps, formatWeight(weightMilligrams), reps)
+fun formatSet(
+    weightMilligrams: Long?,
+    reps: Int?,
+): String? =
+    when {
+        weightMilligrams != null && reps != null ->
+            stringResource(R.string.set_log_weight_and_reps, formatWeight(weightMilligrams), reps)
 
-    reps != null -> stringResource(R.string.set_log_reps_only, reps)
-    weightMilligrams != null -> formatWeight(weightMilligrams)
-    else -> null
-}
+        reps != null -> stringResource(R.string.set_log_reps_only, reps)
+
+        weightMilligrams != null -> formatWeight(weightMilligrams)
+
+        else -> null
+    }
 
 /**
  * The same set with everything optional taken out of it: `60×10`.
@@ -50,16 +56,22 @@ fun formatSet(weightMilligrams: Long?, reps: Int?): String? = when {
  *   [formatSet], and the caller draws its own placeholder.
  */
 @Composable
-fun formatSetCompact(weightMilligrams: Long?, reps: Int?): String? = when {
-    weightMilligrams != null && reps != null -> stringResource(
-        R.string.set_log_weight_and_reps_compact,
-        formatWeightValue(weightMilligrams),
-        reps,
-    )
+fun formatSetCompact(
+    weightMilligrams: Long?,
+    reps: Int?,
+): String? =
+    when {
+        weightMilligrams != null && reps != null -> stringResource(
+            R.string.set_log_weight_and_reps_compact,
+            formatWeightValue(weightMilligrams),
+            reps,
+        )
 
-    // A bodyweight set, where the count is the whole of what was done. The `×` stays in front
-    // of it so the cell cannot be read as a weight with the reps clipped off.
-    reps != null -> stringResource(R.string.set_log_reps_only_compact, reps)
-    weightMilligrams != null -> formatWeightValue(weightMilligrams)
-    else -> null
-}
+        // A bodyweight set, where the count is the whole of what was done. The `×` stays in front
+        // of it so the cell cannot be read as a weight with the reps clipped off.
+        reps != null -> stringResource(R.string.set_log_reps_only_compact, reps)
+
+        weightMilligrams != null -> formatWeightValue(weightMilligrams)
+
+        else -> null
+    }

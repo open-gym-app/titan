@@ -117,14 +117,19 @@ fun WeekStrip(
  * the same sentence, from the same strings, that a calendar cell announces.
  */
 @Composable
-private fun RowScope.DayCell(day: WeekDay, modifier: Modifier = Modifier) {
+private fun RowScope.DayCell(
+    day: WeekDay,
+    modifier: Modifier = Modifier,
+) {
     val trained = day.sessionCount > 0
     val container: Color = when {
         trained -> MaterialTheme.colorScheme.primaryContainer
+
         // No fill at all for a day that has not happened. The filled `surfaceContainer` cell
         // is a statement — this day went by without a workout — and it is not one the app can
         // make about Friday on a Monday.
         day.isFuture -> Color.Transparent
+
         else -> MaterialTheme.colorScheme.surfaceContainer
     }
     val content: Color = when {
@@ -147,9 +152,11 @@ private fun RowScope.DayCell(day: WeekDay, modifier: Modifier = Modifier) {
             formatSessionDate(day.date),
             day.sessionCount,
         )
+
         // "Fri 1 May 2026, rest day" for a day nobody has had the chance to train on yet is
         // the drawn cell's lie, said out loud.
         day.isFuture -> stringResource(R.string.calendar_day_upcoming, formatSessionDate(day.date))
+
         else -> stringResource(R.string.calendar_day_rest, formatSessionDate(day.date))
     }
 

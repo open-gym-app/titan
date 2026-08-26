@@ -402,11 +402,14 @@ class ActiveSessionViewModel @Inject constructor(
 
         when (event) {
             is ActiveSessionEvent.SetLogged -> log(event.sessionExerciseId)
+
             ActiveSessionEvent.PauseToggled -> togglePause()
+
             ActiveSessionEvent.FinishRequested -> finish()
 
             ActiveSessionEvent.DiscardRequested ->
                 screenState.update { it.copy(confirmingDiscard = true) }
+
             // Ignored while the delete is in flight, matching the recap's template dialog: a
             // dismissal that cleared the flag would re-arm the action over a session that is
             // already being deleted.
@@ -414,9 +417,11 @@ class ActiveSessionViewModel @Inject constructor(
                 if (!screenState.value.isDiscarding) {
                     screenState.update { it.copy(confirmingDiscard = false) }
                 }
+
             ActiveSessionEvent.DiscardConfirmed -> discard()
 
             ActiveSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
+
             else -> Unit
         }
     }
@@ -483,7 +488,10 @@ class ActiveSessionViewModel @Inject constructor(
      * control that reaches this is drawn inert, so the guard is for the event a control
      * dispatched in the frame before it was — the same reason [log] and [remove] have theirs.
      */
-    private fun editEntry(sessionExerciseId: Long, change: (SetEntry) -> SetEntry) {
+    private fun editEntry(
+        sessionExerciseId: Long,
+        change: (SetEntry) -> SetEntry,
+    ) {
         val state = screenState.value
         if (state.isBusy || state.pausedAt != null) return
 
@@ -532,15 +540,17 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /** The weight field read as milligrams, in whatever unit the user is typing in. */
-    private fun weightField(text: String): Field<Long> = when {
-        text.isBlank() -> Field.absent()
-        else -> Field.of(parseWeightMilligrams(text, unitSystem.value))
-    }
+    private fun weightField(text: String): Field<Long> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(parseWeightMilligrams(text, unitSystem.value))
+        }
 
-    private fun repsField(text: String): Field<Int> = when {
-        text.isBlank() -> Field.absent()
-        else -> Field.of(text.trim().toIntOrNull())
-    }
+    private fun repsField(text: String): Field<Int> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(text.trim().toIntOrNull())
+        }
 
     /**
      * Writes one exercise's entry as a set.
@@ -664,6 +674,7 @@ class ActiveSessionViewModel @Inject constructor(
                 toggleCompletion(event.sessionExerciseId, event.setId, event.isCompleted)
 
             ActiveSessionEvent.SetDeleteUndone -> restoreDeletedSet()
+
             ActiveSessionEvent.SetDeleteDismissed ->
                 screenState.update { it.copy(deletedSet = null) }
 
@@ -688,7 +699,10 @@ class ActiveSessionViewModel @Inject constructor(
      * disk, and a half-typed correction restored after a process kill would put values back over
      * a set the user has no memory of touching.
      */
-    private fun typeIntoSet(setId: Long, change: (SetEntry) -> SetEntry) {
+    private fun typeIntoSet(
+        setId: Long,
+        change: (SetEntry) -> SetEntry,
+    ) {
         val stored = loaded.value?.setById(setId) ?: return
 
         screenState.update { state ->
@@ -728,7 +742,10 @@ class ActiveSessionViewModel @Inject constructor(
      * row take turns rather than race. Refused outright over a workout on its way out, which
      * [finish] makes safe by flushing what is held before it closes the session.
      */
-    private fun commitSet(sessionExerciseId: Long, setId: Long) {
+    private fun commitSet(
+        sessionExerciseId: Long,
+        setId: Long,
+    ) {
         val state = screenState.value
         if (state.isBusy || setId !in state.setEdits) return
         enqueueSetEdit(sessionExerciseId, setId)
@@ -749,7 +766,10 @@ class ActiveSessionViewModel @Inject constructor(
      * one row collapses into one write of what the row finally says, and the rest find it already
      * written and clear the draft.
      */
-    private fun enqueueSetEdit(sessionExerciseId: Long, setId: Long) {
+    private fun enqueueSetEdit(
+        sessionExerciseId: Long,
+        setId: Long,
+    ) {
         val previous = setEditWrites[setId]
         // Started only once it is in the map, so a write that gets all the way through without
         // suspending cannot tidy away an entry that has not been made yet.
@@ -774,7 +794,10 @@ class ActiveSessionViewModel @Inject constructor(
      * those is answered by asking the state again instead of writing what was true when the user
      * left the row.
      */
-    private suspend fun writeSetEdit(sessionExerciseId: Long, setId: Long) {
+    private suspend fun writeSetEdit(
+        sessionExerciseId: Long,
+        setId: Long,
+    ) {
         val entry = screenState.value.setEdits[setId] ?: return
         val target = editTarget(sessionExerciseId, setId, entry) ?: return
         val draft = target.stored.toActiveSet().copy(
@@ -867,7 +890,11 @@ class ActiveSessionViewModel @Inject constructor(
      * the ordinary one — a row left mid-correction, with the reason already under it. See
      * [commitSet].
      */
-    private fun editTarget(sessionExerciseId: Long, setId: Long, entry: SetEntry): EditTarget? {
+    private fun editTarget(
+        sessionExerciseId: Long,
+        setId: Long,
+        entry: SetEntry,
+    ): EditTarget? {
         val exercise = exerciseRow(sessionExerciseId) ?: return null
         val exerciseType = catalogue.value?.exercises?.get(exercise.exerciseId)?.type
         if (!entry.canLog || !entry.records(exerciseType)) return null
@@ -896,7 +923,10 @@ class ActiveSessionViewModel @Inject constructor(
      * be computed against numbers that have already moved. An undo is the same write from the
      * other end and is held apart from this one by [setTableWrites].
      */
-    private fun delete(sessionExerciseId: Long, setId: Long) {
+    private fun delete(
+        sessionExerciseId: Long,
+        setId: Long,
+    ) {
         val state = screenState.value
         if (state.isBusy || state.isDeletingSet) return
         setEditWritten.remove(setId)
@@ -1003,7 +1033,11 @@ class ActiveSessionViewModel @Inject constructor(
      * completeness rule every other write path holds it to. Un-ticking is never refused for it —
      * see `SetValidator`.
      */
-    private fun toggleCompletion(sessionExerciseId: Long, setId: Long, isCompleted: Boolean) {
+    private fun toggleCompletion(
+        sessionExerciseId: Long,
+        setId: Long,
+        isCompleted: Boolean,
+    ) {
         val state = screenState.value
         if (state.isBusy || setId in state.togglingSetIds) return
         val exerciseType = exerciseTypeOf(sessionExerciseId)
@@ -1217,17 +1251,25 @@ class ActiveSessionViewModel @Inject constructor(
     private fun onLayoutEvent(event: ActiveSessionEvent): Boolean {
         when (event) {
             is ActiveSessionEvent.ExercisesPicked -> addPicked(event.exerciseIds)
+
             is ActiveSessionEvent.ExerciseRemoved -> remove(event.sessionExerciseId)
+
             is ActiveSessionEvent.ExercisesReordered -> reorder(event.orderedSessionExerciseIds)
+
             is ActiveSessionEvent.ExerciseSwapped -> swap(event.sessionExerciseId, event.exerciseId)
+
             is ActiveSessionEvent.SupersetLinked -> regroup(event.sessionExerciseId, linked = true)
+
             is ActiveSessionEvent.SupersetUnlinked -> regroup(event.sessionExerciseId, linked = false)
+
             // Nothing to do for either: opening the picker is a navigation, and the destination
             // is what performs it. They exist so the screen has one thing to emit rather than a
             // callback threaded past the state — and, for the swap, so that which slot asked is
             // recorded where the answer will come back to. See `ActiveSessionRoute`.
             ActiveSessionEvent.AddExercisesRequested -> Unit
+
             is ActiveSessionEvent.ExerciseSwapRequested -> Unit
+
             else -> return false
         }
         return true
@@ -1361,7 +1403,10 @@ class ActiveSessionViewModel @Inject constructor(
      * cannot be swapped, because the sets would stay and be attributed to a movement they were
      * not performed on. See `SwapSessionExerciseUseCase`.
      */
-    private fun swap(sessionExerciseId: Long, exerciseId: Long) {
+    private fun swap(
+        sessionExerciseId: Long,
+        exerciseId: Long,
+    ) {
         val state = screenState.value
         if (state.isBusy || state.swappingExerciseId != null) return
         screenState.update { it.copy(swappingExerciseId = sessionExerciseId, message = null) }
@@ -1404,7 +1449,10 @@ class ActiveSessionViewModel @Inject constructor(
      * `session_exercise`, which is read as a `Flow`, so the labels and the joins on screen come
      * from the store the same way the sets do.
      */
-    private fun regroup(sessionExerciseId: Long, linked: Boolean) {
+    private fun regroup(
+        sessionExerciseId: Long,
+        linked: Boolean,
+    ) {
         val state = screenState.value
         if (state.isBusy || state.isRegrouping) return
         screenState.update { it.copy(isRegrouping = true, message = null) }
@@ -1452,6 +1500,7 @@ class ActiveSessionViewModel @Inject constructor(
                 }
 
             ActiveSessionEvent.NameConfirmed -> rename()
+
             else -> return false
         }
         return true
@@ -2070,10 +2119,11 @@ private data class ScreenState(
      * the one way out of [pausedAt] — the realignment on open uses it over a stretch the process
      * spent dead, and that stretch is exactly as much not-working-out as a deliberate pause is.
      */
-    fun bankPause(now: Long): ScreenState = copy(
-        pausedDuration = pausedDuration + (now - (pausedAt ?: now)).milliseconds,
-        pausedAt = null,
-    )
+    fun bankPause(now: Long): ScreenState =
+        copy(
+            pausedDuration = pausedDuration + (now - (pausedAt ?: now)).milliseconds,
+            pausedAt = null,
+        )
 
     /**
      * Whether one exercise's row as it stands can be written: something typed, nothing refused,
@@ -2111,7 +2161,10 @@ private data class ScreenState(
      * so the clock on screen and the clock a restore comes back with are the same number. A
      * paused session measures to [pausedAt] instead of to now, which is what stops it ticking.
      */
-    fun elapsedAt(now: Long, startedAt: Long): Duration {
+    fun elapsedAt(
+        now: Long,
+        startedAt: Long,
+    ): Duration {
         val until = pausedAt ?: now
         return ((until - startedAt).milliseconds - pausedDuration).coerceAtLeast(Duration.ZERO)
     }
@@ -2124,7 +2177,10 @@ private data class ScreenState(
  * see `EditSetUseCase` — so the values the table has no column for have to come from somewhere,
  * and that somewhere is the row being corrected.
  */
-private class EditTarget(val stored: WorkoutSet, val exerciseType: ExerciseType?)
+private class EditTarget(
+    val stored: WorkoutSet,
+    val exerciseType: ExerciseType?,
+)
 
 /** The two catalogue-wide reads, as one value. */
 private data class Catalogue(
@@ -2157,8 +2213,7 @@ private class Loaded(
         sets.groupBy(WorkoutSet::sessionExerciseId)
             .mapValues { (_, logged) -> logged.sortedBy(WorkoutSet::setNumber) }
 
-    fun setsOf(sessionExerciseId: Long): List<WorkoutSet> =
-        setsByExercise[sessionExerciseId].orEmpty()
+    fun setsOf(sessionExerciseId: Long): List<WorkoutSet> = setsByExercise[sessionExerciseId].orEmpty()
 
     /** One set by its own id, wherever in the workout it is. */
     fun setById(setId: Long): WorkoutSet? = sets.firstOrNull { it.id == setId }
@@ -2260,17 +2315,18 @@ private class Loaded(
     fun draftExercises(
         entries: Map<Long, SetEntry>,
         unitSystem: UnitSystem,
-    ): List<ActiveExercise> = ordered.map { exercise ->
-        val logged = setsOf(exercise.id).map(WorkoutSet::toActiveSet)
-        val typed = entries[exercise.id]?.toActiveSets(unitSystem).orEmpty()
-        ActiveExercise(
-            exerciseId = exercise.exerciseId,
-            sessionExerciseId = exercise.id,
-            supersetGroup = exercise.supersetGroup,
-            notes = exercise.notes,
-            sets = logged + typed,
-        )
-    }
+    ): List<ActiveExercise> =
+        ordered.map { exercise ->
+            val logged = setsOf(exercise.id).map(WorkoutSet::toActiveSet)
+            val typed = entries[exercise.id]?.toActiveSets(unitSystem).orEmpty()
+            ActiveExercise(
+                exerciseId = exercise.exerciseId,
+                sessionExerciseId = exercise.id,
+                supersetGroup = exercise.supersetGroup,
+                notes = exercise.notes,
+                sets = logged + typed,
+            )
+        }
 }
 
 /**
@@ -2281,7 +2337,10 @@ private class Loaded(
  * text was not a number at all. Collapsing them makes an empty weight box indistinguishable
  * from `abc`, and only one of those is worth a red message under the row.
  */
-private class Field<T> private constructor(val value: T?, val isMalformed: Boolean) {
+private class Field<T> private constructor(
+    val value: T?,
+    val isMalformed: Boolean,
+) {
     companion object {
         /** The field is empty: no value, and nothing wrong with it. */
         fun <T> absent(): Field<T> = Field(value = null, isMalformed = false)
@@ -2291,7 +2350,8 @@ private class Field<T> private constructor(val value: T?, val isMalformed: Boole
     }
 }
 
-/** Which [SetEntryError] a refused write is, if it is one the row can show. */
+/* Which [SetEntryError] a refused write is, if it is one the row can show. */
+
 /**
  * Whether there is a rest to look at: one counting down, or one held part way through.
  *
@@ -2345,12 +2405,13 @@ private fun SetEntry.toActiveSets(unitSystem: UnitSystem): List<ActiveSet> {
  * instead is travel through the write untouched, off the stored row — see [ActiveSessionViewModel]'s
  * commit path.
  */
-private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(
-    weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
-    reps = reps?.toString().orEmpty(),
-    rpe = rpe,
-    setType = setType,
-)
+private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry =
+    SetEntry(
+        weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
+        reps = reps?.toString().orEmpty(),
+        rpe = rpe,
+        setType = setType,
+    )
 
 /**
  * Whether this correction says the same thing as the set it was read from.
@@ -2373,13 +2434,14 @@ private fun ActiveSet.matches(other: ActiveSet): Boolean =
         setType == other.setType
 
 /** A restored half-typed set as the fields it was typed into. */
-private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(
-    weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
-    reps = reps?.toString().orEmpty(),
-    rpe = rpe,
-    setType = setType,
-    notes = notes,
-)
+private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry =
+    SetEntry(
+        weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
+        reps = reps?.toString().orEmpty(),
+        rpe = rpe,
+        setType = setType,
+        notes = notes,
+    )
 
 /**
  * A set from an earlier session as the reference the `PREV` column draws.
@@ -2391,18 +2453,19 @@ private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry = SetEntry(
 private fun WorkoutSet.toPreviousSet(): PreviousSet = PreviousSet(weight = weight, reps = reps)
 
 /** A stored set as the draft's own, which is the same values without the row's identity. */
-private fun WorkoutSet.toActiveSet(): ActiveSet = ActiveSet(
-    id = id,
-    reps = reps,
-    weight = weight,
-    duration = duration,
-    distance = distance,
-    heartRateAvg = heartRateAvg,
-    heartRateMax = heartRateMax,
-    restAfter = restAfter,
-    rpe = rpe,
-    setType = setType,
-    isCompleted = isCompleted,
-    completedAt = completedAt.takeIf { isCompleted },
-    notes = notes,
-)
+private fun WorkoutSet.toActiveSet(): ActiveSet =
+    ActiveSet(
+        id = id,
+        reps = reps,
+        weight = weight,
+        duration = duration,
+        distance = distance,
+        heartRateAvg = heartRateAvg,
+        heartRateMax = heartRateMax,
+        restAfter = restAfter,
+        rpe = rpe,
+        setType = setType,
+        isCompleted = isCompleted,
+        completedAt = completedAt.takeIf { isCompleted },
+        notes = notes,
+    )

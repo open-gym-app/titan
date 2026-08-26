@@ -251,11 +251,12 @@ internal fun PickerTopBar(
  * install makes that a frame rather than a state anybody sits in.
  */
 @Composable
-private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String = when {
-    selecting -> pluralStringResource(R.plurals.library_selected, selection.size, selection.size)
-    hasFilters -> stringResource(R.string.library_count_filtered, matchCount, catalogueSize)
-    else -> pluralStringResource(R.plurals.library_count, catalogueSize, catalogueSize)
-}
+private fun ExerciseLibraryUiState.subtitle(selecting: Boolean): String =
+    when {
+        selecting -> pluralStringResource(R.plurals.library_selected, selection.size, selection.size)
+        hasFilters -> stringResource(R.string.library_count_filtered, matchCount, catalogueSize)
+        else -> pluralStringResource(R.plurals.library_count, catalogueSize, catalogueSize)
+    }
 
 /**
  * The picker's confirm bar.

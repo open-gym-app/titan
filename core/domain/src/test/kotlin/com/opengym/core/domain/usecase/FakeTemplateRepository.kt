@@ -91,7 +91,10 @@ class FakeTemplateRepository : TemplateRepository {
     }
 
     /** Stores [template] under a fresh id with [exercises], returning that id. */
-    private fun put(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>): Long {
+    private fun put(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ): Long {
         val id = nextTemplateId++
         templates.value += id to template.copy(id = id)
         store(id, exercises)
@@ -99,7 +102,10 @@ class FakeTemplateRepository : TemplateRepository {
     }
 
     /** Replaces [templateId]'s list, numbering positions from the order given. */
-    private fun store(templateId: Long, drafts: List<TemplateExerciseDraft>) {
+    private fun store(
+        templateId: Long,
+        drafts: List<TemplateExerciseDraft>,
+    ) {
         exercises.value += templateId to drafts.mapIndexed { position, draft ->
             TemplateExercise(
                 id = nextExerciseId++,
@@ -117,8 +123,7 @@ class FakeTemplateRepository : TemplateRepository {
     /** Direct reads, bypassing the Flows, for assertions. */
     fun stored(id: Long): WorkoutTemplate? = templates.value[id]
 
-    fun storedExercises(templateId: Long): List<TemplateExercise> =
-        exercises.value[templateId].orEmpty()
+    fun storedExercises(templateId: Long): List<TemplateExercise> = exercises.value[templateId].orEmpty()
 
     fun storedCount(): Int = templates.value.size
 
@@ -144,13 +149,14 @@ fun draft(
     restDuration: Long? = null,
     notes: String? = null,
     supersetGroup: Int? = null,
-): TemplateExerciseDraft = TemplateExerciseDraft(
-    exerciseId = exerciseId,
-    sets = sets,
-    restDuration = restDuration,
-    notes = notes,
-    supersetGroup = supersetGroup,
-)
+): TemplateExerciseDraft =
+    TemplateExerciseDraft(
+        exerciseId = exerciseId,
+        sets = sets,
+        restDuration = restDuration,
+        notes = notes,
+        supersetGroup = supersetGroup,
+    )
 
 /**
  * [count] identical sets, which is what a template used to be able to say and is now one plan

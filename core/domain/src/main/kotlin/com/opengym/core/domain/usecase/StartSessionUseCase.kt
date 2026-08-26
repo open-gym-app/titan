@@ -50,28 +50,29 @@ class StartSessionUseCase(
         templateId: Long? = null,
         name: String? = null,
         notes: String? = null,
-    ): Result<SessionState.Active> = lock.withTransition {
-        runningSessionId()?.let {
-            return@withTransition Result.failure(SessionError.SessionAlreadyActive(it))
+    ): Result<SessionState.Active> =
+        lock.withTransition {
+            runningSessionId()?.let {
+                return@withTransition Result.failure(SessionError.SessionAlreadyActive(it))
+            }
+
+            val now = clock.nowMillis()
+            val sessionId = sessionRepository.insert(
+                WorkoutSession(
+                    templateId = templateId,
+                    name = WorkoutSession.normalizeName(name),
+                    isInProgress = true,
+                    lastActiveAt = now,
+                    notes = notes,
+                    createdAt = now,
+                    updatedAt = now,
+                ),
+            )
+
+            val started = SessionState.Active(sessionId = sessionId, startedAt = now)
+            sessionStateRepository.update(started)
+            Result.success(started)
         }
-
-        val now = clock.nowMillis()
-        val sessionId = sessionRepository.insert(
-            WorkoutSession(
-                templateId = templateId,
-                name = WorkoutSession.normalizeName(name),
-                isInProgress = true,
-                lastActiveAt = now,
-                notes = notes,
-                createdAt = now,
-                updatedAt = now,
-            ),
-        )
-
-        val started = SessionState.Active(sessionId = sessionId, startedAt = now)
-        sessionStateRepository.update(started)
-        Result.success(started)
-    }
 
     /**
      * The session blocking a new start, if any.

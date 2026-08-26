@@ -1,6 +1,6 @@
 package com.opengym.core.ui.component
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
@@ -64,6 +64,5 @@ class ExerciseImageTest {
         composeTestRule.onNodeWithText("B").assertDoesNotExist()
     }
 
-    private fun exercise(name: String) =
-        Exercise(id = 1, name = name, equipmentType = EquipmentType.BARBELL)
+    private fun exercise(name: String) = Exercise(id = 1, name = name, equipmentType = EquipmentType.BARBELL)
 }

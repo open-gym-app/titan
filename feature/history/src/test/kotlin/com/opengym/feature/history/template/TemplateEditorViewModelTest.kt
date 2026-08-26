@@ -68,391 +68,415 @@ class TemplateEditorViewModelTest {
     // ─── Opening one ────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the plan is seeded from the stored template, in position order`() = runTest {
-        val viewModel = viewModel()
+    fun `the plan is seeded from the stored template, in position order`() =
+        runTest {
+            val viewModel = viewModel()
 
-        val state = viewModel.uiState.value
-        assertEquals("Push Day", state.name)
-        assertEquals(TemplateCategory.STRENGTH, state.category)
-        assertEquals(
-            listOf("Bench press", "Cable fly", "Tricep pushdown"),
-            state.exercises.map { it.exercise?.name },
-        )
-        assertEquals(listOf(4, 3, 3), state.exercises.map { it.sets.size })
-        // Milligrams formatted back into the unit the field is typed in.
-        assertEquals("80", state.exercises.first().sets.first().weight)
-        assertFalse(state.isLoading)
-        assertFalse(state.isDirty)
-        assertFalse(state.canSave)
-    }
-
-    @Test
-    fun `the superset the template was saved with is labelled and joined`() = runTest {
-        val viewModel = viewModel()
-
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(listOf(null, "A1", "A2"), rows.map { it.supersetLabel })
-        assertEquals(listOf(false, true, false), rows.map { it.isLinkedToNext })
-    }
+            val state = viewModel.uiState.value
+            assertEquals("Push Day", state.name)
+            assertEquals(TemplateCategory.STRENGTH, state.category)
+            assertEquals(
+                listOf("Bench press", "Cable fly", "Tricep pushdown"),
+                state.exercises.map { it.exercise?.name },
+            )
+            assertEquals(listOf(4, 3, 3), state.exercises.map { it.sets.size })
+            // Milligrams formatted back into the unit the field is typed in.
+            assertEquals("80", state.exercises.first().sets.first().weight)
+            assertFalse(state.isLoading)
+            assertFalse(state.isDirty)
+            assertFalse(state.canSave)
+        }
 
     @Test
-    fun `an id that resolves to nothing is a dead end rather than an empty editor`() = runTest {
-        val viewModel = viewModel(templateId = 404)
+    fun `the superset the template was saved with is labelled and joined`() =
+        runTest {
+            val viewModel = viewModel()
 
-        val state = viewModel.uiState.value
-        assertTrue(state.isMissing)
-        assertFalse(state.isLoading)
-    }
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(listOf(null, "A1", "A2"), rows.map { it.supersetLabel })
+            assertEquals(listOf(false, true, false), rows.map { it.isLinkedToNext })
+        }
+
+    @Test
+    fun `an id that resolves to nothing is a dead end rather than an empty editor`() =
+        runTest {
+            val viewModel = viewModel(templateId = 404)
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isMissing)
+            assertFalse(state.isLoading)
+        }
 
     // ─── Building one ───────────────────────────────────────────────────────────────────
 
     @Test
-    fun `opening on no template at all is an empty editor asking for a name`() = runTest {
-        val viewModel = viewModel(templateId = NEW_TEMPLATE)
+    fun `opening on no template at all is an empty editor asking for a name`() =
+        runTest {
+            val viewModel = viewModel(templateId = NEW_TEMPLATE)
 
-        val state = viewModel.uiState.value
-        assertTrue(state.isNew)
-        assertFalse(state.isLoading)
-        // Emphatically not the dead end: nothing is missing, there is simply nothing yet.
-        assertFalse(state.isMissing)
-        assertEquals("", state.name)
-        assertEquals(emptyList<TemplateExerciseRow>(), state.exercises)
-        // The name is the one thing the use case will not do without, and the row that opens
-        // this dialog is blank at this point.
-        assertEquals(TemplateNamingDraft(name = ""), state.naming)
-        // Nothing typed is nothing to lose: backing straight out has to be free.
-        assertFalse(state.isDirty)
-    }
-
-    @Test
-    fun `a new template is inserted rather than rewriting anything`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
-
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day · Back"))
-        viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
-        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        viewModel.pick(listOf(FLY.id, PUSHDOWN.id))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-
-        assertTrue(viewModel.uiState.value.isSaved)
-        val written = templates.templates().single { it.name == "Pull Day · Back" }
-        assertEquals(TemplateCategory.HYPERTROPHY, written.category)
-        assertEquals(
-            listOf(FLY.id, PUSHDOWN.id),
-            templates.exercisesOf(written.id).map(TemplateExercise::exerciseId),
-        )
-        // The template the editor was *not* opened on is untouched, which is what says this
-        // went through the insert and not the rewrite.
-        assertEquals(3, templates.exercisesOf(1).size)
-    }
+            val state = viewModel.uiState.value
+            assertTrue(state.isNew)
+            assertFalse(state.isLoading)
+            // Emphatically not the dead end: nothing is missing, there is simply nothing yet.
+            assertFalse(state.isMissing)
+            assertEquals("", state.name)
+            assertEquals(emptyList<TemplateExerciseRow>(), state.exercises)
+            // The name is the one thing the use case will not do without, and the row that opens
+            // this dialog is blank at this point.
+            assertEquals(TemplateNamingDraft(name = ""), state.naming)
+            // Nothing typed is nothing to lose: backing straight out has to be free.
+            assertFalse(state.isDirty)
+        }
 
     @Test
-    fun `a new template cannot be saved until it has both a name and an exercise`() = runTest {
-        val viewModel = viewModel(templateId = NEW_TEMPLATE)
+    fun `a new template is inserted rather than rewriting anything`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
 
-        viewModel.pick(listOf(FLY.id))
-        // Dirty, and still refused: `CreateTemplateUseCase` would answer `EmptyName`, and a live
-        // SAVE whose only outcome is a refusal is a button that lies.
-        assertTrue(viewModel.uiState.value.isDirty)
-        assertFalse(viewModel.uiState.value.canSave)
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day · Back"))
+            viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
+            viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+            viewModel.pick(listOf(FLY.id, PUSHDOWN.id))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day"))
-        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        assertTrue(viewModel.uiState.value.canSave)
-    }
+            assertTrue(viewModel.uiState.value.isSaved)
+            val written = templates.templates().single { it.name == "Pull Day · Back" }
+            assertEquals(TemplateCategory.HYPERTROPHY, written.category)
+            assertEquals(
+                listOf(FLY.id, PUSHDOWN.id),
+                templates.exercisesOf(written.id).map(TemplateExercise::exerciseId),
+            )
+            // The template the editor was *not* opened on is untouched, which is what says this
+            // went through the insert and not the rewrite.
+            assertEquals(3, templates.exercisesOf(1).size)
+        }
 
     @Test
-    fun `a new template named after an existing one is refused in the dialog`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
+    fun `a new template cannot be saved until it has both a name and an exercise`() =
+        runTest {
+            val viewModel = viewModel(templateId = NEW_TEMPLATE)
 
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day"))
-        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        viewModel.pick(listOf(FLY.id))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            viewModel.pick(listOf(FLY.id))
+            // Dirty, and still refused: `CreateTemplateUseCase` would answer `EmptyName`, and a live
+            // SAVE whose only outcome is a refusal is a button that lies.
+            assertTrue(viewModel.uiState.value.isDirty)
+            assertFalse(viewModel.uiState.value.canSave)
 
-        assertEquals(true, viewModel.uiState.value.naming?.nameTaken)
-        assertFalse(viewModel.uiState.value.isSaved)
-        // Nothing was inserted, so the tab still holds the two it started with.
-        assertEquals(2, templates.templates().size)
-    }
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day"))
+            viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+            assertTrue(viewModel.uiState.value.canSave)
+        }
+
+    @Test
+    fun `a new template named after an existing one is refused in the dialog`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templateId = NEW_TEMPLATE, templates = templates)
+
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day"))
+            viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+            viewModel.pick(listOf(FLY.id))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+            assertEquals(true, viewModel.uiState.value.naming?.nameTaken)
+            assertFalse(viewModel.uiState.value.isSaved)
+            // Nothing was inserted, so the tab still holds the two it started with.
+            assertEquals(2, templates.templates().size)
+        }
 
     // ─── Editing the plan ───────────────────────────────────────────────────────────────
 
     @Test
-    fun `adding a set makes the draft dirty and reprices the estimate`() = runTest {
-        val viewModel = viewModel()
-        val before = viewModel.uiState.value.estimatedDuration
+    fun `adding a set makes the draft dirty and reprices the estimate`() =
+        runTest {
+            val viewModel = viewModel()
+            val before = viewModel.uiState.value.estimatedDuration
 
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
 
-        val state = viewModel.uiState.value
-        assertEquals(5, state.exercises.first().sets.size)
-        assertTrue(state.isDirty)
-        assertTrue(state.canSave)
-        assertTrue(state.estimatedDuration > before)
-    }
-
-    @Test
-    fun `an added set copies the one above it rather than starting blank`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(
-            TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 3), SetType.DROP_SET),
-        )
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-
-        val added = viewModel.uiState.value.exercises.first().sets.last()
-        assertEquals("80", added.weight)
-        assertEquals("8", added.reps)
-        assertEquals(SetType.DROP_SET, added.setType)
-    }
-
-    @Test
-    fun `the first set of an exercise has nothing to copy and starts blank`() = runTest {
-        val viewModel = viewModel()
-        val bench = viewModel.setKeyAt(0, 0)
-        repeat(4) {
-            viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 0)))
-        }
-        assertTrue(viewModel.uiState.value.exercises.first().sets.isEmpty())
-        assertEquals(bench, bench)
-
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-
-        val added = viewModel.uiState.value.exercises.first().sets.single()
-        assertEquals("", added.weight)
-        assertEquals("", added.reps)
-        assertEquals(SetType.NORMAL, added.setType)
-    }
-
-    @Test
-    fun `removing a set leaves the others alone`() = runTest {
-        val viewModel = viewModel()
-        val second = viewModel.setKeyAt(0, 1)
-
-        viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, second))
-
-        val sets = viewModel.uiState.value.exercises.first().sets
-        assertEquals(3, sets.size)
-        assertFalse(sets.any { it.key == second })
-        assertTrue(viewModel.uiState.value.isDirty)
-    }
-
-    @Test
-    fun `an exercise with every set removed is still a line of the plan`() = runTest {
-        // "Do this, sets to be decided" is a legitimate template line, so it does not take the
-        // exercise out of the plan and does not block the save.
-        val viewModel = viewModel()
-
-        repeat(4) {
-            viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 0)))
+            val state = viewModel.uiState.value
+            assertEquals(5, state.exercises.first().sets.size)
+            assertTrue(state.isDirty)
+            assertTrue(state.canSave)
+            assertTrue(state.estimatedDuration > before)
         }
 
-        val state = viewModel.uiState.value
-        assertEquals(3, state.exercises.size)
-        assertTrue(state.exercises.first().sets.isEmpty())
-        assertTrue(state.canSave)
-    }
+    @Test
+    fun `an added set copies the one above it rather than starting blank`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(
+                TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 3), SetType.DROP_SET),
+            )
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+
+            val added = viewModel.uiState.value.exercises.first().sets.last()
+            assertEquals("80", added.weight)
+            assertEquals("8", added.reps)
+            assertEquals(SetType.DROP_SET, added.setType)
+        }
 
     @Test
-    fun `each set carries its own type, so a plan can ramp and drop`() = runTest {
-        val viewModel = viewModel()
+    fun `the first set of an exercise has nothing to copy and starts blank`() =
+        runTest {
+            val viewModel = viewModel()
+            val bench = viewModel.setKeyAt(0, 0)
+            repeat(4) {
+                viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 0)))
+            }
+            assertTrue(viewModel.uiState.value.exercises.first().sets.isEmpty())
+            assertEquals(bench, bench)
 
-        viewModel.onEvent(
-            TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), SetType.WARMUP),
-        )
-        viewModel.onEvent(
-            TemplateEditorEvent.SetFieldChanged(
-                KEY_BENCH,
-                viewModel.setKeyAt(0, 0),
-                TemplateSetField.WEIGHT,
-                "40",
-            ),
-        )
-        viewModel.onEvent(
-            TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 3), SetType.DROP_SET),
-        )
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
 
-        val sets = viewModel.uiState.value.exercises.first().sets
-        assertEquals(
-            listOf(SetType.WARMUP, SetType.NORMAL, SetType.NORMAL, SetType.DROP_SET),
-            sets.map { it.setType },
-        )
-        assertEquals(listOf("40", "80", "80", "80"), sets.map { it.weight })
-    }
+            val added = viewModel.uiState.value.exercises.first().sets.single()
+            assertEquals("", added.weight)
+            assertEquals("", added.reps)
+            assertEquals(SetType.NORMAL, added.setType)
+        }
 
     @Test
-    fun `typing a figure back to what it was makes the draft clean again`() = runTest {
-        val viewModel = viewModel()
-        val first = viewModel.setKeyAt(0, 0)
+    fun `removing a set leaves the others alone`() =
+        runTest {
+            val viewModel = viewModel()
+            val second = viewModel.setKeyAt(0, 1)
 
-        viewModel.onEvent(TemplateEditorEvent.SetFieldChanged(KEY_BENCH, first, TemplateSetField.REPS, "6"))
-        viewModel.onEvent(TemplateEditorEvent.SetFieldChanged(KEY_BENCH, first, TemplateSetField.REPS, "8"))
+            viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, second))
 
-        assertFalse(viewModel.uiState.value.isDirty)
-    }
-
-    @Test
-    fun `a figure that is not a number is refused on its own set and blocks the save`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(
-            TemplateEditorEvent.SetFieldChanged(
-                KEY_BENCH,
-                viewModel.setKeyAt(0, 1),
-                TemplateSetField.REPS,
-                "8x",
-            ),
-        )
-
-        val state = viewModel.uiState.value
-        // On the set that was typed into, and on no other.
-        assertEquals(
-            listOf(emptySet(), setOf(TemplateSetField.REPS), emptySet(), emptySet()),
-            state.exercises.first().sets.map { it.errors },
-        )
-        assertTrue(state.hasErrors)
-        assertFalse(state.canSave)
-    }
+            val sets = viewModel.uiState.value.exercises.first().sets
+            assertEquals(3, sets.size)
+            assertFalse(sets.any { it.key == second })
+            assertTrue(viewModel.uiState.value.isDirty)
+        }
 
     @Test
-    fun `a blank figure is the template declining to say, not an error`() = runTest {
-        val viewModel = viewModel()
+    fun `an exercise with every set removed is still a line of the plan`() =
+        runTest {
+            // "Do this, sets to be decided" is a legitimate template line, so it does not take the
+            // exercise out of the plan and does not block the save.
+            val viewModel = viewModel()
 
-        viewModel.onEvent(
-            TemplateEditorEvent.SetFieldChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), TemplateSetField.WEIGHT, ""),
-        )
+            repeat(4) {
+                viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 0)))
+            }
 
-        val state = viewModel.uiState.value
-        assertEquals(emptySet<TemplateSetField>(), state.exercises.first().sets.first().errors)
-        assertTrue(state.canSave)
-    }
-
-    @Test
-    fun `removing one member of a superset dissolves the pair`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_FLY))
-
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(listOf("Bench press", "Tricep pushdown"), rows.map { it.exercise?.name })
-        assertEquals(listOf(null, null), rows.map { it.supersetLabel })
-    }
+            val state = viewModel.uiState.value
+            assertEquals(3, state.exercises.size)
+            assertTrue(state.exercises.first().sets.isEmpty())
+            assertTrue(state.canSave)
+        }
 
     @Test
-    fun `dragging a member away from its partner tears the superset`() = runTest {
-        val viewModel = viewModel()
+    fun `each set carries its own type, so a plan can ramp and drop`() =
+        runTest {
+            val viewModel = viewModel()
 
-        // The bench dropped between the two members of A.
-        viewModel.onEvent(
-            TemplateEditorEvent.ExercisesReordered(listOf(KEY_FLY, KEY_BENCH, KEY_PUSHDOWN)),
-        )
+            viewModel.onEvent(
+                TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), SetType.WARMUP),
+            )
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    KEY_BENCH,
+                    viewModel.setKeyAt(0, 0),
+                    TemplateSetField.WEIGHT,
+                    "40",
+                ),
+            )
+            viewModel.onEvent(
+                TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 3), SetType.DROP_SET),
+            )
 
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(listOf("Cable fly", "Bench press", "Tricep pushdown"), rows.map { it.exercise?.name })
-        assertEquals(listOf(null, null, null), rows.map { it.supersetLabel })
-    }
-
-    @Test
-    fun `joining two neighbours makes them a superset, and tapping again breaks it`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
-        assertEquals(
-            listOf("A1", "A2", "A3"),
-            viewModel.uiState.value.exercises.map { it.supersetLabel },
-        )
-
-        viewModel.onEvent(TemplateEditorEvent.SupersetUnlinked(KEY_BENCH))
-        assertEquals(
-            listOf(null, "A1", "A2"),
-            viewModel.uiState.value.exercises.map { it.supersetLabel },
-        )
-    }
+            val sets = viewModel.uiState.value.exercises.first().sets
+            assertEquals(
+                listOf(SetType.WARMUP, SetType.NORMAL, SetType.NORMAL, SetType.DROP_SET),
+                sets.map { it.setType },
+            )
+            assertEquals(listOf("40", "80", "80", "80"), sets.map { it.weight })
+        }
 
     @Test
-    fun `a join is resolved against the draft's own order, not the screen's`() = runTest {
-        val viewModel = viewModel()
+    fun `typing a figure back to what it was makes the draft clean again`() =
+        runTest {
+            val viewModel = viewModel()
+            val first = viewModel.setKeyAt(0, 0)
 
-        // The pushdown pulled to the front. The screen redraws in the new order a frame before
-        // the draft does, so an index would name a different pair on each side of that frame —
-        // the key names the same exercise on both.
-        viewModel.onEvent(
-            TemplateEditorEvent.ExercisesReordered(listOf(KEY_PUSHDOWN, KEY_BENCH, KEY_FLY)),
-        )
-        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.SetFieldChanged(KEY_BENCH, first, TemplateSetField.REPS, "6"))
+            viewModel.onEvent(TemplateEditorEvent.SetFieldChanged(KEY_BENCH, first, TemplateSetField.REPS, "8"))
 
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(listOf("Tricep pushdown", "Bench press", "Cable fly"), rows.map { it.exercise?.name })
-        // The bench and the fly, which is what the key asked for.
-        assertEquals(listOf(null, "A1", "A2"), rows.map { it.supersetLabel })
-    }
+            assertFalse(viewModel.uiState.value.isDirty)
+        }
 
     @Test
-    fun `a join under an exercise the plan no longer holds does nothing`() = runTest {
-        val viewModel = viewModel()
+    fun `a figure that is not a number is refused on its own set and blocks the save`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    KEY_BENCH,
+                    viewModel.setKeyAt(0, 1),
+                    TemplateSetField.REPS,
+                    "8x",
+                ),
+            )
 
-        // The fly and the pushdown are still the one superset they were, and nothing was
-        // joined to a row that is not there.
-        assertEquals(
-            listOf("A1", "A2"),
-            viewModel.uiState.value.exercises.map { it.supersetLabel },
-        )
-    }
-
-    @Test
-    fun `picked exercises are appended with one blank set`() = runTest {
-        // A table to type into, with nothing in it. Three sets of ten would be the screen
-        // putting numbers in the user's mouth; no table at all would put a tap in front of the
-        // thing they came here to do.
-        val viewModel = viewModel(
-            exercises = listOf(
-                TemplateExercise(id = KEY_BENCH, templateId = 1, exerciseId = BENCH.id, position = 0),
-            ),
-        )
-
-        viewModel.pick(listOf(FLY.id))
-
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(listOf("Bench press", "Cable fly"), rows.map { it.exercise?.name })
-        val added = rows.last().sets.single()
-        assertEquals("", added.weight)
-        assertEquals("", added.reps)
-        assertEquals(SetType.NORMAL, added.setType)
-        assertTrue(viewModel.uiState.value.isDirty)
-    }
+            val state = viewModel.uiState.value
+            // On the set that was typed into, and on no other.
+            assertEquals(
+                listOf(emptySet(), setOf(TemplateSetField.REPS), emptySet(), emptySet()),
+                state.exercises.first().sets.map { it.errors },
+            )
+            assertTrue(state.hasErrors)
+            assertFalse(state.canSave)
+        }
 
     @Test
-    fun `an answer to a picker this editor never opened is refused`() = runTest {
-        val viewModel = viewModel()
+    fun `a blank figure is the template declining to say, not an error`() =
+        runTest {
+            val viewModel = viewModel()
 
-        // What a process killed under the picker leaves behind: `:app` holds the ids in
-        // `rememberSaveable` and hands them to the editor it comes back to, which is a new one
-        // over a draft re-read from the store. Appending here would return a plan that had lost
-        // every edit and gained these lines — see TemplateEditorViewModel.pickWasRequested.
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), TemplateSetField.WEIGHT, ""),
+            )
 
-        val state = viewModel.uiState.value
-        assertEquals(3, state.exercises.size)
-        assertFalse(state.isDirty)
-        assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
-    }
+            val state = viewModel.uiState.value
+            assertEquals(emptySet<TemplateSetField>(), state.exercises.first().sets.first().errors)
+            assertTrue(state.canSave)
+        }
 
     @Test
-    fun `an exercise no longer in the catalogue is left out and said out loud`() = runTest {
-        val viewModel = viewModel()
+    fun `removing one member of a superset dissolves the pair`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.pick(listOf(999))
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_FLY))
 
-        val state = viewModel.uiState.value
-        assertEquals(3, state.exercises.size)
-        assertEquals(TemplateEditorMessage.EXERCISES_UNAVAILABLE, state.message)
-    }
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(listOf("Bench press", "Tricep pushdown"), rows.map { it.exercise?.name })
+            assertEquals(listOf(null, null), rows.map { it.supersetLabel })
+        }
+
+    @Test
+    fun `dragging a member away from its partner tears the superset`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // The bench dropped between the two members of A.
+            viewModel.onEvent(
+                TemplateEditorEvent.ExercisesReordered(listOf(KEY_FLY, KEY_BENCH, KEY_PUSHDOWN)),
+            )
+
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(listOf("Cable fly", "Bench press", "Tricep pushdown"), rows.map { it.exercise?.name })
+            assertEquals(listOf(null, null, null), rows.map { it.supersetLabel })
+        }
+
+    @Test
+    fun `joining two neighbours makes them a superset, and tapping again breaks it`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+            assertEquals(
+                listOf("A1", "A2", "A3"),
+                viewModel.uiState.value.exercises.map { it.supersetLabel },
+            )
+
+            viewModel.onEvent(TemplateEditorEvent.SupersetUnlinked(KEY_BENCH))
+            assertEquals(
+                listOf(null, "A1", "A2"),
+                viewModel.uiState.value.exercises.map { it.supersetLabel },
+            )
+        }
+
+    @Test
+    fun `a join is resolved against the draft's own order, not the screen's`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // The pushdown pulled to the front. The screen redraws in the new order a frame before
+            // the draft does, so an index would name a different pair on each side of that frame —
+            // the key names the same exercise on both.
+            viewModel.onEvent(
+                TemplateEditorEvent.ExercisesReordered(listOf(KEY_PUSHDOWN, KEY_BENCH, KEY_FLY)),
+            )
+            viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(listOf("Tricep pushdown", "Bench press", "Cable fly"), rows.map { it.exercise?.name })
+            // The bench and the fly, which is what the key asked for.
+            assertEquals(listOf(null, "A1", "A2"), rows.map { it.supersetLabel })
+        }
+
+    @Test
+    fun `a join under an exercise the plan no longer holds does nothing`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.SupersetLinked(KEY_BENCH))
+
+            // The fly and the pushdown are still the one superset they were, and nothing was
+            // joined to a row that is not there.
+            assertEquals(
+                listOf("A1", "A2"),
+                viewModel.uiState.value.exercises.map { it.supersetLabel },
+            )
+        }
+
+    @Test
+    fun `picked exercises are appended with one blank set`() =
+        runTest {
+            // A table to type into, with nothing in it. Three sets of ten would be the screen
+            // putting numbers in the user's mouth; no table at all would put a tap in front of the
+            // thing they came here to do.
+            val viewModel = viewModel(
+                exercises = listOf(
+                    TemplateExercise(id = KEY_BENCH, templateId = 1, exerciseId = BENCH.id, position = 0),
+                ),
+            )
+
+            viewModel.pick(listOf(FLY.id))
+
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(listOf("Bench press", "Cable fly"), rows.map { it.exercise?.name })
+            val added = rows.last().sets.single()
+            assertEquals("", added.weight)
+            assertEquals("", added.reps)
+            assertEquals(SetType.NORMAL, added.setType)
+            assertTrue(viewModel.uiState.value.isDirty)
+        }
+
+    @Test
+    fun `an answer to a picker this editor never opened is refused`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // What a process killed under the picker leaves behind: `:app` holds the ids in
+            // `rememberSaveable` and hands them to the editor it comes back to, which is a new one
+            // over a draft re-read from the store. Appending here would return a plan that had lost
+            // every edit and gained these lines — see TemplateEditorViewModel.pickWasRequested.
+            viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
+
+            val state = viewModel.uiState.value
+            assertEquals(3, state.exercises.size)
+            assertFalse(state.isDirty)
+            assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
+        }
+
+    @Test
+    fun `an exercise no longer in the catalogue is left out and said out loud`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.pick(listOf(999))
+
+            val state = viewModel.uiState.value
+            assertEquals(3, state.exercises.size)
+            assertEquals(TemplateEditorMessage.EXERCISES_UNAVAILABLE, state.message)
+        }
 
     @Test
     fun `an exercise written from inside the picker is added rather than reported missing`() =
@@ -473,339 +497,357 @@ class TemplateEditorViewModelTest {
         }
 
     @Test
-    fun `a swap changes the movement and leaves the slot it sits in alone`() = runTest {
-        val viewModel = viewModel()
+    fun `a swap changes the movement and leaves the slot it sits in alone`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.swap(KEY_FLY, PUSHDOWN.id)
+            viewModel.swap(KEY_FLY, PUSHDOWN.id)
 
-        val rows = viewModel.uiState.value.exercises
-        // The middle slot, still the middle slot, still the first half of the superset it was in.
-        assertEquals(
-            listOf("Bench press", "Tricep pushdown", "Tricep pushdown"),
-            rows.map { it.exercise?.name },
-        )
-        assertEquals("A1", rows[1].supersetLabel)
-        assertTrue(viewModel.uiState.value.isDirty)
-    }
-
-    @Test
-    fun `the sets planned for a slot survive the movement in it changing`() = runTest {
-        val viewModel = viewModel()
-
-        // Three sets of twelve, written against the fly. A lifter swapping one cable movement for
-        // another is nearly always keeping the shape and retyping the weight, and there is no undo
-        // on this page — see `TemplateEditorViewModel.swapExercise`.
-        val before = viewModel.uiState.value.exercises[1].sets
-
-        viewModel.swap(KEY_FLY, PUSHDOWN.id)
-
-        assertEquals(before, viewModel.uiState.value.exercises[1].sets)
-    }
+            val rows = viewModel.uiState.value.exercises
+            // The middle slot, still the middle slot, still the first half of the superset it was in.
+            assertEquals(
+                listOf("Bench press", "Tricep pushdown", "Tricep pushdown"),
+                rows.map { it.exercise?.name },
+            )
+            assertEquals("A1", rows[1].supersetLabel)
+            assertTrue(viewModel.uiState.value.isDirty)
+        }
 
     @Test
-    fun `a swap answered with an exercise that is gone changes nothing and says so`() = runTest {
-        val viewModel = viewModel()
+    fun `the sets planned for a slot survive the movement in it changing`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.swap(KEY_FLY, 999)
+            // Three sets of twelve, written against the fly. A lifter swapping one cable movement for
+            // another is nearly always keeping the shape and retyping the weight, and there is no undo
+            // on this page — see `TemplateEditorViewModel.swapExercise`.
+            val before = viewModel.uiState.value.exercises[1].sets
 
-        val state = viewModel.uiState.value
-        // Not EXERCISES_UNAVAILABLE: nothing was "left out", the plan is exactly as it was.
-        assertEquals(TemplateEditorMessage.EXERCISE_UNAVAILABLE, state.message)
-        assertEquals("Cable fly", state.exercises[1].exercise?.name)
-        assertFalse(state.isDirty)
-    }
+            viewModel.swap(KEY_FLY, PUSHDOWN.id)
 
-    @Test
-    fun `an add after a backed-out swap appends rather than filling the slot`() = runTest {
-        val viewModel = viewModel()
-
-        // The picker opened from ⇄, backed out of, then reopened from ADD EXERCISES. The last
-        // control tapped is the one the answer belongs to.
-        viewModel.onEvent(TemplateEditorEvent.ExerciseSwapRequested(KEY_FLY))
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPickClosed)
-        viewModel.pick(listOf(PUSHDOWN.id))
-
-        val rows = viewModel.uiState.value.exercises
-        assertEquals(4, rows.size)
-        assertEquals("Cable fly", rows[1].exercise?.name)
-        assertEquals("Tricep pushdown", rows.last().exercise?.name)
-    }
+            assertEquals(before, viewModel.uiState.value.exercises[1].sets)
+        }
 
     @Test
-    fun `an answer to a swap this editor never asked for is refused`() = runTest {
-        val viewModel = viewModel()
+    fun `a swap answered with an exercise that is gone changes nothing and says so`() =
+        runTest {
+            val viewModel = viewModel()
 
-        // The same process-death case `pickWasRequested` guards for an add, reached through the
-        // other control: the flag is read before the slot is, so there is no slot to rewrite.
-        viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+            viewModel.swap(KEY_FLY, 999)
 
-        val state = viewModel.uiState.value
-        assertEquals("Cable fly", state.exercises[1].exercise?.name)
-        assertFalse(state.isDirty)
-        assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
-    }
+            val state = viewModel.uiState.value
+            // Not EXERCISES_UNAVAILABLE: nothing was "left out", the plan is exactly as it was.
+            assertEquals(TemplateEditorMessage.EXERCISE_UNAVAILABLE, state.message)
+            assertEquals("Cable fly", state.exercises[1].exercise?.name)
+            assertFalse(state.isDirty)
+        }
+
+    @Test
+    fun `an add after a backed-out swap appends rather than filling the slot`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // The picker opened from ⇄, backed out of, then reopened from ADD EXERCISES. The last
+            // control tapped is the one the answer belongs to.
+            viewModel.onEvent(TemplateEditorEvent.ExerciseSwapRequested(KEY_FLY))
+            viewModel.onEvent(TemplateEditorEvent.ExercisesPickClosed)
+            viewModel.pick(listOf(PUSHDOWN.id))
+
+            val rows = viewModel.uiState.value.exercises
+            assertEquals(4, rows.size)
+            assertEquals("Cable fly", rows[1].exercise?.name)
+            assertEquals("Tricep pushdown", rows.last().exercise?.name)
+        }
+
+    @Test
+    fun `an answer to a swap this editor never asked for is refused`() =
+        runTest {
+            val viewModel = viewModel()
+
+            // The same process-death case `pickWasRequested` guards for an add, reached through the
+            // other control: the flag is read before the slot is, so there is no slot to rewrite.
+            viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+            val state = viewModel.uiState.value
+            assertEquals("Cable fly", state.exercises[1].exercise?.name)
+            assertFalse(state.isDirty)
+            assertEquals(TemplateEditorMessage.EDITOR_RESTARTED, state.message)
+        }
 
     // ─── Naming ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the name dialog changes the draft and writes nothing`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `the name dialog changes the draft and writes nothing`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day · Heavy"))
-        viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
-        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+            viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Push Day · Heavy"))
+            viewModel.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
+            viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
 
-        val state = viewModel.uiState.value
-        assertEquals("Push Day · Heavy", state.name)
-        assertEquals(TemplateCategory.HYPERTROPHY, state.category)
-        assertNull(state.naming)
-        assertTrue(state.isDirty)
-        assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
-    }
-
-    @Test
-    fun `cancelling the name dialog leaves the draft alone`() = runTest {
-        val viewModel = viewModel()
-
-        viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Something else"))
-        viewModel.onEvent(TemplateEditorEvent.NameEditCancelled)
-
-        assertEquals("Push Day", viewModel.uiState.value.name)
-        assertFalse(viewModel.uiState.value.isDirty)
-    }
+            val state = viewModel.uiState.value
+            assertEquals("Push Day · Heavy", state.name)
+            assertEquals(TemplateCategory.HYPERTROPHY, state.category)
+            assertNull(state.naming)
+            assertTrue(state.isDirty)
+            assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
+        }
 
     @Test
-    fun `the name dialog cannot be opened or applied over a write in flight`() = runTest {
-        val templates = templateStore()
-        val gate = CompletableDeferred<Unit>()
-        templates.writeGate = gate
-        val viewModel = viewModel(templates = templates)
+    fun `cancelling the name dialog leaves the draft alone`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-        assertTrue(viewModel.uiState.value.isSaving)
+            viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Something else"))
+            viewModel.onEvent(TemplateEditorEvent.NameEditCancelled)
 
-        // The header is drawn inert while the write is out, but the event has to be refused
-        // here too: the save took its copy of the draft before it launched, so a name applied
-        // now would be one the store never sees — and the save landing closes the screen over
-        // the difference.
-        viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
-        assertNull(viewModel.uiState.value.naming)
+            assertEquals("Push Day", viewModel.uiState.value.name)
+            assertFalse(viewModel.uiState.value.isDirty)
+        }
 
-        gate.complete(Unit)
-        assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
-        assertTrue(viewModel.uiState.value.isSaved)
-    }
+    @Test
+    fun `the name dialog cannot be opened or applied over a write in flight`() =
+        runTest {
+            val templates = templateStore()
+            val gate = CompletableDeferred<Unit>()
+            templates.writeGate = gate
+            val viewModel = viewModel(templates = templates)
+
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            assertTrue(viewModel.uiState.value.isSaving)
+
+            // The header is drawn inert while the write is out, but the event has to be refused
+            // here too: the save took its copy of the draft before it launched, so a name applied
+            // now would be one the store never sees — and the save landing closes the screen over
+            // the difference.
+            viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
+            assertNull(viewModel.uiState.value.naming)
+
+            gate.complete(Unit)
+            assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
+            assertTrue(viewModel.uiState.value.isSaved)
+        }
 
     // ─── Saving ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `saving writes the whole template and closes the screen`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `saving writes the whole template and closes the screen`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_PUSHDOWN))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_PUSHDOWN))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        val stored = templates.exercisesOf(1)
-        assertEquals(listOf(BENCH.id, FLY.id), stored.map(TemplateExercise::exerciseId))
-        assertEquals(listOf(0, 1), stored.map(TemplateExercise::position))
-        assertEquals(5, stored.first().sets.size)
-        // The pair lost a member, so the group dissolved on the way in.
-        assertEquals(listOf(null, null), stored.map(TemplateExercise::supersetGroup))
-        assertTrue(viewModel.uiState.value.isSaved)
-    }
-
-    @Test
-    fun `a stored rest survives an edit that does not touch it`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
-
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-
-        // `UpdateTemplateUseCase` rewrites every field it is given, so a draft that dropped this
-        // would clear it — silently repricing a template the user opened to add one set.
-        assertEquals(120L, templates.exercisesOf(1).first().restDuration)
-    }
+            val stored = templates.exercisesOf(1)
+            assertEquals(listOf(BENCH.id, FLY.id), stored.map(TemplateExercise::exerciseId))
+            assertEquals(listOf(0, 1), stored.map(TemplateExercise::position))
+            assertEquals(5, stored.first().sets.size)
+            // The pair lost a member, so the group dissolved on the way in.
+            assertEquals(listOf(null, null), stored.map(TemplateExercise::supersetGroup))
+            assertTrue(viewModel.uiState.value.isSaved)
+        }
 
     @Test
-    fun `saving a weight writes it back in milligrams, on the set it was typed into`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `a stored rest survives an edit that does not touch it`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(
-            TemplateEditorEvent.SetFieldChanged(
-                KEY_BENCH,
-                viewModel.setKeyAt(0, 2),
-                TemplateSetField.WEIGHT,
-                "82.5",
-            ),
-        )
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        assertEquals(
-            listOf(80_000_000L, 80_000_000L, 82_500_000L, 80_000_000L),
-            templates.exercisesOf(1).first().sets.map(PlannedSet::weight),
-        )
-    }
+            // `UpdateTemplateUseCase` rewrites every field it is given, so a draft that dropped this
+            // would clear it — silently repricing a template the user opened to add one set.
+            assertEquals(120L, templates.exercisesOf(1).first().restDuration)
+        }
 
     @Test
-    fun `saving writes the plan set for set, in the order it is drawn`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `saving a weight writes it back in milligrams, on the set it was typed into`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(
-            TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), SetType.WARMUP),
-        )
-        viewModel.onEvent(
-            TemplateEditorEvent.SetFieldChanged(
-                KEY_BENCH,
-                viewModel.setKeyAt(0, 0),
-                TemplateSetField.WEIGHT,
-                "40",
-            ),
-        )
-        viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 3)))
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    KEY_BENCH,
+                    viewModel.setKeyAt(0, 2),
+                    TemplateSetField.WEIGHT,
+                    "82.5",
+                ),
+            )
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        assertEquals(
-            listOf(
-                PlannedSet(setType = SetType.WARMUP, reps = 8, weight = 40_000_000),
-                PlannedSet(reps = 8, weight = 80_000_000),
-                PlannedSet(reps = 8, weight = 80_000_000),
-            ),
-            templates.exercisesOf(1).first().sets,
-        )
-    }
+            assertEquals(
+                listOf(80_000_000L, 80_000_000L, 82_500_000L, 80_000_000L),
+                templates.exercisesOf(1).first().sets.map(PlannedSet::weight),
+            )
+        }
 
     @Test
-    fun `a name already in use reopens the name dialog with the refusal on it`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `saving writes the plan set for set, in the order it is drawn`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
-        viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day"))
-        viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            viewModel.onEvent(
+                TemplateEditorEvent.SetTypeChanged(KEY_BENCH, viewModel.setKeyAt(0, 0), SetType.WARMUP),
+            )
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    KEY_BENCH,
+                    viewModel.setKeyAt(0, 0),
+                    TemplateSetField.WEIGHT,
+                    "40",
+                ),
+            )
+            viewModel.onEvent(TemplateEditorEvent.SetRemoved(KEY_BENCH, viewModel.setKeyAt(0, 3)))
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        val naming = viewModel.uiState.value.naming
-        assertEquals("Pull Day", naming?.name)
-        assertEquals(true, naming?.nameTaken)
-        assertFalse(viewModel.uiState.value.isSaved)
-        assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
-    }
-
-    @Test
-    fun `a template deleted underneath the editor becomes the dead end`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
-
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        templates.delete(1)
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-
-        assertTrue(viewModel.uiState.value.isMissing)
-        assertFalse(viewModel.uiState.value.isSaved)
-    }
-
-    @Test
-    fun `a store that cannot be written says so and keeps the draft`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
-
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        templates.writeFailure = IllegalStateException("disk full")
-        viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-
-        val state = viewModel.uiState.value
-        assertEquals(TemplateEditorMessage.SAVE_FAILED, state.message)
-        assertFalse(state.isSaved)
-        assertEquals(5, state.exercises.first().sets.size)
-    }
+            assertEquals(
+                listOf(
+                    PlannedSet(setType = SetType.WARMUP, reps = 8, weight = 40_000_000),
+                    PlannedSet(reps = 8, weight = 80_000_000),
+                    PlannedSet(reps = 8, weight = 80_000_000),
+                ),
+                templates.exercisesOf(1).first().sets,
+            )
+        }
 
     @Test
-    fun `a template edited down to nothing cannot be saved`() = runTest {
-        val viewModel = viewModel()
+    fun `a name already in use reopens the name dialog with the refusal on it`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_FLY))
-        viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_PUSHDOWN))
+            viewModel.onEvent(TemplateEditorEvent.NameEditRequested)
+            viewModel.onEvent(TemplateEditorEvent.NameChanged("Pull Day"))
+            viewModel.onEvent(TemplateEditorEvent.NameConfirmed)
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
 
-        val state = viewModel.uiState.value
-        assertTrue(state.exercises.isEmpty())
-        assertFalse(state.canSave)
-    }
+            val naming = viewModel.uiState.value.naming
+            assertEquals("Pull Day", naming?.name)
+            assertEquals(true, naming?.nameTaken)
+            assertFalse(viewModel.uiState.value.isSaved)
+            assertEquals("Push Day", templates.templates().single { it.id == 1L }.name)
+        }
+
+    @Test
+    fun `a template deleted underneath the editor becomes the dead end`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
+
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            templates.delete(1)
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+            assertTrue(viewModel.uiState.value.isMissing)
+            assertFalse(viewModel.uiState.value.isSaved)
+        }
+
+    @Test
+    fun `a store that cannot be written says so and keeps the draft`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
+
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            templates.writeFailure = IllegalStateException("disk full")
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+            val state = viewModel.uiState.value
+            assertEquals(TemplateEditorMessage.SAVE_FAILED, state.message)
+            assertFalse(state.isSaved)
+            assertEquals(5, state.exercises.first().sets.size)
+        }
+
+    @Test
+    fun `a template edited down to nothing cannot be saved`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_FLY))
+            viewModel.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_PUSHDOWN))
+
+            val state = viewModel.uiState.value
+            assertTrue(state.exercises.isEmpty())
+            assertFalse(state.canSave)
+        }
 
     // ─── Leaving ────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `backing out of an untouched editor leaves without asking`() = runTest {
-        val viewModel = viewModel()
+    fun `backing out of an untouched editor leaves without asking`() =
+        runTest {
+            val viewModel = viewModel()
 
-        viewModel.onEvent(TemplateEditorEvent.BackRequested)
+            viewModel.onEvent(TemplateEditorEvent.BackRequested)
 
-        assertFalse(viewModel.uiState.value.confirmingDiscard)
-    }
+            assertFalse(viewModel.uiState.value.confirmingDiscard)
+        }
 
     @Test
-    fun `backing out with edits asks, and discarding leaves them unwritten`() = runTest {
-        val templates = templateStore()
-        val viewModel = viewModel(templates = templates)
+    fun `backing out with edits asks, and discarding leaves them unwritten`() =
+        runTest {
+            val templates = templateStore()
+            val viewModel = viewModel(templates = templates)
 
-        viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-        viewModel.onEvent(TemplateEditorEvent.BackRequested)
-        assertTrue(viewModel.uiState.value.confirmingDiscard)
+            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
+            viewModel.onEvent(TemplateEditorEvent.BackRequested)
+            assertTrue(viewModel.uiState.value.confirmingDiscard)
 
-        viewModel.onEvent(TemplateEditorEvent.DiscardConfirmed)
-        assertTrue(viewModel.uiState.value.isSaved)
-        assertEquals(4, templates.exercisesOf(1).first().sets.size)
-    }
+            viewModel.onEvent(TemplateEditorEvent.DiscardConfirmed)
+            assertTrue(viewModel.uiState.value.isSaved)
+            assertEquals(4, templates.exercisesOf(1).first().sets.size)
+        }
 
     /** A push day whose last two exercises are one superset, next to an unrelated template. */
-    private fun templateStore(
-        exercises: List<TemplateExercise> = pushDayBody(),
-    ) = FakeTemplateStore(
-        templates = listOf(
-            namedTemplate(1, "Push Day", TemplateCategory.STRENGTH),
-            namedTemplate(2, "Pull Day"),
-        ),
-        exercises = exercises,
-    )
+    private fun templateStore(exercises: List<TemplateExercise> = pushDayBody()) =
+        FakeTemplateStore(
+            templates = listOf(
+                namedTemplate(1, "Push Day", TemplateCategory.STRENGTH),
+                namedTemplate(2, "Pull Day"),
+            ),
+            exercises = exercises,
+        )
 
-    private fun pushDayBody() = listOf(
-        TemplateExercise(
-            id = KEY_BENCH,
-            templateId = 1,
-            exerciseId = BENCH.id,
-            position = 0,
-            sets = List(4) { PlannedSet(reps = 8, weight = 80_000_000) },
-            // The editor has never been able to set this and cannot now — it is here because
-            // templates written before the field was dropped still hold one, and a save has to
-            // hand it back. See `a stored rest survives an edit that does not touch it`.
-            restDuration = 120,
-        ),
-        TemplateExercise(
-            id = KEY_FLY,
-            templateId = 1,
-            exerciseId = FLY.id,
-            position = 1,
-            supersetGroup = 0,
-            sets = List(3) { PlannedSet(reps = 12) },
-        ),
-        TemplateExercise(
-            id = KEY_PUSHDOWN,
-            templateId = 1,
-            exerciseId = PUSHDOWN.id,
-            position = 2,
-            supersetGroup = 0,
-            sets = List(3) { PlannedSet(reps = 12) },
-        ),
-    )
+    private fun pushDayBody() =
+        listOf(
+            TemplateExercise(
+                id = KEY_BENCH,
+                templateId = 1,
+                exerciseId = BENCH.id,
+                position = 0,
+                sets = List(4) { PlannedSet(reps = 8, weight = 80_000_000) },
+                // The editor has never been able to set this and cannot now — it is here because
+                // templates written before the field was dropped still hold one, and a save has to
+                // hand it back. See `a stored rest survives an edit that does not touch it`.
+                restDuration = 120,
+            ),
+            TemplateExercise(
+                id = KEY_FLY,
+                templateId = 1,
+                exerciseId = FLY.id,
+                position = 1,
+                supersetGroup = 0,
+                sets = List(3) { PlannedSet(reps = 12) },
+            ),
+            TemplateExercise(
+                id = KEY_PUSHDOWN,
+                templateId = 1,
+                exerciseId = PUSHDOWN.id,
+                position = 2,
+                supersetGroup = 0,
+                sets = List(3) { PlannedSet(reps = 12) },
+            ),
+        )
 
     /**
      * The key of one set of one exercise, read off the state rather than assumed.
@@ -814,8 +856,10 @@ class TemplateEditorViewModelTest {
      * test that hard-coded them would be asserting on the order the seed happened to be walked
      * in, which is not a contract.
      */
-    private fun TemplateEditorViewModel.setKeyAt(exercise: Int, set: Int): Long =
-        uiState.value.exercises[exercise].sets[set].key
+    private fun TemplateEditorViewModel.setKeyAt(
+        exercise: Int,
+        set: Int,
+    ): Long = uiState.value.exercises[exercise].sets[set].key
 
     /**
      * The ViewModel for one template, with its state already flowing.
@@ -855,7 +899,10 @@ class TemplateEditorViewModelTest {
     }
 
     /** The ⇄ on one slot, then the picker's single answer. The screen dispatches the same pair. */
-    private fun TemplateEditorViewModel.swap(key: Long, exerciseId: Long) {
+    private fun TemplateEditorViewModel.swap(
+        key: Long,
+        exerciseId: Long,
+    ) {
         onEvent(TemplateEditorEvent.ExerciseSwapRequested(key))
         onEvent(TemplateEditorEvent.ExercisesPicked(listOf(exerciseId)))
     }

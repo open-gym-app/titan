@@ -16,8 +16,13 @@ class ArchitectureRulesTest {
 
     private val legalGraph = mapOf(
         ":app" to setOf(
-            ":core:domain", ":core:data", ":core:ui",
-            ":feature:home", ":feature:session", ":feature:history", ":feature:progression",
+            ":core:domain",
+            ":core:data",
+            ":core:ui",
+            ":feature:home",
+            ":feature:session",
+            ":feature:history",
+            ":feature:progression",
         ),
         ":core:domain" to emptySet(),
         ":core:data" to setOf(":core:domain"),

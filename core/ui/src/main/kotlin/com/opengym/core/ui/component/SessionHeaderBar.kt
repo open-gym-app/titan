@@ -268,7 +268,10 @@ fun SessionHeaderBar(
  * anything on its own.
  */
 @Composable
-fun SessionProgressRail(progress: SessionProgress, modifier: Modifier = Modifier) {
+fun SessionProgressRail(
+    progress: SessionProgress,
+    modifier: Modifier = Modifier,
+) {
     val chrome = OpenGymTheme.sessionChrome
     val description = stringResource(
         R.string.session_progress,
@@ -295,11 +298,13 @@ fun SessionProgressRail(progress: SessionProgress, modifier: Modifier = Modifier
                     .background(
                         color = when {
                             isDone -> chrome.accent
+
                             // The exercise being worked is the accent held back: it is
                             // underway rather than behind you, and drawing it either fully on
                             // or fully off would make the rail lie by one exercise in one
                             // direction or the other.
                             index == upNext -> chrome.accent.copy(alpha = CURRENT_ALPHA)
+
                             else -> chrome.track
                         },
                         shape = RoundedCornerShape(RAIL_HEIGHT / 2),
@@ -347,7 +352,10 @@ data class SessionProgress(val exercises: List<Boolean> = emptyList()) {
          * preview or a test usually means. Anything that has an exercise-by-exercise answer
          * should give it rather than reach for this.
          */
-        fun of(completed: Int, total: Int): SessionProgress {
+        fun of(
+            completed: Int,
+            total: Int,
+        ): SessionProgress {
             require(completed >= 0) { "completed cannot be negative, was $completed" }
             require(total >= 0) { "total cannot be negative, was $total" }
             require(completed <= total) { "completed ($completed) is past total ($total)" }

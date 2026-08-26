@@ -15,38 +15,39 @@ import org.gradle.kotlin.dsl.register
  * `./gradlew build` and in CI alongside the other gates.
  */
 class ArchitectureConventionPlugin : Plugin<Project> {
-    override fun apply(target: Project) = with(target) {
-        require(this == rootProject) {
-            "opengym.architecture applies to the root project; it was applied to $path"
+    override fun apply(target: Project) =
+        with(target) {
+            require(this == rootProject) {
+                "opengym.architecture applies to the root project; it was applied to $path"
+            }
+
+            tasks.register<CheckModuleDependencies>("checkArchitecture") {
+                group = "verification"
+                description = "Asserts the module dependency graph against docs/ARCHITECTURE.md."
+
+                // Resolved lazily: Gradle finalizes the task's inputs at the end of the
+                // configuration phase, by which point every subproject has been evaluated and its
+                // `dependencies {}` block is complete. Reading it eagerly here would see whichever
+                // modules happened to be configured first, and pass by seeing nothing.
+                //
+                // End of configuration, not execution — which is why this survives the
+                // configuration cache, where a cross-project read while the task runs would not.
+                moduleGraph.set(
+                    provider {
+                        subprojects
+                            // `:core` and `:feature` are directory containers with no build file
+                            // and no dependencies of their own.
+                            .filter { it.buildFile.exists() }
+                            .associate { it.path to it.projectDependencyPaths() }
+                    },
+                )
+
+                acceptedGraph.set(
+                    target.layout.buildDirectory.file("reports/architecture/module-graph.txt"),
+                )
+            }
+            Unit
         }
-
-        tasks.register<CheckModuleDependencies>("checkArchitecture") {
-            group = "verification"
-            description = "Asserts the module dependency graph against docs/ARCHITECTURE.md."
-
-            // Resolved lazily: Gradle finalizes the task's inputs at the end of the
-            // configuration phase, by which point every subproject has been evaluated and its
-            // `dependencies {}` block is complete. Reading it eagerly here would see whichever
-            // modules happened to be configured first, and pass by seeing nothing.
-            //
-            // End of configuration, not execution — which is why this survives the
-            // configuration cache, where a cross-project read while the task runs would not.
-            moduleGraph.set(
-                provider {
-                    subprojects
-                        // `:core` and `:feature` are directory containers with no build file
-                        // and no dependencies of their own.
-                        .filter { it.buildFile.exists() }
-                        .associate { it.path to it.projectDependencyPaths() }
-                },
-            )
-
-            acceptedGraph.set(
-                target.layout.buildDirectory.file("reports/architecture/module-graph.txt"),
-            )
-        }
-        Unit
-    }
 }
 
 /**

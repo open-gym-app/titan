@@ -261,10 +261,11 @@ private val OnboardingStep.isCentred: Boolean
     }
 
 /** The sentence a message is shown as. */
-private fun OnboardingMessage.textRes(): Int = when (this) {
-    OnboardingMessage.SAVE_FAILED -> R.string.onboarding_save_failed
-    OnboardingMessage.FINISH_FAILED -> R.string.onboarding_finish_failed
-}
+private fun OnboardingMessage.textRes(): Int =
+    when (this) {
+        OnboardingMessage.SAVE_FAILED -> R.string.onboarding_save_failed
+        OnboardingMessage.FINISH_FAILED -> R.string.onboarding_finish_failed
+    }
 
 /**
  * How far a step slides in from: a fifth of the width, not the whole of it.

@@ -17,18 +17,20 @@ import javax.inject.Inject
  */
 class MuscleGroupLinkMapper @Inject constructor() {
 
-    fun toDomain(entity: MuscleGroupEntity): MuscleGroup = MuscleGroup(
-        id = entity.id,
-        name = entity.name,
-        icon = entity.icon,
-    )
+    fun toDomain(entity: MuscleGroupEntity): MuscleGroup =
+        MuscleGroup(
+            id = entity.id,
+            name = entity.name,
+            icon = entity.icon,
+        )
 
-    fun toDomain(row: ExerciseMuscleGroupLinkRow): ExerciseMuscleGroupLink = ExerciseMuscleGroupLink(
-        muscleGroup = MuscleGroup(
-            id = row.muscleGroupId,
-            name = row.muscleGroupName,
-            icon = row.muscleGroupIcon,
-        ),
-        isPrimary = row.isPrimary,
-    )
+    fun toDomain(row: ExerciseMuscleGroupLinkRow): ExerciseMuscleGroupLink =
+        ExerciseMuscleGroupLink(
+            muscleGroup = MuscleGroup(
+                id = row.muscleGroupId,
+                name = row.muscleGroupName,
+                icon = row.muscleGroupIcon,
+            ),
+            isPrimary = row.isPrimary,
+        )
 }

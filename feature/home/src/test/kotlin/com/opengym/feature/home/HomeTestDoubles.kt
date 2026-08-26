@@ -69,12 +69,12 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
 
     override fun getById(id: Long): Flow<WorkoutSession?> = stored.map { it[id] }
 
-    override fun getActive(): Flow<WorkoutSession?> = stored.map { sessions ->
-        sessions.values.filter(WorkoutSession::isInProgress).maxByOrNull(WorkoutSession::lastActiveAt)
-    }
+    override fun getActive(): Flow<WorkoutSession?> =
+        stored.map { sessions ->
+            sessions.values.filter(WorkoutSession::isInProgress).maxByOrNull(WorkoutSession::lastActiveAt)
+        }
 
-    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> =
-        sets.map { it[sessionId].orEmpty() }
+    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> = sets.map { it[sessionId].orEmpty() }
 
     override suspend fun update(session: WorkoutSession) {
         stored.update { it + (session.id to session) }
@@ -87,7 +87,10 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
     }
 
     /** [count] logged sets against [sessionId] — what discarding it would cost. */
-    fun seedSets(sessionId: Long, count: Int) {
+    fun seedSets(
+        sessionId: Long,
+        count: Int,
+    ) {
         sets.update {
             it + (
                 sessionId to (1..count).map { number ->
@@ -135,8 +138,7 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
     override suspend fun deleteExercise(sessionExerciseId: Long) = unsupported()
 
     /** Home reads sessions and deletes one. Anything else is a change of behaviour. */
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("home reads sessions and discards one")
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home reads sessions and discards one")
 }
 
 /** The in-progress draft: one slot, which is what the contract says it is. */
@@ -193,13 +195,14 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise> = emptyList())
     ): Long = unsupported()
 
     override suspend fun update(exercise: Exercise) = unsupported()
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) =
-        unsupported()
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
 
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("home reads one exercise by id")
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home reads one exercise by id")
 }
 
 /** The saved templates. Only the two reads `GetTemplateSummariesUseCase` makes are real. */
@@ -211,8 +214,7 @@ class FakeTemplateStore(
     private val stored = MutableStateFlow(templates)
     private val body = MutableStateFlow(exercises)
 
-    override fun getAll(): Flow<List<WorkoutTemplate>> =
-        stored.map { it.sortedBy(WorkoutTemplate::name) }
+    override fun getAll(): Flow<List<WorkoutTemplate>> = stored.map { it.sortedBy(WorkoutTemplate::name) }
 
     override fun getAllExercises(): Flow<List<TemplateExercise>> = body
 
@@ -223,13 +225,14 @@ class FakeTemplateStore(
         exercises: List<TemplateExerciseDraft>,
     ): Long = unsupported()
 
-    override suspend fun update(template: WorkoutTemplate, exercises: List<TemplateExerciseDraft>) =
-        unsupported()
+    override suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ) = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
 
-    private fun unsupported(): Nothing =
-        throw UnsupportedOperationException("home only lists templates")
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home only lists templates")
 }
 
 /** The settings store, for the one field the template estimate is priced against. */
@@ -241,21 +244,19 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
 
     override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }
     override suspend fun setTheme(theme: ThemePreference) = write { it.copy(theme = theme) }
-    override suspend fun setDefaultRestDuration(duration: Duration) =
-        write { it.copy(defaultRestDuration = duration) }
+    override suspend fun setDefaultRestDuration(duration: Duration) = write { it.copy(defaultRestDuration = duration) }
 
     override suspend fun setBarWeight(barWeight: Long) = write { it.copy(barWeight = barWeight) }
-    override suspend fun setPlateInventory(inventory: PlateInventory?) =
-        write { it.copy(plateInventory = inventory) }
+    override suspend fun setPlateInventory(inventory: PlateInventory?) = write { it.copy(plateInventory = inventory) }
 
-    override suspend fun setPlatePairs(weight: Long, pairs: Int) =
-        write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
-    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
-        write { it.copy(trainingGoal = trainingGoal) }
+    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
 
-    override suspend fun setOnboardingCompleted(completed: Boolean) =
-        write { it.copy(onboardingCompleted = completed) }
+    override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun clear() = write { UserPreferences() }
 

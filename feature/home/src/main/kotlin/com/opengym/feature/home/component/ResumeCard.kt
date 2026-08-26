@@ -266,5 +266,4 @@ private const val STACKED_FONT_SCALE = 1.3f
  * [SessionPosition] says why inventing one here would be worse than saying less.
  */
 @Composable
-private fun SessionPosition.label(): String =
-    stringResource(R.string.home_resume_position, exerciseName, setNumber)
+private fun SessionPosition.label(): String = stringResource(R.string.home_resume_position, exerciseName, setNumber)

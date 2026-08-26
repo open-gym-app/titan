@@ -52,26 +52,28 @@ class DatabaseSeedTest {
     // --- reference data ---------------------------------------------------
 
     @Test
-    fun `seed inserts the seventeen muscle groups`() = runBlocking {
-        val names = db.muscleGroupDao().getAll().first().map { it.name }.toSet()
-        assertEquals(
-            setOf(
-                "ABDOMINALS", "ABDUCTORS", "ADDUCTORS", "BICEPS", "CALVES", "CHEST",
-                "FOREARMS", "GLUTES", "HAMSTRINGS", "LATS", "LOWER_BACK", "MIDDLE_BACK",
-                "NECK", "QUADRICEPS", "SHOULDERS", "TRAPS", "TRICEPS",
-            ),
-            names,
-        )
-    }
+    fun `seed inserts the seventeen muscle groups`() =
+        runBlocking {
+            val names = db.muscleGroupDao().getAll().first().map { it.name }.toSet()
+            assertEquals(
+                setOf(
+                    "ABDOMINALS", "ABDUCTORS", "ADDUCTORS", "BICEPS", "CALVES", "CHEST",
+                    "FOREARMS", "GLUTES", "HAMSTRINGS", "LATS", "LOWER_BACK", "MIDDLE_BACK",
+                    "NECK", "QUADRICEPS", "SHOULDERS", "TRAPS", "TRICEPS",
+                ),
+                names,
+            )
+        }
 
     @Test
-    fun `seed inserts the six system tags and marks them system`() = runBlocking {
-        val systemTags = db.tagDao().getSystemTags().first().map { it.name }.toSet()
-        assertEquals(
-            setOf("PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION"),
-            systemTags,
-        )
-    }
+    fun `seed inserts the six system tags and marks them system`() =
+        runBlocking {
+            val systemTags = db.tagDao().getSystemTags().first().map { it.name }.toSet()
+            assertEquals(
+                setOf("PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION"),
+                systemTags,
+            )
+        }
 
     // --- catalogue --------------------------------------------------------
 
@@ -110,11 +112,12 @@ class DatabaseSeedTest {
     }
 
     @Test
-    fun `every muscle group has at least one exercise`() = runBlocking {
-        val linked = distinctValues("SELECT DISTINCT muscle_group_id FROM exercise_muscle_group")
-        val all = db.muscleGroupDao().getAll().first().map { it.id.toString() }.toSet()
-        assertEquals(emptySet<String>(), all - linked)
-    }
+    fun `every muscle group has at least one exercise`() =
+        runBlocking {
+            val linked = distinctValues("SELECT DISTINCT muscle_group_id FROM exercise_muscle_group")
+            val all = db.muscleGroupDao().getAll().first().map { it.id.toString() }.toSet()
+            assertEquals(emptySet<String>(), all - linked)
+        }
 
     @Test
     fun `every equipment type has at least one exercise`() {
@@ -188,43 +191,45 @@ class DatabaseSeedTest {
     // --- spot checks ------------------------------------------------------
 
     @Test
-    fun `known exercises are seeded with their muscle group links`() = runBlocking {
-        val expected = mapOf(
-            "Barbell Squat" to "QUADRICEPS",
-            "Barbell Deadlift" to "LOWER_BACK",
-            "Barbell Bench Press - Medium Grip" to "CHEST",
-            "Pullups" to "LATS",
-            "Barbell Curl" to "BICEPS",
-        )
-        expected.forEach { (name, primaryMuscle) ->
-            val exercise = db.exerciseDao().searchByPartialName(name).first()
-                .singleOrNull { it.name == name }
-            assertNotNull("$name is missing from the seed", exercise)
+    fun `known exercises are seeded with their muscle group links`() =
+        runBlocking {
+            val expected = mapOf(
+                "Barbell Squat" to "QUADRICEPS",
+                "Barbell Deadlift" to "LOWER_BACK",
+                "Barbell Bench Press - Medium Grip" to "CHEST",
+                "Pullups" to "LATS",
+                "Barbell Curl" to "BICEPS",
+            )
+            expected.forEach { (name, primaryMuscle) ->
+                val exercise = db.exerciseDao().searchByPartialName(name).first()
+                    .singleOrNull { it.name == name }
+                assertNotNull("$name is missing from the seed", exercise)
 
-            val links = db.exerciseDao().getMuscleGroupLinks(exercise!!.id).first()
-            assertTrue("$name has no muscle groups", links.isNotEmpty())
-            // getMuscleGroupLinks orders is_primary first.
-            val primary = links.first()
-            assertEquals("wrong primary muscle for $name", primaryMuscle, primary.muscleGroupName)
-            assertTrue("$name's first link should be flagged primary", primary.isPrimary)
+                val links = db.exerciseDao().getMuscleGroupLinks(exercise!!.id).first()
+                assertTrue("$name has no muscle groups", links.isNotEmpty())
+                // getMuscleGroupLinks orders is_primary first.
+                val primary = links.first()
+                assertEquals("wrong primary muscle for $name", primaryMuscle, primary.muscleGroupName)
+                assertTrue("$name's first link should be flagged primary", primary.isPrimary)
+            }
         }
-    }
 
     @Test
-    fun `barbell squat carries its full attribute set`() = runBlocking {
-        val squat = db.exerciseDao().searchByPartialName("Barbell Squat").first()
-            .single { it.name == "Barbell Squat" }
-        assertEquals(ExerciseType.STRENGTH.name, squat.exerciseType)
-        assertEquals(Discipline.STRENGTH.name, squat.discipline)
-        assertEquals(EquipmentType.BARBELL.name, squat.equipmentType)
-        assertEquals(MechanicType.COMPOUND.name, squat.mechanicType)
-        assertEquals(DifficultyLevel.BEGINNER.name, squat.difficultyLevel)
-        assertTrue("instructions should be seeded", !squat.instructions.isNullOrBlank())
-        assertEquals(
-            setOf("PUSH", "COMPOUND"),
-            db.exerciseDao().getTags(squat.id).first().map { it.name }.toSet(),
-        )
-    }
+    fun `barbell squat carries its full attribute set`() =
+        runBlocking {
+            val squat = db.exerciseDao().searchByPartialName("Barbell Squat").first()
+                .single { it.name == "Barbell Squat" }
+            assertEquals(ExerciseType.STRENGTH.name, squat.exerciseType)
+            assertEquals(Discipline.STRENGTH.name, squat.discipline)
+            assertEquals(EquipmentType.BARBELL.name, squat.equipmentType)
+            assertEquals(MechanicType.COMPOUND.name, squat.mechanicType)
+            assertEquals(DifficultyLevel.BEGINNER.name, squat.difficultyLevel)
+            assertTrue("instructions should be seeded", !squat.instructions.isNullOrBlank())
+            assertEquals(
+                setOf("PUSH", "COMPOUND"),
+                db.exerciseDao().getTags(squat.id).first().map { it.name }.toSet(),
+            )
+        }
 
     // --- idempotency ------------------------------------------------------
 

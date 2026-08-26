@@ -92,7 +92,10 @@ data class ActiveSessionDestination(val sessionId: Long)
  *   [com.opengym.feature.session.summary.SessionSummaryMode] for what it changes.
  */
 @Serializable
-data class SessionSummaryDestination(val sessionId: Long, val historical: Boolean = false)
+data class SessionSummaryDestination(
+    val sessionId: Long,
+    val historical: Boolean = false,
+)
 
 /**
  * The exercise picker, as the session flow is allowed to see it.

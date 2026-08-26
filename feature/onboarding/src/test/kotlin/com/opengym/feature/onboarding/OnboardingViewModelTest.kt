@@ -45,165 +45,172 @@ class OnboardingViewModelTest {
     }
 
     @Test
-    fun `the flow opens on the first step and nothing is recorded yet`() = runTest {
-        val viewModel = viewModel()
-        collectState(viewModel)
+    fun `the flow opens on the first step and nothing is recorded yet`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
 
-        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
-        assertFalse(viewModel.uiState.value.isFinished)
-        assertFalse(preferences.current.onboardingCompleted)
-    }
-
-    @Test
-    fun `answering every step stores every answer and completes the flow`() = runTest {
-        val viewModel = viewModel()
-        collectState(viewModel)
-
-        viewModel.onEvent(OnboardingEvent.Continued)
-
-        assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
-        viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY))
-        // Written as it is chosen, not banked for the end — which is what makes the app
-        // killed on step three relaunch knowing the answer to step two.
-        assertEquals(TrainingGoal.HYPERTROPHY, preferences.current.trainingGoal)
-        viewModel.onEvent(OnboardingEvent.Continued)
-
-        assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
-        viewModel.onEvent(OnboardingEvent.UnitSystemSelected(UnitSystem.IMPERIAL))
-        assertEquals(UnitSystem.IMPERIAL, preferences.current.unitSystem)
-        viewModel.onEvent(OnboardingEvent.Continued)
-
-        assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
-        viewModel.onEvent(OnboardingEvent.Continued)
-
-        assertEquals(
-            UserPreferences(
-                unitSystem = UnitSystem.IMPERIAL,
-                trainingGoal = TrainingGoal.HYPERTROPHY,
-                onboardingCompleted = true,
-            ),
-            preferences.current,
-        )
-        assertTrue(viewModel.uiState.value.isFinished)
-    }
+            assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+            assertFalse(viewModel.uiState.value.isFinished)
+            assertFalse(preferences.current.onboardingCompleted)
+        }
 
     @Test
-    fun `skipping every step applies the documented defaults and still completes`() = runTest {
-        // Started from the *opposite* of every default, so "the defaults were applied" cannot
-        // pass by the store simply never having been written.
-        val stored = FakeUserPreferencesRepository(
-            UserPreferences(unitSystem = UnitSystem.IMPERIAL, trainingGoal = TrainingGoal.CUSTOM),
-        )
-        val viewModel = viewModel(stored)
-        collectState(viewModel)
+    fun `answering every step stores every answer and completes the flow`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
 
-        viewModel.onEvent(OnboardingEvent.Skipped)
-        viewModel.onEvent(OnboardingEvent.Skipped)
-        viewModel.onEvent(OnboardingEvent.Skipped)
+            viewModel.onEvent(OnboardingEvent.Continued)
 
-        assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
-        assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, stored.current.trainingGoal)
-        assertEquals(OnboardingViewModel.DEFAULT_UNIT_SYSTEM, stored.current.unitSystem)
+            assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
+            viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY))
+            // Written as it is chosen, not banked for the end — which is what makes the app
+            // killed on step three relaunch knowing the answer to step two.
+            assertEquals(TrainingGoal.HYPERTROPHY, preferences.current.trainingGoal)
+            viewModel.onEvent(OnboardingEvent.Continued)
 
-        viewModel.onEvent(OnboardingEvent.Continued)
+            assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
+            viewModel.onEvent(OnboardingEvent.UnitSystemSelected(UnitSystem.IMPERIAL))
+            assertEquals(UnitSystem.IMPERIAL, preferences.current.unitSystem)
+            viewModel.onEvent(OnboardingEvent.Continued)
 
-        // A user who answered nothing has still been through onboarding, and is not asked again.
-        assertTrue(stored.current.onboardingCompleted)
-        assertTrue(viewModel.uiState.value.isFinished)
-    }
+            assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
+            viewModel.onEvent(OnboardingEvent.Continued)
 
-    @Test
-    fun `back walks the flow rather than leaving it, and stops at the first step`() = runTest {
-        val viewModel = viewModel()
-        collectState(viewModel)
-
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.Continued)
-        assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
-
-        viewModel.onEvent(OnboardingEvent.BackPressed)
-        assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
-
-        viewModel.onEvent(OnboardingEvent.BackPressed)
-        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
-
-        // The screen does not register a handler on the first step, so this cannot happen
-        // through the UI. It is answered anyway, because "nowhere to go" must not be a crash.
-        viewModel.onEvent(OnboardingEvent.BackPressed)
-        assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
-    }
+            assertEquals(
+                UserPreferences(
+                    unitSystem = UnitSystem.IMPERIAL,
+                    trainingGoal = TrainingGoal.HYPERTROPHY,
+                    onboardingCompleted = true,
+                ),
+                preferences.current,
+            )
+            assertTrue(viewModel.uiState.value.isFinished)
+        }
 
     @Test
-    fun `skipping a step already answered puts the default back`() = runTest {
-        val viewModel = viewModel()
-        collectState(viewModel)
+    fun `skipping every step applies the documented defaults and still completes`() =
+        runTest {
+            // Started from the *opposite* of every default, so "the defaults were applied" cannot
+            // pass by the store simply never having been written.
+            val stored = FakeUserPreferencesRepository(
+                UserPreferences(unitSystem = UnitSystem.IMPERIAL, trainingGoal = TrainingGoal.CUSTOM),
+            )
+            val viewModel = viewModel(stored)
+            collectState(viewModel)
 
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.ENDURANCE))
-        viewModel.onEvent(OnboardingEvent.Skipped)
+            viewModel.onEvent(OnboardingEvent.Skipped)
+            viewModel.onEvent(OnboardingEvent.Skipped)
+            viewModel.onEvent(OnboardingEvent.Skipped)
 
-        // Skip means "the default", not "whatever is in there" — otherwise a user who
-        // mistapped an option has no way of un-answering the question.
-        assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, preferences.current.trainingGoal)
-    }
+            assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
+            assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, stored.current.trainingGoal)
+            assertEquals(OnboardingViewModel.DEFAULT_UNIT_SYSTEM, stored.current.unitSystem)
 
-    @Test
-    fun `an answer that cannot be stored is reported, and the step still advances`() = runTest {
-        preferences.writeFailure = IOException("no space left on device")
-        val viewModel = viewModel()
-        collectState(viewModel)
+            viewModel.onEvent(OnboardingEvent.Continued)
 
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.ENDURANCE))
-        viewModel.onEvent(OnboardingEvent.Continued)
-
-        assertEquals(OnboardingMessage.SAVE_FAILED, viewModel.uiState.value.message)
-        // Said out loud, but not a wall: the value that failed to write is the default the
-        // store is already reporting, and trapping a new user in step two over it is worse.
-        assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
-    }
+            // A user who answered nothing has still been through onboarding, and is not asked again.
+            assertTrue(stored.current.onboardingCompleted)
+            assertTrue(viewModel.uiState.value.isFinished)
+        }
 
     @Test
-    fun `completion that cannot be recorded does not finish the flow`() = runTest {
-        val viewModel = viewModel()
-        collectState(viewModel)
+    fun `back walks the flow rather than leaving it, and stops at the first step`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
 
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.Continued)
-        preferences.writeFailure = IOException("read-only file system")
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
 
-        viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.BackPressed)
+            assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
 
-        // The one failure that must stop the user: navigating to Home without the flag on disk
-        // means the next launch asks all four questions over again.
-        assertEquals(OnboardingMessage.FINISH_FAILED, viewModel.uiState.value.message)
-        assertFalse(viewModel.uiState.value.isFinished)
-        assertFalse(viewModel.uiState.value.isFinishing)
-        assertFalse(preferences.current.onboardingCompleted)
-    }
+            viewModel.onEvent(OnboardingEvent.BackPressed)
+            assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+
+            // The screen does not register a handler on the first step, so this cannot happen
+            // through the UI. It is answered anyway, because "nowhere to go" must not be a crash.
+            viewModel.onEvent(OnboardingEvent.BackPressed)
+            assertEquals(OnboardingStep.WELCOME, viewModel.uiState.value.step)
+        }
 
     @Test
-    fun `a message is shown once`() = runTest {
-        preferences.writeFailure = IOException("no space left on device")
-        val viewModel = viewModel()
-        collectState(viewModel)
+    fun `skipping a step already answered puts the default back`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
 
-        // Skipped on the *goal* step: the welcome step asks nothing, so skipping it writes
-        // nothing and there would be no failure to report.
-        viewModel.onEvent(OnboardingEvent.Continued)
-        viewModel.onEvent(OnboardingEvent.Skipped)
-        assertEquals(OnboardingMessage.SAVE_FAILED, viewModel.uiState.value.message)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.ENDURANCE))
+            viewModel.onEvent(OnboardingEvent.Skipped)
 
-        viewModel.onEvent(OnboardingEvent.MessageShown)
-        assertNull(viewModel.uiState.value.message)
-    }
+            // Skip means "the default", not "whatever is in there" — otherwise a user who
+            // mistapped an option has no way of un-answering the question.
+            assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, preferences.current.trainingGoal)
+        }
+
+    @Test
+    fun `an answer that cannot be stored is reported, and the step still advances`() =
+        runTest {
+            preferences.writeFailure = IOException("no space left on device")
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.TrainingGoalSelected(TrainingGoal.ENDURANCE))
+            viewModel.onEvent(OnboardingEvent.Continued)
+
+            assertEquals(OnboardingMessage.SAVE_FAILED, viewModel.uiState.value.message)
+            // Said out loud, but not a wall: the value that failed to write is the default the
+            // store is already reporting, and trapping a new user in step two over it is worse.
+            assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
+        }
+
+    @Test
+    fun `completion that cannot be recorded does not finish the flow`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            preferences.writeFailure = IOException("read-only file system")
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+
+            // The one failure that must stop the user: navigating to Home without the flag on disk
+            // means the next launch asks all four questions over again.
+            assertEquals(OnboardingMessage.FINISH_FAILED, viewModel.uiState.value.message)
+            assertFalse(viewModel.uiState.value.isFinished)
+            assertFalse(viewModel.uiState.value.isFinishing)
+            assertFalse(preferences.current.onboardingCompleted)
+        }
+
+    @Test
+    fun `a message is shown once`() =
+        runTest {
+            preferences.writeFailure = IOException("no space left on device")
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            // Skipped on the *goal* step: the welcome step asks nothing, so skipping it writes
+            // nothing and there would be no failure to report.
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Skipped)
+            assertEquals(OnboardingMessage.SAVE_FAILED, viewModel.uiState.value.message)
+
+            viewModel.onEvent(OnboardingEvent.MessageShown)
+            assertNull(viewModel.uiState.value.message)
+        }
 
     // --- helpers ----------------------------------------------------------
 
-    private fun viewModel(
-        preferences: FakeUserPreferencesRepository = this.preferences,
-    ) = OnboardingViewModel(preferences)
+    private fun viewModel(preferences: FakeUserPreferencesRepository = this.preferences) =
+        OnboardingViewModel(preferences)
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */
     private fun TestScope.collectState(viewModel: OnboardingViewModel) {

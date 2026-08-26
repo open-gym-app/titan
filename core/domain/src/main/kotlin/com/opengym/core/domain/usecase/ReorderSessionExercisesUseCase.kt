@@ -92,24 +92,23 @@ class ReorderSessionExercisesUseCase(
      * [SessionError.InvalidExerciseOrder] when the list is not this session's exercises, each
      * exactly once.
      */
-    suspend operator fun invoke(
-        orderedSessionExerciseIds: List<Long>,
-    ): Result<List<Long>> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val active = current as? SessionState.Active
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    suspend operator fun invoke(orderedSessionExerciseIds: List<Long>): Result<List<Long>> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val active = current as? SessionState.Active
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        val exercises = sessionRepository.getExercises(active.sessionId).first()
-        val moved = rowsThatMove(orderedSessionExerciseIds, exercises.associateBy(SessionExercise::id))
-            .getOrElse { return@withTransition Result.failure(it) }
+            val exercises = sessionRepository.getExercises(active.sessionId).first()
+            val moved = rowsThatMove(orderedSessionExerciseIds, exercises.associateBy(SessionExercise::id))
+                .getOrElse { return@withTransition Result.failure(it) }
 
-        runCatching {
-            // Nothing to write is a success rather than a special case: dragging an exercise
-            // back where it came from is a legal thing to do and produces no order to save.
-            if (moved.isNotEmpty()) sessionRepository.updateExercises(moved)
-            orderedSessionExerciseIds
+            runCatching {
+                // Nothing to write is a success rather than a special case: dragging an exercise
+                // back where it came from is a legal thing to do and produces no order to save.
+                if (moved.isNotEmpty()) sessionRepository.updateExercises(moved)
+                orderedSessionExerciseIds
+            }
         }
-    }
 
     /**
      * The rows [order] actually changes, or why it is not an order this session can be in.

@@ -74,9 +74,10 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
         links.map { stored -> stored.mapValues { (_, value) -> value.sortedWith(primaryFirst) } }
 
     /** Derived from the links, since this fake has no taxonomy table of its own. */
-    override fun getMuscleGroups(): Flow<List<MuscleGroup>> = links.map { stored ->
-        stored.values.flatten().map { it.muscleGroup }.distinct().sortedBy { it.name }
-    }
+    override fun getMuscleGroups(): Flow<List<MuscleGroup>> =
+        links.map { stored ->
+            stored.values.flatten().map { it.muscleGroup }.distinct().sortedBy { it.name }
+        }
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = flowOf(emptyList())
 
@@ -99,7 +100,10 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
         catalogue.value += exercise.id to exercise
     }
 
-    override suspend fun update(exercise: Exercise, muscleGroups: List<ExerciseMuscleGroupLink>) {
+    override suspend fun update(
+        exercise: Exercise,
+        muscleGroups: List<ExerciseMuscleGroupLink>,
+    ) {
         update(exercise)
         // Replaced, not merged — the contract's word. Removing the entry rather than storing
         // an empty list keeps `getAllMuscleGroupLinks` free of empty groups, as the real one is.
@@ -116,7 +120,10 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
     }
 
     /** Records which muscle groups [exerciseId] trains, and how hard. */
-    fun linkMuscles(exerciseId: Long, vararg muscleLinks: ExerciseMuscleGroupLink) {
+    fun linkMuscles(
+        exerciseId: Long,
+        vararg muscleLinks: ExerciseMuscleGroupLink,
+    ) {
         links.value += exerciseId to muscleLinks.toList()
     }
 
@@ -140,7 +147,10 @@ private val primaryFirst = compareByDescending<ExerciseMuscleGroupLink> { it.isP
  *
  * Nothing sleeps for real: a whole workout of rests runs in microseconds.
  */
-class Timeline(private val scope: TestScope, private val clock: MutableClock) {
+class Timeline(
+    private val scope: TestScope,
+    private val clock: MutableClock,
+) {
 
     private var elapsed: Duration = Duration.ZERO
 
@@ -185,21 +195,22 @@ fun completedSet(
     duration: Long? = null,
     distance: Long? = null,
     restAfter: Long? = null,
-): WorkoutSet = WorkoutSet(
-    // Filled in by the store; a caller that numbered its own sets would be one reorder
-    // away from a duplicate (session_exercise_id, set_number).
-    sessionExerciseId = 0,
-    setNumber = 0,
-    reps = reps,
-    weight = weight,
-    duration = duration,
-    distance = distance,
-    restAfter = restAfter,
-    isCompleted = true,
-    completedAt = completedAt,
-    createdAt = completedAt,
-    updatedAt = completedAt,
-)
+): WorkoutSet =
+    WorkoutSet(
+        // Filled in by the store; a caller that numbered its own sets would be one reorder
+        // away from a duplicate (session_exercise_id, set_number).
+        sessionExerciseId = 0,
+        setNumber = 0,
+        reps = reps,
+        weight = weight,
+        duration = duration,
+        distance = distance,
+        restAfter = restAfter,
+        isCompleted = true,
+        completedAt = completedAt,
+        createdAt = completedAt,
+        updatedAt = completedAt,
+    )
 
 /** Kilograms in the canonical storage unit, so the fixtures read as the weights they are. */
 fun kg(value: Long): Long = value * 1_000_000L
@@ -226,12 +237,13 @@ object Catalogue {
     val abdominals = MuscleGroup(id = 3L, name = "Abdominals")
 
     /** A repository holding both exercises with their muscle links wired up. */
-    fun repository(): FakeExerciseRepository = FakeExerciseRepository(listOf(benchPress, plank)).apply {
-        linkMuscles(
-            benchPress.id,
-            ExerciseMuscleGroupLink(chest, isPrimary = true),
-            ExerciseMuscleGroupLink(triceps, isPrimary = false),
-        )
-        linkMuscles(plank.id, ExerciseMuscleGroupLink(abdominals, isPrimary = true))
-    }
+    fun repository(): FakeExerciseRepository =
+        FakeExerciseRepository(listOf(benchPress, plank)).apply {
+            linkMuscles(
+                benchPress.id,
+                ExerciseMuscleGroupLink(chest, isPrimary = true),
+                ExerciseMuscleGroupLink(triceps, isPrimary = false),
+            )
+            linkMuscles(plank.id, ExerciseMuscleGroupLink(abdominals, isPrimary = true))
+        }
 }

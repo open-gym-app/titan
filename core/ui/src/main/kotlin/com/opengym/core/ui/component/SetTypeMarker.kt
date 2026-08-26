@@ -89,7 +89,10 @@ internal fun SetMarker(
  * hanging at two different indents.
  */
 @Composable
-internal fun SetTypeChip(setType: SetType, modifier: Modifier = Modifier) {
+internal fun SetTypeChip(
+    setType: SetType,
+    modifier: Modifier = Modifier,
+) {
     val glyph = setType.markerOrNull()
     val tone = setType.markerTone()
 
@@ -121,7 +124,10 @@ internal fun SetTypeChip(setType: SetType, modifier: Modifier = Modifier) {
  *   the contrast test already covers rather than a combination invented here.
  */
 @Immutable
-internal data class SetTypeMarkerTone(val container: Color, val content: Color)
+internal data class SetTypeMarkerTone(
+    val container: Color,
+    val content: Color,
+)
 
 /**
  * Which tint a marked set carries. Exhaustive, so a value added to [SetType] is a compile error

@@ -129,7 +129,9 @@ class NewSessionViewModel @Inject constructor(
                 screenState.update { it.copy(selectingExercises = false) }
 
             is NewSessionEvent.TemplateSelected -> planFromTemplate(event.templateId)
+
             is NewSessionEvent.ExercisesSelected -> planFromExercises(event.exerciseIds)
+
             is NewSessionEvent.ExerciseRemoved -> removeExercise(event.index)
 
             NewSessionEvent.PlanDiscarded ->
@@ -137,10 +139,13 @@ class NewSessionViewModel @Inject constructor(
 
             NewSessionEvent.NameEditRequested ->
                 screenState.update { it.copy(nameDraft = it.plan?.session?.name.orEmpty()) }
+
             is NewSessionEvent.NameChanged ->
                 screenState.update { it.copy(nameDraft = event.text) }
+
             NewSessionEvent.NameEditCancelled ->
                 screenState.update { it.copy(nameDraft = null) }
+
             NewSessionEvent.NameConfirmed -> applyName()
 
             NewSessionEvent.SessionStartRequested -> start()
@@ -173,19 +178,20 @@ class NewSessionViewModel @Inject constructor(
      * list on screen already priced it against the user's default rest, and computing it a
      * second way here is how a row and the panel it opens end up disagreeing by five minutes.
      */
-    private fun planFromTemplate(templateId: Long) = viewModelScope.launch {
-        val plan = applyTemplate(templateId).getOrElse {
-            screenState.update { it.copy(message = NewSessionMessage.TEMPLATE_UNAVAILABLE) }
-            return@launch
-        }
+    private fun planFromTemplate(templateId: Long) =
+        viewModelScope.launch {
+            val plan = applyTemplate(templateId).getOrElse {
+                screenState.update { it.copy(message = NewSessionMessage.TEMPLATE_UNAVAILABLE) }
+                return@launch
+            }
 
-        adopt(
-            session = plan.toSessionPlan(),
-            estimatedDuration = templates.value
-                ?.firstOrNull { it.template.id == templateId }
-                ?.estimatedDuration,
-        )
-    }
+            adopt(
+                session = plan.toSessionPlan(),
+                estimatedDuration = templates.value
+                    ?.firstOrNull { it.template.id == templateId }
+                    ?.estimatedDuration,
+            )
+        }
 
     /**
      * Takes the picker's answer.
@@ -222,7 +228,10 @@ class NewSessionViewModel @Inject constructor(
      * Nothing left after that is reported rather than drawn: an empty review panel is a dead
      * end, and the user needs to know why the template they tapped came back with nothing.
      */
-    private suspend fun adopt(session: SessionPlan, estimatedDuration: Duration?) {
+    private suspend fun adopt(
+        session: SessionPlan,
+        estimatedDuration: Duration?,
+    ) {
         val exercises = exerciseRepository.getAll().first().associateBy(Exercise::id)
         val known = session.exercises.filter { it.exerciseId in exercises }
 
@@ -275,22 +284,23 @@ class NewSessionViewModel @Inject constructor(
      * whose only exit is the one the back gesture already offers, drawn as though it were a
      * place.
      */
-    private fun removeExercise(index: Int) = screenState.update { state ->
-        val plan = state.plan ?: return@update state
-        if (index !in plan.session.exercises.indices) return@update state
+    private fun removeExercise(index: Int) =
+        screenState.update { state ->
+            val plan = state.plan ?: return@update state
+            if (index !in plan.session.exercises.indices) return@update state
 
-        val remaining = plan.session.exercises.filterIndexed { position, _ -> position != index }
-        if (remaining.isEmpty()) {
-            state.copy(plan = null)
-        } else {
-            state.copy(
-                plan = plan.copy(
-                    session = plan.session.copy(exercises = remaining),
-                    estimatedDuration = null,
-                ),
-            )
+            val remaining = plan.session.exercises.filterIndexed { position, _ -> position != index }
+            if (remaining.isEmpty()) {
+                state.copy(plan = null)
+            } else {
+                state.copy(
+                    plan = plan.copy(
+                        session = plan.session.copy(exercises = remaining),
+                        estimatedDuration = null,
+                    ),
+                )
+            }
         }
-    }
 
     /**
      * Records what the session will be called, on the plan and nowhere else.
@@ -303,13 +313,14 @@ class NewSessionViewModel @Inject constructor(
      * about what it *means* — the use case on the way to the store, and [Plan.toStep] on the way
      * to the screen — both ask that one function.
      */
-    private fun applyName() = screenState.update { state ->
-        val plan = state.plan ?: return@update state.copy(nameDraft = null)
-        state.copy(
-            plan = plan.copy(session = plan.session.copy(name = state.nameDraft)),
-            nameDraft = null,
-        )
-    }
+    private fun applyName() =
+        screenState.update { state ->
+            val plan = state.plan ?: return@update state.copy(nameDraft = null)
+            state.copy(
+                plan = plan.copy(session = plan.session.copy(name = state.nameDraft)),
+                nameDraft = null,
+            )
+        }
 
     /**
      * Writes the plan and reports the session it became.
@@ -419,11 +430,12 @@ class NewSessionViewModel @Inject constructor(
         val message: NewSessionMessage? = null,
     ) {
 
-        fun step(): NewSessionStep = when {
-            plan != null -> plan.toStep()
-            selectingExercises -> NewSessionStep.ExerciseSelection
-            else -> NewSessionStep.TemplateSelection
-        }
+        fun step(): NewSessionStep =
+            when {
+                plan != null -> plan.toStep()
+                selectingExercises -> NewSessionStep.ExerciseSelection
+                else -> NewSessionStep.TemplateSelection
+            }
     }
 
     /**

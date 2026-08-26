@@ -31,7 +31,11 @@ import java.util.Locale
  * @param grouping whether to separate thousands. Off for a value that can be typed back
  *   into a field, on for a total that is only ever read — see [formatVolumeValue].
  */
-internal fun formatNumber(value: Double, maxFractionDigits: Int, grouping: Boolean = false): String {
+internal fun formatNumber(
+    value: Double,
+    maxFractionDigits: Int,
+    grouping: Boolean = false,
+): String {
     val format = NumberFormat.getInstance(formattingLocale()).apply {
         maximumFractionDigits = maxFractionDigits
         minimumFractionDigits = 0
@@ -96,7 +100,7 @@ internal fun parseNumber(text: String): Double? {
 }
 
 /**
- * A plain decimal, with `.` or `,` between the whole and fractional parts.
+ * A plain decimal, with `.` or `, ` between the whole and fractional parts.
  *
  * Anchored and digits-only on purpose: [String.toDoubleOrNull] alone also accepts `1e5`,
  * `0x1p3`, `NaN` and the trailing `1d`/`1f` type suffixes, none of which anybody typed into
@@ -154,8 +158,7 @@ private fun String.hasLeadingGroupBefore(index: Int): Boolean {
     return index - start in 1..GROUP_SIZE && this[start] != '0'
 }
 
-private fun localeGroupingSeparator(): Char =
-    DecimalFormatSymbols.getInstance(formattingLocale()).groupingSeparator
+private fun localeGroupingSeparator(): Char = DecimalFormatSymbols.getInstance(formattingLocale()).groupingSeparator
 
 /**
  * [NumberFormat] parses leniently — it reads `12abc` as 12 and stops — so the position it

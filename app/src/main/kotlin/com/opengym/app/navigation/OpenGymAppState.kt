@@ -117,19 +117,19 @@ data class ShellChrome(
     val shouldShowBottomBar: Boolean = currentTopLevelDestination != null && !isInSessionFlow
 
     companion object {
-        fun of(destination: NavDestination?): ShellChrome = ShellChrome(
-            currentTopLevelDestination = destination?.let { current ->
-                TopLevelDestination.entries.firstOrNull { topLevel ->
-                    current.hierarchy.any { it.hasRoute(topLevel.graphRoute) }
-                }
-            },
-            isInSessionFlow = destination?.hierarchy
-                ?.any { it.hasRoute(SessionGraphDestination::class) } == true,
-        )
+        fun of(destination: NavDestination?): ShellChrome =
+            ShellChrome(
+                currentTopLevelDestination = destination?.let { current ->
+                    TopLevelDestination.entries.firstOrNull { topLevel ->
+                        current.hierarchy.any { it.hasRoute(topLevel.graphRoute) }
+                    }
+                },
+                isInSessionFlow = destination?.hierarchy
+                    ?.any { it.hasRoute(SessionGraphDestination::class) } == true,
+            )
     }
 }
 
 @Composable
-fun rememberOpenGymAppState(
-    navController: NavHostController = rememberNavController(),
-): OpenGymAppState = remember(navController) { OpenGymAppState(navController) }
+fun rememberOpenGymAppState(navController: NavHostController = rememberNavController()): OpenGymAppState =
+    remember(navController) { OpenGymAppState(navController) }

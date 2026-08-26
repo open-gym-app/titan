@@ -110,7 +110,10 @@ sealed interface PlateSolution {
  *   nothing is left out of [PlateSolution.Loaded.perSide] rather than listed as a zero, so the
  *   legend on screen is what the user picks up and not the catalogue of what they own.
  */
-data class PlateCount(val weight: Long, val count: Int) {
+data class PlateCount(
+    val weight: Long,
+    val count: Int,
+) {
     init {
         require(count > 0) { "a plate count in a solution must be positive, was $count" }
     }

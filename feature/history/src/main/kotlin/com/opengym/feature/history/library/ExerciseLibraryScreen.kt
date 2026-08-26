@@ -400,7 +400,10 @@ private fun LibraryList(
  * that a `LazyColumn` item does not inherit.
  */
 @Composable
-private fun SectionHeader(section: ExerciseSection, modifier: Modifier = Modifier) {
+private fun SectionHeader(
+    section: ExerciseSection,
+    modifier: Modifier = Modifier,
+) {
     val name = section.muscleGroup?.displayName() ?: stringResource(R.string.library_section_unlinked)
     // One node rather than a name beside a count: they are one heading, and a screen reader
     // that read them as two would say "chest" and "dot twelve" three swipes apart.
@@ -524,10 +527,11 @@ private fun LibraryEmptyState(
     }
 }
 
-private fun ExerciseLibraryMessage.labelRes(): Int = when (this) {
-    ExerciseLibraryMessage.EXERCISE_CREATED -> R.string.library_exercise_created
-    ExerciseLibraryMessage.SAVE_FAILED -> R.string.library_save_failed
-}
+private fun ExerciseLibraryMessage.labelRes(): Int =
+    when (this) {
+        ExerciseLibraryMessage.EXERCISE_CREATED -> R.string.library_exercise_created
+        ExerciseLibraryMessage.SAVE_FAILED -> R.string.library_save_failed
+    }
 
 /* Stable keys for the two items that are not rows. */
 private const val EMPTY_KEY = "empty"
@@ -544,7 +548,10 @@ private const val PREVIEW_INCLINE_ID = 3L
 private const val PREVIEW_PULL_UP_ID = 4L
 private const val PREVIEW_ROW_ID = 5L
 
-private fun previewGroup(id: Long, name: String) = MuscleGroup(id = id, name = name)
+private fun previewGroup(
+    id: Long,
+    name: String,
+) = MuscleGroup(id = id, name = name)
 
 private val PREVIEW_CHEST = previewGroup(id = 1, name = "CHEST")
 private val PREVIEW_TRICEPS = previewGroup(id = 2, name = "TRICEPS")
@@ -580,7 +587,10 @@ internal const val SEEDED_CATALOGUE_SIZE = 873
 private const val BENCH_PR_MILLIGRAMS = 92_000_000L
 private const val INCLINE_PR_MILLIGRAMS = 28_000_000L
 
-private fun previewRecord(exerciseId: Long, weight: Long) = PersonalRecord(
+private fun previewRecord(
+    exerciseId: Long,
+    weight: Long,
+) = PersonalRecord(
     id = exerciseId,
     exerciseId = exerciseId,
     workoutSetId = exerciseId,

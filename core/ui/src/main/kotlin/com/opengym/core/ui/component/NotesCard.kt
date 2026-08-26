@@ -100,7 +100,11 @@ fun NotesCard(
  * row is editable at all.
  */
 @Composable
-private fun NotesReadRow(notes: String?, emptyPrompt: String, onEdit: () -> Unit) {
+private fun NotesReadRow(
+    notes: String?,
+    emptyPrompt: String,
+    onEdit: () -> Unit,
+) {
     val hasNote = !notes.isNullOrBlank()
     val action = if (hasNote) {
         stringResource(R.string.notes_edit)
@@ -238,7 +242,10 @@ private fun NotesCatalogue() {
 }
 
 @Composable
-private fun PreviewNotesCard(notes: String?, draft: String?) {
+private fun PreviewNotesCard(
+    notes: String?,
+    draft: String?,
+) {
     NotesCard(
         notes = notes,
         draft = draft,

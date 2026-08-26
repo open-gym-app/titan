@@ -5,7 +5,7 @@ import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -214,7 +214,10 @@ class SessionsComponentsTest {
     /** A day of the fixture's month, spelled the way the calendar cell spells it. */
     private fun day(dayOfMonth: Int): String = formatSessionDate(MONTH.atDay(dayOfMonth))
 
-    private fun setRow(name: String?, hasRecord: Boolean = false) {
+    private fun setRow(
+        name: String?,
+        hasRecord: Boolean = false,
+    ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 SessionRow(

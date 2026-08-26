@@ -42,26 +42,27 @@ class FinishSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Finished> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val sessionId = current.openSessionId
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    suspend operator fun invoke(): Result<SessionState.Finished> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val sessionId = current.openSessionId
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        val session = sessionRepository.loadSession(sessionId)
-            .getOrElse { return@withTransition Result.failure(it) }
+            val session = sessionRepository.loadSession(sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
 
-        // One read for the whole session rather than one per exercise: the sets
-        // carry their own sessionExerciseId, so the exercise count is a grouping
-        // rather than a second query.
-        val performed = sessionRepository.getSetsForSession(sessionId).first()
-            .filter(WorkoutSet::isCompleted)
+            // One read for the whole session rather than one per exercise: the sets
+            // carry their own sessionExerciseId, so the exercise count is a grouping
+            // rather than a second query.
+            val performed = sessionRepository.getSetsForSession(sessionId).first()
+                .filter(WorkoutSet::isCompleted)
 
-        if (performed.isEmpty()) {
-            Result.failure(SessionError.NoSetsLogged)
-        } else {
-            Result.success(closeOut(session, performed))
+            if (performed.isEmpty()) {
+                Result.failure(SessionError.NoSetsLogged)
+            } else {
+                Result.success(closeOut(session, performed))
+            }
         }
-    }
 
     private suspend fun closeOut(
         session: WorkoutSession,

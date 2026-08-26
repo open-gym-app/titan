@@ -43,7 +43,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * "Equipment", then "Barbell" a swipe apart, which is not the same information.
  */
 @Composable
-fun MetaGrid(entries: List<MetaEntry>, modifier: Modifier = Modifier) {
+fun MetaGrid(
+    entries: List<MetaEntry>,
+    modifier: Modifier = Modifier,
+) {
     if (entries.isEmpty()) return
 
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
@@ -68,7 +71,10 @@ fun MetaGrid(entries: List<MetaEntry>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun MetaCell(entry: MetaEntry, modifier: Modifier = Modifier) {
+private fun MetaCell(
+    entry: MetaEntry,
+    modifier: Modifier = Modifier,
+) {
     val spoken = stringResource(R.string.stat_description, entry.label, entry.value)
 
     Column(

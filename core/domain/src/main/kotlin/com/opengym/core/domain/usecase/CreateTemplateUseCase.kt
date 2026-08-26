@@ -23,9 +23,7 @@ import com.opengym.core.domain.repository.TemplateRepository
  * which is what a "Save as template" that never asked leaves behind. There is no
  * duration to store alongside it — see [com.opengym.core.domain.template.TemplateDuration].
  */
-class CreateTemplateUseCase(
-    private val templateRepository: TemplateRepository,
-) {
+class CreateTemplateUseCase(private val templateRepository: TemplateRepository) {
 
     suspend operator fun invoke(
         name: String,

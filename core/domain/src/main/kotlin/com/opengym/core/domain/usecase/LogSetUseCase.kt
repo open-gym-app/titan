@@ -104,6 +104,7 @@ class LogSetUseCase(
 
         return when (val result = SetValidator.validate(set, exerciseType)) {
             is ValidationResult.Invalid -> Result.failure(SessionError.SetRejected(result.reason))
+
             ValidationResult.Valid -> runCatching {
                 set.copy(id = sessionRepository.insertSet(set))
             }
@@ -134,21 +135,22 @@ private fun ActiveSet.toWorkoutSet(
     sessionExerciseId: Long,
     setNumber: Int,
     now: Long,
-): WorkoutSet = WorkoutSet(
-    sessionExerciseId = sessionExerciseId,
-    setNumber = setNumber,
-    reps = reps,
-    weight = weight,
-    duration = duration,
-    distance = distance,
-    heartRateAvg = heartRateAvg,
-    heartRateMax = heartRateMax,
-    restAfter = restAfter,
-    rpe = rpe,
-    setType = setType,
-    completedAt = now,
-    isCompleted = true,
-    notes = notes,
-    createdAt = now,
-    updatedAt = now,
-)
+): WorkoutSet =
+    WorkoutSet(
+        sessionExerciseId = sessionExerciseId,
+        setNumber = setNumber,
+        reps = reps,
+        weight = weight,
+        duration = duration,
+        distance = distance,
+        heartRateAvg = heartRateAvg,
+        heartRateMax = heartRateMax,
+        restAfter = restAfter,
+        rpe = rpe,
+        setType = setType,
+        completedAt = now,
+        isCompleted = true,
+        notes = notes,
+        createdAt = now,
+        updatedAt = now,
+    )

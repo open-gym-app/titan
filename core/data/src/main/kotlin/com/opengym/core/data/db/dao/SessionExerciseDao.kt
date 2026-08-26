@@ -56,7 +56,10 @@ interface SessionExerciseDao {
      * write path to keep in step.
      */
     @Transaction
-    suspend fun appendAll(sessionId: Long, rows: List<SessionExerciseEntity>): List<Long> {
+    suspend fun appendAll(
+        sessionId: Long,
+        rows: List<SessionExerciseEntity>,
+    ): List<Long> {
         val start = nextPosition(sessionId)
         return insertAll(rows.mapIndexed { index, row -> row.copy(position = start + index) })
     }
@@ -76,7 +79,10 @@ interface SessionExerciseDao {
      * position it will keep, and the write that puts it there carries the timestamp.
      */
     @Query("UPDATE session_exercise SET position = :position WHERE id = :id")
-    suspend fun park(id: Long, position: Int)
+    suspend fun park(
+        id: Long,
+        position: Int,
+    )
 
     /**
      * Rewrites [rows] — a reorder, in practice — in one transaction and without ever putting

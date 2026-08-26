@@ -53,7 +53,10 @@ class RestoreSetUseCase(
      *   [SessionError.SetTableNotRenumbered], carrying the row as it sits at the end of the
      *   table — the set is back, and a caller must not offer to log it again.
      */
-    suspend operator fun invoke(sessionExerciseId: Long, set: WorkoutSet): Result<WorkoutSet> {
+    suspend operator fun invoke(
+        sessionExerciseId: Long,
+        set: WorkoutSet,
+    ): Result<WorkoutSet> {
         val current = orderedSetsOf(sessionRepository, sessionStateRepository, sessionExerciseId)
             .getOrElse { return Result.failure(it) }
         val index = (set.setNumber - SetNumbering.FIRST).coerceIn(0, current.size)

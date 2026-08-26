@@ -50,37 +50,38 @@ class DiscardSessionUseCase(
      * way through therefore leaves the session still running and reports it, rather than
      * clearing the state over a row that is still there.
      */
-    suspend operator fun invoke(): Result<Long> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val sessionId = current.openSessionId
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    suspend operator fun invoke(): Result<Long> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val sessionId = current.openSessionId
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        // Uncancellable as one piece, which matters here more than anywhere else in this
-        // package. [runCatching] cannot tell a cancellation from a failure — it catches both —
-        // so a discard cancelled between the delete and the state update would be reported as
-        // failed while leaving the state machine `Active` over a row that no longer exists.
-        // [StartSessionUseCase] reads its open session id off that state, so every later attempt
-        // to start a workout would be refused as one already running, for the life of the
-        // process. Rethrowing the cancellation would report it honestly and leave the same torn
-        // state behind; finishing the pair is the only answer that does not, and by the time a
-        // screen has asked for this there is nothing worth abandoning half way.
-        //
-        // The catch is *inside*, so a store failure comes back as a value rather than being
-        // thrown across a coroutine boundary — which would hand the caller a stack-trace
-        // recovered copy of the exception instead of the one the store raised.
-        withContext(NonCancellable) {
-            runCatching {
-                sessionRepository.delete(sessionId)
-                sessionStateRepository.update(SessionState.Idle)
-                // Last, separately, and best-effort: the draft is a snapshot of a screen, so one
-                // left behind costs an offer to resume a workout that no longer exists rather
-                // than any data. Clearing it before the delete would be the trade the other way
-                // round, and letting its failure escape would be a third: the row is gone by
-                // here, so the caller would report a discard that did not happen over a session
-                // it can no longer discard.
-                runCatching { inProgressSessionRepository.clear() }
-                sessionId
+            // Uncancellable as one piece, which matters here more than anywhere else in this
+            // package. [runCatching] cannot tell a cancellation from a failure — it catches both —
+            // so a discard cancelled between the delete and the state update would be reported as
+            // failed while leaving the state machine `Active` over a row that no longer exists.
+            // [StartSessionUseCase] reads its open session id off that state, so every later attempt
+            // to start a workout would be refused as one already running, for the life of the
+            // process. Rethrowing the cancellation would report it honestly and leave the same torn
+            // state behind; finishing the pair is the only answer that does not, and by the time a
+            // screen has asked for this there is nothing worth abandoning half way.
+            //
+            // The catch is *inside*, so a store failure comes back as a value rather than being
+            // thrown across a coroutine boundary — which would hand the caller a stack-trace
+            // recovered copy of the exception instead of the one the store raised.
+            withContext(NonCancellable) {
+                runCatching {
+                    sessionRepository.delete(sessionId)
+                    sessionStateRepository.update(SessionState.Idle)
+                    // Last, separately, and best-effort: the draft is a snapshot of a screen, so one
+                    // left behind costs an offer to resume a workout that no longer exists rather
+                    // than any data. Clearing it before the delete would be the trade the other way
+                    // round, and letting its failure escape would be a third: the row is gone by
+                    // here, so the caller would report a discard that did not happen over a session
+                    // it can no longer discard.
+                    runCatching { inProgressSessionRepository.clear() }
+                    sessionId
+                }
             }
         }
-    }
 }

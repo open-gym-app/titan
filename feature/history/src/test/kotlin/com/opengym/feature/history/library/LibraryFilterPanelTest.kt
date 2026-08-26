@@ -1,7 +1,7 @@
 package com.opengym.feature.history.library
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.opengym.core.domain.model.EquipmentType
@@ -144,11 +144,12 @@ class LibraryFilterPanelTest {
 
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
-    private fun filters() = ExerciseLibraryUiState(
-        muscleGroups = TAXONOMY,
-        equipmentTypes = listOf(EquipmentType.BARBELL, EquipmentType.CABLE),
-        catalogueSize = CATALOGUE.size,
-        matchCount = CATALOGUE.size,
-        isLoading = false,
-    )
+    private fun filters() =
+        ExerciseLibraryUiState(
+            muscleGroups = TAXONOMY,
+            equipmentTypes = listOf(EquipmentType.BARBELL, EquipmentType.CABLE),
+            catalogueSize = CATALOGUE.size,
+            matchCount = CATALOGUE.size,
+            isLoading = false,
+        )
 }

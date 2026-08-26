@@ -9,23 +9,28 @@ package com.opengym.core.domain.model
  * caller expects: `getOrThrow()` raises an `IllegalStateException` carrying a
  * message that names the transition that was refused.
  */
-sealed class SessionError(message: String, failure: Throwable? = null) :
-    IllegalStateException(message, failure) {
+sealed class SessionError(
+    message: String,
+    failure: Throwable? = null,
+) : IllegalStateException(message, failure) {
 
     /** A session is already running, so a second one cannot be started. */
-    data class SessionAlreadyActive(val sessionId: Long) : SessionError(
-        "cannot start a session while session $sessionId is still in progress",
-    )
+    data class SessionAlreadyActive(val sessionId: Long) :
+        SessionError(
+            "cannot start a session while session $sessionId is still in progress",
+        )
 
     /** The operation needs a running session and there is none in [state]. */
-    data class SessionNotActive(val state: SessionState) : SessionError(
-        "expected an active session, but the current state is ${state.describe()}",
-    )
+    data class SessionNotActive(val state: SessionState) :
+        SessionError(
+            "expected an active session, but the current state is ${state.describe()}",
+        )
 
     /** Resuming needs a suspended session and there is none in [state]. */
-    data class SessionNotPaused(val state: SessionState) : SessionError(
-        "expected a paused session, but the current state is ${state.describe()}",
-    )
+    data class SessionNotPaused(val state: SessionState) :
+        SessionError(
+            "expected a paused session, but the current state is ${state.describe()}",
+        )
 
     /** A session with no completed sets is not worth recording, so finishing it is refused. */
     data object NoSetsLogged : SessionError(
@@ -48,9 +53,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * it elsewhere would mean a screen that logs sets and finishes the session having
      * two failure hierarchies to `when` over for one button each.
      */
-    data class SetRejected(val reason: String) : SessionError(
-        "the set was refused: $reason",
-    )
+    data class SetRejected(val reason: String) :
+        SessionError(
+            "the set was refused: $reason",
+        )
 
     /**
      * The exercise named is not part of the session being worked on.
@@ -60,7 +66,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * is not the same as one that belongs here — which is why this is checked rather than left
      * to the database.
      */
-    data class ExerciseNotInSession(val sessionExerciseId: Long, val sessionId: Long) : SessionError(
+    data class ExerciseNotInSession(
+        val sessionExerciseId: Long,
+        val sessionId: Long,
+    ) : SessionError(
         "exercise $sessionExerciseId is not part of session $sessionId",
     )
 
@@ -72,7 +81,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * that has not reached it yet — names a row that may still exist under another exercise.
      * Editing it there would correct a set in a workout nobody is looking at.
      */
-    data class SetNotInExercise(val setId: Long, val sessionExerciseId: Long) : SessionError(
+    data class SetNotInExercise(
+        val setId: Long,
+        val sessionExerciseId: Long,
+    ) : SessionError(
         "set $setId is not logged against exercise $sessionExerciseId",
     )
 
@@ -85,7 +97,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * [com.opengym.core.domain.usecase.DeleteSetUseCase] — after which the exercise is empty and
      * goes freely; discarding the whole workout is the other.
      */
-    data class ExerciseHasLoggedSets(val sessionExerciseId: Long, val setCount: Int) : SessionError(
+    data class ExerciseHasLoggedSets(
+        val sessionExerciseId: Long,
+        val setCount: Int,
+    ) : SessionError(
         "exercise $sessionExerciseId has $setCount logged set(s) and cannot be removed",
     )
 
@@ -101,9 +116,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * dragging one of them out of it means, and it is repaired rather than refused — see
      * [com.opengym.core.domain.superset.Supersets.tear].
      */
-    data class InvalidExerciseOrder(val reason: String) : SessionError(
-        "the exercises cannot be reordered like that: $reason",
-    )
+    data class InvalidExerciseOrder(val reason: String) :
+        SessionError(
+            "the exercises cannot be reordered like that: $reason",
+        )
 
     /**
      * The set was written, but the renumbering that should have followed it was not.
@@ -125,7 +141,10 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      *   number it had, or the set that was restored, carrying the number it was written with.
      * @param failure what the store raised, kept as the cause so it is not lost behind this.
      */
-    data class SetTableNotRenumbered(val set: WorkoutSet, val failure: Throwable) : SessionError(
+    data class SetTableNotRenumbered(
+        val set: WorkoutSet,
+        val failure: Throwable,
+    ) : SessionError(
         "set ${set.id} was written but exercise ${set.sessionExerciseId} could not be renumbered",
         failure,
     )
@@ -134,15 +153,17 @@ sealed class SessionError(message: String, failure: Throwable? = null) :
      * The state machine referenced a session that is not in the repository —
      * a stale state value, e.g. after the underlying row was deleted.
      */
-    data class SessionNotFound(val sessionId: Long) : SessionError(
-        "session $sessionId does not exist",
-    )
+    data class SessionNotFound(val sessionId: Long) :
+        SessionError(
+            "session $sessionId does not exist",
+        )
 }
 
 /** Short, message-safe rendering of a state: names the case without dumping a whole summary. */
-private fun SessionState.describe(): String = when (this) {
-    SessionState.Idle -> "Idle"
-    is SessionState.Active -> "Active(sessionId=$sessionId)"
-    is SessionState.Paused -> "Paused(sessionId=$sessionId)"
-    is SessionState.Finished -> "Finished(sessionId=${summary.sessionId})"
-}
+private fun SessionState.describe(): String =
+    when (this) {
+        SessionState.Idle -> "Idle"
+        is SessionState.Active -> "Active(sessionId=$sessionId)"
+        is SessionState.Paused -> "Paused(sessionId=$sessionId)"
+        is SessionState.Finished -> "Finished(sessionId=${summary.sessionId})"
+    }

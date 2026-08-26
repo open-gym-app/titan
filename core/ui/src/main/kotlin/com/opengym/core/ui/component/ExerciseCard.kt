@@ -217,8 +217,10 @@ private fun exerciseMeta(
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-private fun previewLink(name: String, primary: Boolean) =
-    ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
+private fun previewLink(
+    name: String,
+    primary: Boolean,
+) = ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
 
 private val PREVIEW_BENCH = Exercise(
     id = 1,

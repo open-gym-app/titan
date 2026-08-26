@@ -86,7 +86,10 @@ object TemplateDuration {
      * no sets. A negative rest — which nothing writes, but an import can — contributes
      * nothing rather than subtracting time.
      */
-    fun estimate(exercises: List<PlannedExercise>, defaultRest: Duration): Duration {
+    fun estimate(
+        exercises: List<PlannedExercise>,
+        defaultRest: Duration,
+    ): Duration {
         // An exercise planning no sets is not performed, so it is dropped before the
         // grouping is read rather than skipped inside the loop: a superset whose last
         // member plans nothing still takes its rest after the member that *is*
@@ -127,7 +130,11 @@ object TemplateDuration {
      * reason [Supersets.isRestDueAfter] may read only the next position: members are
      * contiguous.
      */
-    private fun rounds(performed: List<PlannedExercise>, grouping: List<Int?>, last: Int): Int {
+    private fun rounds(
+        performed: List<PlannedExercise>,
+        grouping: List<Int?>,
+        last: Int,
+    ): Int {
         val group = grouping[last] ?: return performed[last].sets.size
 
         var rounds = 0

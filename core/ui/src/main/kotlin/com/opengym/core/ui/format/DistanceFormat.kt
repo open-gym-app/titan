@@ -6,7 +6,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.theme.LocalUnitSystem
 import kotlin.math.roundToLong
 
-/**
+/*
  * Distances, from the centimetres they are stored in to the string a user reads.
  *
  * The same shape as [formatWeight] and for the same reasons — canonical storage, ambient
@@ -22,38 +22,47 @@ import kotlin.math.roundToLong
  */
 
 /** [centimetres] in [unitSystem], as a number with no unit. */
-fun formatDistanceValue(centimetres: Long, unitSystem: UnitSystem): String =
-    formatDistanceValue(centimetres, unitSystem.distanceUnitFor(centimetres))
+fun formatDistanceValue(
+    centimetres: Long,
+    unitSystem: UnitSystem,
+): String = formatDistanceValue(centimetres, unitSystem.distanceUnitFor(centimetres))
 
 /** [centimetres] in an explicitly chosen [unit], as a number with no unit. */
-fun formatDistanceValue(centimetres: Long, unit: DistanceUnit): String =
-    formatNumber(centimetres / unit.centimetres, unit.fractionDigits)
+fun formatDistanceValue(
+    centimetres: Long,
+    unit: DistanceUnit,
+): String = formatNumber(centimetres / unit.centimetres, unit.fractionDigits)
 
 /** The unit [centimetres] would be shown in on this system: `m`, `km`, `yd` or `mi`. */
-fun distanceSuffix(centimetres: Long, unitSystem: UnitSystem): String =
-    unitSystem.distanceUnitFor(centimetres).suffix
+fun distanceSuffix(
+    centimetres: Long,
+    unitSystem: UnitSystem,
+): String = unitSystem.distanceUnitFor(centimetres).suffix
 
 /** [centimetres] in [unitSystem], with the unit: `400 m`, `5.2 km`, `437 yd`, `3.23 mi`. */
-fun formatDistance(centimetres: Long, unitSystem: UnitSystem): String {
+fun formatDistance(
+    centimetres: Long,
+    unitSystem: UnitSystem,
+): String {
     val unit = unitSystem.distanceUnitFor(centimetres)
     return "${formatDistanceValue(centimetres, unit)} ${unit.suffix}"
 }
 
 /** [centimetres] in an explicitly chosen [unit], with the unit. */
-fun formatDistance(centimetres: Long, unit: DistanceUnit): String =
-    "${formatDistanceValue(centimetres, unit)} ${unit.suffix}"
+fun formatDistance(
+    centimetres: Long,
+    unit: DistanceUnit,
+): String = "${formatDistanceValue(centimetres, unit)} ${unit.suffix}"
 
 /** [centimetres] in the ambient [LocalUnitSystem], with the unit. */
 @Composable
 @ReadOnlyComposable
-fun formatDistance(centimetres: Long): String =
-    formatDistance(centimetres, LocalUnitSystem.current)
+fun formatDistance(centimetres: Long): String = formatDistance(centimetres, LocalUnitSystem.current)
 
 /** [centimetres] in the ambient [LocalUnitSystem], without the unit. */
 @Composable
 @ReadOnlyComposable
-fun formatDistanceValue(centimetres: Long): String =
-    formatDistanceValue(centimetres, LocalUnitSystem.current)
+fun formatDistanceValue(centimetres: Long): String = formatDistanceValue(centimetres, LocalUnitSystem.current)
 
 /**
  * A user's typed distance back into storage: [text] read as [unit], as centimetres, or
@@ -68,7 +77,10 @@ fun formatDistanceValue(centimetres: Long): String =
  * As with [parseWeightMilligrams], null means *malformed* and range is left to
  * `SetValidator`, which is the one that can say which bound was missed.
  */
-fun parseDistanceCentimetres(text: String, unit: DistanceUnit): Long? =
+fun parseDistanceCentimetres(
+    text: String,
+    unit: DistanceUnit,
+): Long? =
     parseNumber(text)
         ?.roundToFractionDigits(unit.fractionDigits)
         ?.let { (it * unit.centimetres).roundToLong() }

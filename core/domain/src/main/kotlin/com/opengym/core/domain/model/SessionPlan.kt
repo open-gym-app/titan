@@ -70,15 +70,16 @@ data class SessionPlan(
  * `workout_set.rest_after` records what a rest actually *was* rather than what a template
  * hoped it would be.
  */
-fun TemplatePlan.toSessionPlan(): SessionPlan = SessionPlan(
-    exercises = exercises.map { exercise ->
-        SessionExerciseDraft(
-            exerciseId = exercise.exerciseId,
-            supersetGroup = exercise.supersetGroup,
-            templateExerciseId = exercise.id,
-            sets = exercise.sets,
-        )
-    },
-    templateId = templateId,
-    name = name,
-)
+fun TemplatePlan.toSessionPlan(): SessionPlan =
+    SessionPlan(
+        exercises = exercises.map { exercise ->
+            SessionExerciseDraft(
+                exerciseId = exercise.exerciseId,
+                supersetGroup = exercise.supersetGroup,
+                templateExerciseId = exercise.id,
+                sets = exercise.sets,
+            )
+        },
+        templateId = templateId,
+        name = name,
+    )

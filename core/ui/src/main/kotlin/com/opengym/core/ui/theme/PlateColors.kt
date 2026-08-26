@@ -65,7 +65,10 @@ data class OpenGymPlateColors(
  * @property label the weight on it — chosen per tone, not per scheme. See [OpenGymPlateColors].
  */
 @Immutable
-data class PlateTone(val fill: Color, val label: Color)
+data class PlateTone(
+    val fill: Color,
+    val label: Color,
+)
 
 /*
  * The two ramps.

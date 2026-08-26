@@ -48,7 +48,10 @@ interface ExerciseDao {
     suspend fun addMuscleGroup(ref: ExerciseMuscleGroupEntity)
 
     @Query("DELETE FROM exercise_muscle_group WHERE exercise_id = :exerciseId AND muscle_group_id = :muscleGroupId")
-    suspend fun removeMuscleGroup(exerciseId: Long, muscleGroupId: Long)
+    suspend fun removeMuscleGroup(
+        exerciseId: Long,
+        muscleGroupId: Long,
+    )
 
     @Query("DELETE FROM exercise_muscle_group WHERE exercise_id = :exerciseId")
     suspend fun clearMuscleGroups(exerciseId: Long)
@@ -149,7 +152,10 @@ interface ExerciseDao {
     suspend fun addTag(ref: ExerciseTagEntity)
 
     @Query("DELETE FROM exercise_tag WHERE exercise_id = :exerciseId AND tag_id = :tagId")
-    suspend fun removeTag(exerciseId: Long, tagId: Long)
+    suspend fun removeTag(
+        exerciseId: Long,
+        tagId: Long,
+    )
 
     @Query(
         """

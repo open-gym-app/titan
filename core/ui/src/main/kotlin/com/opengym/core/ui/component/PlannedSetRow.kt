@@ -132,7 +132,10 @@ fun PlannedSetRow(
  *   ambient one, since a template being edited is parsed back with the unit it was opened in.
  */
 @Composable
-fun PlannedSetHeader(weightUnit: String, modifier: Modifier = Modifier) {
+fun PlannedSetHeader(
+    weightUnit: String,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier
             .fillMaxWidth()

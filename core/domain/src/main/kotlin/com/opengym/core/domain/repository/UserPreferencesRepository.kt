@@ -124,7 +124,10 @@ interface UserPreferencesRepository {
      * [com.opengym.core.domain.plate.PlateStock].
      * @throws IOException if the settings cannot be written.
      */
-    suspend fun setPlatePairs(weight: Long, pairs: Int)
+    suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    )
 
     /**
      * Sets the training goal. Recorded only; nothing reads it in v1.

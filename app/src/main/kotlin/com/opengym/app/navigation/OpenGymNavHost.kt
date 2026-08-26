@@ -339,7 +339,10 @@ fun OpenGymNavHost(
  * before recomposition are two pushes of the same screen, and the first back press then looks
  * like it did nothing.
  */
-private fun NavHostController.openExercise(exerciseId: Long, addToSession: Boolean = false) {
+private fun NavHostController.openExercise(
+    exerciseId: Long,
+    addToSession: Boolean = false,
+) {
     navigate(ExerciseDetailDestination(exerciseId = exerciseId, addToSession = addToSession)) {
         launchSingleTop = true
     }

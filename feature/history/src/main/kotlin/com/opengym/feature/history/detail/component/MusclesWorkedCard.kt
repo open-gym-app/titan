@@ -95,7 +95,11 @@ internal fun MusclesWorkedCard(
  * to find out it says nothing.
  */
 @Composable
-private fun MuscleLine(badge: String, tone: BadgeTone, muscles: List<MuscleGroup>) {
+private fun MuscleLine(
+    badge: String,
+    tone: BadgeTone,
+    muscles: List<MuscleGroup>,
+) {
     if (muscles.isEmpty()) return
 
     val separator = stringResource(R.string.detail_muscle_separator)

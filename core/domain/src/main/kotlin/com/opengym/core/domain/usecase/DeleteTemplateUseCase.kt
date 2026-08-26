@@ -14,9 +14,7 @@ import com.opengym.core.domain.repository.TemplateRepository
  * surfacing, and the caller is the only one that can tell "already done" from
  * "the id I am holding is stale".
  */
-class DeleteTemplateUseCase(
-    private val templateRepository: TemplateRepository,
-) {
+class DeleteTemplateUseCase(private val templateRepository: TemplateRepository) {
 
     suspend operator fun invoke(templateId: Long): Result<Unit> {
         templateRepository.loadTemplate(templateId)

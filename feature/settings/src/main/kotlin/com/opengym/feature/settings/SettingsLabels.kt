@@ -14,8 +14,9 @@ import androidx.annotation.StringRes
  */
 
 @StringRes
-internal fun SettingsMessage.textRes(): Int = when (this) {
-    SettingsMessage.SAVE_FAILED -> R.string.settings_save_failed
-    SettingsMessage.DELETE_SUCCEEDED -> R.string.settings_delete_done
-    SettingsMessage.DELETE_FAILED -> R.string.settings_delete_failed
-}
+internal fun SettingsMessage.textRes(): Int =
+    when (this) {
+        SettingsMessage.SAVE_FAILED -> R.string.settings_save_failed
+        SettingsMessage.DELETE_SUCCEEDED -> R.string.settings_delete_done
+        SettingsMessage.DELETE_FAILED -> R.string.settings_delete_failed
+    }

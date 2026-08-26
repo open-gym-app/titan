@@ -37,122 +37,128 @@ class MuscleVolumeParityTest : RoomTestBase() {
     }
 
     @Test
-    fun `a primary and two secondary links attribute the same either way`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
-        val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
-        link(bench, muscles.getValue("CHEST"), isPrimary = true)
-        link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
-        link(bench, muscles.getValue("SHOULDERS"), isPrimary = false)
-        val sessionExerciseId = seedSessionExerciseFor(bench)
-        logSet(sessionExerciseId, 1, at(DAY_1), reps = 10, weight = kg(100))
-        logSet(sessionExerciseId, 2, at(DAY_1 + 1), reps = 8, weight = kg(90))
+    fun `a primary and two secondary links attribute the same either way`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(bench, muscles.getValue("CHEST"), isPrimary = true)
+            link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
+            link(bench, muscles.getValue("SHOULDERS"), isPrimary = false)
+            val sessionExerciseId = seedSessionExerciseFor(bench)
+            logSet(sessionExerciseId, 1, at(DAY_1), reps = 10, weight = kg(100))
+            logSet(sessionExerciseId, 2, at(DAY_1 + 1), reps = 8, weight = kg(90))
 
-        val (sql, _) = assertParity(mapOf(sessionExerciseId to bench))
+            val (sql, _) = assertParity(mapOf(sessionExerciseId to bench))
 
-        // 1000 + 720 lifted; each secondary takes half of each set: 500 + 360.
-        assertEquals(kg(1_720), sql.getValue("CHEST"))
-        assertEquals(kg(860), sql.getValue("TRICEPS"))
-        assertEquals(kg(860), sql.getValue("SHOULDERS"))
-    }
-
-    @Test
-    fun `a deeply compound exercise agrees across all five of its links`() = runBlocking {
-        // Mirrors the seed's Barbell Squat: one primary, four secondary.
-        val muscles = seedMuscleGroups(
-            "QUADRICEPS",
-            "CALVES",
-            "GLUTES",
-            "HAMSTRINGS",
-            "LOWER_BACK",
-        )
-        val squat = db.exerciseDao().insert(exercise(name = "Barbell Squat"))
-        link(squat, muscles.getValue("QUADRICEPS"), isPrimary = true)
-        listOf("CALVES", "GLUTES", "HAMSTRINGS", "LOWER_BACK").forEach {
-            link(squat, muscles.getValue(it), isPrimary = false)
+            // 1000 + 720 lifted; each secondary takes half of each set: 500 + 360.
+            assertEquals(kg(1_720), sql.getValue("CHEST"))
+            assertEquals(kg(860), sql.getValue("TRICEPS"))
+            assertEquals(kg(860), sql.getValue("SHOULDERS"))
         }
-        val sessionExerciseId = seedSessionExerciseFor(squat)
-        logSet(sessionExerciseId, 1, at(DAY_1), reps = 5, weight = kg(140))
-
-        val (sql, _) = assertParity(mapOf(sessionExerciseId to squat))
-
-        // 700 kg lifted, attributed as 700 + 4 x 350 = 2100. Both paths overshoot
-        // the real total by the same factor - that is the documented rule, not drift.
-        assertEquals(kg(700), sql.getValue("QUADRICEPS"))
-        assertEquals(kg(350), sql.getValue("GLUTES"))
-        assertEquals(kg(2_100), sql.values.sum())
-    }
 
     @Test
-    fun `odd volumes truncate the same way in both implementations`() = runBlocking {
-        // Three sets of 3 mg-reps: each secondary share truncates 1.5 to 1, so the
-        // secondary lands on 3 and not on 4 (which halving the 9 mg total would give).
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS")
-        val exerciseId = db.exerciseDao().insert(exercise())
-        link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
-        link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
-        val sessionExerciseId = seedSessionExerciseFor(exerciseId)
-        repeat(3) { logSet(sessionExerciseId, it + 1, at(DAY_1), reps = 3, weight = 1L) }
+    fun `a deeply compound exercise agrees across all five of its links`() =
+        runBlocking {
+            // Mirrors the seed's Barbell Squat: one primary, four secondary.
+            val muscles = seedMuscleGroups(
+                "QUADRICEPS",
+                "CALVES",
+                "GLUTES",
+                "HAMSTRINGS",
+                "LOWER_BACK",
+            )
+            val squat = db.exerciseDao().insert(exercise(name = "Barbell Squat"))
+            link(squat, muscles.getValue("QUADRICEPS"), isPrimary = true)
+            listOf("CALVES", "GLUTES", "HAMSTRINGS", "LOWER_BACK").forEach {
+                link(squat, muscles.getValue(it), isPrimary = false)
+            }
+            val sessionExerciseId = seedSessionExerciseFor(squat)
+            logSet(sessionExerciseId, 1, at(DAY_1), reps = 5, weight = kg(140))
 
-        val (sql, domain) = assertParity(mapOf(sessionExerciseId to exerciseId))
+            val (sql, _) = assertParity(mapOf(sessionExerciseId to squat))
 
-        assertEquals(9L, sql.getValue("CHEST"))
-        assertEquals(3L, domain.getValue("TRICEPS"))
-    }
-
-    @Test
-    fun `incomplete and loadless sets are handled the same way by both`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS")
-        val exerciseId = db.exerciseDao().insert(exercise())
-        link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
-        link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
-        val sessionExerciseId = seedSessionExerciseFor(exerciseId)
-        logSet(sessionExerciseId, 1, at(DAY_1), reps = 10, weight = kg(100))
-        logSet(sessionExerciseId, 2, at(DAY_1), reps = 12, weight = null)
-        logSet(sessionExerciseId, 3, at(DAY_1), reps = 10, weight = kg(100), isCompleted = false)
-
-        val (sql, _) = assertParity(mapOf(sessionExerciseId to exerciseId))
-
-        // The planned-but-unperformed set is excluded; the loadless one contributes 0
-        // without dropping its muscle groups.
-        assertEquals(kg(1_000), sql.getValue("CHEST"))
-    }
+            // 700 kg lifted, attributed as 700 + 4 x 350 = 2100. Both paths overshoot
+            // the real total by the same factor - that is the documented rule, not drift.
+            assertEquals(kg(700), sql.getValue("QUADRICEPS"))
+            assertEquals(kg(350), sql.getValue("GLUTES"))
+            assertEquals(kg(2_100), sql.values.sum())
+        }
 
     @Test
-    fun `two exercises sharing a muscle group agree on the combined total`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
-        val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
-        link(bench, muscles.getValue("CHEST"), isPrimary = true)
-        link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
-        val pushdown = db.exerciseDao().insert(exercise(name = "Triceps Pushdown"))
-        link(pushdown, muscles.getValue("TRICEPS"), isPrimary = true)
-        link(pushdown, muscles.getValue("SHOULDERS"), isPrimary = false)
+    fun `odd volumes truncate the same way in both implementations`() =
+        runBlocking {
+            // Three sets of 3 mg-reps: each secondary share truncates 1.5 to 1, so the
+            // secondary lands on 3 and not on 4 (which halving the 9 mg total would give).
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS")
+            val exerciseId = db.exerciseDao().insert(exercise())
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
+            val sessionExerciseId = seedSessionExerciseFor(exerciseId)
+            repeat(3) { logSet(sessionExerciseId, it + 1, at(DAY_1), reps = 3, weight = 1L) }
 
-        val benchRow = seedSessionExerciseFor(bench)
-        val pushdownRow = seedSessionExerciseFor(pushdown)
-        logSet(benchRow, 1, at(DAY_1), reps = 10, weight = kg(100))
-        logSet(pushdownRow, 1, at(DAY_1 + 1), reps = 12, weight = kg(30))
+            val (sql, domain) = assertParity(mapOf(sessionExerciseId to exerciseId))
 
-        val (sql, _) = assertParity(mapOf(benchRow to bench, pushdownRow to pushdown))
-
-        // 500 as bench's secondary + 360 of its own.
-        assertEquals(kg(860), sql.getValue("TRICEPS"))
-    }
+            assertEquals(9L, sql.getValue("CHEST"))
+            assertEquals(3L, domain.getValue("TRICEPS"))
+        }
 
     @Test
-    fun `the same exercise logged twice in a session agrees across both rows`() = runBlocking {
-        val muscles = seedMuscleGroups("CHEST", "TRICEPS")
-        val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
-        link(bench, muscles.getValue("CHEST"), isPrimary = true)
-        link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
-        val first = seedSessionExerciseFor(bench)
-        val second = seedSessionExerciseFor(bench)
-        logSet(first, 1, at(DAY_1), reps = 10, weight = kg(100))
-        logSet(second, 1, at(DAY_1 + 1), reps = 10, weight = kg(80))
+    fun `incomplete and loadless sets are handled the same way by both`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS")
+            val exerciseId = db.exerciseDao().insert(exercise())
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
+            val sessionExerciseId = seedSessionExerciseFor(exerciseId)
+            logSet(sessionExerciseId, 1, at(DAY_1), reps = 10, weight = kg(100))
+            logSet(sessionExerciseId, 2, at(DAY_1), reps = 12, weight = null)
+            logSet(sessionExerciseId, 3, at(DAY_1), reps = 10, weight = kg(100), isCompleted = false)
 
-        val (sql, _) = assertParity(mapOf(first to bench, second to bench))
+            val (sql, _) = assertParity(mapOf(sessionExerciseId to exerciseId))
 
-        assertEquals(kg(1_800), sql.getValue("CHEST"))
-    }
+            // The planned-but-unperformed set is excluded; the loadless one contributes 0
+            // without dropping its muscle groups.
+            assertEquals(kg(1_000), sql.getValue("CHEST"))
+        }
+
+    @Test
+    fun `two exercises sharing a muscle group agree on the combined total`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(bench, muscles.getValue("CHEST"), isPrimary = true)
+            link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
+            val pushdown = db.exerciseDao().insert(exercise(name = "Triceps Pushdown"))
+            link(pushdown, muscles.getValue("TRICEPS"), isPrimary = true)
+            link(pushdown, muscles.getValue("SHOULDERS"), isPrimary = false)
+
+            val benchRow = seedSessionExerciseFor(bench)
+            val pushdownRow = seedSessionExerciseFor(pushdown)
+            logSet(benchRow, 1, at(DAY_1), reps = 10, weight = kg(100))
+            logSet(pushdownRow, 1, at(DAY_1 + 1), reps = 12, weight = kg(30))
+
+            val (sql, _) = assertParity(mapOf(benchRow to bench, pushdownRow to pushdown))
+
+            // 500 as bench's secondary + 360 of its own.
+            assertEquals(kg(860), sql.getValue("TRICEPS"))
+        }
+
+    @Test
+    fun `the same exercise logged twice in a session agrees across both rows`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS")
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(bench, muscles.getValue("CHEST"), isPrimary = true)
+            link(bench, muscles.getValue("TRICEPS"), isPrimary = false)
+            val first = seedSessionExerciseFor(bench)
+            val second = seedSessionExerciseFor(bench)
+            logSet(first, 1, at(DAY_1), reps = 10, weight = kg(100))
+            logSet(second, 1, at(DAY_1 + 1), reps = 10, weight = kg(80))
+
+            val (sql, _) = assertParity(mapOf(first to bench, second to bench))
+
+            assertEquals(kg(1_800), sql.getValue("CHEST"))
+        }
 
     /**
      * Runs both paths over the seeded range and asserts they agree muscle for muscle,
@@ -190,17 +196,18 @@ class MuscleVolumeParityTest : RoomTestBase() {
         return sql to domain
     }
 
-    private fun toDomain(entity: com.opengym.core.data.db.entity.WorkoutSetEntity) = WorkoutSet(
-        id = entity.id,
-        sessionExerciseId = entity.sessionExerciseId,
-        setNumber = entity.setNumber,
-        reps = entity.reps,
-        weight = entity.weight,
-        completedAt = entity.completedAt,
-        isCompleted = entity.isCompleted,
-        createdAt = entity.createdAt,
-        updatedAt = entity.updatedAt,
-    )
+    private fun toDomain(entity: com.opengym.core.data.db.entity.WorkoutSetEntity) =
+        WorkoutSet(
+            id = entity.id,
+            sessionExerciseId = entity.sessionExerciseId,
+            setNumber = entity.setNumber,
+            reps = entity.reps,
+            weight = entity.weight,
+            completedAt = entity.completedAt,
+            isCompleted = entity.isCompleted,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt,
+        )
 
     // --- fixture helpers --------------------------------------------------
 
@@ -214,8 +221,11 @@ class MuscleVolumeParityTest : RoomTestBase() {
         return db.muscleGroupDao().getAll().first().associate { it.name to it.id }
     }
 
-    private suspend fun link(exerciseId: Long, muscleGroupId: Long, isPrimary: Boolean) =
-        db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId, muscleGroupId, isPrimary))
+    private suspend fun link(
+        exerciseId: Long,
+        muscleGroupId: Long,
+        isPrimary: Boolean,
+    ) = db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId, muscleGroupId, isPrimary))
 
     private suspend fun logSet(
         sessionExerciseId: Long,

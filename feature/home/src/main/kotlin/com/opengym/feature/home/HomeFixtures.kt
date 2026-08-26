@@ -79,12 +79,13 @@ private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(
 )
 
 /** A settled Home, with everything M4 can fill in filled in. */
-internal fun previewHome(resume: ResumeState? = PREVIEW_RESUME) = HomeUiState(
-    resume = resume,
-    week = WeekState(days = PREVIEW_DAYS, sessionCount = 4),
-    templates = PREVIEW_TEMPLATES,
-    isLoading = false,
-)
+internal fun previewHome(resume: ResumeState? = PREVIEW_RESUME) =
+    HomeUiState(
+        resume = resume,
+        week = WeekState(days = PREVIEW_DAYS, sessionCount = 4),
+        templates = PREVIEW_TEMPLATES,
+        isLoading = false,
+    )
 
 private fun previewTemplate(
     id: Long,

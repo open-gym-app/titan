@@ -161,38 +161,40 @@ private fun DateFilterButton(
  * would take the one certain fact with it.
  */
 @Composable
-private fun SessionsUiState.subtitle(): String = when (tab) {
-    SessionsTab.HISTORY -> when {
-        isLoading -> ""
-        hasFilters -> stringResource(R.string.sessions_count_filtered, matchCount, sessionCount)
-        else -> pluralStringResource(R.plurals.sessions_count, sessionCount, sessionCount)
-    }
+private fun SessionsUiState.subtitle(): String =
+    when (tab) {
+        SessionsTab.HISTORY -> when {
+            isLoading -> ""
+            hasFilters -> stringResource(R.string.sessions_count_filtered, matchCount, sessionCount)
+            else -> pluralStringResource(R.plurals.sessions_count, sessionCount, sessionCount)
+        }
 
-    SessionsTab.TEMPLATES -> if (isLoadingTemplates) {
-        ""
-    } else {
-        pluralStringResource(R.plurals.sessions_templates_count, templates.size, templates.size)
-    }
+        SessionsTab.TEMPLATES -> if (isLoadingTemplates) {
+            ""
+        } else {
+            pluralStringResource(R.plurals.sessions_templates_count, templates.size, templates.size)
+        }
 
-    SessionsTab.CALENDAR -> if (isLoading) {
-        formatMonthAndYear(calendar.month)
-    } else {
-        stringResource(
-            R.string.sessions_calendar_heading,
-            formatMonthAndYear(calendar.month),
-            pluralStringResource(
-                R.plurals.sessions_count,
-                calendar.sessionCount,
-                calendar.sessionCount,
-            ),
-        )
+        SessionsTab.CALENDAR -> if (isLoading) {
+            formatMonthAndYear(calendar.month)
+        } else {
+            stringResource(
+                R.string.sessions_calendar_heading,
+                formatMonthAndYear(calendar.month),
+                pluralStringResource(
+                    R.plurals.sessions_count,
+                    calendar.sessionCount,
+                    calendar.sessionCount,
+                ),
+            )
+        }
     }
-}
 
 /** The three tab labels, in the order [SessionsTab] declares them. */
 @Composable
-internal fun sessionsTabLabels(): List<String> = listOf(
-    stringResource(R.string.sessions_tab_history),
-    stringResource(R.string.sessions_tab_templates),
-    stringResource(R.string.sessions_tab_calendar),
-)
+internal fun sessionsTabLabels(): List<String> =
+    listOf(
+        stringResource(R.string.sessions_tab_history),
+        stringResource(R.string.sessions_tab_templates),
+        stringResource(R.string.sessions_tab_calendar),
+    )

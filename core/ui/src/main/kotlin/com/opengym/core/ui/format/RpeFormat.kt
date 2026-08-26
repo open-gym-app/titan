@@ -2,7 +2,7 @@ package com.opengym.core.ui.format
 
 import com.opengym.core.domain.model.WorkoutSet
 
-/**
+/*
  * Rate of perceived exertion, from the tenths it is stored in to the `6`, `7.5`, `10` a
  * lifter writes.
  *

@@ -119,7 +119,10 @@ fun FormatCatalog(modifier: Modifier = Modifier) {
 
 /** The summary tile: an eyebrow, a figure in the accent, and the unit under it. */
 @Composable
-private fun HeroRow(value: String, unit: String) {
+private fun HeroRow(
+    value: String,
+    unit: String,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -139,7 +142,10 @@ private fun HeroRow(value: String, unit: String) {
 
 /** A labelled value, at the density a settings or summary card uses. */
 @Composable
-private fun FormatRow(label: String, value: String) {
+private fun FormatRow(
+    label: String,
+    value: String,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +168,10 @@ private fun FormatRow(label: String, value: String) {
 }
 
 @Composable
-private fun FormatSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+private fun FormatSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
         Eyebrow(text = title)
         OpenGymCard(modifier = Modifier.fillMaxWidth()) {
@@ -174,7 +183,10 @@ private fun FormatSection(title: String, content: @Composable ColumnScope.() -> 
 }
 
 @Composable
-private fun CatalogSheet(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+private fun CatalogSheet(
+    modifier: Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     // `fillMaxSize`, so the sheet paints its background over the whole preview frame rather
     // than only behind the rows — otherwise a dark capture is a dark card on white paper.
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {

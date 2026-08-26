@@ -192,7 +192,10 @@ object Supersets {
      * Refusing rather than throwing because the caller is a screen where the user
      * selected the rows: an unselectable combination is something to report, not a bug.
      */
-    fun form(grouping: List<Int?>, indices: Set<Int>): Result<List<Int?>> {
+    fun form(
+        grouping: List<Int?>,
+        indices: Set<Int>,
+    ): Result<List<Int?>> {
         if (indices.size < MIN_MEMBERS) {
             return failure("a superset needs at least $MIN_MEMBERS exercises, ${indices.size} given")
         }
@@ -230,7 +233,10 @@ object Supersets {
      * end of a session has nothing to be joined to, and a screen that draws no control
      * there never asks. The other refusals are [form]'s.
      */
-    fun join(grouping: List<Int?>, index: Int): Result<List<Int?>> {
+    fun join(
+        grouping: List<Int?>,
+        index: Int,
+    ): Result<List<Int?>> {
         if (index !in grouping.indices || index + 1 !in grouping.indices) {
             return failure("nothing to join at position $index of ${grouping.size} exercises")
         }
@@ -251,7 +257,10 @@ object Supersets {
      * exercise that stands alone, the last exercise of a session and an index past the
      * end all answer with the grouping normalised and otherwise unchanged.
      */
-    fun split(grouping: List<Int?>, index: Int): List<Int?> {
+    fun split(
+        grouping: List<Int?>,
+        index: Int,
+    ): List<Int?> {
         val group = grouping.getOrNull(index)
         if (group == null || grouping.getOrNull(index + 1) != group) return normalize(grouping)
 
@@ -265,7 +274,10 @@ object Supersets {
      * The whole group the exercise at [index] belongs to, or just itself when it stands
      * alone — the set [join] has to preserve to be an extension rather than a theft.
      */
-    private fun membersAt(grouping: List<Int?>, index: Int): Set<Int> {
+    private fun membersAt(
+        grouping: List<Int?>,
+        index: Int,
+    ): Set<Int> {
         val group = grouping[index] ?: return setOf(index)
         return groups(grouping)[group]?.toSet() ?: setOf(index)
     }
@@ -287,11 +299,13 @@ object Supersets {
      * on a long list — which is sound exactly because members are contiguous. On a
      * grouping [validate] would refuse, the answer is as meaningless as the grouping.
      */
-    fun isRestDueAfter(grouping: List<Int?>, index: Int): Boolean {
+    fun isRestDueAfter(
+        grouping: List<Int?>,
+        index: Int,
+    ): Boolean {
         val group = grouping.getOrNull(index) ?: return true
         return grouping.getOrNull(index + 1) != group
     }
 
-    private fun failure(reason: String): Result<List<Int?>> =
-        Result.failure(IllegalArgumentException(reason))
+    private fun failure(reason: String): Result<List<Int?>> = Result.failure(IllegalArgumentException(reason))
 }

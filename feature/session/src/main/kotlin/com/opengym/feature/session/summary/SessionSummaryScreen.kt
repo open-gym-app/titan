@@ -164,7 +164,9 @@ fun SessionSummaryScreen(
             // Nothing at all while the reads are in flight. The session is one query away and
             // a spinner that appears for two frames is worse than a beat of nothing.
             state.isLoading -> Unit
+
             state.isMissing -> MissingSession(contentPadding = innerPadding)
+
             else -> SummaryContent(state = state, onEvent = onEvent, contentPadding = innerPadding)
         }
     }
@@ -200,7 +202,10 @@ fun SessionSummaryScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SummaryTopBar(mode: SessionSummaryMode, onBack: () -> Unit) {
+private fun SummaryTopBar(
+    mode: SessionSummaryMode,
+    onBack: () -> Unit,
+) {
     TopAppBar(
         // Untitled on purpose. The session's name is the headline directly below it, set
         // large and centred, and repeating it in the bar would be the same words twice in
@@ -561,12 +566,13 @@ private fun MissingSession(contentPadding: PaddingValues) {
 }
 
 /** The sentence a message is shown as. */
-private fun SessionSummaryMessage.labelRes(): Int = when (this) {
-    SessionSummaryMessage.NAME_SAVE_FAILED -> R.string.summary_error_rename
-    SessionSummaryMessage.NOTES_SAVE_FAILED -> R.string.summary_error_notes
-    SessionSummaryMessage.TEMPLATE_SAVED -> R.string.summary_template_saved
-    SessionSummaryMessage.TEMPLATE_SAVE_FAILED -> R.string.summary_error_template
-}
+private fun SessionSummaryMessage.labelRes(): Int =
+    when (this) {
+        SessionSummaryMessage.NAME_SAVE_FAILED -> R.string.summary_error_rename
+        SessionSummaryMessage.NOTES_SAVE_FAILED -> R.string.summary_error_notes
+        SessionSummaryMessage.TEMPLATE_SAVED -> R.string.summary_template_saved
+        SessionSummaryMessage.TEMPLATE_SAVE_FAILED -> R.string.summary_error_template
+    }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

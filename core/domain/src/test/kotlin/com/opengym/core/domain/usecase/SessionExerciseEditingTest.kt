@@ -37,15 +37,16 @@ class SessionExerciseEditingTest {
     private val linkSuperset = LinkSupersetUseCase(sessions, state, clock, lock)
 
     /** A push day: bench, then incline and fly performed back to back as a superset. */
-    private suspend fun startPushDay(): Long = startPlannedSession(
-        SessionPlan(
-            exercises = listOf(
-                SessionExerciseDraft(exerciseId = BENCH),
-                SessionExerciseDraft(exerciseId = INCLINE, supersetGroup = 0),
-                SessionExerciseDraft(exerciseId = FLY, supersetGroup = 0),
+    private suspend fun startPushDay(): Long =
+        startPlannedSession(
+            SessionPlan(
+                exercises = listOf(
+                    SessionExerciseDraft(exerciseId = BENCH),
+                    SessionExerciseDraft(exerciseId = INCLINE, supersetGroup = 0),
+                    SessionExerciseDraft(exerciseId = FLY, supersetGroup = 0),
+                ),
             ),
-        ),
-    ).getOrThrow()
+        ).getOrThrow()
 
     private suspend fun layout(sessionId: Long): List<SessionExercise> =
         sessions.getExercises(sessionId).first().sortedBy(SessionExercise::position)
@@ -53,49 +54,53 @@ class SessionExerciseEditingTest {
     // ─── Adding ─────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `an exercise added mid-session goes on the end`() = runTest {
-        val sessionId = startPushDay()
+    fun `an exercise added mid-session goes on the end`() =
+        runTest {
+            val sessionId = startPushDay()
 
-        addExercises(listOf(PUSHDOWN)).getOrThrow()
+            addExercises(listOf(PUSHDOWN)).getOrThrow()
 
-        assertEquals(
-            listOf(BENCH, INCLINE, FLY, PUSHDOWN),
-            layout(sessionId).map(SessionExercise::exerciseId),
-        )
-    }
-
-    @Test
-    fun `several are added in the order they were picked`() = runTest {
-        val sessionId = startPushDay()
-
-        addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
-
-        assertEquals(
-            listOf(BENCH, INCLINE, FLY, PUSHDOWN, LATERAL_RAISE),
-            layout(sessionId).map(SessionExercise::exerciseId),
-        )
-    }
+            assertEquals(
+                listOf(BENCH, INCLINE, FLY, PUSHDOWN),
+                layout(sessionId).map(SessionExercise::exerciseId),
+            )
+        }
 
     @Test
-    fun `adding reports the rows it wrote, in the same order`() = runTest {
-        val sessionId = startPushDay()
+    fun `several are added in the order they were picked`() =
+        runTest {
+            val sessionId = startPushDay()
 
-        val added = addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
+            addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
 
-        val tail = layout(sessionId).takeLast(2)
-        assertEquals(tail.map(SessionExercise::id), added)
-    }
+            assertEquals(
+                listOf(BENCH, INCLINE, FLY, PUSHDOWN, LATERAL_RAISE),
+                layout(sessionId).map(SessionExercise::exerciseId),
+            )
+        }
 
     @Test
-    fun `an added exercise joins no superset`() = runTest {
-        // There is no way to say which exercise a new one pairs with from "add to this
-        // workout", and `Supersets` requires a group's members to be adjacent anyway.
-        val sessionId = startPushDay()
+    fun `adding reports the rows it wrote, in the same order`() =
+        runTest {
+            val sessionId = startPushDay()
 
-        addExercises(listOf(PUSHDOWN)).getOrThrow()
+            val added = addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
 
-        assertEquals(null, layout(sessionId).last().supersetGroup)
-    }
+            val tail = layout(sessionId).takeLast(2)
+            assertEquals(tail.map(SessionExercise::id), added)
+        }
+
+    @Test
+    fun `an added exercise joins no superset`() =
+        runTest {
+            // There is no way to say which exercise a new one pairs with from "add to this
+            // workout", and `Supersets` requires a group's members to be adjacent anyway.
+            val sessionId = startPushDay()
+
+            addExercises(listOf(PUSHDOWN)).getOrThrow()
+
+            assertEquals(null, layout(sessionId).last().supersetGroup)
+        }
 
     @Test
     fun `an added exercise is stamped with when it was added, not when the session began`() =
@@ -111,148 +116,159 @@ class SessionExerciseEditingTest {
         }
 
     @Test
-    fun `adding nothing writes nothing and is not an error`() = runTest {
-        val sessionId = startPushDay()
+    fun `adding nothing writes nothing and is not an error`() =
+        runTest {
+            val sessionId = startPushDay()
 
-        val result = addExercises(emptyList())
+            val result = addExercises(emptyList())
 
-        assertEquals(emptyList<Long>(), result.getOrThrow())
-        assertEquals(3, layout(sessionId).size)
-    }
-
-    @Test
-    fun `adding with no session running is refused`() = runTest {
-        val result = addExercises(listOf(PUSHDOWN))
-
-        assertEquals(SessionError.SessionNotActive(SessionState.Idle), result.exceptionOrNull())
-    }
+            assertEquals(emptyList<Long>(), result.getOrThrow())
+            assertEquals(3, layout(sessionId).size)
+        }
 
     @Test
-    fun `adding to a paused session is refused`() = runTest {
-        startPushDay()
-        val paused = PauseSessionUseCase(sessions, state, clock, lock)().getOrThrow()
+    fun `adding with no session running is refused`() =
+        runTest {
+            val result = addExercises(listOf(PUSHDOWN))
 
-        val result = addExercises(listOf(PUSHDOWN))
-
-        assertEquals(SessionError.SessionNotActive(paused), result.exceptionOrNull())
-    }
+            assertEquals(SessionError.SessionNotActive(SessionState.Idle), result.exceptionOrNull())
+        }
 
     @Test
-    fun `adding to a finished session is refused`() = runTest {
-        val finished = SessionState.Finished(
-            SessionSummary(
-                sessionId = 1L,
-                startedAt = 0L,
-                finishedAt = 1L,
-                durationMillis = 1L,
-                exerciseCount = 1,
-                totalSets = 1,
-                totalVolume = 0L,
-            ),
-        )
+    fun `adding to a paused session is refused`() =
+        runTest {
+            startPushDay()
+            val paused = PauseSessionUseCase(sessions, state, clock, lock)().getOrThrow()
 
-        val result = AddSessionExercisesUseCase(
-            sessions,
-            FakeSessionStateRepository(finished),
-            clock,
-        )(listOf(PUSHDOWN))
+            val result = addExercises(listOf(PUSHDOWN))
 
-        assertEquals(SessionError.SessionNotActive(finished), result.exceptionOrNull())
-    }
+            assertEquals(SessionError.SessionNotActive(paused), result.exceptionOrNull())
+        }
 
     @Test
-    fun `a store that cannot be written fails rather than throwing`() = runTest {
-        startPushDay()
-        val failure = IllegalStateException("disk full")
-        sessions.exerciseInsertFailure = failure
+    fun `adding to a finished session is refused`() =
+        runTest {
+            val finished = SessionState.Finished(
+                SessionSummary(
+                    sessionId = 1L,
+                    startedAt = 0L,
+                    finishedAt = 1L,
+                    durationMillis = 1L,
+                    exerciseCount = 1,
+                    totalSets = 1,
+                    totalVolume = 0L,
+                ),
+            )
 
-        assertEquals(failure, addExercises(listOf(PUSHDOWN)).exceptionOrNull())
-    }
+            val result = AddSessionExercisesUseCase(
+                sessions,
+                FakeSessionStateRepository(finished),
+                clock,
+            )(listOf(PUSHDOWN))
+
+            assertEquals(SessionError.SessionNotActive(finished), result.exceptionOrNull())
+        }
+
+    @Test
+    fun `a store that cannot be written fails rather than throwing`() =
+        runTest {
+            startPushDay()
+            val failure = IllegalStateException("disk full")
+            sessions.exerciseInsertFailure = failure
+
+            assertEquals(failure, addExercises(listOf(PUSHDOWN)).exceptionOrNull())
+        }
 
     // ─── Removing ───────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `an exercise with nothing logged against it can be cut`() = runTest {
-        val sessionId = startPushDay()
-        val fly = layout(sessionId).last()
+    fun `an exercise with nothing logged against it can be cut`() =
+        runTest {
+            val sessionId = startPushDay()
+            val fly = layout(sessionId).last()
 
-        assertEquals(fly.id, removeExercise(fly.id).getOrThrow())
-        assertEquals(listOf(BENCH, INCLINE), layout(sessionId).map(SessionExercise::exerciseId))
-    }
-
-    @Test
-    fun `cutting the exercise a superset was paired with dissolves the group`() = runTest {
-        // A group of one is not a superset — see `Supersets` — so the survivor is repaired
-        // rather than left drawn as `SS A1` with no `A2` under it.
-        val sessionId = startPushDay()
-        val fly = layout(sessionId).last()
-
-        removeExercise(fly.id).getOrThrow()
-
-        assertEquals(listOf(null, null), layout(sessionId).map(SessionExercise::supersetGroup))
-    }
+            assertEquals(fly.id, removeExercise(fly.id).getOrThrow())
+            assertEquals(listOf(BENCH, INCLINE), layout(sessionId).map(SessionExercise::exerciseId))
+        }
 
     @Test
-    fun `the repair stamps the rows it moved`() = runTest {
-        // `updatedAt` is a change marker, and the analogous write in `SupersetTarget` stamps
-        // it. A consumer that caught a superset broken by hand and missed one broken by a
-        // removal would be reading the same column for two edits to it.
-        val sessionId = startPushDay()
-        val fly = layout(sessionId).last()
-        val repairedAt = clock.advance(60_000L)
+    fun `cutting the exercise a superset was paired with dissolves the group`() =
+        runTest {
+            // A group of one is not a superset — see `Supersets` — so the survivor is repaired
+            // rather than left drawn as `SS A1` with no `A2` under it.
+            val sessionId = startPushDay()
+            val fly = layout(sessionId).last()
 
-        removeExercise(fly.id).getOrThrow()
+            removeExercise(fly.id).getOrThrow()
 
-        assertEquals(
-            listOf(repairedAt),
-            sessions.exerciseUpdates.map(SessionExercise::updatedAt),
-        )
-    }
+            assertEquals(listOf(null, null), layout(sessionId).map(SessionExercise::supersetGroup))
+        }
 
     @Test
-    fun `a removal and a superset link do not settle on each other's stale layout`() = runTest {
-        // Both read every exercise of the session, compute a grouping from what they read and
-        // write back the rows that moved. Interleaved, the later one writes a grouping computed
-        // before the earlier one landed — which used to dissolve the superset the user had just
-        // made, with nothing said about it. The lock is what serializes them.
-        val sessionId = startPushDay()
-        val (bench, incline, fly) = layout(sessionId)
-        assertEquals(listOf(null, 0, 0), listOf(bench, incline, fly).map(SessionExercise::supersetGroup))
+    fun `the repair stamps the rows it moved`() =
+        runTest {
+            // `updatedAt` is a change marker, and the analogous write in `SupersetTarget` stamps
+            // it. A consumer that caught a superset broken by hand and missed one broken by a
+            // removal would be reading the same column for two edits to it.
+            val sessionId = startPushDay()
+            val fly = layout(sessionId).last()
+            val repairedAt = clock.advance(60_000L)
 
-        // Bench joins the pair above it, and then fly leaves the workout.
-        linkSuperset(bench.id).getOrThrow()
-        removeExercise(fly.id).getOrThrow()
+            removeExercise(fly.id).getOrThrow()
 
-        // Bench and incline are still a superset: the repair renormalised the layout the link
-        // left, not the one it read.
-        assertEquals(listOf(0, 0), layout(sessionId).map(SessionExercise::supersetGroup))
-    }
-
-    @Test
-    fun `a removal that changes no grouping rewrites no rows`() = runTest {
-        val sessionId = startPushDay()
-        val bench = layout(sessionId).first()
-
-        removeExercise(bench.id).getOrThrow()
-
-        // Incline and fly are still a pair, so nothing about them changed and neither was
-        // written — a loop that rewrote the whole layout would re-emit every observer of the
-        // session on each removal.
-        assertTrue(sessions.exerciseUpdates.isEmpty())
-        assertEquals(listOf(0, 0), layout(sessionId).map(SessionExercise::supersetGroup))
-    }
+            assertEquals(
+                listOf(repairedAt),
+                sessions.exerciseUpdates.map(SessionExercise::updatedAt),
+            )
+        }
 
     @Test
-    fun `the survivors keep their positions, so a removal leaves a gap`() = runTest {
-        // Deliberate: nothing reads position as a dense index, and renumbering every surviving
-        // row on each removal is a write nobody benefits from.
-        val sessionId = startPushDay()
-        val incline = layout(sessionId)[1]
+    fun `a removal and a superset link do not settle on each other's stale layout`() =
+        runTest {
+            // Both read every exercise of the session, compute a grouping from what they read and
+            // write back the rows that moved. Interleaved, the later one writes a grouping computed
+            // before the earlier one landed — which used to dissolve the superset the user had just
+            // made, with nothing said about it. The lock is what serializes them.
+            val sessionId = startPushDay()
+            val (bench, incline, fly) = layout(sessionId)
+            assertEquals(listOf(null, 0, 0), listOf(bench, incline, fly).map(SessionExercise::supersetGroup))
 
-        removeExercise(incline.id).getOrThrow()
+            // Bench joins the pair above it, and then fly leaves the workout.
+            linkSuperset(bench.id).getOrThrow()
+            removeExercise(fly.id).getOrThrow()
 
-        assertEquals(listOf(0, 2), layout(sessionId).map(SessionExercise::position))
-    }
+            // Bench and incline are still a superset: the repair renormalised the layout the link
+            // left, not the one it read.
+            assertEquals(listOf(0, 0), layout(sessionId).map(SessionExercise::supersetGroup))
+        }
+
+    @Test
+    fun `a removal that changes no grouping rewrites no rows`() =
+        runTest {
+            val sessionId = startPushDay()
+            val bench = layout(sessionId).first()
+
+            removeExercise(bench.id).getOrThrow()
+
+            // Incline and fly are still a pair, so nothing about them changed and neither was
+            // written — a loop that rewrote the whole layout would re-emit every observer of the
+            // session on each removal.
+            assertTrue(sessions.exerciseUpdates.isEmpty())
+            assertEquals(listOf(0, 0), layout(sessionId).map(SessionExercise::supersetGroup))
+        }
+
+    @Test
+    fun `the survivors keep their positions, so a removal leaves a gap`() =
+        runTest {
+            // Deliberate: nothing reads position as a dense index, and renumbering every surviving
+            // row on each removal is a write nobody benefits from.
+            val sessionId = startPushDay()
+            val incline = layout(sessionId)[1]
+
+            removeExercise(incline.id).getOrThrow()
+
+            assertEquals(listOf(0, 2), layout(sessionId).map(SessionExercise::position))
+        }
 
     @Test
     fun `an exercise added after a removal does not collide with a surviving position`() =
@@ -285,91 +301,98 @@ class SessionExerciseEditingTest {
         }
 
     @Test
-    fun `once its sets are gone the exercise goes freely`() = runTest {
-        // The refusal is a rule with a way past it, which is what makes it reasonable rather
-        // than an obstruction: #99 deletes the set, and the exercise is then empty.
-        val sessionId = startPushDay()
-        val bench = layout(sessionId).first()
-        sessions.addSet(bench.id)
-        assertTrue(removeExercise(bench.id).isFailure)
+    fun `once its sets are gone the exercise goes freely`() =
+        runTest {
+            // The refusal is a rule with a way past it, which is what makes it reasonable rather
+            // than an obstruction: #99 deletes the set, and the exercise is then empty.
+            val sessionId = startPushDay()
+            val bench = layout(sessionId).first()
+            sessions.addSet(bench.id)
+            assertTrue(removeExercise(bench.id).isFailure)
 
-        sessions.removeSet(bench.id, setNumber = 1)
+            sessions.removeSet(bench.id, setNumber = 1)
 
-        assertEquals(bench.id, removeExercise(bench.id).getOrThrow())
-    }
-
-    @Test
-    fun `removing an exercise of another session is refused`() = runTest {
-        val sessionId = startPushDay()
-        val stale = sessions.addExercise(sessionId = 99L)
-
-        val result = removeExercise(stale)
-
-        assertEquals(
-            SessionError.ExerciseNotInSession(sessionExerciseId = stale, sessionId = sessionId),
-            result.exceptionOrNull(),
-        )
-    }
+            assertEquals(bench.id, removeExercise(bench.id).getOrThrow())
+        }
 
     @Test
-    fun `removing with no session running is refused`() = runTest {
-        val result = removeExercise(1L)
+    fun `removing an exercise of another session is refused`() =
+        runTest {
+            val sessionId = startPushDay()
+            val stale = sessions.addExercise(sessionId = 99L)
 
-        assertEquals(SessionError.SessionNotActive(SessionState.Idle), result.exceptionOrNull())
-    }
+            val result = removeExercise(stale)
 
-    @Test
-    fun `removing from a paused session is refused`() = runTest {
-        val sessionId = startPushDay()
-        val bench = layout(sessionId).first()
-        val paused = PauseSessionUseCase(sessions, state, clock, lock)().getOrThrow()
-
-        val result = removeExercise(bench.id)
-
-        assertEquals(SessionError.SessionNotActive(paused), result.exceptionOrNull())
-    }
+            assertEquals(
+                SessionError.ExerciseNotInSession(sessionExerciseId = stale, sessionId = sessionId),
+                result.exceptionOrNull(),
+            )
+        }
 
     @Test
-    fun `a repair that fails does not fail the removal it followed`() = runTest {
-        // The exercise is gone by the time the repair runs, so a failure there is not a removal
-        // that did not happen — and reporting one would tell the user their exercise is still in
-        // the workout while the list it re-emits no longer holds it. What a failure costs is a
-        // group left with one member in it, which the screens renormalise away.
-        val sessionId = startPushDay()
-        val fly = layout(sessionId).last()
-        sessions.exerciseUpdateFailure = IllegalStateException("disk full")
+    fun `removing with no session running is refused`() =
+        runTest {
+            val result = removeExercise(1L)
 
-        assertEquals(fly.id, removeExercise(fly.id).getOrThrow())
-        assertEquals(listOf(BENCH, INCLINE), layout(sessionId).map(SessionExercise::exerciseId))
-    }
+            assertEquals(SessionError.SessionNotActive(SessionState.Idle), result.exceptionOrNull())
+        }
 
     @Test
-    fun `a delete that fails leaves the exercise where it was`() = runTest {
-        val sessionId = startPushDay()
-        val failure = IllegalStateException("disk full")
-        sessions.exerciseDeleteFailure = failure
+    fun `removing from a paused session is refused`() =
+        runTest {
+            val sessionId = startPushDay()
+            val bench = layout(sessionId).first()
+            val paused = PauseSessionUseCase(sessions, state, clock, lock)().getOrThrow()
 
-        val result = removeExercise(layout(sessionId).first().id)
+            val result = removeExercise(bench.id)
 
-        assertEquals(failure, result.exceptionOrNull())
-        assertEquals(3, layout(sessionId).size)
-    }
+            assertEquals(SessionError.SessionNotActive(paused), result.exceptionOrNull())
+        }
 
     @Test
-    fun `the refusal surfaces as a descriptive IllegalStateException`() = runTest {
-        val sessionId = startPushDay()
-        val bench = layout(sessionId).first()
-        sessions.addSet(bench.id)
+    fun `a repair that fails does not fail the removal it followed`() =
+        runTest {
+            // The exercise is gone by the time the repair runs, so a failure there is not a removal
+            // that did not happen — and reporting one would tell the user their exercise is still in
+            // the workout while the list it re-emits no longer holds it. What a failure costs is a
+            // group left with one member in it, which the screens renormalise away.
+            val sessionId = startPushDay()
+            val fly = layout(sessionId).last()
+            sessions.exerciseUpdateFailure = IllegalStateException("disk full")
 
-        val refused = removeExercise(bench.id)
+            assertEquals(fly.id, removeExercise(fly.id).getOrThrow())
+            assertEquals(listOf(BENCH, INCLINE), layout(sessionId).map(SessionExercise::exerciseId))
+        }
 
-        val thrown = assertThrows(IllegalStateException::class.java) { refused.getOrThrow() }
+    @Test
+    fun `a delete that fails leaves the exercise where it was`() =
+        runTest {
+            val sessionId = startPushDay()
+            val failure = IllegalStateException("disk full")
+            sessions.exerciseDeleteFailure = failure
 
-        assertEquals(
-            "exercise ${bench.id} has 1 logged set(s) and cannot be removed",
-            thrown.message,
-        )
-    }
+            val result = removeExercise(layout(sessionId).first().id)
+
+            assertEquals(failure, result.exceptionOrNull())
+            assertEquals(3, layout(sessionId).size)
+        }
+
+    @Test
+    fun `the refusal surfaces as a descriptive IllegalStateException`() =
+        runTest {
+            val sessionId = startPushDay()
+            val bench = layout(sessionId).first()
+            sessions.addSet(bench.id)
+
+            val refused = removeExercise(bench.id)
+
+            val thrown = assertThrows(IllegalStateException::class.java) { refused.getOrThrow() }
+
+            assertEquals(
+                "exercise ${bench.id} has 1 logged set(s) and cannot be removed",
+                thrown.message,
+            )
+        }
 
     private companion object {
         const val BENCH = 1L

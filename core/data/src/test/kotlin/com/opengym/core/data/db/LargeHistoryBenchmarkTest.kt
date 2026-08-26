@@ -61,103 +61,105 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
     }
 
     @Test
-    fun `session history and volume queries stay fast at the target scale`(): Unit = runBlocking {
-        val history = seedHistory(TARGET_SCALE)
-        assertSeeded(TARGET_SCALE)
-        warmUp()
+    fun `session history and volume queries stay fast at the target scale`(): Unit =
+        runBlocking {
+            val history = seedHistory(TARGET_SCALE)
+            assertSeeded(TARGET_SCALE)
+            warmUp()
 
-        // The session-history screen: first page of the newest sessions.
-        assertUnder("getAllPaginated first page", TARGET_BUDGET_MS) {
-            TestPager(PagingConfig(pageSize = PAGE_SIZE), db.workoutSessionDao().getAllPaginated())
-                .refresh()
-        }
+            // The session-history screen: first page of the newest sessions.
+            assertUnder("getAllPaginated first page", TARGET_BUDGET_MS) {
+                TestPager(PagingConfig(pageSize = PAGE_SIZE), db.workoutSessionDao().getAllPaginated())
+                    .refresh()
+            }
 
-        // The volume aggregates behind the progression screens, first over the
-        // whole history - the worst case for each.
-        assertUnder("getVolumeByWeek over the whole history", TARGET_BUDGET_MS) {
-            db.workoutSetDao().getVolumeByWeek(0).first()
-        }
-        assertUnder("getVolumeByMuscleGroup over the whole history", FULL_HISTORY_AGGREGATE_BUDGET_MS) {
-            db.workoutSetDao()
-                .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(TARGET_SCALE.sessionCount))
-                .first()
-        }
-        // A one-month window: this is the one that needs the completed_at index
-        // to prune, rather than scanning every set and discarding most of them.
-        assertUnder("getVolumeByMuscleGroup over a one-month range", TARGET_BUDGET_MS) {
-            db.workoutSetDao()
-                .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(30))
-                .first()
-        }
+            // The volume aggregates behind the progression screens, first over the
+            // whole history - the worst case for each.
+            assertUnder("getVolumeByWeek over the whole history", TARGET_BUDGET_MS) {
+                db.workoutSetDao().getVolumeByWeek(0).first()
+            }
+            assertUnder("getVolumeByMuscleGroup over the whole history", FULL_HISTORY_AGGREGATE_BUDGET_MS) {
+                db.workoutSetDao()
+                    .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(TARGET_SCALE.sessionCount))
+                    .first()
+            }
+            // A one-month window: this is the one that needs the completed_at index
+            // to prune, rather than scanning every set and discarding most of them.
+            assertUnder("getVolumeByMuscleGroup over a one-month range", TARGET_BUDGET_MS) {
+                db.workoutSetDao()
+                    .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(30))
+                    .first()
+            }
 
-        // Per-exercise history: every completed set for one exercise, all-time.
-        val targetExerciseId = history.exerciseIds.first()
-        assertUnder("getHistoryByExercisePaginated first page", TARGET_BUDGET_MS) {
-            TestPager(
-                PagingConfig(pageSize = PAGE_SIZE),
-                db.workoutSetDao().getHistoryByExercisePaginated(targetExerciseId),
-            ).refresh()
+            // Per-exercise history: every completed set for one exercise, all-time.
+            val targetExerciseId = history.exerciseIds.first()
+            assertUnder("getHistoryByExercisePaginated first page", TARGET_BUDGET_MS) {
+                TestPager(
+                    PagingConfig(pageSize = PAGE_SIZE),
+                    db.workoutSetDao().getHistoryByExercisePaginated(targetExerciseId),
+                ).refresh()
+            }
         }
-    }
 
     @Test
-    fun `hot-path queries stay fast against a large seeded history`(): Unit = runBlocking {
-        val history = seedHistory(STRESS_SCALE)
-        assertSeeded(STRESS_SCALE)
-        warmUp()
+    fun `hot-path queries stay fast against a large seeded history`(): Unit =
+        runBlocking {
+            val history = seedHistory(STRESS_SCALE)
+            assertSeeded(STRESS_SCALE)
+            warmUp()
 
-        assertUnder("getActive", STRESS_BUDGET_MS) {
-            db.workoutSessionDao().getActive().first()
-        }
+            assertUnder("getActive", STRESS_BUDGET_MS) {
+                db.workoutSessionDao().getActive().first()
+            }
 
-        val targetExerciseId = history.exerciseIds.first()
-        assertUnder("getHistoryByExercise", STRESS_BUDGET_MS) {
-            db.workoutSetDao().getHistoryByExercise(targetExerciseId).first()
-        }
+            val targetExerciseId = history.exerciseIds.first()
+            assertUnder("getHistoryByExercise", STRESS_BUDGET_MS) {
+                db.workoutSetDao().getHistoryByExercise(targetExerciseId).first()
+            }
 
-        assertUnder("getHistoryByExercisePaginated first page", STRESS_BUDGET_MS) {
-            TestPager(
-                PagingConfig(pageSize = PAGE_SIZE),
-                db.workoutSetDao().getHistoryByExercisePaginated(targetExerciseId),
-            ).refresh()
-        }
+            assertUnder("getHistoryByExercisePaginated first page", STRESS_BUDGET_MS) {
+                TestPager(
+                    PagingConfig(pageSize = PAGE_SIZE),
+                    db.workoutSetDao().getHistoryByExercisePaginated(targetExerciseId),
+                ).refresh()
+            }
 
-        assertUnder("getAllPaginated first page", STRESS_BUDGET_MS) {
-            TestPager(PagingConfig(pageSize = PAGE_SIZE), db.workoutSessionDao().getAllPaginated())
-                .refresh()
-        }
+            assertUnder("getAllPaginated first page", STRESS_BUDGET_MS) {
+                TestPager(PagingConfig(pageSize = PAGE_SIZE), db.workoutSessionDao().getAllPaginated())
+                    .refresh()
+            }
 
-        // Analytics aggregates: these scan a date range across all history, so
-        // they are the queries most exposed to a missing completed_at index.
-        assertUnder("getVolumeByWeek over the whole history", STRESS_BUDGET_MS) {
-            db.workoutSetDao().getVolumeByWeek(0).first()
-        }
+            // Analytics aggregates: these scan a date range across all history, so
+            // they are the queries most exposed to a missing completed_at index.
+            assertUnder("getVolumeByWeek over the whole history", STRESS_BUDGET_MS) {
+                db.workoutSetDao().getVolumeByWeek(0).first()
+            }
 
-        assertUnder("getVolumeByMuscleGroup over a one-month range", STRESS_BUDGET_MS) {
-            db.workoutSetDao()
-                .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(30))
-                .first()
-        }
+            assertUnder("getVolumeByMuscleGroup over a one-month range", STRESS_BUDGET_MS) {
+                db.workoutSetDao()
+                    .getVolumeByMuscleGroup(0, WorkoutHistoryFixture.sessionEpochDay(30))
+                    .first()
+            }
 
-        assertUnder("getRecentRecords", STRESS_BUDGET_MS) {
-            db.personalRecordDao().getRecentRecords(limit = 10).first()
-        }
+            assertUnder("getRecentRecords", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getRecentRecords(limit = 10).first()
+            }
 
-        // The exercise library's two catalogue-wide reads, which run together on every open
-        // of the Library tab.
-        //
-        // `getHeadlineRecords` is the one worth watching: it picks one record per exercise
-        // with a subquery correlated on `exercise_id`, so its cost tracks the size of
-        // `personal_record` rather than the catalogue, and this fixture is the only place
-        // that says by how much.
-        assertUnder("getHeadlineRecords", STRESS_BUDGET_MS) {
-            db.personalRecordDao().getHeadlineRecords().first()
-        }
+            // The exercise library's two catalogue-wide reads, which run together on every open
+            // of the Library tab.
+            //
+            // `getHeadlineRecords` is the one worth watching: it picks one record per exercise
+            // with a subquery correlated on `exercise_id`, so its cost tracks the size of
+            // `personal_record` rather than the catalogue, and this fixture is the only place
+            // that says by how much.
+            assertUnder("getHeadlineRecords", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getHeadlineRecords().first()
+            }
 
-        assertUnder("getAllMuscleGroupLinks", STRESS_BUDGET_MS) {
-            db.exerciseDao().getAllMuscleGroupLinks().first()
+            assertUnder("getAllMuscleGroupLinks", STRESS_BUDGET_MS) {
+                db.exerciseDao().getAllMuscleGroupLinks().first()
+            }
         }
-    }
 
     /**
      * One untimed query first. Without it the first measurement also pays for
@@ -174,7 +176,11 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         assertEquals(spec.setCount, countRows("workout_set"))
     }
 
-    private suspend fun <T> assertUnder(label: String, budgetMs: Long, block: suspend () -> T): T {
+    private suspend fun <T> assertUnder(
+        label: String,
+        budgetMs: Long,
+        block: suspend () -> T,
+    ): T {
         val start = System.nanoTime()
         val result = block()
         val elapsedMs = (System.nanoTime() - start) / 1_000_000

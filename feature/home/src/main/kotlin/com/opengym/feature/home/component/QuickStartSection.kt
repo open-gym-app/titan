@@ -189,11 +189,12 @@ fun QuickStartSection(
  * against constraints widened by both margins and then *reported* at the width the column laid
  * out for, so the column is not itself pushed off the screen by a child that is wider than it.
  */
-private fun Modifier.bleed(margin: Dp) = layout { measurable, constraints ->
-    val edge = margin.roundToPx()
-    val placeable = measurable.measure(constraints.offset(horizontal = edge * 2))
-    layout(placeable.width - edge * 2, placeable.height) { placeable.place(-edge, 0) }
-}
+private fun Modifier.bleed(margin: Dp) =
+    layout { measurable, constraints ->
+        val edge = margin.roundToPx()
+        val placeable = measurable.measure(constraints.offset(horizontal = edge * 2))
+        layout(placeable.width - edge * 2, placeable.height) { placeable.place(-edge, 0) }
+    }
 
 /** Material's own, for the labels it does not fade — see [QuickStartSection]. */
 private const val DISABLED_ALPHA = 0.38f

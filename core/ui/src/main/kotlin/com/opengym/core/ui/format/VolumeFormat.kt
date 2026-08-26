@@ -6,7 +6,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.milligramsPerUnit
 import com.opengym.core.ui.theme.LocalUnitSystem
 
-/**
+/*
  * Training volume — `weight x reps`, summed — as the headline figure on a summary card.
  *
  * The same milligrams as a weight, so this is `formatWeight` with two deliberate
@@ -40,7 +40,10 @@ private const val VOLUME_FRACTION_DIGITS = 0
  * [milligrams] of volume in [unitSystem], grouped, with no unit — for the stat tile that
  * draws `VOLUME`, the figure and `kg` as three separate type roles.
  */
-fun formatVolumeValue(milligrams: Long, unitSystem: UnitSystem): String =
+fun formatVolumeValue(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String =
     formatNumber(
         value = milligrams / unitSystem.milligramsPerUnit,
         maxFractionDigits = VOLUME_FRACTION_DIGITS,
@@ -48,8 +51,10 @@ fun formatVolumeValue(milligrams: Long, unitSystem: UnitSystem): String =
     )
 
 /** [milligrams] of volume in [unitSystem], with the unit: `4,820 kg`, `10,626 lb`. */
-fun formatVolume(milligrams: Long, unitSystem: UnitSystem): String =
-    "${formatVolumeValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+fun formatVolume(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String = "${formatVolumeValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
 
 /** [milligrams] of volume in the ambient [LocalUnitSystem], with the unit. */
 @Composable
@@ -59,5 +64,4 @@ fun formatVolume(milligrams: Long): String = formatVolume(milligrams, LocalUnitS
 /** [milligrams] of volume in the ambient [LocalUnitSystem], without the unit. */
 @Composable
 @ReadOnlyComposable
-fun formatVolumeValue(milligrams: Long): String =
-    formatVolumeValue(milligrams, LocalUnitSystem.current)
+fun formatVolumeValue(milligrams: Long): String = formatVolumeValue(milligrams, LocalUnitSystem.current)

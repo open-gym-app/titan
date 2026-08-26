@@ -405,11 +405,12 @@ private fun SetNote(
  * the screen says it in one set of words.
  */
 @Composable
-internal fun SetEntryError.message(): String = when (this) {
-    SetEntryError.WeightNotANumber -> stringResource(R.string.active_weight_not_a_number)
-    SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
-    is SetEntryError.Refused -> reason
-}
+internal fun SetEntryError.message(): String =
+    when (this) {
+        SetEntryError.WeightNotANumber -> stringResource(R.string.active_weight_not_a_number)
+        SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
+        is SetEntryError.Refused -> reason
+    }
 
 /**
  * The grab mark, at the size of the eyebrow it sits in front of.

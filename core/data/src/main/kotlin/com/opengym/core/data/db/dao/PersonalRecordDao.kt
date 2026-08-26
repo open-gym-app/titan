@@ -40,7 +40,10 @@ interface PersonalRecordDao {
         LIMIT 1
         """,
     )
-    fun getLatestByType(exerciseId: Long, prType: String): Flow<PersonalRecordEntity?>
+    fun getLatestByType(
+        exerciseId: Long,
+        prType: String,
+    ): Flow<PersonalRecordEntity?>
 
     /**
      * The [limit] most recently achieved records across every exercise, for the

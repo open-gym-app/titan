@@ -68,19 +68,20 @@ class SwapSessionExerciseUseCase(
     suspend operator fun invoke(
         sessionExerciseId: Long,
         exerciseId: Long,
-    ): Result<SessionExercise> = lock.withTransition {
-        val current = sessionStateRepository.observe().first()
-        val active = current as? SessionState.Active
-            ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+    ): Result<SessionExercise> =
+        lock.withTransition {
+            val current = sessionStateRepository.observe().first()
+            val active = current as? SessionState.Active
+                ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
 
-        val exercise = sessionRepository.getExercises(active.sessionId).first()
-            .firstOrNull { it.id == sessionExerciseId }
-            ?: return@withTransition Result.failure(
-                SessionError.ExerciseNotInSession(sessionExerciseId, active.sessionId),
-            )
+            val exercise = sessionRepository.getExercises(active.sessionId).first()
+                .firstOrNull { it.id == sessionExerciseId }
+                ?: return@withTransition Result.failure(
+                    SessionError.ExerciseNotInSession(sessionExerciseId, active.sessionId),
+                )
 
-        fill(exercise, exerciseId)
-    }
+            fill(exercise, exerciseId)
+        }
 
     /**
      * Puts [exerciseId] in [slot], once what is already logged against it allows.
@@ -88,7 +89,10 @@ class SwapSessionExerciseUseCase(
      * Split off the resolution above so that each half reads as one question: which row is this,
      * and can what is in it be changed.
      */
-    private suspend fun fill(slot: SessionExercise, exerciseId: Long): Result<SessionExercise> {
+    private suspend fun fill(
+        slot: SessionExercise,
+        exerciseId: Long,
+    ): Result<SessionExercise> {
         // Swapping an exercise for itself is what a picker answers with when the user reopens it
         // and taps what is already there. Nothing is written, and it is not a refusal: the slot
         // holds what they asked it to.

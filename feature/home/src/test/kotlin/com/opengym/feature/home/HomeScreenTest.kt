@@ -6,7 +6,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -319,12 +319,13 @@ class HomeScreenTest {
     }
 
     /** A settled Home: a week with three sessions in it, and two saved templates. */
-    private fun state(resume: ResumeState? = null) = HomeUiState(
-        resume = resume,
-        week = WeekState(days = WEEK, sessionCount = 3),
-        templates = TEMPLATES,
-        isLoading = false,
-    )
+    private fun state(resume: ResumeState? = null) =
+        HomeUiState(
+            resume = resume,
+            week = WeekState(days = WEEK, sessionCount = 3),
+            templates = TEMPLATES,
+            isLoading = false,
+        )
 
     private companion object {
         /**

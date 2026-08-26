@@ -55,9 +55,8 @@ import kotlin.time.Duration.Companion.seconds
  * is the screen going away rather than a write that failed.
  */
 @HiltViewModel
-class OnboardingViewModel @Inject constructor(
-    private val userPreferencesRepository: UserPreferencesRepository,
-) : ViewModel() {
+class OnboardingViewModel @Inject constructor(private val userPreferencesRepository: UserPreferencesRepository) :
+    ViewModel() {
 
     /** What the flow owns, as opposed to what the store does. */
     private val stepState = MutableStateFlow(StepState())
@@ -84,14 +83,19 @@ class OnboardingViewModel @Inject constructor(
     fun onEvent(event: OnboardingEvent) {
         when (event) {
             OnboardingEvent.Continued -> advance()
+
             OnboardingEvent.Skipped -> skip()
+
             OnboardingEvent.BackPressed -> goBack()
+
             is OnboardingEvent.TrainingGoalSelected -> answer {
                 userPreferencesRepository.setTrainingGoal(event.goal)
             }
+
             is OnboardingEvent.UnitSystemSelected -> answer {
                 userPreferencesRepository.setUnitSystem(event.unitSystem)
             }
+
             OnboardingEvent.MessageShown -> stepState.update { it.copy(message = null) }
         }
     }
@@ -116,12 +120,15 @@ class OnboardingViewModel @Inject constructor(
         when (stepState.value.step) {
             // Nothing is asked on the welcome step, so there is nothing to default.
             OnboardingStep.WELCOME -> Unit
+
             OnboardingStep.GOAL -> answer {
                 userPreferencesRepository.setTrainingGoal(DEFAULT_TRAINING_GOAL)
             }
+
             OnboardingStep.UNITS -> answer {
                 userPreferencesRepository.setUnitSystem(DEFAULT_UNIT_SYSTEM)
             }
+
             // The last step's action is the way out; there is no `SKIP` on it to reach this.
             OnboardingStep.READY -> Unit
         }

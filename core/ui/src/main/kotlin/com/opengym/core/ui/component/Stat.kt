@@ -163,7 +163,10 @@ fun StatChip(
  * is why the rest of the screen is neutral.
  */
 @Composable
-fun PrBadge(modifier: Modifier = Modifier, type: PrType? = null) {
+fun PrBadge(
+    modifier: Modifier = Modifier,
+    type: PrType? = null,
+) {
     val badge = stringResource(R.string.pr_badge)
     val text = if (type == null) badge else "$badge · ${type.label()}"
     // "P R dot one R M" is what TalkBack makes of the drawn text. The description says the

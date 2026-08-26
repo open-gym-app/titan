@@ -2,7 +2,7 @@ package com.opengym.core.ui.component
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.opengym.core.domain.model.ActiveSet
@@ -107,8 +107,10 @@ class ExerciseCardTest {
         composeTestRule.onNodeWithText("60 kg × 10").assertIsDisplayed()
     }
 
-    private fun link(name: String, primary: Boolean) =
-        ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
+    private fun link(
+        name: String,
+        primary: Boolean,
+    ) = ExerciseMuscleGroupLink(MuscleGroup(id = name.hashCode().toLong(), name = name), isPrimary = primary)
 
     private fun setContent(content: @Composable () -> Unit) {
         composeTestRule.setContent { OpenGymTheme(content = content) }

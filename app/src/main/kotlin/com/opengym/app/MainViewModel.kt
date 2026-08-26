@@ -32,9 +32,7 @@ import javax.inject.Inject
  * [MainUiState.Loading] — a blank window — on the way back to the foreground.
  */
 @HiltViewModel
-class MainViewModel @Inject constructor(
-    userPreferencesRepository: UserPreferencesRepository,
-) : ViewModel() {
+class MainViewModel @Inject constructor(userPreferencesRepository: UserPreferencesRepository) : ViewModel() {
 
     val uiState: StateFlow<MainUiState> = userPreferencesRepository.observe()
         // `runningFold` rather than `map`, for one field: the routing decision is latched on
