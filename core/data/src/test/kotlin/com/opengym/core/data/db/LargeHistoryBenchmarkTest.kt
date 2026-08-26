@@ -64,8 +64,7 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
          * aggregates: "the whole history" as a bounded window, since those queries no
          * longer take an open-ended one.
          */
-        fun wholeHistoryEndDay(spec: HistorySpec): Long =
-            WorkoutHistoryFixture.sessionEpochDay(spec.sessionCount) + 1
+        fun wholeHistoryEndDay(spec: HistorySpec): Long = WorkoutHistoryFixture.sessionEpochDay(spec.sessionCount) + 1
     }
 
     @Test

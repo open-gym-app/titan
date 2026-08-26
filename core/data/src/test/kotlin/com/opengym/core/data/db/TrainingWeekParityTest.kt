@@ -34,39 +34,41 @@ class TrainingWeekParityTest : RoomTestBase() {
     }
 
     @Test
-    fun `every day of a week buckets to the Monday the domain names`() = runBlocking {
-        // A fortnight, one finished workout a day, so every weekday - and the two boundaries
-        // either side of a Monday - is exercised in both queries.
-        val days = (0L until 14L).map { ANCHOR.minusDays(3).plusDays(it) }
-        days.forEach { workoutOn(it) }
+    fun `every day of a week buckets to the Monday the domain names`() =
+        runBlocking {
+            // A fortnight, one finished workout a day, so every weekday - and the two boundaries
+            // either side of a Monday - is exercised in both queries.
+            val days = (0L until 14L).map { ANCHOR.minusDays(3).plusDays(it) }
+            days.forEach { workoutOn(it) }
 
-        val expected = days.map { TrainingWeek.startOf(it) }.distinct().sorted()
-        val range = days.first().toEpochDay() to days.last().toEpochDay() + 1
+            val expected = days.map { TrainingWeek.startOf(it) }.distinct().sorted()
+            val range = days.first().toEpochDay() to days.last().toEpochDay() + 1
 
-        val volumeWeeks = db.workoutSetDao().getVolumeByWeek(range.first, range.second).first()
-            .map { LocalDate.ofEpochDay(it.weekStartEpochDay) }
-        val trainingWeeks = db.workoutSessionDao().getTrainingByWeek(range.first, range.second).first()
-            .map { LocalDate.ofEpochDay(it.weekStartEpochDay) }
+            val volumeWeeks = db.workoutSetDao().getVolumeByWeek(range.first, range.second).first()
+                .map { LocalDate.ofEpochDay(it.weekStartEpochDay) }
+            val trainingWeeks = db.workoutSessionDao().getTrainingByWeek(range.first, range.second).first()
+                .map { LocalDate.ofEpochDay(it.weekStartEpochDay) }
 
-        assertEquals(expected, volumeWeeks)
-        assertEquals(expected, trainingWeeks)
-    }
+            assertEquals(expected, volumeWeeks)
+            assertEquals(expected, trainingWeeks)
+        }
 
     @Test
-    fun `the week's own days all land in it and none of its neighbours do`() = runBlocking {
-        // The Sunday before, the whole of ANCHOR's week, and the Monday after.
-        (-1L..7L).forEach { offset -> workoutOn(ANCHOR.plusDays(offset)) }
+    fun `the week's own days all land in it and none of its neighbours do`() =
+        runBlocking {
+            // The Sunday before, the whole of ANCHOR's week, and the Monday after.
+            (-1L..7L).forEach { offset -> workoutOn(ANCHOR.plusDays(offset)) }
 
-        val byWeek = db.workoutSetDao()
-            .getVolumeByWeek(ANCHOR.minusDays(7).toEpochDay(), ANCHOR.plusDays(14).toEpochDay())
-            .first()
-            .associate { LocalDate.ofEpochDay(it.weekStartEpochDay) to it.totalVolume }
+            val byWeek = db.workoutSetDao()
+                .getVolumeByWeek(ANCHOR.minusDays(7).toEpochDay(), ANCHOR.plusDays(14).toEpochDay())
+                .first()
+                .associate { LocalDate.ofEpochDay(it.weekStartEpochDay) to it.totalVolume }
 
-        // Seven days in ANCHOR's week, one either side of it, at 1kg x 1 apiece.
-        assertEquals(7_000_000L, byWeek.getValue(ANCHOR))
-        assertEquals(1_000_000L, byWeek.getValue(TrainingWeek.startOf(ANCHOR.minusDays(1))))
-        assertEquals(1_000_000L, byWeek.getValue(TrainingWeek.startOf(ANCHOR.plusDays(7))))
-    }
+            // Seven days in ANCHOR's week, one either side of it, at 1kg x 1 apiece.
+            assertEquals(7_000_000L, byWeek.getValue(ANCHOR))
+            assertEquals(1_000_000L, byWeek.getValue(TrainingWeek.startOf(ANCHOR.minusDays(1))))
+            assertEquals(1_000_000L, byWeek.getValue(TrainingWeek.startOf(ANCHOR.plusDays(7))))
+        }
 
     private var sharedExercise: Long? = null
 

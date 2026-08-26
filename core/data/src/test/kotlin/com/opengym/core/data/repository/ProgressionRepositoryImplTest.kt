@@ -44,36 +44,39 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
     }
 
     @Test
-    fun `weekly volume comes back as domain buckets keyed by their Monday`() = runBlocking {
-        // week 1: 100kg x 10. week 3: 60kg x 5.
-        logSet(workoutOn(WEEK_1.plusDays(2)), 1, at(WEEK_1.plusDays(2)), reps = 10, weight = kg(100))
-        logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 5, weight = kg(60))
+    fun `weekly volume comes back as domain buckets keyed by their Monday`() =
+        runBlocking {
+            // week 1: 100kg x 10. week 3: 60kg x 5.
+            logSet(workoutOn(WEEK_1.plusDays(2)), 1, at(WEEK_1.plusDays(2)), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 5, weight = kg(60))
 
-        val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first()
+            val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first()
 
-        assertEquals(
-            listOf(WeeklyVolume(WEEK_1, kg(1_000)), WeeklyVolume(WEEK_3, kg(300))),
-            weeks,
-        )
-    }
-
-    @Test
-    fun `a bucket on the last day of the period is inside it`() = runBlocking {
-        // The Sunday that closes week 2, which is also the last day asked for.
-        val day = WEEK_2.plusDays(6)
-        logSet(workoutOn(day), 1, at(day), reps = 10, weight = kg(100))
-
-        val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first()
-
-        assertEquals(listOf(WeeklyVolume(WEEK_2, kg(1_000))), weeks)
-    }
+            assertEquals(
+                listOf(WeeklyVolume(WEEK_1, kg(1_000)), WeeklyVolume(WEEK_3, kg(300))),
+                weeks,
+            )
+        }
 
     @Test
-    fun `a week outside the period is not read`() = runBlocking {
-        logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 10, weight = kg(100))
+    fun `a bucket on the last day of the period is inside it`() =
+        runBlocking {
+            // The Sunday that closes week 2, which is also the last day asked for.
+            val day = WEEK_2.plusDays(6)
+            logSet(workoutOn(day), 1, at(day), reps = 10, weight = kg(100))
 
-        assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first().isEmpty())
-    }
+            val weeks = repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first()
+
+            assertEquals(listOf(WeeklyVolume(WEEK_2, kg(1_000))), weeks)
+        }
+
+    @Test
+    fun `a week outside the period is not read`() =
+        runBlocking {
+            logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 10, weight = kg(100))
+
+            assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_2.plusDays(6)).first().isEmpty())
+        }
 
     @Test
     fun `training history is true once a session has been finished, whatever the period`() =
@@ -86,29 +89,31 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
         }
 
     @Test
-    fun `weekly training comes back as domain buckets carrying both counts`() = runBlocking {
-        // Week 1: two sessions on the Monday, one on the Thursday - two days, three sessions.
-        finishSession(at(WEEK_1))
-        finishSession(at(WEEK_1) + 8 * 3_600_000L)
-        finishSession(at(WEEK_1.plusDays(3)))
-        finishSession(at(WEEK_2.plusDays(1)))
+    fun `weekly training comes back as domain buckets carrying both counts`() =
+        runBlocking {
+            // Week 1: two sessions on the Monday, one on the Thursday - two days, three sessions.
+            finishSession(at(WEEK_1))
+            finishSession(at(WEEK_1) + 8 * 3_600_000L)
+            finishSession(at(WEEK_1.plusDays(3)))
+            finishSession(at(WEEK_2.plusDays(1)))
 
-        val weeks = repository.getWeeklyTraining(WEEK_1..WEEK_2.plusDays(6)).first()
+            val weeks = repository.getWeeklyTraining(WEEK_1..WEEK_2.plusDays(6)).first()
 
-        assertEquals(
-            listOf(
-                WeeklyTraining(WEEK_1, trainingDays = 2, sessionCount = 3),
-                WeeklyTraining(WEEK_2, trainingDays = 1, sessionCount = 1),
-            ),
-            weeks,
-        )
-    }
+            assertEquals(
+                listOf(
+                    WeeklyTraining(WEEK_1, trainingDays = 2, sessionCount = 3),
+                    WeeklyTraining(WEEK_2, trainingDays = 1, sessionCount = 1),
+                ),
+                weeks,
+            )
+        }
 
     @Test
-    fun `a user with no history reads as empty rather than as zeroed weeks`() = runBlocking {
-        assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
-        assertTrue(repository.getWeeklyTraining(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
-    }
+    fun `a user with no history reads as empty rather than as zeroed weeks`() =
+        runBlocking {
+            assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
+            assertTrue(repository.getWeeklyTraining(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
+        }
 
     private var sharedExercise: Long? = null
 
@@ -124,14 +129,15 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
     }
 
-    private suspend fun finishSession(completedAt: Long): Long = db.workoutSessionDao().insert(
-        session(
-            isInProgress = false,
-            lastActiveAt = completedAt,
-            createdAt = completedAt,
-            completedAt = completedAt,
-        ),
-    )
+    private suspend fun finishSession(completedAt: Long): Long =
+        db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = completedAt,
+                createdAt = completedAt,
+                completedAt = completedAt,
+            ),
+        )
 
     private suspend fun logSet(
         sessionExerciseId: Long,

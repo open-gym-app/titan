@@ -93,7 +93,10 @@ object TrainingWeek {
      * The current, incomplete week is *included* rather than dropped: it is the one the user
      * is living in, and a consistency figure that ignored it would not move until Monday.
      */
-    fun trailing(weeks: Int, endingOn: LocalDate): ClosedRange<LocalDate> {
+    fun trailing(
+        weeks: Int,
+        endingOn: LocalDate,
+    ): ClosedRange<LocalDate> {
         require(weeks > 0) { "a trailing window must span at least one week: $weeks" }
         val last = startOf(endingOn)
         return last.minusDays((weeks - 1) * DAYS)..last.plusDays(DAYS - 1)

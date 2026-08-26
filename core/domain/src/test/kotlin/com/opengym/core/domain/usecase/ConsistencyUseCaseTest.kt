@@ -31,170 +31,187 @@ class ConsistencyUseCaseTest {
     private val useCase = ConsistencyUseCase(repository)
 
     /** `(week, trainingDays, sessionCount)`, the shape the aggregate returns. */
-    private fun week(start: LocalDate, days: Int, sessions: Int = days) = Triple(start, days, sessions)
+    private fun week(
+        start: LocalDate,
+        days: Int,
+        sessions: Int = days,
+    ) = Triple(start, days, sessions)
 
     @Test
-    fun `a multi-week series reports each week's training days`() = runTest {
-        repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 3), week(WEEK_3, 5))
+    fun `a multi-week series reports each week's training days`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 3), week(WEEK_3, 5))
 
-        val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
 
-        assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyTraining::weekStart))
-        assertEquals(listOf(4, 3, 5), trend.weeks.map(WeeklyTraining::trainingDays))
-        assertEquals(12, trend.totalTrainingDays)
-        // 12 days over 3 weeks.
-        assertEquals(4.0, trend.averagePerWeek, 1e-9)
-    }
-
-    @Test
-    fun `a single-week period reports one bucket`() = runTest {
-        repository.setTraining(week(WEEK_1, 3))
-
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
-
-        assertEquals(listOf(WeeklyTraining(WEEK_1, trainingDays = 3, sessionCount = 3)), trend.weeks)
-        assertEquals(3.0, trend.averagePerWeek, 1e-9)
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyTraining::weekStart))
+            assertEquals(listOf(4, 3, 5), trend.weeks.map(WeeklyTraining::trainingDays))
+            assertEquals(12, trend.totalTrainingDays)
+            // 12 days over 3 weeks.
+            assertEquals(4.0, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
-    fun `two sessions in one day are one training day, and both counts are carried`() = runTest {
-        // A week of four training days holding six sessions: two of the days were doubles.
-        repository.setTraining(week(WEEK_1, days = 4, sessions = 6))
+    fun `a single-week period reports one bucket`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 3))
 
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
 
-        assertEquals(4, trend.totalTrainingDays)
-        assertEquals(6, trend.totalSessions)
-        // The average is built on days, so the doubles do not inflate it past four.
-        assertEquals(4.0, trend.averagePerWeek, 1e-9)
-    }
+            assertEquals(listOf(WeeklyTraining(WEEK_1, trainingDays = 3, sessionCount = 3)), trend.weeks)
+            assertEquals(3.0, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
-    fun `a week off is a zero the average is divided by`() = runTest {
-        repository.setTraining(week(WEEK_1, 4), week(WEEK_3, 4))
+    fun `two sessions in one day are one training day, and both counts are carried`() =
+        runTest {
+            // A week of four training days holding six sessions: two of the days were doubles.
+            repository.setTraining(week(WEEK_1, days = 4, sessions = 6))
 
-        val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
 
-        assertEquals(listOf(4, 0, 4), trend.weeks.map(WeeklyTraining::trainingDays))
-        assertEquals(0, trend.weeks[1].sessionCount)
-        // 8 days over 3 weeks, not over the 2 that had anything in them.
-        assertEquals(8.0 / 3.0, trend.averagePerWeek, 1e-9)
-    }
-
-    @Test
-    fun `a mid-week period is widened to the whole weeks it touches`() = runTest {
-        repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 2))
-
-        val trend = useCase(WEEK_1.plusDays(4)..WEEK_2.plusDays(1)).first()
-
-        assertEquals(listOf(WEEK_1, WEEK_2), trend.weeks.map(WeeklyTraining::weekStart))
-        assertEquals(3.0, trend.averagePerWeek, 1e-9)
-    }
+            assertEquals(4, trend.totalTrainingDays)
+            assertEquals(6, trend.totalSessions)
+            // The average is built on days, so the doubles do not inflate it past four.
+            assertEquals(4.0, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
-    fun `the change against the previous period is a difference in days per week`() = runTest {
-        repository.setTraining(
-            week(WEEK_1, 2),
-            week(WEEK_2, 3),
-            week(WEEK_3, 4),
-            week(WEEK_4, 3),
-        )
+    fun `a week off is a zero the average is divided by`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 4), week(WEEK_3, 4))
 
-        // Weeks 3 and 4 against weeks 1 and 2: 3.5 a week against 2.5.
-        val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
 
-        assertEquals(3.5, trend.averagePerWeek, 1e-9)
-        assertEquals(2.5, trend.previousAveragePerWeek!!, 1e-9)
-        assertEquals(1.0, trend.changePerWeek!!, 1e-9)
-    }
+            assertEquals(listOf(4, 0, 4), trend.weeks.map(WeeklyTraining::trainingDays))
+            assertEquals(0, trend.weeks[1].sessionCount)
+            // 8 days over 3 weeks, not over the 2 that had anything in them.
+            assertEquals(8.0 / 3.0, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
-    fun `the previous period's average is divided by its whole width too`() = runTest {
-        // One week of training in a two-week comparison period: 3 days over 2 weeks, not 3.
-        repository.setTraining(week(WEEK_1, 3), week(WEEK_3, 4), week(WEEK_4, 4))
+    fun `a mid-week period is widened to the whole weeks it touches`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 2))
 
-        val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+            val trend = useCase(WEEK_1.plusDays(4)..WEEK_2.plusDays(1)).first()
 
-        assertEquals(1.5, trend.previousAveragePerWeek!!, 1e-9)
-        assertEquals(2.5, trend.changePerWeek!!, 1e-9)
-    }
-
-    @Test
-    fun `both periods are read in one query`() = runTest {
-        repository.setTraining(week(WEEK_3, 4))
-
-        useCase(WEEK_3..WEEK_4.plusDays(6)).first()
-
-        assertEquals(1, repository.requestedRanges.size)
-        assertEquals(WEEK_1..WEEK_4.plusDays(6), repository.requestedRanges.single())
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2), trend.weeks.map(WeeklyTraining::weekStart))
+            assertEquals(3.0, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
-    fun `a first period has nothing to be compared against`() = runTest {
-        repository.setTraining(week(WEEK_1, 4))
+    fun `the change against the previous period is a difference in days per week`() =
+        runTest {
+            repository.setTraining(
+                week(WEEK_1, 2),
+                week(WEEK_2, 3),
+                week(WEEK_3, 4),
+                week(WEEK_4, 3),
+            )
 
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+            // Weeks 3 and 4 against weeks 1 and 2: 3.5 a week against 2.5.
+            val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
 
-        assertNull(trend.previousAveragePerWeek)
-        assertNull(trend.changePerWeek)
-    }
-
-    @Test
-    fun `a user with no sessions gets an empty series and a zero average`() = runTest {
-        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
-
-        assertTrue(trend.weeks.isEmpty())
-        assertEquals(0, trend.totalTrainingDays)
-        assertEquals(0, trend.totalSessions)
-        assertEquals(0.0, trend.averagePerWeek, 1e-9)
-        assertNull(trend.previousAveragePerWeek)
-        assertNull(trend.changePerWeek)
-        assertTrue(trend.isFirstRun)
-        assertFalse(trend.isQuietPeriod)
-    }
+            assertEquals(3.5, trend.averagePerWeek, 1e-9)
+            assertEquals(2.5, trend.previousAveragePerWeek!!, 1e-9)
+            assertEquals(1.0, trend.changePerWeek!!, 1e-9)
+        }
 
     @Test
-    fun `a period with nothing in it is empty even when the one before it was not`() = runTest {
-        repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 4))
+    fun `the previous period's average is divided by its whole width too`() =
+        runTest {
+            // One week of training in a two-week comparison period: 3 days over 2 weeks, not 3.
+            repository.setTraining(week(WEEK_1, 3), week(WEEK_3, 4), week(WEEK_4, 4))
 
-        val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+            val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
 
-        assertTrue(trend.weeks.isEmpty())
-        assertEquals(4.0, trend.previousAveragePerWeek!!, 1e-9)
-        // Stopped altogether: four days a week fewer than before.
-        assertEquals(-4.0, trend.changePerWeek!!, 1e-9)
-        assertTrue(trend.isQuietPeriod)
-        assertFalse(trend.isFirstRun)
-    }
+            assertEquals(1.5, trend.previousAveragePerWeek!!, 1e-9)
+            assertEquals(2.5, trend.changePerWeek!!, 1e-9)
+        }
 
     @Test
-    fun `a lapse longer than both periods is still a lapse, not a first run`() = runTest {
-        // The training is real, it just predates the window and its comparison period both,
-        // so no seeded week can stand for it — which is the whole reason the all-history
-        // predicate exists.
-        repository.setHasTrainingHistory(true)
+    fun `both periods are read in one query`() =
+        runTest {
+            repository.setTraining(week(WEEK_3, 4))
 
-        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+            useCase(WEEK_3..WEEK_4.plusDays(6)).first()
 
-        assertTrue(trend.weeks.isEmpty())
-        assertNull(trend.previousAveragePerWeek)
-        assertTrue(trend.isQuietPeriod)
-        assertFalse(trend.isFirstRun)
-    }
+            assertEquals(1, repository.requestedRanges.size)
+            assertEquals(WEEK_1..WEEK_4.plusDays(6), repository.requestedRanges.single())
+        }
 
     @Test
-    fun `the trailing window is the last twelve weeks, this one included`() = runTest {
-        repository.setTraining(week(WEEK_4, 3))
+    fun `a first period has nothing to be compared against`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 4))
 
-        // Asked on the Thursday of week 4.
-        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4.plusDays(3))).first()
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
 
-        assertEquals(12, trend.weeks.size)
-        assertEquals(WEEK_4, trend.weeks.last().weekStart)
-        assertEquals(3, trend.weeks.last().trainingDays)
-        // 3 days over the 12 weeks the window covers.
-        assertEquals(0.25, trend.averagePerWeek, 1e-9)
-    }
+            assertNull(trend.previousAveragePerWeek)
+            assertNull(trend.changePerWeek)
+        }
+
+    @Test
+    fun `a user with no sessions gets an empty series and a zero average`() =
+        runTest {
+            val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+
+            assertTrue(trend.weeks.isEmpty())
+            assertEquals(0, trend.totalTrainingDays)
+            assertEquals(0, trend.totalSessions)
+            assertEquals(0.0, trend.averagePerWeek, 1e-9)
+            assertNull(trend.previousAveragePerWeek)
+            assertNull(trend.changePerWeek)
+            assertTrue(trend.isFirstRun)
+            assertFalse(trend.isQuietPeriod)
+        }
+
+    @Test
+    fun `a period with nothing in it is empty even when the one before it was not`() =
+        runTest {
+            repository.setTraining(week(WEEK_1, 4), week(WEEK_2, 4))
+
+            val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+
+            assertTrue(trend.weeks.isEmpty())
+            assertEquals(4.0, trend.previousAveragePerWeek!!, 1e-9)
+            // Stopped altogether: four days a week fewer than before.
+            assertEquals(-4.0, trend.changePerWeek!!, 1e-9)
+            assertTrue(trend.isQuietPeriod)
+            assertFalse(trend.isFirstRun)
+        }
+
+    @Test
+    fun `a lapse longer than both periods is still a lapse, not a first run`() =
+        runTest {
+            // The training is real, it just predates the window and its comparison period both,
+            // so no seeded week can stand for it — which is the whole reason the all-history
+            // predicate exists.
+            repository.setHasTrainingHistory(true)
+
+            val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+
+            assertTrue(trend.weeks.isEmpty())
+            assertNull(trend.previousAveragePerWeek)
+            assertTrue(trend.isQuietPeriod)
+            assertFalse(trend.isFirstRun)
+        }
+
+    @Test
+    fun `the trailing window is the last twelve weeks, this one included`() =
+        runTest {
+            repository.setTraining(week(WEEK_4, 3))
+
+            // Asked on the Thursday of week 4.
+            val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4.plusDays(3))).first()
+
+            assertEquals(12, trend.weeks.size)
+            assertEquals(WEEK_4, trend.weeks.last().weekStart)
+            assertEquals(3, trend.weeks.last().trainingDays)
+            // 3 days over the 12 weeks the window covers.
+            assertEquals(0.25, trend.averagePerWeek, 1e-9)
+        }
 
     @Test
     fun `an inverted period is refused`() {

@@ -34,103 +34,111 @@ class VolumeTrendUseCaseTest {
     private val useCase = VolumeTrendUseCase(repository)
 
     @Test
-    fun `a multi-week series reports each week's own sum`() = runTest {
-        repository.setVolume(
-            WEEK_1 to kg(12_000),
-            WEEK_2 to kg(9_500),
-            WEEK_3 to kg(14_250),
-        )
+    fun `a multi-week series reports each week's own sum`() =
+        runTest {
+            repository.setVolume(
+                WEEK_1 to kg(12_000),
+                WEEK_2 to kg(9_500),
+                WEEK_3 to kg(14_250),
+            )
 
-        val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
 
-        assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyVolume::weekStart))
-        assertEquals(
-            listOf(kg(12_000), kg(9_500), kg(14_250)),
-            trend.weeks.map(WeeklyVolume::totalVolume),
-        )
-        // 12,000 + 9,500 + 14,250 kg-reps.
-        assertEquals(kg(35_750), trend.totalVolume)
-    }
-
-    @Test
-    fun `a single-week period reports one bucket`() = runTest {
-        repository.setVolume(WEEK_1 to kg(8_000))
-
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
-
-        assertEquals(listOf(WeeklyVolume(WEEK_1, kg(8_000))), trend.weeks)
-        assertEquals(kg(8_000), trend.totalVolume)
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyVolume::weekStart))
+            assertEquals(
+                listOf(kg(12_000), kg(9_500), kg(14_250)),
+                trend.weeks.map(WeeklyVolume::totalVolume),
+            )
+            // 12,000 + 9,500 + 14,250 kg-reps.
+            assertEquals(kg(35_750), trend.totalVolume)
+        }
 
     @Test
-    fun `a week nobody trained in is a zero in the series, not a gap`() = runTest {
-        // The middle week is missing from the aggregate, as it would be from the query.
-        repository.setVolume(WEEK_1 to kg(12_000), WEEK_3 to kg(10_000))
+    fun `a single-week period reports one bucket`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(8_000))
 
-        val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
 
-        assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyVolume::weekStart))
-        assertEquals(0L, trend.weeks[1].totalVolume)
-        assertEquals(kg(22_000), trend.totalVolume)
-    }
-
-    @Test
-    fun `a mid-week period is widened to the whole weeks it touches`() = runTest {
-        repository.setVolume(WEEK_1 to kg(12_000), WEEK_2 to kg(9_500))
-
-        // Asked for the Thursday of week 1 to the Wednesday of week 2 - eight days.
-        val trend = useCase(WEEK_1.plusDays(3)..WEEK_2.plusDays(2)).first()
-
-        assertEquals(listOf(WEEK_1, WEEK_2), trend.weeks.map(WeeklyVolume::weekStart))
-        assertEquals(kg(21_500), trend.totalVolume)
-    }
+            assertEquals(listOf(WeeklyVolume(WEEK_1, kg(8_000))), trend.weeks)
+            assertEquals(kg(8_000), trend.totalVolume)
+        }
 
     @Test
-    fun `the previous period is the same number of weeks immediately before`() = runTest {
-        repository.setVolume(
-            WEEK_1 to kg(6_000),
-            WEEK_2 to kg(4_000),
-            WEEK_3 to kg(12_000),
-            WEEK_4 to kg(13_000),
-        )
+    fun `a week nobody trained in is a zero in the series, not a gap`() =
+        runTest {
+            // The middle week is missing from the aggregate, as it would be from the query.
+            repository.setVolume(WEEK_1 to kg(12_000), WEEK_3 to kg(10_000))
 
-        // Weeks 3 and 4, compared against weeks 1 and 2.
-        val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+            val trend = useCase(WEEK_1..WEEK_3.plusDays(6)).first()
 
-        assertEquals(kg(25_000), trend.totalVolume)
-        assertEquals(kg(10_000), trend.previousTotalVolume)
-        // 25,000 against 10,000 is two and a half times as much.
-        assertEquals(1.5, trend.volumeChangeRatio!!, 1e-9)
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), trend.weeks.map(WeeklyVolume::weekStart))
+            assertEquals(0L, trend.weeks[1].totalVolume)
+            assertEquals(kg(22_000), trend.totalVolume)
+        }
 
     @Test
-    fun `both periods are read in one query`() = runTest {
-        repository.setVolume(WEEK_3 to kg(1_000))
+    fun `a mid-week period is widened to the whole weeks it touches`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(12_000), WEEK_2 to kg(9_500))
 
-        useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+            // Asked for the Thursday of week 1 to the Wednesday of week 2 - eight days.
+            val trend = useCase(WEEK_1.plusDays(3)..WEEK_2.plusDays(2)).first()
 
-        assertEquals(1, repository.requestedRanges.size)
-        assertEquals(WEEK_1..WEEK_4.plusDays(6), repository.requestedRanges.single())
-    }
-
-    @Test
-    fun `a fall against the previous period is a negative ratio`() = runTest {
-        repository.setVolume(WEEK_1 to kg(10_000), WEEK_2 to kg(7_500))
-
-        val trend = useCase(WEEK_2..WEEK_2.plusDays(6)).first()
-
-        assertEquals(-0.25, trend.volumeChangeRatio!!, 1e-9)
-    }
+            assertEquals(listOf(WEEK_1, WEEK_2), trend.weeks.map(WeeklyVolume::weekStart))
+            assertEquals(kg(21_500), trend.totalVolume)
+        }
 
     @Test
-    fun `a first period has nothing to be compared against`() = runTest {
-        repository.setVolume(WEEK_1 to kg(12_000))
+    fun `the previous period is the same number of weeks immediately before`() =
+        runTest {
+            repository.setVolume(
+                WEEK_1 to kg(6_000),
+                WEEK_2 to kg(4_000),
+                WEEK_3 to kg(12_000),
+                WEEK_4 to kg(13_000),
+            )
 
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+            // Weeks 3 and 4, compared against weeks 1 and 2.
+            val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
 
-        assertNull(trend.previousTotalVolume)
-        assertNull(trend.volumeChangeRatio)
-    }
+            assertEquals(kg(25_000), trend.totalVolume)
+            assertEquals(kg(10_000), trend.previousTotalVolume)
+            // 25,000 against 10,000 is two and a half times as much.
+            assertEquals(1.5, trend.volumeChangeRatio!!, 1e-9)
+        }
+
+    @Test
+    fun `both periods are read in one query`() =
+        runTest {
+            repository.setVolume(WEEK_3 to kg(1_000))
+
+            useCase(WEEK_3..WEEK_4.plusDays(6)).first()
+
+            assertEquals(1, repository.requestedRanges.size)
+            assertEquals(WEEK_1..WEEK_4.plusDays(6), repository.requestedRanges.single())
+        }
+
+    @Test
+    fun `a fall against the previous period is a negative ratio`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(10_000), WEEK_2 to kg(7_500))
+
+            val trend = useCase(WEEK_2..WEEK_2.plusDays(6)).first()
+
+            assertEquals(-0.25, trend.volumeChangeRatio!!, 1e-9)
+        }
+
+    @Test
+    fun `a first period has nothing to be compared against`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(12_000))
+
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+
+            assertNull(trend.previousTotalVolume)
+            assertNull(trend.volumeChangeRatio)
+        }
 
     @Test
     fun `a previous period that lifted nothing yields no ratio rather than a division by zero`() =
@@ -145,56 +153,60 @@ class VolumeTrendUseCaseTest {
         }
 
     @Test
-    fun `an empty history is an empty series, not a run of zeroes`() = runTest {
-        val trend = useCase(WEEK_1..WEEK_4.plusDays(6)).first()
+    fun `an empty history is an empty series, not a run of zeroes`() =
+        runTest {
+            val trend = useCase(WEEK_1..WEEK_4.plusDays(6)).first()
 
-        assertTrue(trend.weeks.isEmpty())
-        assertEquals(0L, trend.totalVolume)
-        assertNull(trend.previousTotalVolume)
-        assertNull(trend.volumeChangeRatio)
-        assertTrue(trend.isFirstRun)
-        assertFalse(trend.isQuietPeriod)
-    }
-
-    @Test
-    fun `a period with nothing in it is empty even when the one before it was not`() = runTest {
-        repository.setVolume(WEEK_1 to kg(12_000), WEEK_2 to kg(9_000))
-
-        // Two quiet weeks after a fortnight of training.
-        val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
-
-        assertTrue(trend.weeks.isEmpty())
-        assertEquals(kg(21_000), trend.previousTotalVolume)
-        assertTrue(trend.isQuietPeriod)
-        assertFalse(trend.isFirstRun)
-    }
+            assertTrue(trend.weeks.isEmpty())
+            assertEquals(0L, trend.totalVolume)
+            assertNull(trend.previousTotalVolume)
+            assertNull(trend.volumeChangeRatio)
+            assertTrue(trend.isFirstRun)
+            assertFalse(trend.isQuietPeriod)
+        }
 
     @Test
-    fun `a lapse longer than both periods is still a lapse, not a first run`() = runTest {
-        // Six months off a twelve-week chart: the comparison period is empty too, so
-        // nothing inside the window says this user has trained. The all-history predicate
-        // is the only thing that does, and it is what stops a three-year lifter being
-        // offered the "log your first session" prompt.
-        repository.setHasTrainingHistory(true)
+    fun `a period with nothing in it is empty even when the one before it was not`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(12_000), WEEK_2 to kg(9_000))
 
-        val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
+            // Two quiet weeks after a fortnight of training.
+            val trend = useCase(WEEK_3..WEEK_4.plusDays(6)).first()
 
-        assertTrue(trend.weeks.isEmpty())
-        assertNull(trend.previousTotalVolume)
-        assertTrue(trend.isQuietPeriod)
-        assertFalse(trend.isFirstRun)
-    }
+            assertTrue(trend.weeks.isEmpty())
+            assertEquals(kg(21_000), trend.previousTotalVolume)
+            assertTrue(trend.isQuietPeriod)
+            assertFalse(trend.isFirstRun)
+        }
 
     @Test
-    fun `a period with training in it is neither empty state`() = runTest {
-        repository.setVolume(WEEK_1 to kg(12_000))
+    fun `a lapse longer than both periods is still a lapse, not a first run`() =
+        runTest {
+            // Six months off a twelve-week chart: the comparison period is empty too, so
+            // nothing inside the window says this user has trained. The all-history predicate
+            // is the only thing that does, and it is what stops a three-year lifter being
+            // offered the "log your first session" prompt.
+            repository.setHasTrainingHistory(true)
 
-        val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+            val trend = useCase(TrainingWeek.trailing(weeks = 12, endingOn = WEEK_4)).first()
 
-        assertFalse(trend.isFirstRun)
-        assertFalse(trend.isQuietPeriod)
-        assertTrue(trend.hasEverTrained)
-    }
+            assertTrue(trend.weeks.isEmpty())
+            assertNull(trend.previousTotalVolume)
+            assertTrue(trend.isQuietPeriod)
+            assertFalse(trend.isFirstRun)
+        }
+
+    @Test
+    fun `a period with training in it is neither empty state`() =
+        runTest {
+            repository.setVolume(WEEK_1 to kg(12_000))
+
+            val trend = useCase(WEEK_1..WEEK_1.plusDays(6)).first()
+
+            assertFalse(trend.isFirstRun)
+            assertFalse(trend.isQuietPeriod)
+            assertTrue(trend.hasEverTrained)
+        }
 
     @Test
     fun `an inverted period is refused`() {

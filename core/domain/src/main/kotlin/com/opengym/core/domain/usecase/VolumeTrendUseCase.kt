@@ -62,9 +62,7 @@ import java.time.LocalDate
  * combined, and a combine of two *series* reads emits a torn pair — half of one period beside
  * all of the other — on the way to a settled one every time a set is logged.
  */
-class VolumeTrendUseCase(
-    private val progressionRepository: ProgressionRepository,
-) {
+class VolumeTrendUseCase(private val progressionRepository: ProgressionRepository) {
 
     /**
      * The weekly volume series for [period], plus the total of the equally long period

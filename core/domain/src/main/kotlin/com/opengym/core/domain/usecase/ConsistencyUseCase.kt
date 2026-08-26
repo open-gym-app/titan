@@ -48,9 +48,7 @@ import java.time.LocalDate
  * [ConsistencyTrend.hasEverTrained] — the same arrangement, and the same reasoning, as
  * [VolumeTrendUseCase], which spells out why this one extra flow is worth combining.
  */
-class ConsistencyUseCase(
-    private val progressionRepository: ProgressionRepository,
-) {
+class ConsistencyUseCase(private val progressionRepository: ProgressionRepository) {
 
     /**
      * The weekly training series for [period], plus the average of the equally long period

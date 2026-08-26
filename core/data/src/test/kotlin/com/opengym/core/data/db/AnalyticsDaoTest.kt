@@ -37,8 +37,7 @@ class AnalyticsDaoTest : RoomTestBase() {
         fun at(epochDay: Long): Long = epochDay * MILLIS_PER_DAY + 12 * 3_600_000L
 
         /** Epoch millis at 23:30 on [epochDay] — late enough for a session to run past midnight. */
-        fun lateOn(epochDay: Long): Long =
-            epochDay * MILLIS_PER_DAY + 23 * 3_600_000L + 1_800_000L
+        fun lateOn(epochDay: Long): Long = epochDay * MILLIS_PER_DAY + 23 * 3_600_000L + 1_800_000L
     }
 
     // --- getVolumeByWeek --------------------------------------------------
@@ -129,29 +128,30 @@ class AnalyticsDaoTest : RoomTestBase() {
         }
 
     @Test
-    fun `a session's sets are bucketed by its close-out, not by their own stamps`() = runBlocking {
-        // A session started 23:30 on the Sunday closing week 1 and finished after midnight.
-        // Both halves of its volume belong to the week it was finished in, which is the week
-        // getTrainingByWeek credits with the training day.
-        val sessionId = db.workoutSessionDao().insert(
-            session(
-                isInProgress = false,
-                lastActiveAt = at(WEEK_2),
-                createdAt = lateOn(WEEK_2 - 1),
-                completedAt = at(WEEK_2),
-            ),
-        )
-        val slot = db.sessionExerciseDao().insert(
-            sessionExercise(sessionId, sharedExerciseId(), position = 0),
-        )
-        logSet(slot, 1, lateOn(WEEK_2 - 1), reps = 10, weight = kg(100))
-        logSet(slot, 2, at(WEEK_2), reps = 10, weight = kg(100))
+    fun `a session's sets are bucketed by its close-out, not by their own stamps`() =
+        runBlocking {
+            // A session started 23:30 on the Sunday closing week 1 and finished after midnight.
+            // Both halves of its volume belong to the week it was finished in, which is the week
+            // getTrainingByWeek credits with the training day.
+            val sessionId = db.workoutSessionDao().insert(
+                session(
+                    isInProgress = false,
+                    lastActiveAt = at(WEEK_2),
+                    createdAt = lateOn(WEEK_2 - 1),
+                    completedAt = at(WEEK_2),
+                ),
+            )
+            val slot = db.sessionExerciseDao().insert(
+                sessionExercise(sessionId, sharedExerciseId(), position = 0),
+            )
+            logSet(slot, 1, lateOn(WEEK_2 - 1), reps = 10, weight = kg(100))
+            logSet(slot, 2, at(WEEK_2), reps = 10, weight = kg(100))
 
-        val series = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
+            val series = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
 
-        assertEquals(listOf(WEEK_2), series.map { it.weekStartEpochDay })
-        assertEquals(2_000_000_000L, series.single().totalVolume)
-    }
+            assertEquals(listOf(WEEK_2), series.map { it.weekStartEpochDay })
+            assertEquals(2_000_000_000L, series.single().totalVolume)
+        }
 
     @Test
     fun `the weekly volume range is inclusive of its first day and exclusive of its last`() =
@@ -476,20 +476,24 @@ class AnalyticsDaoTest : RoomTestBase() {
      * session_exercise id. Finished rather than in progress because the volume aggregates
      * read only closed-out sessions.
      */
-    private suspend fun seedSessionExerciseFor(exerciseId: Long, finishedOn: Long = WEEK_1): Long {
+    private suspend fun seedSessionExerciseFor(
+        exerciseId: Long,
+        finishedOn: Long = WEEK_1,
+    ): Long {
         val sessionId = finishSession(at(finishedOn))
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
     }
 
     /** A session closed out at [completedAt], the state `FinishSessionUseCase` leaves. */
-    private suspend fun finishSession(completedAt: Long): Long = db.workoutSessionDao().insert(
-        session(
-            isInProgress = false,
-            lastActiveAt = completedAt,
-            createdAt = completedAt,
-            completedAt = completedAt,
-        ),
-    )
+    private suspend fun finishSession(completedAt: Long): Long =
+        db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = completedAt,
+                createdAt = completedAt,
+                completedAt = completedAt,
+            ),
+        )
 
     private suspend fun seedMuscleGroups(vararg names: String): Map<String, Long> {
         db.muscleGroupDao().insertAll(names.map { muscleGroup(it) })

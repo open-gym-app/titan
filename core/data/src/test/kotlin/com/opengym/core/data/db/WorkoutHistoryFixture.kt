@@ -206,12 +206,16 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
          * after its last set, so a session is a block of work with an end rather than a
          * row whose `completed_at` the consistency aggregate would have to guess at.
          */
-        fun sessionFinishedAt(spec: HistorySpec, sessionIndex: Int): Long = setCompletedAt(
-            spec = spec,
-            sessionIndex = sessionIndex,
-            exerciseSlot = spec.exercisesPerSession - 1,
-            setNumber = spec.setsPerExercise,
-        ) + SET_INTERVAL_MILLIS
+        fun sessionFinishedAt(
+            spec: HistorySpec,
+            sessionIndex: Int,
+        ): Long =
+            setCompletedAt(
+                spec = spec,
+                sessionIndex = sessionIndex,
+                exerciseSlot = spec.exercisesPerSession - 1,
+                setNumber = spec.setsPerExercise,
+            ) + SET_INTERVAL_MILLIS
 
         fun setCompletedAt(
             spec: HistorySpec,
