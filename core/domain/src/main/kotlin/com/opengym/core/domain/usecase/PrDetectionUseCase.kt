@@ -21,6 +21,14 @@ import kotlin.math.roundToLong
  * halfway; this only has to be correct and idempotent whenever it *is* called with a
  * session's id — see [invoke].
  *
+ * What it does owe that caller is an honest account of how far it got. The records are
+ * written one candidate at a time and each is committed the moment its insert returns, so a
+ * store that refuses the third of four has still written two — and this reports them, through
+ * the list [invoke] is handed, rather than losing them with the throw. A caller told "nothing
+ * was detected" over two rows that exist would price the session against a state the store is
+ * not in, and could not recover from it: a later pass finds those rows already on file and
+ * beats nothing.
+ *
  * ### One exercise, every [PrType], one comparison rule
  *
  * A session's completed, non-warm-up sets are grouped by **catalogue** exercise — not by
@@ -70,31 +78,47 @@ class PrDetectionUseCase(
      * A session with no completed sets — one that could not have finished, per
      * [FinishSessionUseCase]'s own refusal of that case, but a state this class does not
      * re-check — detects nothing and returns an empty list rather than failing.
+     *
+     * @param into where each record lands **as it is written**, and what is returned. A caller
+     *   that owns the list keeps the rows written before a refusal, which a returned list
+     *   cannot give it: the writes are one per candidate and every one that has returned is
+     *   already on file, so a store that throws on the third of four leaves two records the
+     *   caller would otherwise never hear about — records that are real, that count towards
+     *   `first_record`, and whose XP nothing else will ever pay, since a re-run beats the rows
+     *   this pass wrote and emits nothing for them. Defaulted, so a caller that does not care
+     *   how far a failure got reads the return value and ignores this.
      */
-    suspend operator fun invoke(sessionId: Long): List<PersonalRecord> {
+    suspend operator fun invoke(
+        sessionId: Long,
+        into: MutableList<PersonalRecord> = mutableListOf(),
+    ): List<PersonalRecord> {
         val performed = sessionRepository.getSetsForSession(sessionId).first()
             .filter { it.isCompleted && it.setType != SetType.WARMUP }
-        if (performed.isEmpty()) return emptyList()
+        if (performed.isEmpty()) return into
 
         val exerciseIdBySessionExercise = sessionRepository.getExercises(sessionId).first()
             .associate { it.id to it.exerciseId }
         val formula = userPreferencesRepository.observe().first().oneRepMaxFormula
 
-        return performed
+        performed
             .groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
-            .flatMap { (exerciseId, sets) -> detect(exerciseId, sets, formula) }
+            .forEach { (exerciseId, sets) -> detect(exerciseId, sets, formula, into) }
+        return into
     }
 
     private suspend fun detect(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
-    ): List<PersonalRecord> =
-        candidates(exerciseId, sets, formula).mapNotNull { candidate ->
-            personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
+        into: MutableList<PersonalRecord>,
+    ) {
+        candidates(exerciseId, sets, formula).forEach { candidate ->
+            val written = personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
                 isBetter(candidate, current)
             }
+            if (written != null) into += written
         }
+    }
 
     /** Every [PrType] [sets] has an eligible candidate for, one each at most. */
     private fun candidates(

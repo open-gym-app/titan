@@ -30,6 +30,15 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
     /** Every row written, oldest first, for assertions a `Flow` read would be clumsy for. */
     val inserted: List<PersonalRecord> get() = records.value
 
+    /**
+     * Throw from the write once this many rows are on file, or never when null.
+     *
+     * A count rather than a flag because the case worth testing is a store that refuses
+     * *part way* through a session's records: a seam that failed from the first write could
+     * not tell a caller that reports what it wrote from one that reports nothing.
+     */
+    var refuseWriteAfter: Int? = null
+
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
             rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->
@@ -47,6 +56,9 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
             .filter { it.exerciseId == exerciseId && it.type == type }
             .maxByOrNull(PersonalRecord::achievedAt)
         if (!isBetter(current)) return null
+        // After the comparison, so only rows that would actually have been written count
+        // towards the threshold — the same rows the caller is told about.
+        if (records.value.size == refuseWriteAfter) error("the records table is not writable")
         val stored = record.copy(id = nextId++)
         records.value += stored
         return stored

@@ -1,6 +1,7 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSession
@@ -46,6 +47,25 @@ class PrDetectionUseCaseTest {
 
             val estimated1Rm = created.single { it.type == PrType.ESTIMATED_1RM }
             assertEquals(121_000_000.0, estimated1Rm.estimated1Rm!!.toDouble(), 200.0)
+        }
+
+    @Test
+    fun `records written before the store refused are still reported`() =
+        runTest {
+            // The rows the first two writes put on file are real, and a re-run beats them
+            // rather than re-detecting them. A caller told "nothing was detected" would
+            // therefore never hear about them again — so the throw must not take them with it.
+            val sessionId = startSession(exerciseId = 10L)
+            addSet(sessionId, weight = 100_000_000, reps = 5, completedAt = 1L)
+            addSet(sessionId, weight = 110_000_000, reps = 3, completedAt = 2L)
+            records.refuseWriteAfter = 2
+
+            val detected = mutableListOf<PersonalRecord>()
+            val failure = runCatching { detectPrs(sessionId, detected) }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals(records.inserted, detected)
+            assertEquals(2, detected.size)
         }
 
     @Test
