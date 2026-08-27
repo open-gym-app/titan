@@ -1,0 +1,176 @@
+package com.opengym.core.domain.gamification
+
+import com.opengym.core.domain.model.StreakResult
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
+import org.junit.Test
+import java.time.Duration
+import java.time.Instant
+
+class StreakCalculatorTest {
+
+    // ─── Opening a streak ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a first session opens a streak at one`() {
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = MONDAY_EVENING,
+            lastCountedAt = null,
+            currentStreak = 0,
+        )
+
+        assertEquals(StreakResult.Incremented(1), result)
+    }
+
+    @Test
+    fun `a stored streak with no session behind it starts over rather than continuing`() {
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = MONDAY_EVENING,
+            lastCountedAt = null,
+            currentStreak = 5,
+        )
+
+        assertEquals(StreakResult.Incremented(1), result)
+    }
+
+    // ─── Extending it ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a session the next day extends the streak`() {
+        val result = finishedAfter(Duration.ofHours(20), currentStreak = 3)
+
+        assertEquals(StreakResult.Incremented(4), result)
+    }
+
+    @Test
+    fun `the last moment of the grace period still extends the streak`() {
+        val result = finishedAfter(StreakCalculator.GRACE_PERIOD, currentStreak = 3)
+
+        assertEquals(StreakResult.Incremented(4), result)
+    }
+
+    @Test
+    fun `crossing midnight extends the streak, however few hours apart`() {
+        // 23:00 to 01:00 the next day: two hours, and a new day, so it counts.
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = Instant.parse("2026-03-03T01:00:00Z"),
+            lastCountedAt = Instant.parse("2026-03-02T23:00:00Z"),
+            currentStreak = 6,
+        )
+
+        assertEquals(StreakResult.Incremented(7), result)
+    }
+
+    @Test
+    fun `a skipped calendar day inside the window still extends the streak`() {
+        // Monday 23:00 to Wednesday 09:00 — nothing was trained on the Tuesday, and at 34
+        // hours the window never lapsed. The rolling window is the rule, not the dates.
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = Instant.parse("2026-03-04T09:00:00Z"),
+            lastCountedAt = Instant.parse("2026-03-02T23:00:00Z"),
+            currentStreak = 2,
+        )
+
+        assertEquals(StreakResult.Incremented(3), result)
+    }
+
+    // ─── Breaking it ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a millisecond past the grace period breaks the streak`() {
+        val result = finishedAfter(StreakCalculator.GRACE_PERIOD.plusMillis(1), currentStreak = 3)
+
+        assertEquals(StreakResult.Reset, result)
+    }
+
+    @Test
+    fun `two clear days off break the streak`() {
+        val result = finishedAfter(Duration.ofHours(60), currentStreak = 41)
+
+        assertEquals(StreakResult.Reset, result)
+    }
+
+    @Test
+    fun `a broken streak restarts at one rather than at zero`() {
+        assertEquals(1, StreakResult.Reset.newStreak)
+    }
+
+    // ─── Leaving it alone ───────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a second session on the same day does not count twice`() {
+        val result = finishedAfter(Duration.ofHours(3), currentStreak = 4)
+
+        assertEquals(StreakResult.Unchanged, result)
+    }
+
+    @Test
+    fun `a whole day between two sessions on the same date is still one day`() {
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = Instant.parse("2026-03-02T23:30:00Z"),
+            lastCountedAt = Instant.parse("2026-03-02T00:30:00Z"),
+            currentStreak = 4,
+        )
+
+        assertEquals(StreakResult.Unchanged, result)
+    }
+
+    @Test
+    fun `a session finished before the last counted one changes nothing`() {
+        val result = finishedAfter(Duration.ofHours(-48), currentStreak = 9)
+
+        assertEquals(StreakResult.Unchanged, result)
+    }
+
+    // ─── What the caller stores ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `an increment stores its new streak`() {
+        assertEquals(4, StreakResult.Incremented(4).streakAfter(currentStreak = 3))
+    }
+
+    @Test
+    fun `a reset stores one, whatever the streak was`() {
+        assertEquals(1, StreakResult.Reset.streakAfter(currentStreak = 41))
+    }
+
+    @Test
+    fun `an unchanged result stores the streak the user already had`() {
+        assertEquals(4, StreakResult.Unchanged.streakAfter(currentStreak = 4))
+    }
+
+    // ─── The tuning dial ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the grace period is the constant, not a second copy of it`() {
+        assertEquals(36L, StreakCalculator.STREAK_GRACE_HOURS)
+        assertEquals(Duration.ofHours(StreakCalculator.STREAK_GRACE_HOURS), StreakCalculator.GRACE_PERIOD)
+    }
+
+    @Test
+    fun `a negative streak is a corrupt row, not a streak to extend`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            StreakCalculator.onSessionFinished(
+                finishedAt = MONDAY_EVENING,
+                lastCountedAt = null,
+                currentStreak = -1,
+            )
+        }
+    }
+
+    private fun finishedAfter(
+        gap: Duration,
+        currentStreak: Int,
+    ): StreakResult =
+        StreakCalculator.onSessionFinished(
+            finishedAt = MONDAY_EVENING.plus(gap),
+            lastCountedAt = MONDAY_EVENING,
+            currentStreak = currentStreak,
+        )
+
+    private companion object {
+
+        /** A Monday, 19:00 UTC — far enough from midnight that a `± 3h` stays on the day. */
+        val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
+    }
+}

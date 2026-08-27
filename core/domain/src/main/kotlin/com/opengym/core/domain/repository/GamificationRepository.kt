@@ -1,16 +1,21 @@
 package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.XpAward
+import java.time.Instant
 
 /**
- * The single row of progress the gamification features accumulate into — today, the XP total
- * and the level it buys.
+ * The progress the gamification features accumulate — the XP total and the level it buys, and
+ * the set of achievements the user has unlocked.
  *
- * Write-only for now, and narrow on purpose: #33 has one thing to persist, so it asks for one
- * method. Streaks (#34) and the reads the home snapshot (#23) and the progression screen (#32)
- * need are added here as those land, on the same principle
- * [PersonalRecordRepository] was built on — an interface gains a method when something exists
- * to call it, not in advance of one. #35 implements whatever this names by then.
+ * Write-only for now, and narrow on purpose: a method appears here when something exists to
+ * call it, not in advance of one — the principle [PersonalRecordRepository] was built on.
+ * #33 asked for [addXp]; #34 adds the two achievement methods below, because
+ * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] calls them. The streak itself
+ * is not here yet: #34 computes it as a value
+ * ([com.opengym.core.domain.gamification.StreakCalculator]) and #145 is what will store it,
+ * so the read/write pair belongs to whichever of those lands the cascade. The reads the home
+ * snapshot (#23) and the progression screen (#32) need arrive the same way. #35 implements
+ * whatever this names by then.
  */
 interface GamificationRepository {
 
@@ -49,4 +54,36 @@ interface GamificationRepository {
         delta: Int,
         levelForTotalXp: (totalXp: Long) -> Int,
     ): XpAward
+
+    /**
+     * The ids of every achievement the user has already unlocked.
+     *
+     * A suspend read of the whole set rather than a `Flow` or a per-id lookup: its one caller
+     * evaluates the entire catalogue against it in one pass, right after a session finishes,
+     * and a milestone unlocked seconds ago must be in the answer — which a hot flow's latest
+     * emission is not guaranteed to be. The set is bounded by the catalogue, so reading all
+     * of it costs nothing worth optimising. A `Flow` for the screen that *lists* unlocks
+     * (#104) is a different method, added when that screen exists.
+     */
+    suspend fun unlockedAchievementIds(): Set<String>
+
+    /**
+     * Records [achievementId] as unlocked at [unlockedAt], and returns whether **this call**
+     * is what unlocked it.
+     *
+     * `true` only when a row was actually written; `false` when one was already there. That
+     * answer is the whole contract, because it is what the caller awards XP on: the check for
+     * "already unlocked" and the write are one atomic operation (#35's
+     * `AchievementDao.insertIfAbsent`), so two cascades running for two sessions at once
+     * cannot both be told they were the one to unlock it, and cannot both pay for it. A
+     * caller that read the unlocked set and then inserted would have exactly that race, which
+     * is why the boolean exists rather than a `Unit` return and a re-read.
+     *
+     * Idempotent by the same token: called again for an achievement already on file, it
+     * writes nothing, leaves [unlockedAt] as first recorded, and answers `false`.
+     */
+    suspend fun unlockAchievement(
+        achievementId: String,
+        unlockedAt: Instant,
+    ): Boolean
 }
