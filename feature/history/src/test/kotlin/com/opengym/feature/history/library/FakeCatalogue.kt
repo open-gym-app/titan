@@ -162,6 +162,8 @@ class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = records
 
+    override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
+
     override suspend fun insertIfBetter(
         exerciseId: Long,
         type: PrType,

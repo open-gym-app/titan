@@ -1,6 +1,8 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.FinishedSession
 import com.opengym.core.domain.model.SessionError
+import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
 import com.opengym.core.domain.model.WorkoutSession
@@ -11,6 +13,7 @@ import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.first
+import java.time.Instant
 
 /**
  * Closes out the running session: marks the row `is_in_progress = 0`, computes its
@@ -33,6 +36,27 @@ import kotlinx.coroutines.flow.first
  *
  * Runs under [SessionLifecycleLock] so a double-tapped finish cannot close the same
  * session out twice.
+ *
+ * ### The gamification cascade runs from here
+ *
+ * Finishing a workout is also what pays for it — records, XP, the streak, achievements — and
+ * [SessionCompletionPipeline] is the one ordered place all of that happens. This is where it
+ * is invoked from, inside the transition above, and the pipeline's own doc carries the
+ * argument for that over a call from the screen: a caller that forgets is a workout that
+ * silently pays nothing, and letting the lock go first would let another session land between
+ * this row being closed out and the lifetime counters the cascade reads.
+ *
+ * It runs **last**, after the row, the state and the draft are all settled, and it cannot fail
+ * this use case: the pipeline records what it could not do rather than throwing, so a store
+ * that refuses an XP write leaves a workout that is saved and a payoff that is short, which is
+ * the right half of that trade. What it returns comes back in [FinishedSession.progression],
+ * so the recap screen draws the celebration from this call rather than re-querying for it.
+ *
+ * @param completeSession the cascade, or **null** to close sessions out without one. Null is
+ *   not a test seam: [com.opengym.core.domain.repository.GamificationRepository] has no
+ *   implementation until #35 lands, so there is nothing for DI to build a pipeline out of yet
+ *   and the app wires this without one — which is exactly the behaviour it has today. The
+ *   binding becomes non-optional when there is something to bind.
  */
 class FinishSessionUseCase(
     private val sessionRepository: SessionRepository,
@@ -40,9 +64,10 @@ class FinishSessionUseCase(
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val clock: Clock = Clock.SYSTEM,
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
+    private val completeSession: SessionCompletionPipeline? = null,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Finished> =
+    suspend operator fun invoke(): Result<FinishedSession> =
         lock.withTransition {
             val current = sessionStateRepository.observe().first()
             val sessionId = current.openSessionId
@@ -67,7 +92,7 @@ class FinishSessionUseCase(
     private suspend fun closeOut(
         session: WorkoutSession,
         performed: List<WorkoutSet>,
-    ): SessionState.Finished {
+    ): FinishedSession {
         val now = clock.nowMillis()
         sessionRepository.update(
             session.copy(
@@ -105,6 +130,13 @@ class FinishSessionUseCase(
         // would be false, and it would strand the user on a screen whose every other exit
         // is refused for a session that is no longer open.
         runCatching { inProgressSessionRepository.clear() }
-        return finished
+
+        // Last, and after everything the session itself owns has committed — see the class
+        // doc. A cascade that ran before the state was published would pay for a session the
+        // app does not yet consider over, and one that could fail this call would take a saved
+        // workout down with a refused XP write.
+        val progression = completeSession?.invoke(session.id, Instant.ofEpochMilli(now))
+            ?: SessionProgression(sessionId = session.id)
+        return FinishedSession(state = finished, progression = progression)
     }
 }

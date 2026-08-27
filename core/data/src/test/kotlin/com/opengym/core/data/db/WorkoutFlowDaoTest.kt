@@ -66,6 +66,27 @@ class WorkoutFlowDaoTest : RoomTestBase() {
         }
 
     @Test
+    fun `countFinished counts only sessions that were closed out`() =
+        runBlocking {
+            val dao = db.workoutSessionDao()
+            dao.insert(session(isInProgress = false, completedAt = 100))
+            dao.insert(session(isInProgress = false, completedAt = 200))
+            // Still running: not a session shown up for yet.
+            dao.insert(session(isInProgress = true))
+            // Out of progress with nothing stamped on it — the half-written state the
+            // analytics queries also refuse, so the two cannot disagree about what counts.
+            dao.insert(session(isInProgress = false, completedAt = null))
+
+            assertEquals(2, dao.countFinished())
+        }
+
+    @Test
+    fun `countFinished is zero on a fresh install`() =
+        runBlocking {
+            assertEquals(0, db.workoutSessionDao().countFinished())
+        }
+
+    @Test
     fun `session pagination pages through newest-first`() =
         runBlocking {
             val dao = db.workoutSessionDao()

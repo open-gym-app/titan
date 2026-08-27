@@ -122,6 +122,17 @@ object SessionUseCaseModule {
             inProgressSessionRepository = inProgressSessionRepository,
             clock = Clock.SYSTEM,
             lock = SessionLifecycleLock.SHARED,
+            // No `completeSession`, and that is not an omission: the post-session cascade
+            // (#145) is composed here the moment there is something to compose it from, and
+            // `GamificationRepository` has no implementation until #35 lands. Binding a
+            // pipeline over a store that does not exist is not an option Hilt offers, and a
+            // stub that banked XP nowhere would be worse than the honest absence — sessions
+            // pay nothing today, which is exactly what this leaves.
+            //
+            // The invocation point itself is decided and does not move when #35 arrives: the
+            // cascade runs from inside `FinishSessionUseCase`, under the lifecycle lock. See
+            // `SessionCompletionPipeline` for why, and for what the screen would have had to
+            // remember if it ran from there instead.
         )
 
     @Provides

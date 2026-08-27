@@ -86,6 +86,8 @@ class FakeSummarySessionStore(
 
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = unsupported()
 
+    override suspend fun countFinished(): Int = unsupported()
+
     override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
     override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> = unsupported()
     override suspend fun updateSet(set: WorkoutSet) = unsupported()
@@ -169,6 +171,8 @@ class FakeSummaryCatalogue(
 class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+
+    override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 
     override suspend fun insertIfBetter(
         exerciseId: Long,

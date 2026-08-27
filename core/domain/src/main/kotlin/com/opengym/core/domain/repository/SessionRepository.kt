@@ -97,6 +97,23 @@ interface SessionRepository {
      */
     fun getTotals(): Flow<Map<Long, SessionTotals>>
 
+    /**
+     * How many sessions the user has ever finished — closed out, not merely started.
+     *
+     * "Finished" is the pair [com.opengym.core.domain.usecase.FinishSessionUseCase] writes
+     * together, `is_in_progress = 0` with a `completed_at`, the same definition the analytics
+     * queries count by. A session still in progress is not one shown up for yet, and one
+     * discarded left no row at all.
+     *
+     * A suspend one-shot rather than a `Flow`, and a count rather than a list, because its
+     * caller is the post-session cascade: it needs the figure *now*, for the session it has
+     * just closed out, and a hot flow's latest emission is not guaranteed to include a write
+     * from a moment ago. Counting in the store rather than over [getAll] keeps the cost flat
+     * as the history grows — see [com.opengym.core.domain.model.AchievementProgress] for why
+     * the figure has to be a lifetime total and not a delta.
+     */
+    suspend fun countFinished(): Int
+
     suspend fun insert(session: WorkoutSession): Long
 
     /**

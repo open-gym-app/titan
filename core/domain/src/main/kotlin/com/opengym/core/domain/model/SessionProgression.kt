@@ -1,0 +1,128 @@
+package com.opengym.core.domain.model
+
+/**
+ * Everything finishing one session moved: the records it broke, the XP it paid, what it did
+ * to the streak and which achievements it unlocked.
+ *
+ * The single value
+ * [com.opengym.core.domain.usecase.SessionCompletionPipeline] returns, and the reason the
+ * summary screen does not re-query for any of it. Each figure here was produced *inside* the
+ * write that persisted it — [XpAward.leveledUp] is only trustworthy on those terms, see its
+ * doc — so a caller that re-read the progress row afterwards could observe a different total
+ * and report a level-up against the wrong session.
+ *
+ * ### An empty one is a normal answer
+ *
+ * A session that broke nothing, on a day the streak was already counted for, by a user who
+ * holds every achievement they qualify for, produces empty lists and no unlocks. So does a
+ * **re-run** of a session already processed: the cascade is safe to re-enter and reports
+ * nothing the second time, because nothing happened the second time — see the pipeline's
+ * re-entry contract. Neither case is a failure, and neither is distinguishable from the other
+ * here on purpose: what the value says is what this run changed.
+ *
+ * ### Failures are carried, not thrown
+ *
+ * [failures] is how a step that could not run is reported. The session is already finished and
+ * its sets are already saved by the time any of this is attempted, so a store that refuses an
+ * XP write must not turn a saved workout into an error — see the pipeline for the whole of
+ * that argument. A caller that wants to know whether the payoff is complete asks
+ * [isComplete]; one that only wants to draw the recap can ignore it.
+ *
+ * @property sessionId the session this describes, so a result can be matched to its workout
+ *   without the caller having to remember which one it asked about.
+ * @property recordsBroken every personal record this session actually beat, one per
+ *   [PrType] beaten per exercise. Empty on a re-run, since the second pass beats nothing.
+ * @property xp every award banked, oldest first — the session's own events **and** the ones
+ *   its achievement unlocks paid, so this is the whole breakdown rather than the part of it
+ *   the cascade emitted directly. [achievementsUnlocked] carries the same awards again,
+ *   attached to what earned them.
+ * @property streak what the session did to the streak, or **null** if the streak step could
+ *   not run (see [failures]).
+ * @property achievementsUnlocked the milestones this run unlocked — never ones the user
+ *   already held.
+ * @property failures the steps that threw, in the order they were attempted.
+ */
+data class SessionProgression(
+    val sessionId: Long,
+    val recordsBroken: List<PersonalRecord> = emptyList(),
+    val xp: List<XpGrant> = emptyList(),
+    val streak: StreakUpdate? = null,
+    val achievementsUnlocked: List<AchievementUnlock> = emptyList(),
+    val failures: List<SessionProgressionFailure> = emptyList(),
+) {
+
+    /** Points banked across every award in [xp] — zero on a re-run. */
+    val xpAwarded: Int get() = xp.sumOf { it.award.awarded }
+
+    /**
+     * The lifetime total after the last award, or **null** when nothing was awarded.
+     *
+     * The last award's figure rather than a sum of the deltas: the awards are serialised by
+     * the store, so the total the final one saw is the one actually held.
+     */
+    val totalXp: Long? get() = xp.lastOrNull()?.award?.totalXp
+
+    /** The level held before the first of these awards, or **null** when none was made. */
+    val levelBefore: Int? get() = xp.firstOrNull()?.award?.previousLevel
+
+    /** The level held after the last of them, or **null** when none was made. */
+    val levelAfter: Int? get() = xp.lastOrNull()?.award?.level
+
+    /**
+     * Whether any award in this run crossed a level threshold — what a celebration fires on.
+     *
+     * Asked of the awards rather than derived from [levelBefore] and [levelAfter], because
+     * the awards are the only place the crossing was actually observed; see
+     * [XpAward.leveledUp].
+     */
+    val leveledUp: Boolean get() = xp.any { it.award.leveledUp }
+
+    /** Whether every step ran. `false` means [failures] holds what did not — and what was lost. */
+    val isComplete: Boolean get() = failures.isEmpty()
+}
+
+/**
+ * One [XpEvent] and what banking it was worth — the unit [SessionProgression.xp] is a list of.
+ *
+ * The event is kept beside the award so a recap can say *why* the points were paid ("5 sets",
+ * "a record broken") without re-deriving it from the amounts, which would put
+ * [com.opengym.core.domain.gamification.XpCalculator]'s constants in a second place.
+ */
+data class XpGrant(
+    val event: XpEvent,
+    val award: XpAward,
+)
+
+/**
+ * A cascade step that threw, and what it threw.
+ *
+ * Kept rather than logged and dropped so the caller can decide: a summary screen ignores it,
+ * a diagnostics screen shows it, and a future retry knows which step to run again.
+ */
+data class SessionProgressionFailure(
+    val step: SessionProgressionStep,
+    val cause: Throwable,
+)
+
+/**
+ * The steps of the post-session cascade, in the order they run.
+ *
+ * Declaration order **is** the running order, and the ordering is not free: XP for a record
+ * cannot be paid before the record is detected, and an achievement that unlocks on a first
+ * record or a seven-day streak cannot be evaluated before either has been written. See
+ * [com.opengym.core.domain.usecase.SessionCompletionPipeline].
+ */
+enum class SessionProgressionStep {
+
+    /** Detect and write the records the session broke. */
+    PR_DETECTION,
+
+    /** Pay for the session, its sets and each record broken. */
+    XP,
+
+    /** Apply the session to the streak. */
+    STREAK,
+
+    /** Evaluate the catalogue and unlock what the session newly qualifies for. */
+    ACHIEVEMENTS,
+}

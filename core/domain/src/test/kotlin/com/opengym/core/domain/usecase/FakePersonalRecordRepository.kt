@@ -31,6 +31,15 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
     val inserted: List<PersonalRecord> get() = records.value
 
     /**
+     * Thrown by [insertIfBetter] instead of writing, when set — the only way to fail PR
+     * detection, which is otherwise correct for every session a caller can construct.
+     *
+     * Fails from the first write, so it models a store that is simply unavailable. Use
+     * [refuseWriteAfter] for the other shape, a store that gives out part way through.
+     */
+    var insertFailure: Throwable? = null
+
+    /**
      * Throw from the write once this many rows are on file, or never when null.
      *
      * A count rather than a flag because the case worth testing is a store that refuses
@@ -38,6 +47,8 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
      * not tell a caller that reports what it wrote from one that reports nothing.
      */
     var refuseWriteAfter: Int? = null
+
+    override suspend fun count(): Int = records.value.size
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
@@ -52,6 +63,7 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
         record: PersonalRecord,
         isBetter: (current: PersonalRecord?) -> Boolean,
     ): PersonalRecord? {
+        insertFailure?.let { throw it }
         val current = records.value
             .filter { it.exerciseId == exerciseId && it.type == type }
             .maxByOrNull(PersonalRecord::achievedAt)

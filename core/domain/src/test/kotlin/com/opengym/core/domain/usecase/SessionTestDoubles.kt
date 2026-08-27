@@ -72,6 +72,14 @@ class FakeSessionRepository : SessionRepository {
 
     override fun getAll(): Flow<List<WorkoutSession>> = sessions.map { it.values.toList() }
 
+    /**
+     * The same "finished" the real query counts — closed out *and* stamped — rather than
+     * "not in progress", so a row that was never finished cannot inflate the figure the
+     * achievement thresholds are read against.
+     */
+    override suspend fun countFinished(): Int =
+        sessions.value.values.count { !it.isInProgress && it.completedAt != null }
+
     override fun getById(id: Long): Flow<WorkoutSession?> = sessions.map { it[id] }
 
     override fun getActive(): Flow<WorkoutSession?> =

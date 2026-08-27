@@ -30,6 +30,13 @@ class PersonalRecordRepositoryImpl @Inject constructor(
             rows.mapNotNull(personalRecordMapper::toDomainOrNull).associateBy { it.exerciseId }
         }
 
+    /**
+     * Counted in SQLite over every row, including ones this build's mapper could not read: a
+     * record broken on a newer version is still a record broken, and dropping it here would
+     * make an achievement threshold move with the app version rather than with the user.
+     */
+    override suspend fun count(): Int = personalRecordDao.count()
+
     override suspend fun insertIfBetter(
         exerciseId: Long,
         type: PrType,
