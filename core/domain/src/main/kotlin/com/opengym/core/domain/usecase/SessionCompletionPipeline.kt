@@ -2,6 +2,7 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.model.AchievementProgress
+import com.opengym.core.domain.model.AchievementUnlock
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionProgressionFailure
@@ -59,16 +60,22 @@ import java.time.Instant
  * asks, and the cause is kept so a retry knows which step to run again. Cancellation is not a
  * failure and is rethrown untouched — a caller whose scope went away is not owed a report.
  *
- * A step that failed part way through still reports what it managed to write, where it can:
- * the XP step banks its awards one at a time and each is on file the moment it returns, so
- * [SessionProgression.xp] carries the ones that were paid even when a later one was refused.
- * A result that reported nothing over a total that had moved would be a worse answer than a
- * short one.
+ * A step that failed part way through still reports what it managed to write. All three
+ * writing steps work one row at a time — a record per candidate, an award per event, an
+ * unlock per milestone — and each is committed the moment its call returns, so each fills a
+ * list this class owns instead of returning one at the end. [SessionProgression] therefore
+ * carries the records that were written, the XP that was paid and the achievements that were
+ * unlocked before the refusal, alongside the [SessionProgression.failures] entry saying the
+ * step did not finish. A result that reported nothing over a store that had moved would be a
+ * worse answer than a short one — and in every one of the three cases it would be
+ * unrecoverable, because a re-entry beats no record it already wrote, unlocks no achievement
+ * it already holds, and finds the session's XP claim already spent.
  *
- * Steps are independent apart from the ordering above: a failed PR detection leaves the XP
- * step paying for the session and its sets and nothing for records, and the achievements step
- * is skipped outright if the streak could not be read, because a snapshot missing one of its
- * three figures would evaluate the catalogue against a state no moment ever held.
+ * Steps are independent apart from the ordering above: a PR detection that fails part way
+ * leaves the XP step paying for the session, its sets and the records that did land, and the
+ * achievements step is skipped outright if the streak could not be read, because a snapshot
+ * missing one of its three figures would evaluate the catalogue against a state no moment
+ * ever held.
  *
  * ### The re-entry contract: safe to run again, for the same session id
  *
@@ -165,13 +172,15 @@ class SessionCompletionPipeline(
     ): SessionProgression {
         val failures = mutableListOf<SessionProgressionFailure>()
 
-        val records = runStep(SessionProgressionStep.PR_DETECTION, failures) {
-            detectPersonalRecords(sessionId)
-        }.orEmpty()
+        // Each of the three writing steps fills a list this method owns rather than returning
+        // one, because `runStep` drops a step's return value when it throws and every write
+        // these make is committed the moment it returns. A store that refuses the fifth of
+        // nine must not take the four already on file out of the report with it.
+        val records = mutableListOf<PersonalRecord>()
+        runStep(SessionProgressionStep.PR_DETECTION, failures) {
+            detectPersonalRecords(sessionId, into = records)
+        }
 
-        // Collected by the step rather than returned by it: the awards are banked one at a
-        // time and each one is on file the moment it returns, so a store that refuses the
-        // fifth must not take the four already paid out of the report with it.
         val xp = mutableListOf<XpGrant>()
         runStep(SessionProgressionStep.XP, failures) {
             awardSessionXp(sessionId, records, into = xp)
@@ -183,9 +192,10 @@ class SessionCompletionPipeline(
             }
         }
 
-        val unlocks = runStep(SessionProgressionStep.ACHIEVEMENTS, failures) {
-            triggerAchievements(progressAfter(streak), finishedAt)
-        }.orEmpty()
+        val unlocks = mutableListOf<AchievementUnlock>()
+        runStep(SessionProgressionStep.ACHIEVEMENTS, failures) {
+            triggerAchievements(progressAfter(streak), finishedAt, into = unlocks)
+        }
 
         return SessionProgression(
             sessionId = sessionId,

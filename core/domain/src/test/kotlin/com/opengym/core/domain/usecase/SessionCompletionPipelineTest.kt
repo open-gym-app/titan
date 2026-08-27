@@ -240,6 +240,52 @@ class SessionCompletionPipelineTest {
         }
 
     @Test
+    fun `records written before the store refused are still reported and paid for`() =
+        runTest {
+            // Detection writes a row per candidate, and a re-entry beats the ones it already
+            // wrote rather than re-detecting them. A result that dropped them would leave
+            // records the app never mentions and never pays for, on any run.
+            val written = 2
+            records.refuseWriteAfter = written
+            val sessionId = rig.finishSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.PR_DETECTION), progression.failures.map { it.step })
+            assertEquals(records.inserted, progression.recordsBroken)
+            assertEquals(written, progression.recordsBroken.size)
+            // And the XP step pays for them: the records that landed are records broken.
+            assertEquals(
+                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * COMPLETED_SETS +
+                    XpCalculator.XP_PER_PR * written + XpCalculator.XP_PER_ACHIEVEMENT * 2,
+                progression.xpAwarded,
+            )
+        }
+
+    @Test
+    fun `achievements unlocked before the store refused are still reported`() =
+        runTest {
+            // An unlock's insert is what makes it unrepeatable, so the first one is held for
+            // good by the time the second one's award is refused. Losing it here would leave a
+            // milestone the user owns and no screen ever shows.
+            val sessionAwards = 1 + COMPLETED_SETS + BROKEN_TYPES.size
+            val torn = Rig(decorateGamification = { FailsAfter(it, awards = sessionAwards + 1) })
+            val sessionId = torn.finishSession()
+
+            val progression = torn.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.ACHIEVEMENTS), progression.failures.map { it.step })
+            assertEquals(
+                listOf(Achievements.FIRST_SESSION.id),
+                progression.achievementsUnlocked.map { it.achievement.id },
+            )
+            // The second milestone's row is written and unpaid — the gap the trigger's own doc
+            // names — so what it must not also be is unreported.
+            assertTrue(Achievements.FIRST_RECORD.id in torn.gamification.unlockedAchievements)
+            assertEquals(sessionAwards + 1, progression.xp.size)
+        }
+
+    @Test
     fun `a streak that cannot be read takes the achievements with it rather than guessing`() =
         runTest {
             gamification.streakFailure = IllegalStateException("the progress row is locked")
