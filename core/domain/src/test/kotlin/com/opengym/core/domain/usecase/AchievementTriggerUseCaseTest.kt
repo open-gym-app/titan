@@ -171,6 +171,30 @@ class AchievementTriggerUseCaseTest {
             assertEquals(XpCalculator.XP_PER_ACHIEVEMENT.toLong(), store.totalXp)
         }
 
+    @Test
+    fun `unlocks written before a refused award are still reported`() =
+        runTest {
+            // The two rows that landed are unrepeatable and their XP is banked, and every
+            // later run gets `false` back from the insert without ever reaching the award.
+            // Losing them with the throw would leave achievements the user holds, has paid
+            // for, and that nothing will ever tell them about.
+            val store = FakeGamificationRepository()
+            val refusesThirdAward = RefusesXpAfter(store, awards = 2)
+            val trigger = AchievementTriggerUseCase(refusesThirdAward, AwardXpUseCase(refusesThirdAward))
+
+            val unlocks = mutableListOf<AchievementUnlock>()
+            val failure = runCatching {
+                trigger(progress(sessions = 10, streak = 7, records = 1), FINISHED_AT, unlocks)
+            }.exceptionOrNull()
+
+            assertTrue(failure is IllegalStateException)
+            assertEquals(
+                listOf(Achievements.FIRST_SESSION, Achievements.TEN_SESSIONS),
+                unlocks.map(AchievementUnlock::achievement),
+            )
+            assertEquals(2 * XpCalculator.XP_PER_ACHIEVEMENT.toLong(), store.totalXp)
+        }
+
     // ─── The catalogue is what is evaluated ─────────────────────────────────────────────
 
     @Test
@@ -240,6 +264,29 @@ class AchievementTriggerUseCaseTest {
             levelForTotalXp: (totalXp: Long) -> Int,
         ): XpAward {
             yield()
+            return delegate.addXp(delta, levelForTotalXp)
+        }
+    }
+
+    /**
+     * A store that banks [awards] awards and then refuses every one after them.
+     *
+     * A count rather than a flag, because the case under test is a store that gives out *part
+     * way* through a batch of unlocks: one that failed from the first award could not tell a
+     * use case that reports what it managed to unlock from one that reports nothing.
+     */
+    private class RefusesXpAfter(
+        private val delegate: GamificationRepository,
+        private val awards: Int,
+    ) : GamificationRepository by delegate {
+
+        private var granted = 0
+
+        override suspend fun addXp(
+            delta: Int,
+            levelForTotalXp: (totalXp: Long) -> Int,
+        ): XpAward {
+            if (granted++ >= awards) error("the progress row is locked")
             return delegate.addXp(delta, levelForTotalXp)
         }
     }

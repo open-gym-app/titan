@@ -45,6 +45,11 @@ import java.time.Instant
  * the trade against re-paying every re-run, and closing it properly means writing the row and
  * the XP in one transaction, which is #35's to give.
  *
+ * That same unrepeatability is why a session unlocking several milestones reports the ones it
+ * got through when a later one throws, rather than losing them with the exception — see
+ * [invoke]'s `into`. An unlock that is on file and paid for, and that no later run can ever
+ * reach again, is not something this class may quietly decline to mention.
+ *
  * ### Where the figures come from
  *
  * [AchievementProgress] is passed in, not read here: the cascade (#145) has just detected the
@@ -68,15 +73,24 @@ class AchievementTriggerUseCase(
      *   nowhere derived from a clock: a cascade re-run an hour later must date the unlock to
      *   the workout that earned it, the same rule [PrDetectionUseCase] follows for a record's
      *   `achievedAt`.
+     * @param into where each unlock lands **as it happens**, and what is returned. The unlocks
+     *   are written one at a time and the insert is what makes each unrepeatable, so a store
+     *   that refuses the third one's award has still unlocked and paid for two — and a caller
+     *   that lost them to the throw could never recover them: every later run gets `false`
+     *   back from the insert and reports nothing. The user would hold two achievements no
+     *   celebration ever drew, against XP already banked. Defaulted, so a caller that does not
+     *   care how far a failure got reads the return value and ignores this.
      */
     suspend operator fun invoke(
         progress: AchievementProgress,
         unlockedAt: Instant,
+        into: MutableList<AchievementUnlock> = mutableListOf(),
     ): List<AchievementUnlock> {
         val alreadyUnlocked = gamificationRepository.unlockedAchievementIds()
-        return catalogue
+        catalogue
             .filter { it.id !in alreadyUnlocked && it.isUnlockedBy(progress) }
-            .mapNotNull { achievement -> unlock(achievement, unlockedAt) }
+            .forEach { achievement -> unlock(achievement, unlockedAt)?.let { into += it } }
+        return into
     }
 
     /** The unlock, or null when the row was already there — see the class doc. */
