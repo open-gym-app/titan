@@ -1,6 +1,6 @@
 package com.opengym.core.data.db
 
-import com.opengym.core.data.db.entity.BodyWeightLogEntity
+import com.opengym.core.data.db.entity.BodyMeasurementEntity
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.MuscleGroupEntity
@@ -138,7 +138,23 @@ fun personalRecord(
     achievedAt = achievedAt,
 )
 
-fun bodyWeightLog(
-    weight: Long = 80_000_000,
+fun bodyMeasurement(
+    weight: Long? = 80_000_000,
+    chest: Int? = null,
+    waist: Int? = null,
+    arm: Int? = null,
+    thigh: Int? = null,
+    bodyFat: Int? = null,
+    notes: String? = null,
     createdAt: Long = 0,
-) = BodyWeightLogEntity(weight = weight, createdAt = createdAt, updatedAt = createdAt)
+) = BodyMeasurementEntity(
+    weight = weight,
+    chest = chest,
+    waist = waist,
+    arm = arm,
+    thigh = thigh,
+    bodyFat = bodyFat,
+    notes = notes,
+    createdAt = createdAt,
+    updatedAt = createdAt,
+)

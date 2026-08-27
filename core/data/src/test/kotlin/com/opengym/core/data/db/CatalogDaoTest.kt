@@ -7,7 +7,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Reference/catalog tables: muscle_group, tag, workout_template, template_exercise, body_weight_log. */
+/** Reference/catalog tables: muscle_group, tag, workout_template, template_exercise, body_measurement. */
 class CatalogDaoTest : RoomTestBase() {
 
     // --- muscle_group -----------------------------------------------------
@@ -107,15 +107,15 @@ class CatalogDaoTest : RoomTestBase() {
             assertTrue(dao.getExercises(templateId).first().isEmpty())
         }
 
-    // --- body_weight_log --------------------------------------------------
+    // --- body_measurement -------------------------------------------------
 
     @Test
-    fun `body weight logs are listed newest first and latest returns the newest`() =
+    fun `body measurements are listed newest first and latest returns the newest`() =
         runBlocking {
-            val dao = db.bodyWeightLogDao()
-            dao.insert(bodyWeightLog(weight = 80_000_000, createdAt = 100))
-            dao.insert(bodyWeightLog(weight = 79_500_000, createdAt = 300))
-            dao.insert(bodyWeightLog(weight = 79_800_000, createdAt = 200))
+            val dao = db.bodyMeasurementDao()
+            dao.insert(bodyMeasurement(weight = 80_000_000, createdAt = 100))
+            dao.insert(bodyMeasurement(weight = 79_500_000, createdAt = 300))
+            dao.insert(bodyMeasurement(weight = 79_800_000, createdAt = 200))
             assertEquals(listOf(300L, 200L, 100L), dao.getAll().first().map { it.createdAt })
             assertEquals(300L, dao.getLatest().first()?.createdAt)
         }
@@ -123,6 +123,74 @@ class CatalogDaoTest : RoomTestBase() {
     @Test
     fun `getLatest is null when empty`() =
         runBlocking {
-            assertNull(db.bodyWeightLogDao().getLatest().first())
+            assertNull(db.bodyMeasurementDao().getLatest().first())
+        }
+
+    @Test
+    fun `every measurement column round-trips through the table`() =
+        runBlocking {
+            val dao = db.bodyMeasurementDao()
+            val id = dao.insert(
+                bodyMeasurement(
+                    weight = 79_800_000,
+                    chest = 1_040,
+                    waist = 820,
+                    arm = 385,
+                    thigh = 610,
+                    bodyFat = 155,
+                    notes = "morning, fasted",
+                    createdAt = 100,
+                ),
+            )
+
+            assertEquals(
+                bodyMeasurement(
+                    weight = 79_800_000,
+                    chest = 1_040,
+                    waist = 820,
+                    arm = 385,
+                    thigh = 610,
+                    bodyFat = 155,
+                    notes = "morning, fasted",
+                    createdAt = 100,
+                ).copy(id = id),
+                dao.getLatest().first(),
+            )
+        }
+
+    @Test
+    fun `an entry can record a single measurement, weight or not`() =
+        runBlocking {
+            // The independent-optionality guarantee, at the level the schema holds it: nothing
+            // about the table makes one column the price of writing another.
+            val dao = db.bodyMeasurementDao()
+            dao.insert(bodyMeasurement(weight = 80_000_000, createdAt = 100))
+            dao.insert(bodyMeasurement(weight = null, waist = 820, createdAt = 200))
+
+            val stored = dao.getAll().first()
+            assertEquals(listOf(null, 80_000_000L), stored.map { it.weight })
+            assertEquals(listOf(820, null), stored.map { it.waist })
+        }
+
+    @Test
+    fun `updating an entry clears the measurements it no longer carries`() =
+        runBlocking {
+            val dao = db.bodyMeasurementDao()
+            val id = dao.insert(bodyMeasurement(weight = 80_000_000, waist = 820, createdAt = 100))
+
+            dao.update(bodyMeasurement(weight = 80_000_000, waist = null, createdAt = 100).copy(id = id))
+
+            assertNull(dao.getLatest().first()?.waist)
+        }
+
+    @Test
+    fun `deleting an entry removes it`() =
+        runBlocking {
+            val dao = db.bodyMeasurementDao()
+            val id = dao.insert(bodyMeasurement(createdAt = 100))
+
+            dao.delete(id)
+
+            assertTrue(dao.getAll().first().isEmpty())
         }
 }

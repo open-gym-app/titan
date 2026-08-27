@@ -102,7 +102,7 @@ class LocalDataRepositoryImpl @Inject constructor(
             localDataDao.countTemplates(),
             localDataDao.countPersonalRecords(),
             localDataDao.countCustomExercises(),
-            localDataDao.countBodyWeightLogs(),
+            localDataDao.countBodyMeasurements(),
         ) { counts ->
             DataFootprint(
                 sessions = counts[SESSIONS],
@@ -110,7 +110,7 @@ class LocalDataRepositoryImpl @Inject constructor(
                 templates = counts[TEMPLATES],
                 personalRecords = counts[PERSONAL_RECORDS],
                 customExercises = counts[CUSTOM_EXERCISES],
-                bodyWeightLogs = counts[BODY_WEIGHT_LOGS],
+                bodyMeasurements = counts[BODY_MEASUREMENTS],
             )
         }
             .retryWhen { cause, attempt ->
@@ -176,6 +176,6 @@ class LocalDataRepositoryImpl @Inject constructor(
         const val TEMPLATES = 2
         const val PERSONAL_RECORDS = 3
         const val CUSTOM_EXERCISES = 4
-        const val BODY_WEIGHT_LOGS = 5
+        const val BODY_MEASUREMENTS = 5
     }
 }

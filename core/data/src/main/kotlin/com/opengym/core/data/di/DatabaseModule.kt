@@ -3,7 +3,7 @@ package com.opengym.core.data.di
 import android.content.Context
 import androidx.room.Room
 import com.opengym.core.data.db.OpenGymDatabase
-import com.opengym.core.data.db.dao.BodyWeightLogDao
+import com.opengym.core.data.db.dao.BodyMeasurementDao
 import com.opengym.core.data.db.dao.ExerciseDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
@@ -69,5 +69,5 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideBodyWeightLogDao(db: OpenGymDatabase): BodyWeightLogDao = db.bodyWeightLogDao()
+    fun provideBodyMeasurementDao(db: OpenGymDatabase): BodyMeasurementDao = db.bodyMeasurementDao()
 }

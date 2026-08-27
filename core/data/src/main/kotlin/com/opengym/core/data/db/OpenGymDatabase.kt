@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
-import com.opengym.core.data.db.dao.BodyWeightLogDao
+import com.opengym.core.data.db.dao.BodyMeasurementDao
 import com.opengym.core.data.db.dao.ExerciseDao
 import com.opengym.core.data.db.dao.LocalDataDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
@@ -15,7 +15,7 @@ import com.opengym.core.data.db.dao.TagDao
 import com.opengym.core.data.db.dao.WorkoutSessionDao
 import com.opengym.core.data.db.dao.WorkoutSetDao
 import com.opengym.core.data.db.dao.WorkoutTemplateDao
-import com.opengym.core.data.db.entity.BodyWeightLogEntity
+import com.opengym.core.data.db.entity.BodyMeasurementEntity
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
@@ -43,7 +43,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
         SessionExerciseEntity::class,
         WorkoutSetEntity::class,
         PersonalRecordEntity::class,
-        BodyWeightLogEntity::class,
+        BodyMeasurementEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -59,7 +59,7 @@ abstract class OpenGymDatabase : RoomDatabase() {
     abstract fun sessionExerciseDao(): SessionExerciseDao
     abstract fun workoutSetDao(): WorkoutSetDao
     abstract fun personalRecordDao(): PersonalRecordDao
-    abstract fun bodyWeightLogDao(): BodyWeightLogDao
+    abstract fun bodyMeasurementDao(): BodyMeasurementDao
 
     companion object {
         val foreignKeysCallback = object : Callback() {

@@ -95,9 +95,9 @@
         <item quantity="one">exercise you added</item>
         <item quantity="other">exercises you added</item>
     </plurals>
-    <plurals name="settings_count_body_weight_logs">
-        <item quantity="one">body weight entry</item>
-        <item quantity="other">body weight entries</item>
+    <plurals name="settings_count_body_measurements">
+        <item quantity="one">body measurement</item>
+        <item quantity="other">body measurements</item>
     </plurals>
 
 </resources>

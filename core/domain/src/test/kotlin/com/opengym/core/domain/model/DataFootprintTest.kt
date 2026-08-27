@@ -31,7 +31,7 @@ class DataFootprintTest {
         assertFalse(DataFootprint(templates = 1).isEmpty)
         assertFalse(DataFootprint(personalRecords = 1).isEmpty)
         assertFalse(DataFootprint(customExercises = 1).isEmpty)
-        assertFalse(DataFootprint(bodyWeightLogs = 1).isEmpty)
+        assertFalse(DataFootprint(bodyMeasurements = 1).isEmpty)
     }
 
     @Test
@@ -41,6 +41,6 @@ class DataFootprintTest {
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(templates = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(personalRecords = -1) }
         assertThrows(IllegalArgumentException::class.java) { DataFootprint(customExercises = -1) }
-        assertThrows(IllegalArgumentException::class.java) { DataFootprint(bodyWeightLogs = -1) }
+        assertThrows(IllegalArgumentException::class.java) { DataFootprint(bodyMeasurements = -1) }
     }
 }

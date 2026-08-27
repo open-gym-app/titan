@@ -485,7 +485,7 @@ fun SettingsScreenDeleteDialogPreview() {
                     templates = 6,
                     personalRecords = 23,
                     customExercises = 2,
-                    bodyWeightLogs = 61,
+                    bodyMeasurements = 61,
                 ),
             ),
             appVersion = "1.0",

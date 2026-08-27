@@ -43,6 +43,6 @@ interface LocalDataDao {
     @Query("SELECT COUNT(*) FROM exercise WHERE is_custom = 1")
     fun countCustomExercises(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM body_weight_log")
-    fun countBodyWeightLogs(): Flow<Int>
+    @Query("SELECT COUNT(*) FROM body_measurement")
+    fun countBodyMeasurements(): Flow<Int>
 }
