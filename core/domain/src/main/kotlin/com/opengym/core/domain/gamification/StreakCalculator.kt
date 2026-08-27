@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.StreakResult
 import com.opengym.core.domain.stats.TrainingWeek
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneOffset
 
 /**
@@ -14,20 +15,26 @@ import java.time.ZoneOffset
  * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] reads the streak this produces;
  * *storing* it, and deciding when this runs relative to PR detection and XP, is #145's.
  *
- * ### A rolling window, not consecutive calendar days
+ * ### Consecutive days, or a rolling window — whichever saves the streak
  *
- * A streak survives while sessions are no more than [STREAK_GRACE_HOURS] apart, rather than
- * while they fall on consecutive dates. The two differ for exactly the user this mechanic
- * exists to keep: somebody who trains Monday evening and Wednesday morning has missed a
- * calendar day and has not missed a workout, and zeroing a five-week streak for that would
- * punish a rest day taken at the wrong hour. Thirty-six hours is the window that lets a
- * lifter training every ~1.5 days keep a streak alive and still breaks one for a lifter who
- * takes two clear days off.
+ * A streak survives a session landing on the calendar day after the last counted one, **and**
+ * it survives one no more than [STREAK_GRACE_HOURS] after it whatever the dates say. Either
+ * arm alone breaks a streak nobody missed a day of, and they do it for opposite reasons.
  *
- * The flip side, and it is deliberate: a session can extend a streak without landing on the
- * next calendar day at all. Monday 23:00 to Wednesday 09:00 is 34 hours and counts, even
- * though Tuesday held no training. The window is the rule; the dates are only consulted for
- * the same-day case below.
+ * The window is there for the user this mechanic exists to keep: somebody who trains Monday
+ * evening and Wednesday morning has missed a calendar day and has not missed a workout, and
+ * zeroing a five-week streak for that would punish a rest day taken at the wrong hour. Thirty-
+ * six hours is the window that lets a lifter training every ~1.5 days keep a streak alive and
+ * still breaks one for a lifter who takes two clear days off. So a session can extend a streak
+ * without landing on the next calendar day at all: Monday 23:00 to Wednesday 09:00 is 34 hours
+ * and counts, even though Tuesday held no training.
+ *
+ * The calendar arm is there because `lastCountedAt` is the *first* counted session of its day
+ * and deliberately does not advance for the ones after it (see below). The window is therefore
+ * measured from whatever hour that day happened to be counted at, not from the end of the day
+ * itself — so without this arm a lifter who trained at 02:00 on the Tuesday and again at 20:00
+ * on the Wednesday would be 42 hours apart and lose a streak they had trained every day of.
+ * Consecutive days always count; the window only ever adds to that.
  *
  * **[STREAK_GRACE_HOURS] is a starting default.** It has not been validated against real
  * usage — it is named here, read from here, and tuning it is an edit to one line.
@@ -93,7 +100,9 @@ object StreakCalculator {
 
             isSameDay(lastCountedAt, finishedAt) -> StreakResult.Unchanged
 
-            gap <= GRACE_PERIOD -> StreakResult.Incremented(currentStreak + 1)
+            // Either arm is enough, and neither is enough on its own — see the class doc.
+            gap <= GRACE_PERIOD || isNextDay(lastCountedAt, finishedAt) ->
+                StreakResult.Incremented(currentStreak + 1)
 
             else -> StreakResult.Reset
         }
@@ -102,5 +111,14 @@ object StreakCalculator {
     private fun isSameDay(
         first: Instant,
         second: Instant,
-    ): Boolean = first.atZone(STREAK_ZONE).toLocalDate() == second.atZone(STREAK_ZONE).toLocalDate()
+    ): Boolean = first.streakDate() == second.streakDate()
+
+    /** Whether [second] falls on the calendar day directly after [first]'s. */
+    private fun isNextDay(
+        first: Instant,
+        second: Instant,
+    ): Boolean = first.streakDate().plusDays(1) == second.streakDate()
+
+    /** The day an instant counts on, in the zone the class doc argues for. */
+    private fun Instant.streakDate(): LocalDate = atZone(STREAK_ZONE).toLocalDate()
 }

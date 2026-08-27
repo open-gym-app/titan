@@ -7,7 +7,10 @@ import com.opengym.core.domain.model.AchievementProgress
 import com.opengym.core.domain.model.AchievementUnlock
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -151,6 +154,23 @@ class AchievementTriggerUseCaseTest {
             assertEquals(0L, raced.totalXp)
         }
 
+    @Test
+    fun `a cancellation between the unlock and its award still pays the XP`() =
+        runTest {
+            // The window the pair is wrapped against: the row is committed and unrepeatable
+            // by here, so an award abandoned now is one no later run can ever make good.
+            val store = FakeGamificationRepository()
+            lateinit var cascade: Job
+            val cancelsOnceInserted = CancellingStore(store) { cascade.cancel() }
+            val trigger = AchievementTriggerUseCase(cancelsOnceInserted, AwardXpUseCase(cancelsOnceInserted))
+
+            cascade = launch { trigger(progress(sessions = 1), FINISHED_AT) }
+            cascade.join()
+
+            assertEquals(mapOf("first_session" to FINISHED_AT), store.unlockedAchievements)
+            assertEquals(XpCalculator.XP_PER_ACHIEVEMENT.toLong(), store.totalXp)
+        }
+
     // ─── The catalogue is what is evaluated ─────────────────────────────────────────────
 
     @Test
@@ -195,6 +215,33 @@ class AchievementTriggerUseCaseTest {
             achievementId: String,
             unlockedAt: Instant,
         ): Boolean = false
+    }
+
+    /**
+     * A store that runs [onInserted] the moment an unlock lands, and that suspends before
+     * banking XP the way a real one does.
+     *
+     * The [yield] is what gives the test its teeth: cancellation only takes effect at a
+     * suspension point, and [FakeGamificationRepository.addXp] has none, so without it the
+     * award would go through whether or not the pair were wrapped.
+     */
+    private class CancellingStore(
+        private val delegate: FakeGamificationRepository,
+        private val onInserted: () -> Unit,
+    ) : GamificationRepository by delegate {
+
+        override suspend fun unlockAchievement(
+            achievementId: String,
+            unlockedAt: Instant,
+        ): Boolean = delegate.unlockAchievement(achievementId, unlockedAt).also { onInserted() }
+
+        override suspend fun addXp(
+            delta: Int,
+            levelForTotalXp: (totalXp: Long) -> Int,
+        ): XpAward {
+            yield()
+            return delegate.addXp(delta, levelForTotalXp)
+        }
     }
 
     private companion object {

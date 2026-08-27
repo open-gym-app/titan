@@ -6,11 +6,13 @@ import com.opengym.core.domain.model.AchievementProgress
 import com.opengym.core.domain.model.AchievementUnlock
 import com.opengym.core.domain.model.XpEvent
 import com.opengym.core.domain.repository.GamificationRepository
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import java.time.Instant
 
 /**
  * Unlocks every achievement a finished session newly qualifies the user for, and pays each
- * one's XP — once.
+ * one's XP — never twice.
  *
  * The catalogue is data ([Achievements]), so this has no per-achievement branch and gains
  * none when the set grows: it evaluates [Achievement.isUnlockedBy] over [Achievements.ALL]
@@ -33,6 +35,15 @@ import java.time.Instant
  * this class's job. That is why the XP call sits *after* the insert and behind its answer,
  * rather than beside it — the atomic write is the only thing that can tell a first unlock
  * from a repeat, and awarding before it would pay for both.
+ *
+ * What that ordering buys is *at most* once, not exactly once, and the gap is worth naming.
+ * The insert commits first and is what makes the unlock unrepeatable, so anything that stops
+ * the award afterwards leaves the achievement held and its XP owed forever: every later run
+ * gets `false` back from `insertIfAbsent` and never reaches the award again. Cancellation is
+ * closed off here — [unlock] runs the pair uncancellably — but a store that *fails* the award
+ * is not, and cannot be from this layer. Under-paying one achievement is the better half of
+ * the trade against re-paying every re-run, and closing it properly means writing the row and
+ * the XP in one transaction, which is #35's to give.
  *
  * ### Where the figures come from
  *
@@ -72,12 +83,20 @@ class AchievementTriggerUseCase(
     private suspend fun unlock(
         achievement: Achievement,
         unlockedAt: Instant,
-    ): AchievementUnlock? {
-        if (!gamificationRepository.unlockAchievement(achievement.id, unlockedAt)) return null
-        return AchievementUnlock(
-            achievement = achievement,
-            unlockedAt = unlockedAt,
-            xp = awardXp(XpEvent.AchievementUnlocked(achievement.id)),
-        )
-    }
+    ): AchievementUnlock? =
+        // Uncancellable as one piece: the insert is what makes the unlock unrepeatable, so a
+        // cancellation landing between it and the award — a screen's scope going away while
+        // the cascade runs — would owe that XP for the life of the install, since no later
+        // run gets past the insert to pay it. Two small writes, with nothing worth abandoning
+        // half way between them, which is the same trade [DiscardSessionUseCase] makes.
+        withContext(NonCancellable) {
+            if (!gamificationRepository.unlockAchievement(achievement.id, unlockedAt)) {
+                return@withContext null
+            }
+            AchievementUnlock(
+                achievement = achievement,
+                unlockedAt = unlockedAt,
+                xp = awardXp(XpEvent.AchievementUnlocked(achievement.id)),
+            )
+        }
 }

@@ -62,6 +62,20 @@ class StreakCalculatorTest {
     }
 
     @Test
+    fun `consecutive days count however far past the window they fall`() {
+        // Counted at 02:00 on the Tuesday, trained again at 20:00 on the Wednesday: 42 hours
+        // apart, and not one day missed. The anchor sits at whatever hour its day was counted
+        // at, so a window measured from it is no answer here — the dates are.
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = Instant.parse("2026-03-04T20:00:00Z"),
+            lastCountedAt = Instant.parse("2026-03-03T02:00:00Z"),
+            currentStreak = 8,
+        )
+
+        assertEquals(StreakResult.Incremented(9), result)
+    }
+
+    @Test
     fun `a skipped calendar day inside the window still extends the streak`() {
         // Monday 23:00 to Wednesday 09:00 — nothing was trained on the Tuesday, and at 34
         // hours the window never lapsed. The rolling window is the rule, not the dates.
@@ -86,6 +100,19 @@ class StreakCalculatorTest {
     @Test
     fun `two clear days off break the streak`() {
         val result = finishedAfter(Duration.ofHours(60), currentStreak = 41)
+
+        assertEquals(StreakResult.Reset, result)
+    }
+
+    @Test
+    fun `a day skipped past the window breaks the streak, consecutive dates or not`() {
+        // Tuesday 02:00 to Thursday 20:00: the Wednesday held no training and 66 hours is
+        // well past the window, so neither arm saves this one.
+        val result = StreakCalculator.onSessionFinished(
+            finishedAt = Instant.parse("2026-03-05T20:00:00Z"),
+            lastCountedAt = Instant.parse("2026-03-03T02:00:00Z"),
+            currentStreak = 8,
+        )
 
         assertEquals(StreakResult.Reset, result)
     }
