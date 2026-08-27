@@ -3,7 +3,6 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.SessionError
-import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
@@ -357,7 +356,7 @@ class FinishSessionUseCaseTest {
         runTest {
             val sessionId = startWithSets()
 
-            val progression = finishWithCascade().getOrThrow().progression
+            val progression = requireNotNull(finishWithCascade().getOrThrow().progression)
 
             assertEquals(sessionId, progression.sessionId)
             assertEquals(4, progression.recordsBroken.size)
@@ -371,7 +370,7 @@ class FinishSessionUseCaseTest {
         runTest {
             startWithSets()
 
-            val progression = finishWithCascade().getOrThrow().progression
+            val progression = requireNotNull(finishWithCascade().getOrThrow().progression)
 
             // `first_session` is a lifetime count of *finished* sessions, and `first_record`
             // a count of rows detection has written. Unlocking either is only possible
@@ -400,17 +399,20 @@ class FinishSessionUseCaseTest {
             assertEquals(finished.state, state.current)
             assertEquals(
                 listOf(SessionProgressionStep.XP, SessionProgressionStep.ACHIEVEMENTS),
-                finished.progression.failures.map { it.step },
+                requireNotNull(finished.progression).failures.map { it.step },
             )
         }
 
     @Test
-    fun `a finish with no cascade wired reports an empty progression`() =
+    fun `a finish with no cascade wired reports no progression at all`() =
         runTest {
-            val sessionId = startWithSets()
+            // Null rather than an empty progression: an empty one is what a cascade that ran
+            // and moved nothing returns, and a recap that cannot tell those apart would draw
+            // "no records, no XP, no streak" over a session nobody ever priced.
+            startWithSets()
 
             val finished = finishSession().getOrThrow()
 
-            assertEquals(SessionProgression(sessionId = sessionId), finished.progression)
+            assertNull(finished.progression)
         }
 }

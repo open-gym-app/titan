@@ -37,7 +37,9 @@ package com.opengym.core.domain.model
  *   the cascade emitted directly. [achievementsUnlocked] carries the same awards again,
  *   attached to what earned them.
  * @property streak what the session did to the streak, or **null** if the streak step could
- *   not run (see [failures]).
+ *   not run (see [failures]). A finish with no cascade wired has no progression at all rather
+ *   than an empty one — see [FinishedSession.progression] — so a null streak here always means
+ *   the step was attempted and refused.
  * @property achievementsUnlocked the milestones this run unlocked — never ones the user
  *   already held.
  * @property failures the steps that threw, in the order they were attempted.

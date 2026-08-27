@@ -52,6 +52,11 @@ import java.time.Instant
  * the right half of that trade. What it returns comes back in [FinishedSession.progression],
  * so the recap screen draws the celebration from this call rather than re-querying for it.
  *
+ * With no cascade wired that property is **null**, not an empty [SessionProgression]. An empty
+ * one is what a cascade that ran and moved nothing returns — a session that broke no records on
+ * a day already counted — and a caller that has to draw a recap needs to tell "nothing to
+ * celebrate" from "nobody worked out whether there was".
+ *
  * @param completeSession the cascade, or **null** to close sessions out without one. Null is
  *   not a test seam: [com.opengym.core.domain.repository.GamificationRepository] has no
  *   implementation until #35 lands, so there is nothing for DI to build a pipeline out of yet
@@ -136,7 +141,6 @@ class FinishSessionUseCase(
         // app does not yet consider over, and one that could fail this call would take a saved
         // workout down with a refused XP write.
         val progression = completeSession?.invoke(session.id, Instant.ofEpochMilli(now))
-            ?: SessionProgression(sessionId = session.id)
         return FinishedSession(state = finished, progression = progression)
     }
 }

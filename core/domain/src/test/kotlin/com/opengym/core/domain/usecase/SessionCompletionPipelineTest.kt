@@ -217,6 +217,29 @@ class SessionCompletionPipelineTest {
         }
 
     @Test
+    fun `awards banked before the store refused are still reported`() =
+        runTest {
+            // Every award is on file the moment it returns, so a step that failed half way
+            // through has still moved the total. A result that reported nothing over it would
+            // show "no XP" for a level the user actually crossed — and the claim is spent, so
+            // no later run would correct it.
+            val paid = 3
+            val torn = Rig(decorateGamification = { FailsAfter(it, awards = paid) })
+            val sessionId = torn.finishSession()
+
+            val progression = torn.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(
+                listOf(SessionProgressionStep.XP, SessionProgressionStep.ACHIEVEMENTS),
+                progression.failures.map { it.step },
+            )
+            // The session and the first two of its four sets — the fourth award is refused.
+            assertEquals(paid, progression.xp.size)
+            assertEquals(XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * 2, progression.xpAwarded)
+            assertEquals(torn.gamification.totalXp, progression.totalXp)
+        }
+
+    @Test
     fun `a streak that cannot be read takes the achievements with it rather than guessing`() =
         runTest {
             gamification.streakFailure = IllegalStateException("the progress row is locked")
@@ -391,8 +414,15 @@ class SessionCompletionPipelineTest {
      * @param journal when given, records which store each step reached first; see the ordering
      *   test. The decorators only observe, so the composition under test is the same one every
      *   other test runs.
+     * @param decorateGamification wraps the progress store the composition is built over, for
+     *   the one test that needs it to fail part way through rather than at the first write.
+     *   [gamification] stays the store underneath, so an assertion can still read what was
+     *   actually banked.
      */
-    private class Rig(journal: MutableList<String>? = null) {
+    private class Rig(
+        journal: MutableList<String>? = null,
+        decorateGamification: (GamificationRepository) -> GamificationRepository = { it },
+    ) {
 
         val sessions = FakeSessionRepository()
         val records = FakePersonalRecordRepository()
@@ -401,7 +431,7 @@ class SessionCompletionPipelineTest {
         private val observedRecords: PersonalRecordRepository =
             journal?.let { JournallingRecords(records, it) } ?: records
         private val observedGamification: GamificationRepository =
-            journal?.let { JournallingGamification(gamification, it) } ?: gamification
+            decorateGamification(journal?.let { JournallingGamification(gamification, it) } ?: gamification)
 
         val detectPersonalRecords = PrDetectionUseCase(
             sessionRepository = sessions,
@@ -519,6 +549,27 @@ class SessionCompletionPipelineTest {
         ): Boolean {
             journal += "achievement"
             return delegate.unlockAchievement(achievementId, unlockedAt)
+        }
+    }
+
+    /**
+     * Banks [awards] awards and refuses every one after them — the store failing part way
+     * through a run, which [FakeGamificationRepository.addXpFailure] cannot express because it
+     * refuses from the first write.
+     */
+    private class FailsAfter(
+        private val delegate: GamificationRepository,
+        private val awards: Int,
+    ) : GamificationRepository by delegate {
+
+        private var banked = 0
+
+        override suspend fun addXp(
+            delta: Int,
+            levelForTotalXp: (totalXp: Long) -> Int,
+        ): XpAward {
+            check(banked++ < awards) { "the progress row is locked" }
+            return delegate.addXp(delta, levelForTotalXp)
         }
     }
 

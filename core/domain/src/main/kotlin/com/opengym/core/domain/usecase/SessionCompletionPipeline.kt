@@ -59,6 +59,12 @@ import java.time.Instant
  * asks, and the cause is kept so a retry knows which step to run again. Cancellation is not a
  * failure and is rethrown untouched — a caller whose scope went away is not owed a report.
  *
+ * A step that failed part way through still reports what it managed to write, where it can:
+ * the XP step banks its awards one at a time and each is on file the moment it returns, so
+ * [SessionProgression.xp] carries the ones that were paid even when a later one was refused.
+ * A result that reported nothing over a total that had moved would be a worse answer than a
+ * short one.
+ *
  * Steps are independent apart from the ordering above: a failed PR detection leaves the XP
  * step paying for the session and its sets and nothing for records, and the achievements step
  * is skipped outright if the streak could not be read, because a snapshot missing one of its
@@ -163,9 +169,13 @@ class SessionCompletionPipeline(
             detectPersonalRecords(sessionId)
         }.orEmpty()
 
-        val xp = runStep(SessionProgressionStep.XP, failures) {
-            awardSessionXp(sessionId, records)
-        }.orEmpty()
+        // Collected by the step rather than returned by it: the awards are banked one at a
+        // time and each one is on file the moment it returns, so a store that refuses the
+        // fifth must not take the four already paid out of the report with it.
+        val xp = mutableListOf<XpGrant>()
+        runStep(SessionProgressionStep.XP, failures) {
+            awardSessionXp(sessionId, records, into = xp)
+        }
 
         val streak = runStep(SessionProgressionStep.STREAK, failures) {
             gamificationRepository.updateStreak(finishedAt) { lastCountedAt, currentStreak ->
@@ -191,11 +201,18 @@ class SessionCompletionPipeline(
     }
 
     /**
-     * The session's own awards — one per set logged, one for the session, one per record — or
-     * nothing at all if this session's XP has already been claimed.
+     * Banks the session's own awards into [into] — one per set logged, one for the session,
+     * one per record — or nothing at all if this session's XP has already been claimed.
      *
      * The claim is taken first and the awards follow it, which is what makes the whole step a
      * no-op on a re-entry; see [GamificationRepository.claimSessionXp].
+     *
+     * Appended as each one is banked rather than returned as a list at the end, because an
+     * award that has returned is already on file. A store that refuses part way through leaves
+     * a total that has moved, and a result reporting no XP over it would show "nothing was
+     * paid" for a level the user has actually crossed — and the claim is spent, so no later run
+     * would correct it. What is lost to the tear is the *rest* of the awards, which is the
+     * trade [GamificationRepository.claimSessionXp] names; what was paid is still reported.
      *
      * Sets are counted from the store rather than passed in, so re-entry needs only a session
      * id. Warm-ups count: [XpEvent.SetLogged] prices the work of showing up and does not ask
@@ -205,8 +222,9 @@ class SessionCompletionPipeline(
     private suspend fun awardSessionXp(
         sessionId: Long,
         records: List<PersonalRecord>,
-    ): List<XpGrant> {
-        if (!gamificationRepository.claimSessionXp(sessionId)) return emptyList()
+        into: MutableList<XpGrant>,
+    ) {
+        if (!gamificationRepository.claimSessionXp(sessionId)) return
 
         val setsLogged = sessionRepository.getSetsForSession(sessionId).first().count(WorkoutSet::isCompleted)
         val events = buildList {
@@ -214,7 +232,7 @@ class SessionCompletionPipeline(
             repeat(setsLogged) { add(XpEvent.SetLogged) }
             records.forEach { add(XpEvent.PrBroken(it.type)) }
         }
-        return events.map { event -> XpGrant(event, awardXp(event)) }
+        events.forEach { event -> into += XpGrant(event, awardXp(event)) }
     }
 
     /**

@@ -19,11 +19,16 @@ package com.opengym.core.domain.model
  * equivalent — see [SessionProgression].
  *
  * @property state the published [SessionState.Finished], summary and all.
- * @property progression what the cascade did, or an empty result when no cascade was wired.
+ * @property progression what the cascade did, or **null** when no cascade was wired to run —
+ *   see [com.opengym.core.domain.usecase.FinishSessionUseCase]'s `completeSession`. Null
+ *   rather than an empty [SessionProgression], because the two are different answers and the
+ *   empty one is already taken: a cascade that ran and moved nothing reports empty lists and a
+ *   null [SessionProgression.streak], and a caller cannot be asked to tell that apart from a
+ *   cascade that never happened. "No payoff was calculated" is not "the payoff was nothing".
  */
 data class FinishedSession(
     val state: SessionState.Finished,
-    val progression: SessionProgression,
+    val progression: SessionProgression?,
 ) {
 
     /** The session's figures — [SessionState.Finished.summary], reached without the hop. */
