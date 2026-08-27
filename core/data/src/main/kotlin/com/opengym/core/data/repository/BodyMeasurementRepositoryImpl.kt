@@ -11,8 +11,8 @@ import javax.inject.Inject
 /**
  * The body measurement history, over [BodyMeasurementDao].
  *
- * Ordering is the DAO's, not this class's — both queries are `ORDER BY created_at DESC` over
- * the index that serves them, so there is no sort in Kotlin over rows SQLite has already
+ * Ordering is the DAO's, not this class's — both queries are `ORDER BY created_at DESC, id DESC`
+ * over the index that serves them, so there is no sort in Kotlin over rows SQLite has already
  * ordered.
  */
 class BodyMeasurementRepositoryImpl @Inject constructor(

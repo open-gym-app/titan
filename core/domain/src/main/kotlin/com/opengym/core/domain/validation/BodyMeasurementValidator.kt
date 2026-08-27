@@ -41,7 +41,12 @@ object BodyMeasurementValidator {
     /** Body fat of zero was not measured, in tenths of a percent. */
     const val BODY_FAT_MIN = 1
 
-    /** 100%, in tenths of a percent. A body cannot be more than all fat. */
+    /**
+     * 100%, in tenths of a percent. A body cannot be more than all fat.
+     *
+     * The same figure as [BodyMeasurement.BODY_FAT_WHOLE], which is what `leanMass` divides by;
+     * the two are one unit convention and have to move together.
+     */
     const val BODY_FAT_MAX = 1_000
 
     private const val MG_PER_KG = 1_000_000L
@@ -86,13 +91,21 @@ object BodyMeasurementValidator {
             bodyFat?.let { value ->
                 if (value !in BODY_FAT_MIN..BODY_FAT_MAX) {
                     add(
-                        "bodyFat must be within ${BODY_FAT_MIN / TENTHS_PER_PERCENT}%.." +
-                            "${BODY_FAT_MAX / TENTHS_PER_PERCENT}% " +
+                        "bodyFat must be within ${asPercent(BODY_FAT_MIN)}%.." +
+                            "${asPercent(BODY_FAT_MAX)}% " +
                             "($BODY_FAT_MIN..$BODY_FAT_MAX tenths of a percent), was $value",
                     )
                 }
             }
         }
+
+    /**
+     * Tenths of a percent as the percentage a user typed — `1` is `0.1`, not `0`.
+     *
+     * Integer division alone would render [BODY_FAT_MIN] as `0%` and tell a user who entered
+     * 0.0% that the bound they just broke includes their value.
+     */
+    private fun asPercent(tenths: Int): String = "${tenths / TENTHS_PER_PERCENT}.${tenths % TENTHS_PER_PERCENT}"
 
     private fun circumferenceViolation(
         field: String,

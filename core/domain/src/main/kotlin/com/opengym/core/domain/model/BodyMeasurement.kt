@@ -77,8 +77,8 @@ data class BodyMeasurement(
      * the body-fat figure needs no scaling to divide by 1000. The division truncates, which
      * costs at most a milligram on a figure measured in tens of kilograms.
      *
-     * A [bodyFat] outside `0..1000` (a corrupt row; `BodyMeasurementValidator` refuses to
-     * write one) produces a value outside `0..weight` rather than a clamped fiction.
+     * A [bodyFat] outside `0..1000` — a corrupt row, since `BodyMeasurementValidator` bounds it
+     * to `1..1000` — produces a value outside `0..weight` rather than a clamped fiction.
      */
     val leanMass: Long?
         get() {

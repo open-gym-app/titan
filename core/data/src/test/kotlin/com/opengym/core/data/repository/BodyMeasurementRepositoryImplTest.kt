@@ -97,6 +97,19 @@ class BodyMeasurementRepositoryImplTest : RoomTestBase() {
         }
 
     @Test
+    fun `two entries taken at the same moment are ordered newest-written first`() =
+        runBlocking {
+            // A weigh-in and a set of circumferences logged for the same moment tie on
+            // `created_at`, and "the latest entry" has to be the one written last rather than
+            // whichever row the query plan reaches first.
+            repository.insert(FULL.copy(weight = 81_000_000, createdAt = 100, updatedAt = 100))
+            val second = repository.insert(FULL.copy(weight = 79_000_000, createdAt = 100, updatedAt = 100))
+
+            assertEquals(second, repository.getLatest().first()?.id)
+            assertEquals(second, repository.getAll().first().first().id)
+        }
+
+    @Test
     fun `latest is null before anything is logged`() =
         runBlocking {
             assertNull(repository.getLatest().first())

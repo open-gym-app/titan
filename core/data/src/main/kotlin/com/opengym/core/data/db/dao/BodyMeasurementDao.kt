@@ -20,9 +20,14 @@ interface BodyMeasurementDao {
     @Query("DELETE FROM body_measurement WHERE id = :id")
     suspend fun delete(id: Long)
 
-    @Query("SELECT * FROM body_measurement ORDER BY created_at DESC")
+    // `id` breaks the tie on `created_at`, which two entries share as soon as a user logs a
+    // weigh-in and a set of circumferences for the same moment: without it "the latest entry"
+    // is whichever row the plan happens to reach first, so the form could pre-fill from the
+    // one the user did not just write. `id` is the rowid, so `created_at DESC, id DESC` is
+    // exactly the reverse of `index_body_measurement_created_at` and costs no sort.
+    @Query("SELECT * FROM body_measurement ORDER BY created_at DESC, id DESC")
     fun getAll(): Flow<List<BodyMeasurementEntity>>
 
-    @Query("SELECT * FROM body_measurement ORDER BY created_at DESC LIMIT 1")
+    @Query("SELECT * FROM body_measurement ORDER BY created_at DESC, id DESC LIMIT 1")
     fun getLatest(): Flow<BodyMeasurementEntity?>
 }

@@ -98,7 +98,11 @@ class BodyMeasurementValidatorTest {
 
     @Test
     fun `a body fat outside nothing-to-everything is refused`() {
-        assertFalse(validate(measurement(bodyFat = 0)).isValid)
+        val zero = validate(measurement(bodyFat = 0))
+        assertFalse(zero.isValid)
+        // The refusal has to name a bound the refused value is outside of: rendering the floor
+        // by integer division would say "0%..100%" to a user who just entered 0.0%.
+        assertTrue(zero.reasonOrNull().orEmpty(), zero.reasonOrNull().orEmpty().contains("0.1%..100.0%"))
         assertFalse(validate(measurement(bodyFat = BodyMeasurementValidator.BODY_FAT_MAX + 1)).isValid)
 
         assertTrue(validate(measurement(bodyFat = BodyMeasurementValidator.BODY_FAT_MIN)).isValid)
