@@ -6,9 +6,11 @@ import com.opengym.core.domain.repository.GamificationRepository
 /**
  * The progress row, in memory.
  *
- * The level is derived by calling [levelForTotalXp] on the new total, exactly as the contract
- * requires of a real implementation — a fake that stored a level of its own choosing could
- * let a test pass on a total and level the database could never hold together.
+ * Both levels are derived by calling [GamificationRepository.addXp]'s `levelForTotalXp` on the
+ * totals either side of the delta, exactly as the contract requires of a real implementation —
+ * a fake that stored a level of its own choosing, or that reused a level column for the
+ * previous one, could let a test pass on a total and level the database could never hold
+ * together.
  *
  * Single-threaded, like the tests that use it, so it does not reproduce the real store's
  * transactional serialisation; the awards below are never actually interleaved.

@@ -16,7 +16,8 @@ import com.opengym.core.domain.model.XpEvent
  * usage — flagged to product for tuning once there is any. Nothing reads a literal instead
  * of these, so tuning is an edit here and nowhere else; the relationships they encode are
  * the part worth arguing about: a set is the small, frequent drip, a session is worth five
- * of them, a record is worth two sessions, and an achievement is worth four.
+ * sets, a record is worth two sessions, and an achievement is worth four sessions — so two
+ * records, and a whole level on the curve below.
  *
  * ### A linear curve
  *

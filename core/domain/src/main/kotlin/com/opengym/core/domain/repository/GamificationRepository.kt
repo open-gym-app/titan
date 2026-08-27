@@ -25,13 +25,23 @@ interface GamificationRepository {
      * That is also what makes [XpAward.leveledUp] trustworthy: exactly one award per level
      * can observe the threshold being crossed, because the awards are serialised.
      *
-     * [levelForTotalXp] is applied to the new total inside that same operation, rather than
-     * this repository deriving a level itself, so the curve stays in one place —
+     * [levelForTotalXp] is applied inside that same operation, rather than this repository
+     * deriving a level itself, so the curve stays in one place —
      * [com.opengym.core.domain.gamification.XpCalculator], which is where it can be tuned
-     * without a data-layer change. Implementations must call it exactly once per award, on
-     * the total *after* [delta], and store what it returns alongside that total; a stored
-     * level that disagrees with the stored total is the one inconsistency this contract
-     * exists to rule out.
+     * without a data-layer change. Implementations call it **twice per award, on the total
+     * either side of [delta]**:
+     *
+     * - on the total *before* [delta], for [XpAward.previousLevel];
+     * - on the total *after* [delta], for [XpAward.level] — and that second answer is what
+     *   is stored beside the new total. A stored level that disagrees with the stored total
+     *   is the one inconsistency this contract exists to rule out.
+     *
+     * Both come from the curve rather than from the level column read off the row, because
+     * the column was written by whatever curve was in force when it was last touched. Reusing
+     * it as [XpAward.previousLevel] would make the first award after a retune of
+     * `XP_PER_LEVEL` compare a new-curve level against an old-curve one, and report a level-up
+     * — or a level *drop* — that the user did not earn, which is exactly what #27's
+     * celebration fires on.
      *
      * @param delta the points to add, never negative — nothing in the app spends XP.
      */

@@ -120,16 +120,35 @@ class AwardXpUseCaseTest {
         }
 
     @Test
-    fun `one award can cross two thresholds without reporting two level-ups`() =
+    fun `an award that starts mid-level still reports the crossing it caused`() =
         runTest {
+            // 195 is five short of level 3; the achievement lands on 295, over the threshold
+            // but not up to the next one — one crossing, from a total that was not on a
+            // boundary to start with.
             val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 195))
 
             val award = started(XpEvent.AchievementUnlocked("thirty_day_streak"))
 
+            assertEquals(295L, award.totalXp)
             assertEquals(2, award.previousLevel)
             assertEquals(3, award.level)
             assertTrue(award.leveledUp)
         }
+
+    @Test
+    fun `no single award can clear two thresholds under today's constants`() {
+        // What keeps `leveledUp` "one event per level gained" rather than merely "one event
+        // per crossing": the largest award is worth exactly one level, so no award can skip
+        // one. A retune that breaks this should break this test, not #27's celebration.
+        val largestAward = maxOf(
+            XpCalculator.XP_PER_SET,
+            XpCalculator.XP_PER_SESSION,
+            XpCalculator.XP_PER_PR,
+            XpCalculator.XP_PER_ACHIEVEMENT,
+        )
+
+        assertTrue(largestAward <= XpCalculator.XP_PER_LEVEL)
+    }
 
     // ─── No bundling, no deduplication ──────────────────────────────────────────────────
 
