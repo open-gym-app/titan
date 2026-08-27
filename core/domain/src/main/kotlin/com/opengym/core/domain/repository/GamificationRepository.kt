@@ -7,9 +7,10 @@ import java.time.Instant
  * The progress the gamification features accumulate — the XP total and the level it buys, and
  * the set of achievements the user has unlocked.
  *
- * Write-only for now, and narrow on purpose: a method appears here when something exists to
- * call it, not in advance of one — the principle [PersonalRecordRepository] was built on.
- * #33 asked for [addXp]; #34 adds the two achievement methods below, because
+ * Narrow on purpose: a method appears here when something exists to call it, not in advance
+ * of one — the principle [PersonalRecordRepository] was built on.
+ * #33 asked for [addXp]; #34 adds the two achievement methods below — including this
+ * interface's first read, [unlockedAchievementIds] — because
  * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] calls them. The streak itself
  * is not here yet: #34 computes it as a value
  * ([com.opengym.core.domain.gamification.StreakCalculator]) and #145 is what will store it,
