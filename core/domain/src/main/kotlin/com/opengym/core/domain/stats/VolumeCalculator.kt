@@ -14,6 +14,11 @@ import com.opengym.core.domain.model.WorkoutSet
  * agree with it set for set: same `weight x reps`, same treatment of nulls, same
  * completed-only filter. Reads that span more history than one session should use
  * the DAO aggregate, which sums in SQLite; this is for a session already in memory.
+ *
+ * What the two do not share is *which* sets they are given. The aggregate reads only
+ * closed-out sessions, since a week's volume has to mean the same thing as that week's
+ * training days; this sums whatever it is handed, including a session still being logged,
+ * which is what the recap of a workout in progress needs.
  */
 object VolumeCalculator {
 

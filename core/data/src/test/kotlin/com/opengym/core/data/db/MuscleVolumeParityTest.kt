@@ -211,8 +211,20 @@ class MuscleVolumeParityTest : RoomTestBase() {
 
     // --- fixture helpers --------------------------------------------------
 
+    /**
+     * Puts [exerciseId] into a session finished on [DAY_1] — finished because the SQL
+     * aggregate reads closed-out sessions only, and an in-progress fixture would compare an
+     * empty SQL result against a populated in-memory one and call that parity.
+     */
     private suspend fun seedSessionExerciseFor(exerciseId: Long): Long {
-        val sessionId = db.workoutSessionDao().insert(session())
+        val sessionId = db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = at(DAY_1),
+                createdAt = at(DAY_1),
+                completedAt = at(DAY_1),
+            ),
+        )
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
     }
 

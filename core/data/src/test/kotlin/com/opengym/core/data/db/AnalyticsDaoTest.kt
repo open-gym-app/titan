@@ -3,12 +3,13 @@ package com.opengym.core.data.db
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * The SQL-level aggregates behind the progression screens: weekly volume,
- * volume per muscle group, and the recent-PR summary.
+ * weekly training days, volume per muscle group, and the recent-PR summary.
  *
  * The fixture spans four calendar weeks anchored on a real Monday so the
  * expected sums can be worked out by hand (they are written out as literals
@@ -34,6 +35,9 @@ class AnalyticsDaoTest : RoomTestBase() {
          * non-zero so a bucket that ignored it would still be caught.
          */
         fun at(epochDay: Long): Long = epochDay * MILLIS_PER_DAY + 12 * 3_600_000L
+
+        /** Epoch millis at 23:30 on [epochDay] — late enough for a session to run past midnight. */
+        fun lateOn(epochDay: Long): Long = epochDay * MILLIS_PER_DAY + 23 * 3_600_000L + 1_800_000L
     }
 
     // --- getVolumeByWeek --------------------------------------------------
@@ -41,19 +45,18 @@ class AnalyticsDaoTest : RoomTestBase() {
     @Test
     fun `weekly volume is summed per Monday-aligned week`() =
         runBlocking {
-            val (_, sessionExerciseId) = seedSessionExercise()
             val dao = db.workoutSetDao()
             // week 1: 100kg x 10 + 80kg x 5   = 1_000_000_000 + 400_000_000
-            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
-            logSet(sessionExerciseId, 2, at(WEEK_1 + 2), reps = 5, weight = kg(80))
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_1 + 2), 1, at(WEEK_1 + 2), reps = 5, weight = kg(80))
             // week 2: 60kg x 12               = 720_000_000
-            logSet(sessionExerciseId, 3, at(WEEK_2 + 1), reps = 12, weight = kg(60))
+            logSet(workoutOn(WEEK_2 + 1), 1, at(WEEK_2 + 1), reps = 12, weight = kg(60))
             // week 3: 100kg x 3 + 50kg x 8    = 300_000_000 + 400_000_000
             //         the second one falls on the Sunday that closes week 3
-            logSet(sessionExerciseId, 4, at(WEEK_3), reps = 3, weight = kg(100))
-            logSet(sessionExerciseId, 5, at(WEEK_3 + 6), reps = 8, weight = kg(50))
+            logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 3, weight = kg(100))
+            logSet(workoutOn(WEEK_3 + 6), 1, at(WEEK_3 + 6), reps = 8, weight = kg(50))
 
-            val series = dao.getVolumeByWeek(WEEK_1).first()
+            val series = dao.getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
 
             assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), series.map { it.weekStartEpochDay })
             assertEquals(
@@ -65,21 +68,14 @@ class AnalyticsDaoTest : RoomTestBase() {
     @Test
     fun `weekly volume ignores sets before the cutoff and sets that were never completed`() =
         runBlocking {
-            val (_, sessionExerciseId) = seedSessionExercise()
             val dao = db.workoutSetDao()
             // Before the cutoff: the Sunday that closes the week preceding WEEK_1.
-            logSet(sessionExerciseId, 1, at(WEEK_1 - 1), reps = 10, weight = kg(200))
-            logSet(sessionExerciseId, 2, at(WEEK_1), reps = 10, weight = kg(100))
-            logSet(
-                sessionExerciseId,
-                3,
-                at(WEEK_1 + 1),
-                reps = 10,
-                weight = kg(500),
-                isCompleted = false,
-            )
+            logSet(workoutOn(WEEK_1 - 1), 1, at(WEEK_1 - 1), reps = 10, weight = kg(200))
+            val inRange = workoutOn(WEEK_1)
+            logSet(inRange, 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(inRange, 2, at(WEEK_1), reps = 10, weight = kg(500), isCompleted = false)
 
-            val series = dao.getVolumeByWeek(WEEK_1).first()
+            val series = dao.getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
 
             assertEquals(1, series.size)
             assertEquals(WEEK_1, series.single().weekStartEpochDay)
@@ -89,14 +85,14 @@ class AnalyticsDaoTest : RoomTestBase() {
     @Test
     fun `a week of sets without weight or reps reports zero volume rather than dropping out`() =
         runBlocking {
-            val (_, sessionExerciseId) = seedSessionExercise()
             val dao = db.workoutSetDao()
-            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100))
             // A plank and a run: duration/distance only, no weight or reps.
-            logSet(sessionExerciseId, 2, at(WEEK_2), reps = null, weight = null)
-            logSet(sessionExerciseId, 3, at(WEEK_2 + 3), reps = 20, weight = null)
+            val cardio = workoutOn(WEEK_2)
+            logSet(cardio, 1, at(WEEK_2), reps = null, weight = null)
+            logSet(cardio, 2, at(WEEK_2), reps = 20, weight = null)
 
-            val series = dao.getVolumeByWeek(WEEK_1).first()
+            val series = dao.getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
 
             assertEquals(listOf(WEEK_1, WEEK_2), series.map { it.weekStartEpochDay })
             assertEquals(listOf(1_000_000_000L, 0L), series.map { it.totalVolume })
@@ -105,10 +101,164 @@ class AnalyticsDaoTest : RoomTestBase() {
     @Test
     fun `weekly volume is an empty series when there is no completed history`() =
         runBlocking {
-            val (_, sessionExerciseId) = seedSessionExercise()
-            logSet(sessionExerciseId, 1, at(WEEK_1), reps = 10, weight = kg(100), isCompleted = false)
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100), isCompleted = false)
 
-            assertTrue(db.workoutSetDao().getVolumeByWeek(WEEK_1).first().isEmpty())
+            assertTrue(db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_4 + 7).first().isEmpty())
+        }
+
+    @Test
+    fun `volume from a session still in progress is not charted until it is finished`() =
+        runBlocking {
+            val dao = db.workoutSetDao()
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            // Mid-workout: the sets are completed, the session is not. Charting these would
+            // put volume in a week the consistency series has no training day for, and would
+            // keep it there for good if the user never closed the session out.
+            val openSessionId = db.workoutSessionDao().insert(
+                session(isInProgress = true, lastActiveAt = at(WEEK_1 + 1), createdAt = at(WEEK_1 + 1)),
+            )
+            val openSlot = db.sessionExerciseDao().insert(
+                sessionExercise(openSessionId, sharedExerciseId(), position = 0),
+            )
+            logSet(openSlot, 1, at(WEEK_1 + 1), reps = 10, weight = kg(500))
+
+            val series = dao.getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
+
+            assertEquals(1_000_000_000L, series.single().totalVolume)
+        }
+
+    @Test
+    fun `a session's sets are bucketed by its close-out, not by their own stamps`() =
+        runBlocking {
+            // A session started 23:30 on the Sunday closing week 1 and finished after midnight.
+            // Both halves of its volume belong to the week it was finished in, which is the week
+            // getTrainingByWeek credits with the training day.
+            val sessionId = db.workoutSessionDao().insert(
+                session(
+                    isInProgress = false,
+                    lastActiveAt = at(WEEK_2),
+                    createdAt = lateOn(WEEK_2 - 1),
+                    completedAt = at(WEEK_2),
+                ),
+            )
+            val slot = db.sessionExerciseDao().insert(
+                sessionExercise(sessionId, sharedExerciseId(), position = 0),
+            )
+            logSet(slot, 1, lateOn(WEEK_2 - 1), reps = 10, weight = kg(100))
+            logSet(slot, 2, at(WEEK_2), reps = 10, weight = kg(100))
+
+            val series = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_4 + 7).first()
+
+            assertEquals(listOf(WEEK_2), series.map { it.weekStartEpochDay })
+            assertEquals(2_000_000_000L, series.single().totalVolume)
+        }
+
+    @Test
+    fun `the weekly volume range is inclusive of its first day and exclusive of its last`() =
+        runBlocking {
+            logSet(workoutOn(WEEK_1 - 1), 1, at(WEEK_1 - 1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_2 - 1), 1, at(WEEK_2 - 1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_2), 1, at(WEEK_2), reps = 10, weight = kg(100))
+
+            val series = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_2).first()
+
+            // Only week 1's two sessions: the one before the range and the one on its
+            // exclusive end are both outside it.
+            assertEquals(listOf(WEEK_1), series.map { it.weekStartEpochDay })
+            assertEquals(2_000_000_000L, series.single().totalVolume)
+        }
+
+    @Test
+    fun `a range ending mid-week sums that week over the days asked for only`() =
+        runBlocking {
+            // Monday and Wednesday inside the range, Friday past its end - all one bucket.
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(workoutOn(WEEK_1 + 2), 1, at(WEEK_1 + 2), reps = 10, weight = kg(50))
+            logSet(workoutOn(WEEK_1 + 4), 1, at(WEEK_1 + 4), reps = 10, weight = kg(200))
+
+            val series = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_1 + 3).first()
+
+            // 100kg x 10 + 50kg x 10, with the Friday's 200kg x 10 left out.
+            assertEquals(WEEK_1, series.single().weekStartEpochDay)
+            assertEquals(1_500_000_000L, series.single().totalVolume)
+        }
+
+    // --- getTrainingByWeek ------------------------------------------------
+
+    @Test
+    fun `training days are counted per Monday-aligned week`() =
+        runBlocking {
+            // week 1: Monday and Wednesday. week 2: Tuesday. week 3: the closing Sunday.
+            finishSession(at(WEEK_1))
+            finishSession(at(WEEK_1 + 2))
+            finishSession(at(WEEK_2 + 1))
+            finishSession(at(WEEK_3 + 6))
+
+            val series = db.workoutSessionDao().getTrainingByWeek(WEEK_1, WEEK_4 + 7).first()
+
+            assertEquals(listOf(WEEK_1, WEEK_2, WEEK_3), series.map { it.weekStartEpochDay })
+            assertEquals(listOf(2, 1, 1), series.map { it.trainingDays })
+            assertEquals(listOf(2, 1, 1), series.map { it.sessionCount })
+        }
+
+    @Test
+    fun `two sessions on the same day are one training day and two sessions`() =
+        runBlocking {
+            // A morning lift and an evening run, plus a second day to prove the week is not
+            // collapsing everything into one.
+            finishSession(at(WEEK_1))
+            finishSession(at(WEEK_1) + 8 * 3_600_000L)
+            finishSession(at(WEEK_1 + 3))
+
+            val week = db.workoutSessionDao().getTrainingByWeek(WEEK_1, WEEK_2).first().single()
+
+            assertEquals(2, week.trainingDays)
+            assertEquals(3, week.sessionCount)
+        }
+
+    @Test
+    fun `a session still in progress has not been trained yet`() =
+        runBlocking {
+            finishSession(at(WEEK_1))
+            // In progress, and carrying a completed_at anyway - a resumed session, whose flag
+            // went back to 1 while the stamp from its first close-out stayed. The flag is what
+            // has to exclude it; a query filtering only on the stamp would count it.
+            db.workoutSessionDao().insert(
+                session(
+                    isInProgress = true,
+                    lastActiveAt = at(WEEK_1 + 1),
+                    createdAt = at(WEEK_1 + 1),
+                    completedAt = at(WEEK_1 + 1),
+                ),
+            )
+
+            val week = db.workoutSessionDao().getTrainingByWeek(WEEK_1, WEEK_2).first().single()
+
+            assertEquals(1, week.trainingDays)
+            assertEquals(1, week.sessionCount)
+        }
+
+    @Test
+    fun `the training range is inclusive of its first day and exclusive of its last`() =
+        runBlocking {
+            finishSession(at(WEEK_1 - 1))
+            finishSession(at(WEEK_1))
+            finishSession(at(WEEK_2 - 1))
+            finishSession(at(WEEK_2))
+
+            val series = db.workoutSessionDao().getTrainingByWeek(WEEK_1, WEEK_2).first()
+
+            assertEquals(listOf(WEEK_1), series.map { it.weekStartEpochDay })
+            assertEquals(2, series.single().trainingDays)
+        }
+
+    @Test
+    fun `training by week is an empty series for a user with no finished sessions`() =
+        runBlocking {
+            db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = at(WEEK_1)))
+
+            assertTrue(db.workoutSessionDao().getTrainingByWeek(WEEK_1, WEEK_4 + 7).first().isEmpty())
         }
 
     // --- getVolumeByMuscleGroup -------------------------------------------
@@ -181,16 +331,62 @@ class AnalyticsDaoTest : RoomTestBase() {
             val muscles = seedMuscleGroups("CHEST")
             val exerciseId = db.exerciseDao().insert(exercise())
             link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
-            val sessionExerciseId = seedSessionExerciseFor(exerciseId)
-            logSet(sessionExerciseId, 1, at(WEEK_1 - 1), reps = 10, weight = kg(100))
-            logSet(sessionExerciseId, 2, at(WEEK_1), reps = 10, weight = kg(100))
-            logSet(sessionExerciseId, 3, at(WEEK_2 - 1), reps = 10, weight = kg(100))
-            logSet(sessionExerciseId, 4, at(WEEK_2), reps = 10, weight = kg(100))
+            // One workout per day, since the range is filtered on the session's close-out.
+            listOf(WEEK_1 - 1, WEEK_1, WEEK_2 - 1, WEEK_2).forEach { day ->
+                val slot = seedSessionExerciseFor(exerciseId, finishedOn = day)
+                logSet(slot, 1, at(day), reps = 10, weight = kg(100))
+            }
 
             val rows = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
 
-            // The two sets inside [WEEK_1, WEEK_2): 2 x 1_000_000_000.
+            // The two workouts inside [WEEK_1, WEEK_2): 2 x 1_000_000_000.
             assertEquals(2_000_000_000L, rows.single().totalVolume)
+        }
+
+    @Test
+    fun `muscle volume and weekly volume agree on which sessions a period holds`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST")
+            val exerciseId = db.exerciseDao().insert(exercise())
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            val finished = seedSessionExerciseFor(exerciseId, finishedOn = WEEK_1)
+            logSet(finished, 1, at(WEEK_1), reps = 10, weight = kg(100))
+            // An open session in the same week: excluded from both aggregates, so the breakdown
+            // still adds up to the total the chart draws.
+            val openSessionId = db.workoutSessionDao().insert(
+                session(isInProgress = true, lastActiveAt = at(WEEK_1 + 1), createdAt = at(WEEK_1 + 1)),
+            )
+            val openSlot = db.sessionExerciseDao()
+                .insert(sessionExercise(openSessionId, exerciseId, position = 0))
+            logSet(openSlot, 1, at(WEEK_1 + 1), reps = 10, weight = kg(900))
+
+            val byMuscle = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+            val byWeek = db.workoutSetDao().getVolumeByWeek(WEEK_1, WEEK_2).first()
+
+            assertEquals(byWeek.single().totalVolume, byMuscle.single().totalVolume)
+            assertEquals(1_000_000_000L, byMuscle.single().totalVolume)
+        }
+
+    // --- hasFinishedSession -----------------------------------------------
+
+    @Test
+    fun `a user who has never finished a session has no training history`() =
+        runBlocking {
+            db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = at(WEEK_1)))
+
+            assertFalse(db.workoutSessionDao().hasFinishedSession().first())
+        }
+
+    @Test
+    fun `training history stays true however far outside every window it falls`() =
+        runBlocking {
+            // Finished years before any range a twelve-week chart would ask for. This is the
+            // signal that separates a returning lifter from a first-time one, and no window can
+            // carry it.
+            finishSession(at(WEEK_1))
+
+            assertTrue(db.workoutSessionDao().hasFinishedSession().first())
+            assertTrue(db.workoutSessionDao().getTrainingByWeek(WEEK_3, WEEK_4 + 7).first().isEmpty())
         }
 
     @Test
@@ -250,17 +446,54 @@ class AnalyticsDaoTest : RoomTestBase() {
 
     // --- fixture helpers --------------------------------------------------
 
+    private var sharedExercise: Long? = null
+
+    /** One exercise for the fixtures that do not care which; created on first use. */
+    private suspend fun sharedExerciseId(): Long =
+        sharedExercise ?: db.exerciseDao().insert(exercise()).also { sharedExercise = it }
+
+    /**
+     * A workout finished on [epochDay], returning the session_exercise id its sets go under.
+     *
+     * Volume buckets on the *session's* close-out, so a fixture wanting sets in two different
+     * weeks needs two workouts — two stamps under one session would land in one bucket, which
+     * is the behaviour `a session's sets are bucketed by its close-out` pins.
+     */
+    private suspend fun workoutOn(epochDay: Long): Long {
+        val sessionId = finishSession(at(epochDay))
+        return db.sessionExerciseDao()
+            .insert(sessionExercise(sessionId, sharedExerciseId(), position = 0))
+    }
+
     /** Inserts an exercise + session + session_exercise, returning (exerciseId, sessionExerciseId). */
     private suspend fun seedSessionExercise(): Pair<Long, Long> {
         val exerciseId = db.exerciseDao().insert(exercise())
         return exerciseId to seedSessionExerciseFor(exerciseId)
     }
 
-    /** Puts [exerciseId] into a fresh session, returning the session_exercise id. */
-    private suspend fun seedSessionExerciseFor(exerciseId: Long): Long {
-        val sessionId = db.workoutSessionDao().insert(session())
+    /**
+     * Puts [exerciseId] into a session finished on [finishedOn], returning the
+     * session_exercise id. Finished rather than in progress because the volume aggregates
+     * read only closed-out sessions.
+     */
+    private suspend fun seedSessionExerciseFor(
+        exerciseId: Long,
+        finishedOn: Long = WEEK_1,
+    ): Long {
+        val sessionId = finishSession(at(finishedOn))
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
     }
+
+    /** A session closed out at [completedAt], the state `FinishSessionUseCase` leaves. */
+    private suspend fun finishSession(completedAt: Long): Long =
+        db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = completedAt,
+                createdAt = completedAt,
+                completedAt = completedAt,
+            ),
+        )
 
     private suspend fun seedMuscleGroups(vararg names: String): Map<String, Long> {
         db.muscleGroupDao().insertAll(names.map { muscleGroup(it) })

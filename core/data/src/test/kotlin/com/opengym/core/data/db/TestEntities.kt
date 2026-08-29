@@ -58,12 +58,18 @@ fun templateExercise(
     supersetGroup = supersetGroup,
 )
 
+/**
+ * @param completedAt when the session was closed out. A finished session always carries one
+ *   — `FinishSessionUseCase` writes it and `is_in_progress = 0` together — so the analytics
+ *   that bucket by it would read nothing at all from a fixture that left it null.
+ */
 fun session(
     templateId: Long? = null,
     name: String? = null,
     isInProgress: Boolean = true,
     lastActiveAt: Long = 0,
     createdAt: Long = 0,
+    completedAt: Long? = null,
 ) = WorkoutSessionEntity(
     templateId = templateId,
     name = name,
@@ -71,6 +77,7 @@ fun session(
     lastActiveAt = lastActiveAt,
     createdAt = createdAt,
     updatedAt = createdAt,
+    completedAt = completedAt,
 )
 
 fun sessionExercise(
