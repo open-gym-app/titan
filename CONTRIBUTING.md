@@ -197,6 +197,11 @@ Text(
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
+  | `LineSeriesChart` | a series as a line with the area under it filled and the latest point emphasised — a trend, scaled to its own floor and ceiling | `List<ChartEntry>` + what the series is called |
+  | `BarSeriesChart` | the same series as bars, measured against zero, with the single highest one in the accent | `List<ChartEntry>` + what the series is called |
+  | `ProgressRing` | a fraction as a gauge: a track, an accent arc, and a slot for the figure inside it | a `0f..1f` progress, its two labels, and the content |
+  | `ChartAxisLabels` | the sparse period labels under a chart (`FEB · MAR · APR`), each over the marks it covers | what `chartAxisLabels` returned |
+  | `ChangeChip` | `↑ 18%` beside a hero figure — the accent on a rise, neutral on a fall | a `ChangeDirection` and an unsigned magnitude |
 
   `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
   typed, the set that is a record, and the set that has not happened yet — and they share their
@@ -235,6 +240,20 @@ Text(
   **A feature must not reimplement one of these.** If one is close but not right, widen it
   here rather than forking it into a feature — a second set row is how two screens end up
   disagreeing about what a warm-up looks like.
+
+  **The charts are `:core:ui`'s and never a feature's.** Five M5 surfaces plot a series, and
+  three of them separately carry the acceptance criterion *"values reachable via TalkBack, not
+  image-only"* — which is one semantics problem solved once here, or four times in feature code,
+  inconsistently. Every chart clears the semantics over its canvas and carries a single sentence
+  built from its own series: the shape, the range and the latest value. A feature that draws its
+  own plot has also decided, silently, what a flat series and an empty one look like; here those
+  are one rule (`ChartStats`, `MIN_PLOTTABLE_ENTRIES`) and a series with fewer than two marks
+  draws *nothing plottable* rather than a chart of one bar.
+
+  Values reach a chart **already formatted or already canonical** — `ChartEntry` carries the
+  number to plot *and* the string to read out — so the same component draws kilograms and pounds
+  without reading `LocalUnitSystem`. Unit conversion stays in the formatters below.
+
 - **`supersetLabels` turns a grouping into `A1`/`A2`/`B1`,** and lives in `:core:ui` for the same
   reason the enum labels below do: `Supersets` in `:core:domain` decides what a group *is*, and
   what it is *called* is presentation. Three screens draw the same marker over the same grouping
@@ -271,9 +290,10 @@ Text(
   | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
-  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsEstimate` (`~55m`) | — |
-  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
+  | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsTotal` (a period's worth, `32h`), `formatAsEstimate` (`~55m`) | — |
+  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
   | A whole set | milligrams and a count | `formatSet` (`80 kg × 5`, `12 reps`, or **null** where there is neither), and `formatSetCompact` (`80×5`) for the one cell too narrow to hold the long form | — (typed field by field) |
+  | A change | a ratio or a difference | `formatPercentChange` (`18%`, unsigned — the arrow beside it is the sign), `formatMagnitude` (`3.2`, `0.4`) | — (computed, never typed) |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and

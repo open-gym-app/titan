@@ -110,6 +110,13 @@ fun StatTile(
  * Not [OpenGymBadge]: a badge is a *tag* — a fixed word, uppercased, carrying no data — and
  * this carries a number in a numeric role. They look similar on purpose and are not the same
  * thing.
+ *
+ * @param description what a screen reader is given instead of the drawn text, for a chip whose
+ *   figure carries a *glyph* the reader cannot make sense of. `↑ 18%` is announced as an arrow
+ *   followed by a number, which says nothing; `Up 18 percent` says what the arrow means. The
+ *   one caller is `ChangeChip`, and the parameter is here rather than a second pill in the
+ *   chart package because a near-copy of this is how two chips on one screen end up different
+ *   heights.
  */
 @Composable
 fun StatChip(
@@ -117,6 +124,7 @@ fun StatChip(
     modifier: Modifier = Modifier,
     label: String? = null,
     accented: Boolean = false,
+    description: String? = null,
 ) {
     val container: Color = if (accented) {
         MaterialTheme.colorScheme.primaryContainer
@@ -135,7 +143,9 @@ fun StatChip(
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    val spoken = label?.let { stringResource(R.string.stat_description, it, value) } ?: value
+    val spoken = description
+        ?: label?.let { stringResource(R.string.stat_description, it, value) }
+        ?: value
 
     Row(
         modifier = modifier

@@ -309,6 +309,12 @@ interface WorkoutSetDao {
      * finished sessions only, placed by the day the session was closed out — so a period's
      * breakdown is built from the same workouts as its total volume. Two figures on one
      * screen disagreeing about what "this month" holds is what sharing the filter avoids.
+     *
+     * `set_count` and `worked_directly` ride along rather than being a second query, because
+     * they are three readings of the same fanned-out join: the progression screen's muscle map
+     * ranks by sets, labels the figure with them, and needs to know which groups were prime
+     * movers to draw them at full accent. A second aggregate over the same rows would be a
+     * second scan of the whole set table to answer half of one question — see [MuscleVolumeRow].
      */
     @Query(
         """
@@ -321,7 +327,9 @@ interface WorkoutSetDao {
                     THEN COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)
                     ELSE (COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) / 2
                 END
-            ) AS weighted_volume
+            ) AS weighted_volume,
+            COUNT(*) AS set_count,
+            MAX(emg.is_primary) AS worked_directly
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         INNER JOIN workout_session s ON s.id = se.session_id

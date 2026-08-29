@@ -137,6 +137,22 @@ fun formatMonthAndYear(
     return "$name $year"
 }
 
+/**
+ * The month a chart's axis marks a stretch with: `Apr`, `avr.`, `4月`.
+ *
+ * Short rather than full, and without a year: the axis under a trend is a *hint* about where
+ * in the calendar the marks sit, not a scale to read dates off — see `ChartAxisLabels`, which
+ * draws three of these across a card at 10sp. [formatMonthAndYear] is the heading form, for a
+ * calendar page that is genuinely about one month.
+ *
+ * Standalone rather than the genitive form some locales use inside a full date, for the reason
+ * [formatMonthAndYear] uses it: this is a label, not part of "the 28th of April".
+ */
+fun formatMonthAbbreviation(
+    date: LocalDate,
+    locale: Locale = formattingLocale(),
+): String = date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
+
 /** The number in one calendar cell, and on a session row's date rail: `28`, `٢٨`. */
 fun formatDayOfMonth(
     date: LocalDate,

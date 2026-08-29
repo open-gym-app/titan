@@ -2,10 +2,12 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /**
  * The records table, in memory.
@@ -50,6 +52,27 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
 
     override suspend fun count(): Int = records.value.size
 
+    /**
+     * The period's tally, derived from what has been written rather than tracked separately —
+     * the same rule the rest of this fake follows, so it cannot report a record the store does
+     * not hold.
+     *
+     * The range is turned into UTC milliseconds exactly as the real repository turns it, so a
+     * record achieved on the last day of the period is inside it and one achieved a millisecond
+     * into the next day is not.
+     */
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> {
+        val start = days.start.toEpochDay() * MILLIS_PER_DAY
+        val end = (days.endInclusive.toEpochDay() + 1) * MILLIS_PER_DAY
+        return records.map { rows ->
+            val inPeriod = rows.filter { it.achievedAt in start until end }
+            RecordTally(
+                records = inPeriod.size,
+                exercises = inPeriod.distinctBy(PersonalRecord::exerciseId).size,
+            )
+        }
+    }
+
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
             rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->
@@ -76,3 +99,6 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
         return stored
     }
 }
+
+/** What a day is, in the milliseconds a record's `achievedAt` is stored in. */
+private const val MILLIS_PER_DAY = 86_400_000L

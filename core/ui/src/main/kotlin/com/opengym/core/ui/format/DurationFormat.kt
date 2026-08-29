@@ -137,6 +137,33 @@ fun Duration.formatAsLength(): String {
 }
 
 /**
+ * How long something took in **total**, over a period: `32h`, `48m`, `0m`.
+ *
+ * The fourth duration role, and the coarsest. [formatAsLength] measures one session and keeps
+ * its minutes because a workout is an hour long and five of them are what a lifter compares;
+ * this measures a quarter's worth of them, where `32h 47m` claims a precision nobody reads and
+ * costs a stat tile the width its label needs. Past an hour the minutes go.
+ *
+ * **Truncated, like [formatAsLength]**, so a total and the sum of its parts cannot drift in
+ * opposite directions — a period of 32h 47m reads `32h`, never `33h`. Under an hour it falls
+ * back to whole minutes, because `0h` would be the one rendering that says nothing happened
+ * when something did.
+ *
+ * The unit letters are not translated, matching the other three: the localization pass (#40)
+ * sweeps them together.
+ */
+fun Duration.formatAsTotal(): String {
+    val minutes = inWholeMinutes.coerceAtLeast(0)
+    val locale = Locale.getDefault()
+
+    return if (minutes >= MINUTES_PER_HOUR) {
+        String.format(locale, "%d%s", minutes / MINUTES_PER_HOUR, HOUR_SUFFIX)
+    } else {
+        String.format(locale, "%d%s", minutes, MINUTE_SUFFIX)
+    }
+}
+
+/**
  * This duration in whole minutes, snapped to [ESTIMATE_STEP_MINUTES] and floored at one
  * step for anything that is not zero. Negative durations — which nothing produces, but an
  * imported template could — read as zero rather than as time owed.

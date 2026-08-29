@@ -700,10 +700,12 @@ class OpenGymAppNavigationTest {
         const val TAB_STATS = "Stats"
         const val SETTINGS_ACTION = "Settings"
 
-        // Screen markers — each screen's eyebrow.
+        // Screen markers — each screen's eyebrow, except the stats hub, whose one constant
+        // element is its timeframe selector: everything below it depends on what the reads
+        // come back with, and on an empty database that is an empty state rather than a card.
         const val HOME = "QUICK START"
         const val HISTORY = "HISTORY"
-        const val PROGRESSION = "PROGRESSION"
+        const val PROGRESSION = "90D"
         const val NEW_SESSION = "New session"
 
         // The templates tab, and the editor a new template opens in. One string for two things:

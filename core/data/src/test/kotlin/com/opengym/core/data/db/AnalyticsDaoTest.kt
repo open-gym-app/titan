@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -400,6 +401,195 @@ class AnalyticsDaoTest : RoomTestBase() {
             assertTrue(db.workoutSetDao().getVolumeByMuscleGroup(WEEK_3, WEEK_4).first().isEmpty())
         }
 
+    // --- set counts and prime movers on the muscle aggregate ---------------
+
+    @Test
+    fun `each linked muscle group is credited with one set per set, not one per link`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS", "SHOULDERS")
+            val exerciseId = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
+            link(exerciseId, muscles.getValue("SHOULDERS"), isPrimary = false)
+            val slot = seedSessionExerciseFor(exerciseId)
+            logSet(slot, 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(slot, 2, at(WEEK_1), reps = 8, weight = kg(100))
+            logSet(slot, 3, at(WEEK_1), reps = 6, weight = kg(100))
+
+            val byName = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+                .associateBy { it.muscleGroupName }
+
+            // Three sets against three groups is three rows of three, not nine anywhere: the
+            // fan-out credits each group once per set and the `GROUP BY` collapses it back.
+            assertEquals(3, byName.getValue("CHEST").setCount)
+            assertEquals(3, byName.getValue("TRICEPS").setCount)
+            assertEquals(3, byName.getValue("SHOULDERS").setCount)
+        }
+
+    @Test
+    fun `a group worked directly by one exercise is a prime mover however many assist it`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS")
+            val press = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            link(press, muscles.getValue("CHEST"), isPrimary = true)
+            link(press, muscles.getValue("TRICEPS"), isPrimary = false)
+            val pushdown = db.exerciseDao().insert(exercise(name = "Triceps Pushdown"))
+            link(pushdown, muscles.getValue("TRICEPS"), isPrimary = true)
+
+            logSet(seedSessionExerciseFor(press), 1, at(WEEK_1), reps = 10, weight = kg(100))
+            logSet(seedSessionExerciseFor(press), 1, at(WEEK_1 + 1), reps = 10, weight = kg(100))
+            logSet(seedSessionExerciseFor(pushdown), 1, at(WEEK_1 + 2), reps = 12, weight = kg(30))
+
+            val byName = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+                .associateBy { it.muscleGroupName }
+
+            // Two of the triceps' three sets were assistance and one was the point of the
+            // movement. One is enough: the lifter trains their triceps.
+            assertTrue(byName.getValue("TRICEPS").workedDirectly)
+            assertTrue(byName.getValue("CHEST").workedDirectly)
+        }
+
+    @Test
+    fun `a group only ever assisting is not a prime mover`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("CHEST", "TRICEPS")
+            val exerciseId = db.exerciseDao().insert(exercise())
+            link(exerciseId, muscles.getValue("CHEST"), isPrimary = true)
+            link(exerciseId, muscles.getValue("TRICEPS"), isPrimary = false)
+            logSet(seedSessionExerciseFor(exerciseId), 1, at(WEEK_1), reps = 10, weight = kg(100))
+
+            val byName = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first()
+                .associateBy { it.muscleGroupName }
+
+            assertFalse(byName.getValue("TRICEPS").workedDirectly)
+        }
+
+    @Test
+    fun `a set that carried no load still counts towards the groups it trained`() =
+        runBlocking {
+            val muscles = seedMuscleGroups("LATS")
+            val exerciseId = db.exerciseDao().insert(exercise(name = "Pull-up"))
+            link(exerciseId, muscles.getValue("LATS"), isPrimary = true)
+            val slot = seedSessionExerciseFor(exerciseId)
+            logSet(slot, 1, at(WEEK_1), reps = 12, weight = null)
+            logSet(slot, 2, at(WEEK_1), reps = 10, weight = null)
+
+            val row = db.workoutSetDao().getVolumeByMuscleGroup(WEEK_1, WEEK_2).first().single()
+
+            // Zero volume and two sets: the reason the muscle map ranks by sets rather than by
+            // volume, since bodyweight work would otherwise rank last however hard it was.
+            assertEquals(0L, row.totalVolume)
+            assertEquals(2, row.setCount)
+        }
+
+    // --- getTrainingMillis ------------------------------------------------
+
+    @Test
+    fun `training time is the sum of each finished session's own length`() =
+        runBlocking {
+            sessionLasting(startedOn = WEEK_1, minutes = 52)
+            sessionLasting(startedOn = WEEK_1 + 2, minutes = 68)
+            // Still open, so it has not happened yet.
+            db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = at(WEEK_1 + 3)))
+
+            val millis = db.workoutSessionDao().getTrainingMillis(WEEK_1, WEEK_2).first()
+
+            assertEquals((52L + 68L) * 60_000L, millis)
+        }
+
+    @Test
+    fun `training time is zero rather than absent for a window with no training in it`() =
+        runBlocking {
+            sessionLasting(startedOn = WEEK_1, minutes = 52)
+
+            assertEquals(0L, db.workoutSessionDao().getTrainingMillis(WEEK_3, WEEK_4).first())
+        }
+
+    @Test
+    fun `a session whose clock ran backwards subtracts nothing from the total`() =
+        runBlocking {
+            sessionLasting(startedOn = WEEK_1, minutes = 52)
+            // A device whose clock was corrected mid-workout: closed out before it opened.
+            db.workoutSessionDao().insert(
+                session(
+                    isInProgress = false,
+                    lastActiveAt = at(WEEK_1 + 1),
+                    createdAt = at(WEEK_1 + 1) + 30 * 60_000L,
+                    completedAt = at(WEEK_1 + 1),
+                ),
+            )
+
+            assertEquals(52L * 60_000L, db.workoutSessionDao().getTrainingMillis(WEEK_1, WEEK_2).first())
+        }
+
+    // --- getFirstTrainingDay ----------------------------------------------
+
+    @Test
+    fun `the first training day is the earliest finished session's close-out`() =
+        runBlocking {
+            finishSession(at(WEEK_3))
+            finishSession(at(WEEK_1))
+            finishSession(at(WEEK_2))
+
+            assertEquals(WEEK_1, db.workoutSessionDao().getFirstTrainingDay().first())
+        }
+
+    @Test
+    fun `a user with nothing finished has no first training day`() =
+        runBlocking {
+            db.workoutSessionDao().insert(session(isInProgress = true, lastActiveAt = at(WEEK_1)))
+
+            assertNull(db.workoutSessionDao().getFirstTrainingDay().first())
+        }
+
+    // --- getRecordTally ---------------------------------------------------
+
+    @Test
+    fun `the tally counts records and the exercises they came from`() =
+        runBlocking {
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+            // A good day on the bench: three kinds of record off the same session.
+            recordOn(bench, at(WEEK_1), "MAX_WEIGHT")
+            recordOn(bench, at(WEEK_1), "MAX_REPS")
+            recordOn(bench, at(WEEK_1), "MAX_VOLUME")
+            recordOn(squat, at(WEEK_1 + 2), "MAX_WEIGHT")
+
+            val tally = db.personalRecordDao()
+                .getRecordTally(WEEK_1 * MILLIS_PER_DAY, WEEK_2 * MILLIS_PER_DAY)
+                .first()
+
+            assertEquals(4, tally.recordCount)
+            assertEquals(2, tally.exerciseCount)
+        }
+
+    @Test
+    fun `the tally is bounded by the range it was asked for`() =
+        runBlocking {
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            recordOn(bench, at(WEEK_1 - 1), "MAX_WEIGHT")
+            recordOn(bench, at(WEEK_1), "MAX_WEIGHT")
+            recordOn(bench, at(WEEK_2), "MAX_WEIGHT")
+
+            val tally = db.personalRecordDao()
+                .getRecordTally(WEEK_1 * MILLIS_PER_DAY, WEEK_2 * MILLIS_PER_DAY)
+                .first()
+
+            // Inclusive of the first day, exclusive of the last: only the middle row.
+            assertEquals(1, tally.recordCount)
+        }
+
+    @Test
+    fun `a window with no records tallies zero rather than nothing`() =
+        runBlocking {
+            val tally = db.personalRecordDao()
+                .getRecordTally(WEEK_1 * MILLIS_PER_DAY, WEEK_2 * MILLIS_PER_DAY)
+                .first()
+
+            assertEquals(0, tally.recordCount)
+            assertEquals(0, tally.exerciseCount)
+        }
+
     // --- getRecentRecords -------------------------------------------------
 
     @Test
@@ -482,6 +672,41 @@ class AnalyticsDaoTest : RoomTestBase() {
     ): Long {
         val sessionId = finishSession(at(finishedOn))
         return db.sessionExerciseDao().insert(sessionExercise(sessionId, exerciseId, position = 0))
+    }
+
+    /** A session that ran for [minutes], opened and closed on [startedOn]. */
+    private suspend fun sessionLasting(
+        startedOn: Long,
+        minutes: Long,
+    ): Long {
+        val startedAt = at(startedOn)
+        return db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = startedAt + minutes * 60_000L,
+                createdAt = startedAt,
+                completedAt = startedAt + minutes * 60_000L,
+            ),
+        )
+    }
+
+    /** A record of [prType] achieved by [exerciseId] at [achievedAt], on a set of its own. */
+    private suspend fun recordOn(
+        exerciseId: Long,
+        achievedAt: Long,
+        prType: String,
+    ): Long {
+        val slot = db.sessionExerciseDao()
+            .insert(sessionExercise(finishSession(achievedAt), exerciseId, position = 0))
+        val setId = logSet(slot, 1, achievedAt, reps = 5, weight = kg(100))
+        return db.personalRecordDao().insert(
+            personalRecord(
+                exerciseId = exerciseId,
+                workoutSetId = setId,
+                prType = prType,
+                achievedAt = achievedAt,
+            ),
+        )
     }
 
     /** A session closed out at [completedAt], the state `FinishSessionUseCase` leaves. */

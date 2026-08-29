@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.repository.ProgressionRepository
@@ -35,6 +36,9 @@ class FakeProgressionRepository : ProgressionRepository {
     private val volume = MutableStateFlow<List<WeeklyVolume>>(emptyList())
     private val training = MutableStateFlow<List<WeeklyTraining>>(emptyList())
     private val everTrained = MutableStateFlow(false)
+    private val muscleTraining = MutableStateFlow<List<MuscleTraining>>(emptyList())
+    private val trainingMillis = MutableStateFlow(0L)
+    private val firstTrainingDay = MutableStateFlow<LocalDate?>(null)
 
     /** Every range this repository has been read over, in call order. */
     val requestedRanges = mutableListOf<ClosedRange<LocalDate>>()
@@ -60,6 +64,21 @@ class FakeProgressionRepository : ProgressionRepository {
         if (weeks.isNotEmpty()) everTrained.value = true
     }
 
+    /** Seeds the muscle map, in the order the query would return it. */
+    fun setMuscleTraining(vararg muscles: MuscleTraining) {
+        muscleTraining.value = muscles.toList()
+    }
+
+    /** Seeds how long the period's sessions ran for, in milliseconds. */
+    fun setTrainingMillis(millis: Long) {
+        trainingMillis.value = millis
+    }
+
+    /** Seeds the day the user first finished a session, or null for one who never has. */
+    fun setFirstTrainingDay(day: LocalDate?) {
+        firstTrainingDay.value = day
+    }
+
     /**
      * Sets the all-history predicate on its own — the lapsed user, whose training is real but
      * falls outside every range the use case asks for and so cannot be seeded as a week.
@@ -79,6 +98,25 @@ class FakeProgressionRepository : ProgressionRepository {
     }
 
     override fun hasTrainingHistory(): Flow<Boolean> = everTrained
+
+    /*
+     * The three period readings, which nothing in this module derives anything from — they are
+     * read straight by a screen, so there is no gap-filling or bucketing for a fake to model.
+     * Plain seedable values, and still routed through [requireWholeWeeks] so a caller that
+     * stopped snapping its period fails here as it does above.
+     */
+
+    override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> {
+        requestedRanges += requireWholeWeeks(days)
+        return muscleTraining
+    }
+
+    override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> {
+        requestedRanges += requireWholeWeeks(days)
+        return trainingMillis
+    }
+
+    override fun getFirstTrainingDay(): Flow<LocalDate?> = firstTrainingDay
 
     /**
      * Rejects a range that starts anywhere but a Monday or ends anywhere but a Sunday.

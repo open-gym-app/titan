@@ -1,5 +1,6 @@
 package com.opengym.core.domain.repository
 
+import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.stats.TrainingWeek
@@ -79,4 +80,51 @@ interface ProgressionRepository {
      * window is quiet.
      */
     fun hasTrainingHistory(): Flow<Boolean>
+
+    /**
+     * What each muscle group was trained over [days], ordered highest volume first.
+     *
+     * The one aggregate here that is not per week: the muscle map is a reading of the *period*
+     * rather than a series across it, so bucketing it would produce a table nobody draws.
+     *
+     * Same filter and same bucketing as [getWeeklyVolume] — completed sets of finished
+     * sessions, placed by the day the session was closed out — so a period's breakdown is built
+     * from exactly the workouts its total volume was. Two figures on one screen disagreeing
+     * about what "this month" holds is what sharing the filter avoids.
+     *
+     * A group the period did not touch has no entry, rather than a zeroed one. That is the same
+     * rule the series follow, and unlike them there is nothing to fill in: the gaps in a series
+     * are weeks the caller can enumerate from the period it asked for, and the gaps here are
+     * every muscle group in the catalogue, which is not a list a chart wants.
+     */
+    fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>>
+
+    /**
+     * How long the user spent training over [days], in milliseconds.
+     *
+     * A session's length is its own row's business — `createdAt` to `completedAt` — so this is
+     * summed over the sessions and touches no set; see [com.opengym.core.domain.model.SessionTotals],
+     * which leaves duration out of the per-session aggregate for the same reason.
+     *
+     * A session that opened before [days] and finished inside it contributes its **whole**
+     * length, because it is counted whole by [getWeeklyTraining] and [getWeeklyVolume] too. A
+     * workout is one event; splitting one across two periods would put half of it in a month
+     * the user did not train in.
+     *
+     * Zero for a period with no training in it, which is the honest figure rather than an
+     * absent one.
+     */
+    fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long>
+
+    /**
+     * The day the user's first finished session was closed out on, or **null** when they have
+     * none.
+     *
+     * What an "all time" period opens on. The alternatives are both wrong: a fixed date far
+     * enough back is a window that widens every scan for the life of the install, and "the last
+     * ten years" is a number somebody picked. Same filter as [hasTrainingHistory], so an
+     * all-time period covers exactly the sessions the series can return and never opens on a
+     * run of empty weeks before the user had started.
+     */
+    fun getFirstTrainingDay(): Flow<LocalDate?>
 }

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ── The timeframe selector ────────────────────────────────────────────────── -->
+
+    <!-- Drawn on the segments: short, mono, five across a 360dp screen. The descriptions
+         are what a screen reader is given instead — "7D" read aloud is not a phrase. -->
+    <string name="timeframe_week">7D</string>
+    <string name="timeframe_week_description">Last 7 days</string>
+    <string name="timeframe_month">30D</string>
+    <string name="timeframe_month_description">Last 30 days</string>
+    <string name="timeframe_quarter">90D</string>
+    <string name="timeframe_quarter_description">Last 90 days</string>
+    <string name="timeframe_year">1Y</string>
+    <string name="timeframe_year_description">Last year</string>
+    <string name="timeframe_all">ALL</string>
+    <string name="timeframe_all_description">All time</string>
+
+    <!-- ── The hero and the grid ─────────────────────────────────────────────────── -->
+
+    <string name="stats_volume_label">Cumulative volume</string>
+
+    <string name="stats_sessions_label">Sessions</string>
+    <string name="stats_frequency_label">Avg / week</string>
+    <string name="stats_records_label">PRs hit</string>
+    <string name="stats_time_label">Time lifted</string>
+
+    <!-- The caption under a tile that has nothing to compare itself against. -->
+    <string name="stats_caption_this_period">this period</string>
+    <string name="stats_sessions_caption">this period</string>
+    <!-- Days trained per week against the period before. The sign lives here rather than in
+         the formatter so a translation can move it. -->
+    <string name="stats_frequency_caption_up">+%1$s vs prev</string>
+    <string name="stats_frequency_caption_down">−%1$s vs prev</string>
+    <plurals name="stats_records_caption">
+        <item quantity="one">across %1$d exercise</item>
+        <item quantity="other">across %1$d exercises</item>
+    </plurals>
+    <string name="stats_time_caption">%1$s avg / session</string>
+
+    <!-- ── The muscle map ────────────────────────────────────────────────────────── -->
+
+    <string name="stats_muscles_heading">Muscles trained</string>
+    <plurals name="stats_muscle_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <plurals name="stats_muscles_more">
+        <item quantity="one">+%1$d more</item>
+        <item quantity="other">+%1$d more</item>
+    </plurals>
+    <!-- The two weights on a rank row say whether the muscle was worked directly, which is
+         invisible to a screen reader; the description says it in words. -->
+    <string name="stats_muscle_description_primary">%1$s, worked directly, %2$s</string>
+    <string name="stats_muscle_description_secondary">%1$s, assisting, %2$s</string>
+
+    <!-- ── The empty windows ─────────────────────────────────────────────────────── -->
+
+    <!-- Two states, not one: a lifter of three years who took six months off empties a
+         90-day window exactly as thoroughly as somebody who installed the app today, and
+         telling the first of them to log their first session would be the app failing to
+         read its own data. -->
+    <string name="stats_empty_glyph">◷</string>
+    <string name="stats_empty_first_run_title">No training logged yet</string>
+    <string name="stats_empty_first_run_body">Finish your first workout and this fills up: volume, records, and what you have been training.</string>
+    <string name="stats_empty_quiet_title">Nothing in this window</string>
+    <string name="stats_empty_quiet_body">You have trained before, just not in the period you are looking at. Try a wider one.</string>
+    <string name="stats_empty_quiet_action">Show all time</string>
+
+    <!-- ── Explore ───────────────────────────────────────────────────────────────── -->
+
+    <string name="stats_explore_heading">Explore</string>
+    <string name="explore_records_title">Personal records</string>
+    <string name="explore_records_caption">Every best, by exercise</string>
+    <string name="explore_exercise_title">Exercise progression</string>
+    <string name="explore_exercise_caption">Drill into any lift</string>
+    <string name="explore_quests_title">Quest log</string>
+    <string name="explore_quests_caption">Level, quests and achievements</string>
+    <string name="explore_measurements_title">Body measurements</string>
+    <string name="explore_measurements_caption">Weight, body fat, parts</string>
+    <string name="explore_calendar_title">Training calendar</string>
+    <string name="explore_calendar_caption">Frequency and rest days</string>
+
+    <!-- ── The drill-downs, until the issues that build them land ────────────────── -->
+
+    <string name="progression_detail_back">Back</string>
+    <string name="progression_detail_glyph">◈</string>
+    <string name="progression_detail_records_body">Every record you have broken, filtered by kind. Arriving with the PR list.</string>
+    <string name="progression_detail_exercise_body">One lift\'s estimated one-rep max and volume, over the timeframe you picked. Arriving with per-exercise progression.</string>
+    <string name="progression_detail_quests_body">Your level, XP, active quests, achievements and loot. Arriving with the quest log.</string>
+    <string name="progression_detail_measurements_body">Body weight, body fat and the parts you track, over time. Arriving with body measurements.</string>
+
+</resources>
