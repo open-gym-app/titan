@@ -36,6 +36,18 @@ interface WorkoutSessionDao {
     @Query("SELECT * FROM workout_session WHERE id = :id")
     fun getById(id: Long): Flow<WorkoutSessionEntity?>
 
+    /**
+     * How many sessions have been closed out over the whole history.
+     *
+     * The same "finished" the analytics queries use — `is_in_progress = 0` **and** a
+     * `completed_at`, the pair `FinishSessionUseCase` writes together — so this figure and the
+     * per-week counts below can never disagree about which rows count. A one-shot rather than
+     * a `Flow`: its caller is the post-session cascade, which needs the total including the
+     * session it has just closed out.
+     */
+    @Query("SELECT COUNT(*) FROM workout_session WHERE is_in_progress = 0 AND completed_at IS NOT NULL")
+    suspend fun countFinished(): Int
+
     @Query(
         """
         SELECT * FROM workout_session

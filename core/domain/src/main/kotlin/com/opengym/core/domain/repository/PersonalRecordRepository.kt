@@ -33,6 +33,21 @@ interface PersonalRecordRepository {
     fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>>
 
     /**
+     * How many records the user has ever broken, counted per record and not per session.
+     *
+     * Every row, across every exercise and [PrType] — a session that beat its weight, rep and
+     * volume records for one lift contributed three, matching the three
+     * [com.opengym.core.domain.model.XpEvent.PrBroken] events it emitted. Rows are only ever
+     * inserted, never replaced (see [insertIfBetter]), so the table *is* the history and its
+     * size is the figure.
+     *
+     * A suspend one-shot for the same reason as
+     * [SessionRepository.countFinished]: the post-session cascade needs the total including
+     * the records it has just written, and it needs it in the same breath.
+     */
+    suspend fun count(): Int
+
+    /**
      * Writes [record] as [exerciseId]'s new record of [type], but only if it beats what is
      * already on file — and returns it (with its id) if so, or **null** if it did not.
      *

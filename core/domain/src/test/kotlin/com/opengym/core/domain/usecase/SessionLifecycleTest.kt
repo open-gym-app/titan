@@ -43,7 +43,7 @@ class SessionLifecycleTest {
                     SessionState.Active(sessionId = 1L, startedAt = 5_000L),
                     SessionState.Paused(sessionId = 1L, pausedAt = 65_000L),
                     SessionState.Active(sessionId = 1L, startedAt = 5_000L),
-                    finished,
+                    finished.state,
                 ),
                 state.recorded,
             )

@@ -1,9 +1,12 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.SessionError
+import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
+import com.opengym.core.domain.model.StreakResult
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -22,6 +25,31 @@ class FinishSessionUseCaseTest {
     private val startSession = StartSessionUseCase(sessions, state, clock)
     private val pauseSession = PauseSessionUseCase(sessions, state, clock)
     private val finishSession = FinishSessionUseCase(sessions, state, drafts, clock)
+
+    private val personalRecords = FakePersonalRecordRepository()
+    private val gamification = FakeGamificationRepository()
+    private val awardXp = AwardXpUseCase(gamification)
+
+    /**
+     * The same use case with the gamification cascade wired in, which the app has no binding
+     * for until #35 lands. Everything above it is deliberately the plain one: the session's own
+     * behaviour is not supposed to change with a cascade attached, and a suite that only ever
+     * ran the wired variant could not tell.
+     */
+    private val finishWithCascade = FinishSessionUseCase(
+        sessions,
+        state,
+        drafts,
+        clock,
+        completeSession = SessionCompletionPipeline(
+            detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
+            awardXp = awardXp,
+            triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
+            sessionRepository = sessions,
+            personalRecordRepository = personalRecords,
+            gamificationRepository = gamification,
+        ),
+    )
 
     /** Starts a session with one exercise carrying [sets] completed sets, and returns its id. */
     private suspend fun startWithSets(sets: Int = 1): Long {
@@ -60,7 +88,7 @@ class FinishSessionUseCaseTest {
 
             val finished = finishSession().getOrThrow()
 
-            assertEquals(finished, state.current)
+            assertEquals(finished.state, state.current)
         }
 
     @Test
@@ -105,7 +133,7 @@ class FinishSessionUseCaseTest {
             val finished = finishSession().getOrThrow()
 
             assertEquals(sessionId, finished.summary.sessionId)
-            assertEquals(finished, state.observe().first())
+            assertEquals(finished.state, state.observe().first())
             assertEquals(false, sessions.loadSession(sessionId).getOrThrow().isInProgress)
         }
 
@@ -218,7 +246,7 @@ class FinishSessionUseCaseTest {
 
             val result = finishSession()
 
-            assertEquals(SessionError.SessionNotActive(finished), result.exceptionOrNull())
+            assertEquals(SessionError.SessionNotActive(finished.state), result.exceptionOrNull())
         }
 
     @Test
@@ -321,5 +349,70 @@ class FinishSessionUseCaseTest {
             val summary = finishSession().getOrThrow().summary
 
             assertEquals(0L, summary.durationMillis)
+        }
+
+    @Test
+    fun `finishing runs the cascade and hands back what it moved`() =
+        runTest {
+            val sessionId = startWithSets()
+
+            val progression = requireNotNull(finishWithCascade().getOrThrow().progression)
+
+            assertEquals(sessionId, progression.sessionId)
+            assertEquals(4, progression.recordsBroken.size)
+            assertEquals(StreakResult.Incremented(1), progression.streak?.result)
+            assertTrue(progression.xpAwarded > 0)
+            assertTrue(progression.isComplete)
+        }
+
+    @Test
+    fun `the cascade runs against a session already closed out`() =
+        runTest {
+            startWithSets()
+
+            val progression = requireNotNull(finishWithCascade().getOrThrow().progression)
+
+            // `first_session` is a lifetime count of *finished* sessions, and `first_record`
+            // a count of rows detection has written. Unlocking either is only possible
+            // because the row was stamped and out of progress before the cascade read the
+            // counts; a cascade that ran first would have seen zero of both.
+            assertEquals(
+                listOf(Achievements.FIRST_SESSION.id, Achievements.FIRST_RECORD.id),
+                progression.achievementsUnlocked.map { it.achievement.id },
+            )
+        }
+
+    @Test
+    fun `a cascade that cannot write leaves the workout finished and saved`() =
+        runTest {
+            // The workout is the user's data and the XP is a consequence the app invented.
+            // A refused progress write must not report "nothing was saved" over a saved
+            // session — the same trade the draft clear above makes, for the same reason.
+            val sessionId = startWithSets()
+            gamification.addXpFailure = IllegalStateException("the progress row is locked")
+
+            val finished = finishWithCascade().getOrThrow()
+
+            assertEquals(sessionId, finished.summary.sessionId)
+            assertEquals(false, sessions.stored(sessionId)?.isInProgress)
+            assertEquals(1, finished.summary.totalSets)
+            assertEquals(finished.state, state.current)
+            assertEquals(
+                listOf(SessionProgressionStep.XP, SessionProgressionStep.ACHIEVEMENTS),
+                requireNotNull(finished.progression).failures.map { it.step },
+            )
+        }
+
+    @Test
+    fun `a finish with no cascade wired reports no progression at all`() =
+        runTest {
+            // Null rather than an empty progression: an empty one is what a cascade that ran
+            // and moved nothing returns, and a recap that cannot tell those apart would draw
+            // "no records, no XP, no streak" over a session nobody ever priced.
+            startWithSets()
+
+            val finished = finishSession().getOrThrow()
+
+            assertNull(finished.progression)
         }
 }

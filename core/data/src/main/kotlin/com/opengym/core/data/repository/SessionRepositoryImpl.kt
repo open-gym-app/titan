@@ -86,6 +86,9 @@ class SessionRepositoryImpl @Inject constructor(
             }
         }
 
+    /** Counted in SQLite, not over [getAll] — see [SessionRepository.countFinished]. */
+    override suspend fun countFinished(): Int = sessionDao.countFinished()
+
     override suspend fun insert(session: WorkoutSession): Long = sessionDao.insert(sessionMapper.toEntity(session))
 
     override suspend fun insertExercises(

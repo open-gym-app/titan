@@ -54,6 +54,8 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
 
     override fun getTotals(): Flow<Map<Long, SessionTotals>> = totals
 
+    override suspend fun countFinished(): Int = unsupported()
+
     /** Records what a session logged, as the grouped query would report it. */
     fun setTotals(
         sessionId: Long,
@@ -101,6 +103,8 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
 /** The records the PR engine (#30) writes. Nothing here writes one, so [insertIfBetter] is unsupported. */
 class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+
+    override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 
     override suspend fun insertIfBetter(
         exerciseId: Long,

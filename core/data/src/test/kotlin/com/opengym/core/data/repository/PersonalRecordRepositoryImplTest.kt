@@ -132,6 +132,45 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
         }
 
     @Test
+    fun `count is every row, across exercises and types`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            val (pullUp, pullUpSet) = seedSet("Pull-Up")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 92_000_000)
+            record(bench, benchSet, PrType.MAX_REPS, achievedAt = 100, reps = 8)
+            record(pullUp, pullUpSet, PrType.MAX_REPS, achievedAt = 100, reps = 14)
+
+            // Three records, two exercises, one session — the figure is per record, matching
+            // the one `XpEvent.PrBroken` event each one emits.
+            assertEquals(3, repository.count())
+        }
+
+    @Test
+    fun `count includes a row this build's mapper cannot read`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+            db.personalRecordDao().insert(
+                PersonalRecordEntity(
+                    exerciseId = exerciseId,
+                    workoutSetId = setId,
+                    prType = "MAX_AURA",
+                    weight = 92_000_000,
+                    achievedAt = 100,
+                ),
+            )
+
+            // A record broken on a newer version is still a record broken. Dropping it here
+            // would make an achievement threshold move with the app version.
+            assertEquals(1, repository.count())
+        }
+
+    @Test
+    fun `count is zero on an empty table`() =
+        runBlocking {
+            assertEquals(0, repository.count())
+        }
+
+    @Test
     fun `insertIfBetter writes a row through the mapper when nothing is on file yet`() =
         runBlocking {
             val (exerciseId, setId) = seedSet("Bench Press")

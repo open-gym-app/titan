@@ -44,6 +44,17 @@ interface PersonalRecordDao {
         return insert(record)
     }
 
+    /**
+     * How many records have ever been broken, across every exercise and type.
+     *
+     * `COUNT(*)` over the whole table is the honest figure because rows are only ever inserted
+     * — [insertIfBetter] never replaces one — so the table is the history rather than a set of
+     * current bests. A one-shot for the post-session cascade, which needs the total including
+     * the rows it has just written.
+     */
+    @Query("SELECT COUNT(*) FROM personal_record")
+    suspend fun count(): Int
+
     @Query("SELECT * FROM personal_record WHERE exercise_id = :exerciseId ORDER BY achieved_at DESC")
     fun getByExercise(exerciseId: Long): Flow<List<PersonalRecordEntity>>
 

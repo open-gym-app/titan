@@ -192,7 +192,7 @@ class FullSessionIntegrationTest {
                     started,
                     SessionState.Paused(started.sessionId, pausedAt = started.startedAt + pausedAfterMillis),
                     started,
-                    finished,
+                    finished.state,
                 ),
                 state.recorded,
             )
