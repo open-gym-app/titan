@@ -2,6 +2,7 @@ package com.opengym.core.ui.component
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -41,6 +42,11 @@ class PreferenceLabelsTest {
     @Test
     fun `every training goal has a name and says what training that way looks like`() {
         assertAllLabelled(TrainingGoal.entries) { listOf(it.label(), it.detail()) }
+    }
+
+    @Test
+    fun `every one-rep-max formula has a name and states its tradeoff`() {
+        assertAllLabelled(OneRepMaxFormula.entries) { listOf(it.label(), it.detail()) }
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.opengym.app
 
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -133,6 +134,10 @@ class MainViewModelTest {
 
         override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) {
             preferences.update { it.copy(trainingGoal = trainingGoal) }
+        }
+
+        override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) {
+            preferences.update { it.copy(oneRepMaxFormula = formula) }
         }
 
         override suspend fun setDefaultRestDuration(duration: Duration) {

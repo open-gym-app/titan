@@ -10,7 +10,10 @@ import androidx.room.PrimaryKey
  * Derived data: a record always points at the set that achieved it, so both
  * foreign keys cascade — deleting the source data deletes the record.
  * weight/estimated_1rm in milligrams, distance in centimeters, duration in
- * seconds, achieved_at in epoch milliseconds.
+ * seconds, achieved_at in epoch milliseconds. `weight` doubles as the
+ * milligram-reps total for a `MAX_VOLUME` row — see
+ * [com.opengym.core.domain.model.PersonalRecord] for why there is no separate
+ * column for it.
  */
 @Entity(
     tableName = "personal_record",

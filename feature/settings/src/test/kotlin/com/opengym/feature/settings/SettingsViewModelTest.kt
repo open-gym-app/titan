@@ -1,6 +1,7 @@
 package com.opengym.feature.settings
 
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -89,6 +90,7 @@ class SettingsViewModelTest {
             viewModel.onEvent(SettingsEvent.RestDurationSelected(240.seconds))
             viewModel.onEvent(SettingsEvent.BarWeightSelected(15_000_000))
             viewModel.onEvent(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY))
+            viewModel.onEvent(SettingsEvent.OneRepMaxFormulaSelected(OneRepMaxFormula.BRZYCKI))
 
             assertEquals(
                 UserPreferences(
@@ -97,6 +99,7 @@ class SettingsViewModelTest {
                     defaultRestDuration = 240.seconds,
                     barWeight = 15_000_000,
                     trainingGoal = TrainingGoal.HYPERTROPHY,
+                    oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                 ),
                 viewModel.uiState.value.preferences,
             )

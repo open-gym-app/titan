@@ -2,6 +2,7 @@ package com.opengym.feature.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -85,6 +86,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.RestDurationSelected -> setRestDuration(event.duration)
             is SettingsEvent.BarWeightSelected -> setBarWeight(event.milligrams)
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event.goal)
+            is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
             SettingsEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
@@ -100,6 +102,9 @@ class SettingsViewModel @Inject constructor(
     private fun setBarWeight(milligrams: Long) = write { userPreferencesRepository.setBarWeight(milligrams) }
 
     private fun setTrainingGoal(goal: TrainingGoal) = write { userPreferencesRepository.setTrainingGoal(goal) }
+
+    private fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
+        write { userPreferencesRepository.setOneRepMaxFormula(formula) }
 
     /**
      * Closes the picker, then stores the choice.

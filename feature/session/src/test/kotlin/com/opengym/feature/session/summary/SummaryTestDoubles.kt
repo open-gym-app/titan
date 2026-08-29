@@ -160,14 +160,22 @@ class FakeSummaryCatalogue(
 }
 
 /**
- * The records the PR engine (#30) will write.
+ * The records the PR engine (#30) writes.
  *
- * One per exercise, which is all the repository exposes today — see the note on the recap's
- * ViewModel for what that costs and when it stops costing it.
+ * One per exercise, which is all [getHeadlineRecords] exposes — see the note on the recap's
+ * ViewModel for what that costs and when it stops costing it. Nothing in this feature writes
+ * a record, so [insertIfBetter] has no caller to satisfy here.
  */
 class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
 }
 
 /**

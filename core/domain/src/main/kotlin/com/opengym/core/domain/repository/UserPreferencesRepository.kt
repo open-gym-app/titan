@@ -1,5 +1,6 @@
 package com.opengym.core.domain.repository
 
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -135,6 +136,18 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setTrainingGoal(trainingGoal: TrainingGoal)
+
+    /**
+     * Sets which formula estimates a one-rep max from a set that was not one.
+     *
+     * Takes effect for future `ESTIMATED_1RM` records only — see
+     * [com.opengym.core.domain.usecase.PrDetectionUseCase], which reads this at the moment
+     * a session is finished. Past records keep the estimate they were written with; this is
+     * a change to how the next one is calculated, not a re-grading of history.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula)
 
     /**
      * Puts every setting back to the default a fresh install reads, in one write.

@@ -445,4 +445,9 @@
     <string name="preference_goal_custom">Custom</string>
     <string name="preference_goal_custom_detail">Your own programme</string>
 
+    <string name="preference_one_rep_max_epley">Epley</string>
+    <string name="preference_one_rep_max_epley_detail">Simple; overestimates at high reps</string>
+    <string name="preference_one_rep_max_brzycki">Brzycki</string>
+    <string name="preference_one_rep_max_brzycki_detail">More accurate at low reps</string>
+
 </resources>

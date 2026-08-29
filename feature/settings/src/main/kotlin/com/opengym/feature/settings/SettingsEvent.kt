@@ -1,5 +1,6 @@
 package com.opengym.feature.settings
 
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -35,6 +36,8 @@ sealed interface SettingsEvent {
     data class BarWeightSelected(val milligrams: Long) : SettingsEvent
 
     data class TrainingGoalSelected(val goal: TrainingGoal) : SettingsEvent
+
+    data class OneRepMaxFormulaSelected(val formula: OneRepMaxFormula) : SettingsEvent
 
     /**
      * The user typed the confirmation word and pressed the destructive button.

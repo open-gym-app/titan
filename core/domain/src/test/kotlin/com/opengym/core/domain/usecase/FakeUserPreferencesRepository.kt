@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -42,6 +43,8 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
     ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
+
+    override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 

@@ -76,6 +76,13 @@ data class UserPreferences(
     val trainingGoal: TrainingGoal = TrainingGoal.STRENGTH,
 
     /**
+     * Which formula estimates a one-rep max from a set that was not one — see
+     * [OneRepMaxFormula] for the tradeoff between the two, and
+     * [com.opengym.core.domain.pr.OneRepMaxCalculator] for where this is read.
+     */
+    val oneRepMaxFormula: OneRepMaxFormula = OneRepMaxFormula.EPLEY,
+
+    /**
      * Whether the user has been through onboarding.
      *
      * The flag that makes first launch route to onboarding *exactly once*: it is the

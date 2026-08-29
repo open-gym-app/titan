@@ -7,10 +7,12 @@ import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.db.workoutSet
 import com.opengym.core.data.mapper.PersonalRecordMapper
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -127,5 +129,117 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
             // The type says which figure carries the value, so a fallback would put a weight
             // under the wrong heading. Showing nothing is the honest outcome.
             assertTrue(repository.getHeadlineRecords().first().isEmpty())
+        }
+
+    @Test
+    fun `insertIfBetter writes a row through the mapper when nothing is on file yet`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+
+            val written = repository.insertIfBetter(
+                exerciseId = exerciseId,
+                type = PrType.MAX_WEIGHT,
+                record = PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = setId,
+                    type = PrType.MAX_WEIGHT,
+                    weight = 92_000_000,
+                    achievedAt = 100,
+                ),
+            ) { current -> current == null }
+
+            assertEquals(92_000_000L, written?.weight)
+            assertEquals(1, db.personalRecordDao().getByExercise(exerciseId).first().size)
+        }
+
+    @Test
+    fun `insertIfBetter writes nothing and returns null when isBetter rejects the current row`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+            record(exerciseId, setId, PrType.MAX_WEIGHT, achievedAt = 100, weight = 95_000_000)
+
+            val written = repository.insertIfBetter(
+                exerciseId = exerciseId,
+                type = PrType.MAX_WEIGHT,
+                record = PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = setId,
+                    type = PrType.MAX_WEIGHT,
+                    weight = 92_000_000,
+                    achievedAt = 200,
+                ),
+            ) { current -> (current?.weight ?: 0L) < 92_000_000L }
+
+            assertNull(written)
+            assertEquals(1, db.personalRecordDao().getByExercise(exerciseId).first().size)
+        }
+
+    @Test
+    fun `insertIfBetter hands isBetter the most recently achieved row of that type, not the largest`() =
+        runBlocking {
+            val (exerciseId, setId) = seedSet("Bench Press")
+            record(exerciseId, setId, PrType.MAX_WEIGHT, achievedAt = 100, weight = 92_000_000)
+            record(exerciseId, setId, PrType.MAX_WEIGHT, achievedAt = 200, weight = 95_000_000)
+
+            var seenCurrent: PersonalRecord? = null
+            repository.insertIfBetter(
+                exerciseId = exerciseId,
+                type = PrType.MAX_WEIGHT,
+                record = PersonalRecord(
+                    exerciseId = exerciseId,
+                    workoutSetId = setId,
+                    type = PrType.MAX_WEIGHT,
+                    weight = 96_000_000,
+                    achievedAt = 300,
+                ),
+            ) { current ->
+                seenCurrent = current
+                true
+            }
+
+            assertEquals(95_000_000L, seenCurrent?.weight)
+        }
+
+    @Test
+    fun `insertIfBetter does not cross exercises or types`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            val (pullUp, pullUpSet) = seedSet("Pull-Up")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 92_000_000)
+            record(pullUp, pullUpSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 1_000_000)
+
+            var seenForBenchReps: PersonalRecord? = null
+            repository.insertIfBetter(
+                exerciseId = bench,
+                type = PrType.MAX_REPS,
+                record = PersonalRecord(
+                    exerciseId = bench,
+                    workoutSetId = benchSet,
+                    type = PrType.MAX_REPS,
+                    reps = 12,
+                    achievedAt = 200,
+                ),
+            ) { current ->
+                seenForBenchReps = current
+                true
+            }
+            assertNull(seenForBenchReps)
+
+            var seenForPullUpWeight: PersonalRecord? = null
+            repository.insertIfBetter(
+                exerciseId = pullUp,
+                type = PrType.MAX_WEIGHT,
+                record = PersonalRecord(
+                    exerciseId = pullUp,
+                    workoutSetId = pullUpSet,
+                    type = PrType.MAX_WEIGHT,
+                    weight = 2_000_000,
+                    achievedAt = 200,
+                ),
+            ) { current ->
+                seenForPullUpWeight = current
+                true
+            }
+            assertEquals(1_000_000L, seenForPullUpWeight?.weight)
         }
 }

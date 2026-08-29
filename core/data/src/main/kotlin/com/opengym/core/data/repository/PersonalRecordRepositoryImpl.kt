@@ -3,6 +3,7 @@ package com.opengym.core.data.repository
 import com.opengym.core.data.db.dao.PersonalRecordDao
 import com.opengym.core.data.mapper.PersonalRecordMapper
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -28,4 +29,18 @@ class PersonalRecordRepositoryImpl @Inject constructor(
             // exercise, so `associateBy` cannot lose one to a collision.
             rows.mapNotNull(personalRecordMapper::toDomainOrNull).associateBy { it.exerciseId }
         }
+
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? {
+        val id = personalRecordDao.insertIfBetter(
+            exerciseId = exerciseId,
+            prType = type.name,
+            record = personalRecordMapper.toEntity(record),
+        ) { current -> isBetter(current?.let(personalRecordMapper::toDomainOrNull)) }
+        return id?.let { record.copy(id = it) }
+    }
 }

@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -53,12 +54,13 @@ class SettingsScreenTest {
                 defaultRestDuration = 150.seconds,
                 barWeight = 15_000_000,
                 trainingGoal = TrainingGoal.ENDURANCE,
+                oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
             ),
         )
 
         // `performScrollTo` on each: the screen is longer than a phone, and a row that is
         // merely composed is not a row the user can read.
-        listOf("Dark", "Metric", "2:30", "15 kg", "Endurance").forEach { value ->
+        listOf("Dark", "Metric", "2:30", "15 kg", "Endurance", "Brzycki").forEach { value ->
             composeTestRule.onNodeWithText(value).performScrollTo().assertIsDisplayed()
         }
     }
@@ -126,6 +128,15 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("Hypertrophy").performClick()
 
         assertTrue(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY) in events)
+    }
+
+    @Test
+    fun `the one-rep-max formula picker reports the formula that was chosen`() {
+        setContent(dialog = SettingsDialog.ONE_REP_MAX_FORMULA)
+
+        composeTestRule.onNodeWithText("Brzycki").performClick()
+
+        assertTrue(SettingsEvent.OneRepMaxFormulaSelected(OneRepMaxFormula.BRZYCKI) in events)
     }
 
     @Test

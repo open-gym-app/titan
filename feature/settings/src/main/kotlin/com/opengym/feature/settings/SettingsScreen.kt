@@ -34,6 +34,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -222,6 +223,13 @@ private fun WorkoutGroup(
             value = preferences.trainingGoal.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.TRAINING_GOAL)) },
         )
+        HairlineDivider()
+        SettingsRow(
+            label = stringResource(R.string.settings_one_rep_max_formula),
+            value = preferences.oneRepMaxFormula.label(),
+            supporting = stringResource(R.string.settings_one_rep_max_formula_detail),
+            onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.ONE_REP_MAX_FORMULA)) },
+        )
     }
 }
 
@@ -361,6 +369,20 @@ private fun SettingsDialogs(
             },
             selected = state.preferences.trainingGoal,
             onSelect = { onEvent(SettingsEvent.TrainingGoalSelected(it)) },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.ONE_REP_MAX_FORMULA -> ChoiceDialog(
+            title = stringResource(R.string.settings_one_rep_max_formula),
+            choices = OneRepMaxFormula.entries.map { formula ->
+                SettingsChoice(
+                    value = formula,
+                    label = formula.label(),
+                    detail = formula.detail(),
+                )
+            },
+            selected = state.preferences.oneRepMaxFormula,
+            onSelect = { onEvent(SettingsEvent.OneRepMaxFormulaSelected(it)) },
             onDismiss = dismiss,
         )
 

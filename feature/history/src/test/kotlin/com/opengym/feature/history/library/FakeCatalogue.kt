@@ -161,6 +161,13 @@ class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap
     private val records = MutableStateFlow(records)
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = records
+
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
 }
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────────────
