@@ -164,7 +164,7 @@ private fun FootprintList(footprint: DataFootprint) {
         FootprintLine(footprint.templates, R.plurals.settings_count_templates)
         FootprintLine(footprint.personalRecords, R.plurals.settings_count_personal_records)
         FootprintLine(footprint.customExercises, R.plurals.settings_count_custom_exercises)
-        FootprintLine(footprint.bodyWeightLogs, R.plurals.settings_count_body_weight_logs)
+        FootprintLine(footprint.bodyMeasurements, R.plurals.settings_count_body_measurements)
 
         // Always shown, and without a count: settings are reset whatever else is here, and a
         // wipe that quietly also cleared them would be a surprise on the next launch.

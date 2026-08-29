@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "c2ba593872614150a5aa9c21d7fafa50",
+    "identityHash": "22ed6d07f29c5437ffff4adf1f122370",
     "entities": [
       {
         "tableName": "exercise",
@@ -1099,8 +1099,8 @@
         ]
       },
       {
-        "tableName": "body_weight_log",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER NOT NULL, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
+        "tableName": "body_measurement",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `weight` INTEGER, `chest` INTEGER, `waist` INTEGER, `arm` INTEGER, `thigh` INTEGER, `body_fat` INTEGER, `notes` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -1111,8 +1111,32 @@
           {
             "fieldPath": "weight",
             "columnName": "weight",
-            "affinity": "INTEGER",
-            "notNull": true
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "chest",
+            "columnName": "chest",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "waist",
+            "columnName": "waist",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "arm",
+            "columnName": "arm",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "thigh",
+            "columnName": "thigh",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "bodyFat",
+            "columnName": "body_fat",
+            "affinity": "INTEGER"
           },
           {
             "fieldPath": "notes",
@@ -1140,20 +1164,20 @@
         },
         "indices": [
           {
-            "name": "index_body_weight_log_created_at",
+            "name": "index_body_measurement_created_at",
             "unique": false,
             "columnNames": [
               "created_at"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_body_weight_log_created_at` ON `${TABLE_NAME}` (`created_at`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_body_measurement_created_at` ON `${TABLE_NAME}` (`created_at`)"
           }
         ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'c2ba593872614150a5aa9c21d7fafa50')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '22ed6d07f29c5437ffff4adf1f122370')"
     ]
   }
 }

@@ -7,7 +7,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.data.db.OpenGymDatabase
-import com.opengym.core.data.db.bodyWeightLog
+import com.opengym.core.data.db.bodyMeasurement
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.exercise
 import com.opengym.core.data.db.personalRecord
@@ -128,7 +128,7 @@ class LocalDataRepositoryImplTest {
                     templates = 1,
                     personalRecords = 1,
                     customExercises = 1,
-                    bodyWeightLogs = 1,
+                    bodyMeasurements = 1,
                 ),
                 repository.observeFootprint().first(),
             )
@@ -229,7 +229,7 @@ class LocalDataRepositoryImplTest {
             workoutSet(sessionExerciseId = sessionExerciseId, setNumber = 2, reps = 5, weight = 100_000_000),
         )
         db.personalRecordDao().insert(personalRecord(exerciseId = exerciseId, workoutSetId = setId))
-        db.bodyWeightLogDao().insert(bodyWeightLog())
+        db.bodyMeasurementDao().insert(bodyMeasurement())
     }
 
     private fun draft() =

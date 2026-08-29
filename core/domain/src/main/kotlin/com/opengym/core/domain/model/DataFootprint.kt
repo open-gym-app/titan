@@ -39,14 +39,14 @@ data class DataFootprint(
     /** Exercises the user added themselves; the seeded catalogue is not counted. */
     val customExercises: Int = 0,
 
-    /** Logged body weight entries. */
-    val bodyWeightLogs: Int = 0,
+    /** Logged body measurement entries — a weigh-in, a set of circumferences, or both. */
+    val bodyMeasurements: Int = 0,
 ) {
     init {
         require(sessions >= 0 && sets >= 0 && templates >= 0) {
             "a footprint cannot be negative, was $this"
         }
-        require(personalRecords >= 0 && customExercises >= 0 && bodyWeightLogs >= 0) {
+        require(personalRecords >= 0 && customExercises >= 0 && bodyMeasurements >= 0) {
             "a footprint cannot be negative, was $this"
         }
     }
@@ -60,5 +60,5 @@ data class DataFootprint(
      */
     val isEmpty: Boolean
         get() = sessions == 0 && sets == 0 && templates == 0 &&
-            personalRecords == 0 && customExercises == 0 && bodyWeightLogs == 0
+            personalRecords == 0 && customExercises == 0 && bodyMeasurements == 0
 }
