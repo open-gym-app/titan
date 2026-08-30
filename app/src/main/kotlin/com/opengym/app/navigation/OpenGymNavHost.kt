@@ -26,7 +26,13 @@ import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.onboarding.navigation.OnboardingDestination
 import com.opengym.feature.onboarding.navigation.onboardingGraph
+import com.opengym.feature.progression.navigation.BodyMeasurementsDestination
+import com.opengym.feature.progression.navigation.ExerciseProgressionDestination
+import com.opengym.feature.progression.navigation.PersonalRecordsDestination
+import com.opengym.feature.progression.navigation.QuestLogDestination
+import com.opengym.feature.progression.navigation.progressionDetailGraph
 import com.opengym.feature.progression.navigation.progressionGraph
+import com.opengym.feature.progression.stats.component.StatsExploreActions
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import com.opengym.feature.session.navigation.ExercisePicker
 import com.opengym.feature.session.navigation.NO_TEMPLATE
@@ -212,7 +218,37 @@ fun OpenGymNavHost(
                 ),
             )
             libraryGraph(onExerciseClick = { exerciseId -> navController.openExercise(exerciseId) })
-            progressionGraph()
+            progressionGraph(
+                actions = StatsExploreActions(
+                    // Four pushes over the tabs, each into a destination this feature owns and
+                    // registers outside the scaffold — see [progressionDetailGraph].
+                    // `launchSingleTop` as everywhere else: two taps on a row dispatched before
+                    // recomposition are two pushes of the same screen, and the first back press
+                    // then looks like it did nothing.
+                    onOpenRecords = { navController.openProgressionDetail(PersonalRecordsDestination) },
+                    onOpenExerciseProgression = {
+                        navController.openProgressionDetail(ExerciseProgressionDestination)
+                    },
+                    onOpenQuestLog = { navController.openProgressionDetail(QuestLogDestination) },
+                    onOpenMeasurements = {
+                        navController.openProgressionDetail(BodyMeasurementsDestination)
+                    },
+                    // The fifth is the one that crosses a module edge, which is why it is
+                    // hoisted at all: the calendar is the Sessions tab's own third pane
+                    // (#24), so this is a tab switch and not a push — the same move Home's
+                    // week card makes, through the same helper, and what leaves that tab on
+                    // the stack it already had.
+                    //
+                    // It lands on whichever of the tab's three panes the user left it on.
+                    // Opening it *on* the calendar means a route argument on
+                    // `SessionsDestination`, and a tab switch restores the tab's saved state
+                    // over any argument it is given — so the honest thing today is to take
+                    // the user to the screen the calendar is on rather than to pretend.
+                    onOpenCalendar = {
+                        appState.navigateToTopLevelDestination(TopLevelDestination.SESSIONS)
+                    },
+                ),
+            )
         }
 
         sessionGraph(
@@ -318,6 +354,11 @@ fun OpenGymNavHost(
 
         plateCalculatorGraph(onBack = { navController.popBackStack() })
 
+        // Outside the tabs, like the exercise detail and the plate calculator: all four are
+        // full-screen reading surfaces with their own bar, and the Stats title over a list of
+        // personal records is chrome for the wrong screen.
+        progressionDetailGraph(onBack = { navController.popBackStack() })
+
         settingsGraph(
             // The version name belongs to the module that ships, and `:app` is it. A feature's
             // own `BuildConfig` carries the library's version, which is not what a user should
@@ -346,6 +387,18 @@ private fun NavHostController.openExercise(
     navigate(ExerciseDetailDestination(exerciseId = exerciseId, addToSession = addToSession)) {
         launchSingleTop = true
     }
+}
+
+/**
+ * Open one of the stats hub's drill-downs.
+ *
+ * One function for all four because they are one kind of move: a push over the tabs into a
+ * destination `:feature:progression` owns. `launchSingleTop` for the reason every other push
+ * here has it — two taps on an explore row dispatched before recomposition are two pushes of
+ * the same screen, and the first back press then looks like it did nothing.
+ */
+private fun NavHostController.openProgressionDetail(destination: Any) {
+    navigate(destination) { launchSingleTop = true }
 }
 
 /**

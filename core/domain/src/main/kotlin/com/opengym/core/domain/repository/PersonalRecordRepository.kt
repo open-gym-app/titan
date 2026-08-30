@@ -2,7 +2,9 @@ package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.RecordTally
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 /**
  * The personal records the PR engine ([com.opengym.core.domain.usecase.PrDetectionUseCase])
@@ -46,6 +48,22 @@ interface PersonalRecordRepository {
      * the records it has just written, and it needs it in the same breath.
      */
     suspend fun count(): Int
+
+    /**
+     * How many records were broken over [days], and across how many exercises.
+     *
+     * The progression screen's `PRs HIT` tile. A [kotlinx.coroutines.flow.Flow] rather than a
+     * one-shot like [count], because it is read by a screen that has to repaint when the
+     * post-session cascade writes a record behind it, where [count] is read *by* that cascade
+     * and needs its own writes in the same breath.
+     *
+     * **Days, UTC, both ends inclusive** — the shape every progression aggregate takes, and the
+     * same week arithmetic [com.opengym.core.domain.stats.TrainingWeek] documents. Records are
+     * placed by when they were *achieved*, which is the set's own timestamp rather than the
+     * session's closing one, so this and the volume series can disagree only about a workout
+     * that ran across midnight on the boundary of a period.
+     */
+    fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally>
 
     /**
      * Writes [record] as [exerciseId]'s new record of [type], but only if it beats what is

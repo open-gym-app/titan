@@ -2,6 +2,7 @@ package com.opengym.feature.history.sessions
 
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionTotals
@@ -105,6 +106,9 @@ class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = e
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
+
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
+        throw UnsupportedOperationException("no test here tallies records over a period")
 
     override suspend fun insertIfBetter(
         exerciseId: Long,

@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.opengym.core.data.db.entity.PersonalRecordEntity
+import com.opengym.core.data.db.projection.RecordTallyRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -54,6 +55,41 @@ interface PersonalRecordDao {
      */
     @Query("SELECT COUNT(*) FROM personal_record")
     suspend fun count(): Int
+
+    /**
+     * How many records were broken over the half-open millisecond range
+     * `[startEpochMillis, endEpochMillisExclusive)`, and across how many exercises.
+     *
+     * The stats hub's `PRs HIT` tile. In **milliseconds** rather than epoch days, unlike the
+     * aggregates on [com.opengym.core.data.db.dao.WorkoutSetDao], because `achieved_at` is what
+     * this table indexes and translating a day range once at the repository is cheaper than
+     * dividing every row by 86,400,000 and losing the index to do it.
+     *
+     * Counted by when the record was **achieved**, which is the set's own timestamp rather than
+     * the session's — the same instant the record was written against, so a period's PR count
+     * belongs to the period the lift happened in. That is a hair's breadth from
+     * `WorkoutSetDao.getVolumeByWeek`'s rule (the day the *session* was closed out) and they
+     * can disagree only for a workout that ran across midnight on the period's boundary.
+     * Living with that is better than joining three tables to re-derive a session id the record
+     * does not carry.
+     *
+     * A `Flow`, not a `suspend` one-shot like [count]: this one is read by a screen that has to
+     * repaint when the cascade writes a record behind it, where [count] is read *by* the
+     * cascade and needs its own writes in the same breath.
+     */
+    @Query(
+        """
+        SELECT
+            COUNT(*) AS record_count,
+            COUNT(DISTINCT exercise_id) AS exercise_count
+        FROM personal_record
+        WHERE achieved_at >= :startEpochMillis AND achieved_at < :endEpochMillisExclusive
+        """,
+    )
+    fun getRecordTally(
+        startEpochMillis: Long,
+        endEpochMillisExclusive: Long,
+    ): Flow<RecordTallyRow>
 
     @Query("SELECT * FROM personal_record WHERE exercise_id = :exerciseId ORDER BY achieved_at DESC")
     fun getByExercise(exerciseId: Long): Flow<List<PersonalRecordEntity>>

@@ -129,4 +129,65 @@ interface WorkoutSessionDao {
         """,
     )
     fun hasFinishedSession(): Flow<Boolean>
+
+    /**
+     * How long the user spent training over the half-open day range
+     * `[startEpochDay, endEpochDayExclusive)`, in milliseconds.
+     *
+     * A session's length is `created_at` to `completed_at` and needs no set at all — see
+     * [com.opengym.core.domain.model.SessionTotals], which deliberately has no duration in it
+     * for that reason. So this is a sum over the session rows alone rather than a fourth
+     * aggregate over `workout_set`.
+     *
+     * The same filter and the same bucketing as [getTrainingByWeek]: finished sessions, placed
+     * by the day they were closed out. A workout that opened before the window and finished
+     * inside it therefore contributes its **whole** length to the window, which is the only
+     * answer consistent with the volume and consistency series counting it whole too — a
+     * session is one event, and splitting one across two periods would put half a workout in
+     * a month the user did not train in.
+     *
+     * `MAX(..., 0)` per row, not over the sum: a device whose clock went backwards mid-workout
+     * writes a `completed_at` before its `created_at`, and one such session would otherwise
+     * subtract real training time from the total. Clamped here rather than at insert because
+     * the row is a faithful record of what the clock said.
+     *
+     * `COALESCE` because `SUM` over no rows is `NULL`, and a window with no training in it is
+     * zero milliseconds rather than an absent answer.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(MAX(s.completed_at - s.created_at, 0)), 0)
+        FROM workout_session s
+        WHERE s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+            AND s.completed_at >= :startEpochDay * 86400000
+            AND s.completed_at < :endEpochDayExclusive * 86400000
+        """,
+    )
+    fun getTrainingMillis(
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<Long>
+
+    /**
+     * The day the user's first finished session was closed out on, or **null** when there is
+     * none.
+     *
+     * What the stats hub's `ALL` timeframe opens on. A period has to have a start, and the
+     * alternatives are both wrong: a fixed date far enough back is a window that grows for the
+     * life of the install and quietly widens every aggregate's scan, and "the last ten years"
+     * is a number somebody picked. `MIN` over an indexed column is a single seek.
+     *
+     * The same filter as [hasFinishedSession] and [getTrainingByWeek], so `ALL` covers exactly
+     * the sessions the series can return — never a leading run of empty weeks before the user
+     * had started.
+     */
+    @Query(
+        """
+        SELECT MIN(completed_at / 86400000)
+        FROM workout_session
+        WHERE is_in_progress = 0 AND completed_at IS NOT NULL
+        """,
+    )
+    fun getFirstTrainingDay(): Flow<Long?>
 }

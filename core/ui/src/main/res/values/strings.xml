@@ -419,6 +419,32 @@
     <string name="discard_session_confirm">Discard</string>
     <string name="discard_session_cancel">Keep training</string>
 
+    <!-- ── Charts ────────────────────────────────────────────────────────────────── -->
+
+    <!-- A chart as one sentence, so a screen reader reaches the shape, the range and the
+         latest value without walking twelve marks. The clauses are ordered by the format
+         string rather than concatenated in Kotlin, so a translation may reorder them. -->
+    <string name="chart_description">%1$s, %2$s to %3$s. Latest %4$s. Highest %5$s in %6$s, lowest %7$s in %8$s.</string>
+    <!-- Every period the same. One clause rather than "highest X, lowest X", which is two
+         sentences restating one fact. -->
+    <string name="chart_description_flat">%1$s, %2$s to %3$s. %4$s throughout, unchanged.</string>
+    <!-- Fewer than two marks: there is no trend, and saying so beats saying nothing about a
+         card the user can see is empty. -->
+    <string name="chart_description_empty">%1$s. Not enough logged yet to chart.</string>
+    <!-- Drawn in the middle of a chart that has nothing to plot. -->
+    <string name="chart_placeholder">Not enough to chart yet</string>
+
+    <!-- The change against the previous period. The arrow is drawn and the word is spoken:
+         an arrow character read aloud before a number is not a sentence. -->
+    <string name="chart_change_up">\u2191 %1$s</string>
+    <string name="chart_change_down">\u2193 %1$s</string>
+    <string name="chart_change_up_description">Up %1$s on the previous period</string>
+    <string name="chart_change_down_description">Down %1$s on the previous period</string>
+    <string name="chart_change_none_description">Unchanged on the previous period</string>
+
+    <!-- The XP ring, announced as its label, its fraction and how far round it has gone. -->
+    <string name="progress_ring_description">%1$s, %2$s, %3$d%% complete</string>
+
     <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
 
     <!-- The three settings the user is asked about in more than one place: onboarding asks

@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import java.time.LocalDate
 
 /**
  * An in-memory catalogue behind the two repositories the library reads.
@@ -163,6 +165,9 @@ class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = records
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
+
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
+        throw UnsupportedOperationException("no test here tallies records over a period")
 
     override suspend fun insertIfBetter(
         exerciseId: Long,
