@@ -110,17 +110,22 @@ private fun ExploreRow(
     modifier: Modifier = Modifier,
 ) {
     OpenGymCard(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .semantics(mergeDescendants = true) { },
+        modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.small,
     ) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = OpenGymTheme.spacing.xl,
-                vertical = OpenGymTheme.spacing.lg,
-            ),
+            // Inside the card and before the padding, the way Home's resume banner builds its
+            // click: on the modifier handed to [OpenGymCard] it would sit outside the
+            // `Surface`'s clip and ripple square over a rounded card, and after the padding it
+            // would leave a dead border the width of the row's inset.
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .semantics(mergeDescendants = true) { }
+                .padding(
+                    horizontal = OpenGymTheme.spacing.xl,
+                    vertical = OpenGymTheme.spacing.lg,
+                ),
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {

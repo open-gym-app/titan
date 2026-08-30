@@ -36,7 +36,9 @@
         <item quantity="one">across %1$d exercise</item>
         <item quantity="other">across %1$d exercises</item>
     </plurals>
-    <string name="stats_time_caption">%1$s avg / session</string>
+    <!-- One session's worth of the total above it. Kept short: the tile is 160dp wide on a
+         360dp screen and the caption is a single clipped line. -->
+    <string name="stats_time_caption">%1$s / session</string>
 
     <!-- ── The muscle map ────────────────────────────────────────────────────────── -->
 

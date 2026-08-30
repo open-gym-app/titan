@@ -104,6 +104,18 @@ class StatsScreenTest {
             .performScrollTo()
     }
 
+    @Test
+    fun `an average session keeps its minutes past the hour`() {
+        // 5h20m over four sessions. The total above it drops its minutes by design — a quarter
+        // read as `32h 47m` claims a precision nobody scans — but one session's average that did
+        // the same would read `1h` for anything from an hour to an hour and fifty-nine.
+        show(populated(trainingMillis = 5 * HOUR_MILLIS + 20 * MINUTE_MILLIS, sessions = 4))
+
+        composeTestRule
+            .onNodeWithContentDescription("Time lifted, 5h 1h 20m / session")
+            .performScrollTo()
+    }
+
     // ─── The empty windows ──────────────────────────────────────────────────────────────
 
     @Test
@@ -183,27 +195,30 @@ class StatsScreenTest {
             onOpenCalendar = { opened += "calendar" },
         )
 
-    private fun populated(timeframe: StatsTimeframe = StatsTimeframe.QUARTER) =
-        StatsUiState(
-            timeframe = timeframe,
-            isLoading = false,
-            volume = VolumeState(
-                total = 30_000_000L,
-                weeks = listOf(
-                    weeklyVolume(week = 0, volume = 10_000_000L),
-                    weeklyVolume(week = 1, volume = 20_000_000L),
-                ),
-                changeRatio = 0.18,
+    private fun populated(
+        timeframe: StatsTimeframe = StatsTimeframe.QUARTER,
+        trainingMillis: Long = 4 * HOUR_MILLIS,
+        sessions: Int = 9,
+    ) = StatsUiState(
+        timeframe = timeframe,
+        isLoading = false,
+        volume = VolumeState(
+            total = 30_000_000L,
+            weeks = listOf(
+                weeklyVolume(week = 0, volume = 10_000_000L),
+                weeklyVolume(week = 1, volume = 20_000_000L),
             ),
-            summary = SummaryState(
-                sessions = 9,
-                averagePerWeek = 3.0,
-                averageChange = 0.4,
-                records = RecordTally(records = 7, exercises = 5),
-                trainingMillis = 4 * 60 * 60 * 1000L,
-            ),
-            muscles = listOf(trained(id = 1, name = "CHEST", sets = 18)),
-        )
+            changeRatio = 0.18,
+        ),
+        summary = SummaryState(
+            sessions = sessions,
+            averagePerWeek = 3.0,
+            averageChange = 0.4,
+            records = RecordTally(records = 7, exercises = 5),
+            trainingMillis = trainingMillis,
+        ),
+        muscles = listOf(trained(id = 1, name = "CHEST", sets = 18)),
+    )
 
     private fun empty(emptiness: StatsEmptiness) =
         StatsUiState(
@@ -228,4 +243,9 @@ class StatsScreenTest {
             StatsTimeframe.YEAR -> "Last year"
             StatsTimeframe.ALL -> "All time"
         }
+
+    private companion object {
+        const val MINUTE_MILLIS = 60 * 1000L
+        const val HOUR_MILLIS = 60 * MINUTE_MILLIS
+    }
 }

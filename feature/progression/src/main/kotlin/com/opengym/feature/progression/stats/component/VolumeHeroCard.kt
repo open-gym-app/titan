@@ -95,7 +95,11 @@ fun VolumeHeroCard(
                 )
                 state.changeRatio?.let { ratio ->
                     ChangeChip(
-                        direction = ChangeDirection.of(ratio),
+                        // Half a percentage point rather than the default hundredth, because
+                        // that is what `formatPercentChange` rounds to: at the default a ratio
+                        // of 0.008 draws as `1%` with no arrow while announcing itself as
+                        // "unchanged", which is the chip and its description disagreeing.
+                        direction = ChangeDirection.of(ratio, tolerance = PERCENT_ROUNDING),
                         value = formatPercentChange(ratio),
                     )
                 }
@@ -107,3 +111,12 @@ fun VolumeHeroCard(
         }
     }
 }
+
+/**
+ * The smallest change the chip draws an arrow for: half a percentage point.
+ *
+ * Tied to [formatPercentChange]'s rounding rather than picked. Anything at or above this
+ * renders as `1%` or more, and a magnitude on the chip with no arrow beside it — announced as
+ * "unchanged" — is the drawing and the description saying two different things.
+ */
+private const val PERCENT_ROUNDING = 0.005

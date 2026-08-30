@@ -11,9 +11,11 @@ import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.core.domain.stats.TrainingWeek
 import com.opengym.core.domain.time.Clock
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -30,6 +32,11 @@ import java.time.ZoneId
  * [requestedRanges] is what a test asserts the shared-period rule with: every read has to be
  * taken over the *same* window, or the hub is drawing a muscle map of thirty days beside a
  * chart of five weeks.
+ *
+ * [readLatencyMillis] is the one thing here a real store has and an in-memory one does not: a
+ * `1Y` window over a season of training does not answer in the same frame it was asked in, and
+ * a screen whose behaviour *while it waits* is the thing under test cannot be built on a fake
+ * that never makes it wait.
  */
 class FakeProgressionStore : ProgressionRepository {
 
@@ -42,6 +49,9 @@ class FakeProgressionStore : ProgressionRepository {
 
     /** Every range this store has been read over, in call order. */
     val requestedRanges = mutableListOf<ClosedRange<LocalDate>>()
+
+    /** How long every windowed read takes to answer. Zero — the default — answers at once. */
+    var readLatencyMillis: Long = 0
 
     /** Seeds a week's volume, snapped to the Monday that opens it. */
     fun setVolume(vararg weeks: Pair<LocalDate, Long>) {
@@ -81,24 +91,24 @@ class FakeProgressionStore : ProgressionRepository {
 
     override fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>> {
         requestedRanges += days
-        return volume.map { rows -> rows.filter { it.weekStart in days } }
+        return volume.map { rows -> rows.filter { it.weekStart in days } }.delayed()
     }
 
     override fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>> {
         requestedRanges += days
-        return training.map { rows -> rows.filter { it.weekStart in days } }
+        return training.map { rows -> rows.filter { it.weekStart in days } }.delayed()
     }
 
     override fun hasTrainingHistory(): Flow<Boolean> = everTrained
 
     override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> {
         requestedRanges += days
-        return muscles
+        return muscles.delayed()
     }
 
     override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> {
         requestedRanges += days
-        return millis
+        return millis.delayed()
     }
 
     override fun getFirstTrainingDay(): Flow<LocalDate?> = firstDay
@@ -107,6 +117,14 @@ class FakeProgressionStore : ProgressionRepository {
         everTrained.value = true
         if (firstDay.value == null) firstDay.value = TrainingWeek.startOf(day)
     }
+
+    /**
+     * This read, held open for [readLatencyMillis] before its first row.
+     *
+     * On `onStart` rather than on every emission, which is where the wait actually is: a query
+     * is slow to answer and then re-emits as fast as the table changes under it.
+     */
+    private fun <T> Flow<T>.delayed(): Flow<T> = onStart { if (readLatencyMillis > 0) delay(readLatencyMillis) }
 }
 
 /** The records table, as a tally the test writes directly. */

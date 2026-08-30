@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.opengym.core.ui.component.StatTile
+import com.opengym.core.ui.format.formatAsLength
 import com.opengym.core.ui.format.formatAsTotal
 import com.opengym.core.ui.format.formatMagnitude
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -25,9 +26,10 @@ import kotlin.time.Duration.Companion.milliseconds
  * ### Every tile carries a caption, and three of them are comparisons
  *
  * `StatTile`'s `unit` slot is the line under the figure, and here it is what the figure is
- * *against* rather than what it is measured in — `+0.4 vs prev`, `across 5 ex.`, `12m avg`. A
- * bare count over a ninety-day window says almost nothing on its own: seven records is a good
- * quarter or a lucky fortnight depending on how many exercises they came from.
+ * *against* rather than what it is measured in — `+0.4 vs prev`, `across 5 ex.`, `52m /
+ * session`. A bare count over a ninety-day window says almost nothing on its own: seven
+ * records is a good quarter or a lucky fortnight depending on how many exercises they came
+ * from.
  *
  * ### None of them is accented
  *
@@ -96,11 +98,19 @@ private fun Double?.frequencyCaption(): String =
     }
 
 /**
- * `12m avg`, or nothing to average over.
+ * `52m / session`, or nothing to average over.
  *
  * Divided here rather than in the ViewModel because it is the *caption* of a tile, derived
  * from two figures the state already carries — moving it up would put a third field in
  * [SummaryState] that is a function of the other two and could disagree with them.
+ *
+ * ### One session's length, not a period's total
+ *
+ * [formatAsLength] rather than the [formatAsTotal] the figure above it wears. The two roles
+ * differ past the hour: a total drops its minutes because `32h 47m` claims a precision nobody
+ * reads over a quarter, and an *average session* that did the same would collapse everything
+ * from 1h00m to 1h59m into a single `1h`. A lifter whose sessions crept from an hour to an hour
+ * and a half would watch this caption not move.
  */
 @Composable
 private fun SummaryState.averageSessionCaption(): String =
@@ -109,7 +119,7 @@ private fun SummaryState.averageSessionCaption(): String =
     } else {
         stringResource(
             R.string.stats_time_caption,
-            (trainingMillis / sessions).milliseconds.formatAsTotal(),
+            (trainingMillis / sessions).milliseconds.formatAsLength(),
         )
     }
 

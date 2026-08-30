@@ -48,6 +48,12 @@ import kotlin.time.Duration.Companion.seconds
  * the timeframe changes; the old window's rows are dropped rather than raced against the new
  * one's.
  *
+ * ### The selection is not one of the five reads
+ *
+ * [uiState] takes the timeframe from the holder directly rather than from the readings the
+ * five queries assemble. The readings answer at the speed of the database; the selector has to
+ * answer at the speed of a thumb. See [uiState] for what a disagreement between the two means.
+ *
  * ### What "empty" is decided from
  *
  * The **consistency** series, not the volume one. A window can hold sessions and no volume at
@@ -97,16 +103,48 @@ class StatsViewModel @Inject constructor(
         )
     }.distinctUntilChanged()
 
-    val uiState: StateFlow<StatsUiState> = window
-        .flatMapLatest(::readings)
-        .stateIn(
-            scope = viewModelScope,
-            // The other screens' number, for the same reasons: long enough to survive a
-            // rotation without re-running five queries, short enough that a backgrounded tab is
-            // not holding database observers open.
-            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = StatsUiState(),
-        )
+    /**
+     * The screen: the readings, under the timeframe the user has actually chosen.
+     *
+     * ### Why the selection is combined in rather than read off the readings
+     *
+     * `assemble` stamps each state with the window it was read over, and that stamp only lands
+     * once all five queries have answered — a `1Y` or `ALL` window over a season of training is
+     * long enough to see. Drawing the selector from it left the tapped segment unlit and the
+     * figures unchanged for the whole of that wait, which is a control that looks dead. Here
+     * the segment lights on the tap, because [ProgressionTimeframe.selected] is a `StateFlow`
+     * and moves the instant [onEvent] writes it.
+     *
+     * ### And why a mismatch is the loading state rather than the old figures
+     *
+     * Once the selector says `1Y`, every figure under it is a claim about a year. Keeping the
+     * previous window's numbers there would relabel ninety days as twelve months for as long as
+     * the reads take — a wrong answer, where the loading state is merely a slow one. The screen
+     * already draws the selector and nothing else while it waits; this is that same state,
+     * reached a second way.
+     *
+     * The comparison is on the readings' own stamp rather than on a flag set when the tap
+     * happens, so nothing has to be reset when the answer arrives: the state stops being stale
+     * exactly when it stops being about the wrong window.
+     */
+    val uiState: StateFlow<StatsUiState> = combine(
+        timeframe.selected,
+        window.flatMapLatest(::readings),
+    ) { selected, readings ->
+        if (readings.timeframe == selected) readings else StatsUiState(timeframe = selected)
+    }.stateIn(
+        scope = viewModelScope,
+        // The other screens' number, for the same reasons: long enough to survive a rotation
+        // without re-running five queries, short enough that a backgrounded tab is not holding
+        // database observers open.
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        // The shared selection rather than the enum's default: arriving from #102's drill-down
+        // on `1Y`, the hub would otherwise spend its first frame claiming ninety days. Nothing
+        // is emitted until the reads answer, so this value is what the selector is drawn from
+        // until they do — and re-subscribing after the timeout keeps the last assembled state
+        // rather than flashing back through a loading frame.
+        initialValue = StatsUiState(timeframe = timeframe.selected.value),
+    )
 
     fun onEvent(event: StatsEvent) {
         when (event) {

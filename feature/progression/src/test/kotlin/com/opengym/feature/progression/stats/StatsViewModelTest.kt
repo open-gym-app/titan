@@ -9,6 +9,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -96,6 +97,31 @@ class StatsViewModelTest {
                 TrainingWeek.snap(StatsTimeframe.MONTH.period(TODAY)),
                 progression.requestedRanges.last(),
             )
+        }
+
+    @Test
+    fun `the tapped timeframe is the selected one before the reads have answered`() =
+        runTest {
+            seedAQuarter()
+            val state = collect()
+            // A year's worth of training does not come back in the frame the tap happened in.
+            progression.readLatencyMillis = SLOW_READ_MILLIS
+
+            state.viewModel.onEvent(StatsEvent.TimeframeSelected(StatsTimeframe.YEAR))
+
+            // The segment lights on the tap. Taking this off the assembled readings left the
+            // control looking dead for the length of the query.
+            assertEquals(StatsTimeframe.YEAR, state().timeframe)
+            // And the figures under it are not the previous window's, relabelled: ninety days'
+            // numbers under a selector reading `1Y` is a wrong answer, not a slow one.
+            assertTrue(state().isLoading)
+            assertNull(state().volume)
+            assertNull(state().summary)
+
+            advanceUntilIdle()
+
+            assertEquals(StatsTimeframe.YEAR, state().timeframe)
+            assertFalse(state().isLoading)
         }
 
     @Test
@@ -281,6 +307,9 @@ class StatsViewModelTest {
     }
 
     private companion object {
+        /** Long enough that a test can look at the screen while the reads are still in flight. */
+        const val SLOW_READ_MILLIS = 500L
+
         /** A Tuesday, so a seven-day window crosses a Monday. */
         val TODAY: LocalDate = LocalDate.of(2026, 4, 28)
 

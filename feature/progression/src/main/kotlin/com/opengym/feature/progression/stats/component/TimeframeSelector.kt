@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -20,6 +22,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.stats.StatsTimeframe
@@ -106,6 +109,11 @@ private fun TimeframeSegment(
 
     Box(
         modifier = modifier
+            .heightIn(min = SEGMENT_MIN_HEIGHT)
+            // Clipped before the selection, not after: `background` does not clip its node, so a
+            // ripple started outside the clip would paint a square over a rounded chip — the
+            // mistake `ResumeCard` and `ExploreRow` both document.
+            .clip(MaterialTheme.shapes.extraSmall)
             .selectable(
                 selected = isSelected,
                 role = Role.RadioButton,
@@ -138,3 +146,15 @@ private fun TimeframeSegment(
  * track. The wireframes draw 3.
  */
 private val TRACK_INSET = 3.dp
+
+/**
+ * How tall a segment is, and the reason the track is not the height its text needs.
+ *
+ * The full 48dp, unlike `SetTypePicker` and `RpePicker`, which stop at 40 — those sit in a set
+ * row that is a dense table on purpose, and the whole logged row is a second, larger target for
+ * the same set. This has neither excuse: it is the only control on the stats hub, it has no
+ * larger stand-in anywhere, and `Modifier.selectable` adds no minimum of its own the way a
+ * Material component would. Left to its text the segment comes out around 27dp — `numericSmall`
+ * plus its padding — which is a control a thumb misses.
+ */
+private val SEGMENT_MIN_HEIGHT: Dp = 48.dp
