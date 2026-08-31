@@ -12,7 +12,9 @@ import org.robolectric.annotation.Config
 /**
  * Base for DAO tests: builds a fresh in-memory [OpenGymDatabase] on a real
  * (Robolectric) SQLite for each test, with foreign-key enforcement enabled so
- * cascade/restrict/set-null behaviour can be asserted.
+ * cascade/restrict/set-null behaviour can be asserted, and with `user_progress`
+ * rebuilt under its single-row `CHECK` — both are callbacks rather than schema,
+ * so a test database that omits them is one the constraints do not hold in.
  *
  * Rows are built with the factories in `TestEntities.kt` and whole histories
  * with [WorkoutHistoryFixture], both of which live in this package so subclasses
@@ -30,6 +32,7 @@ abstract class RoomTestBase {
         db = Room.inMemoryDatabaseBuilder(context, OpenGymDatabase::class.java)
             .allowMainThreadQueries()
             .addCallback(OpenGymDatabase.foreignKeysCallback)
+            .addCallback(OpenGymDatabase.singleRowProgressCallback)
             .build()
     }
 
