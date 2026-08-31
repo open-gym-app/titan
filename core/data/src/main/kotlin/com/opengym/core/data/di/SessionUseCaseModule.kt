@@ -18,6 +18,7 @@ import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.RestoreSetUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
+import com.opengym.core.domain.usecase.SessionCompletionPipeline
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
@@ -115,6 +116,7 @@ object SessionUseCaseModule {
         sessionRepository: SessionRepository,
         sessionStateRepository: SessionStateRepository,
         inProgressSessionRepository: InProgressSessionRepository,
+        completeSession: SessionCompletionPipeline,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
             sessionRepository = sessionRepository,
@@ -122,17 +124,17 @@ object SessionUseCaseModule {
             inProgressSessionRepository = inProgressSessionRepository,
             clock = Clock.SYSTEM,
             lock = SessionLifecycleLock.SHARED,
-            // No `completeSession`, and that is not an omission: the post-session cascade
-            // (#145) is composed here the moment there is something to compose it from, and
-            // `GamificationRepository` has no implementation until #35 lands. Binding a
-            // pipeline over a store that does not exist is not an option Hilt offers, and a
-            // stub that banked XP nowhere would be worse than the honest absence — sessions
-            // pay nothing today, which is exactly what this leaves.
+            // The post-session cascade (#145), now that #35 has given `GamificationRepository`
+            // a Room-backed binding and there is something to compose it from — see
+            // `GamificationUseCaseModule`. Until this argument was passed, `PrDetectionUseCase`
+            // had no caller: the engine ran nowhere, `personal_record` stayed empty, and the
+            // per-exercise drill-down's `1RM (EST)`, `MAX SET` and `BEST VOL` cards could only
+            // ever draw their no-record dash.
             //
-            // The invocation point itself is decided and does not move when #35 arrives: the
-            // cascade runs from inside `FinishSessionUseCase`, under the lifecycle lock. See
-            // `SessionCompletionPipeline` for why, and for what the screen would have had to
-            // remember if it ran from there instead.
+            // Non-optional here, as `FinishSessionUseCase` said it would become: a workout that
+            // silently pays nothing is exactly the failure the nullable default was holding
+            // open, and there is no longer a reason to leave it open.
+            completeSession = completeSession,
         )
 
     @Provides
