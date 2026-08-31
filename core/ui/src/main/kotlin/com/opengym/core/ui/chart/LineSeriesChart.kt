@@ -11,7 +11,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -21,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -58,9 +58,18 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * See [ChartPlaceholder]. A one-point line has no direction, and a zeroed line across an
  * empty card claims the user trained and lifted nothing.
  *
+ * ### The touched point, when there is one
+ *
+ * [selectedIndex] is the mark a thumb landed on — [ChartPlot] resolves the tap and owns the
+ * bubble that says what it is worth; this draws the half of it that is part of the plot. The
+ * point is ringed in the card's own surface so it reads as picked out rather than merely
+ * larger, and a leader runs from it up to the tooltip, which is what keeps a bubble that had
+ * to slide sideways attached to the mark it names.
+ *
  * @param label what the series is, for the description a screen reader is given —
  *   `Cumulative volume`. Not drawn: the card around the chart carries its own eyebrow.
  * @param height how tall the plot is. The width is whatever the caller gives it.
+ * @param selectedIndex the mark to pick out, or null for a chart nobody has touched.
  */
 @Composable
 fun LineSeriesChart(
@@ -68,6 +77,7 @@ fun LineSeriesChart(
     label: String,
     modifier: Modifier = Modifier,
     height: Dp = ChartDefaults.HEIGHT,
+    selectedIndex: Int? = null,
 ) {
     val spoken = chartDescription(label = label, entries = entries)
     if (!entries.isPlottable()) {
@@ -78,6 +88,8 @@ fun LineSeriesChart(
     val stats = ChartStats(entries)
     val stroke = MaterialTheme.colorScheme.primary
     val fill = MaterialTheme.colorScheme.primaryContainer
+    val surface = MaterialTheme.colorScheme.surface
+    val guide = MaterialTheme.colorScheme.outline
 
     Canvas(
         // One node for the whole plot. Without this the individual marks are announced one by
@@ -87,7 +99,22 @@ fun LineSeriesChart(
             .height(height)
             .clearAndSetSemantics { contentDescription = spoken },
     ) {
-        drawLineSeries(stats = stats, values = entries.map { it.value }, stroke = stroke, fill = fill)
+        val geometry = ChartGeometry(
+            scale = ChartScale.LINE,
+            stats = stats,
+            count = entries.size,
+            size = size,
+            inset = ChartScale.LINE.inset.toPx(),
+        )
+        drawLineSeries(
+            geometry = geometry,
+            values = entries.map { it.value },
+            stroke = stroke,
+            fill = fill,
+            surface = surface,
+            guide = guide,
+            selectedIndex = selectedIndex?.takeIf { it in entries.indices },
+        )
     }
 }
 
@@ -96,26 +123,23 @@ fun LineSeriesChart(
  *
  * Inset by the emphasised point's radius on every side, so the first and last marks sit inside
  * the canvas rather than being clipped in half by it — a line whose newest point is cut down
- * the middle reads as a chart that ran out of room.
+ * the middle reads as a chart that ran out of room. Where the marks fall inside that inset is
+ * [ChartGeometry]'s answer rather than this function's, so the tooltip points at the pixel the
+ * point was drawn on.
  */
+@Suppress("LongParameterList")
 private fun DrawScope.drawLineSeries(
-    stats: ChartStats,
+    geometry: ChartGeometry,
     values: List<Float>,
     stroke: Color,
     fill: Color,
+    surface: Color,
+    guide: Color,
+    selectedIndex: Int?,
 ) {
-    val inset = ChartDefaults.POINT_RADIUS.toPx()
-    val plot = Size(width = size.width - inset * 2, height = size.height - inset * 2)
-    if (plot.width <= 0f || plot.height <= 0f) return
+    if (!geometry.isDrawable) return
 
-    val step = plot.width / (values.size - 1)
-    val points = values.mapIndexed { index, value ->
-        Offset(
-            x = inset + step * index,
-            // Fractions are measured from the bottom and the canvas from the top.
-            y = inset + (1f - stats.lineFraction(value)) * plot.height,
-        )
-    }
+    val points = values.mapIndexed { index, value -> Offset(x = geometry.x(index), y = geometry.y(value)) }
 
     val line = Path().apply {
         moveTo(points.first().x, points.first().y)
@@ -137,6 +161,35 @@ private fun DrawScope.drawLineSeries(
         drawCircle(color = stroke, radius = ChartDefaults.MINOR_POINT_RADIUS.toPx(), center = point)
     }
     drawCircle(color = stroke, radius = ChartDefaults.POINT_RADIUS.toPx(), center = points.last())
+
+    selectedIndex?.let { index ->
+        drawSelectedPoint(point = points[index], stroke = stroke, surface = surface, guide = guide)
+    }
+}
+
+/**
+ * The touched point, and the leader running up to its tooltip.
+ *
+ * Drawn over the line rather than under it, and ringed in the surface the card is painted on,
+ * so the mark reads as lifted off a series that runs behind it. The leader stops at the point:
+ * a rule the full height of the plot would be a second gridline in the accent, competing with
+ * the value axis it crosses.
+ */
+private fun DrawScope.drawSelectedPoint(
+    point: Offset,
+    stroke: Color,
+    surface: Color,
+    guide: Color,
+) {
+    drawLine(
+        color = guide,
+        start = Offset(x = point.x, y = 0f),
+        end = point,
+        strokeWidth = HAIRLINE_WIDTH.toPx(),
+    )
+    val radius = ChartDefaults.SELECTED_POINT_RADIUS.toPx()
+    drawCircle(color = surface, radius = radius + ChartDefaults.LINE_WIDTH.toPx(), center = point)
+    drawCircle(color = stroke, radius = radius, center = point)
 }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────

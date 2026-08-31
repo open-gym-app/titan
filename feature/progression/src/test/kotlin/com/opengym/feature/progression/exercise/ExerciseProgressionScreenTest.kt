@@ -2,11 +2,13 @@ package com.opengym.feature.progression.exercise
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import com.opengym.core.domain.model.ExerciseEstimate
 import com.opengym.core.domain.model.ExerciseProgression
 import com.opengym.core.domain.model.PrType
@@ -79,6 +81,23 @@ class ExerciseProgressionScreenTest {
         composeTestRule
             .onNodeWithContentDescription("Volume per session, Apr to Apr. Latest 1,400 kg.", substring = true)
             .performScrollTo()
+    }
+
+    @Test
+    fun `touching a chart says which session the mark was, by its date`() {
+        show(populated())
+
+        // The two charts are per *session*, so their axis labels are both `Apr` and the month they
+        // share cannot say which mark a thumb landed on. `ChartEntry.caption` is the day, and
+        // this is the wiring of it — the tooltip's own behaviour is `ChartTooltipTest`.
+        composeTestRule
+            .onNodeWithContentDescription("Volume per session, Apr to Apr.", substring = true)
+            .performScrollTo()
+            .performTouchInput { click() }
+
+        // Uppercase because the tooltip reads its date in the eyebrow role, which is drawn
+        // shouted and announced as written.
+        composeTestRule.onNodeWithText("28 APR").assertIsDisplayed()
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.opengym.core.ui.chart
 
+import androidx.compose.ui.geometry.Size
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -142,6 +143,102 @@ class ChartSeriesTest {
         assertTrue(chartAxisLabels(series(92f)).isEmpty())
         assertTrue(chartAxisLabels(emptyList()).isEmpty())
     }
+
+    // --- the value axis ----------------------------------------------------
+
+    @Test
+    fun `a line is labelled with its own floor, its ceiling and the level between them`() {
+        val ticks = chartValueTicks(series(80f, 100f, 90f), ChartScale.LINE) { "%.0f".format(it) }
+
+        // Top down, and the fractions are the ones the line is drawn against — the middle tick
+        // names 90, which is where a 90 kg mark sits on a band running 80 to 100.
+        assertEquals(listOf("100", "90", "80"), ticks.map { it.text })
+        assertEquals(listOf(1f, 0.5f, 0f), ticks.map { it.fraction })
+    }
+
+    @Test
+    fun `bars are labelled from zero, because that is what they are measured against`() {
+        val ticks = chartValueTicks(series(80f, 100f, 90f), ChartScale.BAR) { "%.0f".format(it) }
+
+        assertEquals(listOf("100", "50", "0"), ticks.map { it.text })
+    }
+
+    @Test
+    fun `a flat line is one figure at the level it is drawn at, not three of the same`() {
+        val ticks = chartValueTicks(series(80f, 80f, 80f), ChartScale.LINE) { "%.0f".format(it) }
+
+        assertEquals(listOf("80"), ticks.map { it.text })
+        // Where `ChartStats.lineFraction` puts a flat line: halfway, because it went neither way.
+        assertEquals(0.5f, ticks.single().fraction, TOLERANCE)
+    }
+
+    @Test
+    fun `a fortnight of nothing is one zero on the baseline, and divides by nothing`() {
+        val ticks = chartValueTicks(series(0f, 0f), ChartScale.BAR) { "%.0f".format(it) }
+
+        assertEquals(listOf("0"), ticks.map { it.text })
+        assertEquals(0f, ticks.single().fraction, TOLERANCE)
+    }
+
+    @Test
+    fun `a series too short to plot has no value axis either`() {
+        assertTrue(chartValueTicks(series(92f), ChartScale.LINE) { "" }.isEmpty())
+        assertTrue(chartValueTicks(emptyList(), ChartScale.BAR) { "" }.isEmpty())
+    }
+
+    // --- where the marks are -----------------------------------------------
+
+    @Test
+    fun `a line spans the plot, inset by the radius of the points at either end`() {
+        val geometry = geometry(ChartScale.LINE, series(0f, 50f, 100f), width = 220f)
+
+        // 200 of usable width across two gaps, held off both edges by a 10px inset.
+        assertEquals(10f, geometry.x(0), TOLERANCE)
+        assertEquals(110f, geometry.x(1), TOLERANCE)
+        assertEquals(210f, geometry.x(2), TOLERANCE)
+        // The band is inset by the same amount, so the ceiling is not drawn off the top.
+        assertEquals(10f, geometry.y(100f), TOLERANCE)
+        assertEquals(90f, geometry.y(0f), TOLERANCE)
+    }
+
+    @Test
+    fun `a bar sits in the middle of its own slot, and the series spans the full width`() {
+        val geometry = geometry(ChartScale.BAR, series(0f, 50f, 100f), width = 300f)
+
+        assertEquals(50f, geometry.x(0), TOLERANCE)
+        assertEquals(150f, geometry.x(1), TOLERANCE)
+        assertEquals(250f, geometry.x(2), TOLERANCE)
+        // Measured from zero and from the very bottom: bars stand on the edge of the canvas.
+        assertEquals(0f, geometry.y(100f), TOLERANCE)
+        assertEquals(100f, geometry.y(0f), TOLERANCE)
+    }
+
+    @Test
+    fun `a tap lands on the nearest mark, and past the ends on the ends`() {
+        val geometry = geometry(ChartScale.BAR, series(1f, 2f, 3f, 4f), width = 400f)
+
+        assertEquals(0, geometry.nearestIndex(0f))
+        assertEquals(1, geometry.nearestIndex(150f))
+        assertEquals(3, geometry.nearestIndex(399f))
+        // A thumb is wider than a bar and a canvas rounds: a tap a pixel off either end is
+        // still a tap on the chart, and clamping is what stops it being an index nobody holds.
+        assertEquals(0, geometry.nearestIndex(-20f))
+        assertEquals(3, geometry.nearestIndex(480f))
+    }
+
+    private fun geometry(
+        scale: ChartScale,
+        entries: List<ChartEntry>,
+        width: Float,
+        height: Float = 100f,
+        inset: Float = if (scale == ChartScale.LINE) 10f else 0f,
+    ) = ChartGeometry(
+        scale = scale,
+        stats = ChartStats(entries),
+        count = entries.size,
+        size = Size(width = width, height = height),
+        inset = inset,
+    )
 
     private fun series(vararg values: Float): List<ChartEntry> =
         values.mapIndexed { index, value -> entry(value, "W$index") }

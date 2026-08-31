@@ -58,6 +58,17 @@ object ChartDefaults {
     /** A zero bar still draws this much, so an untrained week is a mark rather than a gap. */
     val BAR_BASELINE: Dp = 1.dp
 
+    /** The touched point, ringed in the card's own surface so it reads as picked out. */
+    val SELECTED_POINT_RADIUS: Dp = 4.dp
+
+    /**
+     * How far a tooltip stands off the mark it points at.
+     *
+     * Clear of the point, still attached to it — the leader line drawn across the gap is what
+     * makes it a tooltip rather than a label floating over a chart.
+     */
+    val TOOLTIP_GAP: Dp = 6.dp
+
     /** The diameter of the XP ring. Fits beside two lines of text on a 360dp screen. */
     val RING_SIZE: Dp = 80.dp
 

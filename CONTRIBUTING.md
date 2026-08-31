@@ -201,7 +201,8 @@ Text(
   | `BarSeriesChart` | the same series as bars, measured against zero, with the single highest one in the accent | `List<ChartEntry>` + what the series is called |
   | `ProgressRing` | a fraction as a gauge: a track, an accent arc, and a slot for the figure inside it | a `0f..1f` progress, its two labels, and the content |
   | `ChartAxisLabels` | the sparse period labels under a chart (`FEB · MAR · APR`), each over the marks it covers | what `chartAxisLabels` returned |
-  | `ChartCard` | one of the above in a bordered surface, under its own eyebrow and over its own axis — the shape every chart on a reading screen takes | a label, the series, and the plot as a slot |
+  | `ChartPlot` | one of the two plots with both of its axes and a tooltip on it: the figures down the left, the periods along the bottom, and what one mark is worth when it is touched | the series, its `ChartScale`, and a formatter for the figures |
+  | `ChartCard` | the same, in a bordered surface under its own eyebrow — the shape every chart on a reading screen takes, and the half that remembers which mark is open | a label, the series and its `ChartScale` |
   | `ChangeChip` | `↑ 18%` beside a hero figure — the accent on a rise, neutral on a fall | a `ChangeDirection` and an unsigned magnitude |
 
   `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
@@ -255,10 +256,18 @@ Text(
   number to plot *and* the string to read out — so the same component draws kilograms and pounds
   without reading `LocalUnitSystem`. Unit conversion stays in the formatters below.
 
-  `ChartCard` is where most of them are actually drawn: the axis has to be given the *same*
-  entries the plot was, or the months sit over marks they do not cover, so the card takes the
-  series once and does both. A screen that lays out its own eyebrow, plot and axis has taken
-  that back on.
+  `ChartCard` is where most of them are actually drawn, and it takes the series **once** for
+  every part of the drawing that needs it: both axes have to be given the same entries the plot
+  was, or the months sit over marks they do not cover and the figures name a band nothing was
+  drawn against. A screen that lays out its own eyebrow, plot and axis has taken that back on.
+
+  Which chart is a `ChartScale` rather than a slot, and that is the price of the value axis: a
+  rail of figures has to know whether the band runs from the series' own floor (a line) or from
+  zero (bars), and a tooltip has to know where mark seven sits. `ChartGeometry` answers both
+  from the same three inputs the drawing uses, so a gridline, a bubble's leader and the point it
+  points at are the same pixel by construction. A chart drawn without a value axis is a chart
+  whose shape says a lifter is going up and whose card never says up from what to what — pass
+  `formatValue` unless a hero figure above the plot already answers it.
 
 - **`supersetLabels` turns a grouping into `A1`/`A2`/`B1`,** and lives in `:core:ui` for the same
   reason the enum labels below do: `Supersets` in `:core:domain` decides what a group *is*, and

@@ -22,13 +22,22 @@ import androidx.compose.runtime.Immutable
  *   each month three times, which is what [chartAxisLabels] collapses.
  * @property formattedValue the value as the user reads it, unit included: `12,480 kg`. What
  *   the chart's own description is assembled from.
+ * @property caption which mark this is, as the **tooltip** names it: `12 Apr`. Null falls back
+ *   to [label], which is right for a series whose marks *are* its periods — a bar per month —
+ *   and wrong for the two charts on the exercise screen, where twelve marks can all be `Apr`
+ *   and a tooltip saying so answers nothing. The axis keeps [label] either way: a date per
+ *   mark under the plot is the wall of text [chartAxisLabels] exists to collapse.
  */
 @Immutable
 data class ChartEntry(
     val value: Float,
     val label: String,
     val formattedValue: String,
+    val caption: String? = null,
 )
+
+/** What a tooltip calls a mark: its [ChartEntry.caption] where it has one, else its label. */
+internal val ChartEntry.tooltipLabel: String get() = caption ?: label
 
 /**
  * The readings a chart takes of its own series, computed once and shared by the drawing and

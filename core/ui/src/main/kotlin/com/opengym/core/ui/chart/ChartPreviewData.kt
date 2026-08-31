@@ -7,6 +7,8 @@
 
 package com.opengym.core.ui.chart
 
+import kotlin.math.roundToInt
+
 /*
  * The series the previews and the screenshot catalogue are drawn from.
  *
@@ -67,6 +69,16 @@ internal fun previewZeroed(): List<ChartEntry> =
     List(FLAT_WEEKS) { index ->
         entry(0f, if (index < FLAT_WEEKS / 2) "Mar" else "Apr", "0 kg")
     }
+
+/**
+ * The formatter a preview hands its value axis.
+ *
+ * The fixtures' values are milligram-reps scaled down to something a chart can hold, so this
+ * scales them back up and groups them — which is what the formatted strings beside them read
+ * like. A preview does not reach for the real formatters: those follow `LocalUnitSystem`, and
+ * a reference image that changed with a setting would be a reference image of the setting.
+ */
+internal fun previewFormat(value: Float): String = "%,d".format(value.roundToInt() * 1_000)
 
 private fun entry(
     value: Float,

@@ -8,15 +8,17 @@ import androidx.compose.ui.res.stringResource
 import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.ExerciseEstimate
 import com.opengym.core.domain.model.ExerciseProgression
-import com.opengym.core.ui.chart.BarSeriesChart
 import com.opengym.core.ui.chart.ChartCard
 import com.opengym.core.ui.chart.ChartDefaults
 import com.opengym.core.ui.chart.ChartEntry
-import com.opengym.core.ui.chart.LineSeriesChart
+import com.opengym.core.ui.chart.ChartScale
 import com.opengym.core.ui.component.OpenGymBadge
+import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.format.formatMonthAbbreviation
 import com.opengym.core.ui.format.formatVolume
+import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.format.formatWeight
+import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.localDateOf
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -49,6 +51,17 @@ import com.opengym.feature.progression.R
  * both charts without the ViewModel being told. That is the split CONTRIBUTING.md § Using the
  * design system asks for, and it is why [ChartEntry] carries a formatted string beside its
  * value.
+ *
+ * The value axis is the same rule one step further out: `:core:ui` works out *which* figures a
+ * band needs and this says what they read as, through the explicit-unit overloads over a unit
+ * system read once here. The rail's figures carry no unit — the badge on the heading says it
+ * once, which is why the volume card grew one when the rail arrived.
+ *
+ * ### Two dates per mark, because the axis and the tooltip are asking different things
+ *
+ * [ChartEntry.label] is the month, which is what makes `FEB · MAR · APR` out of twelve marks;
+ * [ChartEntry.caption] is the day, because a tooltip on the fourth of five April sessions has
+ * to say *which* — see `chartAxisLabels`.
  */
 @Composable
 fun ExerciseTrendCards(
@@ -57,7 +70,8 @@ fun ExerciseTrendCards(
 ) {
     val estimateLabel = stringResource(R.string.exercise_chart_estimate)
     val volumeLabel = stringResource(R.string.exercise_chart_volume)
-    val unitSuffix = LocalUnitSystem.current.weightSuffix
+    val unitSystem = LocalUnitSystem.current
+    val unitSuffix = unitSystem.weightSuffix
 
     Column(
         modifier = modifier,
@@ -66,22 +80,24 @@ fun ExerciseTrendCards(
         ChartCard(
             label = estimateLabel,
             entries = progression.estimates.map { it.chartEntry() },
-            // The unit the line is in, as the wireframes tag it. Worth saying on this card and
-            // not on the bars below: an estimate is a weight the lifter has never actually
-            // touched, so what it is measured in is the first question it raises.
-            trailing = { OpenGymBadge(text = unitSuffix) },
-        ) { entries, label ->
+            scale = ChartScale.LINE,
             // The taller of the two heights: this is the card the screen is about, where the
             // bars under it are a second reading of the same sessions.
-            LineSeriesChart(entries = entries, label = label, height = ChartDefaults.TALL_HEIGHT)
-        }
+            height = ChartDefaults.TALL_HEIGHT,
+            formatValue = { milligrams -> formatWeightValue(milligrams.toLong(), unitSystem) },
+            // The unit the line is in, as the wireframes tag it. It answers the rail's figures
+            // as well as the plot: an estimate is a weight the lifter has never actually
+            // touched, so what it is measured in is the first question it raises.
+            trailing = { OpenGymBadge(text = unitSuffix) },
+        )
 
         ChartCard(
             label = volumeLabel,
             entries = progression.attempts.map { it.chartEntry() },
-        ) { entries, label ->
-            BarSeriesChart(entries = entries, label = label)
-        }
+            scale = ChartScale.BAR,
+            formatValue = { milligrams -> formatVolumeValue(milligrams.toLong(), unitSystem) },
+            trailing = { OpenGymBadge(text = unitSuffix) },
+        )
     }
 }
 
@@ -98,6 +114,7 @@ private fun ExerciseEstimate.chartEntry(): ChartEntry =
         value = estimate.toFloat(),
         label = formatMonthAbbreviation(localDateOf(finishedAt)),
         formattedValue = formatWeight(estimate),
+        caption = formatDayAndMonth(finishedAt),
     )
 
 /** One attempt as a bar: what the session moved, and when. */
@@ -107,4 +124,5 @@ private fun ExerciseAttempt.chartEntry(): ChartEntry =
         value = volume.toFloat(),
         label = formatMonthAbbreviation(localDateOf(finishedAt)),
         formattedValue = formatVolume(volume),
+        caption = formatDayAndMonth(finishedAt),
     )
