@@ -49,6 +49,29 @@ class WeightFormatTest {
         }
 
     @Test
+    fun `a projection is rounded to the whole unit`() =
+        withLocale(Locale.UK) {
+            // The same milligrams, through the two formatters. A lift keeps the precision that
+            // lets it be reproduced on a rack; an estimated one-rep max is a formula's output
+            // over a top set and was never racked, so the decimals would claim an accuracy the
+            // projection does not have.
+            assertEquals("22.75", formatWeightValue(22_750_000, UnitSystem.METRIC))
+            assertEquals("23", formatEstimateValue(22_750_000, UnitSystem.METRIC))
+
+            assertEquals("101", formatEstimateValue(101_250_000, UnitSystem.METRIC))
+            assertEquals("1333", formatEstimateValue(1_333_333_376, UnitSystem.METRIC))
+        }
+
+    @Test
+    fun `a projection rounds in the unit it is read in`() =
+        withLocale(Locale.UK) {
+            // Rounded after the conversion, not before it: 101.25 kg is 223.22 lb, and an
+            // imperial reader must see the whole number their own unit lands on.
+            assertEquals("101 kg", formatEstimate(101_250_000, UnitSystem.METRIC))
+            assertEquals("223 lb", formatEstimate(101_250_000, UnitSystem.IMPERIAL))
+        }
+
+    @Test
     fun `a weight that rounds up to a whole number loses its decimals too`() =
         withLocale(Locale.UK) {
             // 99.998 kg must read as `100`, not as `100.00`: the rounding happens first and the

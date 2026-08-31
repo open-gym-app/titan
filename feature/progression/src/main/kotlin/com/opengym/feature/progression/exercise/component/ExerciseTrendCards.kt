@@ -14,11 +14,11 @@ import com.opengym.core.ui.chart.ChartEntry
 import com.opengym.core.ui.chart.ChartScale
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.format.formatDayAndMonth
+import com.opengym.core.ui.format.formatEstimate
+import com.opengym.core.ui.format.formatEstimateValue
 import com.opengym.core.ui.format.formatMonthAbbreviation
 import com.opengym.core.ui.format.formatVolume
 import com.opengym.core.ui.format.formatVolumeValue
-import com.opengym.core.ui.format.formatWeight
-import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.localDateOf
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -84,7 +84,10 @@ fun ExerciseTrendCards(
             // The taller of the two heights: this is the card the screen is about, where the
             // bars under it are a second reading of the same sessions.
             height = ChartDefaults.TALL_HEIGHT,
-            formatValue = { milligrams -> formatWeightValue(milligrams.toLong(), unitSystem) },
+            // The estimate formatter, not the weight one: the rail reads a projection, and its
+            // two decimals would put `1,333.33` on three gridlines for a figure the formula is
+            // not accurate to. See `formatEstimateValue`.
+            formatValue = { milligrams -> formatEstimateValue(milligrams.toLong(), unitSystem) },
             // The unit the line is in, as the wireframes tag it. It answers the rail's figures
             // as well as the plot: an estimate is a weight the lifter has never actually
             // touched, so what it is measured in is the first question it raises.
@@ -113,7 +116,7 @@ private fun ExerciseEstimate.chartEntry(): ChartEntry =
         // figure travels as a string in `formattedValue`, where it is read rather than plotted.
         value = estimate.toFloat(),
         label = formatMonthAbbreviation(localDateOf(finishedAt)),
-        formattedValue = formatWeight(estimate),
+        formattedValue = formatEstimate(estimate),
         caption = formatDayAndMonth(finishedAt),
     )
 
