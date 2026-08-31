@@ -2,6 +2,7 @@ package com.opengym.feature.progression.exercise
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -76,11 +77,17 @@ fun ExerciseProgressionRoute(
  * switcher moves between them. They are one destination because the chooser is also the
  * switcher — see [ExerciseProgressionUiState].
  *
+ * They are also two *layouts*, and the body picks one rather than nesting them. The drill-down
+ * is a fixed handful of sections and scrolls as an ordinary column; the chooser is a row per
+ * lift the user has ever trained, with no cap on it, so it is a lazy list and has to own the
+ * scroll to be one — see [ExerciseChooser].
+ *
  * ### Four states below the selector, and only one of them is a chart
  *
- * While the reads are in flight the screen draws nothing under its bar. A skeleton would be
- * grey boxes that turn into an empty state for the user most likely to be waiting on a cold
- * database, and the records above the charts are the part somebody opened this for.
+ * While the reads are in flight the screen draws nothing under its selector. A skeleton would
+ * be grey boxes that turn into an empty state for the user most likely to be waiting on a cold
+ * database, and the records above the charts are the part somebody opened this for. The
+ * selector itself stays — [DrillDown] says why.
  *
  * A lift never logged, a window with nothing in it, and a window holding exactly one session
  * each get their own line — see [ExerciseEmptiness] for why one flag could not tell them
@@ -136,30 +143,17 @@ fun ExerciseProgressionScreen(
             )
         },
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(OpenGymTheme.spacing.screen),
-            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
-        ) {
-            val exercise = state.exercise
-            val progression = state.progression
+        val body = Modifier
+            .fillMaxSize()
+            .padding(innerPadding)
 
-            when {
-                state.isLoading -> Unit
-
-                exercise == null -> ChooserBody(state = state, onEvent = onEvent)
-
-                progression != null -> {
-                    TimeframeSelector(
-                        selected = state.timeframe,
-                        onSelect = { onEvent(ExerciseProgressionEvent.TimeframeSelected(it)) },
-                    )
-                    Readings(state = state, progression = progression, onEvent = onEvent)
-                }
-            }
+        // The chooser only once the reads have answered: `choices` is empty while they are in
+        // flight, and the branch for a user with nothing logged would otherwise be flashed at
+        // every user with something.
+        if (state.exercise == null && !state.isLoading) {
+            ChooserBody(state = state, onEvent = onEvent, modifier = body)
+        } else {
+            DrillDown(state = state, onEvent = onEvent, modifier = body)
         }
     }
 }
@@ -196,12 +190,14 @@ private fun ExerciseTitle(exercise: Exercise?) {
 private fun ChooserBody(
     state: ExerciseProgressionUiState,
     onEvent: (ExerciseProgressionEvent) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     if (state.choices.isEmpty()) {
         EmptyState(
             title = stringResource(R.string.exercise_empty_nothing_title),
             description = stringResource(R.string.exercise_empty_nothing_body),
             glyph = stringResource(R.string.exercise_empty_glyph),
+            modifier = modifier.padding(OpenGymTheme.spacing.screen),
         )
         return
     }
@@ -209,7 +205,51 @@ private fun ChooserBody(
     ExerciseChooser(
         choices = state.choices,
         onSelect = { onEvent(ExerciseProgressionEvent.ExerciseSelected(it)) },
+        modifier = modifier,
+        // The margin the drill-down spends on its column, spent inside the scroll instead:
+        // the same inset, on a list that has to be able to scroll its last row past it.
+        contentPadding = PaddingValues(OpenGymTheme.spacing.screen),
     )
+}
+
+/**
+ * The lift: its window, and whatever the window has to say.
+ *
+ * One scrolling column rather than a lazy one, because what it holds is a fixed few sections
+ * — the selector, four record cards, two charts and a table capped at eight rows — and a lazy
+ * list of a known handful buys nothing for the state it costs.
+ *
+ * ### The selector sits above the loading check, unlike everything under it
+ *
+ * The segments answer at the speed of a thumb where the readings answer at the speed of a
+ * query, and a selector that vanished for the length of the read its own tap started would be
+ * the screen taking away the control the user is still using. [ExerciseProgressionUiState]'s
+ * `isExerciseSelected` is what carries it across that gap.
+ */
+@Composable
+private fun DrillDown(
+    state: ExerciseProgressionUiState,
+    onEvent: (ExerciseProgressionEvent) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(OpenGymTheme.spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
+    ) {
+        if (state.isExerciseSelected) {
+            TimeframeSelector(
+                selected = state.timeframe,
+                onSelect = { onEvent(ExerciseProgressionEvent.TimeframeSelected(it)) },
+            )
+        }
+
+        val progression = state.progression
+        if (!state.isLoading && progression != null) {
+            Readings(state = state, progression = progression, onEvent = onEvent)
+        }
+    }
 }
 
 /** The cards, whatever comes after them, and the table. */

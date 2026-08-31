@@ -135,7 +135,7 @@ private fun previewProgression(sessions: Int = PREVIEW_TOP_SETS.size): ExerciseP
         // the most recent attempt *on screen* — rather than hardcoded, so the quiet-window
         // preview badges nothing, which is what a window holding no session should show.
         newRecords = attempts.lastOrNull()?.let { latest ->
-            records.filterValues { it.achievedAt >= latest.firstSetAt }.keys
+            records.filterValues { it.achievedAt in latest.firstSetAt..latest.finishedAt }.keys
         }.orEmpty(),
         totalSets = PREVIEW_TOTAL_SETS,
     )

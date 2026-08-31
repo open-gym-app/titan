@@ -104,15 +104,23 @@ class ExerciseProgressionUseCase(
     /**
      * The kinds that were broken in [latest].
      *
-     * `>=` rather than `>`: the first set of an attempt can itself be the one that set the
-     * record, and it is stamped at exactly [ExerciseAttempt.firstSetAt].
+     * Both ends of the attempt, because the records are all-time and the attempt is the
+     * window's last rather than history's: a record achieved after that session — one logged in
+     * a zone whose evening falls on the next UTC day, so the query's window has not reached it
+     * — would otherwise be pinned on the session before it, badging a card and starring a row
+     * for a lift that was not the one that did it.
+     *
+     * Inclusive at both ends: the first set of an attempt can itself be the one that set the
+     * record, and it is stamped at exactly [ExerciseAttempt.firstSetAt]; the last is stamped at
+     * or before the session was closed out, since [PrDetectionUseCase] dates a record by its
+     * own set's stamp and runs over the sets of a session already finished.
      */
     private fun newRecords(
         best: Map<PrType, PersonalRecord>,
         latest: ExerciseAttempt?,
     ): Set<PrType> {
         latest ?: return emptySet()
-        return best.filterValues { record -> record.achievedAt >= latest.firstSetAt }.keys
+        return best.filterValues { record -> record.achievedAt in latest.firstSetAt..latest.finishedAt }.keys
     }
 
     /**

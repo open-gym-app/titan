@@ -38,6 +38,10 @@ import com.opengym.feature.progression.stats.StatsTimeframe
  * @param progression the readings, or **null** while [exercise] is. All-time records and set
  *   count, plus the window's attempts — see [ExerciseProgression] for why those two scopes
  *   differ.
+ * @param isExerciseSelected whether a lift is being read, which [exercise] cannot answer while
+ *   the reads are in flight: a screen loading one lift and a screen showing the chooser both
+ *   carry a null [exercise]. What the timeframe selector is drawn on, so the control the user
+ *   just tapped does not vanish under their thumb while the new window is being read.
  */
 @Immutable
 data class ExerciseProgressionUiState(
@@ -46,6 +50,7 @@ data class ExerciseProgressionUiState(
     val exercise: Exercise? = null,
     val choices: List<TrainedExercise> = emptyList(),
     val progression: ExerciseProgression? = null,
+    val isExerciseSelected: Boolean = exercise != null,
 ) {
 
     /**
@@ -54,10 +59,16 @@ data class ExerciseProgressionUiState(
      * Computed here rather than assembled by the ViewModel because it is a pure reading of
      * [progression] — a preview that built one state and a different emptiness would be
      * describing a screen the app cannot reach.
+     *
+     * [ExerciseEmptiness.NEVER_TRAINED] also asks the window to be empty, which by rights it
+     * always is when the all-time count is zero. The two figures come off two queries the
+     * combine can emit a mixed pair of, though — the attempts land a beat before the count on
+     * the read that follows a finished session — and "not logged yet" over a session the user
+     * has just done is the one wrong answer here worth spending a condition on.
      */
     val emptiness: ExerciseEmptiness? = when {
         progression == null -> null
-        progression.totalSets == 0 -> ExerciseEmptiness.NEVER_TRAINED
+        progression.isEmpty && progression.totalSets == 0 -> ExerciseEmptiness.NEVER_TRAINED
         progression.isEmpty -> ExerciseEmptiness.QUIET_PERIOD
         !progression.hasTrend -> ExerciseEmptiness.SINGLE_SESSION
         else -> null
@@ -72,7 +83,7 @@ data class ExerciseProgressionUiState(
      *
      * **Capped**, unlike the charts, which draw the whole window. `RECENT ATTEMPTS` is a
      * heading that promises the last few and an `ALL` window on a lift somebody has trained
-     * for three years is three hundred rows — laid out eagerly, since the screen is one
+     * for three years is three hundred rows — laid out eagerly, since the drill-down is one
      * scrolling column rather than a lazy list, and read by nobody past the first screenful.
      * The charts are where the whole window is answered.
      */

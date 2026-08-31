@@ -3,9 +3,13 @@ package com.opengym.feature.progression.exercise.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -42,28 +46,46 @@ import com.opengym.feature.progression.R
  * chooser would then land on whichever one they looked at first. See
  * `ExerciseProgressionEvent.ExerciseSelected`.
  *
+ * ### Its own scroll, and lazy
+ *
+ * The list has no upper bound — `getTrainedExercises` returns every lift in the history, with
+ * no `LIMIT`, and a lifter of a few years has a hundred of them — so it composes the rows on
+ * screen rather than all of them. That is why it is the scrolling container itself instead of
+ * a block inside the drill-down's column: a lazy list cannot measure inside a parent that
+ * offers it infinite height. Capping the list was the other way out and it is the wrong one,
+ * since the row a cap would drop is a lift the user trained and cannot otherwise reach.
+ *
  * @param choices the lifts, in the order the store returned them.
  * @param onSelect a row was tapped.
+ * @param contentPadding the screen margin, spent inside the scroll rather than on it, so the
+ *   rows pass under the top and bottom edges instead of stopping short of them.
  */
 @Composable
 fun ExerciseChooser(
     choices: List<TrainedExercise>,
     onSelect: (exerciseId: Long) -> Unit,
     modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(),
 ) {
-    Column(
-        modifier = modifier.fillMaxWidth(),
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = contentPadding,
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
     ) {
-        SectionHeading(
-            text = stringResource(R.string.exercise_chooser_heading),
-            modifier = Modifier.padding(bottom = OpenGymTheme.spacing.xs),
-        )
-        choices.forEach { choice ->
+        item(key = HEADING_KEY) {
+            SectionHeading(
+                text = stringResource(R.string.exercise_chooser_heading),
+                modifier = Modifier.padding(bottom = OpenGymTheme.spacing.xs),
+            )
+        }
+        items(items = choices, key = { it.exerciseId }) { choice ->
             ChooserRow(choice = choice, onClick = { onSelect(choice.exerciseId) })
         }
     }
 }
+
+/** The heading's key, so it is not confused with a row's when the list changes under it. */
+private const val HEADING_KEY = "heading"
 
 /**
  * One lift: its name, how much of it there is, and when it was last done.

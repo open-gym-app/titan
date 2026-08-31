@@ -118,7 +118,14 @@ class ExerciseProgressionViewModel @Inject constructor(
     ) { selectedTimeframe, selectedExercise, choices, readings ->
         val isStale = readings.timeframe != selectedTimeframe || readings.exerciseId != selectedExercise
         if (isStale) {
-            ExerciseProgressionUiState(timeframe = selectedTimeframe, choices = choices)
+            // The selection travels even though the readings do not: it is what the selector is
+            // drawn on, and a control that disappeared for the length of the query it started
+            // would be the screen answering a tap by taking the tapped thing away.
+            ExerciseProgressionUiState(
+                timeframe = selectedTimeframe,
+                choices = choices,
+                isExerciseSelected = selectedExercise != null,
+            )
         } else {
             ExerciseProgressionUiState(
                 timeframe = selectedTimeframe,

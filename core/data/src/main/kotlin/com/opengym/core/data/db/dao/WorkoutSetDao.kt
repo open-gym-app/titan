@@ -361,11 +361,12 @@ interface WorkoutSetDao {
      *
      * ### Which sets it counts
      *
-     * Completed, non-warm-up, in a finished session — the filter the drill-down applies to
-     * everything it draws, so this figure is the exact total of the `SETS` column in the
-     * recent-attempts table under it. Warm-ups are out because the screen is about how hard
-     * the lift was rather than how much work the week held, which is the opposite of
-     * [getVolumeByWeek]'s reading of the same table and is stated there.
+     * Completed, non-warm-up, in a finished session — the same filter the drill-down applies
+     * to everything else it draws, so this figure counts the very sets the `SETS` column of the
+     * recent-attempts table is made of. It is not their *sum*: this has no window and no cap,
+     * where that table is one timeframe's last few sessions. Warm-ups are out because the
+     * screen is about how hard the lift was rather than how much work the week held, which is
+     * the opposite of [getVolumeByWeek]'s reading of the same table and is stated there.
      */
     @Query(
         """
