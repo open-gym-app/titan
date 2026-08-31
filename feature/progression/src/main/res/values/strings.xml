@@ -88,8 +88,79 @@
     <string name="progression_detail_back">Back</string>
     <string name="progression_detail_glyph">◈</string>
     <string name="progression_detail_records_body">Every record you have broken, filtered by kind. Arriving with the PR list.</string>
-    <string name="progression_detail_exercise_body">One lift\'s estimated one-rep max and volume, over the timeframe you picked. Arriving with per-exercise progression.</string>
     <string name="progression_detail_quests_body">Your level, XP, active quests, achievements and loot. Arriving with the quest log.</string>
     <string name="progression_detail_measurements_body">Body weight, body fat and the parts you track, over time. Arriving with body measurements.</string>
+
+    <!-- ── The per-exercise drill-down (#102) ────────────────────────────────────── -->
+
+    <!-- The bar's title on the chooser, where there is no lift to name. -->
+    <string name="exercise_progression_title">Exercise progression</string>
+    <string name="exercise_switch">Switch lift</string>
+
+    <!-- The four record cards. All-time figures, whatever the timeframe says: narrowing the
+         window does not take a lifter's best bench away. -->
+    <string name="exercise_card_estimate">1RM (est)</string>
+    <string name="exercise_card_top_set">Max set</string>
+    <string name="exercise_card_volume">Best vol</string>
+    <!-- The weight unit, per session: the one card whose figure is not a lift. -->
+    <string name="exercise_card_volume_unit">%1$s / session</string>
+    <string name="exercise_card_sets">Total sets</string>
+    <string name="exercise_card_sets_unit">all-time</string>
+    <!-- A kind of record this lift has none of. A dash rather than a zero: "0 kg" is a lift
+         somebody made, and nothing here has been. -->
+    <string name="exercise_card_no_record">—</string>
+    <!-- Marks a record broken in the most recent session on screen. -->
+    <string name="exercise_card_badge_new">New</string>
+
+    <!-- The two charts. Sentence case: the eyebrow uppercases, and the chart's own spoken
+         description opens a sentence with the same string. -->
+    <string name="exercise_chart_estimate">1RM estimate</string>
+    <string name="exercise_chart_volume">Volume per session</string>
+
+    <!-- ── The recent-attempts table ─────────────────────────────────────────────── -->
+
+    <string name="exercise_attempts_heading">Recent attempts</string>
+    <string name="exercise_attempts_date">Date</string>
+    <string name="exercise_attempts_sets">Sets</string>
+    <string name="exercise_attempts_top">Top</string>
+    <string name="exercise_attempts_volume">Vol</string>
+    <!-- A session with no set worth quoting: cardio, a timed hold. -->
+    <string name="exercise_attempts_missing">—</string>
+    <!-- Drawn beside the top set of the session that broke a record. -->
+    <string name="exercise_attempts_record_glyph">★</string>
+    <plurals name="exercise_attempts_set_count">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+    <!-- A row announces as one sentence rather than as four fragments a screen reader walks
+         between, and it speaks the long form of a set — "80×5" is a rendering for a narrow
+         column, not a phrase. -->
+    <string name="exercise_attempt_description">%1$s, %2$s, top set %3$s, volume %4$s</string>
+    <string name="exercise_attempt_record_description">%1$s, %2$s, top set %3$s, personal record, volume %4$s</string>
+
+    <!-- ── The chooser ───────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_chooser_heading">Your lifts</string>
+    <string name="exercise_chooser_caption">%1$s · last %2$s</string>
+    <plurals name="exercise_chooser_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+
+    <!-- ── The empty states ──────────────────────────────────────────────────────── -->
+
+    <!-- Four of them, because they want four different things said. Telling somebody with
+         three years on a lift to go and do it would be the app failing to read its own data,
+         and a chart of one session is a bar filling its own track. -->
+    <string name="exercise_empty_glyph">◷</string>
+    <string name="exercise_empty_nothing_title">No lifts logged yet</string>
+    <string name="exercise_empty_nothing_body">Finish a workout and every exercise in it turns up here, with its records and how it has been going.</string>
+    <string name="exercise_empty_never_title">Not logged yet</string>
+    <string name="exercise_empty_never_body">You have not done this one in a session yet. Log it once and its records start here.</string>
+    <string name="exercise_empty_quiet_title">Nothing in this window</string>
+    <string name="exercise_empty_quiet_body">You have trained this lift before, just not in the period you are looking at. Try a wider one.</string>
+    <string name="exercise_empty_quiet_action">Show all time</string>
+    <string name="exercise_empty_single_title">One session so far</string>
+    <string name="exercise_empty_single_body">Log it again and the charts fill in. A single session is a dot, not a trend.</string>
 
 </resources>

@@ -1,10 +1,12 @@
 package com.opengym.feature.progression.stats
 
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
+import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.repository.PersonalRecordRepository
@@ -113,6 +115,23 @@ class FakeProgressionStore : ProgressionRepository {
 
     override fun getFirstTrainingDay(): Flow<LocalDate?> = firstDay
 
+    /*
+     * The drill-down's three reads. The hub does not take them — it is the exercise screen
+     * (#102) that does, against its own doubles — so they fail loudly here rather than
+     * returning an empty list that would let a hub quietly start reading them.
+     */
+
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> = throw UnsupportedOperationException("the hub reads no single exercise")
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> =
+        throw UnsupportedOperationException("the hub reads no single exercise")
+
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> =
+        throw UnsupportedOperationException("the hub reads no single exercise")
+
     private fun markTrained(day: LocalDate) {
         everTrained.value = true
         if (firstDay.value == null) firstDay.value = TrainingWeek.startOf(day)
@@ -147,6 +166,9 @@ class FakeRecordStore(private var tally: RecordTally = RecordTally(records = 0, 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(emptyMap())
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
+
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("the hub reads no single exercise's records")
 
     override suspend fun insertIfBetter(
         exerciseId: Long,

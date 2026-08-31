@@ -226,8 +226,11 @@ fun OpenGymNavHost(
                     // recomposition are two pushes of the same screen, and the first back press
                     // then looks like it did nothing.
                     onOpenRecords = { navController.openProgressionDetail(PersonalRecordsDestination) },
+                    // No lift named: the row is an invitation to drill into *any* of them, so
+                    // the screen opens on its own chooser. The exercise detail screen is the
+                    // caller that arrives with one — see `exerciseDetailGraph`.
                     onOpenExerciseProgression = {
-                        navController.openProgressionDetail(ExerciseProgressionDestination)
+                        navController.openProgressionDetail(ExerciseProgressionDestination())
                     },
                     onOpenQuestLog = { navController.openProgressionDetail(QuestLogDestination) },
                     onOpenMeasurements = {
@@ -350,6 +353,13 @@ fun OpenGymNavHost(
             // No target: an exercise's detail screen knows the movement, not the weight the
             // user is working up to. The active session (#26) is the caller that has one.
             onOpenPlateCalculator = { navController.openPlateCalculator() },
+            // The one edge only this file may see: an exercise in `:feature:history` opening
+            // its progression in `:feature:progression`. The screen it lands on is the same
+            // one the hub's explore row opens, with the lift already named — see
+            // [ExerciseProgressionDestination].
+            onViewProgression = { exerciseId ->
+                navController.openProgressionDetail(ExerciseProgressionDestination(exerciseId))
+            },
         )
 
         plateCalculatorGraph(onBack = { navController.popBackStack() })

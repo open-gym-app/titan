@@ -33,6 +33,18 @@ class PersonalRecordRepositoryImpl @Inject constructor(
         }
 
     /**
+     * The exercise's records, newest first, which is the order the DAO returns them in and the
+     * order [PersonalRecordRepository.getRecordsForExercise] promises.
+     *
+     * `mapNotNull` for the reason [getHeadlineRecords] gives: a row whose type this build
+     * cannot read is dropped rather than guessed at. Dropping preserves the ordering, so the
+     * first row of a type is still that type's best.
+     */
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
+        personalRecordDao.getByExercise(exerciseId)
+            .map { rows -> rows.mapNotNull(personalRecordMapper::toDomainOrNull) }
+
+    /**
      * Counted in SQLite over every row, including ones this build's mapper could not read: a
      * record broken on a newer version is still a record broken, and dropping it here would
      * make an achievement threshold move with the app version rather than with the user.

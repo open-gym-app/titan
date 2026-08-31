@@ -37,9 +37,9 @@ import com.opengym.feature.progression.R
  *
  * So the *destinations* ship with the hub and the *screens* do not. Each is one page saying
  * what belongs there and which issue is building it, and each is replaced wholesale by that
- * issue: #102 exercise progression, #103 the PR list, #104 the quest log, #109 body
- * measurements. Nothing else in the app links here, so replacing one is a change to one file
- * and one registration.
+ * issue: #103 the PR list, #104 the quest log, #109 body measurements. Per-exercise
+ * progression (#102) has already been through that and is gone from here, which is what the
+ * arrangement was for — replacing one is a change to one entry and one registration.
  *
  * ### Full screen, not inside the tab
  *
@@ -89,12 +89,12 @@ fun ProgressionDetailScreen(
 }
 
 /**
- * Which of the four this page is standing in for.
+ * Which of the remaining drill-downs this page is standing in for.
  *
- * An enum rather than four screens, because the page is identical apart from two strings and
- * four copies of it would be four files to delete instead of one entry to remove. Each entry
+ * An enum rather than a screen each, because the page is identical apart from two strings and
+ * three copies of it would be three files to delete instead of one entry to remove. Each entry
  * names the issue that replaces it, so a reader who lands here knows where the real screen is
- * being built.
+ * being built — #102 has already taken its entry out, which is the arrangement working.
  */
 enum class ProgressionDetail(
     @param:StringRes val titleRes: Int,
@@ -102,9 +102,6 @@ enum class ProgressionDetail(
 ) {
     /** #103 — every record broken, filtered by kind. */
     RECORDS(R.string.explore_records_title, R.string.progression_detail_records_body),
-
-    /** #102 — one exercise's 1RM estimate and volume, over the shared timeframe. */
-    EXERCISE_PROGRESSION(R.string.explore_exercise_title, R.string.progression_detail_exercise_body),
 
     /** #104 — level, XP, quests, achievements and loot. */
     QUEST_LOG(R.string.explore_quests_title, R.string.progression_detail_quests_body),

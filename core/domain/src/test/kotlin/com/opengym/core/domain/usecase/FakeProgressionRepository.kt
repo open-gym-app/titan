@@ -1,6 +1,8 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.repository.ProgressionRepository
@@ -39,6 +41,9 @@ class FakeProgressionRepository : ProgressionRepository {
     private val muscleTraining = MutableStateFlow<List<MuscleTraining>>(emptyList())
     private val trainingMillis = MutableStateFlow(0L)
     private val firstTrainingDay = MutableStateFlow<LocalDate?>(null)
+    private val attempts = MutableStateFlow<Map<Long, List<ExerciseAttempt>>>(emptyMap())
+    private val setCounts = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    private val trainedExercises = MutableStateFlow<List<TrainedExercise>>(emptyList())
 
     /** Every range this repository has been read over, in call order. */
     val requestedRanges = mutableListOf<ClosedRange<LocalDate>>()
@@ -118,6 +123,52 @@ class FakeProgressionRepository : ProgressionRepository {
 
     override fun getFirstTrainingDay(): Flow<LocalDate?> = firstTrainingDay
 
+    /** Seeds one exercise's attempts. Stored as given; the reads sort and filter. */
+    fun setAttempts(
+        exerciseId: Long,
+        vararg performed: ExerciseAttempt,
+    ) {
+        attempts.value += exerciseId to performed.toList()
+    }
+
+    /** Seeds the all-time working-set count for one exercise. */
+    fun setExerciseSetCount(
+        exerciseId: Long,
+        count: Int,
+    ) {
+        setCounts.value += exerciseId to count
+    }
+
+    /** Seeds the chooser's list, in the order the query would return it. */
+    fun setTrainedExercises(vararg exercises: TrainedExercise) {
+        trainedExercises.value = exercises.toList()
+    }
+
+    /**
+     * The attempts in [days], oldest first.
+     *
+     * **Not** routed through [requireWholeWeeks], unlike everything above it: an attempt is a
+     * session on a date rather than a weekly bucket, so the real query answers any range
+     * exactly and there is no partial bucket for a fake to be wrong about. Placed by the UTC
+     * day the session was closed out, which is how the query places it.
+     */
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> {
+        requestedRanges += days
+        return attempts.map { byExercise ->
+            byExercise[exerciseId]
+                .orEmpty()
+                .filter { LocalDate.ofEpochDay(it.finishedAt / MILLIS_PER_DAY) in days }
+                .sortedBy(ExerciseAttempt::finishedAt)
+        }
+    }
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = setCounts.map { counts -> counts[exerciseId] ?: 0 }
+
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> = trainedExercises
+
     /**
      * Rejects a range that starts anywhere but a Monday or ends anywhere but a Sunday.
      *
@@ -137,3 +188,6 @@ class FakeProgressionRepository : ProgressionRepository {
         return days
     }
 }
+
+/** What a day is, in the milliseconds a session's `completedAt` is stored in. */
+private const val MILLIS_PER_DAY = 86_400_000L

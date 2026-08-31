@@ -303,9 +303,11 @@
     <string name="pr_description">Personal record: %1$s</string>
     <string name="pr_description_short">Personal record</string>
     <!-- A record's figure where the kind has no unit of its own to carry it. -->
-    <plurals name="pr_value_reps">
-        <item quantity="one">%1$d rep</item>
-        <item quantity="other">%1$d reps</item>
+    <!-- A rep record's unit. The figure beside it comes from `formattedFigure`, which goes
+         through the package's own number formatter so the digits follow the device locale. -->
+    <plurals name="pr_unit_reps">
+        <item quantity="one">rep</item>
+        <item quantity="other">reps</item>
     </plurals>
     <!-- Announced for a record shown as a bare figure: "Personal record, heaviest, 92 kg". -->
     <string name="pr_value_description">Personal record, %1$s, %2$s</string>

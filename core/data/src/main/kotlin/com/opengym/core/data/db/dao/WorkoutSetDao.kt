@@ -7,9 +7,11 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.opengym.core.data.db.entity.WorkoutSetEntity
+import com.opengym.core.data.db.projection.ExerciseAttemptRow
 import com.opengym.core.data.db.projection.MuscleVolumeRow
 import com.opengym.core.data.db.projection.PreviousSetRow
 import com.opengym.core.data.db.projection.SessionTotalsRow
+import com.opengym.core.data.db.projection.TrainedExerciseRow
 import com.opengym.core.data.db.projection.WeeklyVolumeRow
 import kotlinx.coroutines.flow.Flow
 
@@ -348,4 +350,158 @@ interface WorkoutSetDao {
         startEpochDay: Long,
         endEpochDayExclusive: Long,
     ): Flow<List<MuscleVolumeRow>>
+
+    /**
+     * How many working sets of [exerciseId] the user has ever completed.
+     *
+     * The per-exercise drill-down's `TOTAL SETS` card. A `COUNT` rather than a sum over
+     * [getHistoryByExercise]: that query returns every completed set for one exercise across
+     * all of history, which is the heaviest read in this file, and materialising thousands of
+     * rows to render a four-digit figure is the shape this whole DAO exists to avoid.
+     *
+     * ### Which sets it counts
+     *
+     * Completed, non-warm-up, in a finished session — the filter the drill-down applies to
+     * everything it draws, so this figure is the exact total of the `SETS` column in the
+     * recent-attempts table under it. Warm-ups are out because the screen is about how hard
+     * the lift was rather than how much work the week held, which is the opposite of
+     * [getVolumeByWeek]'s reading of the same table and is stated there.
+     */
+    @Query(
+        """
+        SELECT COUNT(*) FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN workout_session s ON s.id = se.session_id
+        WHERE se.exercise_id = :exerciseId
+            AND ws.is_completed = 1
+            AND ws.set_type <> 'WARMUP'
+            AND s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+        """,
+    )
+    fun countSetsByExercise(exerciseId: Long): Flow<Int>
+
+    /**
+     * One row per session [exerciseId] was performed in over the half-open day range
+     * `[startEpochDay, endEpochDayExclusive)`, oldest first.
+     *
+     * Everything the per-exercise drill-down draws below its record cards: the bars are
+     * `total_volume`, the one-rep-max line is estimated from the top set, and the
+     * recent-attempts table is the whole row. One read for three drawings, so none of them can
+     * disagree about what a session held — the reason this is an aggregate rather than three.
+     *
+     * ### A session, not a slot
+     *
+     * Grouped by `session_id`, so a workout that held the exercise twice — two slots of a
+     * superset, a second run at it after accessories — is **one** attempt. That is the
+     * grouping `PrDetectionUseCase` judges records by, and splitting it here would draw two
+     * short attempts a lifter would not recognise beside a record built from both.
+     *
+     * ### Same filter and same bucketing as the rest of this file
+     *
+     * Completed sets of finished sessions, dated by the day the *session* was closed out, so
+     * an attempt sits in the same period the hub's volume put it in. Warm-ups are excluded —
+     * see [countSetsByExercise] — which also keeps a warm-up from ever being drawn as the top
+     * set of a session.
+     *
+     * ### How the top set is chosen
+     *
+     * The heaviest, ties going to the one that got more reps out of the weight, and then to
+     * the earlier row so the answer is stable. The CTE aggregates first and the subquery then
+     * runs **once per attempt** rather than once per set, which is the same shape
+     * [getPreviousSetsForSession] documents at length; a correlated subquery over the
+     * historical rows instead grows with the square of the user's history.
+     *
+     * A bodyweight or timed attempt has no weight to rank on, so the ordering falls through to
+     * reps and the row comes back with a null `top_weight` — which the caller renders as
+     * `× 12` rather than as a lift.
+     */
+    @Query(
+        """
+        WITH attempt AS (
+            SELECT
+                se.session_id AS session_id,
+                s.completed_at AS finished_at,
+                COUNT(*) AS set_count,
+                SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
+                MIN(ws.completed_at) AS first_set_at
+            FROM workout_set ws
+            INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+            INNER JOIN workout_session s ON s.id = se.session_id
+            WHERE se.exercise_id = :exerciseId
+                AND ws.is_completed = 1
+                AND ws.set_type <> 'WARMUP'
+                AND s.is_in_progress = 0
+                AND s.completed_at IS NOT NULL
+                AND s.completed_at >= :startEpochDay * 86400000
+                AND s.completed_at < :endEpochDayExclusive * 86400000
+            GROUP BY se.session_id
+        )
+        SELECT
+            attempt.session_id AS session_id,
+            attempt.finished_at AS finished_at,
+            attempt.set_count AS set_count,
+            attempt.total_volume AS total_volume,
+            attempt.first_set_at AS first_set_at,
+            top.weight AS top_weight,
+            top.reps AS top_reps
+        FROM attempt
+        LEFT JOIN workout_set top ON top.id = (
+            SELECT candidate.id
+            FROM workout_set candidate
+            INNER JOIN session_exercise cse ON candidate.session_exercise_id = cse.id
+            WHERE cse.session_id = attempt.session_id
+                AND cse.exercise_id = :exerciseId
+                AND candidate.is_completed = 1
+                AND candidate.set_type <> 'WARMUP'
+            ORDER BY
+                COALESCE(candidate.weight, 0) DESC,
+                COALESCE(candidate.reps, 0) DESC,
+                candidate.id ASC
+            LIMIT 1
+        )
+        ORDER BY attempt.finished_at ASC, attempt.session_id ASC
+        """,
+    )
+    fun getAttemptsByExercise(
+        exerciseId: Long,
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<List<ExerciseAttemptRow>>
+
+    /**
+     * Every exercise the user has actually logged, most recently trained first.
+     *
+     * What the per-exercise drill-down is chosen from when it is opened from the stats hub,
+     * which arrives without a lift in hand. Built from the *history* rather than from the
+     * catalogue on purpose: the catalogue is 873 seeded rows and picking from it is a search,
+     * where this is a short list whose top entry is nearly always the one the user wants.
+     *
+     * Same filter as [countSetsByExercise], so an exercise's `set_count` here is the figure its
+     * own screen opens with, and an exercise that has only ever been warmed up with does not
+     * appear as something to drill into.
+     *
+     * The name rides along rather than being joined in Kotlin: the alternative is this list
+     * plus a read of the whole catalogue to label a dozen rows.
+     */
+    @Query(
+        """
+        SELECT
+            se.exercise_id AS exercise_id,
+            e.name AS name,
+            COUNT(*) AS set_count,
+            MAX(s.completed_at) AS last_performed_at
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN workout_session s ON s.id = se.session_id
+        INNER JOIN exercise e ON e.id = se.exercise_id
+        WHERE ws.is_completed = 1
+            AND ws.set_type <> 'WARMUP'
+            AND s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+        GROUP BY se.exercise_id, e.name
+        ORDER BY last_performed_at DESC, e.name ASC
+        """,
+    )
+    fun getTrainedExercises(): Flow<List<TrainedExerciseRow>>
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -113,6 +114,58 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
         runBlocking {
             assertTrue(repository.getWeeklyVolume(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
             assertTrue(repository.getWeeklyTraining(WEEK_1..WEEK_3.plusDays(6)).first().isEmpty())
+        }
+
+    @Test
+    fun `an attempt comes back with its top set as one value, and its period is inclusive`() =
+        runBlocking {
+            val slot = workoutOn(WEEK_3.plusDays(6))
+            logSet(slot, 1, at(WEEK_3.plusDays(6)), reps = 5, weight = kg(80))
+            logSet(slot, 2, at(WEEK_3.plusDays(6)), reps = 8, weight = kg(70))
+
+            // The Sunday that closes the period, which a dropped `+ 1` would lose.
+            val attempts = repository
+                .getExerciseAttempts(sharedExercise!!, WEEK_1..WEEK_3.plusDays(6))
+                .first()
+
+            val attempt = attempts.single()
+            assertEquals(2, attempt.sets)
+            // 80x5 + 70x8 = 400 + 560.
+            assertEquals(kg(960), attempt.volume)
+            assertEquals(kg(80), attempt.topSet?.weight)
+            assertEquals(5, attempt.topSet?.reps)
+        }
+
+    @Test
+    fun `an attempt with neither a weight nor a rep count carries no top set at all`() =
+        runBlocking {
+            val slot = workoutOn(WEEK_1)
+            // A timed hold: the row exists, and there is nothing to quote it by.
+            db.workoutSetDao().insert(
+                workoutSet(slot, 1, completedAt = at(WEEK_1), reps = null, weight = null),
+            )
+
+            val attempt = repository
+                .getExerciseAttempts(sharedExercise!!, WEEK_1..WEEK_1.plusDays(6))
+                .first()
+                .single()
+
+            assertNull(attempt.topSet)
+            assertEquals(0L, attempt.volume)
+        }
+
+    @Test
+    fun `the set count and the chooser read the whole history, whatever period was last asked for`() =
+        runBlocking {
+            logSet(workoutOn(WEEK_1), 1, at(WEEK_1), reps = 5, weight = kg(80))
+            logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 5, weight = kg(85))
+
+            assertEquals(2, repository.countExerciseSets(sharedExercise!!).first())
+            assertEquals(
+                listOf(sharedExercise),
+                repository.getTrainedExercises().first().map { it.exerciseId },
+            )
+            assertEquals(2, repository.getTrainedExercises().first().single().sets)
         }
 
     private var sharedExercise: Long? = null

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
@@ -62,6 +63,11 @@ import kotlin.time.Duration.Companion.seconds
  * @param accented paints the figure in the accent. For the one tile on a screen that is a
  *   result rather than a fact — a personal record, a streak still running. Spending it on
  *   the whole grid is what stops it meaning anything on any of them.
+ * @param badge a tag beside the eyebrow: `NEW` on a record broken this session, `SOON` on one
+ *   about to be. On the eyebrow's own line rather than floated over the corner, so it cannot
+ *   sit on top of a five-digit figure on a narrow tile, and folded into the tile's spoken
+ *   description — the tile speaks as one node, so a badge drawn as a child of it would be
+ *   silent.
  */
 @Composable
 fun StatTile(
@@ -70,12 +76,25 @@ fun StatTile(
     modifier: Modifier = Modifier,
     unit: String? = null,
     accented: Boolean = false,
+    badge: String? = null,
 ) {
-    val spoken = stringResource(R.string.stat_description, label, listOfNotNull(value, unit).joinToString(" "))
+    val figure = listOfNotNull(value, unit).joinToString(" ")
+    val spoken = stringResource(
+        R.string.stat_description,
+        label,
+        listOfNotNull(badge, figure).joinToString(", "),
+    )
 
     OpenGymCard(modifier = modifier.clearAndSetSemantics { contentDescription = spoken }) {
         Column(modifier = Modifier.padding(OpenGymTheme.spacing.card)) {
-            Eyebrow(text = label)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Eyebrow(text = label, modifier = Modifier.weight(1f))
+                if (badge != null) OpenGymBadge(text = badge, tone = BadgeTone.ACCENT)
+            }
             Text(
                 text = value,
                 style = OpenGymTheme.typography.numericLarge,

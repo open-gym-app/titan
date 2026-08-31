@@ -2,8 +2,11 @@ package com.opengym.core.data.repository
 
 import com.opengym.core.data.db.dao.WorkoutSessionDao
 import com.opengym.core.data.db.dao.WorkoutSetDao
+import com.opengym.core.domain.model.AttemptSet
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.repository.ProgressionRepository
@@ -91,4 +94,52 @@ class ProgressionRepositoryImpl @Inject constructor(
 
     override fun getFirstTrainingDay(): Flow<LocalDate?> =
         sessionDao.getFirstTrainingDay().map { epochDay -> epochDay?.let(LocalDate::ofEpochDay) }
+
+    /**
+     * The attempts, straight from the roll-up.
+     *
+     * The only shaping is the top set: two nullable columns become one nullable [AttemptSet],
+     * and a row carrying neither a weight nor a rep count becomes **null** rather than a pair
+     * of nulls — see [AttemptSet], whose two callers both need the pair or neither of it.
+     */
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> =
+        setDao.getAttemptsByExercise(
+            exerciseId = exerciseId,
+            startEpochDay = days.start.toEpochDay(),
+            endEpochDayExclusive = days.endInclusive.toEpochDay() + 1,
+        ).map { rows ->
+            rows.map { row ->
+                ExerciseAttempt(
+                    sessionId = row.sessionId,
+                    finishedAt = row.finishedAt,
+                    sets = row.setCount,
+                    volume = row.totalVolume,
+                    topSet = topSetOf(row.topSetWeight, row.topSetReps),
+                    firstSetAt = row.firstSetAt,
+                )
+            }
+        }
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = setDao.countSetsByExercise(exerciseId)
+
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> =
+        setDao.getTrainedExercises().map { rows ->
+            rows.map { row ->
+                TrainedExercise(
+                    exerciseId = row.exerciseId,
+                    name = row.name,
+                    sets = row.setCount,
+                    lastPerformedAt = row.lastPerformedAt,
+                )
+            }
+        }
+
+    /** A top set worth quoting, or null when the row carries nothing to quote it by. */
+    private fun topSetOf(
+        weight: Long?,
+        reps: Int?,
+    ): AttemptSet? = if (weight == null && reps == null) null else AttemptSet(weight = weight, reps = reps)
 }
