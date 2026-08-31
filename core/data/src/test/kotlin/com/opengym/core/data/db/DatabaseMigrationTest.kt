@@ -81,6 +81,7 @@ class DatabaseMigrationTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, OpenGymDatabase::class.java)
             .allowMainThreadQueries()
+            .addCallback(OpenGymDatabase.singleRowProgressCallback)
             .build()
         try {
             db.openHelper.readableDatabase.version

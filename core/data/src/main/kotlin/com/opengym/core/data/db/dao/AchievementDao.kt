@@ -38,9 +38,13 @@ interface AchievementDao {
      * Every unlock, earliest first — for a screen that lists them (#104).
      *
      * Ordered by when the milestone was earned rather than by id, so the list reads as the
-     * user's own history.
+     * user's own history. The id is a tie-break rather than decoration: one finished session
+     * unlocks every milestone it reached at the *same* moment — the cascade dates them all
+     * from the session's own timestamp — and `unlocked_at` alone would leave the order among
+     * those up to SQLite, so the same list could come back in a different order on the next
+     * read.
      */
-    @Query("SELECT * FROM achievement ORDER BY unlocked_at ASC")
+    @Query("SELECT * FROM achievement ORDER BY unlocked_at ASC, achievement_id ASC")
     fun getAll(): Flow<List<AchievementEntity>>
 
     /**
