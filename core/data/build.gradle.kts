@@ -54,6 +54,9 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.androidx.paging.testing)
+    // The progress row is observed as a Flow; asserting an emission arrives is Turbine's job
+    // rather than a timeout's — see `UserProgressDaoTest`.
+    testImplementation(libs.turbine)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.room.testing)

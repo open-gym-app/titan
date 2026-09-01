@@ -3,12 +3,15 @@ package com.opengym.core.data.di
 import android.content.Context
 import androidx.room.Room
 import com.opengym.core.data.db.OpenGymDatabase
+import com.opengym.core.data.db.dao.AchievementDao
 import com.opengym.core.data.db.dao.BodyMeasurementDao
 import com.opengym.core.data.db.dao.ExerciseDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
 import com.opengym.core.data.db.dao.SessionExerciseDao
+import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.TagDao
+import com.opengym.core.data.db.dao.UserProgressDao
 import com.opengym.core.data.db.dao.WorkoutSessionDao
 import com.opengym.core.data.db.dao.WorkoutSetDao
 import com.opengym.core.data.db.dao.WorkoutTemplateDao
@@ -31,6 +34,7 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
         Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
             .addCallback(OpenGymDatabase.foreignKeysCallback)
+            .addCallback(OpenGymDatabase.singleRowProgressCallback)
             .addCallback(OpenGymDatabase.seedCallback(context.assets))
             .addMigrations(*OpenGymDatabase.MIGRATIONS)
             .build()
@@ -70,4 +74,16 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideBodyMeasurementDao(db: OpenGymDatabase): BodyMeasurementDao = db.bodyMeasurementDao()
+
+    @Provides
+    @Singleton
+    fun provideUserProgressDao(db: OpenGymDatabase): UserProgressDao = db.userProgressDao()
+
+    @Provides
+    @Singleton
+    fun provideAchievementDao(db: OpenGymDatabase): AchievementDao = db.achievementDao()
+
+    @Provides
+    @Singleton
+    fun provideSessionXpClaimDao(db: OpenGymDatabase): SessionXpClaimDao = db.sessionXpClaimDao()
 }

@@ -42,6 +42,7 @@ class DatabaseSeedTest {
         db = Room.inMemoryDatabaseBuilder(context, OpenGymDatabase::class.java)
             .allowMainThreadQueries()
             .addCallback(OpenGymDatabase.foreignKeysCallback)
+            .addCallback(OpenGymDatabase.singleRowProgressCallback)
             .addCallback(OpenGymDatabase.seedCallback(context.assets))
             .build()
     }
