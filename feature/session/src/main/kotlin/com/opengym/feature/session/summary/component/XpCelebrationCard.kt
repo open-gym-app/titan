@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CornerSize
@@ -178,7 +177,14 @@ private fun LevelUpBanner(
                 colors = celebrationColors.confetti,
                 pieceCount = sweep.ceremony.confettiPieces,
                 seed = sweep.crossings,
-                modifier = Modifier.fillMaxSize(),
+                // `matchParentSize`, not `fillMaxSize`. The banner's height comes from the
+                // column of text below this, and inside a `LazyColumn` item the incoming height
+                // constraint is unbounded — so `fillMaxSize` has nothing to expand against and
+                // the canvas measures to nothing. Every piece then lands at y=0 and the burst
+                // draws as a row of dots welded to the top edge. `matchParentSize` is measured
+                // after the parent's size is known and does not feed into it, which is exactly
+                // the relationship a backdrop wants.
+                modifier = Modifier.matchParentSize(),
             )
         }
 

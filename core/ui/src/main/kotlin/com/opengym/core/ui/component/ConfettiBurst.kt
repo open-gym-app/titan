@@ -43,6 +43,15 @@ import kotlin.random.Random
  * The semantics are cleared: there is nothing here to announce, and a canvas that reported
  * itself would put a meaningless node between the level-up banner and the XP figure.
  *
+ * ### It draws into whatever size it is given, so it has to be given one
+ *
+ * The fall is expressed as a fraction of the canvas, which means a canvas of no height is a burst
+ * of no movement — every piece lands at the top edge and the effect reads as a row of stuck dots
+ * rather than as confetti. Inside a `Box` that is sized by another child, and under an unbounded
+ * height constraint such as a `LazyColumn` item's, `fillMaxSize` measures to nothing and does
+ * precisely that. `Modifier.matchParentSize()` is the one that works there: sized from the
+ * parent after the fact, and not part of what decides the parent's size.
+ *
  * @param colors the palette pieces are cycled through — `OpenGymTheme.celebration.confetti`.
  *   Passed rather than read, so this composable stays a drawing primitive with no opinion about
  *   which moment is being celebrated.
