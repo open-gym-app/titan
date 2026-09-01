@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
 import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -130,10 +131,13 @@ internal fun PersonalRecordsScreen(
                     body = stringResource(R.string.records_empty_body),
                 )
 
-                // `itemCount` is zero both before the first page lands and when a filter matches
-                // nothing. `loadState.refresh` is what tells the two apart, and drawing the
-                // filtered-empty message during the load would flash a wrong answer on every chip.
-                items.itemCount == 0 && items.loadState.refresh !is androidx.paging.LoadState.Loading ->
+                // `itemCount` is zero in three different situations: before the first page
+                // lands, when a filter matches nothing, and when the load *failed*. Only the
+                // middle one is "nothing of that kind" — so the test is that the refresh has
+                // settled as `NotLoading`, not merely that it stopped loading. Reading it the
+                // other way would tell a user whose query errored that they hold no records of a
+                // kind they may well hold plenty of.
+                items.itemCount == 0 && items.loadState.refresh is LoadState.NotLoading ->
                     RecordsEmptyState(
                         title = stringResource(R.string.records_filtered_empty_title),
                         body = stringResource(R.string.records_filtered_empty_body),

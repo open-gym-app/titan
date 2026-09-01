@@ -15,9 +15,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -55,13 +59,39 @@ constructor(private val personalRecordRepository: PersonalRecordRepository) :
     /** The live source, held so a change in the store can invalidate it. */
     private var currentSource: PersonalRecordsPagingSource? = null
 
+    /**
+     * How many records exist — the header's figure, and the signal that the list is stale.
+     *
+     * `distinctUntilChanged` because Room re-emits on any write to the table, and only a change
+     * in the count is news to either reader.
+     */
+    private val recordCount: StateFlow<Int?> =
+        personalRecordRepository.observeRecordCount()
+            .distinctUntilChanged()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = null,
+            )
+
+    init {
+        viewModelScope.launch {
+            // `drop(1)`, and this is the whole point of the separate collector: the first
+            // emission is not a *change*, it is the initial answer — and invalidating on it
+            // cancels the load the pager has just started, leaving the screen with an empty list
+            // beside a header that correctly says there are records. Only a later movement in the
+            // count means the table shifted under a source that is already serving rows.
+            recordCount.filterNotNull().drop(1).collect { currentSource?.invalidate() }
+        }
+    }
+
     val uiState: StateFlow<PersonalRecordsUiState> =
-        combine(filter, personalRecordRepository.observeRecordCount()) { type, count ->
-            // Every emission of the count past the first means the table moved under the list.
-            // Invalidating here rather than in a separate collector keeps the two in one place:
-            // the screen's figure and the list's freshness come from the same read.
-            currentSource?.invalidate()
-            PersonalRecordsUiState(filter = type, totalRecords = count, isLoading = false)
+        combine(filter, recordCount) { type, count ->
+            PersonalRecordsUiState(
+                filter = type,
+                totalRecords = count ?: 0,
+                isLoading = count == null,
+            )
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
