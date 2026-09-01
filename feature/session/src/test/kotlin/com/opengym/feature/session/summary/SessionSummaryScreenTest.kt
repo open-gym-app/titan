@@ -378,6 +378,38 @@ class SessionSummaryScreenTest {
     }
 
     @Test
+    fun `a saved streak says what survived and what it cost`() {
+        setContent(previewState(celebration = previewCelebration(), streakSave = previewStreakSave()))
+
+        val headline = "A protection covered your missed day. Your streak stands at 13 days."
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText(headline))
+
+        composeTestRule.onNodeWithText(headline).assertIsDisplayed()
+
+        // The cost, said once. The marks beside this line are cleared for exactly that reason.
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("2 LEFT THIS MONTH"))
+        composeTestRule.onNodeWithText("2 LEFT THIS MONTH").assertIsDisplayed()
+    }
+
+    @Test
+    fun `an exhausted allowance is said in words rather than as a zero`() {
+        setContent(previewState(streakSave = previewLastStreakSave()))
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("NONE LEFT THIS MONTH"))
+
+        composeTestRule.onNodeWithText("NONE LEFT THIS MONTH").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("0 LEFT THIS MONTH").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a session that spent no protection draws no streak card`() {
+        setContent(previewState(celebration = previewCelebration()))
+
+        // Absent, not a card reading "0 protections used". See [SummaryStreakSave].
+        composeTestRule.onAllNodesWithText("STREAK SAVED").assertCountEquals(0)
+    }
+
+    @Test
     fun `the historical recap celebrates nothing`() {
         // The state a historical recap is built with never carries a celebration — see the
         // ViewModel, which does not collect the hand-off in that mode. This asserts the screen

@@ -1,11 +1,16 @@
 package com.opengym.core.domain.gamification
 
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakState
+import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.stats.TrainingWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 
 /**
  * Whether a finished session extends the user's streak, breaks it, or leaves it alone.
@@ -52,6 +57,14 @@ import java.time.ZoneOffset
  * 20:00 crosses a day boundary the calendar on their phone has not. Correcting it means
  * storing the zone each session was logged in, which no table does; it is written down here
  * rather than fixed.
+ *
+ * ### Two entry points, and which one to call
+ *
+ * [onSessionFinished] is the rule above and nothing else: two timestamps, a count, an answer.
+ * [advance] is the *state transition* — it runs that rule, then decides whether a break it
+ * reports is one the protection allowance should pay for, and returns the whole of the state
+ * to store. Everything that persists a streak calls [advance]; [onSessionFinished] stays
+ * public because it is the rule worth pinning on its own, without a state around it.
  */
 object StreakCalculator {
 
@@ -107,6 +120,144 @@ object StreakCalculator {
             else -> StreakResult.Reset
         }
     }
+
+    /**
+     * The shortest streak worth spending a protection on.
+     *
+     * A streak of one or two days costs nothing to rebuild — train tomorrow and you are back
+     * where you were — so paying an allowance for one spends a scarce resource on a loss the
+     * user would not have noticed, and leaves them without it in the month they break a
+     * thirty-day run. Three is where a streak starts being something to lose.
+     *
+     * A starting default, like [STREAK_GRACE_HOURS] and
+     * [StreakProtection.MONTHLY_ALLOWANCE]: named here, read from here, retuned by editing
+     * this line.
+     */
+    const val MIN_PROTECTED_STREAK = 3
+
+    /**
+     * How many missed calendar days one protection covers.
+     *
+     * One. A protection is for the day life got in the way, and it sits directly above the
+     * grace window: the window already carries a rest day taken at an awkward hour (see the
+     * class doc), and this carries the day that was genuinely missed. A break spanning two or
+     * more missed days is not saved at all — not by two protections, not by one — because
+     * that is a lapse rather than a slip, and an allowance that could cover a fortnight away
+     * would make the streak a measure of absence.
+     *
+     * The consequence worth stating: a user with three protections left and a four-day gap
+     * loses the streak and keeps all three. Nothing is spent on a break it cannot save.
+     */
+    const val MAX_PROTECTED_MISSED_DAYS = 1L
+
+    /**
+     * The whole streak transition for a session finished at [finishedAt]: what it did, and
+     * the state to store afterwards.
+     *
+     * Three things happen here, in this order, and the order matters:
+     *
+     * 1. **The allowance rolls over.** [StreakProtection.replenishedFor] is applied for the
+     *    month [finishedAt] falls in *before* anything is spent, so a user whose first
+     *    session of April breaks a streak spends April's allowance rather than whatever was
+     *    left of March's. It is applied on every transition, not only on a break, which is
+     *    what makes the stored count correct without a scheduled job — see [StreakProtection].
+     * 2. **The rule runs**, unchanged: [onSessionFinished] over the timestamps and the count.
+     * 3. **A break is offered to the allowance.** A [StreakResult.Reset] becomes a
+     *    [StreakResult.Protected] when, and only when, there is a protection left, the streak
+     *    was at least [MIN_PROTECTED_STREAK] days, and no more than
+     *    [MAX_PROTECTED_MISSED_DAYS] calendar days were missed. Every other result passes
+     *    through untouched — a protection is never spent on a session that did not break
+     *    anything.
+     *
+     * ### Spending is automatic, and that is the design
+     *
+     * There is no prompt. The break is discovered when the *next* session is finished, which
+     * is hours or days after the day it happened, so a dialog asking "spend a protection on
+     * last Tuesday?" would be asking about a decision the user can no longer influence. The
+     * app spends it and says so afterwards — which is why [StreakUpdate.protectionConsumed]
+     * and [StreakUpdate.protectionsRemaining] exist as readable state rather than as an
+     * announcement.
+     *
+     * ### Why re-running this cannot spend a second protection
+     *
+     * The same property that makes the cascade re-entrant (see
+     * [com.opengym.core.domain.usecase.SessionCompletionPipeline]), and it needs no marker of
+     * its own. A protected session advances `lastCountedAt` to [finishedAt] exactly as an
+     * ordinary counted one does, so a second pass for the same session reads the timestamp
+     * the first one wrote, lands on the same calendar day, and comes back
+     * [StreakResult.Unchanged] — which spends nothing. The same holds for a *second session*
+     * on that day, and for a backfilled session finished before the anchor. The only path to
+     * a second protection is a genuine second break on a later day.
+     *
+     * [StreakProtection.lastConsumedAt] therefore records when one was spent for the surfaces
+     * to draw; the idempotency does not rest on it, and a fence keyed on it would be a second
+     * statement of a guarantee the same-day rule already gives.
+     *
+     * @param state the streak as stored — [StreakState]'s defaults for a user with no history.
+     * @param finishedAt when the session being applied finished. The workout's own moment,
+     *   never a clock read at the point of writing, so a cascade retried an hour later still
+     *   counts the day the training happened on and still spends the right month's allowance.
+     */
+    fun advance(
+        state: StreakState,
+        finishedAt: Instant,
+    ): StreakUpdate {
+        val protection = state.protection.replenishedFor(YearMonth.from(finishedAt.atZone(STREAK_ZONE)))
+        val rule = onSessionFinished(finishedAt, state.lastCountedAt, state.currentStreak)
+        val result =
+            if (rule == StreakResult.Reset && protection.canCover(state, finishedAt)) {
+                StreakResult.Protected(protectionsRemaining = protection.remaining - 1)
+            } else {
+                rule
+            }
+
+        val days = result.streakAfter(state.currentStreak)
+        val spent =
+            if (result is StreakResult.Protected) protection.consumedAt(finishedAt) else protection
+
+        return StreakUpdate(
+            result = result,
+            state = state.copy(
+                currentStreak = days,
+                longestStreak = maxOf(state.longestStreak, days),
+                // Only a session that counted moves the anchor, which is the whole of the
+                // same-day guarantee — and, above, the whole of the idempotency.
+                lastCountedAt = if (result == StreakResult.Unchanged) state.lastCountedAt else finishedAt,
+                protection = spent,
+            ),
+        )
+    }
+
+    /**
+     * Whether this allowance can pay for the break [state] just suffered — the three
+     * conditions [advance] documents, in one place so they are read together.
+     *
+     * `lastCountedAt` is non-null on every path that reaches here: [onSessionFinished] only
+     * answers [StreakResult.Reset] for a state that had an anchor to break away from. It is
+     * read defensively anyway rather than forced, because a `!!` in a rule this quiet is a
+     * crash waiting on a refactor of the case above it.
+     */
+    private fun StreakProtection.canCover(
+        state: StreakState,
+        finishedAt: Instant,
+    ): Boolean {
+        val anchor = state.lastCountedAt ?: return false
+        return hasProtection &&
+            state.currentStreak >= MIN_PROTECTED_STREAK &&
+            missedDaysBetween(anchor, finishedAt) <= MAX_PROTECTED_MISSED_DAYS
+    }
+
+    /**
+     * How many whole calendar days went untrained between two counted sessions.
+     *
+     * The days *strictly between* the two dates: Monday to Wednesday misses one — the
+     * Tuesday — and Monday to Tuesday misses none. Never negative on the path that calls it,
+     * since a break is only ever reported for a session that came after the anchor.
+     */
+    private fun missedDaysBetween(
+        anchor: Instant,
+        finishedAt: Instant,
+    ): Long = ChronoUnit.DAYS.between(anchor.streakDate(), finishedAt.streakDate()) - 1
 
     private fun isSameDay(
         first: Instant,

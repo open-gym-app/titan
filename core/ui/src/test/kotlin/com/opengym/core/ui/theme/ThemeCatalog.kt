@@ -26,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.plate.PlateCount
@@ -34,6 +35,7 @@ import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.BarbellDiagram
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.LevelProgressBar
 import com.opengym.core.ui.component.MetaEntry
 import com.opengym.core.ui.component.MetaGrid
 import com.opengym.core.ui.component.OpenGymBadge
@@ -43,6 +45,7 @@ import com.opengym.core.ui.component.SelectableOption
 import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.component.StepProgress
+import com.opengym.core.ui.component.StreakShields
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatWeight
 import kotlin.time.Duration.Companion.minutes
@@ -251,6 +254,66 @@ fun ComponentCatalog(modifier: Modifier = Modifier) {
                     MetaEntry(label = "Difficulty", value = "Intermediate"),
                     MetaEntry(label = "Tracked", value = "Weight, reps, RPE"),
                 ),
+            )
+        }
+    }
+}
+
+/**
+ * The payoff's own palette, and the two marks that spend it.
+ *
+ * A sheet of its own for the same reason the plate ramp has one: [OpenGymCelebrationColors] is
+ * a token set Material has no slot for, and it is the *documented exception* to the app's
+ * one-accent rule — so it is the set most worth having a picture of. Four of its tones carry
+ * text and are held to AA pair by pair in `ColorSchemeContrastTest`; the confetti tones carry
+ * nothing at all, which is what makes them safe, and they appear here as swatches rather than
+ * as a burst because a still frame of a particle effect is not a review of anything.
+ *
+ * `ConfettiBurst` is deliberately absent. It draws nothing under reduced motion — see its own
+ * doc — and this sheet is captured with motion off, so the screenshot would be an empty box.
+ *
+ * The streak allowance closes the sheet. It is not a celebration token — it spends `primary`
+ * and `outlineVariant` like the rest of the app — but it belongs to the same family of marks:
+ * things the gamification layer draws to report a resource rather than a quantity.
+ */
+@Composable
+fun CelebrationCatalog(modifier: Modifier = Modifier) {
+    CatalogSheet(modifier) {
+        val celebration = OpenGymTheme.celebration
+        CatalogSection("COLOUR · CELEBRATION") {
+            ColorSpecimen("celebration · xp", celebration.xp, celebration.onXp)
+            ColorSpecimen("celebration · level up", celebration.levelUp, celebration.onLevelUp)
+            ColorSpecimen("celebration · level up / edge", celebration.levelUpEdge, celebration.onLevelUp)
+            ColorSpecimen("celebration · achievement", celebration.achievement, celebration.onAchievement)
+        }
+        CatalogSection("COLOUR · CONFETTI") {
+            celebration.confetti.forEachIndexed { index, tone ->
+                ColorSpecimen("confetti · $index", tone, MaterialTheme.colorScheme.onSurface)
+            }
+        }
+        CatalogSection("LEVEL PROGRESS") {
+            LevelProgressBar(
+                progress = { CATALOG_LEVEL_PROGRESS },
+                contentDescription = "Level 14, 43 of 100 XP",
+                color = celebration.xp,
+                trackColor = celebration.xpTrack,
+            )
+        }
+        CatalogSection("STREAK SHIELDS") {
+            StreakShields(
+                remaining = CATALOG_ALLOWANCE,
+                allowance = CATALOG_ALLOWANCE,
+                contentDescription = "the month's streak protections, none spent",
+            )
+            StreakShields(
+                remaining = CATALOG_ALLOWANCE - 1,
+                allowance = CATALOG_ALLOWANCE,
+                contentDescription = "one streak protection spent",
+            )
+            StreakShields(
+                remaining = 0,
+                allowance = CATALOG_ALLOWANCE,
+                contentDescription = "no streak protections left",
             )
         }
     }
@@ -509,6 +572,20 @@ fun ComponentCatalogDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { ComponentCatalog() }
 }
 
+@Preview(name = "Catalog - celebration - light", widthDp = 360, heightDp = CELEBRATION_SHEET_HEIGHT_DP)
+@Composable
+fun CelebrationCatalogLightPreview() {
+    // Motion off, so the sheet captures the same pixels every run — the contract every
+    // animated `:core:ui` component holds to. See `LocalReducedMotion`.
+    OpenGymTheme(theme = ThemePreference.LIGHT, reducedMotion = true) { CelebrationCatalog() }
+}
+
+@Preview(name = "Catalog - celebration - dark", widthDp = 360, heightDp = CELEBRATION_SHEET_HEIGHT_DP)
+@Composable
+fun CelebrationCatalogDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK, reducedMotion = true) { CelebrationCatalog() }
+}
+
 @Preview(name = "Catalog - choices - light", widthDp = 360)
 @Composable
 fun ChoiceCatalogLightPreview() {
@@ -544,3 +621,18 @@ fun PlateCatalogLightPreview() {
 fun PlateCatalogDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) { PlateCatalog() }
 }
+
+/**
+ * Tall enough for the whole sheet.
+ *
+ * Nine swatches, a bar and three rows of marks run well past a device height, and a `@Preview`
+ * clips what does not fit without saying so — the trap the note at the top of this file
+ * describes, and the reason `ChartCatalog` names a height too.
+ */
+private const val CELEBRATION_SHEET_HEIGHT_DP = 640
+
+/** Part-way into a level, so the bar shows both its fill and its track. */
+private const val CATALOG_LEVEL_PROGRESS = 0.43f
+
+/** The real allowance, so the sheet re-records if the mechanic is ever retuned. */
+private val CATALOG_ALLOWANCE = StreakProtection.MONTHLY_ALLOWANCE

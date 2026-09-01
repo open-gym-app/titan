@@ -1,8 +1,10 @@
 package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.XpAward
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
 /**
@@ -15,9 +17,11 @@ import java.time.Instant
  * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] calls them. #145 adds the last
  * two, both for [com.opengym.core.domain.usecase.SessionCompletionPipeline]: [updateStreak],
  * which is the store #34 computed a streak with nowhere to put, and [claimSessionXp], which
- * is what makes the cascade safe to re-enter. The reads the home snapshot (#23) and the
- * progression screen (#32) need arrive the same way. #35 implements whatever this names by
- * then.
+ * is what makes the cascade safe to re-enter. #106 added [observeStreak] — the one method
+ * here that exists for a screen rather than for the cascade, and the one exception to the
+ * paragraph above: a protection allowance nothing can read is a mechanic that never happened.
+ * The reads the home snapshot (#23) and the progression screen (#32) need arrive the same
+ * way. #35 implements whatever this names by then.
  */
 interface GamificationRepository {
 
@@ -123,35 +127,60 @@ interface GamificationRepository {
     suspend fun claimSessionXp(sessionId: Long): Boolean
 
     /**
-     * Applies a session finished at [finishedAt] to the stored streak, and returns where that
-     * left it.
+     * Applies one finished session to the stored streak, and returns where that left it.
      *
-     * The read of the current streak, the decision, and the write are **one atomic
-     * operation** — the shape [addXp] uses, for the same reason: two sessions finishing at
-     * once must not both read the same streak before either writes, or one increment is lost.
+     * The read of the stored state, the decision, and the write are **one atomic operation** —
+     * the shape [addXp] uses, for the same reason: two sessions finishing at once must not
+     * both read the same streak before either writes, or one increment is lost. It matters
+     * more here than for XP, because a protection is a *scarce* resource: two interleaved
+     * reads of an allowance of one would each be told they may spend it.
      *
-     * [computeStreak] is handed the stored pair and returns what to do with it, rather than
-     * this repository deciding, so the rule stays in
-     * [com.opengym.core.domain.gamification.StreakCalculator] where it is stated once and can
-     * be retuned without a data-layer change. Implementations apply the answer as:
+     * [advance] is handed the stored state and returns the whole of the next one, rather than
+     * this repository deciding anything, so the rule stays in
+     * [com.opengym.core.domain.gamification.StreakCalculator] — where the grace window, the
+     * same-day guarantee, the protection threshold and the monthly rollover are stated once
+     * and can be retuned without a data-layer change. Implementations persist
+     * [StreakUpdate.state] exactly as given and return the update unchanged; there is no
+     * second rule on this side of the boundary to keep in step, which is what the previous
+     * shape of this method — a transform returning a bare result, plus two written rules here
+     * about what to do with it — could not promise.
      *
-     * - the streak stored becomes [StreakResult.streakAfter] of the streak read;
-     * - `lastCountedAt` advances to [finishedAt] **unless** the result is
-     *   [StreakResult.Unchanged].
+     * The session's own moment is not a parameter: [advance] closes over it. A store has no
+     * use for it beyond handing it back, and a signature that took it could be called with an
+     * instant the transform does not agree with.
      *
-     * That second rule is the whole of the same-day guarantee and is not optional. A store
-     * that advanced the timestamp on every session would slide the grace window forward with
-     * each workout of a two-a-day, and the first counted session of a day would stop being
-     * what the next day is measured from — see the calculator's own doc. It is also what
-     * makes a re-run of an already-counted session a no-op: the second pass reads the
-     * timestamp the first one wrote, lands on the same calendar day, and changes nothing.
-     *
-     * @param finishedAt when the session being applied finished — the workout's own moment,
-     *   never a clock read at the point of writing, so a cascade retried an hour later still
-     *   counts the day the training happened on.
+     * @param advance the transition, given the state on file — [StreakState]'s defaults when
+     *   nothing has ever been written. Must be pure: it runs inside the transaction, and a
+     *   store read from in there would deadlock or escape the atomicity it was called for.
      */
-    suspend fun updateStreak(
-        finishedAt: Instant,
-        computeStreak: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-    ): StreakUpdate
+    suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate
+
+    /**
+     * The stored streak state as it changes — the streak, the best one ever held, and what is
+     * left of this month's protection allowance.
+     *
+     * A `Flow` rather than a suspend read, unlike everything else on this interface: its
+     * consumers are screens rather than the cascade, and a screen open while a session is
+     * finished elsewhere in the app must not keep drawing yesterday's streak. #104's quest log
+     * is the first of them; this is the read its acceptance criterion asks for, and it is
+     * declared now rather than with the screen because the mechanic is worthless if the state
+     * it accumulates cannot be looked at.
+     *
+     * [StreakState]'s defaults for a user who has never trained, rather than a null: unlike
+     * `UserProgressDao.observe`, which distinguishes "nothing written" from "nothing earned"
+     * because the XP surfaces may want to, a streak of zero days with a full allowance is
+     * exactly what a fresh install has and there is no second reading of it.
+     *
+     * ### The allowance is as stored, not as of now
+     *
+     * The monthly rollover is applied when a session is *written* (see
+     * [com.opengym.core.domain.gamification.StreakCalculator.advance]), so a state read in a
+     * month the user has not yet trained in still carries the previous month's remainder. A
+     * consumer that renders the count must apply
+     * [com.opengym.core.domain.model.StreakProtection.replenishedFor] for the month it is
+     * drawing in. That is deliberate rather than an omission: the alternative is a store that
+     * reads a clock, which would make this flow's output depend on when it was collected and
+     * would emit a stale count anyway the moment the month turned under an open screen.
+     */
+    fun observeStreak(): Flow<StreakState>
 }

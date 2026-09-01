@@ -43,6 +43,10 @@ import com.opengym.core.ui.component.MuscleContribution
  *   always, and in [SessionSummaryMode.JUST_FINISHED] whenever the cascade moved nothing or was
  *   never wired; see [SummaryCelebration] and `SessionProgressionHandoff`. Absent rather than
  *   zeroed, so the screen draws no section instead of a heading over `0 XP`.
+ * @param streakSave whether this session's missed day was paid for out of the streak-protection
+ *   allowance, or **null** — which is every ordinary session. Same shape and same reasoning as
+ *   [celebration]: absent rather than a flag plus two figures nobody should read when it is
+ *   false. See [SummaryStreakSave].
  * @param notes the session's stored note, or null for one that has none.
  * @param notesDraft what is in the note field, or **null** when the note is not being edited.
  *   Null is the read state, so a screen asking "is the field open" asks one question.
@@ -73,6 +77,7 @@ data class SessionSummaryUiState(
     val secondaryMuscles: List<MuscleGroup> = emptyList(),
     val exercises: List<SummaryExerciseRow> = emptyList(),
     val celebration: SummaryCelebration? = null,
+    val streakSave: SummaryStreakSave? = null,
     val notes: String? = null,
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,
