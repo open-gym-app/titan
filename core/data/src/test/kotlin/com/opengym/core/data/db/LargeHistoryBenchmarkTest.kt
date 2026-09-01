@@ -179,12 +179,17 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         }
 
     /**
-     * One untimed query first. Without it the first measurement also pays for
-     * Room opening its statement cache and the JVM warming up - tens of
-     * milliseconds that belong to neither the query nor a regression in it.
+     * One untimed query and one untimed page first. Without them the first
+     * measurement also pays for Room opening its statement cache, Paging and
+     * [TestPager] loading their classes, and the JVM warming up - tens of
+     * milliseconds on an idle machine and several times that on a loaded CI
+     * runner, none of which belong to the query or to a regression in it. The
+     * paged warm-up matters most: the same `getAllPaginated` refresh measures
+     * ~35ms as the first pager in a JVM and ~4ms once the stack is loaded.
      */
     private suspend fun warmUp() {
         db.workoutSessionDao().getActive().first()
+        TestPager(PagingConfig(pageSize = PAGE_SIZE), db.workoutSessionDao().getAllPaginated()).refresh()
     }
 
     /** Guards the guard: a fixture that silently seeded less would pass anything. */
