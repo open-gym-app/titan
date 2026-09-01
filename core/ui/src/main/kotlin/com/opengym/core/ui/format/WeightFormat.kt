@@ -56,6 +56,9 @@ import kotlin.math.roundToLong
 /** How many decimals a weight is shown to. See the note above. */
 private const val WEIGHT_FRACTION_DIGITS = 2
 
+/** How many decimals a *projected* weight is shown to. See [formatEstimateValue]. */
+private const val ESTIMATE_FRACTION_DIGITS = 0
+
 /** `kg` or `lb`, for a label that shows the unit without a number in front of it. */
 val UnitSystem.weightSuffix: String
     get() = when (this) {
@@ -117,6 +120,38 @@ fun formatWeightValue(
     milligrams: Long,
     unitSystem: UnitSystem,
 ): String = formatNumber(milligrams / unitSystem.milligramsPerUnit, WEIGHT_FRACTION_DIGITS)
+
+/**
+ * A **projected** weight in [unitSystem], as a number with no unit — whole units, unlike
+ * [formatWeightValue]'s two decimals.
+ *
+ * The precision above exists so a weight the user *entered* reads back unchanged, down to the
+ * 1.25 lb micro-plate. An estimated one-rep max was never entered and is never racked: it is a
+ * formula's output over a top set, and the formulas disagree with each other by whole units —
+ * so `1,333.33 kg` spends three glyphs on precision the projection does not have. Rounding it
+ * is not the same decision as rounding a lift, which is why this is a second function rather
+ * than a smaller constant.
+ */
+fun formatEstimateValue(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String = formatNumber(milligrams / unitSystem.milligramsPerUnit, ESTIMATE_FRACTION_DIGITS)
+
+/** [milligrams] as a projection in [unitSystem], with the unit: `1,333 kg`. */
+fun formatEstimate(
+    milligrams: Long,
+    unitSystem: UnitSystem,
+): String = "${formatEstimateValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+
+/** A projection in the ambient [LocalUnitSystem], with the unit. See the note above. */
+@Composable
+@ReadOnlyComposable
+fun formatEstimate(milligrams: Long): String = formatEstimate(milligrams, LocalUnitSystem.current)
+
+/** A projection in the ambient [LocalUnitSystem], without the unit. See the note above. */
+@Composable
+@ReadOnlyComposable
+fun formatEstimateValue(milligrams: Long): String = formatEstimateValue(milligrams, LocalUnitSystem.current)
 
 /**
  * [milligrams] in [unitSystem], with the unit: `20 kg`, `44.09 lb`, `2.5 kg`.

@@ -23,6 +23,7 @@ import com.opengym.core.ui.R
 import com.opengym.core.ui.format.distanceSuffix
 import com.opengym.core.ui.format.formatAsElapsed
 import com.opengym.core.ui.format.formatDistanceValue
+import com.opengym.core.ui.format.formatEstimateValue
 import com.opengym.core.ui.format.formatNumber
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.format.formatWeightValue
@@ -97,13 +98,17 @@ fun PersonalRecord.formattedValue(): String? {
  * [PrType.BEST_PACE] renders as the time the record was set in rather than as a pace. A pace
  * is time *per distance* and needs a formatter and a unit of its own; that belongs with the
  * PR engine (#30), which is also what first writes one of these.
+ *
+ * [PrType.ESTIMATED_1RM] is the one figure here that is *projected* rather than lifted, and it
+ * is rounded to the whole unit for that reason — see [formatEstimateValue]. Every other weight
+ * keeps the two decimals that let a load read back exactly as it was entered.
  */
 @Composable
 @ReadOnlyComposable
 fun PersonalRecord.formattedFigure(): String? =
     when (type) {
         PrType.MAX_WEIGHT -> weight?.let { formatWeightValue(it) }
-        PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatWeightValue(it) }
+        PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatEstimateValue(it) }
         PrType.MAX_REPS -> reps?.let { formatNumber(it.toDouble(), REP_FRACTION_DIGITS) }
         PrType.MAX_VOLUME -> weight?.let { formatVolumeValue(it) }
         PrType.MAX_DISTANCE -> distance?.let { formatDistanceValue(it) }
