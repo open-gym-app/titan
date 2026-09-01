@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -52,11 +53,14 @@ import com.opengym.core.ui.component.TemplateNameDialog
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.formatTimeOfDay
+import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.summary.component.AchievementsUnlockedCard
 import com.opengym.feature.session.summary.component.ExerciseBreakdownCard
 import com.opengym.feature.session.summary.component.NewRecordsCard
 import com.opengym.feature.session.summary.component.SessionMusclesCard
+import com.opengym.feature.session.summary.component.XpCelebrationCard
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -267,6 +271,31 @@ private fun SummaryContent(
                     // carries the figure that has nowhere else to go.
                     musclesWorked = state.musclesWorked,
                 )
+            }
+        }
+
+        // The payoff, above the records rather than below them: the XP figure is what the
+        // screen is *for* in this mode, and a celebration the user has to scroll to has already
+        // failed to celebrate. Null in the historical mode and whenever the session earned
+        // nothing — see [SummaryCelebration], which is absent rather than zeroed.
+        val celebration = state.celebration
+        if (celebration != null) {
+            item(key = SECTION_CELEBRATION) {
+                SummarySection {
+                    Section(title = stringResource(R.string.summary_xp_earned)) {
+                        XpCelebrationCard(celebration = celebration)
+                    }
+                }
+            }
+
+            if (celebration.achievements.isNotEmpty()) {
+                item(key = SECTION_ACHIEVEMENTS) {
+                    SummarySection {
+                        Section(title = stringResource(R.string.summary_achievements)) {
+                            AchievementsUnlockedCard(achievements = celebration.achievements)
+                        }
+                    }
+                }
             }
         }
 
@@ -594,6 +623,32 @@ fun SessionSummaryScreenNoRecordsPreview() {
     PreviewScreen(previewState(records = emptyList(), notes = null))
 }
 
+/*
+ * The payoff, in its two shapes (#111).
+ *
+ * Both are captured under reduced motion, which is what makes them *references* rather than
+ * frames: the count, the bar and the confetti all land immediately there, so a screenshot shows
+ * the state the screen settles on instead of whichever millisecond the recorder happened to
+ * catch. See `LocalReducedMotion`, and `ConfettiBurst` for why the burst is absent rather than
+ * frozen.
+ */
+
+@Preview(name = "Session summary - xp earned", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun SessionSummaryScreenCelebrationPreview() {
+    CompositionLocalProvider(LocalReducedMotion provides true) {
+        PreviewScreen(previewState(celebration = previewCelebration()))
+    }
+}
+
+@Preview(name = "Session summary - level up", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun SessionSummaryScreenLevelUpPreview() {
+    CompositionLocalProvider(LocalReducedMotion provides true) {
+        PreviewScreen(previewState(celebration = previewLevelUpCelebration()))
+    }
+}
+
 @Preview(name = "Session summary - historical", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenHistoricalPreview() {
@@ -650,6 +705,8 @@ private const val TEMPLATE_BUTTON_WEIGHT = 1.4f
  */
 private const val SECTION_HEADER = "header"
 private const val SECTION_STATS = "stats"
+private const val SECTION_CELEBRATION = "celebration"
+private const val SECTION_ACHIEVEMENTS = "achievements"
 private const val SECTION_RECORDS = "records"
 private const val SECTION_MUSCLES = "muscles"
 private const val SECTION_EXERCISES = "exercises"

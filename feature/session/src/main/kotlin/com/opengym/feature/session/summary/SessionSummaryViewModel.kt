@@ -23,6 +23,7 @@ import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.ui.component.muscleContributions
+import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -83,6 +84,7 @@ class SessionSummaryViewModel @Inject constructor(
     personalRecordRepository: PersonalRecordRepository,
     private val createTemplate: CreateTemplateUseCase,
     private val renameSession: RenameSessionUseCase,
+    progressionHandoff: SessionProgressionHandoff,
 ) : ViewModel() {
 
     private val destination: SessionSummaryDestination = savedStateHandle.toRoute()
@@ -92,6 +94,31 @@ class SessionSummaryViewModel @Inject constructor(
     } else {
         SessionSummaryMode.JUST_FINISHED
     }
+
+    /**
+     * What this finish earned, collected once.
+     *
+     * Read here rather than inside [buildContent], and that placement is the whole contract:
+     * the hand-off is emptied by the first taker, while `buildContent` is a `combine` transform
+     * that runs again on every store emission — a note saved, a rename, the catalogue arriving.
+     * Taking it there would hand the celebration to the first pass and nothing to the second,
+     * so the confetti would vanish the moment the user typed a character into the note field.
+     *
+     * A ViewModel outlives every one of those emissions and is scoped to this destination, so
+     * one read here is one read per visit to the recap. It survives configuration changes for
+     * free and is correctly *gone* after process death, which is the honest answer: the value
+     * only ever existed in memory.
+     *
+     * Never collected in [SessionSummaryMode.HISTORICAL]. Opening an old session must not empty
+     * the slot a just-finished recap is on its way to read, and a week-old workout has nothing
+     * to announce in any case — see the mode's own doc.
+     */
+    private val celebration: SummaryCelebration? =
+        if (mode == SessionSummaryMode.JUST_FINISHED) {
+            progressionHandoff.take(destination.sessionId)?.let(SummaryCelebration::from)
+        } else {
+            null
+        }
 
     /** What the user is in the middle of, which the store has no opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
@@ -465,6 +492,7 @@ class SessionSummaryViewModel @Inject constructor(
                 names = catalogue.exercises,
                 recordsByExercise = records.associateBy(PersonalRecord::exerciseId),
             ),
+            celebration = celebration,
             notes = session.notes,
             isLoading = false,
         )

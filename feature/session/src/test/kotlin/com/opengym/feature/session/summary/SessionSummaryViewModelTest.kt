@@ -1,19 +1,25 @@
 package com.opengym.feature.session.summary
 
 import androidx.lifecycle.SavedStateHandle
+import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.model.XpAward
+import com.opengym.core.domain.model.XpEvent
+import com.opengym.core.domain.model.XpGrant
 import com.opengym.core.domain.stats.MuscleVolumeCalculator
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
+import com.opengym.feature.session.SessionProgressionHandoff
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -59,6 +65,9 @@ class SessionSummaryViewModelTest {
         links = CATALOGUE_LINKS,
     )
     private val templates = FakeTemplateWriteStore()
+
+    /** What a finish left for the recap. Empty unless a test offers something. */
+    private val progressionHandoff = SessionProgressionHandoff()
 
     @Before
     fun setUpMainDispatcher() {
@@ -595,6 +604,101 @@ class SessionSummaryViewModelTest {
      * the `SavedStateHandle` — rather than as a constructor parameter, so a rename of the
      * route's field is a failure here rather than a blank screen at runtime.
      */
+    // ─── What the finish earned (#111) ──────────────────────────────────────────────────
+
+    @Test
+    fun `collects the progression the finish left, and empties the slot`() =
+        runTest {
+            progressionHandoff.offer(progression())
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertEquals(135, state.celebration?.xpAwarded)
+            // Taken, not read: a second collector — the same recap reopened from history —
+            // must find nothing. See `SessionProgressionHandoff`.
+            assertNull(progressionHandoff.take(SESSION_ID))
+        }
+
+    @Test
+    fun `a historical recap collects nothing and leaves the slot alone`() =
+        runTest {
+            progressionHandoff.offer(progression())
+
+            val state = viewModel(sets = pushDaySets(), historical = true).uiState.value
+
+            assertNull(state.celebration)
+            // Still there. Opening an old session on the way must not consume the value a
+            // just-finished recap is on its way to read.
+            assertEquals(SESSION_ID, progressionHandoff.take(SESSION_ID)?.sessionId)
+        }
+
+    @Test
+    fun `a progression left by a different session is not celebrated here`() =
+        runTest {
+            progressionHandoff.offer(progression(sessionId = SESSION_ID + 1))
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertNull(state.celebration)
+        }
+
+    @Test
+    fun `the celebration survives a later store emission`() =
+        runTest {
+            progressionHandoff.offer(progression())
+            val viewModel = viewModel(sets = pushDaySets())
+            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+
+            // A note write re-runs the state builder. The hand-off is empty by then, so a
+            // celebration collected inside that builder would vanish here — which is the whole
+            // reason it is collected once, in the ViewModel's own initialiser.
+            viewModel.onEvent(SessionSummaryEvent.NoteEditRequested)
+            viewModel.onEvent(SessionSummaryEvent.NoteChanged("felt good"))
+            viewModel.onEvent(SessionSummaryEvent.NoteSaved)
+
+            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+        }
+
+    @Test
+    fun `a cascade that moved nothing is no celebration rather than a zero`() =
+        runTest {
+            progressionHandoff.offer(SessionProgression(sessionId = SESSION_ID))
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            // Absent, so the screen draws no section. `0 XP` under a heading that says "earned"
+            // is the app telling a user who just trained that it did not count.
+            assertNull(state.celebration)
+        }
+
+    /**
+     * A finish worth 135 points: twelve sets, the session itself, and one record.
+     *
+     * The awards carry a running total because that is how the store hands them back — each was
+     * produced inside its own write — and the level the recap reports is the last one's.
+     */
+    private fun progression(sessionId: Long = SESSION_ID): SessionProgression {
+        var total = 300L
+
+        fun award(points: Int): XpAward {
+            val before = XpCalculator.levelForTotalXp(total)
+            total += points
+            return XpAward(
+                awarded = points,
+                totalXp = total,
+                previousLevel = before,
+                level = XpCalculator.levelForTotalXp(total),
+            )
+        }
+
+        return SessionProgression(
+            sessionId = sessionId,
+            xp = List(12) { XpGrant(XpEvent.SetLogged, award(XpCalculator.XP_PER_SET)) } +
+                XpGrant(XpEvent.SessionFinished, award(XpCalculator.XP_PER_SESSION)) +
+                XpGrant(XpEvent.PrBroken(PrType.MAX_WEIGHT), award(XpCalculator.XP_PER_PR)),
+        )
+    }
+
     private fun TestScope.viewModel(
         session: WorkoutSession = finishedSession(),
         exercises: List<SessionExercise> = pushDayExercises(),
@@ -613,6 +717,7 @@ class SessionSummaryViewModelTest {
             personalRecordRepository = FakeRecordStore(records),
             createTemplate = CreateTemplateUseCase(templates),
             renameSession = RenameSessionUseCase(store),
+            progressionHandoff = progressionHandoff,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }

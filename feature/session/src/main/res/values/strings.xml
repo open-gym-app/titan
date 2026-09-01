@@ -247,4 +247,62 @@
     <string name="summary_template_saved">Saved as a template</string>
     <string name="summary_error_template">Could not save the template</string>
 
+    <!-- ─── The post-workout payoff (#111) ─────────────────────────────────────────────
+         Drawn only in the just-finished mode. A historical recap of the same session says
+         none of it: nothing was achieved by opening a workout from last March. -->
+
+    <string name="summary_xp_earned">XP earned</string>
+    <!-- Set beside the figure rather than inside it, so the two carry different type roles. -->
+    <string name="summary_xp_unit">XP</string>
+    <!-- Spoken in place of the counting digits. %1$d is the total earned. -->
+    <string name="summary_xp_earned_description">%1$d experience points earned</string>
+    <!-- One line of the breakdown. %1$d is what that source paid. -->
+    <string name="summary_xp_source_amount">+%1$d</string>
+    <string name="summary_xp_source_session">Finishing the session</string>
+
+    <plurals name="summary_xp_source_sets">
+        <item quantity="one">%1$d set</item>
+        <item quantity="other">%1$d sets</item>
+    </plurals>
+
+    <plurals name="summary_xp_source_records">
+        <item quantity="one">%1$d personal record</item>
+        <item quantity="other">%1$d personal records</item>
+    </plurals>
+
+    <plurals name="summary_xp_source_achievements">
+        <item quantity="one">%1$d achievement</item>
+        <item quantity="other">%1$d achievements</item>
+    </plurals>
+
+    <string name="summary_level_up">Level up</string>
+    <!-- %1$d is the level now held. -->
+    <string name="summary_level_number">Level %1$d</string>
+    <!-- Points into the current level, over what a level costs: "43 / 100". -->
+    <string name="summary_level_progress">%1$d / %2$d</string>
+
+    <!-- The progress bar's own sentence: the bar is a separate node and a reader arriving at
+         it alone would otherwise hear a bare proportion. %1$d is the level, %2$d the points
+         still to go. -->
+    <plurals name="summary_level_progress_description">
+        <item quantity="one">Level %1$d, %2$d point to the next level</item>
+        <item quantity="other">Level %1$d, %2$d points to the next level</item>
+    </plurals>
+
+    <string name="summary_achievements">Achievements unlocked</string>
+    <string name="summary_achievement_badge">New</string>
+
+    <!-- The milestone names. The catalogue is `Achievements` in the domain, which is a plain
+         Kotlin object with no resources of its own; the words live here so the app stays
+         translatable. An id with no string here draws the fallback below. -->
+    <string name="achievement_first_session">First workout logged</string>
+    <string name="achievement_ten_sessions">Ten workouts in</string>
+    <string name="achievement_hundred_sessions">One hundred workouts</string>
+    <string name="achievement_seven_day_streak">A week-long streak</string>
+    <string name="achievement_thirty_day_streak">A month-long streak</string>
+    <string name="achievement_first_record">First personal record</string>
+    <!-- A milestone unlocked by a newer build than this one. Drawn rather than dropped: it is
+         still a thing the user did. -->
+    <string name="achievement_unknown">Achievement unlocked</string>
+
 </resources>

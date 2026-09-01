@@ -38,6 +38,11 @@ import com.opengym.core.ui.component.MuscleContribution
  *   exercises that contributed a completed set, which is the same rule
  *   `SessionStats.exerciseBreakdown` applies — a list longer than the tile above it counting
  *   the same thing is a screen contradicting itself.
+ * @param celebration what finishing earned — XP, the level it moved, the milestones it
+ *   unlocked — or **null** when there is nothing to celebrate. Null in [SessionSummaryMode.HISTORICAL]
+ *   always, and in [SessionSummaryMode.JUST_FINISHED] whenever the cascade moved nothing or was
+ *   never wired; see [SummaryCelebration] and `SessionProgressionHandoff`. Absent rather than
+ *   zeroed, so the screen draws no section instead of a heading over `0 XP`.
  * @param notes the session's stored note, or null for one that has none.
  * @param notesDraft what is in the note field, or **null** when the note is not being edited.
  *   Null is the read state, so a screen asking "is the field open" asks one question.
@@ -67,6 +72,7 @@ data class SessionSummaryUiState(
     val primaryMuscles: List<MuscleGroup> = emptyList(),
     val secondaryMuscles: List<MuscleGroup> = emptyList(),
     val exercises: List<SummaryExerciseRow> = emptyList(),
+    val celebration: SummaryCelebration? = null,
     val notes: String? = null,
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,

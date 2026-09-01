@@ -1,12 +1,15 @@
 package com.opengym.feature.session.summary
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -15,6 +18,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
 import com.opengym.core.domain.model.TemplateCategory
+import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -312,6 +316,104 @@ class SessionSummaryScreenTest {
         composeTestRule.onNodeWithText("Session not found").assertDoesNotExist()
         composeTestRule.onNodeWithText("Save as template").assertDoesNotExist()
         composeTestRule.onNodeWithText("Done").assertIsDisplayed()
+    }
+
+    // ─── The payoff (#111) ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `draws the xp earned with its breakdown rather than one opaque figure`() {
+        setContent(previewState(celebration = previewCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasContentDescription("135 experience points earned"))
+
+        // The total, and every source that paid into it. A screen that showed only the total
+        // would satisfy "XP is displayed" and none of what the breakdown is for.
+        composeTestRule.onNodeWithContentDescription("135 experience points earned").assertIsDisplayed()
+        composeTestRule.onNodeWithText("12 sets").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Finishing the session").assertIsDisplayed()
+        composeTestRule.onNodeWithText("1 personal record").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session that crossed a boundary is announced as a level up`() {
+        setContent(previewState(celebration = previewLevelUpCelebration()))
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("LEVEL UP"))
+
+        composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Level 5").onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session that earned points without crossing one is not`() {
+        setContent(previewState(celebration = previewCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasContentDescription("135 experience points earned"))
+
+        // The figure is drawn and the banner is not. Levelling up is a different event from
+        // earning, and the two must not be readable as the same thing.
+        composeTestRule.onNodeWithContentDescription("135 experience points earned").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
+    }
+
+    @Test
+    fun `names the milestones the session unlocked`() {
+        setContent(previewState(celebration = previewLevelUpCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("A week-long streak"))
+
+        // The name, not just the points it paid: the breakdown above already carries the
+        // amount, and which milestone was earned is the part that is worth a section.
+        composeTestRule.onNodeWithText("A week-long streak").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session that earned nothing draws no payoff at all`() {
+        setContent(previewState(celebration = null))
+
+        // Absent, not a heading over `0 XP`. See [SummaryCelebration].
+        composeTestRule.onAllNodesWithText("XP EARNED").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
+    }
+
+    @Test
+    fun `the historical recap celebrates nothing`() {
+        // The state a historical recap is built with never carries a celebration — see the
+        // ViewModel, which does not collect the hand-off in that mode. This asserts the screen
+        // half of the same contract: given one, the mode still draws the session's own figures.
+        setContent(previewState(mode = SessionSummaryMode.HISTORICAL, celebration = null))
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("PERSONAL RECORDS"))
+        composeTestRule.onNodeWithText("PERSONAL RECORDS").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("XP EARNED").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
+    }
+
+    @Test
+    fun `reduced motion draws the finished figures and no confetti`() {
+        // The whole payoff, rendered with the user's "do not animate" setting on. The figures
+        // are asserted at their *final* values with no frame advanced: under reduced motion the
+        // count and the bar land immediately, so what a still screenshot catches is the answer
+        // rather than a frame of an animation. See `LocalReducedMotion`.
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalReducedMotion provides true) {
+                OpenGymTheme {
+                    SessionSummaryScreen(
+                        state = previewState(celebration = previewLevelUpCelebration()),
+                        onEvent = events::add,
+                        onExit = { exits++ },
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasContentDescription("285 experience points earned"))
+        composeTestRule.onNodeWithContentDescription("285 experience points earned").assertIsDisplayed()
+        composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
     }
 
     private fun setContent(state: SessionSummaryUiState) {
