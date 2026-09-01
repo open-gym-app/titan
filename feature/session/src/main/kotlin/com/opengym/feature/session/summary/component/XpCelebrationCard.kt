@@ -1,5 +1,8 @@
 package com.opengym.feature.session.summary.component
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,10 +15,16 @@ import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -25,13 +34,17 @@ import com.opengym.core.ui.component.ConfettiBurst
 import com.opengym.core.ui.component.CountUpNumber
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.LevelCeremony
 import com.opengym.core.ui.component.LevelProgressBar
+import com.opengym.core.ui.component.LevelSweep
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.rememberLevelSweep
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.summary.SummaryCelebration
 import com.opengym.feature.session.summary.XpSource
 import com.opengym.feature.session.summary.XpSourceKind
+import kotlin.math.roundToInt
 
 /**
  * What the workout paid: the points, the level they moved, and what earned them.
@@ -67,10 +80,19 @@ internal fun XpCelebrationCard(
     celebration: SummaryCelebration,
     modifier: Modifier = Modifier,
 ) {
+    // One sweep drives the banner, the bar and the figure beside it, so the three cannot
+    // disagree about which level is being counted into at any moment.
+    val sweep = rememberLevelSweep(
+        fromLevel = celebration.levelBefore,
+        fromFraction = celebration.levelProgressBefore,
+        toLevel = celebration.level,
+        toFraction = celebration.levelProgress,
+    )
+
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
         Column {
             if (celebration.leveledUp) {
-                LevelUpBanner(level = celebration.level)
+                LevelUpBanner(sweep = sweep)
             }
 
             Column(
@@ -79,7 +101,7 @@ internal fun XpCelebrationCard(
             ) {
                 XpEarned(xp = celebration.xpAwarded)
 
-                LevelStanding(celebration = celebration)
+                LevelStanding(celebration = celebration, sweep = sweep)
 
                 if (celebration.sources.isNotEmpty()) {
                     HairlineDivider()
@@ -95,17 +117,41 @@ internal fun XpCelebrationCard(
 /**
  * The crossing, as a filled band across the top of the card.
  *
- * The confetti is drawn *behind* the words rather than over them: a flourish that obscures the
- * one sentence it is celebrating has inverted its own purpose. It draws nothing at all under
- * reduced motion — see `ConfettiBurst`, which explains why this is the one degradation that
- * removes rather than stills.
+ * The number is the sweep's, not the session's final level: it ticks over as each threshold is
+ * passed, so a first workout worth four levels is watched climbing rather than reported as having
+ * arrived. See [rememberLevelSweep].
+ *
+ * ### One flourish per threshold
+ *
+ * The number kicks and a fresh burst falls on every crossing, both keyed on
+ * [LevelSweep.crossings]. Keyed rather than fired once at the end, because the whole point is that
+ * four levels are four events — a single burst over a run of four would celebrate the arithmetic
+ * instead of the climb.
+ *
+ * The confetti is drawn *behind* the words: a flourish that obscures the one sentence it is
+ * celebrating has inverted its own purpose. It draws nothing at all under reduced motion, where
+ * `crossings` never advances either — see `ConfettiBurst`.
  */
 @Composable
 private fun LevelUpBanner(
-    level: Int,
+    sweep: LevelSweep,
     modifier: Modifier = Modifier,
 ) {
     val celebrationColors = OpenGymTheme.celebration
+
+    // The kick: snapped large the instant a threshold is passed, then sprung back. Snapping
+    // rather than animating *into* the peak is what makes it land on the beat the sweep just
+    // held for, instead of trailing behind it.
+    //
+    // How large is the ceremony's, not this file's — a round level kicks harder and throws more,
+    // and a future tier will do more again without either number being written here. See
+    // [LevelCeremony].
+    val kick = remember { Animatable(1f) }
+    LaunchedEffect(sweep.crossings) {
+        if (sweep.crossings == 0) return@LaunchedEffect
+        kick.snapTo(sweep.ceremony.kick)
+        kick.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+    }
 
     Box(
         modifier = modifier
@@ -125,10 +171,16 @@ private fun LevelUpBanner(
                 ),
             ),
     ) {
-        ConfettiBurst(
-            colors = celebrationColors.confetti,
-            modifier = Modifier.fillMaxSize(),
-        )
+        // `key` gives each crossing its own burst: it discards the previous one's state, which is
+        // what lets a component that deliberately plays once play again for the next threshold.
+        key(sweep.crossings) {
+            ConfettiBurst(
+                colors = celebrationColors.confetti,
+                pieceCount = sweep.ceremony.confettiPieces,
+                seed = sweep.crossings,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -138,13 +190,26 @@ private fun LevelUpBanner(
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         ) {
             Eyebrow(
-                text = stringResource(R.string.summary_level_up),
+                text = stringResource(
+                    // A round level says so, because a crossing that is only *louder* reads as
+                    // the same event with the volume up. Naming it is what makes it a different
+                    // one.
+                    if (sweep.ceremony == LevelCeremony.ROUND) {
+                        R.string.summary_level_milestone
+                    } else {
+                        R.string.summary_level_up
+                    },
+                ),
                 color = celebrationColors.onLevelUp,
             )
             Text(
-                text = stringResource(R.string.summary_level_number, level),
+                text = stringResource(R.string.summary_level_number, sweep.level),
                 style = OpenGymTheme.typography.numericDisplay,
                 color = celebrationColors.onLevelUp,
+                modifier = Modifier.graphicsLayer {
+                    scaleX = kick.value
+                    scaleY = kick.value
+                },
             )
         }
     }
@@ -182,13 +247,26 @@ private fun XpEarned(
     }
 }
 
-/** Where the user now stands: the level, the bar, and how far into it they are. */
+/**
+ * Where the user stands, as the sweep counts them there.
+ *
+ * The figure beside the bar follows it rather than showing the final answer, through a
+ * `derivedStateOf` over the whole points — so it recomposes at most once per point rather than
+ * once per frame, and reads as a tally running up beside the bar it belongs to.
+ *
+ * The spoken sentence, by contrast, is the **outcome**: a screen reader is given the level and
+ * the points remaining once, not a running commentary on an animation it cannot see.
+ */
 @Composable
 private fun LevelStanding(
     celebration: SummaryCelebration,
+    sweep: LevelSweep,
     modifier: Modifier = Modifier,
 ) {
     val remaining = celebration.xpForLevel - celebration.xpIntoLevel
+    val into by remember(sweep, celebration.xpForLevel) {
+        derivedStateOf { (sweep.fraction.value * celebration.xpForLevel).roundToInt() }
+    }
 
     Column(
         modifier = modifier,
@@ -199,26 +277,23 @@ private fun LevelStanding(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                text = stringResource(R.string.summary_level_number, celebration.level),
+                text = stringResource(R.string.summary_level_number, sweep.level),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(
-                    R.string.summary_level_progress,
-                    celebration.xpIntoLevel,
-                    celebration.xpForLevel,
-                ),
+                text = stringResource(R.string.summary_level_progress, into, celebration.xpForLevel),
                 style = OpenGymTheme.typography.numericSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
         LevelProgressBar(
-            progress = celebration.levelProgress,
+            // A lambda, so the sweep repaints the bar without recomposing this row.
+            progress = { sweep.fraction.value },
             // The bar's own sentence carries the level and what is left, because the two lines
             // above it are separate nodes and a reader arriving at the bar alone would hear a
-            // percentage with nothing to attach it to.
+            // proportion with nothing to attach it to.
             contentDescription = pluralStringResource(
                 R.plurals.summary_level_progress_description,
                 remaining,

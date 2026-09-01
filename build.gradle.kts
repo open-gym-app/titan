@@ -119,6 +119,15 @@ subprojects {
             // parameter for.
             systemProperty("user.timezone", "UTC")
 
+            // Pinned rather than left to Gradle's 512m default, so the memory a full
+            // `./gradlew test` costs is written down in one place: this, times the four
+            // concurrent workers `org.gradle.workers.max` allows. A Robolectric fork carries
+            // a whole Android runtime and lands near 700 MB resident at this heap size.
+            //
+            // Raise it only with the fork count in view — the two multiply, and the build
+            // shares a developer machine with an IDE that is itself the largest process on it.
+            maxHeapSize = "512m"
+
             testLogging {
                 events("failed", "skipped")
                 exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL

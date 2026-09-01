@@ -25,6 +25,10 @@ import com.opengym.core.domain.model.XpEvent
  * @property sources the breakdown, ordered as [XpSourceKind] declares. #111 asks for the
  *   sources to be visible rather than a single opaque number: a lifter who sees `+50 · record`
  *   learns what the app pays for, and one who sees `+180` learns nothing.
+ * @property levelBefore the level held when the session started. Equal to [level] when nothing
+ *   was crossed; below it by one per threshold passed, which is what the bar sweeps through.
+ * @property levelProgressBefore how far into [levelBefore] the user stood before the session,
+ *   `0f..1f` — where the sweep starts from.
  * @property level the level held after the session.
  * @property leveledUp whether the session crossed a boundary. Taken from the awards rather than
  *   compared between two levels, because the awards are where the crossing was observed.
@@ -38,6 +42,8 @@ import com.opengym.core.domain.model.XpEvent
 data class SummaryCelebration(
     val xpAwarded: Int,
     val sources: List<XpSource>,
+    val levelBefore: Int,
+    val levelProgressBefore: Float,
     val level: Int,
     val leveledUp: Boolean,
     val levelProgress: Float,
@@ -70,9 +76,20 @@ data class SummaryCelebration(
             val total = progression.totalXp ?: XpCalculator.xpRequiredForLevel(level)
             val into = (total - XpCalculator.xpRequiredForLevel(level)).toInt()
 
+            // Where the sweep starts: the level held before the first award, and how far into it
+            // the user stood. Derived by subtracting what this session paid from the total it
+            // ended on, rather than read from a store — the awards are the only account of the
+            // run, and a re-read could have moved on. Coerced because a progression carrying
+            // unlocks but no awards has no `levelBefore` to speak of.
+            val before = progression.levelBefore ?: level
+            val totalBefore = (total - awarded).coerceAtLeast(XpCalculator.xpRequiredForLevel(before))
+            val intoBefore = (totalBefore - XpCalculator.xpRequiredForLevel(before)).toInt()
+
             return SummaryCelebration(
                 xpAwarded = awarded,
                 sources = sourcesOf(progression),
+                levelBefore = before,
+                levelProgressBefore = intoBefore.toFloat() / XpCalculator.XP_PER_LEVEL,
                 level = level,
                 leveledUp = progression.leveledUp,
                 levelProgress = into.toFloat() / XpCalculator.XP_PER_LEVEL,

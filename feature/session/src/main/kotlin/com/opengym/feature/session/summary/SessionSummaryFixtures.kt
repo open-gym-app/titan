@@ -167,6 +167,8 @@ internal fun previewCelebration(): SummaryCelebration =
             XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
             XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 50),
         ),
+        levelBefore = 4,
+        levelProgressBefore = 0.16f,
         level = 4,
         leveledUp = false,
         levelProgress = 0.43f,
@@ -191,10 +193,29 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
             XpSource(kind = XpSourceKind.RECORDS, count = 2, xp = 100),
             XpSource(kind = XpSourceKind.ACHIEVEMENTS, count = 1, xp = 100),
         ),
-        level = 5,
+        // Lands on an *ordinary* level, so this fixture exercises the quieter of the two
+        // crossings. [previewMilestoneCelebration] is the loud one.
+        levelBefore = 3,
+        levelProgressBefore = 0.27f,
+        level = 4,
         leveledUp = true,
         levelProgress = 0.12f,
         xpIntoLevel = 12,
         xpForLevel = 100,
         achievements = listOf(SummaryAchievement(id = "seven_day_streak", xp = 100)),
+    )
+
+/**
+ * A session that crossed onto a **round** level — the loudest state the recap has.
+ *
+ * Level 5 rather than 4: `LevelCeremony` calls every fifth level round, so this is what a
+ * milestone crossing draws — a heavier burst, a harder kick, and a banner that names it rather
+ * than saying "level up" more loudly. Two thresholds, so the sweep is seen passing an ordinary
+ * level on its way to the round one.
+ */
+internal fun previewMilestoneCelebration(): SummaryCelebration =
+    previewLevelUpCelebration().copy(
+        level = 5,
+        levelProgress = 0.12f,
+        xpIntoLevel = 12,
     )

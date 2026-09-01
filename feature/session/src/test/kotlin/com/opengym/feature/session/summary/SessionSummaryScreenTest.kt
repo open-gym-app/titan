@@ -342,7 +342,7 @@ class SessionSummaryScreenTest {
         composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("LEVEL UP"))
 
         composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
-        composeTestRule.onAllNodesWithText("Level 5").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Level 4").onFirst().assertIsDisplayed()
     }
 
     @Test
@@ -414,6 +414,24 @@ class SessionSummaryScreenTest {
             .performScrollToNode(hasContentDescription("285 experience points earned"))
         composeTestRule.onNodeWithContentDescription("285 experience points earned").assertIsDisplayed()
         composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
+
+        // The level the user *ended* on, with no frame advanced. The fixture crosses a threshold
+        // from level 3, and the sweep plays crossings one at a time — so a build that animated
+        // regardless would be caught here showing 3. See `rememberLevelSweep`.
+        composeTestRule.onAllNodesWithText("Level 4").onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a round level is named a milestone rather than drawn louder in silence`() {
+        setContent(previewState(celebration = previewMilestoneCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasText("MILESTONE REACHED"))
+
+        // The banner says which kind of crossing it was. A round level that only threw more
+        // confetti would be the same event with the volume up, which is what naming it avoids.
+        composeTestRule.onNodeWithText("MILESTONE REACHED").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
     }
 
     private fun setContent(state: SessionSummaryUiState) {

@@ -276,6 +276,9 @@
     </plurals>
 
     <string name="summary_level_up">Level up</string>
+    <!-- A level ending in 0 or 5. Named rather than merely drawn louder: a crossing that is only
+         bigger reads as the same event with the volume up. See `LevelCeremony`. -->
+    <string name="summary_level_milestone">Milestone reached</string>
     <!-- %1$d is the level now held. -->
     <string name="summary_level_number">Level %1$d</string>
     <!-- Points into the current level, over what a level costs: "43 / 100". -->

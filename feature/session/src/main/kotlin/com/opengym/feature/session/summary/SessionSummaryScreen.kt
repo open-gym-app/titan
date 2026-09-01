@@ -28,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -53,7 +52,6 @@ import com.opengym.core.ui.component.TemplateNameDialog
 import com.opengym.core.ui.format.formatAsClock
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.formatTimeOfDay
-import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.summary.component.AchievementsUnlockedCard
@@ -623,32 +621,6 @@ fun SessionSummaryScreenNoRecordsPreview() {
     PreviewScreen(previewState(records = emptyList(), notes = null))
 }
 
-/*
- * The payoff, in its two shapes (#111).
- *
- * Both are captured under reduced motion, which is what makes them *references* rather than
- * frames: the count, the bar and the confetti all land immediately there, so a screenshot shows
- * the state the screen settles on instead of whichever millisecond the recorder happened to
- * catch. See `LocalReducedMotion`, and `ConfettiBurst` for why the burst is absent rather than
- * frozen.
- */
-
-@Preview(name = "Session summary - xp earned", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
-@Composable
-fun SessionSummaryScreenCelebrationPreview() {
-    CompositionLocalProvider(LocalReducedMotion provides true) {
-        PreviewScreen(previewState(celebration = previewCelebration()))
-    }
-}
-
-@Preview(name = "Session summary - level up", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
-@Composable
-fun SessionSummaryScreenLevelUpPreview() {
-    CompositionLocalProvider(LocalReducedMotion provides true) {
-        PreviewScreen(previewState(celebration = previewLevelUpCelebration()))
-    }
-}
-
 @Preview(name = "Session summary - historical", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenHistoricalPreview() {
@@ -674,7 +646,7 @@ fun SessionSummaryScreenMissingPreview() {
 }
 
 @Composable
-private fun PreviewScreen(
+internal fun PreviewScreen(
     state: SessionSummaryUiState,
     theme: ThemePreference = ThemePreference.LIGHT,
 ) {
@@ -687,7 +659,7 @@ private fun PreviewScreen(
  * A `@Preview` renders at the device's height and silently clips a screen with a pinned bar at
  * the bottom, so the captures are given a phone's worth of height explicitly.
  */
-private const val FULL_SCREEN_HEIGHT_DP = 900
+internal const val FULL_SCREEN_HEIGHT_DP = 900
 
 /**
  * How the pinned bar splits between its two actions. See the note at the call site — three
