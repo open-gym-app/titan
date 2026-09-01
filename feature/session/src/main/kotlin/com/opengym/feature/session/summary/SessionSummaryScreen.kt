@@ -649,8 +649,9 @@ fun SessionSummaryScreenMissingPreview() {
 internal fun PreviewScreen(
     state: SessionSummaryUiState,
     theme: ThemePreference = ThemePreference.LIGHT,
+    reducedMotion: Boolean = false,
 ) {
-    OpenGymTheme(theme = theme) {
+    OpenGymTheme(theme = theme, reducedMotion = reducedMotion) {
         SessionSummaryScreen(state = state, onEvent = {}, onExit = {})
     }
 }

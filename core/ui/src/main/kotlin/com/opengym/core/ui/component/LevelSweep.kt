@@ -42,7 +42,8 @@ import kotlinx.coroutines.delay
  * ### It runs once
  *
  * Same contract as [CountUpNumber] and [ConfettiBurst]: held across configuration changes, so a
- * rotation neither restarts nor replays the sweep, and immediate under reduced motion — where the
+ * rotation resumes the run from the threshold it had reached rather than restarting or replaying
+ * it, and it is immediate under reduced motion — where the
  * bar is simply drawn at its final level and fraction, with [LevelSweep.crossings] never firing.
  * A user who asked for stillness gets the outcome, not a faster version of the ceremony.
  *
@@ -65,12 +66,22 @@ fun rememberLevelSweep(
     var level by rememberSaveable { mutableIntStateOf(if (reducedMotion) toLevel else fromLevel) }
     var crossings by rememberSaveable { mutableIntStateOf(0) }
 
-    // Whether this instance has already played. `rememberSaveable` so a rotation mid-sweep lands
-    // on the finished state instead of starting the ceremony again.
+    // Whether this instance has already finished playing. `rememberSaveable` so a rotation
+    // *after* the run lands on the finished state instead of starting the ceremony again; one
+    // during it resumes from `crossings`, below.
     var played by rememberSaveable { mutableStateOf(reducedMotion) }
 
+    // Only [level], [crossings] and [played] survive a restore; the bar's own position does
+    // not, so it is re-seeded from how far the run had already got. Starting a restored sweep
+    // at [fromFraction] would run the bar back through a level the number has already passed.
     val fraction = remember {
-        Animatable(if (reducedMotion) toFraction else fromFraction.coerceIn(0f, 1f))
+        Animatable(
+            when {
+                reducedMotion -> toFraction.coerceIn(0f, 1f)
+                crossings > 0 -> 0f
+                else -> fromFraction.coerceIn(0f, 1f)
+            },
+        )
     }
 
     LaunchedEffect(fromLevel, toLevel, reducedMotion) {
@@ -81,15 +92,21 @@ fun rememberLevelSweep(
             return@LaunchedEffect
         }
 
-        repeat(crossingCount) { step ->
+        // Resumed from [crossings] rather than replayed from zero: a restore that lands
+        // mid-run — a rotation, or the item scrolling out of a `LazyColumn` and back — has
+        // already announced the thresholds below it, and playing them again would re-sweep
+        // levels the number has passed while `key(crossings)` threw no fresh confetti for them.
+        var step = crossings
+        while (step < crossingCount) {
             fraction.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(durationMillis = SWEEP_MILLIS, easing = ArriveAtThreshold),
             )
             // The beat the crossing happens in. Nothing moves; that is the point.
             delay(HOLD_MILLIS.toLong())
-            level = fromLevel + step + 1
-            crossings = step + 1
+            step += 1
+            level = fromLevel + step
+            crossings = step
             fraction.snapTo(0f)
         }
 

@@ -1,6 +1,5 @@
 package com.opengym.feature.session.summary
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -18,7 +17,6 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
 import com.opengym.core.domain.model.TemplateCategory
-import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -398,15 +396,16 @@ class SessionSummaryScreenTest {
         // are asserted at their *final* values with no frame advanced: under reduced motion the
         // count and the bar land immediately, so what a still screenshot catches is the answer
         // rather than a frame of an animation. See `LocalReducedMotion`.
+        // Passed to the theme rather than provided around it: `OpenGymTheme` provides
+        // `LocalReducedMotion` itself, so an outer `CompositionLocalProvider` is shadowed and
+        // this would silently assert against the animated rendering.
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalReducedMotion provides true) {
-                OpenGymTheme {
-                    SessionSummaryScreen(
-                        state = previewState(celebration = previewLevelUpCelebration()),
-                        onEvent = events::add,
-                        onExit = { exits++ },
-                    )
-                }
+            OpenGymTheme(reducedMotion = true) {
+                SessionSummaryScreen(
+                    state = previewState(celebration = previewLevelUpCelebration()),
+                    onEvent = events::add,
+                    onExit = { exits++ },
+                )
             }
         }
 

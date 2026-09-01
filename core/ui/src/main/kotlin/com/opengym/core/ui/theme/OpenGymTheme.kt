@@ -39,11 +39,18 @@ import com.opengym.core.domain.model.UnitSystem
  *   live — see [ThemePreference.isDark].
  * @param unitSystem the units weights and distances are *displayed* in; nothing stored is
  *   affected. Reached from a call site through [LocalUnitSystem].
+ * @param reducedMotion whether animations are suppressed, reached from a call site through
+ *   [LocalReducedMotion]. A **parameter** rather than a bare read of the system setting,
+ *   because this composable provides the local and so shadows anything a caller wrapped it
+ *   in: a preview or a test that provided [LocalReducedMotion] from the outside would have
+ *   had it silently overwritten here. Defaulted to the system's own answer, so the app never
+ *   passes it.
  */
 @Composable
 fun OpenGymTheme(
     theme: ThemePreference = ThemePreference.SYSTEM,
     unitSystem: UnitSystem = UnitSystem.METRIC,
+    reducedMotion: Boolean = systemReducedMotion(),
     content: @Composable () -> Unit,
 ) {
     val dark = theme.isDark()
@@ -57,10 +64,10 @@ fun OpenGymTheme(
             if (dark) OpenGymDarkSessionChrome else OpenGymLightSessionChrome,
         LocalOpenGymCelebrationColors provides
             if (dark) OpenGymDarkCelebrationColors else OpenGymLightCelebrationColors,
-        // Read here rather than at the call sites that animate: it is a content-resolver read,
-        // and providing it is what lets a test assert the still rendering. See
-        // [LocalReducedMotion].
-        LocalReducedMotion provides systemReducedMotion(),
+        // Provided here rather than read at the call sites that animate: it is a
+        // content-resolver read, and one provision is what lets a preview or a test render
+        // the still version by passing [reducedMotion]. See [LocalReducedMotion].
+        LocalReducedMotion provides reducedMotion,
         LocalUnitSystem provides unitSystem,
     ) {
         MaterialTheme(

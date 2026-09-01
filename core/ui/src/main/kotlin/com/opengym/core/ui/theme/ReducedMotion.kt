@@ -27,9 +27,13 @@ import androidx.compose.ui.platform.LocalContext
  * The value reaches call sites through [LocalReducedMotion] rather than by each of them
  * touching `Settings.Global`, for three reasons. It is a content-resolver read, which is not
  * something to do per frame in a composable that animates. It makes the behaviour *testable*
- * — a test provides the local and asserts the static rendering, with no ability to write a
- * global setting from a unit test. And it means a screenshot test renders deterministically
- * by construction rather than by luck.
+ * — a preview or a test passes `OpenGymTheme(reducedMotion = true)` and asserts the static
+ * rendering, with no ability to write a global setting from a unit test. And it means a
+ * screenshot test renders deterministically by construction rather than by luck.
+ *
+ * Overriding it means passing that parameter, **not** wrapping [OpenGymTheme] in a
+ * `CompositionLocalProvider`: the theme provides this local itself, so an outer provision is
+ * shadowed for everything inside it.
  *
  * `compositionLocalOf` rather than the static variant used by the token sets: this one can
  * change while the app is running — the user can flip it in settings and come back — and the
@@ -43,7 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 val LocalReducedMotion = compositionLocalOf { false }
 
 /**
- * The system's current answer, for the one caller that provides [LocalReducedMotion].
+ * The system's current answer — [OpenGymTheme]'s default for its `reducedMotion` parameter.
  *
  * Not for screens to call. A screen asks [LocalReducedMotion], which a test can override and
  * this cannot.

@@ -65,17 +65,7 @@ data class OpenGymCelebrationColors(
     val achievement: Color,
     val onAchievement: Color,
     val confetti: List<Color>,
-) {
-
-    /**
-     * The confetti colour for the piece at [index], cycling.
-     *
-     * Cycled rather than bounds-checked because the piece count is a motion parameter that is
-     * tuned by eye — see `ConfettiBurst` — and a palette that ran out would make raising it
-     * silently drop pieces to a single colour.
-     */
-    fun confettiFor(index: Int): Color = confetti[index.mod(confetti.size)]
-}
+)
 
 /*
  * The light set.
@@ -107,6 +97,13 @@ internal val OpenGymLightCelebrationColors = OpenGymCelebrationColors(
  * The dark set. Not a mechanical inversion — the grounds lift rather than darken, because a
  * violet dark enough to read on paper disappears against `PaperDark`, and the confetti hues
  * are raised to stay visible on a near-black field.
+ *
+ * `levelUpEdge` is where that lifting has to stop. It is the far end of a gradient with white
+ * written across it, so it is held at the darkest pink that still reads as lifted against the
+ * light set's — 4.88:1 under [OpenGymCelebrationColors.onLevelUp], where the tone one notch
+ * brighter falls under AA. That is a limit worth naming rather than rediscovering: the banner's
+ * text is centred, so it sits over the *mid* of the ramp and a failing edge does not look
+ * obviously wrong. `ColorSchemeContrastTest` measures the ends, not the middle.
  */
 internal val OpenGymDarkCelebrationColors = OpenGymCelebrationColors(
     xp = Color(0xFFFF6B3D),
@@ -114,7 +111,7 @@ internal val OpenGymDarkCelebrationColors = OpenGymCelebrationColors(
     xpTrack = Color(0xFF22222A),
     levelUp = Color(0xFF6B44A8),
     onLevelUp = Color(0xFFFFFFFF),
-    levelUpEdge = Color(0xFFC2568C),
+    levelUpEdge = Color(0xFFBC4581),
     achievement = Color(0xFF4A1E0E),
     onAchievement = Color(0xFFFFD9C7),
     confetti = listOf(

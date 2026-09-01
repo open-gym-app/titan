@@ -1,9 +1,7 @@
 package com.opengym.feature.session.summary
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
-import com.opengym.core.ui.theme.LocalReducedMotion
 
 /*
  * The payoff, in its two shapes (#111).
@@ -13,28 +11,26 @@ import com.opengym.core.ui.theme.LocalReducedMotion
  * the state the screen settles on instead of whichever millisecond the recorder happened to
  * catch. See `LocalReducedMotion`, and `ConfettiBurst` for why the burst is absent rather than
  * frozen.
+ *
+ * Reduced motion is passed to `OpenGymTheme` rather than provided around it: the theme provides
+ * `LocalReducedMotion` itself, so a `CompositionLocalProvider` on the outside would be shadowed
+ * and these would quietly capture the animation instead.
  */
 
 @Preview(name = "Session summary - xp earned", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenCelebrationPreview() {
-    CompositionLocalProvider(LocalReducedMotion provides true) {
-        PreviewScreen(previewState(celebration = previewCelebration()))
-    }
+    PreviewScreen(previewState(celebration = previewCelebration()), reducedMotion = true)
 }
 
 @Preview(name = "Session summary - level up", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenLevelUpPreview() {
-    CompositionLocalProvider(LocalReducedMotion provides true) {
-        PreviewScreen(previewState(celebration = previewLevelUpCelebration()))
-    }
+    PreviewScreen(previewState(celebration = previewLevelUpCelebration()), reducedMotion = true)
 }
 
 @Preview(name = "Session summary - milestone", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenMilestonePreview() {
-    CompositionLocalProvider(LocalReducedMotion provides true) {
-        PreviewScreen(previewState(celebration = previewMilestoneCelebration()))
-    }
+    PreviewScreen(previewState(celebration = previewMilestoneCelebration()), reducedMotion = true)
 }

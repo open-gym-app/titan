@@ -1,10 +1,8 @@
 package com.opengym.feature.session.summary
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
-import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Rule
 import org.junit.Test
@@ -35,8 +33,9 @@ import org.robolectric.annotation.GraphicsMode
  * the crossing index rather than from a random draw, so the same instant always produces the same
  * pieces in the same places. See `ConfettiBurst`.
  *
- * [MID_BURST_MILLIS] lands inside the first sweep, while pieces are spread down the banner and
- * well before any of them has faded — the part of the animation with the most to be wrong about.
+ * [MID_RAIN_MILLIS] lands inside the burst the first crossing throws, while pieces are spread
+ * down the banner and well before any of them has faded — the part of the animation with the
+ * most to be wrong about.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
@@ -52,14 +51,14 @@ class CelebrationMidAnimationScreenshotTest {
 
         composeTestRule.setContent {
             // Explicitly *off*: this is the one capture in the module that wants the animation.
-            CompositionLocalProvider(LocalReducedMotion provides false) {
-                OpenGymTheme {
-                    SessionSummaryScreen(
-                        state = previewState(celebration = previewMilestoneCelebration()),
-                        onEvent = {},
-                        onExit = {},
-                    )
-                }
+            // Passed to the theme, which provides `LocalReducedMotion` and would shadow an
+            // outer `CompositionLocalProvider`.
+            OpenGymTheme(reducedMotion = false) {
+                SessionSummaryScreen(
+                    state = previewState(celebration = previewMilestoneCelebration()),
+                    onEvent = {},
+                    onExit = {},
+                )
             }
         }
 
@@ -72,14 +71,12 @@ class CelebrationMidAnimationScreenshotTest {
         composeTestRule.mainClock.autoAdvance = false
 
         composeTestRule.setContent {
-            CompositionLocalProvider(LocalReducedMotion provides false) {
-                OpenGymTheme {
-                    SessionSummaryScreen(
-                        state = previewState(celebration = previewMilestoneCelebration()),
-                        onEvent = {},
-                        onExit = {},
-                    )
-                }
+            OpenGymTheme(reducedMotion = false) {
+                SessionSummaryScreen(
+                    state = previewState(celebration = previewMilestoneCelebration()),
+                    onEvent = {},
+                    onExit = {},
+                )
             }
         }
 
@@ -99,13 +96,22 @@ class CelebrationMidAnimationScreenshotTest {
         const val BURST_REFERENCE = "celebration_mid_detonation.png"
 
         /**
-         * Late in the first burst, chosen so the pieces are unmistakably *down* the banner.
+         * Well into the burst the **first crossing** throws, so the pieces are unmistakably
+         * *down* the banner.
          *
          * An instant nearer the start would look much like the bug it guards against — a few
          * dots near the top edge — and a reference that cannot tell the two apart is not a
-         * guard. This is before the first crossing at ~880 ms, so it is still the opening burst.
+         * guard.
+         *
+         * The window is narrow and both ends of it matter. A crossing lands at ~880 ms (a 620 ms
+         * sweep and the 260 ms held at the threshold), so nothing is thrown before that: the
+         * banner is showing the level the session *started* on until then, and this reference
+         * used to be recorded at 700 ms, over a burst that should never have fired. The second
+         * crossing at ~1760 ms then replaces this burst with the milestone's detonation, which
+         * is the other reference's subject. 1600 ms is roughly two-thirds through what is
+         * visible of the rain, and clear of both edges.
          */
-        const val MID_RAIN_MILLIS = 700L
+        const val MID_RAIN_MILLIS = 1_600L
 
         /**
          * Into the burst thrown by the *second* crossing, which is the one onto a milestone.

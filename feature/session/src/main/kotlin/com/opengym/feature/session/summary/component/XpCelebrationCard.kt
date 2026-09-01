@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -127,6 +128,11 @@ internal fun XpCelebrationCard(
  * four levels are four events — a single burst over a run of four would celebrate the arithmetic
  * instead of the climb.
  *
+ * Both are guarded on there having *been* a crossing. The banner is on screen from the first
+ * frame, showing the level the session started on, and the sweep does not reach the first
+ * threshold for the better part of a second — so an unguarded flourish fires over the old
+ * number, and a one-level session throws two bursts for one event.
+ *
  * The confetti is drawn *behind* the words: a flourish that obscures the one sentence it is
  * celebrating has inverted its own purpose. It draws nothing at all under reduced motion, where
  * `crossings` never advances either — see `ConfettiBurst`.
@@ -172,21 +178,24 @@ private fun LevelUpBanner(
     ) {
         // `key` gives each crossing its own burst: it discards the previous one's state, which is
         // what lets a component that deliberately plays once play again for the next threshold.
-        key(sweep.crossings) {
-            ConfettiBurst(
-                colors = celebrationColors.confetti,
-                pieceCount = sweep.ceremony.confettiPieces,
-                style = sweep.ceremony.confettiStyle,
-                seed = sweep.crossings,
-                // `matchParentSize`, not `fillMaxSize`. The banner's height comes from the
-                // column of text below this, and inside a `LazyColumn` item the incoming height
-                // constraint is unbounded — so `fillMaxSize` has nothing to expand against and
-                // the canvas measures to nothing. Every piece then lands at y=0 and the burst
-                // draws as a row of dots welded to the top edge. `matchParentSize` is measured
-                // after the parent's size is known and does not feed into it, which is exactly
-                // the relationship a backdrop wants.
-                modifier = Modifier.matchParentSize(),
-            )
+        // Not composed at all until the first threshold — see the note above.
+        if (sweep.crossings > 0) {
+            key(sweep.crossings) {
+                ConfettiBurst(
+                    colors = celebrationColors.confetti,
+                    pieceCount = sweep.ceremony.confettiPieces,
+                    style = sweep.ceremony.confettiStyle,
+                    seed = sweep.crossings,
+                    // `matchParentSize`, not `fillMaxSize`. The banner's height comes from the
+                    // column of text below this, and inside a `LazyColumn` item the incoming
+                    // height constraint is unbounded — so `fillMaxSize` has nothing to expand
+                    // against and the canvas measures to nothing. Every piece then lands at y=0
+                    // and the burst draws as a row of dots welded to the top edge.
+                    // `matchParentSize` is measured after the parent's size is known and does
+                    // not feed into it, which is exactly the relationship a backdrop wants.
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
         }
 
         Column(
@@ -228,6 +237,11 @@ private fun XpEarned(
     xp: Int,
     modifier: Modifier = Modifier,
 ) {
+    // The running digits go through the same resource the breakdown rows use, rather than
+    // through `Int.toString()`: a locale that renders its own numerals would otherwise draw the
+    // headline in Latin digits and the `+70` two lines under it in the user's own.
+    val resources = LocalContext.current.resources
+
     // No eyebrow of its own: the section this card sits in is already headed `XP EARNED`, and
     // the label repeated inside it was the same words twice in fourteen vertical pixels.
     Column(modifier = modifier) {
@@ -239,7 +253,7 @@ private fun XpEarned(
                 contentDescription = stringResource(R.string.summary_xp_earned_description, xp),
                 style = OpenGymTheme.typography.numericDisplay,
                 color = OpenGymTheme.celebration.xp,
-                format = { "+$it" },
+                format = { resources.getString(R.string.summary_xp_source_amount, it) },
             )
             Text(
                 text = stringResource(R.string.summary_xp_unit),
