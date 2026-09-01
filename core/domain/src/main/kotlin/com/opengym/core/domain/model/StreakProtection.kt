@@ -67,7 +67,14 @@ data class StreakProtection(
      * A [period] in the *future* — a device whose clock went backwards, a state written on a
      * phone set forward — refills too. The alternative is a user stuck at zero protections
      * until the clock catches up, which is a worse answer to a state that should not exist
-     * than an extra refill nobody can engineer on purpose.
+     * than an extra refill nobody can engineer on purpose. That is the read path's answer,
+     * where [month] is the month somebody is looking at the count in.
+     *
+     * The write path guards the one case this cannot see for itself: a session finished
+     * *before* the streak's anchor never asks — see
+     * [com.opengym.core.domain.gamification.StreakCalculator.advance]. Rolling backwards onto
+     * that session's month would refill an allowance a later month has already spent from,
+     * which hands back a protection rather than un-sticking a count.
      */
     fun replenishedFor(month: YearMonth): StreakProtection =
         if (period == month) this else copy(remaining = MONTHLY_ALLOWANCE, period = month)

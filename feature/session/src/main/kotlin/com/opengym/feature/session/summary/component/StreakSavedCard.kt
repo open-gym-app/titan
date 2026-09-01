@@ -37,10 +37,16 @@ import com.opengym.feature.session.summary.SummaryStreakSave
  *
  * ### The marks and the words say the same thing, once
  *
- * `StreakShields` is drawn beside the sentence that counts them, so its own description is
- * cleared here — a reader who heard "two of three streak protections left this month" and then
- * "2 left this month" would be told twice. The marks are what a *sighted* reader takes in at a
- * glance; the sentence is what everybody else gets, and neither is decoration for the other.
+ * `StreakShields` is drawn beside the line that counts them, so its own description is cleared
+ * here — a reader who heard "two of three streak protections left this month" and then "2 left
+ * this month" would be told twice. The marks are what a *sighted* reader takes in at a glance;
+ * the sentence is what everybody else gets, and neither is decoration for the other.
+ *
+ * Which makes the line beside them the one that has to carry the whole fact, and `2 LEFT THIS
+ * MONTH` does not: it names neither the allowance it is two *of* nor the thing there are two
+ * of, both of which the marks are drawing for everybody else. So the eyebrow speaks the full
+ * sentence — see [Eyebrow]'s `contentDescription`. The drawn words stay short because they sit
+ * in a row with the marks on a 360dp screen, and the spoken ones do not have to.
  *
  * ### It is not accented
  *
@@ -97,16 +103,28 @@ internal fun StreakSavedCard(
                     // not hear it twice. See the note above.
                     contentDescription = null,
                 )
+                val exhausted = save.protectionsRemaining == 0
                 Eyebrow(
                     // Zero is its own string rather than a `zero` plural, which English never
                     // selects — and "none left" is worth saying in words.
-                    text = if (save.protectionsRemaining == 0) {
+                    text = if (exhausted) {
                         stringResource(R.string.summary_streak_protections_none)
                     } else {
                         pluralStringResource(
                             R.plurals.summary_streak_protections_left,
                             save.protectionsRemaining,
                             save.protectionsRemaining,
+                        )
+                    },
+                    // The whole sentence, marks included, for the reader the marks are silent
+                    // for. See the note above.
+                    contentDescription = if (exhausted) {
+                        stringResource(R.string.summary_streak_protections_none_description, save.allowance)
+                    } else {
+                        stringResource(
+                            R.string.summary_streak_protections_left_description,
+                            save.protectionsRemaining,
+                            save.allowance,
                         )
                     },
                 )

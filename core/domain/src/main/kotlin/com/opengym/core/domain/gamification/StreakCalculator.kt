@@ -161,6 +161,13 @@ object StreakCalculator {
      *    session of April breaks a streak spends April's allowance rather than whatever was
      *    left of March's. It is applied on every transition, not only on a break, which is
      *    what makes the stored count correct without a scheduled job — see [StreakProtection].
+     *    The one exception is a session finished *before* the anchor — a backfill, or a device
+     *    clock that went backwards. It cannot move the streak (step 2 answers
+     *    [StreakResult.Unchanged] for it) and it must not move the allowance either: stamping
+     *    its month over a later one already on file would refill a count that month has
+     *    already spent from, handing back a protection the user used. Such a session leaves
+     *    the allowance exactly as it found it, for the same reason it leaves `lastCountedAt`
+     *    alone.
      * 2. **The rule runs**, unchanged: [onSessionFinished] over the timestamps and the count.
      * 3. **A break is offered to the allowance.** A [StreakResult.Reset] becomes a
      *    [StreakResult.Protected] when, and only when, there is a protection left, the streak
@@ -202,7 +209,14 @@ object StreakCalculator {
         state: StreakState,
         finishedAt: Instant,
     ): StreakUpdate {
-        val protection = state.protection.replenishedFor(YearMonth.from(finishedAt.atZone(STREAK_ZONE)))
+        // A session that predates the anchor is not this state's latest word on the month, so
+        // it rolls nothing over — see the first step in the doc above.
+        val protection =
+            if (state.lastCountedAt?.isAfter(finishedAt) == true) {
+                state.protection
+            } else {
+                state.protection.replenishedFor(YearMonth.from(finishedAt.atZone(STREAK_ZONE)))
+            }
         val rule = onSessionFinished(finishedAt, state.lastCountedAt, state.currentStreak)
         val result =
             if (rule == StreakResult.Reset && protection.canCover(state, finishedAt)) {

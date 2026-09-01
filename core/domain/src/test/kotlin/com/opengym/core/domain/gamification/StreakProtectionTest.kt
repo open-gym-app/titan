@@ -194,6 +194,34 @@ class StreakProtectionTest {
     }
 
     @Test
+    fun `a session that predates the anchor rolls nothing over`() {
+        // A phone set forward to April spent a protection there; the clock is corrected, and
+        // the next session finishes back in March. It changes nothing, and must refill nothing.
+        val april = StreakProtection(remaining = 2, period = YearMonth.of(2026, 4), lastConsumedAt = APRIL_EVENING)
+        val ahead = onFile(streak = 12, protection = april).copy(lastCountedAt = APRIL_EVENING)
+
+        val update = StreakCalculator.advance(ahead, TUESDAY_EVENING)
+
+        assertEquals(StreakResult.Unchanged, update.result)
+        // Not three, and still April's: the protection April spent is not handed back.
+        assertEquals(2, update.protectionsRemaining)
+        assertEquals(YearMonth.of(2026, 4), update.state.protection.period)
+    }
+
+    @Test
+    fun `a backfilled session inside the same month leaves the allowance alone`() {
+        // The cascade re-entered at boot for a session finished before the anchor. It cannot
+        // move the streak, so it has no business writing the allowance either.
+        val spentInMarch = StreakProtection(remaining = 1, period = MARCH, lastConsumedAt = MONDAY_EVENING)
+        val state = onFile(streak = 12, protection = spentInMarch)
+
+        val update = StreakCalculator.advance(state, MONDAY_EVENING.minusSeconds(24 * 3600))
+
+        assertEquals(StreakResult.Unchanged, update.result)
+        assertEquals(spentInMarch, update.state.protection)
+    }
+
+    @Test
     fun `the same month is left exactly as it was found`() {
         val protection = StreakProtection(
             remaining = 1,
@@ -257,5 +285,8 @@ class StreakProtectionTest {
         val WEDNESDAY_EVENING: Instant = Instant.parse("2026-03-04T19:00:00Z")
         val THURSDAY_EVENING: Instant = Instant.parse("2026-03-05T19:00:00Z")
         val FRIDAY_EVENING: Instant = Instant.parse("2026-03-06T19:00:00Z")
+
+        /** A month ahead of every case above — a clock that ran forward and was corrected. */
+        val APRIL_EVENING: Instant = Instant.parse("2026-04-07T19:00:00Z")
     }
 }

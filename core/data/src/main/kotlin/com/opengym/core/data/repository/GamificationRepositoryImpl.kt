@@ -11,6 +11,7 @@ import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.YearMonth
@@ -122,9 +123,14 @@ class GamificationRepositoryImpl @Inject constructor(
      * surfaces can tell "nothing banked" from "nothing written". The streak has no such
      * distinction to draw — a user with no row and a user with no streak are the same lifter —
      * so the null is collapsed here rather than pushed to every screen.
+     *
+     * Distinct emissions only. Room invalidates by *table*, and `user_progress` carries the XP
+     * total beside the streak, so a finished session's dozen awards each re-run this query and
+     * each hand back a [StreakState] identical to the last one. A screen collecting this would
+     * recompose a dozen times for a streak that moved once.
      */
     override fun observeStreak(): Flow<StreakState> =
-        userProgressDao.observe().map { it?.toStreakState() ?: StreakState() }
+        userProgressDao.observe().map { it?.toStreakState() ?: StreakState() }.distinctUntilChanged()
 }
 
 /** The streak columns of the progress row, as the domain's value. */

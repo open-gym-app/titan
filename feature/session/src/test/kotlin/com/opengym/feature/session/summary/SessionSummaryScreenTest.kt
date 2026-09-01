@@ -392,6 +392,18 @@ class SessionSummaryScreenTest {
     }
 
     @Test
+    fun `the allowance line speaks the counts the silent marks are drawing`() {
+        setContent(previewState(celebration = previewCelebration(), streakSave = previewStreakSave()))
+
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("2 LEFT THIS MONTH"))
+
+        // Both counts and the word for what they are: the row of marks says none of it out
+        // loud, so the line beside it has to. See `StreakSavedCard`.
+        composeTestRule.onNodeWithContentDescription("2 of 3 streak protections left this month")
+            .assertIsDisplayed()
+    }
+
+    @Test
     fun `an exhausted allowance is said in words rather than as a zero`() {
         setContent(previewState(streakSave = previewLastStreakSave()))
 
@@ -399,6 +411,9 @@ class SessionSummaryScreenTest {
 
         composeTestRule.onNodeWithText("NONE LEFT THIS MONTH").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("0 LEFT THIS MONTH").assertCountEquals(0)
+        // And spoken with the allowance it is none of, for the same reason as above.
+        composeTestRule.onNodeWithContentDescription("None of your 3 streak protections are left this month")
+            .assertIsDisplayed()
     }
 
     @Test

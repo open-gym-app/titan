@@ -319,6 +319,12 @@
     <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
          in words: a user with none left is one bad day from losing the streak above. -->
     <string name="summary_streak_protections_none">None left this month</string>
+    <!-- What a screen reader hears in place of the two lines above, which are the visible half
+         of a sentence whose other half is the row of marks beside them. %1$d is what is left,
+         %2$d the month's allowance - a reader who cannot see three marks with one greyed out
+         needs both counts and the word for what they are. -->
+    <string name="summary_streak_protections_left_description">%1$d of %2$d streak protections left this month</string>
+    <string name="summary_streak_protections_none_description">None of your %1$d streak protections are left this month</string>
 
     <string name="summary_achievements">Achievements unlocked</string>
     <string name="summary_achievement_badge">New</string>
