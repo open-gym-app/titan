@@ -24,23 +24,33 @@ package com.opengym.core.ui.component
  * all. Five is frequent enough to be recognised as a pattern and rare enough to still mean
  * something. It is one constant, and moving it moves every consequence.
  *
+ * ### A different animation, not the same one louder
+ *
+ * The magnitudes below are the smaller half of the difference. The one that does the work is
+ * [confettiStyle]: an ordinary crossing **rains**, a round one **detonates** outward from behind
+ * the number. Two crossings that differed only in piece count would be one animation at two
+ * volumes, and a reader would have to count confetti to tell them apart. A different shape of
+ * movement is recognised before a word of the banner has been read.
+ *
  * @property kick how far the level number snaps before springing back, as a scale.
  * @property confettiPieces how heavy the burst is at this crossing.
+ * @property confettiStyle how the pieces move. See [ConfettiStyle].
  */
 enum class LevelCeremony(
     val kick: Float,
     val confettiPieces: Int,
+    val confettiStyle: ConfettiStyle,
 ) {
 
-    /** Any level. A kick and a burst, over in under a second. */
-    ORDINARY(kick = 1.25f, confettiPieces = 40),
+    /** Any level: a kick, and confetti falling over the banner. */
+    ORDINARY(kick = 1.25f, confettiPieces = 40, confettiStyle = ConfettiStyle.RAIN),
 
     /**
      * A round number — see the note above. The number kicks harder, the burst is half again as
-     * heavy, and the banner names it, so the crossing reads as *different* rather than merely
-     * bigger.
+     * heavy, it **explodes outward** rather than falling, and the banner names it. Four things,
+     * of which only the third changes what the crossing *is*.
      */
-    ROUND(kick = 1.45f, confettiPieces = 64),
+    ROUND(kick = 1.45f, confettiPieces = 64, confettiStyle = ConfettiStyle.BURST),
     ;
 
     companion object {

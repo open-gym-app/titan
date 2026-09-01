@@ -63,14 +63,40 @@ class CelebrationMidAnimationScreenshotTest {
             }
         }
 
-        composeTestRule.mainClock.advanceTimeBy(MID_BURST_MILLIS)
-        composeTestRule.onRoot().captureRoboImage(REFERENCE)
+        composeTestRule.mainClock.advanceTimeBy(MID_RAIN_MILLIS)
+        composeTestRule.onRoot().captureRoboImage(RAIN_REFERENCE)
+    }
+
+    @Test
+    fun `a milestone detonates outward instead of raining down`() {
+        composeTestRule.mainClock.autoAdvance = false
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalReducedMotion provides false) {
+                OpenGymTheme {
+                    SessionSummaryScreen(
+                        state = previewState(celebration = previewMilestoneCelebration()),
+                        onEvent = {},
+                        onExit = {},
+                    )
+                }
+            }
+        }
+
+        // Past both crossings, into the burst the *round* level throws. The two references
+        // differ in the shape of the scatter — falling in a column from the top edge against
+        // spreading outward from behind the number — which is the difference the whole
+        // `LevelCeremony` distinction exists to make, and the one a magnitude-only change could
+        // not produce.
+        composeTestRule.mainClock.advanceTimeBy(MID_DETONATION_MILLIS)
+        composeTestRule.onRoot().captureRoboImage(BURST_REFERENCE)
     }
 
     private companion object {
         // The bare file name: Roborazzi resolves it against the module's reference directory,
         // and a path that repeated `src/test/screenshots` nested one inside the other.
-        const val REFERENCE = "celebration_mid_burst.png"
+        const val RAIN_REFERENCE = "celebration_mid_rain.png"
+        const val BURST_REFERENCE = "celebration_mid_detonation.png"
 
         /**
          * Late in the first burst, chosen so the pieces are unmistakably *down* the banner.
@@ -79,6 +105,14 @@ class CelebrationMidAnimationScreenshotTest {
          * dots near the top edge — and a reference that cannot tell the two apart is not a
          * guard. This is before the first crossing at ~880 ms, so it is still the opening burst.
          */
-        const val MID_BURST_MILLIS = 700L
+        const val MID_RAIN_MILLIS = 700L
+
+        /**
+         * Into the burst thrown by the *second* crossing, which is the one onto a round level.
+         *
+         * Two crossings at roughly 880 ms each, plus a beat for the pieces to travel — chosen so
+         * they are well clear of the centre and have not begun to fade.
+         */
+        const val MID_DETONATION_MILLIS = 2_000L
     }
 }

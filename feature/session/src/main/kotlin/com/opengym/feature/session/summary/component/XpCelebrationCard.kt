@@ -176,6 +176,7 @@ private fun LevelUpBanner(
             ConfettiBurst(
                 colors = celebrationColors.confetti,
                 pieceCount = sweep.ceremony.confettiPieces,
+                style = sweep.ceremony.confettiStyle,
                 seed = sweep.crossings,
                 // `matchParentSize`, not `fillMaxSize`. The banner's height comes from the
                 // column of text below this, and inside a `LazyColumn` item the incoming height
