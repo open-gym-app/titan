@@ -1,11 +1,13 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -110,6 +112,15 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
         records.value += stored
         return stored
     }
+
+    /** Unused here: this fake serves the PR engine's reads, not the records list. */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = emptyList()
+
+    override fun observeRecordCount(): Flow<Int> = flowOf(0)
 }
 
 /** What a day is, in the milliseconds a record's `achievedAt` is stored in. */

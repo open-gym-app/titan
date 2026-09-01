@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.opengym.core.data.db.entity.PersonalRecordEntity
+import com.opengym.core.data.db.projection.PersonalRecordEntryRow
 import com.opengym.core.data.db.projection.RecordTallyRow
 import kotlinx.coroutines.flow.Flow
 
@@ -121,8 +122,107 @@ interface PersonalRecordDao {
      * `LIMIT`, and served by the `achieved_at` index rather than sorting the
      * whole table.
      */
+
     @Query("SELECT * FROM personal_record ORDER BY achieved_at DESC LIMIT :limit")
     fun getRecentRecords(limit: Int): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * One window of every record, newest first, with what each one beat and where it was set.
+     *
+     * ### The improvement is a window function, not a query per row
+     *
+     * `LAG` over the records of the same exercise *and* kind, ordered oldest first, is the figure
+     * this record replaced. Doing it here is the difference between one query for a page and one
+     * query per visible row while the user scrolls — which is what #103 rules out. SQLite has had
+     * window functions since 3.25, which is below every API level this app runs on.
+     *
+     * The value being compared is chosen by kind, because each kind lives in its own column and
+     * `MAX_VOLUME` lives in `weight` — see `PersonalRecordEntry.value`, which makes the same
+     * choice for the row that is drawn. The two agree by inspection rather than by construction,
+     * which is a seam worth knowing about: a seventh kind has to be added in both.
+     *
+     * ### Ordering, filtering and the index
+     *
+     * `achieved_at DESC` so the existing index on that column serves the sort. The type filter is
+     * `:type IS NULL OR pr_type = :type`, so "all" and "one kind" are one query rather than two
+     * that could drift apart — and the window is partitioned before the filter is applied, so a
+     * filtered list still knows what each record beat.
+     *
+     * ### Why the joins are `LEFT`
+     *
+     * An exercise deleted from the catalogue, or a set whose session row is gone, must not delete
+     * the user's record from their own history. Both joins therefore keep the record and leave the
+     * name null or the badge false.
+     *
+     * @param type the kind to list, or null for all of them.
+     * @param limit how many rows to return.
+     * @param offset how many to skip.
+     */
+    @Query(
+        """
+        SELECT
+            record.id AS id,
+            record.exercise_id AS exercise_id,
+            record.workout_set_id AS workout_set_id,
+            record.pr_type AS pr_type,
+            record.weight AS weight,
+            record.reps AS reps,
+            record.distance AS distance,
+            record.duration AS duration,
+            record.estimated_1rm AS estimated_1rm,
+            record.achieved_at AS achieved_at,
+            record.previous_value AS previous_value,
+            exercise.name AS exercise_name,
+            CASE
+                WHEN session_exercise.session_id IS NOT NULL
+                    AND session_exercise.session_id = (
+                        SELECT id FROM workout_session
+                        WHERE is_in_progress = 0 AND completed_at IS NOT NULL
+                        ORDER BY completed_at DESC
+                        LIMIT 1
+                    )
+                THEN 1 ELSE 0
+            END AS is_recent
+        FROM (
+            SELECT
+                *,
+                LAG(
+                    CASE pr_type
+                        WHEN 'MAX_WEIGHT' THEN weight
+                        WHEN 'MAX_VOLUME' THEN weight
+                        WHEN 'MAX_REPS' THEN reps
+                        WHEN 'ESTIMATED_1RM' THEN estimated_1rm
+                        WHEN 'MAX_DISTANCE' THEN distance
+                        WHEN 'BEST_PACE' THEN duration
+                    END
+                ) OVER (
+                    PARTITION BY exercise_id, pr_type
+                    ORDER BY achieved_at ASC, id ASC
+                ) AS previous_value
+            FROM personal_record
+        ) AS record
+        LEFT JOIN exercise ON exercise.id = record.exercise_id
+        LEFT JOIN workout_set ON workout_set.id = record.workout_set_id
+        LEFT JOIN session_exercise ON session_exercise.id = workout_set.session_exercise_id
+        WHERE :type IS NULL OR record.pr_type = :type
+        ORDER BY record.achieved_at DESC, record.id DESC
+        LIMIT :limit OFFSET :offset
+        """,
+    )
+    suspend fun getRecordsPage(
+        type: String?,
+        limit: Int,
+        offset: Int,
+    ): List<PersonalRecordEntryRow>
+
+    /**
+     * How many records exist, re-emitted whenever the table changes.
+     *
+     * The invalidation signal for the list's own `PagingSource`, which — unlike Room's — is not
+     * told when the table moves under it. See `PersonalRecordRepository.observeRecordCount`.
+     */
+    @Query("SELECT COUNT(*) FROM personal_record")
+    fun observeCount(): Flow<Int>
 
     /**
      * One record per exercise — the one worth putting on a list row.

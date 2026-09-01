@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.TrainedExercise
@@ -16,6 +17,7 @@ import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import java.time.LocalDate
@@ -176,6 +178,15 @@ class FakeRecordStore(private var tally: RecordTally = RecordTally(records = 0, 
         record: PersonalRecord,
         isBetter: (current: PersonalRecord?) -> Boolean,
     ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
+
+    /** Unused here: this fake serves the per-exercise reads, not the records list. */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = emptyList()
+
+    override fun observeRecordCount(): Flow<Int> = flowOf(0)
 }
 
 /** A clock stopped at a known instant, so "the last 90 days" is a range a test can write down. */

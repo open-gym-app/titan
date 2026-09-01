@@ -163,4 +163,37 @@
     <string name="exercise_empty_single_title">One session so far</string>
     <string name="exercise_empty_single_body">Log it again and the charts fill in. A single session is a dot, not a trend.</string>
 
+    <!-- ─── The personal records list (#103) ───────────────────────────────────────────── -->
+
+    <string name="records_title">Personal records</string>
+    <!-- %1$d is how many records the user holds, across every kind. -->
+    <plurals name="records_count">
+        <item quantity="one">%1$d record</item>
+        <item quantity="other">%1$d records</item>
+    </plurals>
+
+    <!-- The filter chips. `ALL` is its own chip rather than "no chip selected", so the set is
+         always in one of seven states and never in none. -->
+    <string name="records_filter_all">All</string>
+
+    <!-- Marks records set in the most recently finished session. -->
+    <string name="records_new_badge">New</string>
+    <!-- How much a record beat the one before it. %1$s carries its own unit. -->
+    <string name="records_improvement">+%1$s</string>
+    <!-- A record whose exercise has been removed from the catalogue since. The record still
+         stands, so the row is drawn with this rather than dropped. -->
+    <string name="records_unknown_exercise">Removed exercise</string>
+
+    <!-- One sentence for a whole row: exercise, kind, figure, date. -->
+    <string name="records_row_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <!-- Nothing has ever been recorded. -->
+    <string name="records_empty_title">No records yet</string>
+    <string name="records_empty_body">Finish a workout and the bests you set land here, newest first.</string>
+
+    <!-- The filter matches nothing, which is a different screen from having no records at all:
+         one is a reason to change the filter, the other a reason to go and train. -->
+    <string name="records_filtered_empty_title">Nothing of that kind yet</string>
+    <string name="records_filtered_empty_body">You have records, just none of this type. Try another filter.</string>
+
 </resources>

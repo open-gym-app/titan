@@ -6,6 +6,7 @@ import androidx.navigation.compose.navigation
 import com.opengym.feature.progression.detail.ProgressionDetail
 import com.opengym.feature.progression.detail.ProgressionDetailScreen
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
+import com.opengym.feature.progression.records.PersonalRecordsRoute
 import com.opengym.feature.progression.stats.StatsRoute
 import com.opengym.feature.progression.stats.component.StatsExploreActions
 import kotlinx.serialization.Serializable
@@ -93,10 +94,16 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
  * and its entry is what the other three grow into.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.
+ * @param onOpenExerciseProgression a record's exercise, opened on its own drill-down. Hoisted
+ *   rather than navigated here: both destinations live in this graph, but which one a record row
+ *   opens is a *routing* decision, and `:app` is where every other one of those is made.
  */
-fun NavGraphBuilder.progressionDetailGraph(onBack: () -> Unit) {
+fun NavGraphBuilder.progressionDetailGraph(
+    onBack: () -> Unit,
+    onOpenExerciseProgression: (Long) -> Unit,
+) {
     composable<PersonalRecordsDestination> {
-        ProgressionDetailScreen(detail = ProgressionDetail.RECORDS, onBack = onBack)
+        PersonalRecordsRoute(onBack = onBack, onOpenExercise = onOpenExerciseProgression)
     }
     composable<ExerciseProgressionDestination> {
         ExerciseProgressionRoute(onBack = onBack)
