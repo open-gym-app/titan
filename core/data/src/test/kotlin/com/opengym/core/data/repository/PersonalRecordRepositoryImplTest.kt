@@ -132,6 +132,51 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
         }
 
     @Test
+    fun `one exercise's records come back newest first, and another exercise's are not among them`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            val (squat, squatSet) = seedSet("Back Squat")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 80_000_000)
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 300, weight = 85_000_000)
+            record(bench, benchSet, PrType.MAX_REPS, achievedAt = 200, reps = 12)
+            record(squat, squatSet, PrType.MAX_WEIGHT, achievedAt = 400, weight = 140_000_000)
+
+            val records = repository.getRecordsForExercise(bench).first()
+
+            assertEquals(listOf(300L, 200L, 100L), records.map(PersonalRecord::achievedAt))
+            // The first row of a kind is that kind's best, which is what callers take.
+            assertEquals(85_000_000L, records.first { it.type == PrType.MAX_WEIGHT }.weight)
+        }
+
+    @Test
+    fun `a record whose type this build cannot read is dropped from the exercise's list`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 80_000_000)
+            db.personalRecordDao().insert(
+                PersonalRecordEntity(
+                    exerciseId = bench,
+                    workoutSetId = benchSet,
+                    prType = "MAX_WATTS",
+                    achievedAt = 200,
+                ),
+            )
+
+            val records = repository.getRecordsForExercise(bench).first()
+
+            // Dropped rather than guessed at, and the ordering survives it.
+            assertEquals(listOf(PrType.MAX_WEIGHT), records.map(PersonalRecord::type))
+        }
+
+    @Test
+    fun `an exercise with no records reads as an empty list`() =
+        runBlocking {
+            val (bench, _) = seedSet("Bench Press")
+
+            assertTrue(repository.getRecordsForExercise(bench).first().isEmpty())
+        }
+
+    @Test
     fun `count is every row, across exercises and types`() =
         runBlocking {
             val (bench, benchSet) = seedSet("Bench Press")

@@ -1,6 +1,8 @@
 package com.opengym.core.domain.repository
 
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.stats.TrainingWeek
@@ -127,4 +129,56 @@ interface ProgressionRepository {
      * run of empty weeks before the user had started.
      */
     fun getFirstTrainingDay(): Flow<LocalDate?>
+
+    /**
+     * One entry per session [exerciseId] was performed in over [days], **oldest first**.
+     *
+     * The per-exercise drill-down's whole reading of its window: its volume bars, its
+     * one-rep-max line and its recent-attempts table are three drawings of this one list, so
+     * none of them can disagree about what a session held.
+     *
+     * The one method here that is not a period-wide roll-up *or* a weekly bucket: an attempt
+     * is a session, and a lifter compares this Tuesday's bench against last Tuesday's rather
+     * than against a week's total. Bucketing it by week would merge two sessions of one lift
+     * into a figure nothing on the screen is about.
+     *
+     * Same filter and same bucketing as [getWeeklyVolume] with one difference, stated here
+     * because it is load-bearing: **warm-ups are excluded**. This screen reads how hard the
+     * lift was rather than how much work the week held, and it is the reading the PR engine
+     * takes too — so an attempt's volume is comparable with the `MAX_VOLUME` record drawn
+     * above it, and its top set can never be a warm-up.
+     *
+     * An exercise never performed in the window returns an empty list. That is a window with
+     * nothing in it, not a missing exercise; only [countExerciseSets] can tell those apart.
+     */
+    fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>>
+
+    /**
+     * How many working sets of [exerciseId] the user has ever completed.
+     *
+     * All-time and periodless, like [hasTrainingHistory] and for a related reason: it is the
+     * figure a lifter quotes about a movement rather than about a window, and narrowing it
+     * with the timeframe selector would make a card headed `all-time` shrink when the user
+     * asked to see less.
+     *
+     * **An aggregate, and implementations must keep it one.** Summing the exercise's history
+     * to render a four-digit number is a full load of the heaviest table in the schema; see
+     * `WorkoutSetDao.countSetsByExercise`.
+     */
+    fun countExerciseSets(exerciseId: Long): Flow<Int>
+
+    /**
+     * Every exercise the user has logged, most recently trained first.
+     *
+     * What the drill-down is chosen from when it is opened from the hub, which arrives with no
+     * lift in hand. From the history rather than the catalogue: 873 seeded exercises is a
+     * search, and the answer is nearly always among the handful trained this week.
+     *
+     * Same filter as [countExerciseSets], so an entry's set count is the figure its own screen
+     * opens with and an exercise only ever warmed up with is not offered as one to drill into.
+     */
+    fun getTrainedExercises(): Flow<List<TrainedExercise>>
 }

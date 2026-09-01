@@ -1,7 +1,10 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.ProgressionRepository
+import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ConsistencyUseCase
+import com.opengym.core.domain.usecase.ExerciseProgressionUseCase
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import dagger.Module
 import dagger.Provides
@@ -28,4 +31,16 @@ object ProgressionUseCaseModule {
     @Provides
     fun provideConsistencyUseCase(progressionRepository: ProgressionRepository): ConsistencyUseCase =
         ConsistencyUseCase(progressionRepository = progressionRepository)
+
+    @Provides
+    fun provideExerciseProgressionUseCase(
+        progressionRepository: ProgressionRepository,
+        personalRecordRepository: PersonalRecordRepository,
+        userPreferencesRepository: UserPreferencesRepository,
+    ): ExerciseProgressionUseCase =
+        ExerciseProgressionUseCase(
+            progressionRepository = progressionRepository,
+            personalRecordRepository = personalRecordRepository,
+            userPreferencesRepository = userPreferencesRepository,
+        )
 }

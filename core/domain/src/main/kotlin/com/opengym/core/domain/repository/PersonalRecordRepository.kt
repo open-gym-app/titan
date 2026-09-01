@@ -35,6 +35,24 @@ interface PersonalRecordRepository {
     fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>>
 
     /**
+     * Every record on file for [exerciseId], **most recently achieved first**.
+     *
+     * The per-exercise drill-down's four cards, and #103's list once it lands. The whole
+     * history rather than the current bests, because rows are only ever inserted (see
+     * [insertIfBetter]) and the two readings come off the same rows: the first row of a given
+     * [PrType] *is* that type's best, since a record of a kind is only written when it beats
+     * the one before it.
+     *
+     * Ordering is the contract, not an implementation detail — a caller taking the first entry
+     * per type is taking the best one, and a store that returned these in any other order
+     * would quietly hand back a beaten record.
+     *
+     * A `Flow` for the reason [getRecordTally] is one: it is read by a screen that has to
+     * repaint when the post-session cascade writes a record behind it.
+     */
+    fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>>
+
+    /**
      * How many records the user has ever broken, counted per record and not per session.
      *
      * Every row, across every exercise and [PrType] — a session that beat its weight, rep and

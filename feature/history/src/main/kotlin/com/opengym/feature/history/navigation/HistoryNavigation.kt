@@ -272,11 +272,16 @@ fun NavGraphBuilder.libraryGraph(onExerciseClick: ((exerciseId: Long) -> Unit)? 
  * @param onOpenPlateCalculator the shortcut into the plate calculator, which lives outside this
  *   graph — see [plateCalculatorGraph]. Hoisted like every other navigation action: the
  *   `NavController` belongs to `:app`.
+ * @param onViewProgression the shortcut into this exercise's progression (#102), which lives in
+ *   `:feature:progression`. Hoisted for the same reason and, here, load-bearing: naming that
+ *   destination from this module is the module edge the architecture forbids, so `:app` makes
+ *   the push and hands the id back through this lambda.
  */
 fun NavGraphBuilder.exerciseDetailGraph(
     onBack: () -> Unit,
     onAddToSession: (exerciseId: Long) -> Unit,
     onOpenPlateCalculator: () -> Unit,
+    onViewProgression: (exerciseId: Long) -> Unit,
 ) {
     composable<ExerciseDetailDestination> { entry ->
         val destination: ExerciseDetailDestination = entry.toRoute()
@@ -290,9 +295,7 @@ fun NavGraphBuilder.exerciseDetailGraph(
                 null
             },
             onOpenPlateCalculator = onOpenPlateCalculator,
-            // Still to be built — the per-exercise progression is M5 — and the screen draws no
-            // button for a null.
-            onViewProgression = null,
+            onViewProgression = { onViewProgression(destination.exerciseId) },
         )
     }
 }

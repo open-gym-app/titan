@@ -176,6 +176,9 @@ class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap(
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("no test here reads one exercise's records")
+
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
         throw UnsupportedOperationException("no test here tallies records over a period")
 

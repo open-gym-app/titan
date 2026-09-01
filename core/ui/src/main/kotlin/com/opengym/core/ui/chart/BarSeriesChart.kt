@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -55,9 +56,18 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * See [ChartPlaceholder]. A lone bar fills its own track and reads as a peak, which is a claim
  * about a comparison that has not been made.
  *
+ * ### The touched bar, when there is one
+ *
+ * [selectedIndex] is the bar a thumb landed on — [ChartPlot] resolves the tap and owns the
+ * bubble that says what it is worth. The bar takes the accent while it is open, which is the
+ * one time a chart carries two: the peak is a fact about the series and the selection is a
+ * fact about the reader, and taking the peak's accent away for the length of a tap would edit
+ * the drawing to answer a question about it.
+ *
  * @param label what the series is, for the description a screen reader is given — `Volume per
  *   session`. Not drawn: the card around the chart carries its own eyebrow.
  * @param height how tall the plot is. The width is whatever the caller gives it.
+ * @param selectedIndex the bar to pick out, or null for a chart nobody has touched.
  */
 @Composable
 fun BarSeriesChart(
@@ -65,6 +75,7 @@ fun BarSeriesChart(
     label: String,
     modifier: Modifier = Modifier,
     height: Dp = ChartDefaults.HEIGHT,
+    selectedIndex: Int? = null,
 ) {
     val spoken = chartDescription(label = label, entries = entries)
     if (!entries.isPlottable()) {
@@ -75,6 +86,7 @@ fun BarSeriesChart(
     val stats = ChartStats(entries)
     val peak = MaterialTheme.colorScheme.primary
     val fill = MaterialTheme.colorScheme.surfaceContainerHighest
+    val guide = MaterialTheme.colorScheme.outline
 
     Canvas(
         // One node for the whole plot, for the reason [LineSeriesChart] gives: a screen reader
@@ -84,7 +96,21 @@ fun BarSeriesChart(
             .height(height)
             .clearAndSetSemantics { contentDescription = spoken },
     ) {
-        drawBarSeries(stats = stats, values = entries.map { it.value }, peak = peak, fill = fill)
+        val geometry = ChartGeometry(
+            scale = ChartScale.BAR,
+            stats = stats,
+            count = entries.size,
+            size = size,
+            inset = ChartScale.BAR.inset.toPx(),
+        )
+        drawBarSeries(
+            geometry = geometry,
+            values = entries.map { it.value },
+            peak = peak,
+            fill = fill,
+            guide = guide,
+            selectedIndex = selectedIndex?.takeIf { it in entries.indices },
+        )
     }
 }
 
@@ -96,28 +122,47 @@ fun BarSeriesChart(
  * that would eventually leave nothing to draw, so the gap is given up before the bar is —
  * [ChartDefaults.MIN_BAR_WIDTH] is the floor, and a series dense enough to reach it is drawn
  * as a solid block, which is the honest picture of a resolution the width cannot show.
+ *
+ * Where a bar's slot and its top edge fall is [ChartGeometry]'s answer rather than this
+ * function's, so a tooltip points at the bar it names rather than near it.
  */
 private fun DrawScope.drawBarSeries(
-    stats: ChartStats,
+    geometry: ChartGeometry,
     values: List<Float>,
     peak: Color,
     fill: Color,
+    guide: Color,
+    selectedIndex: Int?,
 ) {
-    val slot = size.width / values.size
+    val slot = geometry.slot
     val gap = ChartDefaults.BAR_GAP.toPx()
     val width = (slot - gap).coerceAtLeast(minOf(slot, ChartDefaults.MIN_BAR_WIDTH.toPx()))
     val baseline = ChartDefaults.BAR_BASELINE.toPx()
     val corner = CornerRadius(ChartDefaults.BAR_GAP.toPx() / 2)
 
+    // A zero bar is held to the baseline, so the top of a bar is not always where the band
+    // says its value sits. Written once, because the leader has to stop at the same edge.
+    fun topOf(value: Float): Float = minOf(geometry.y(value), size.height - baseline)
+
     values.forEachIndexed { index, value ->
-        val barHeight = (stats.barFraction(value) * size.height).coerceAtLeast(baseline)
+        val top = topOf(value)
         drawRoundRect(
-            color = if (index == stats.peakIndex) peak else fill,
+            color = if (index == geometry.peakIndex || index == selectedIndex) peak else fill,
             // Centred in its slot, so the first and last bars are inset from the card's edges
             // by half a gap rather than sitting flush against them.
-            topLeft = Offset(x = slot * index + (slot - width) / 2, y = size.height - barHeight),
-            size = Size(width = width, height = barHeight),
+            topLeft = Offset(x = slot * index + (slot - width) / 2, y = top),
+            size = Size(width = width, height = size.height - top),
             cornerRadius = corner,
+        )
+    }
+
+    // The leader up to the tooltip, drawn last so it crosses the bars rather than under them.
+    selectedIndex?.let { index ->
+        drawLine(
+            color = guide,
+            start = Offset(x = geometry.x(index), y = 0f),
+            end = Offset(x = geometry.x(index), y = topOf(values[index])),
+            strokeWidth = HAIRLINE_WIDTH.toPx(),
         )
     }
 }

@@ -73,6 +73,18 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
         }
     }
 
+    /**
+     * The exercise's records newest first, which is the ordering the interface promises and
+     * the ordering callers take "the best of this kind" off. Sorted rather than reversed:
+     * [insertIfBetter] writes in call order, and a test that seeds an older record after a
+     * newer one would otherwise get a list the real query could never return.
+     */
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
+        records.map { rows ->
+            rows.filter { it.exerciseId == exerciseId }
+                .sortedByDescending(PersonalRecord::achievedAt)
+        }
+
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
             rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->

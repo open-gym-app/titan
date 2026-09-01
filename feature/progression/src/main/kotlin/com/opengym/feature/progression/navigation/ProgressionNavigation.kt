@@ -5,6 +5,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.opengym.feature.progression.detail.ProgressionDetail
 import com.opengym.feature.progression.detail.ProgressionDetailScreen
+import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
 import com.opengym.feature.progression.stats.StatsRoute
 import com.opengym.feature.progression.stats.component.StatsExploreActions
 import kotlinx.serialization.Serializable
@@ -28,9 +29,24 @@ data object StatsDestination
 @Serializable
 data object PersonalRecordsDestination
 
-/** Per-exercise progression (#102), read over the timeframe the hub is set to. */
+/**
+ * Per-exercise progression (#102), read over the timeframe the hub is set to.
+ *
+ * @param exerciseId the lift to open on, or [NO_EXERCISE] for none. Two callers, and only one
+ *   of them has an answer: an exercise's detail screen knows exactly which movement the user
+ *   is looking at, while the hub's explore row is an invitation to drill into *any* of them.
+ *   The screen opens on its own chooser for the second, which is also the switcher the first
+ *   gets in its top bar — see `ExerciseProgressionScreen`.
+ *
+ *   A sentinel rather than a nullable `Long`, matching `PlateCalculatorDestination.target` and
+ *   `TemplateEditorDestination.templateId`: Navigation Compose has no built-in `NavType` for a
+ *   nullable primitive, and zero is impossible as a row id the store assigns from one.
+ */
 @Serializable
-data object ExerciseProgressionDestination
+data class ExerciseProgressionDestination(val exerciseId: Long = NO_EXERCISE)
+
+/** "No lift was named", as a route argument. See [ExerciseProgressionDestination.exerciseId]. */
+const val NO_EXERCISE: Long = 0L
 
 /**
  * The quest log (#104): level, XP, quests, achievements and loot.
@@ -70,10 +86,11 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 /**
  * The four screens the hub drills into, registered outside the tab scaffold.
  *
- * Four registrations of one screen today — see [ProgressionDetailScreen] for why the
- * destinations ship with the hub while the screens behind them are still being built, and for
+ * Three of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
+ * the destinations ship with the hub while the screens behind them are being built, and for
  * which issue replaces each. A registration is what the explore rows navigate to, so replacing
- * one is a change to the line below it and to nothing else.
+ * one is a change to the line below it and to nothing else; #102 is the first to be replaced,
+ * and its entry is what the other three grow into.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.
  */
@@ -82,7 +99,7 @@ fun NavGraphBuilder.progressionDetailGraph(onBack: () -> Unit) {
         ProgressionDetailScreen(detail = ProgressionDetail.RECORDS, onBack = onBack)
     }
     composable<ExerciseProgressionDestination> {
-        ProgressionDetailScreen(detail = ProgressionDetail.EXERCISE_PROGRESSION, onBack = onBack)
+        ExerciseProgressionRoute(onBack = onBack)
     }
     composable<QuestLogDestination> {
         ProgressionDetailScreen(detail = ProgressionDetail.QUEST_LOG, onBack = onBack)

@@ -153,6 +153,30 @@ fun formatMonthAbbreviation(
     locale: Locale = formattingLocale(),
 ): String = date.month.getDisplayName(TextStyle.SHORT_STANDALONE, locale)
 
+/**
+ * The day a table's row is dated by: `28 Apr`, `28 avr.`, `4月28日`.
+ *
+ * The shortest form that still says *which* session — [formatSessionDate] is four words wide
+ * and does not fit a 60dp column, and [formatMonthAbbreviation] alone puts three rows of the
+ * same month under one label. The year is dropped because the table is bounded by a timeframe
+ * the screen states above it.
+ *
+ * Built from the two parts rather than from a localized skeleton with its year cut out: that
+ * surgery is what [formatSessionDate] declines to do, and the join here is the same
+ * provisional simplification it makes, left for the localization pass (#40).
+ */
+fun formatDayAndMonth(
+    date: LocalDate,
+    locale: Locale = formattingLocale(),
+): String = "${formatDayOfMonth(date, locale)} ${formatMonthAbbreviation(date, locale)}"
+
+/** The same day, for a caller holding the instant a session was closed out at. */
+fun formatDayAndMonth(
+    epochMillis: Long,
+    zone: ZoneId = ZoneId.systemDefault(),
+    locale: Locale = formattingLocale(),
+): String = formatDayAndMonth(localDateOf(epochMillis, zone), locale)
+
 /** The number in one calendar cell, and on a session row's date rail: `28`, `٢٨`. */
 fun formatDayOfMonth(
     date: LocalDate,

@@ -20,10 +20,14 @@ import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.R
+import com.opengym.core.ui.format.distanceSuffix
 import com.opengym.core.ui.format.formatAsElapsed
-import com.opengym.core.ui.format.formatDistance
-import com.opengym.core.ui.format.formatVolume
-import com.opengym.core.ui.format.formatWeight
+import com.opengym.core.ui.format.formatDistanceValue
+import com.opengym.core.ui.format.formatNumber
+import com.opengym.core.ui.format.formatVolumeValue
+import com.opengym.core.ui.format.formatWeightValue
+import com.opengym.core.ui.format.weightSuffix
+import com.opengym.core.ui.theme.LocalUnitSystem
 import com.opengym.core.ui.theme.OpenGymTheme
 import kotlin.time.Duration.Companion.seconds
 
@@ -71,21 +75,71 @@ fun PrValue(
  * disagree is a row nothing can honestly draw. Dropping it is better than showing a `0 kg`
  * record that the user never set.
  *
- * [PrType.BEST_PACE] renders as the time the record was set in rather than as a pace. A pace
- * is time *per distance* and needs a formatter and a unit of its own; that belongs with the
- * PR engine (#30), which is also what will first write one of these.
+ * The join of [formattedFigure] and [recordUnit], rather than a third rendering: a record
+ * quoted in a sentence and a record set as a figure over its unit have to agree to the digit.
  */
 @Composable
 @ReadOnlyComposable
-fun PersonalRecord.formattedValue(): String? =
+fun PersonalRecord.formattedValue(): String? {
+    val figure = formattedFigure() ?: return null
+    val unit = recordUnit() ?: return figure
+    return "$figure $unit"
+}
+
+/**
+ * The record's figure **without** its unit — `92`, `45`, `5.2`.
+ *
+ * For the one layout that sets the two in different type roles: a [StatTile], whose figure is
+ * `numericLarge` and whose unit is a quiet line under it. Joining them there would put
+ * `2,240 kg` in a 160dp tile at the large numeric size, which ellipsises to `2,240 …` — the
+ * unit clipped off the figure it belongs to.
+ *
+ * [PrType.BEST_PACE] renders as the time the record was set in rather than as a pace. A pace
+ * is time *per distance* and needs a formatter and a unit of its own; that belongs with the
+ * PR engine (#30), which is also what first writes one of these.
+ */
+@Composable
+@ReadOnlyComposable
+fun PersonalRecord.formattedFigure(): String? =
     when (type) {
-        PrType.MAX_WEIGHT -> weight?.let { formatWeight(it) }
-        PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatWeight(it) }
-        PrType.MAX_REPS -> reps?.let { pluralStringResource(R.plurals.pr_value_reps, it, it) }
-        PrType.MAX_VOLUME -> weight?.let { formatVolume(it) }
-        PrType.MAX_DISTANCE -> distance?.let { formatDistance(it) }
+        PrType.MAX_WEIGHT -> weight?.let { formatWeightValue(it) }
+        PrType.ESTIMATED_1RM -> estimated1Rm?.let { formatWeightValue(it) }
+        PrType.MAX_REPS -> reps?.let { formatNumber(it.toDouble(), REP_FRACTION_DIGITS) }
+        PrType.MAX_VOLUME -> weight?.let { formatVolumeValue(it) }
+        PrType.MAX_DISTANCE -> distance?.let { formatDistanceValue(it) }
         PrType.BEST_PACE -> duration?.let { it.seconds.formatAsElapsed() }
     }
+
+/**
+ * What [formattedFigure] is measured in — `kg`, `reps`, `km` — or **null** for a figure that
+ * carries its own unit inside it.
+ *
+ * The distance unit is chosen per *value* rather than per system, so a 400 m interval and a
+ * 5.2 km run read in metres and kilometres on the same screen — see [distanceSuffix]. A pace
+ * record is drawn as a duration, which is already `mm:ss` and has nothing to append.
+ */
+@Composable
+@ReadOnlyComposable
+fun PersonalRecord.recordUnit(): String? =
+    when (type) {
+        PrType.MAX_WEIGHT, PrType.ESTIMATED_1RM, PrType.MAX_VOLUME ->
+            LocalUnitSystem.current.weightSuffix
+
+        PrType.MAX_REPS -> reps?.let { pluralStringResource(R.plurals.pr_unit_reps, it) }
+
+        PrType.MAX_DISTANCE -> distance?.let { distanceSuffix(it, LocalUnitSystem.current) }
+
+        PrType.BEST_PACE -> null
+    }
+
+/**
+ * A rep count is a whole number.
+ *
+ * Through [formatNumber] rather than `toString`, which is ASCII whatever the locale — a row
+ * whose rep record was in Latin digits beside a set count in Bengali ones is two numbering
+ * systems on one line.
+ */
+private const val REP_FRACTION_DIGITS = 0
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

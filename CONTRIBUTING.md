@@ -183,7 +183,7 @@ Text(
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
   | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
-  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure | `PrType` / `PersonalRecord` |
+  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles | `PrType` / `PersonalRecord` |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `SelectableOption` | one choice in a list where exactly one is taken, as a card: a radio, the name, and a mono line saying what the option means. What a question asked *as a screen* looks like | a label, an optional detail, and a selected flag |
@@ -201,6 +201,8 @@ Text(
   | `BarSeriesChart` | the same series as bars, measured against zero, with the single highest one in the accent | `List<ChartEntry>` + what the series is called |
   | `ProgressRing` | a fraction as a gauge: a track, an accent arc, and a slot for the figure inside it | a `0f..1f` progress, its two labels, and the content |
   | `ChartAxisLabels` | the sparse period labels under a chart (`FEB · MAR · APR`), each over the marks it covers | what `chartAxisLabels` returned |
+  | `ChartPlot` | one of the two plots with both of its axes and a tooltip on it: the figures down the left, the periods along the bottom, and what one mark is worth when it is touched | the series, its `ChartScale`, and a formatter for the figures |
+  | `ChartCard` | the same, in a bordered surface under its own eyebrow — the shape every chart on a reading screen takes, and the half that remembers which mark is open | a label, the series and its `ChartScale` |
   | `ChangeChip` | `↑ 18%` beside a hero figure — the accent on a rise, neutral on a fall | a `ChangeDirection` and an unsigned magnitude |
 
   `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
@@ -254,6 +256,19 @@ Text(
   number to plot *and* the string to read out — so the same component draws kilograms and pounds
   without reading `LocalUnitSystem`. Unit conversion stays in the formatters below.
 
+  `ChartCard` is where most of them are actually drawn, and it takes the series **once** for
+  every part of the drawing that needs it: both axes have to be given the same entries the plot
+  was, or the months sit over marks they do not cover and the figures name a band nothing was
+  drawn against. A screen that lays out its own eyebrow, plot and axis has taken that back on.
+
+  Which chart is a `ChartScale` rather than a slot, and that is the price of the value axis: a
+  rail of figures has to know whether the band runs from the series' own floor (a line) or from
+  zero (bars), and a tooltip has to know where mark seven sits. `ChartGeometry` answers both
+  from the same three inputs the drawing uses, so a gridline, a bubble's leader and the point it
+  points at are the same pixel by construction. A chart drawn without a value axis is a chart
+  whose shape says a lifter is going up and whose card never says up from what to what — pass
+  `formatValue` unless a hero figure above the plot already answers it.
+
 - **`supersetLabels` turns a grouping into `A1`/`A2`/`B1`,** and lives in `:core:ui` for the same
   reason the enum labels below do: `Supersets` in `:core:domain` decides what a group *is*, and
   what it is *called* is presentation. Three screens draw the same marker over the same grouping
@@ -291,7 +306,7 @@ Text(
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsTotal` (a period's worth, `32h`), `formatAsEstimate` (`~55m`) | — |
-  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
+  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatDayAndMonth` (`28 Apr`, a table's date column), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
   | A whole set | milligrams and a count | `formatSet` (`80 kg × 5`, `12 reps`, or **null** where there is neither), and `formatSetCompact` (`80×5`) for the one cell too narrow to hold the long form | — (typed field by field) |
   | A change | a ratio or a difference | `formatPercentChange` (`18%`, unsigned — the arrow beside it is the sign), `formatMagnitude` (`3.2`, `0.4`) | — (computed, never typed) |
 

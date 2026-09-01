@@ -54,14 +54,22 @@ private fun ChartCatalog() {
     ) {
         SectionHeading(text = "Line")
         ChartCard(label = "Cumulative volume", value = "184,320", unit = "kg") {
-            LineSeriesChart(entries = previewRising(), label = "Cumulative volume")
-            ChartAxisLabels(labels = chartAxisLabels(previewRising()))
+            ChartPlot(
+                entries = previewRising(),
+                label = "Cumulative volume",
+                scale = ChartScale.LINE,
+                formatValue = ::previewFormat,
+            )
         }
 
         SectionHeading(text = "Bars")
         ChartCard(label = "Volume per session", value = "16,800", unit = "kg") {
-            BarSeriesChart(entries = previewPeaked(), label = "Volume per session")
-            ChartAxisLabels(labels = chartAxisLabels(previewPeaked()))
+            ChartPlot(
+                entries = previewPeaked(),
+                label = "Volume per session",
+                scale = ChartScale.BAR,
+                formatValue = ::previewFormat,
+            )
         }
 
         SectionHeading(text = "Ring")

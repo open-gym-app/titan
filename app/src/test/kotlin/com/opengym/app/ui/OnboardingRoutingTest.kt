@@ -192,8 +192,23 @@ class OnboardingRoutingTest {
         const val TAB_HOME = "Home"
         const val SETTINGS_ACTION = "Settings"
 
-        // Over `waitUntil`'s own second: Home's reads share a dispatcher with the test driving
-        // them, and a second is enough almost every time — the worst kind of enough.
-        const val READ_TIMEOUT_MILLIS = 5_000L
+        /**
+         * How long a wait for Home is given, over `waitUntil`'s own second.
+         *
+         * A bound on a hang, not a budget for a draw. `setContent` puts *onboarding* up
+         * here, so Home is only ever reached from inside a test, and it arrives cold:
+         * `:feature:home` composing for the first time in the JVM, Room opening the
+         * database, and the reads behind the screen — none of which Compose's idling
+         * tracks, all of which land inside this one wait. Whichever test reaches Home
+         * first therefore pays what the ones after it do not: 1.9s against 0.3s on an idle
+         * machine, and 5.1s against 0.9s with the suite running the way CI runs it, four
+         * `testDebugUnitTest` tasks at a time. Five seconds was that cold cost rather than
+         * a bound on it, so a CI runner — slower again than a developer's machine under
+         * the same load — failed this test on every single run.
+         *
+         * `OpenGymAppNavigationTest` keeps its own five: it starts on Home, so it pays the
+         * same cost inside `setContent` and never inside a wait.
+         */
+        const val READ_TIMEOUT_MILLIS = 30_000L
     }
 }

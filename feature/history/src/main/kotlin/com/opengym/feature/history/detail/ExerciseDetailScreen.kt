@@ -78,8 +78,10 @@ import kotlinx.coroutines.flow.filterNotNull
  * @param onOpenPlateCalculator the shortcut into the plate calculator (#95). Passing it does not
  *   mean it is drawn: the button appears only on an exercise loaded with plates — see
  *   [ExerciseTools].
- * @param onViewProgression the shortcut into this exercise's progression. **Null until M5's
- *   progression screens land**, which draws no button rather than one that goes nowhere.
+ * @param onViewProgression the shortcut into this exercise's progression (#102), which lives
+ *   in `:feature:progression` and is reached through `exerciseDetailGraph`. Still nullable, and
+ *   a null draws no button rather than one that goes nowhere — a preview or a host with nowhere
+ *   to send the user is the caller that has none.
  */
 @Composable
 fun ExerciseDetailRoute(
