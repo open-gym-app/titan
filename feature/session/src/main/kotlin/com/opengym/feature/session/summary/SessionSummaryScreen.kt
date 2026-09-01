@@ -54,9 +54,11 @@ import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.formatTimeOfDay
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
+import com.opengym.feature.session.summary.component.AchievementsUnlockedCard
 import com.opengym.feature.session.summary.component.ExerciseBreakdownCard
 import com.opengym.feature.session.summary.component.NewRecordsCard
 import com.opengym.feature.session.summary.component.SessionMusclesCard
+import com.opengym.feature.session.summary.component.XpCelebrationCard
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -267,6 +269,31 @@ private fun SummaryContent(
                     // carries the figure that has nowhere else to go.
                     musclesWorked = state.musclesWorked,
                 )
+            }
+        }
+
+        // The payoff, above the records rather than below them: the XP figure is what the
+        // screen is *for* in this mode, and a celebration the user has to scroll to has already
+        // failed to celebrate. Null in the historical mode and whenever the session earned
+        // nothing — see [SummaryCelebration], which is absent rather than zeroed.
+        val celebration = state.celebration
+        if (celebration != null) {
+            item(key = SECTION_CELEBRATION) {
+                SummarySection {
+                    Section(title = stringResource(R.string.summary_xp_earned)) {
+                        XpCelebrationCard(celebration = celebration)
+                    }
+                }
+            }
+
+            if (celebration.achievements.isNotEmpty()) {
+                item(key = SECTION_ACHIEVEMENTS) {
+                    SummarySection {
+                        Section(title = stringResource(R.string.summary_achievements)) {
+                            AchievementsUnlockedCard(achievements = celebration.achievements)
+                        }
+                    }
+                }
             }
         }
 
@@ -619,11 +646,12 @@ fun SessionSummaryScreenMissingPreview() {
 }
 
 @Composable
-private fun PreviewScreen(
+internal fun PreviewScreen(
     state: SessionSummaryUiState,
     theme: ThemePreference = ThemePreference.LIGHT,
+    reducedMotion: Boolean = false,
 ) {
-    OpenGymTheme(theme = theme) {
+    OpenGymTheme(theme = theme, reducedMotion = reducedMotion) {
         SessionSummaryScreen(state = state, onEvent = {}, onExit = {})
     }
 }
@@ -632,7 +660,7 @@ private fun PreviewScreen(
  * A `@Preview` renders at the device's height and silently clips a screen with a pinned bar at
  * the bottom, so the captures are given a phone's worth of height explicitly.
  */
-private const val FULL_SCREEN_HEIGHT_DP = 900
+internal const val FULL_SCREEN_HEIGHT_DP = 900
 
 /**
  * How the pinned bar splits between its two actions. See the note at the call site — three
@@ -650,6 +678,8 @@ private const val TEMPLATE_BUTTON_WEIGHT = 1.4f
  */
 private const val SECTION_HEADER = "header"
 private const val SECTION_STATS = "stats"
+private const val SECTION_CELEBRATION = "celebration"
+private const val SECTION_ACHIEVEMENTS = "achievements"
 private const val SECTION_RECORDS = "records"
 private const val SECTION_MUSCLES = "muscles"
 private const val SECTION_EXERCISES = "exercises"

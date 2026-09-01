@@ -52,6 +52,7 @@ import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
+import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -158,6 +159,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val resumeSession: ResumeSessionUseCase,
     private val finishSession: FinishSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
+    private val progressionHandoff: SessionProgressionHandoff,
     private val clock: Clock,
     timeSource: TimeSource,
 ) : ViewModel() {
@@ -1630,6 +1632,14 @@ class ActiveSessionViewModel @Inject constructor(
                 // isFinishing stays true: the screen is on its way out, and re-enabling the
                 // button for the frame before the pop invites a second finish.
                 .onSuccess { finished ->
+                    // What the finish earned, left for the recap that celebrates it. This is
+                    // the only moment the value exists — see `SessionProgressionHandoff` — and
+                    // dropping it here is what used to make the payoff unreportable.
+                    //
+                    // Null when no cascade is wired, which is not an error and leaves the recap
+                    // drawing the session's figures and no celebration.
+                    finished.progression?.let(progressionHandoff::offer)
+
                     // The rest goes with the workout. Not to tidy up — `viewModelScope` would
                     // take the countdown with it either way — but so that the sheet is not still
                     // over the screen for the frame or two it takes the recap to open, and so

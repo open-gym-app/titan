@@ -158,6 +158,48 @@ class ColorSchemeContrastTest {
     }
 
     @Test
+    fun `the celebration's tones carry their own labels, in both schemes`() {
+        // `OpenGymCelebrationColors` claims this check by name: the payoff's palette is not part
+        // of either colour scheme, so `assertMeetsMinimum` cannot reach it, and every ground
+        // there names the text colour that reads on it exactly as a plate tone does.
+        //
+        // The banner is a *gradient*, and both of its stops are measured rather than the tone
+        // the centred text happens to sit over. A far stop that fails on its own is the failure
+        // this misses if it is not looked for: the words are centred over the middle of the
+        // ramp, so nothing about the screen looks wrong while the end of the band is under AA.
+        listOf(
+            Triple("light", OpenGymLightCelebrationColors, OpenGymLightColorScheme),
+            Triple("dark", OpenGymDarkCelebrationColors, OpenGymDarkColorScheme),
+        ).forEach { (name, celebration, scheme) ->
+            val pairs = listOf(
+                Triple("onXp on xp", contrast(celebration.onXp, celebration.xp), TEXT),
+                Triple("onLevelUp on levelUp", contrast(celebration.onLevelUp, celebration.levelUp), TEXT),
+                Triple("onLevelUp on levelUpEdge", contrast(celebration.onLevelUp, celebration.levelUpEdge), TEXT),
+                Triple(
+                    "onAchievement on achievement",
+                    contrast(celebration.onAchievement, celebration.achievement),
+                    TEXT,
+                ),
+                // The XP figure is the one celebration tone drawn as *text on a card* rather
+                // than as a fill with its own label — the same treatment, and the same
+                // threshold, as the accent's own `primary on surfaceContainerLow` above.
+                Triple("xp on the card", contrast(celebration.xp, scheme.surfaceContainerLow), TEXT),
+                // The level bar encodes how far into the level the user is entirely in the
+                // difference between these two, which is the progress rail's argument for 3:1
+                // rather than a text threshold.
+                Triple("xp against xpTrack", contrast(celebration.xp, celebration.xpTrack), CONTROL),
+            )
+            val failures = pairs.mapNotNull { (label, ratio, minimum) ->
+                "%s = %.2f:1 (needs %.1f:1)".format(label, ratio, minimum).takeIf { ratio < minimum }
+            }
+            assertTrue(
+                "$name celebration fails WCAG AA:\n" + failures.joinToString("\n"),
+                failures.isEmpty(),
+            )
+        }
+    }
+
+    @Test
     fun `the progress rail's two states are told apart`() {
         // The rail encodes one thing — how much of the workout is behind you — and it encodes
         // it entirely in the difference between these two colours. 3:1 rather than 1.3:1 as

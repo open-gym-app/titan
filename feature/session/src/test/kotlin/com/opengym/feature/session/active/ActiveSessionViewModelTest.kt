@@ -32,6 +32,7 @@ import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
+import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
 import com.opengym.feature.session.newsession.FakeSettings
@@ -91,6 +92,9 @@ class ActiveSessionViewModelTest {
 
     private val clock = FixedClock()
     private val drafts = FakeDraftStore()
+
+    /** Where a finish leaves what it earned, for the recap to collect. */
+    private val progressionHandoff = SessionProgressionHandoff()
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
 
@@ -2724,6 +2728,7 @@ class ActiveSessionViewModelTest {
             resumeSession = ResumeSessionUseCase(store, state, clock, lock),
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
+            progressionHandoff = progressionHandoff,
             clock = clock,
             // Virtual time, so a ninety-second rest costs the suite nothing and the countdown
             // and the scheduler cannot run ahead of each other. The rig `RestTimerTestSupport`

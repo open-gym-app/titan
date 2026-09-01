@@ -39,11 +39,18 @@ import com.opengym.core.domain.model.UnitSystem
  *   live — see [ThemePreference.isDark].
  * @param unitSystem the units weights and distances are *displayed* in; nothing stored is
  *   affected. Reached from a call site through [LocalUnitSystem].
+ * @param reducedMotion whether animations are suppressed, reached from a call site through
+ *   [LocalReducedMotion]. A **parameter** rather than a bare read of the system setting,
+ *   because this composable provides the local and so shadows anything a caller wrapped it
+ *   in: a preview or a test that provided [LocalReducedMotion] from the outside would have
+ *   had it silently overwritten here. Defaulted to the system's own answer, so the app never
+ *   passes it.
  */
 @Composable
 fun OpenGymTheme(
     theme: ThemePreference = ThemePreference.SYSTEM,
     unitSystem: UnitSystem = UnitSystem.METRIC,
+    reducedMotion: Boolean = systemReducedMotion(),
     content: @Composable () -> Unit,
 ) {
     val dark = theme.isDark()
@@ -55,6 +62,12 @@ fun OpenGymTheme(
             if (dark) OpenGymDarkPlateColors else OpenGymLightPlateColors,
         LocalOpenGymSessionChrome provides
             if (dark) OpenGymDarkSessionChrome else OpenGymLightSessionChrome,
+        LocalOpenGymCelebrationColors provides
+            if (dark) OpenGymDarkCelebrationColors else OpenGymLightCelebrationColors,
+        // Provided here rather than read at the call sites that animate: it is a
+        // content-resolver read, and one provision is what lets a preview or a test render
+        // the still version by passing [reducedMotion]. See [LocalReducedMotion].
+        LocalReducedMotion provides reducedMotion,
         LocalUnitSystem provides unitSystem,
     ) {
         MaterialTheme(
@@ -123,6 +136,12 @@ object OpenGymTheme {
         @ReadOnlyComposable
         get() = LocalOpenGymPlateColors.current
 
+    /** The palette the post-workout payoff is drawn in. See [OpenGymCelebrationColors]. */
+    val celebration: OpenGymCelebrationColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOpenGymCelebrationColors.current
+
     /** The dark bar the active workout runs under. See [OpenGymSessionChrome]. */
     val sessionChrome: OpenGymSessionChrome
         @Composable
@@ -159,6 +178,12 @@ internal val LocalOpenGymPlateColors = staticCompositionLocalOf { OpenGymLightPl
  * to the light set so an unwrapped preview still draws the bar.
  */
 internal val LocalOpenGymSessionChrome = staticCompositionLocalOf { OpenGymLightSessionChrome }
+
+/*
+ * The payoff's palette, on the same terms as the two above. Defaulted to the light set so an
+ * unwrapped preview still draws the celebration rather than throwing.
+ */
+internal val LocalOpenGymCelebrationColors = staticCompositionLocalOf { OpenGymLightCelebrationColors }
 
 /**
  * The units every number the user reads is rendered in.

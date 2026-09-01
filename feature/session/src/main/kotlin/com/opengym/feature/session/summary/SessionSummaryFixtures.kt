@@ -26,6 +26,7 @@ internal fun previewState(
     notes: String? = "Felt strong on bench. Bumped to 80 kg × 5 for the top set.",
     notesDraft: String? = null,
     templateName: String? = null,
+    celebration: SummaryCelebration? = null,
 ): SessionSummaryUiState {
     val muscles = previewMuscleVolume()
 
@@ -45,6 +46,7 @@ internal fun previewState(
         primaryMuscles = muscles.keys.filter { it.id in setOf(CHEST_ID, SHOULDERS_ID) },
         secondaryMuscles = muscles.keys.filterNot { it.id in setOf(CHEST_ID, SHOULDERS_ID) },
         exercises = previewExercises(),
+        celebration = celebration,
         notes = notes,
         notesDraft = notesDraft,
         templateName = templateName,
@@ -150,3 +152,70 @@ private const val ABS_VOLUME = 420_000_000L
 /** 2026-04-28, 10:14 and 11:06 UTC — a Tuesday morning, and a 52-minute session. */
 private const val PREVIEW_STARTED_AT = 1_777_284_840_000L
 private const val PREVIEW_FINISHED_AT = 1_777_287_984_000L
+
+/**
+ * A session that earned points without crossing a level boundary — the ordinary payoff.
+ *
+ * The breakdown carries three of the four sources, because the fourth is an achievement and most
+ * sessions unlock none. See [previewLevelUpCelebration] for the rarer shape.
+ */
+internal fun previewCelebration(): SummaryCelebration =
+    SummaryCelebration(
+        xpAwarded = 135,
+        sources = listOf(
+            XpSource(kind = XpSourceKind.SETS, count = 12, xp = 60),
+            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
+            XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 50),
+        ),
+        levelBefore = 4,
+        levelProgressBefore = 0.16f,
+        level = 4,
+        leveledUp = false,
+        levelProgress = 0.43f,
+        xpIntoLevel = 43,
+        xpForLevel = 100,
+        achievements = emptyList(),
+    )
+
+/**
+ * A session that crossed a level boundary **and** unlocked a milestone: the loudest the recap
+ * ever gets, and the state the banner, the confetti and the achievements card are drawn from.
+ *
+ * The bar sits low on purpose. A crossing leaves the user near the bottom of the *new* level, and
+ * a fixture that showed it nearly full would hide the one thing the layout has to survive.
+ */
+internal fun previewLevelUpCelebration(): SummaryCelebration =
+    SummaryCelebration(
+        xpAwarded = 285,
+        sources = listOf(
+            XpSource(kind = XpSourceKind.SETS, count = 14, xp = 70),
+            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
+            XpSource(kind = XpSourceKind.RECORDS, count = 2, xp = 100),
+            XpSource(kind = XpSourceKind.ACHIEVEMENTS, count = 1, xp = 100),
+        ),
+        // Lands on an *ordinary* level, so this fixture exercises the quieter of the two
+        // crossings. [previewMilestoneCelebration] is the loud one.
+        levelBefore = 3,
+        levelProgressBefore = 0.27f,
+        level = 4,
+        leveledUp = true,
+        levelProgress = 0.12f,
+        xpIntoLevel = 12,
+        xpForLevel = 100,
+        achievements = listOf(SummaryAchievement(id = "seven_day_streak", xp = 100)),
+    )
+
+/**
+ * A session that crossed onto a **milestone** level — the loudest state the recap has.
+ *
+ * Level 5 rather than 4: `LevelCeremony` makes every fifth level a milestone, so this is what a
+ * milestone crossing draws — a heavier burst, a harder kick, and a banner that names it rather
+ * than saying "level up" more loudly. Two thresholds, so the sweep is seen passing an ordinary
+ * level on its way to the milestone.
+ */
+internal fun previewMilestoneCelebration(): SummaryCelebration =
+    previewLevelUpCelebration().copy(
+        level = 5,
+        levelProgress = 0.12f,
+        xpIntoLevel = 12,
+    )
