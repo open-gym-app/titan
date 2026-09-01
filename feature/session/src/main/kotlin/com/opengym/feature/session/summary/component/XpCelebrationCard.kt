@@ -142,7 +142,7 @@ private fun LevelUpBanner(
     // rather than animating *into* the peak is what makes it land on the beat the sweep just
     // held for, instead of trailing behind it.
     //
-    // How large is the ceremony's, not this file's — a round level kicks harder and throws more,
+    // How large is the ceremony's, not this file's — a milestone kicks harder and throws more,
     // and a future tier will do more again without either number being written here. See
     // [LevelCeremony].
     val kick = remember { Animatable(1f) }
@@ -198,10 +198,10 @@ private fun LevelUpBanner(
         ) {
             Eyebrow(
                 text = stringResource(
-                    // A round level says so, because a crossing that is only *louder* reads as
+                    // A milestone says so, because a crossing that is only *louder* reads as
                     // the same event with the volume up. Naming it is what makes it a different
                     // one.
-                    if (sweep.ceremony == LevelCeremony.ROUND) {
+                    if (sweep.ceremony == LevelCeremony.MILESTONE) {
                         R.string.summary_level_milestone
                     } else {
                         R.string.summary_level_up

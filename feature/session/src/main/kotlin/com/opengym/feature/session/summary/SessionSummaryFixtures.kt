@@ -206,12 +206,12 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
     )
 
 /**
- * A session that crossed onto a **round** level — the loudest state the recap has.
+ * A session that crossed onto a **milestone** level — the loudest state the recap has.
  *
- * Level 5 rather than 4: `LevelCeremony` calls every fifth level round, so this is what a
+ * Level 5 rather than 4: `LevelCeremony` makes every fifth level a milestone, so this is what a
  * milestone crossing draws — a heavier burst, a harder kick, and a banner that names it rather
  * than saying "level up" more loudly. Two thresholds, so the sweep is seen passing an ordinary
- * level on its way to the round one.
+ * level on its way to the milestone.
  */
 internal fun previewMilestoneCelebration(): SummaryCelebration =
     previewLevelUpCelebration().copy(

@@ -118,7 +118,7 @@ fun rememberLevelSweep(
  *   flash, a burst — on this, so each threshold gets its own rather than one at the end. Zero
  *   until the first, and zero for the whole of a session that crossed nothing.
  * @property ceremony how much noise [level] is worth. Recomputed as the sweep climbs, so a run
- *   that passes an ordinary level and lands on a round one is quiet at the first and loud at the
+ *   that passes an ordinary level and lands on a milestone is quiet at the first and loud at the
  *   second — see [LevelCeremony].
  * @property fraction how full the bar is, `0f..1f`. A [State] rather than a plain value so a
  *   caller can read it in a draw scope without recomposing on every frame.

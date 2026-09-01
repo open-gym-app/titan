@@ -83,7 +83,7 @@ class CelebrationMidAnimationScreenshotTest {
             }
         }
 
-        // Past both crossings, into the burst the *round* level throws. The two references
+        // Past both crossings, into the burst the *milestone* throws. The two references
         // differ in the shape of the scatter — falling in a column from the top edge against
         // spreading outward from behind the number — which is the difference the whole
         // `LevelCeremony` distinction exists to make, and the one a magnitude-only change could
@@ -108,7 +108,7 @@ class CelebrationMidAnimationScreenshotTest {
         const val MID_RAIN_MILLIS = 700L
 
         /**
-         * Into the burst thrown by the *second* crossing, which is the one onto a round level.
+         * Into the burst thrown by the *second* crossing, which is the one onto a milestone.
          *
          * Two crossings at roughly 880 ms each, plus a beat for the pieces to travel — chosen so
          * they are well clear of the centre and have not begun to fade.
