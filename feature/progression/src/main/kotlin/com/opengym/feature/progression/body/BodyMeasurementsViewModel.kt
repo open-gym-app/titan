@@ -10,6 +10,7 @@ import com.opengym.core.ui.format.localDateOf
 import com.opengym.feature.progression.stats.ProgressionTimeframe
 import com.opengym.feature.progression.stats.StatsTimeframe
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -96,7 +97,7 @@ class BodyMeasurementsViewModel @Inject constructor(
 
             is BodyMeasurementsEvent.Saved -> save(event.measurement)
 
-            is BodyMeasurementsEvent.Deleted -> viewModelScope.launch { repository.delete(event.id) }
+            is BodyMeasurementsEvent.Deleted -> delete(event.id)
         }
     }
 
@@ -148,17 +149,48 @@ class BodyMeasurementsViewModel @Inject constructor(
      * `updatedAt` is stamped here and `createdAt` is not: the entry's own date is when the
      * measurement was *taken*, which is the form's to set and the history's to order by, while
      * "when this row was last written" is nobody's business but the store's.
+     *
+     * **Closed on success only**, the rule `ExerciseDetailViewModel` states for its own sheet:
+     * clearing the form first and then failing to write would take away the figures the user
+     * has just typed and leave nothing on screen to say the entry was never stored. The form's
+     * own text is keyed on the entry, so an unchanged entry means the boxes are still holding
+     * what was typed when the sheet comes back.
      */
     private fun save(measurement: BodyMeasurement) {
         if (!BodyMeasurementValidator.validate(measurement).isValid) return
 
-        form.value = null
         val stamped = measurement.copy(updatedAt = clock.nowMillis())
 
         viewModelScope.launch {
-            if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped)
+            write { if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped) }
+                ?.let { form.value = null }
         }
     }
+
+    /** Removes the entry [id] names. */
+    private fun delete(id: Long) {
+        viewModelScope.launch { write { repository.delete(id) } }
+    }
+
+    /**
+     * Runs a store write, or reports that it failed.
+     *
+     * A write that escaped here would take the process down: nothing installs a handler on
+     * [viewModelScope], so a disk error on a save the user can simply retry would be a crash —
+     * the argument `ActiveSessionViewModel` spells out for every write in this app. What a
+     * failure costs instead is the write; the flow underneath is the truth either way, so the
+     * screen still shows what the store actually holds.
+     *
+     * @return [Unit] when the write went through, or null when it did not.
+     */
+    private suspend fun write(block: suspend () -> Unit): Unit? =
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (_: Throwable) {
+            null
+        }
 
     /**
      * The entries [selected] covers, oldest first.

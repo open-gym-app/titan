@@ -28,8 +28,7 @@ class FakeBodyMeasurementStore(initial: List<BodyMeasurement> = emptyList()) : B
     /** Every id passed to [delete], in call order. */
     val deletions = mutableListOf<Long>()
 
-    override fun getAll(): Flow<List<BodyMeasurement>> =
-        entries.map { rows -> rows.sortedByDescending(BodyMeasurement::createdAt) }
+    override fun getAll(): Flow<List<BodyMeasurement>> = entries.map { rows -> rows.sortedWith(NEWEST_FIRST) }
 
     override fun getLatest(): Flow<BodyMeasurement?> = getAll().map(List<BodyMeasurement>::firstOrNull)
 
@@ -48,5 +47,18 @@ class FakeBodyMeasurementStore(initial: List<BodyMeasurement> = emptyList()) : B
     override suspend fun delete(id: Long) {
         deletions += id
         entries.update { rows -> rows.filterNot { it.id == id } }
+    }
+
+    private companion object {
+        /**
+         * `ORDER BY created_at DESC, id DESC`, the DAO's own clause.
+         *
+         * The id is not decoration: two entries taken in the same millisecond tie on the date,
+         * and a fake that left them in insertion order would hand them back the *opposite* way
+         * round from the store — which is the one arrangement a test asserting on
+         * `history.first()` could pass under and the app never produce.
+         */
+        val NEWEST_FIRST: Comparator<BodyMeasurement> =
+            compareByDescending(BodyMeasurement::createdAt).thenByDescending(BodyMeasurement::id)
     }
 }

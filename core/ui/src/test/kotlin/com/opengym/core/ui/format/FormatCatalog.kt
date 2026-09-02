@@ -71,7 +71,19 @@ private const val POOL_LENGTH = 2_500L
 /** A marathon, to the metre. */
 private const val MARATHON = 4_219_500L
 
-/** Weights, volumes and distances, all reading the ambient unit system. */
+/** A 102 cm chest, in the millimetres the schema stores — `LengthFormatTest`'s own figure. */
+private const val CHEST_MM = 1_020
+
+/** A waist that is whole in neither system: 82.3 cm, 32.4 in. */
+private const val WAIST_MM = 823
+
+/** A thigh: whole in centimetres, and imperial to within a hundredth — so `24 in`, not `24.0`. */
+private const val THIGH_MM = 610
+
+/** A wrist — the small end, where a tenth of an inch is a visible share of the figure. */
+private const val WRIST_MM = 170
+
+/** Weights, volumes, distances and circumferences, all reading the ambient unit system. */
 @Composable
 fun FormatCatalog(modifier: Modifier = Modifier) {
     CatalogSheet(modifier) {
@@ -100,6 +112,16 @@ fun FormatCatalog(modifier: Modifier = Modifier) {
             FormatRow("Track repeat", formatDistance(TRACK_REPEAT))
             FormatRow("Pool length", formatDistance(POOL_LENGTH))
             FormatRow("Marathon", formatDistance(MARATHON))
+        }
+        FormatSection("Circumference") {
+            // A tape, not a distance: `cm` and `in` with no threshold in between, where the
+            // rows above would have answered `1.02 m` and `1.12 yd`. The imperial column is
+            // the one worth reading — one decimal is where a millimetre store and an inch
+            // tape meet, and a change to that precision moves every figure here.
+            FormatRow("Chest", formatLength(CHEST_MM))
+            FormatRow("Waist", formatLength(WAIST_MM))
+            FormatRow("Thigh", formatLength(THIGH_MM))
+            FormatRow("Wrist", formatLength(WRIST_MM))
         }
         FormatSection("Duration") {
             // No unit system to read: a minute is a minute in both, so these two rows are
@@ -204,28 +226,31 @@ private fun CatalogSheet(
  * uncaptured.
  *
  * `heightDp` is set because a `@Preview` renders at the device's height and silently clips
- * whatever runs past it — the same trap that cost `ThemeCatalog` its type scale.
+ * whatever runs past it — the same trap that cost `ThemeCatalog` its type scale, and the one
+ * that had cost this file its two estimate rows until the circumference section forced the
+ * frame open. **Adding a row means checking the recorded image still ends in paper**: a
+ * formatter that falls off the bottom is one no diff can report on.
  */
 
-@Preview(name = "Formatters - metric - light", widthDp = 360, heightDp = 700)
+@Preview(name = "Formatters - metric - light", widthDp = 360, heightDp = 1000)
 @Composable
 fun FormatCatalogMetricLightPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT, unitSystem = UnitSystem.METRIC) { FormatCatalog() }
 }
 
-@Preview(name = "Formatters - metric - dark", widthDp = 360, heightDp = 700)
+@Preview(name = "Formatters - metric - dark", widthDp = 360, heightDp = 1000)
 @Composable
 fun FormatCatalogMetricDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK, unitSystem = UnitSystem.METRIC) { FormatCatalog() }
 }
 
-@Preview(name = "Formatters - imperial - light", widthDp = 360, heightDp = 700)
+@Preview(name = "Formatters - imperial - light", widthDp = 360, heightDp = 1000)
 @Composable
 fun FormatCatalogImperialLightPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT, unitSystem = UnitSystem.IMPERIAL) { FormatCatalog() }
 }
 
-@Preview(name = "Formatters - imperial - dark", widthDp = 360, heightDp = 700)
+@Preview(name = "Formatters - imperial - dark", widthDp = 360, heightDp = 1000)
 @Composable
 fun FormatCatalogImperialDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK, unitSystem = UnitSystem.IMPERIAL) { FormatCatalog() }

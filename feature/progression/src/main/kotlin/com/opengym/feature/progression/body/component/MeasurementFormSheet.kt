@@ -88,9 +88,13 @@ fun MeasurementFormSheet(
  * This is also the only place that *can* assemble it. Every figure is typed in the user's own
  * units and stored in canonical ones, and the conversion reads [LocalUnitSystem], which is
  * ambient in the composition and unavailable to a ViewModel. The seed and the parse go through
- * the same pair of formatters in both directions, so opening the form and saving it untouched
- * cannot move a value — see `LengthFormatTest` and `UnitRoundTripTest`, which assert that round
- * trip over the whole grid of displayable figures.
+ * the same pair of formatters in both directions, so a value saved untouched still *reads* as
+ * the figure the box was showing — see `LengthFormatTest` and `UnitRoundTripTest`, which assert
+ * that round trip over the whole grid of displayable figures. What it does not promise is the
+ * stored integer: a tape unit that is not a decimal fraction of a millimetre cannot survive
+ * `mm → in → mm` exactly, so an imperial user saving a seeded 1,020 mm chest stores 1,021 —
+ * one millimetre, under half the tenth of an inch the box is read to, and it does not move
+ * again.
  *
  * The state is keyed on the entry *and* the unit system, so switching to pounds while the sheet
  * is open reseeds the boxes in pounds rather than reading the kilogram figures as pounds.
