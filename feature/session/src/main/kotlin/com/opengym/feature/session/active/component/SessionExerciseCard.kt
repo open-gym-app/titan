@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.DragHandle
 import com.opengym.core.ui.component.Eyebrow
@@ -32,6 +33,8 @@ import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SetLogRow
 import com.opengym.core.ui.component.SupersetBadge
+import com.opengym.core.ui.component.formattedValue
+import com.opengym.core.ui.component.label
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.ActiveSessionEvent
@@ -244,6 +247,17 @@ private fun ExerciseHeading(
                     tone = BadgeTone.NEUTRAL,
                     modifier = Modifier.padding(top = OpenGymTheme.spacing.sm),
                 )
+            } else {
+                // The mark to beat, on the exercises that have one. Mutually exclusive with the
+                // badge above: an exercise with no history has no record either, and the two
+                // stacked would be a line saying "never done" over a line quoting a best.
+                //
+                // A quiet line rather than the accent every other record in the app is drawn in.
+                // This is the one screen where the accent is *already* spoken for — the active
+                // set row and the running rest timer both carry it — and a third claimant here
+                // would compete with the thing the lifter is actually doing. See `PrValue` for
+                // the treatment used everywhere the accent is free.
+                row.record?.let { record -> RecordToBeat(record = record) }
             }
         }
         if (row.supersetLabel != null) {
@@ -420,3 +434,27 @@ internal fun SetEntryError.message(): String =
  * it.
  */
 private val HANDLE_SIZE: Dp = 14.dp
+
+/**
+ * What this exercise's best currently stands at, under its name.
+ *
+ * Kind and figure on one line — `Heaviest · 92 kg` — because the date is not what a lifter mid-set
+ * needs; they need the number they are trying to pass. Read as one phrase by a screen reader for
+ * the same reason.
+ */
+@Composable
+private fun RecordToBeat(
+    record: PersonalRecord,
+    modifier: Modifier = Modifier,
+) {
+    val value = record.formattedValue() ?: return
+    val text = stringResource(R.string.active_record_to_beat, record.type.label(), value)
+
+    Text(
+        text = text,
+        style = OpenGymTheme.typography.numericSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        modifier = modifier.padding(top = OpenGymTheme.spacing.sm),
+    )
+}

@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
@@ -20,6 +21,7 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -160,6 +162,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val finishSession: FinishSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
     private val progressionHandoff: SessionProgressionHandoff,
+    personalRecordRepository: PersonalRecordRepository,
     private val clock: Clock,
     timeSource: TimeSource,
 ) : ViewModel() {
@@ -258,8 +261,13 @@ class ActiveSessionViewModel @Inject constructor(
     private val catalogue: StateFlow<Catalogue?> = combine(
         exerciseRepository.getAll(),
         exerciseRepository.getAllMuscleGroupLinks(),
-    ) { exercises, links ->
-        Catalogue(exercises = exercises.associateBy(Exercise::id), muscleLinks = links)
+        personalRecordRepository.getHeadlineRecords(),
+    ) { exercises, links, records ->
+        Catalogue(
+            exercises = exercises.associateBy(Exercise::id),
+            muscleLinks = links,
+            records = records,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     /**
@@ -2196,6 +2204,14 @@ private class EditTarget(
 private data class Catalogue(
     val exercises: Map<Long, Exercise> = emptyMap(),
     val muscleLinks: Map<Long, List<ExerciseMuscleGroupLink>> = emptyMap(),
+    /**
+     * The headline record per exercise — the mark a lifter is working against.
+     *
+     * One bulk read keyed by exercise rather than a query per card: a session of eight exercises
+     * would otherwise be eight queries re-run on every set logged. Which of an exercise's records
+     * is the *headline* one is decided in SQL — see `PersonalRecordDao.getHeadlineRecords`.
+     */
+    val records: Map<Long, PersonalRecord> = emptyMap(),
 )
 
 /**
@@ -2292,6 +2308,7 @@ private class Loaded(
                 position = index,
                 exercise = catalogue.exercises[exercise.exerciseId],
                 muscleGroups = catalogue.muscleLinks[exercise.exerciseId].orEmpty(),
+                record = catalogue.records[exercise.exerciseId],
                 supersetLabel = labels[index],
                 supersetGroupName = groupNames[index],
                 // Read off the neighbour rather than looked up by group, which is sound exactly

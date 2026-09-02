@@ -36,6 +36,7 @@ import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
 import com.opengym.feature.session.newsession.FakeSettings
+import com.opengym.feature.session.summary.FakeRecordStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -95,6 +96,9 @@ class ActiveSessionViewModelTest {
 
     /** Where a finish leaves what it earned, for the recap to collect. */
     private val progressionHandoff = SessionProgressionHandoff()
+
+    /** No records seeded: the mark-to-beat line is absent for an exercise with none. */
+    private val personalRecords = FakeRecordStore()
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
 
@@ -2729,6 +2733,7 @@ class ActiveSessionViewModelTest {
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
             progressionHandoff = progressionHandoff,
+            personalRecordRepository = personalRecords,
             clock = clock,
             // Virtual time, so a ninety-second rest costs the suite nothing and the countdown
             // and the scheduler cannot run ahead of each other. The rig `RestTimerTestSupport`

@@ -31,6 +31,8 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.timer.RestTimerState
@@ -213,6 +215,40 @@ class ActiveSessionScreenTest {
         setScreen(state(exercises = listOf(benchedBefore())))
 
         assertMissing(hasText("FIRST TIME"))
+    }
+
+    @Test
+    fun `an exercise with a record shows the mark to beat`() {
+        setScreen(
+            state(
+                exercises = listOf(
+                    benchedBefore().copy(
+                        record = PersonalRecord(
+                            id = 1,
+                            exerciseId = 1,
+                            workoutSetId = 1,
+                            type = PrType.MAX_WEIGHT,
+                            weight = 92_000_000,
+                            achievedAt = 0,
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        // The number the lifter is trying to pass, not the date they set it — a card mid-set has
+        // no room for history it cannot act on.
+        scrollToText("Heaviest · 92 kg").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a first attempt says so rather than quoting a record it cannot have`() {
+        setScreen(state(exercises = listOf(benchRow())))
+
+        // Mutually exclusive with the badge: an exercise with no history has no record either,
+        // and the two stacked would be a line saying "never done" over a line quoting a best.
+        scrollToText("FIRST TIME").assertIsDisplayed()
+        assertMissing(hasText("Heaviest", substring = true))
     }
 
     @Test
