@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
@@ -275,6 +276,7 @@ data class SessionExerciseRow(
     val position: Int,
     val exercise: Exercise?,
     val muscleGroups: List<ExerciseMuscleGroupLink> = emptyList(),
+    val record: PersonalRecord? = null,
     val supersetLabel: String? = null,
     val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,

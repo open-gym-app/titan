@@ -6,6 +6,8 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.MechanicType
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.feature.history.library.CHEST
 import com.opengym.feature.history.library.LATS
 import com.opengym.feature.history.library.TRICEPS
@@ -61,3 +63,32 @@ fun customState() =
         muscleLinks = DETAIL_CUSTOM_LINKS,
         isLoading = false,
     )
+
+/**
+ * Two bests on the bench: the heaviest single, and the most reps.
+ *
+ * One per kind, which is what the screen is handed — see `bestByType`. Two kinds rather than one
+ * so a layout that drew only the first row would fail rather than look right.
+ */
+fun detailRecords() =
+    listOf(
+        PersonalRecord(
+            id = 1,
+            exerciseId = DETAIL_BENCH.id,
+            workoutSetId = 1,
+            type = PrType.MAX_WEIGHT,
+            weight = 92_000_000,
+            achievedAt = RECORD_ACHIEVED_AT,
+        ),
+        PersonalRecord(
+            id = 2,
+            exerciseId = DETAIL_BENCH.id,
+            workoutSetId = 2,
+            type = PrType.MAX_REPS,
+            reps = 12,
+            achievedAt = RECORD_ACHIEVED_AT,
+        ),
+    )
+
+/** 2026-04-21, so the rows read as a date rather than as the epoch. */
+private const val RECORD_ACHIEVED_AT = 1_776_729_600_000L

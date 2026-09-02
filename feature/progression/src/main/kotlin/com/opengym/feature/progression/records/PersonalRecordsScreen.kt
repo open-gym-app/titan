@@ -44,7 +44,7 @@ import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
-import com.opengym.feature.progression.records.component.PersonalRecordRow
+import com.opengym.feature.progression.records.component.PersonalRecordEntryRow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -238,7 +238,7 @@ private fun RecordsList(
         ) { index ->
             val entry = items[index]
             if (entry != null) {
-                PersonalRecordRow(
+                PersonalRecordEntryRow(
                     entry = entry,
                     onClick = { onOpenExercise(entry.record.exerciseId) },
                 )

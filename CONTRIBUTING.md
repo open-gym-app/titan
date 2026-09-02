@@ -184,6 +184,7 @@ Text(
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
   | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles | `PrType` / `PersonalRecord` |
+  | `PersonalRecordRow` | the same record as a row of its own: the kind as an eyebrow, the date under it, the figure in the accent on the end, with slots for a badge beside the kind and a line under the figure. The list form of `PrValue`, shared by the exercise's bests and the records list | the three pieces already formatted, plus the sentence the whole row is read as |
   | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `SelectableOption` | one choice in a list where exactly one is taken, as a card: a radio, the name, and a mono line saying what the option means. What a question asked *as a screen* looks like | a label, an optional detail, and a selected flag |

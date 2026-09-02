@@ -2,9 +2,12 @@ package com.opengym.feature.history.detail
 
 import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.library.CHEST
 import com.opengym.feature.history.library.FakeExerciseRepository
+import com.opengym.feature.history.library.FakePersonalRecordRepository
 import com.opengym.feature.history.library.LATS
 import com.opengym.feature.history.library.TAXONOMY
 import com.opengym.feature.history.library.TRICEPS
@@ -45,6 +48,9 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ExerciseDetailViewModelTest {
 
+    /** No records seeded: the default for every test that is not about the bests section. */
+    private val personalRecords = FakePersonalRecordRepository()
+
     private val repository = FakeExerciseRepository(
         exercises = listOf(DETAIL_BENCH, DETAIL_CUSTOM),
         links = mapOf(
@@ -71,9 +77,12 @@ class ExerciseDetailViewModelTest {
      * the `SavedStateHandle` — rather than as a constructor parameter, so a rename of the
      * route's field is a failure here rather than a blank screen at runtime.
      */
-    private fun TestScope.viewModel(exerciseId: Long): ExerciseDetailViewModel {
+    private fun TestScope.viewModel(
+        exerciseId: Long,
+        records: FakePersonalRecordRepository = personalRecords,
+    ): ExerciseDetailViewModel {
         val handle = SavedStateHandle(mapOf("exerciseId" to exerciseId, "addToSession" to false))
-        val viewModel = ExerciseDetailViewModel(handle, repository)
+        val viewModel = ExerciseDetailViewModel(handle, repository, records)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
         }
@@ -395,6 +404,64 @@ class ExerciseDetailViewModelTest {
             assertFalse(state.confirmingDelete)
             assertEquals(ExerciseDetailMessage.DELETE_FAILED, state.message)
         }
+
+    // ─── The exercise's own bests ───────────────────────────────────────────────────────
+
+    @Test
+    fun `one record per kind reaches the screen, the newest of each`() =
+        runTest {
+            val records = FakePersonalRecordRepository(
+                mapOf(
+                    1L to benchRecord(id = 1, type = PrType.MAX_WEIGHT, weight = 80_000_000, at = 1_000),
+                    2L to benchRecord(id = 2, type = PrType.MAX_WEIGHT, weight = 92_000_000, at = 3_000),
+                    3L to benchRecord(id = 3, type = PrType.MAX_REPS, reps = 12, at = 2_000),
+                ),
+            )
+
+            val state = viewModel(DETAIL_BENCH.id, records).uiState.value
+
+            // Three rows in the store and two on the screen: the 80 kg the lift started at is
+            // history rather than a best, and a section listing both would read as a log. The
+            // heaviest before the most reps, which is `PrType`'s own order.
+            assertEquals(listOf(PrType.MAX_WEIGHT, PrType.MAX_REPS), state.records.map { it.type })
+            assertEquals(92_000_000L, state.records.first().weight)
+        }
+
+    @Test
+    fun `another exercise's records stay on that exercise`() =
+        runTest {
+            val records = FakePersonalRecordRepository(
+                mapOf(
+                    1L to benchRecord(id = 1, type = PrType.MAX_WEIGHT, weight = 92_000_000, at = 1_000)
+                        .copy(exerciseId = DETAIL_CUSTOM.id),
+                ),
+            )
+
+            assertTrue(viewModel(DETAIL_BENCH.id, records).uiState.value.records.isEmpty())
+        }
+
+    @Test
+    fun `an exercise with no records carries none`() =
+        runTest {
+            assertTrue(viewModel(DETAIL_BENCH.id).uiState.value.records.isEmpty())
+        }
+
+    /** A record on the bench, dated so the newest of a kind is unambiguous. */
+    private fun benchRecord(
+        id: Long,
+        type: PrType,
+        at: Long,
+        weight: Long? = null,
+        reps: Int? = null,
+    ) = PersonalRecord(
+        id = id,
+        exerciseId = DETAIL_BENCH.id,
+        workoutSetId = id,
+        type = type,
+        weight = weight,
+        reps = reps,
+        achievedAt = at,
+    )
 
     private companion object {
         /** Above every fixture's id, so it resolves to nothing. */

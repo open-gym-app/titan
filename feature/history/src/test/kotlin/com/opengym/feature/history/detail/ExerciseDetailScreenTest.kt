@@ -1,12 +1,14 @@
 package com.opengym.feature.history.detail
 
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -40,6 +42,32 @@ class ExerciseDetailScreenTest {
     private var backs = 0
     private var addsToSession = 0
     private var plateCalculators = 0
+
+    // ─── The exercise's own bests ───────────────────────────────────────────────────────
+
+    @Test
+    fun `lists this exercise's bests, one row per kind`() {
+        setContent(benchState().copy(records = detailRecords()))
+
+        // Scrolled to the rows rather than to the heading: the heading can be on screen while
+        // the card under it is still below the fold.
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasContentDescription("Heaviest", substring = true))
+
+        composeTestRule.onNodeWithText("PERSONAL RECORDS").assertExists()
+        // Read as one sentence each, which is the treatment every record row in the app gets.
+        composeTestRule.onNodeWithContentDescription("Heaviest, 92 kg, 21 Apr").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Most reps, 12 reps, 21 Apr").assertExists()
+    }
+
+    @Test
+    fun `an exercise with no records draws no section at all`() {
+        setContent(benchState())
+
+        // Absent rather than an empty card: "no records yet" on a movement the user has never
+        // loaded is the screen telling them what they have not done.
+        composeTestRule.onAllNodesWithText("PERSONAL RECORDS").assertCountEquals(0)
+    }
 
     private fun setContent(
         state: ExerciseDetailUiState = benchState(),

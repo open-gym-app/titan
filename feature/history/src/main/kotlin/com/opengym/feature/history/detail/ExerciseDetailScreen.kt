@@ -50,6 +50,8 @@ import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MechanicType
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ExerciseHeroImage
@@ -64,6 +66,7 @@ import com.opengym.core.ui.component.trackedLabel
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.detail.component.MusclesWorkedCard
+import com.opengym.feature.history.detail.component.PersonalRecordsCard
 import com.opengym.feature.history.exercise.ExerciseFormSheet
 import kotlinx.coroutines.flow.filterNotNull
 
@@ -279,6 +282,15 @@ private fun ExerciseDetailBody(
                 ?.takeIf { exercise.equipmentType?.isPlateLoaded == true },
             onViewProgression = onViewProgression,
         )
+
+        // Above the instructions and below the tools: what the user has *done* on this movement
+        // outranks how to perform it, and a section absent for most of the catalogue should not
+        // sit between the hero image and the muscles it works.
+        if (state.records.isNotEmpty()) {
+            Section(title = stringResource(R.string.detail_section_records)) {
+                PersonalRecordsCard(records = state.records)
+            }
+        }
 
         if (state.instructionSteps.isNotEmpty()) {
             Section(title = stringResource(R.string.detail_section_instructions)) {
@@ -611,8 +623,31 @@ private val PREVIEW_BENCH_STATE = ExerciseDetailUiState(
         ExerciseMuscleGroupLink(PREVIEW_SHOULDERS, isPrimary = false),
         ExerciseMuscleGroupLink(PREVIEW_TRICEPS, isPrimary = false),
     ),
+    // Two bests, one per kind — the shape the screen is handed, not every record ever set. A
+    // fixture with two heaviest rows would draw a log and hide the bug that would be.
+    records = listOf(
+        PersonalRecord(
+            id = 1,
+            exerciseId = 1,
+            workoutSetId = 1,
+            type = PrType.MAX_WEIGHT,
+            weight = 92_000_000,
+            achievedAt = PREVIEW_RECORD_AT,
+        ),
+        PersonalRecord(
+            id = 2,
+            exerciseId = 1,
+            workoutSetId = 2,
+            type = PrType.MAX_REPS,
+            reps = 12,
+            achievedAt = PREVIEW_RECORD_AT,
+        ),
+    ),
     isLoading = false,
 )
+
+/** 2026-04-21, so the rows read as a date rather than as the epoch. */
+private const val PREVIEW_RECORD_AT = 1_776_729_600_000L
 
 /** What the user authors: a name, how it is logged, and nothing else the seed would supply. */
 private val PREVIEW_CUSTOM_STATE = ExerciseDetailUiState(

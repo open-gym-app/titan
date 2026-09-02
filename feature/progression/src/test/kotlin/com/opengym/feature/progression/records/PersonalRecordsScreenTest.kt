@@ -47,7 +47,7 @@ class PersonalRecordsScreenTest {
     fun `lists every record with its exercise, kind, figure and improvement`() {
         setContent(PersonalRecordsUiState(totalRecords = 4, isLoading = false))
 
-        // One node per row, spoken as one sentence — see `PersonalRecordRow`. The `NEW` badge is
+        // One node per row, spoken as one sentence — see `PersonalRecordEntryRow`. The `NEW` badge is
         // in it: clearing the row's semantics would otherwise leave it visible only to people who
         // can see it.
         composeTestRule

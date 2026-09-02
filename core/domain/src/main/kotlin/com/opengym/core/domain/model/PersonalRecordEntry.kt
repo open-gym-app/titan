@@ -101,3 +101,21 @@ fun PersonalRecord.withValue(value: Long): PersonalRecord? =
         PrType.MAX_DISTANCE -> copy(distance = value)
         PrType.BEST_PACE -> copy(duration = value)
     }
+
+/**
+ * The best record of each kind held in this list, keyed by kind.
+ *
+ * ### It comes off the ordering, not off a comparison
+ *
+ * The store hands records over **newest first**, and a record of a given kind is only ever
+ * written when it beats the one before it — see `PrDetectionUseCase` — so the first row of a kind
+ * *is* that kind's best. Re-deriving "better" here would be a second copy of the engine's
+ * comparison rule with nothing keeping the two in step, and it would have to know that a lower
+ * pace wins.
+ *
+ * The caller's ordering is therefore load-bearing: handed a list sorted the other way, this
+ * returns each kind's *worst*. Every caller reads `getRecordsForExercise`, whose contract is
+ * newest first.
+ */
+fun List<PersonalRecord>.bestByType(): Map<PrType, PersonalRecord> =
+    groupBy(PersonalRecord::type).mapValues { (_, ofType) -> ofType.first() }

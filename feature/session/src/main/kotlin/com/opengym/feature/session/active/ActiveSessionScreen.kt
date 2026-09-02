@@ -41,6 +41,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.ThemePreference
@@ -965,6 +967,17 @@ private fun previewBench() =
         // What the fourth set was last time, which is the row that reads as a target.
         entryPrevious = previously(weightKg = 80.0, reps = 5),
         hasHistory = true,
+        // The other line under a name: the mark to beat, which is what an exercise with history
+        // carries where one without it carries the "first time" badge. Set on this exercise so
+        // every preview of this screen draws both states of that pair at once.
+        record = PersonalRecord(
+            id = 1L,
+            exerciseId = 1L,
+            workoutSetId = 3L,
+            type = PrType.MAX_WEIGHT,
+            weight = (92 * MILLIGRAMS_PER_KILOGRAM).toLong(),
+            achievedAt = 1_699_000_000_000L,
+        ),
     )
 
 /** Two sets today against one last time, and mid-set — which is what brings the note out. */

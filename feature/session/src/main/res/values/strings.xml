@@ -308,4 +308,8 @@
          still a thing the user did. -->
     <string name="achievement_unknown">Achievement unlocked</string>
 
+    <!-- The mark to beat, under an exercise's name during a workout. %1$s is the kind of record
+         and %2$s the figure with its unit: "Heaviest · 92 kg". -->
+    <string name="active_record_to_beat">%1$s · %2$s</string>
+
 </resources>
