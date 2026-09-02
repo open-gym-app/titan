@@ -4,9 +4,8 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import com.opengym.feature.progression.body.BodyMeasurementsRoute
-import com.opengym.feature.progression.detail.ProgressionDetail
-import com.opengym.feature.progression.detail.ProgressionDetailScreen
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
+import com.opengym.feature.progression.quests.QuestLogRoute
 import com.opengym.feature.progression.records.PersonalRecordsRoute
 import com.opengym.feature.progression.stats.StatsRoute
 import com.opengym.feature.progression.stats.component.StatsExploreActions
@@ -88,11 +87,11 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 /**
  * The four screens the hub drills into, registered outside the tab scaffold.
  *
- * One of the four is still the placeholder screen — see [ProgressionDetailScreen] for why
- * the destinations ship with the hub while the screens behind them are being built, and for
- * which issue replaces each. A registration is what the explore rows navigate to, so replacing
- * one is a change to the line below it and to nothing else; #102 was the first to be replaced,
- * and its entry is what the other three grew into.
+ * All four are now real screens. They arrived one at a time behind a shared placeholder page,
+ * which is why the destinations shipped with the hub rather than with the screens: a registration
+ * is what an explore row navigates to, so replacing one was a change to the line below it and to
+ * nothing else. #102 was the first to be replaced and #104 the last, and the placeholder went
+ * with it.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.
  * @param onOpenExerciseProgression a record's exercise, opened on its own drill-down. Hoisted
@@ -110,7 +109,7 @@ fun NavGraphBuilder.progressionDetailGraph(
         ExerciseProgressionRoute(onBack = onBack)
     }
     composable<QuestLogDestination> {
-        ProgressionDetailScreen(detail = ProgressionDetail.QUEST_LOG, onBack = onBack)
+        QuestLogRoute(onBack = onBack)
     }
     composable<BodyMeasurementsDestination> {
         BodyMeasurementsRoute(onBack = onBack)

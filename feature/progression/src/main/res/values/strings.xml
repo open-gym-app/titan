@@ -83,11 +83,11 @@
     <string name="explore_calendar_title">Training calendar</string>
     <string name="explore_calendar_caption">Frequency and rest days</string>
 
-    <!-- ── The drill-downs, until the issues that build them land ────────────────── -->
+    <!-- ── Shared by the drill-downs ─────────────────────────────────────────────── -->
 
+    <!-- The back affordance on all four drill-down bars. Keeps its name from when they shared
+         a placeholder page; it is the one part of that page that outlived it. -->
     <string name="progression_detail_back">Back</string>
-    <string name="progression_detail_glyph">◈</string>
-    <string name="progression_detail_quests_body">Your level, XP, active quests, achievements and loot. Arriving with the quest log.</string>
 
     <!-- ── The per-exercise drill-down (#102) ────────────────────────────────────── -->
 
@@ -276,5 +276,90 @@
     <string name="body_empty_title">Nothing measured yet</string>
     <string name="body_empty_body">Log your weight, your body fat or a tape measurement and this fills in — every field is optional, so one number is a start.</string>
     <string name="body_empty_action">Log a measurement</string>
+    <!-- ─── The quest log (#104) ──────────────────────────────────────────────────────── -->
+
+    <string name="quest_log_title">Quest log</string>
+
+    <!-- The level hero. %1$d is the level; the ring reads the fraction out separately. -->
+    <string name="quest_log_level">Level %1$d</string>
+    <string name="quest_log_level_short">LVL</string>
+    <!-- %1$s and %2$s are formatted XP figures: "2,140 / 3,000 XP". -->
+    <string name="quest_log_level_xp">%1$s / %2$s XP</string>
+    <!-- The lifetime total, under the ring. %1$s is a formatted figure. -->
+    <string name="quest_log_total_xp">%1$s XP earned in total</string>
+
+    <!-- The ranks. A level past the last band keeps the last rank; see `LevelTitles`. -->
+    <string name="level_title_newcomer">Newcomer</string>
+    <string name="level_title_regular">Regular</string>
+    <string name="level_title_iron_disciple">Iron Disciple</string>
+    <string name="level_title_steel_forged">Steel Forged</string>
+    <string name="level_title_relentless">Relentless</string>
+    <string name="level_title_unbreakable">Unbreakable</string>
+    <string name="level_title_legend">Legend</string>
+    <!-- A rank id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="level_title_unknown">Lifter</string>
+
+    <!-- The streak. -->
+    <string name="quest_log_streak_heading">Streak</string>
+    <plurals name="quest_log_streak_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="quest_log_streak_best">
+        <item quantity="one">Best: %1$d day</item>
+        <item quantity="other">Best: %1$d days</item>
+    </plurals>
+    <!-- Shown instead of the best when the current run *is* the best: "5 days, best 5" reads as
+         a coincidence, this reads as the thing it is. -->
+    <string name="quest_log_streak_personal_best">Your best yet</string>
+    <string name="quest_log_streak_none">No streak yet</string>
+    <string name="quest_log_streak_none_body">Train today to start one.</string>
+
+    <!-- The quest board. -->
+    <string name="quest_log_quests_heading">Quests</string>
+    <string name="quest_log_quests_weekly">This week</string>
+    <string name="quest_log_quests_monthly">This month</string>
+    <!-- Progress as the user reads it: "2 / 4". Not localised as a fraction — it is two counts
+         with a separator, not a ratio to be spoken. -->
+    <string name="quest_log_quest_progress">%1$s / %2$s</string>
+    <string name="quest_log_quest_reward">+%1$d XP</string>
+    <string name="quest_log_quest_done">Done</string>
+    <!-- One sentence per quest row, for a screen reader. -->
+    <string name="quest_log_quest_description">%1$s, %2$s, worth %3$d XP</string>
+    <string name="quest_log_quest_description_done">%1$s, complete, earned %2$d XP</string>
+    <string name="quest_log_quests_empty">No quests in this build</string>
+
+    <!-- The quests themselves. Weekly first, then monthly, matching `Quests.ALL`. -->
+    <string name="quest_weekly_sessions">Train three times</string>
+    <string name="quest_weekly_sessions_plus">Train five times</string>
+    <string name="quest_weekly_record">Break a personal record</string>
+    <string name="quest_weekly_volume">Move 20 tonnes</string>
+    <string name="quest_monthly_sessions">Train twelve times</string>
+    <string name="quest_monthly_records">Break five personal records</string>
+    <string name="quest_monthly_volume">Move 80 tonnes</string>
+    <!-- A quest id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="quest_unknown">Quest</string>
+
+    <!-- The achievements grid. -->
+    <string name="quest_log_achievements_heading">Achievements</string>
+    <!-- %1$d held, %2$d in the catalogue. -->
+    <string name="quest_log_achievements_count">%1$d / %2$d</string>
+    <string name="quest_log_achievement_locked">Locked</string>
+    <!-- A locked cell says only that it is locked — #104 is explicit that it reveals nothing
+         about how to unlock it beyond what the catalogue already defines. -->
+    <string name="quest_log_achievement_locked_description">%1$s, locked</string>
+    <string name="quest_log_achievement_unlocked_description">%1$s, unlocked</string>
+
+    <!-- The achievement names, resolved from the domain catalogue's ids. Duplicated from
+         `:feature:session`, which draws the same milestones on the session summary: a string
+         resource is per module, and a shared one would mean a `:core:ui` that knows the
+         gamification catalogue. -->
+    <string name="achievement_first_session">First workout logged</string>
+    <string name="achievement_ten_sessions">Ten workouts in</string>
+    <string name="achievement_hundred_sessions">One hundred workouts</string>
+    <string name="achievement_seven_day_streak">A week-long streak</string>
+    <string name="achievement_thirty_day_streak">A month-long streak</string>
+    <string name="achievement_first_record">First personal record</string>
+    <string name="achievement_unknown">Achievement</string>
 
 </resources>
