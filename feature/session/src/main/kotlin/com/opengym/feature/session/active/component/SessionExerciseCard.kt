@@ -21,6 +21,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -41,6 +43,7 @@ import com.opengym.feature.session.active.ActiveSessionEvent
 import com.opengym.feature.session.active.SessionExerciseRow
 import com.opengym.feature.session.active.SetEntry
 import com.opengym.feature.session.active.SetEntryError
+import com.opengym.core.ui.R as CoreR
 
 /**
  * One exercise of the workout: everything logged against it, and the row for the next set.
@@ -439,8 +442,14 @@ private val HANDLE_SIZE: Dp = 14.dp
  * What this exercise's best currently stands at, under its name.
  *
  * Kind and figure on one line — `Heaviest · 92 kg` — because the date is not what a lifter mid-set
- * needs; they need the number they are trying to pass. Read as one phrase by a screen reader for
- * the same reason.
+ * needs; they need the number they are trying to pass.
+ *
+ * ### Spoken as a sentence, not as the glyphs it is drawn with
+ *
+ * The visible string is a middle dot away from being read out as one, and it says nothing about
+ * *why* a number is sitting under an exercise's name. The description is `PrValue`'s own — the
+ * same one the library rows speak — so a best heard here and the same best heard there are the
+ * same sentence: "Personal record, Heaviest, 92 kg".
  */
 @Composable
 private fun RecordToBeat(
@@ -448,13 +457,17 @@ private fun RecordToBeat(
     modifier: Modifier = Modifier,
 ) {
     val value = record.formattedValue() ?: return
-    val text = stringResource(R.string.active_record_to_beat, record.type.label(), value)
+    val kind = record.type.label()
+    val text = stringResource(R.string.active_record_to_beat, kind, value)
+    val spoken = stringResource(CoreR.string.pr_value_description, kind, value)
 
     Text(
         text = text,
         style = OpenGymTheme.typography.numericSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 1,
-        modifier = modifier.padding(top = OpenGymTheme.spacing.sm),
+        modifier = modifier
+            .padding(top = OpenGymTheme.spacing.sm)
+            .clearAndSetSemantics { contentDescription = spoken },
     )
 }

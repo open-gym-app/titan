@@ -1,22 +1,14 @@
 package com.opengym.feature.history.detail.component
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import com.opengym.core.domain.model.PersonalRecord
-import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.PersonalRecordRow
 import com.opengym.core.ui.component.formattedValue
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.format.formatDayAndMonth
@@ -43,7 +35,9 @@ import com.opengym.feature.history.R
  *
  * Kind, figure and date are read as one sentence — "Heaviest, 92 kg, 21 April" — rather than as
  * three fragments a reader has to assemble, which is the treatment every other record row in the
- * app gets.
+ * app gets. The row itself is `:core:ui`'s [PersonalRecordRow], shared with the records list, so
+ * a best read here and the same best read there are the same three type roles. No name on these
+ * rows: the screen is already about one exercise, and repeating it down the card says nothing.
  */
 @Composable
 internal fun PersonalRecordsCard(
@@ -51,11 +45,9 @@ internal fun PersonalRecordsCard(
     modifier: Modifier = Modifier,
 ) {
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(OpenGymTheme.spacing.card)) {
-            records.forEachIndexed { index, record ->
-                if (index > 0) HairlineDivider()
-                RecordRow(record = record)
-            }
+        records.forEachIndexed { index, record ->
+            if (index > 0) HairlineDivider()
+            RecordRow(record = record)
         }
     }
 }
@@ -68,40 +60,21 @@ private fun RecordRow(
     val kind = record.type.label()
     val value = record.formattedValue()
     val date = formatDayAndMonth(record.achievedAt)
-    val spoken = stringResource(
-        R.string.detail_record_description,
-        kind,
-        value.orEmpty(),
-        date,
+
+    PersonalRecordRow(
+        kind = kind,
+        date = date,
+        // The value as the row draws it, so a record with no figure of its own is a sentence
+        // with a gap in it rather than one quoting a number nothing rendered.
+        contentDescription = stringResource(
+            R.string.detail_record_description,
+            kind,
+            value.orEmpty(),
+            date,
+        ),
+        value = value,
+        // Inset on the row rather than on a column around them, so the dividers between rows
+        // stay the full-bleed rules `HairlineDivider` is for.
+        modifier = modifier.padding(OpenGymTheme.spacing.card),
     )
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = OpenGymTheme.spacing.md)
-            .clearAndSetSemantics { contentDescription = spoken },
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
-        ) {
-            Eyebrow(text = kind)
-            Text(
-                text = date,
-                style = OpenGymTheme.typography.numericSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        // The figure in the accent, as every record in this app is drawn — see `PrValue`, whose
-        // treatment this matches so a best here and the same best on a library row read alike.
-        Text(
-            text = value.orEmpty(),
-            style = OpenGymTheme.typography.numeric,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-        )
-    }
 }

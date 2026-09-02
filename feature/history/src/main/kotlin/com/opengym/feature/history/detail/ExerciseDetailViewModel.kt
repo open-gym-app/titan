@@ -79,10 +79,11 @@ class ExerciseDetailViewModel @Inject constructor(
      * The two lists the edit form needs: the muscle vocabulary, and the catalogue it must not
      * collide with.
      *
-     * Combined into one value so the outer combine takes four arguments, and observed rather
-     * than fetched when the form opens because the duplicate check has to answer *while the
-     * user types* — see [ExerciseDraft.isDuplicateIn]. It is a scan of a table the Library tab
-     * already keeps open; the cost is one query, re-run when the catalogue changes.
+     * Combined into one value so the outer combine stays within `combine`'s five-flow arity,
+     * and observed rather than fetched when the form opens because the duplicate check has to
+     * answer *while the user types* — see [ExerciseDraft.isDuplicateIn]. It is a scan of a
+     * table the Library tab already keeps open; the cost is one query, re-run when the
+     * catalogue changes.
      *
      * Held as state rather than left cold because [saveEdit] has to ask it the same question
      * outside of composition, at the moment of the write.

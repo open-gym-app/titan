@@ -219,36 +219,26 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `an exercise with a record shows the mark to beat`() {
-        setScreen(
-            state(
-                exercises = listOf(
-                    benchedBefore().copy(
-                        record = PersonalRecord(
-                            id = 1,
-                            exerciseId = 1,
-                            workoutSetId = 1,
-                            type = PrType.MAX_WEIGHT,
-                            weight = 92_000_000,
-                            achievedAt = 0,
-                        ),
-                    ),
-                ),
-            ),
-        )
+        setScreen(state(exercises = listOf(benchedBefore().copy(record = benchRecord()))))
 
         // The number the lifter is trying to pass, not the date they set it — a card mid-set has
-        // no room for history it cannot act on.
-        scrollToText("Heaviest · 92 kg").assertIsDisplayed()
+        // no room for history it cannot act on. Asserted through the description because the
+        // line is one node whose semantics are replaced, the way every record row in the app
+        // is — see `PrValue`, whose description string this shares.
+        scrollToDescription("Personal record, Heaviest, 92 kg").assertIsDisplayed()
     }
 
     @Test
     fun `a first attempt says so rather than quoting a record it cannot have`() {
-        setScreen(state(exercises = listOf(benchRow())))
+        // The record is *present on the row* and the history is not, which is the only shape
+        // that tests the exclusivity: a row with no record at all would draw no line whatever
+        // the branch did.
+        setScreen(state(exercises = listOf(benchRow().copy(record = benchRecord()))))
 
         // Mutually exclusive with the badge: an exercise with no history has no record either,
         // and the two stacked would be a line saying "never done" over a line quoting a best.
         scrollToText("FIRST TIME").assertIsDisplayed()
-        assertMissing(hasText("Heaviest", substring = true))
+        assertMissing(hasContentDescription("Personal record, Heaviest, 92 kg"))
     }
 
     @Test
@@ -1562,6 +1552,17 @@ class ActiveSessionScreenTest {
         ).copy(
             entryPrevious = PreviousSet(weight = 75_000_000L, reps = 6),
             hasHistory = true,
+        )
+
+    /** The heaviest bench on record, as the card is handed it. */
+    private fun benchRecord() =
+        PersonalRecord(
+            id = 1,
+            exerciseId = 1,
+            workoutSetId = 1,
+            type = PrType.MAX_WEIGHT,
+            weight = 92_000_000,
+            achievedAt = 0,
         )
 
     /** The same three exercises, with the last two run as a superset. */
