@@ -1,5 +1,6 @@
-package com.opengym.feature.settings.component
+package com.opengym.core.ui.component
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,23 +23,42 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.opengym.core.ui.component.Eyebrow
-import com.opengym.core.ui.component.OpenGymBadge
-import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
-import com.opengym.feature.settings.R
+
+/*
+ * The settings row, and the three shapes it comes in.
+ *
+ * ### Why it is here rather than in `:feature:settings`, where it was written
+ *
+ * Because it is not only a settings row. #M5-15's body screen carries the Health Connect row,
+ * disabled until #54 lands, and its acceptance criterion is that it *matches the settings
+ * screen's pattern* — which a feature module cannot do by importing another feature module
+ * (`checkArchitecture` fails the build) and should not do by copying, because two copies of
+ * "present, in its final position, and visibly unavailable" is two chances to disagree about
+ * what unavailable looks like.
+ *
+ * So the row moved to the design system on its second caller, which is the rule #86 states for
+ * everything else in this package: reach for a component before a style, and a screen that
+ * draws its own bordered `Surface` has restated four arguments that will drift.
+ *
+ * The `Preference` prefix is the one `:core:ui` already uses for this vocabulary — see
+ * `PreferenceLabels` and `PreferenceIcons`, which name the same settings the rows carry.
+ */
 
 /**
  * A titled block of rows: the eyebrow, and the card under it.
  *
- * Dividers are the caller's, drawn with `HairlineDivider()` between rows. A group that
- * inserted them itself would have to know how many children it was given, which Compose does
- * not offer without turning the content slot into a list — and that list would then have to
- * be able to express every row type below.
+ * Dividers are the caller's, drawn with [HairlineDivider] between rows. A group that inserted
+ * them itself would have to know how many children it was given, which Compose does not offer
+ * without turning the content slot into a list — and that list would then have to be able to
+ * express every row type below.
  */
 @Composable
-fun SettingsGroup(
+fun PreferenceGroup(
     title: String,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
@@ -64,7 +84,7 @@ fun SettingsGroup(
  *   destroys data — spending it on anything reversible makes it stop meaning anything.
  */
 @Composable
-fun SettingsRow(
+fun PreferenceRow(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -73,7 +93,7 @@ fun SettingsRow(
     external: Boolean = false,
     destructive: Boolean = false,
 ) {
-    SettingsRowLayout(
+    PreferenceRowLayout(
         label = label,
         value = value,
         supporting = supporting,
@@ -87,7 +107,7 @@ fun SettingsRow(
         } else {
             Icons.AutoMirrored.Filled.KeyboardArrowRight
         },
-        trailingIconDescription = if (external) stringResource(R.string.settings_opens_externally) else null,
+        trailingIconDescription = if (external) stringResource(R.string.preference_opens_externally) else null,
         modifier = modifier.clickable(onClick = onClick),
     )
 }
@@ -100,13 +120,13 @@ fun SettingsRow(
  * the text it is rather than as a control that is unavailable.
  */
 @Composable
-fun SettingsInfoRow(
+fun PreferenceInfoRow(
     label: String,
     modifier: Modifier = Modifier,
     value: String? = null,
     supporting: String? = null,
 ) {
-    SettingsRowLayout(
+    PreferenceRowLayout(
         label = label,
         value = value,
         supporting = supporting,
@@ -122,27 +142,34 @@ fun SettingsInfoRow(
  *
  * Present, in its final position, and visibly unavailable — the decision recorded in #M4-23:
  * the information architecture is fixed now so that later milestones fill rows in rather than
- * rearranging the screen under people who have learned where things are.
+ * rearranging the screen under people who have learned where things are. #M5-15's Health
+ * Connect row is the same promise on a second screen, held to the same shape.
  *
  * Being *announced* as unavailable is the part that needs the code rather than the colour.
  * `Modifier.semantics { disabled() }` is what puts "disabled" in the semantics tree; dimming
  * alone tells a sighted user and nobody else, and a row that is merely un-clickable reads to
  * TalkBack as ordinary text with no hint that it is going to do something one day.
+ *
+ * @param leading a mark drawn before the label — the wireframes' Health Connect heart. Null on
+ *   a settings row, where a column of icons down a list of a dozen settings would be a column
+ *   of decoration.
  */
 @Composable
-fun SettingsSoonRow(
+fun PreferenceSoonRow(
     label: String,
     modifier: Modifier = Modifier,
     supporting: String? = null,
+    leading: ImageVector? = null,
 ) {
-    SettingsRowLayout(
+    PreferenceRowLayout(
         label = label,
         value = null,
         supporting = supporting,
         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
         trailingIcon = null,
         trailingIconDescription = null,
-        badge = stringResource(R.string.settings_soon),
+        badge = stringResource(R.string.preference_soon),
+        leading = leading,
         // `mergeDescendants` so the row is one node carrying both the label and the disabled
         // state. Without it the state sits on an empty container and the text beside it reads
         // as ordinary, available text — to TalkBack and to a test alike.
@@ -151,15 +178,15 @@ fun SettingsSoonRow(
 }
 
 /**
- * The shared shape of every row above: label and optional supporting line on the left, an
- * optional value and an optional affordance on the right.
+ * The shared shape of every row above: an optional mark, the label and its supporting line on
+ * the left, an optional value and an optional affordance on the right.
  *
  * One layout rather than three, so the rows line up down the card whatever they are made of —
  * the thing that goes wrong when three composables each pick their own padding is a column of
  * values that is a pixel out per row.
  */
 @Composable
-private fun SettingsRowLayout(
+private fun PreferenceRowLayout(
     label: String,
     value: String?,
     supporting: String?,
@@ -168,6 +195,7 @@ private fun SettingsRowLayout(
     trailingIconDescription: String?,
     modifier: Modifier = Modifier,
     badge: String? = null,
+    leading: ImageVector? = null,
 ) {
     Row(
         modifier = modifier
@@ -176,6 +204,16 @@ private fun SettingsRowLayout(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
     ) {
+        if (leading != null) {
+            IconTile(
+                icon = leading,
+                // Neutral, like the explore rows on the stats hub: a row that is unavailable
+                // or merely navigational is not where the accent is spent.
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                container = MaterialTheme.colorScheme.surfaceContainer,
+            )
+        }
+
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
@@ -224,3 +262,46 @@ private fun SettingsRowLayout(
  * reads as punctuation, which is what it is.
  */
 private val CHEVRON_SIZE = 18.dp
+
+// ─── Previews ───────────────────────────────────────────────────────────────────────────
+
+@Preview(name = "Preference rows", widthDp = 360)
+@Composable
+fun PreferenceRowPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        PreferenceRowCatalogue()
+    }
+}
+
+@Preview(name = "Preference rows, dark", widthDp = 360)
+@Composable
+fun PreferenceRowDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) {
+        PreferenceRowCatalogue()
+    }
+}
+
+@Composable
+private fun PreferenceRowCatalogue() {
+    Column(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.background)
+            .padding(OpenGymTheme.spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
+    ) {
+        PreferenceGroup(title = "Appearance") {
+            PreferenceRow(label = "Theme", value = "Auto", onClick = {})
+            HairlineDivider()
+            PreferenceRow(label = "Units", value = "Metric", onClick = {})
+            HairlineDivider()
+            PreferenceInfoRow(label = "Version", value = "1.0.0")
+        }
+        PreferenceGroup(title = "Data") {
+            PreferenceSoonRow(label = "Backup", supporting = "Coming in a later release")
+            HairlineDivider()
+            PreferenceRow(label = "Source code", supporting = "github.com", external = true, onClick = {})
+            HairlineDivider()
+            PreferenceRow(label = "Delete all data", destructive = true, onClick = {})
+        }
+    }
+}

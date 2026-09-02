@@ -3,6 +3,7 @@ package com.opengym.feature.progression.navigation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import com.opengym.feature.progression.body.BodyMeasurementsRoute
 import com.opengym.feature.progression.detail.ProgressionDetail
 import com.opengym.feature.progression.detail.ProgressionDetailScreen
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
@@ -87,11 +88,11 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 /**
  * The four screens the hub drills into, registered outside the tab scaffold.
  *
- * Two of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
+ * One of the four is still the placeholder screen — see [ProgressionDetailScreen] for why
  * the destinations ship with the hub while the screens behind them are being built, and for
  * which issue replaces each. A registration is what the explore rows navigate to, so replacing
  * one is a change to the line below it and to nothing else; #102 was the first to be replaced,
- * and its entry is what the other three grow into.
+ * and its entry is what the other three grew into.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.
  * @param onOpenExerciseProgression a record's exercise, opened on its own drill-down. Hoisted
@@ -112,6 +113,6 @@ fun NavGraphBuilder.progressionDetailGraph(
         ProgressionDetailScreen(detail = ProgressionDetail.QUEST_LOG, onBack = onBack)
     }
     composable<BodyMeasurementsDestination> {
-        ProgressionDetailScreen(detail = ProgressionDetail.MEASUREMENTS, onBack = onBack)
+        BodyMeasurementsRoute(onBack = onBack)
     }
 }

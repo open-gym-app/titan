@@ -49,10 +49,10 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * series changes — a timeframe switched under an open tooltip would otherwise leave it
  * pointing at whatever now happens to be mark seven. Drive [ChartPlot] directly to hoist it.
  *
- * **Not what the stats hub's hero is.** That card carries a large figure and a change chip
+ * **Not what a hero card is.** [SeriesHeroCard] carries a large figure and a change chip
  * *between* the eyebrow and the plot, which is a different arrangement rather than this one
- * with a slot added: the chip belongs to the figure's baseline, not to the heading. See
- * `VolumeHeroCard`.
+ * with a slot added: the chip belongs to the figure's baseline, not to the heading, and the
+ * figure is what its marks are read against, so it draws no value rail.
  *
  * @param label what the series is, in sentence case. Drawn as the eyebrow, which uppercases
  *   it, and handed to the plot for the description a screen reader is given — so the card and
