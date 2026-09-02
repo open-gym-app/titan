@@ -1,6 +1,8 @@
 package com.opengym.feature.progression.records
 
+import androidx.paging.PagingConfig
 import androidx.paging.PagingSource
+import androidx.paging.PagingState
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
@@ -68,6 +70,31 @@ class PersonalRecordsPagingSourceTest {
             assertTrue(page.data.isEmpty())
             // The one unambiguous signal there is nothing further, as opposed to a short page.
             assertNull(page.nextKey)
+        }
+
+    @Test
+    fun `a refresh after an invalidation starts at the top of the list`() =
+        runTest {
+            val store = FakeRecordPageStore(total = 500)
+            val source = PersonalRecordsPagingSource(store, type = null)
+            // The first page is loaded with `initialLoadSize`, which is where the arithmetic that
+            // looks reasonable goes wrong: its `nextKey` is 60, and 60 minus a page is 30.
+            val first = source.load(refresh(loadSize = 60)) as PagingSource.LoadResult.Page
+
+            val key = source.getRefreshKey(
+                PagingState(
+                    pages = listOf(first),
+                    anchorPosition = 0,
+                    config = PagingConfig(pageSize = 30, initialLoadSize = 60, enablePlaceholders = false),
+                    leadingPlaceholderCount = 0,
+                ),
+            )
+
+            // Null, so the reload starts at offset 0. Every page carries `prevKey = null`, so a key
+            // taken from the anchor's page would drop the thirty newest records from a newest-first
+            // list and leave no way to load them back — and the only thing that invalidates this
+            // source is a record being written, which belongs at the top.
+            assertNull(key)
         }
 
     @Test

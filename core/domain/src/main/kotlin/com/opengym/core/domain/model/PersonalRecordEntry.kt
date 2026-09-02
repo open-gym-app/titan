@@ -39,16 +39,25 @@ data class PersonalRecordEntry(
 ) {
 
     /**
-     * How much better this record is than the one it replaced, or **null** when there was none.
+     * How much better this record is than the one it replaced, or **null** when there was none —
+     * and **null** for a kind whose figure is not what it is ranked on.
      *
-     * Always positive when present, whichever direction the kind runs in: a pace record that took
-     * four seconds off reads as an improvement of four seconds, not of minus four. The sign
-     * carries no information the row does not already have — every record on file beat what came
-     * before it, or it would not have been written — so spending a minus sign on it would only
-     * invite reading a *worse* record into a list that cannot contain one.
+     * Always positive when present: every record on file beat what came before it, or it would
+     * not have been written, so the difference between two consecutive figures of a kind that is
+     * ranked *by* that figure can only run one way. `abs` states that rather than relying on it.
+     *
+     * [PrType.BEST_PACE] is excluded, and that is the whole reason the rule is asked of
+     * [PrType.higherIsBetter] rather than assumed. A pace record is ranked on duration *over
+     * distance* — see `PrDetectionUseCase.pace` — while [value] and the previous figure carried
+     * beside it are bare durations. A 10 km run at a better pace than a previous 5 km takes more
+     * time, not less, so subtracting the two durations would report an improvement of the amount
+     * the run got *longer*. Making that honest needs the previous record's distance too, which
+     * this row does not carry; until it does, a pace row draws no improvement rather than a
+     * wrong one.
      */
     val improvement: Long?
         get() {
+            if (!record.type.higherIsBetter) return null
             val previous = previousValue ?: return null
             val current = value ?: return null
             return abs(current - previous)

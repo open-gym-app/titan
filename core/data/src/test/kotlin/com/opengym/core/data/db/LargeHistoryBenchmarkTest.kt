@@ -162,6 +162,28 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
                 db.personalRecordDao().getRecentRecords(limit = 10).first()
             }
 
+            // The records list, which is the only paged read whose cost could grow with the size
+            // of `personal_record` rather than with the page. The three below are the shapes that
+            // tell those two apart: if the query windowed the whole table before paging it, the
+            // deep page would cost what the whole history costs and the first page would too.
+            assertUnder("getRecordsPage first page", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getRecordsPage(type = null, limit = PAGE_SIZE, offset = 0)
+            }
+
+            // 10,000 records in, near the oldest end of the fixture. A page here reads the same
+            // twenty rows as the first one and must cost the same to fetch; this is the assertion
+            // that fails if `LIMIT`/`OFFSET` moves back outside the derived table.
+            assertUnder("getRecordsPage at offset 9,900", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getRecordsPage(type = null, limit = PAGE_SIZE, offset = 9_900)
+            }
+
+            // Filtered on the kind the fixture actually writes, so the page fills. The filter is
+            // not sargable — see the query's KDoc — so this walks the `achieved_at` index and
+            // stops at twenty matches rather than sorting the table.
+            assertUnder("getRecordsPage filtered first page", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getRecordsPage(type = "MAX_WEIGHT", limit = PAGE_SIZE, offset = 0)
+            }
+
             // The exercise library's two catalogue-wide reads, which run together on every open
             // of the Library tab.
             //

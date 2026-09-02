@@ -131,7 +131,13 @@ private fun PersonalRecordEntry.improvementLabel(): String? {
     return asRecord.formattedValue()?.let { stringResource(R.string.records_improvement, it) }
 }
 
-/** One sentence for the whole row. See the note on [PersonalRecordRow]. */
+/**
+ * One sentence for the whole row. See the note on [PersonalRecordRow].
+ *
+ * The `NEW` badge is part of it, because clearing the row's semantics takes every child node's
+ * text with it: a badge left out here is a badge that exists only for people who can see it, and
+ * it marks the one thing on this screen that is news rather than history.
+ */
 @Composable
 private fun spokenRow(
     name: String,
@@ -140,7 +146,7 @@ private fun spokenRow(
     date: String,
     entry: PersonalRecordEntry,
 ): String {
-    val improvement = entry.improvementLabel()
     val base = stringResource(R.string.records_row_description, name, kind, value, date)
-    return if (improvement == null) base else "$base, $improvement"
+    val badge = if (entry.isRecent) stringResource(R.string.records_new_badge) else null
+    return listOfNotNull(base, badge, entry.improvementLabel()).joinToString(separator = ", ")
 }

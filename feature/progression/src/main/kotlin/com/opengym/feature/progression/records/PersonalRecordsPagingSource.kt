@@ -76,15 +76,18 @@ class PersonalRecordsPagingSource(
         }
 
     /**
-     * Where to resume after an invalidation — the anchor's own page, so the rows on screen stay
-     * on screen.
+     * Where to resume after an invalidation: the top of the list, always.
      *
-     * Falling back to the start rather than to the anchor position when there is no page to
-     * anchor to: refreshing at an offset the list may no longer be long enough for would open on
-     * a blank list the user has to scroll up out of.
+     * This source loads forward only — every page carries `prevKey = null` — so Paging can never
+     * fetch anything *above* the key a refresh starts from. A key derived from the anchor's page
+     * would therefore not "keep the rows on screen", it would delete every row above them for
+     * good: the first page is loaded with `initialLoadSize`, so `nextKey - pageSize` lands
+     * mid-page and the newest records vanish from a list that is ordered newest first, with no
+     * way left to scroll back to them.
+     *
+     * Starting from the top is also what the invalidation itself asks for. The only signal that
+     * brings us here is the record count moving — see `PersonalRecordsViewModel` — and a record
+     * that has just been written is, in a newest-first list, exactly the row at the top.
      */
-    override fun getRefreshKey(state: PagingState<Int, PersonalRecordEntry>): Int? =
-        state.anchorPosition
-            ?.let(state::closestPageToPosition)
-            ?.let { page -> page.prevKey ?: page.nextKey?.minus(state.config.pageSize) }
+    override fun getRefreshKey(state: PagingState<Int, PersonalRecordEntry>): Int? = null
 }

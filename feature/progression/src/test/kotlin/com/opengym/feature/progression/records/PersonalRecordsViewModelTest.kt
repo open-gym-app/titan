@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -44,6 +45,7 @@ import java.time.LocalDate
  * starts the invalidating flow, but it should not be read as a guard against that bug returning.
  * Catching it needs a test that can order the two, or the device.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class PersonalRecordsViewModelTest {
 
     @Before

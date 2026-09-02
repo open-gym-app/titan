@@ -1,5 +1,6 @@
 package com.opengym.feature.progression.records
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -18,12 +18,14 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -84,6 +86,14 @@ fun PersonalRecordsRoute(
  * Neither is drawn while the first page is still loading: a blank screen and a claim that nothing
  * has ever been achieved are different statements, and only one of them is safe before the store
  * has answered.
+ *
+ * ### And a third state that is neither
+ *
+ * A failed read is not an empty list. `PersonalRecordsPagingSource` reports a failure as
+ * `LoadResult.Error` rather than throwing, precisely so the screen can offer the retry that makes
+ * that worth doing — without one, the deliberate choice not to crash only buys a blank page. So a
+ * failed refresh draws [RecordsErrorState], and a failed *append* draws a footer under the rows
+ * that did load, which are still true and stay on screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +140,12 @@ internal fun PersonalRecordsScreen(
                     title = stringResource(R.string.records_empty_title),
                     body = stringResource(R.string.records_empty_body),
                 )
+
+                // Below `hasNoRecords` on purpose. The total comes from its own query, so a user
+                // whose count says zero has genuinely set no records whether or not the page read
+                // failed, and "no records yet" is the truer of the two things to say.
+                items.itemCount == 0 && items.loadState.refresh is LoadState.Error ->
+                    RecordsErrorState(onRetry = items::retry)
 
                 // `itemCount` is zero in three different situations: before the first page
                 // lands, when a filter matches nothing, and when the load *failed*. Only the
@@ -229,6 +245,39 @@ private fun RecordsList(
                 HairlineDivider()
             }
         }
+
+        // A page below the ones on screen failed. Without this the list simply stops, which is
+        // indistinguishable from having reached the end of the history — the user is told they
+        // have no older records rather than that we could not read them.
+        if (items.loadState.append is LoadState.Error) {
+            item(key = APPEND_ERROR_KEY) {
+                RecordsAppendError(onRetry = items::retry)
+            }
+        }
+    }
+}
+
+/** A string, so the footer's key cannot collide with a row's, which is always a number. */
+private const val APPEND_ERROR_KEY = "append-error"
+
+@Composable
+private fun RecordsAppendError(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = OpenGymTheme.spacing.screen, vertical = OpenGymTheme.spacing.md),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.records_error_more),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        RetryButton(onRetry = onRetry)
     }
 }
 
@@ -237,6 +286,36 @@ private fun RecordsEmptyState(
     title: String,
     body: String,
     modifier: Modifier = Modifier,
+) {
+    RecordsMessage(title = title, body = body, modifier = modifier)
+}
+
+/**
+ * The whole list failed to load, with the one thing the user can do about it.
+ *
+ * Wears the empty states' layout rather than the shared centred `EmptyState`, so a screen that
+ * has three things to say says all three the same way — the difference between them is the
+ * sentence and the button, which is the difference that matters.
+ */
+@Composable
+private fun RecordsErrorState(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RecordsMessage(
+        title = stringResource(R.string.records_error_title),
+        body = stringResource(R.string.records_error_body),
+        modifier = modifier,
+        action = { RetryButton(onRetry = onRetry) },
+    )
+}
+
+@Composable
+private fun RecordsMessage(
+    title: String,
+    body: String,
+    modifier: Modifier = Modifier,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = modifier
@@ -253,6 +332,25 @@ private fun RecordsEmptyState(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        action?.invoke()
+    }
+}
+
+/** The retry both failure states offer, so they cannot drift into two different buttons. */
+@Composable
+private fun RetryButton(
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OutlinedButton(
+        onClick = onRetry,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier,
+    ) {
+        Eyebrow(
+            text = stringResource(R.string.records_error_action),
+            color = MaterialTheme.colorScheme.primary,
         )
     }
 }
@@ -297,6 +395,39 @@ fun PersonalRecordsScreenEmptyPreview() {
             state = PersonalRecordsUiState(totalRecords = 0, isLoading = false),
             records = flowOf(PagingData.empty()),
         )
+    }
+}
+
+/**
+ * The two failure states, drawn directly rather than through [PersonalRecordsScreen].
+ *
+ * Which state that screen draws depends on the *load state* of a `PagingData` rather than on a
+ * value, and a preview renders before a flow's load states have propagated — so a screen-level
+ * failure preview captures the blank list it exists to rule out. `PersonalRecordsScreenTest`
+ * covers the wiring; these cover how the states look.
+ */
+@Preview(name = "Personal records - unreadable", showBackground = true, widthDp = 360)
+@Composable
+fun PersonalRecordsFailurePreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        FailureCatalogue()
+    }
+}
+
+@Preview(name = "Personal records - unreadable, dark", showBackground = true, widthDp = 360)
+@Composable
+fun PersonalRecordsFailureDarkPreview() {
+    OpenGymTheme(theme = ThemePreference.DARK) {
+        FailureCatalogue()
+    }
+}
+
+@Composable
+private fun FailureCatalogue() {
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
+        RecordsErrorState(onRetry = {})
+        HairlineDivider()
+        RecordsAppendError(onRetry = {})
     }
 }
 

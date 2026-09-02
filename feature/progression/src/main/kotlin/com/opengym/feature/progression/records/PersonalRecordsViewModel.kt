@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,6 +49,7 @@ import javax.inject.Inject
  * The count is also what the header shows, so the read is not overhead spent purely on
  * correctness.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class PersonalRecordsViewModel
 @Inject

@@ -87,10 +87,10 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 /**
  * The four screens the hub drills into, registered outside the tab scaffold.
  *
- * Three of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
+ * Two of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
  * the destinations ship with the hub while the screens behind them are being built, and for
  * which issue replaces each. A registration is what the explore rows navigate to, so replacing
- * one is a change to the line below it and to nothing else; #102 is the first to be replaced,
+ * one is a change to the line below it and to nothing else; #102 was the first to be replaced,
  * and its entry is what the other three grow into.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.

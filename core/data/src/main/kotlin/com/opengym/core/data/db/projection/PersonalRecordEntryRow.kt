@@ -11,9 +11,9 @@ import androidx.room.Embedded
  * hand-written mapping of nine columns is a second place a renamed column has to be noticed.
  *
  * @property previousValue the figure the record beat, in the kind's own unit, or **null** when it
- *   is the first of its kind for that exercise. Computed by a window function over the same
- *   partition the record belongs to — see `PersonalRecordDao.getRecordsPage` — rather than by a
- *   query per visible row.
+ *   is the first of its kind for that exercise. Looked up per returned row, over the whole table
+ *   rather than over the page — see `PersonalRecordDao.getRecordsPage`, where the reason the
+ *   lookup is one indexed seek and not a scan is set out.
  * @property exerciseName the exercise's name, or **null** when it has been removed from the
  *   catalogue since. A `LEFT JOIN`, deliberately: an inner one would silently drop records whose
  *   exercise is gone, which is the user's history disappearing because a catalogue row did.

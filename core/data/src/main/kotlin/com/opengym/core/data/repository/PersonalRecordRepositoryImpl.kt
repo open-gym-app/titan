@@ -52,7 +52,6 @@ class PersonalRecordRepositoryImpl @Inject constructor(
      * record broken on a newer version is still a record broken, and dropping it here would
      * make an achievement threshold move with the app version rather than with the user.
      */
-
     override suspend fun count(): Int = personalRecordDao.count()
 
     /**

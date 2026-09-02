@@ -122,19 +122,43 @@ interface PersonalRecordDao {
      * `LIMIT`, and served by the `achieved_at` index rather than sorting the
      * whole table.
      */
-
     @Query("SELECT * FROM personal_record ORDER BY achieved_at DESC LIMIT :limit")
     fun getRecentRecords(limit: Int): Flow<List<PersonalRecordEntity>>
 
     /**
      * One window of every record, newest first, with what each one beat and where it was set.
      *
-     * ### The improvement is a window function, not a query per row
+     * ### The page is cut first, and everything else is done to the rows that survive
      *
-     * `LAG` over the records of the same exercise *and* kind, ordered oldest first, is the figure
-     * this record replaced. Doing it here is the difference between one query for a page and one
-     * query per visible row while the user scrolls — which is what #103 rules out. SQLite has had
-     * window functions since 3.25, which is below every API level this app runs on.
+     * The shape is load-bearing, in the way `getHeadlineRecords` is — see PERSISTENCE.md, *An
+     * index is not always the whole story*. The innermost `SELECT` filters, orders and applies
+     * `LIMIT`/`OFFSET` against `personal_record` alone; only then are the three joins and the
+     * improvement lookup run, over at most [limit] rows. Written the other way round — a window
+     * function over the whole table, paged on the outside — every page reads and sorts the entire
+     * history to return twenty rows, so the cost of scrolling grows with how long the user has
+     * been training. That is what #103 rules out, and `LargeHistoryBenchmarkTest` is what holds
+     * it. Against its 10,000-record stress fixture the window-function shape measures 22-28ms a
+     * page and this one 1-5ms; the gap is not the point, though, since only one of the two stays
+     * where it is as the table grows. Treat the shape as load-bearing and re-measure rather than
+     * reason about it if you rewrite it.
+     *
+     * SQLite will not flatten a subquery that carries a `LIMIT` into an outer query that is a
+     * join, so the derived table is guaranteed to be cut to size before the joins see it. The
+     * joins being `LEFT` is what makes that safe to say: an `INNER` one could drop rows *after*
+     * the window was taken, returning a short page that Paging would read as the end of the list.
+     *
+     * ### The improvement is one indexed lookup per returned row
+     *
+     * `previous_value` is the nearest earlier record of the same exercise *and* kind — the figure
+     * this record replaced. A correlated subquery ordered `achieved_at DESC, id DESC LIMIT 1`,
+     * served by the `(exercise_id, achieved_at)` index, so it is a seek within one exercise's
+     * history rather than a scan of the table. The `id` tiebreak is not decoration: several kinds
+     * are written off the same set and therefore share an `achieved_at` to the millisecond, so
+     * ordering on the timestamp alone would leave which record came first undefined.
+     *
+     * It looks at the whole table rather than at the filtered page, so a filtered list still
+     * knows what each record beat — the property the old `LAG` got by partitioning before
+     * filtering.
      *
      * The value being compared is chosen by kind, because each kind lives in its own column and
      * `MAX_VOLUME` lives in `weight` — see `PersonalRecordEntry.value`, which makes the same
@@ -143,10 +167,12 @@ interface PersonalRecordDao {
      *
      * ### Ordering, filtering and the index
      *
-     * `achieved_at DESC` so the existing index on that column serves the sort. The type filter is
-     * `:type IS NULL OR pr_type = :type`, so "all" and "one kind" are one query rather than two
-     * that could drift apart — and the window is partitioned before the filter is applied, so a
-     * filtered list still knows what each record beat.
+     * `achieved_at DESC, id DESC` so the `achieved_at` index serves the sort — `id` is the rowid,
+     * which every SQLite index carries as its implicit final column, so the tiebreak comes free
+     * rather than costing a sort. The type filter is `:type IS NULL OR pr_type = :type`, so "all"
+     * and "one kind" are one query rather than two that could drift apart. A filtered page cannot
+     * seek — the disjunction is not sargable — but it still walks the index in order and stops
+     * once it has `limit + offset` matches, rather than sorting the table.
      *
      * ### Why the joins are `LEFT`
      *
@@ -171,7 +197,27 @@ interface PersonalRecordDao {
             record.duration AS duration,
             record.estimated_1rm AS estimated_1rm,
             record.achieved_at AS achieved_at,
-            record.previous_value AS previous_value,
+            (
+                SELECT
+                    CASE previous.pr_type
+                        WHEN 'MAX_WEIGHT' THEN previous.weight
+                        WHEN 'MAX_VOLUME' THEN previous.weight
+                        WHEN 'MAX_REPS' THEN previous.reps
+                        WHEN 'ESTIMATED_1RM' THEN previous.estimated_1rm
+                        WHEN 'MAX_DISTANCE' THEN previous.distance
+                        WHEN 'BEST_PACE' THEN previous.duration
+                    END
+                FROM personal_record AS previous
+                WHERE previous.exercise_id = record.exercise_id
+                    AND previous.pr_type = record.pr_type
+                    AND previous.achieved_at <= record.achieved_at
+                    AND (
+                        previous.achieved_at < record.achieved_at
+                        OR previous.id < record.id
+                    )
+                ORDER BY previous.achieved_at DESC, previous.id DESC
+                LIMIT 1
+            ) AS previous_value,
             exercise.name AS exercise_name,
             CASE
                 WHEN session_exercise.session_id IS NOT NULL
@@ -184,29 +230,15 @@ interface PersonalRecordDao {
                 THEN 1 ELSE 0
             END AS is_recent
         FROM (
-            SELECT
-                *,
-                LAG(
-                    CASE pr_type
-                        WHEN 'MAX_WEIGHT' THEN weight
-                        WHEN 'MAX_VOLUME' THEN weight
-                        WHEN 'MAX_REPS' THEN reps
-                        WHEN 'ESTIMATED_1RM' THEN estimated_1rm
-                        WHEN 'MAX_DISTANCE' THEN distance
-                        WHEN 'BEST_PACE' THEN duration
-                    END
-                ) OVER (
-                    PARTITION BY exercise_id, pr_type
-                    ORDER BY achieved_at ASC, id ASC
-                ) AS previous_value
-            FROM personal_record
+            SELECT * FROM personal_record
+            WHERE :type IS NULL OR pr_type = :type
+            ORDER BY achieved_at DESC, id DESC
+            LIMIT :limit OFFSET :offset
         ) AS record
         LEFT JOIN exercise ON exercise.id = record.exercise_id
         LEFT JOIN workout_set ON workout_set.id = record.workout_set_id
         LEFT JOIN session_exercise ON session_exercise.id = workout_set.session_exercise_id
-        WHERE :type IS NULL OR record.pr_type = :type
         ORDER BY record.achieved_at DESC, record.id DESC
-        LIMIT :limit OFFSET :offset
         """,
     )
     suspend fun getRecordsPage(

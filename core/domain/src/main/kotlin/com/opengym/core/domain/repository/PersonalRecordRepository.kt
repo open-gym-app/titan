@@ -66,7 +66,6 @@ interface PersonalRecordRepository {
      * [SessionRepository.countFinished]: the post-session cascade needs the total including
      * the records it has just written, and it needs it in the same breath.
      */
-
     suspend fun count(): Int
 
     /**

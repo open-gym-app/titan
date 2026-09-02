@@ -94,15 +94,13 @@ fun ProgressionDetailScreen(
  * An enum rather than a screen each, because the page is identical apart from two strings and
  * three copies of it would be three files to delete instead of one entry to remove. Each entry
  * names the issue that replaces it, so a reader who lands here knows where the real screen is
- * being built — #102 has already taken its entry out, which is the arrangement working.
+ * being built — #102 and #103 have already taken their entries out, which is the arrangement
+ * working.
  */
 enum class ProgressionDetail(
     @param:StringRes val titleRes: Int,
     @param:StringRes val bodyRes: Int,
 ) {
-    /** #103 — every record broken, filtered by kind. */
-    RECORDS(R.string.explore_records_title, R.string.progression_detail_records_body),
-
     /** #104 — level, XP, quests, achievements and loot. */
     QUEST_LOG(R.string.explore_quests_title, R.string.progression_detail_quests_body),
 

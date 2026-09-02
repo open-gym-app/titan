@@ -47,9 +47,11 @@ class PersonalRecordsScreenTest {
     fun `lists every record with its exercise, kind, figure and improvement`() {
         setContent(PersonalRecordsUiState(totalRecords = 4, isLoading = false))
 
-        // One node per row, spoken as one sentence — see `PersonalRecordRow`.
+        // One node per row, spoken as one sentence — see `PersonalRecordRow`. The `NEW` badge is
+        // in it: clearing the row's semantics would otherwise leave it visible only to people who
+        // can see it.
         composeTestRule
-            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, 21 Apr, +12 kg")
+            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, 21 Apr, New, +12 kg")
             .assertIsDisplayed()
     }
 
@@ -57,10 +59,10 @@ class PersonalRecordsScreenTest {
     fun `a first record of its kind shows no improvement`() {
         setContent(PersonalRecordsUiState(totalRecords = 4, isLoading = false))
 
-        // The most-reps row beat nothing, so its sentence ends at the date. `+0 reps` would be
-        // the screen crediting a record the user never held.
+        // The most-reps row beat nothing, so its sentence carries no improvement at all. `+0 reps`
+        // would be the screen crediting a record the user never held.
         composeTestRule
-            .onNodeWithContentDescription("Bench press, Most reps, 12 reps, 21 Apr")
+            .onNodeWithContentDescription("Bench press, Most reps, 12 reps, 21 Apr, New")
             .assertIsDisplayed()
     }
 
@@ -146,24 +148,73 @@ class PersonalRecordsScreenTest {
         composeTestRule.onAllNodesWithText("No records yet").assertCountEquals(0)
     }
 
+    @Test
+    fun `a page that could not be read says so, and offers a way to ask again`() {
+        // The bug this pins: `itemCount == 0` is also true of a failed load, so a screen that
+        // only asks whether the list is empty draws neither empty state and falls through to an
+        // empty `LazyColumn` - a blank page with no message and nothing to tap.
+        setContent(
+            state = PersonalRecordsUiState(totalRecords = 4, isLoading = false),
+            entries = emptyList(),
+            refresh = LoadState.Error(IllegalStateException("the store said no")),
+        )
+
+        composeTestRule.onNodeWithText("Could not load your records").assertIsDisplayed()
+        composeTestRule.onNodeWithText("TRY AGAIN").assertIsDisplayed()
+        // And it is not mistaken for a filter that matched nothing.
+        composeTestRule.onAllNodesWithText("Nothing of that kind yet").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a user with no records is told to train, even if the page also failed`() {
+        // The total comes from its own query. Zero records is zero records whether or not the
+        // page read failed, and "go and train" is the truer of the two things to say.
+        setContent(
+            state = PersonalRecordsUiState(totalRecords = 0, isLoading = false),
+            entries = emptyList(),
+            refresh = LoadState.Error(IllegalStateException("the store said no")),
+        )
+
+        composeTestRule.onNodeWithText("No records yet").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a page that failed below the rows leaves the rows and adds a footer`() {
+        // An append failure without this is indistinguishable from the end of the history: the
+        // list simply stops, and the user is told they have no older records rather than that we
+        // could not read them.
+        setContent(
+            state = PersonalRecordsUiState(totalRecords = 4, isLoading = false),
+            append = LoadState.Error(IllegalStateException("the store said no")),
+        )
+
+        composeTestRule.onNodeWithText("Could not load more records.").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, 21 Apr, New, +12 kg")
+            .assertIsDisplayed()
+    }
+
     private fun setContent(
         state: PersonalRecordsUiState,
         entries: List<PersonalRecordEntry> = previewRecordEntries(),
+        // Load states stated explicitly: an empty list means "this filter matches nothing" only
+        // once the refresh has *settled*, and a fixture that left the state at Loading would be
+        // testing the spinner instead. They are parameters because three of this screen's five
+        // states are decided by them rather than by the rows.
+        refresh: LoadState = LoadState.NotLoading(endOfPaginationReached = true),
+        append: LoadState = LoadState.NotLoading(endOfPaginationReached = true),
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
                 PersonalRecordsScreen(
                     state = state,
-                    // Load states stated explicitly: an empty list means "this filter matches
-                    // nothing" only once the refresh has *settled*, and a fixture that left the
-                    // state at Loading would be testing the spinner instead.
                     records = flowOf(
                         PagingData.from(
                             data = entries,
                             sourceLoadStates = LoadStates(
-                                refresh = LoadState.NotLoading(endOfPaginationReached = true),
+                                refresh = refresh,
                                 prepend = LoadState.NotLoading(endOfPaginationReached = true),
-                                append = LoadState.NotLoading(endOfPaginationReached = true),
+                                append = append,
                             ),
                         ),
                     ),

@@ -12,8 +12,8 @@ import org.junit.Test
  *
  * Four things are being asserted and they are easy to conflate: the **order** rows come back in,
  * the **window** a page covers, the **improvement** each row carries, and which rows are badged
- * as recent. The improvement is the part worth the most scrutiny, because it is a window function
- * over a partition and a partition that is subtly wrong still returns plausible numbers.
+ * as recent. The improvement is the part worth the most scrutiny, because it is looked up per row
+ * from outside the page, and a lookup that is subtly wrong still returns plausible numbers.
  */
 class PersonalRecordsPageDaoTest : RoomTestBase() {
 
@@ -114,6 +114,44 @@ class PersonalRecordsPageDaoTest : RoomTestBase() {
             // No row appears twice: the two windows are disjoint and in order.
             assertEquals(listOf(3_600L, 3_500L), first.map { it.record.achievedAt })
             assertEquals(listOf(1_800L, 1_500L), second.map { it.record.achievedAt })
+        }
+
+    @Test
+    fun `a row's improvement comes from the table, not from the page it is on`() =
+        runTest {
+            // A window of one, positioned on the bench's 92 kg record. The 80 kg it beat is two
+            // rows further down and outside this page entirely. The page is cut before the
+            // improvement is looked up, so a lookup confined to the page — or to the rows the
+            // filter kept — would report this record as a first of its kind.
+            val page = dao.getRecordsPage(type = null, limit = 1, offset = 1)
+
+            assertEquals(3_500L, page.single().record.achievedAt)
+            assertEquals(80_000_000L, page.single().previousValue)
+        }
+
+    @Test
+    fun `records sharing an instant are ordered, and improve on each other, by id`() =
+        runTest {
+            // Several kinds are written off one set and share an `achieved_at` to the millisecond,
+            // so ties are ordinary rather than exotic. Two of the *same* kind at the same instant
+            // is the case that pins the tiebreak: without `id`, which of them came first is
+            // undefined and the later one can be credited with beating a record set after it.
+            val first = db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_REPS", achievedAt = 5_000).copy(reps = 5),
+            )
+            val second = db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_REPS", achievedAt = 5_000).copy(reps = 8),
+            )
+            assertTrue("ids must ascend for this to be testing what it says", second > first)
+
+            val page = dao.getRecordsPage(type = "MAX_REPS", limit = 10, offset = 0)
+            val squatRows = page.filter { it.record.exerciseId == squatId }
+
+            // Newest first means the higher id first at equal timestamps...
+            assertEquals(listOf(second, first), squatRows.map { it.record.id })
+            // ...and the higher id is the one that improved on the lower, not the other way round.
+            assertEquals(5, squatRows.first().previousValue?.toInt())
+            assertNull(squatRows.last().previousValue)
         }
 
     @Test
