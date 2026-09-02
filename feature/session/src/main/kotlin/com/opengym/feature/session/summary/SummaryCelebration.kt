@@ -2,6 +2,7 @@ package com.opengym.feature.session.summary
 
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.XpEvent
 
@@ -37,6 +38,9 @@ import com.opengym.core.domain.model.XpEvent
  * @property xpForLevel points a level costs — `XpCalculator.XP_PER_LEVEL`, carried so the
  *   screen's "43 / 100" needs no second import of the curve.
  * @property achievements what unlocked, in the order the cascade unlocked them.
+ * @property quests what was cleared, in the order the cascade banked them. Named rather than
+ *   left as a line of the breakdown for the reason [SummaryQuestsCard] gives: a total says what
+ *   the quests paid, and the thing a user wants to know is *which* one they finished.
  */
 @Immutable
 data class SummaryCelebration(
@@ -50,6 +54,7 @@ data class SummaryCelebration(
     val xpIntoLevel: Int,
     val xpForLevel: Int,
     val achievements: List<SummaryAchievement>,
+    val quests: List<SummaryQuest>,
 ) {
 
     companion object {
@@ -63,7 +68,8 @@ data class SummaryCelebration(
          * here — and distinguishing them would put a diagnostic on a celebration.
          *
          * An unlocked achievement with no points is still worth a section, which is why the
-         * test is on the awards *and* the unlocks rather than on the XP alone.
+         * test is on the awards *and* the unlocks rather than on the XP alone. A cleared quest
+         * is not in that test: a quest always pays, so a session that cleared one has awards.
          */
         fun from(progression: SessionProgression): SummaryCelebration? {
             val awarded = progression.xpAwarded
@@ -97,6 +103,13 @@ data class SummaryCelebration(
                 xpForLevel = XpCalculator.XP_PER_LEVEL,
                 achievements = progression.achievementsUnlocked.map {
                     SummaryAchievement(id = it.achievement.id, xp = it.xp.awarded)
+                },
+                quests = progression.questsCompleted.map {
+                    SummaryQuest(
+                        id = it.quest.id,
+                        period = it.quest.period,
+                        xp = it.xp.awarded,
+                    )
                 },
             )
         }
@@ -196,5 +209,29 @@ enum class XpSourceKind {
 @Immutable
 data class SummaryAchievement(
     val id: String,
+    val xp: Int,
+)
+
+/**
+ * A quest this session cleared.
+ *
+ * The id rather than a resolved name, and the *period* rather than a resolved deadline, for the
+ * reason [SummaryAchievement] gives: the catalogue is `Quests.ALL` in the domain and the words
+ * are string resources in this module, so the mapping belongs at the composable that has a
+ * `Context`.
+ *
+ * The period travels because "this week" and "this month" are not the same news. Clearing a
+ * monthly quest is the rarer event and the row says so, which a row carrying only a name and a
+ * number could not.
+ *
+ * @property id the quest's stable id, e.g. `weekly_sessions`.
+ * @property period the cadence it belongs to.
+ * @property xp what clearing it paid. Unlike every other award in the app this is the quest's
+ *   own price rather than a constant, which is why it is carried rather than looked up.
+ */
+@Immutable
+data class SummaryQuest(
+    val id: String,
+    val period: QuestPeriod,
     val xp: Int,
 )

@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.ExerciseStats
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.ui.component.muscleContributions
 
@@ -168,6 +169,7 @@ internal fun previewCelebration(): SummaryCelebration =
             XpSource(kind = XpSourceKind.SETS, count = 12, xp = 60),
             XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
             XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 50),
+            XpSource(kind = XpSourceKind.QUESTS, count = 1, xp = 60),
         ),
         levelBefore = 4,
         levelProgressBefore = 0.16f,
@@ -177,6 +179,12 @@ internal fun previewCelebration(): SummaryCelebration =
         xpIntoLevel = 43,
         xpForLevel = 100,
         achievements = emptyList(),
+        // The third session of the week, which is the ordinary way a quest is cleared — and
+        // the case the card was added for, since before it the user was told only that
+        // something called "quests" had paid 60 XP.
+        quests = listOf(
+            SummaryQuest(id = "weekly_sessions", period = QuestPeriod.WEEKLY, xp = 60),
+        ),
     )
 
 /**
@@ -205,6 +213,7 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
         xpIntoLevel = 12,
         xpForLevel = 100,
         achievements = listOf(SummaryAchievement(id = "seven_day_streak", xp = 100)),
+        quests = emptyList(),
     )
 
 /**
