@@ -44,6 +44,8 @@ class FakeProgressionRepository : ProgressionRepository {
     private val attempts = MutableStateFlow<Map<Long, List<ExerciseAttempt>>>(emptyMap())
     private val setCounts = MutableStateFlow<Map<Long, Int>>(emptyMap())
     private val trainedExercises = MutableStateFlow<List<TrainedExercise>>(emptyList())
+    private val sessionsByDay = MutableStateFlow<Map<LocalDate, Int>>(emptyMap())
+    private val volumeByDay = MutableStateFlow<Map<LocalDate, Long>>(emptyMap())
 
     /** Every range this repository has been read over, in call order. */
     val requestedRanges = mutableListOf<ClosedRange<LocalDate>>()
@@ -103,6 +105,42 @@ class FakeProgressionRepository : ProgressionRepository {
     }
 
     override fun hasTrainingHistory(): Flow<Boolean> = everTrained
+
+    /*
+     * The two scalar period reads, held **per day** rather than per week.
+     *
+     * Deliberately not routed through [requireWholeWeeks], unlike everything above: these are
+     * the reads whose whole point is that they are correct over a range that is not a whole
+     * number of weeks — a calendar month, for the quest board. Modelling them by day is what
+     * lets a test put a session on the 31st and assert it lands in that month and not the next,
+     * which is the boundary the real queries get right by filtering row by row.
+     */
+
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> {
+        requestedRanges += days
+        return sessionsByDay.map { byDay -> byDay.filterKeys { it in days }.values.sum() }
+    }
+
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> {
+        requestedRanges += days
+        return volumeByDay.map { byDay -> byDay.filterKeys { it in days }.values.sum() }
+    }
+
+    /** Seeds [count] finished sessions on [day]. Additive across calls for the same day. */
+    fun setSessionsOn(
+        day: LocalDate,
+        count: Int,
+    ) {
+        sessionsByDay.value = sessionsByDay.value + (day to (sessionsByDay.value[day] ?: 0) + count)
+    }
+
+    /** Seeds [milligramReps] of volume on [day]. Additive across calls for the same day. */
+    fun setVolumeOn(
+        day: LocalDate,
+        milligramReps: Long,
+    ) {
+        volumeByDay.value = volumeByDay.value + (day to (volumeByDay.value[day] ?: 0L) + milligramReps)
+    }
 
     /*
      * The three period readings, which nothing in this module derives anything from — they are

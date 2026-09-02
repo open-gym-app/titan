@@ -115,6 +115,16 @@ class FakeProgressionStore : ProgressionRepository {
         return millis.delayed()
     }
 
+    /*
+     * The two scalar period reads, which the stats hub does not use — they exist for the quest
+     * board (#105). Zero rather than `unsupported()`: this double is handed to a whole screen,
+     * and a read nothing on it makes should not be able to fail a test by being wired up later.
+     */
+
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = flowOf(0)
+
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = flowOf(0L)
+
     override fun getFirstTrainingDay(): Flow<LocalDate?> = firstDay
 
     /*

@@ -297,6 +297,38 @@ interface WorkoutSetDao {
     ): Flow<List<WeeklyVolumeRow>>
 
     /**
+     * Everything lifted over the half-open day range `[startEpochDay, endEpochDayExclusive)`,
+     * in milligram-reps.
+     *
+     * The scalar twin of [getVolumeByWeek], for a caller that wants a period's total rather
+     * than a series to draw — the quest board, which asks for a month, and a month is not a
+     * whole number of the Monday weeks that series buckets by. Same filter, same expression,
+     * no `GROUP BY`: one row back instead of one per week, and no summing in Kotlin of an
+     * answer SQLite can state.
+     *
+     * `COALESCE` around the `SUM` because summing no rows is `NULL`, and a period with no
+     * lifting in it moved zero rather than an absent amount — the call [getTrainingMillis]
+     * makes for the same reason.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)), 0)
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
+        INNER JOIN workout_session s ON s.id = se.session_id
+        WHERE ws.is_completed = 1
+            AND s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+            AND s.completed_at >= :startEpochDay * 86400000
+            AND s.completed_at < :endEpochDayExclusive * 86400000
+        """,
+    )
+    fun getVolumeIn(
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<Long>
+
+    /**
      * Volume per muscle group over the half-open day range
      * `[startEpochDay, endEpochDayExclusive)`, aggregated in SQL so a wide range
      * returns one row per muscle group instead of every set in it.

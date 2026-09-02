@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "9951ec43e4ff8b22741a906526efd435",
+    "identityHash": "caa2024c670c753d36655357ef6ad5b5",
     "entities": [
       {
         "tableName": "exercise",
@@ -1275,11 +1275,42 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "quest_completion",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`quest_id` TEXT NOT NULL, `period_start` INTEGER NOT NULL, `completed_at` INTEGER NOT NULL, PRIMARY KEY(`quest_id`, `period_start`))",
+        "fields": [
+          {
+            "fieldPath": "questId",
+            "columnName": "quest_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "periodStart",
+            "columnName": "period_start",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completed_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "quest_id",
+            "period_start"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9951ec43e4ff8b22741a906526efd435')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'caa2024c670c753d36655357ef6ad5b5')"
     ]
   }
 }

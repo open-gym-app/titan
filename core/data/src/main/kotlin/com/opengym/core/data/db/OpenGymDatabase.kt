@@ -11,6 +11,7 @@ import com.opengym.core.data.db.dao.ExerciseDao
 import com.opengym.core.data.db.dao.LocalDataDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
+import com.opengym.core.data.db.dao.QuestCompletionDao
 import com.opengym.core.data.db.dao.SessionExerciseDao
 import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.TagDao
@@ -25,6 +26,7 @@ import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
 import com.opengym.core.data.db.entity.MuscleGroupEntity
 import com.opengym.core.data.db.entity.PersonalRecordEntity
+import com.opengym.core.data.db.entity.QuestCompletionEntity
 import com.opengym.core.data.db.entity.SessionExerciseEntity
 import com.opengym.core.data.db.entity.SessionXpClaimEntity
 import com.opengym.core.data.db.entity.TagEntity
@@ -53,6 +55,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
         UserProgressEntity::class,
         AchievementEntity::class,
         SessionXpClaimEntity::class,
+        QuestCompletionEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -72,6 +75,7 @@ abstract class OpenGymDatabase : RoomDatabase() {
     abstract fun userProgressDao(): UserProgressDao
     abstract fun achievementDao(): AchievementDao
     abstract fun sessionXpClaimDao(): SessionXpClaimDao
+    abstract fun questCompletionDao(): QuestCompletionDao
 
     companion object {
         val foreignKeysCallback = object : Callback() {
