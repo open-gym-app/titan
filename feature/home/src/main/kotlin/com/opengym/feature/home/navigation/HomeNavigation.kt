@@ -47,6 +47,9 @@ data object HomeDestination
  *   `:app`'s knowledge; this module has never heard of it.
  * @param onOpenStats the user tapped the volume chart and wants the figures behind the shape.
  *   A tab switch, like [onOpenSessions] and for the same reason, but named for the want.
+ * @param onOpenQuestLog the quest card was tapped and the user wants the whole board. A push
+ *   over the tabs, which is again the shell's knowledge — the board lives in
+ *   `:feature:progression`, an edge only `:app` is allowed to see.
  */
 fun NavGraphBuilder.homeGraph(
     onResumeSession: (sessionId: Long) -> Unit,
@@ -56,6 +59,7 @@ fun NavGraphBuilder.homeGraph(
     onOpenSessions: () -> Unit,
     onOpenRecords: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenQuestLog: () -> Unit,
 ) {
     navigation<HomeGraphDestination>(startDestination = HomeDestination) {
         composable<HomeDestination> {
@@ -67,6 +71,7 @@ fun NavGraphBuilder.homeGraph(
                 onOpenSessions = onOpenSessions,
                 onOpenRecords = onOpenRecords,
                 onOpenStats = onOpenStats,
+                onOpenQuestLog = onOpenQuestLog,
             )
         }
     }

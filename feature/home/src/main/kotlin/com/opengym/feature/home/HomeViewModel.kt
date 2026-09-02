@@ -6,6 +6,7 @@ import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.PersonalRecordEntry
+import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.VolumeTrend
@@ -20,6 +21,7 @@ import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.LatestPersonalRecordUseCase
+import com.opengym.core.domain.usecase.QuestProgressUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import com.opengym.core.ui.component.WeekDay
@@ -39,6 +41,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -97,13 +100,13 @@ import kotlin.time.Duration.Companion.seconds
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 /*
- * Ten constructor parameters, and every one is a graph edge: the sessions and their draft, the
- * catalogue the draft's exercise is named from, the templates the quick-start strip offers, the
- * two transitions the banner's Discard runs, the clock the banner is drawn against, and the
+ * Eleven constructor parameters, and every one is a graph edge: the sessions and their draft,
+ * the catalogue the draft's exercise is named from, the templates the quick-start strip offers,
+ * the two transitions the banner's Discard runs, the clock the banner is drawn against, the
  * three progression sources #110 added — the standing, the last record broken, and the volume
- * series. Bundling them behind a holder to satisfy the count would put a type in the way of
- * reading what the screen depends on, which is the one thing the list is good for. The same
- * trade `NewSessionViewModel` records.
+ * series — and the quest board #104 builds the dashboard card from. Bundling them behind a
+ * holder to satisfy the count would put a type in the way of reading what the screen depends
+ * on, which is the one thing the list is good for. The same trade `NewSessionViewModel` records.
  */
 @Suppress("LongParameterList")
 class HomeViewModel @Inject constructor(
@@ -114,6 +117,7 @@ class HomeViewModel @Inject constructor(
     getTemplateSummaries: GetTemplateSummariesUseCase,
     private val latestPersonalRecord: LatestPersonalRecordUseCase,
     private val volumeTrend: VolumeTrendUseCase,
+    questProgress: QuestProgressUseCase,
     private val resumeSession: ResumeSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
     private val clock: Clock,
@@ -177,6 +181,21 @@ class HomeViewModel @Inject constructor(
             latestPersonalRecord(),
             volumeTrend(TrainingWeek.trailing(weeks = VOLUME_WEEKS, endingOn = day)),
         ) { progress, record, volume -> Readings(progress = progress, record = record, volume = volume) }
+     * This week's board, or null while it is unknown and for a user with nothing to show.
+     *
+     * ### Why this is combined in separately
+     *
+     * [assembled] already takes the five sources `combine` has a typed overload for, and a sixth
+     * would push it onto the array form. That is the mechanical reason. The better one is that
+     * the board must not be able to hold the *whole screen* back: `combine` waits for every
+     * source before its first emission, and the board's aggregate reads are the slowest thing
+     * Home asks for. Started with a null, so the dashboard draws the moment the other five
+     * answer and the card appears under them when the board lands.
+     */
+    private val quests: Flow<QuestSummary?> =
+        questProgress()
+            .map { board -> board.summarise() }
+            .onStart { emit(null) }
 
     /**
      * Everything the reads decide, with the clock left out of it.
@@ -213,8 +232,10 @@ class HomeViewModel @Inject constructor(
      * stopped by definition, and a beat that redraws the same reading is a beat that does
      * nothing. Both fall out of asking the assembled state whether it has anything to tick.
      */
-    val uiState: StateFlow<HomeUiState> = assembled
-        .flatMapLatest { assembled -> assembled.ticking() }
+    val uiState: StateFlow<HomeUiState> = combine(
+        assembled.flatMapLatest { assembled -> assembled.ticking() },
+        quests,
+    ) { state, quests -> state.copy(quests = quests) }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -387,6 +408,40 @@ class HomeViewModel @Inject constructor(
             level = level,
             xpIntoLevel = into.toInt(),
             xpForLevel = XpCalculator.XP_PER_LEVEL,
+     * The board as the dashboard shows it, or **null** when there is nothing worth showing.
+     *
+     * ### Which cadence
+     *
+     * The **weekly** one, when the catalogue has any: it is the near deadline, and a monthly
+     * score moves too slowly to earn a place on a screen the user opens every day. A build whose
+     * catalogue is monthly-only falls back to whatever the first cadence is rather than drawing
+     * nothing, which keeps this correct without the dashboard knowing what ships.
+     *
+     * ### Null for a user with nothing on the board
+     *
+     * Not merely for an empty catalogue: a board where every quest sits at zero and none is
+     * cleared is a card that would tell a first-week user their score is `0 / 4` and list four
+     * things they have not done. That is #110's "no chart of zeros" rule, and [HomeUiState]
+     * applies it to every card here. The first logged set moves a quest, and the card appears.
+     *
+     * ### Nearest first, cut to three
+     *
+     * The open quests are ordered by how close they are to done, because the question a
+     * dashboard answers is "what could I finish today". Three of them: enough to be a prompt,
+     * few enough that the card stays a card. The whole board is one tap away.
+     */
+    private fun List<QuestProgress>.summarise(): QuestSummary? {
+        val period = map { it.quest.period }.minByOrNull { it.ordinal } ?: return null
+        val rows = filter { it.quest.period == period }
+        if (rows.none { it.isComplete || it.progress > 0 }) return null
+
+        return QuestSummary(
+            clearedThisPeriod = rows.count { it.isComplete },
+            totalThisPeriod = rows.size,
+            period = period,
+            next = rows.filterNot { it.isComplete }
+                .sortedByDescending { it.fraction }
+                .take(QUEST_PREVIEW_COUNT),
         )
     }
 
@@ -516,6 +571,9 @@ class HomeViewModel @Inject constructor(
     private companion object {
         /** The other screens' number, for the same reasons. */
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
+
+        /** How many open quests the dashboard card lists. The rest are one tap away. */
+        const val QUEST_PREVIEW_COUNT = 3
 
         /** How often the banner's clock is recomputed. It is drawn to the second. */
         val TICK = 1.seconds

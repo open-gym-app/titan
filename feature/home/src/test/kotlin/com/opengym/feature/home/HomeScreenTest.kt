@@ -52,6 +52,7 @@ class HomeScreenTest {
     private var openedSessions = 0
     private var openedRecords = 0
     private var openedStats = 0
+    private var openedQuestLog = 0
 
     // ─── The resume banner ──────────────────────────────────────────────────────────────
 
@@ -439,6 +440,7 @@ class HomeScreenTest {
                     onOpenSessions = { openedSessions++ },
                     onOpenRecords = { openedRecords++ },
                     onOpenStats = { openedStats++ },
+                    onOpenQuestLog = { openedQuestLog++ },
                 )
             }
         }

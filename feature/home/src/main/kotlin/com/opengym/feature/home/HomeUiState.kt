@@ -2,6 +2,8 @@ package com.opengym.feature.home
 
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.PersonalRecordEntry
+import com.opengym.core.domain.model.QuestPeriod
+import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.ui.component.WeekDay
@@ -28,9 +30,14 @@ import kotlin.time.Duration
  * | eight-week volume (#31) | [volume] |
  * | level and XP (#33) | [level] |
  *
- * Three of the four are nullable and the fourth is a list, which is the same statement: a
+ * Four of the five are nullable and the fifth is a list, which is the same statement: a
  * chart is a series, and an empty series is exactly "nothing to draw" without a second way of
- * saying so — the shape [templates] already had.
+ * saying so — the shape [templates] already had. [quests] is the newest of them, and it lands
+ * in exactly that shape.
+ *
+ * Nothing above is stubbed in advance. A field that is always null until an engine exists is
+ * a field every test has to carry and every reader has to ask about; the shape is what has to
+ * be right now, and the shape is "one nullable card per source".
  *
  * @param level the standing the header draws — the level, and how far into it the user is — or
  *   **null** for somebody who has never banked a point, whose header would otherwise read
@@ -41,6 +48,8 @@ import kotlin.time.Duration
  *   never finished a session. A strip of seven empty squares under a "0 sessions" line is the
  *   empty shell #23 asks for it not to be: it says nothing a first-launch user does not already
  *   know, and it pushes the one thing they need — the way into a workout — down the screen.
+ * @param quests what is left to clear this week, or **null** for a user with nothing to show
+ *   yet — see [QuestSummary], which is absent rather than zeroed for the same reason [week] is.
  * @param templates the saved templates the quick-start strip offers, already ordered and cut
  *   to the handful that fit — most recently trained from first, see [HomeViewModel]. Empty
  *   draws no strip, which is what a user who has never saved one sees.
@@ -66,6 +75,7 @@ data class HomeUiState(
     val level: LevelState? = null,
     val resume: ResumeState? = null,
     val week: WeekState? = null,
+    val quests: QuestSummary? = null,
     val templates: List<TemplateSummary> = emptyList(),
     val recentRecord: PersonalRecordEntry? = null,
     val volume: List<WeeklyVolume> = emptyList(),
@@ -211,4 +221,45 @@ enum class HomeMessage {
      * other way out.
      */
     DISCARD_FAILED,
+}
+
+/**
+ * The quest board as the dashboard shows it: this week's score, and the quests closest to done.
+ *
+ * ### Why the dashboard carries quests at all
+ *
+ * The board lived on one screen two taps away, which meant a lifter only found out what was left
+ * this week if they went looking. A quest is a thing with a deadline — the one kind of goal that
+ * is worthless once you have stopped noticing it — so it belongs where the app is opened. What is
+ * *not* here is the whole board: this is a prompt and a way through, and the seven-row version
+ * with its cadences and cleared group is still the quest log's job.
+ *
+ * ### Absent, not zeroed
+ *
+ * Built as null for a user who has never moved a quest — see [HomeViewModel]. That is #110's rule
+ * ("a new user should not see a chart of zeros") applied to a board rather than a chart, and it is
+ * the same call [WeekState] makes: a strip of untouched targets over a "0 / 4" tells somebody who
+ * has never trained nothing they do not know, and pushes the one thing they need — the way into a
+ * workout — down the screen.
+ *
+ * @param clearedThisPeriod how many of [totalThisPeriod] are banked, in the cadence [period]
+ *   names. Weekly, in every build that ships the current catalogue: the near deadline is the one
+ *   worth a dashboard, and a monthly score moves too slowly to be worth the space.
+ * @param totalThisPeriod how many quests that cadence has.
+ * @param period which cadence the score is about.
+ * @param next the quests still open, **nearest to done first**, cut to the handful that fit.
+ *   Ordered by how close they are rather than by the catalogue, because the question a dashboard
+ *   answers is "what could I finish today" — and a quest at 2 / 3 is a different invitation from
+ *   one at 0 / 20,000. Empty when the cadence is cleared, which the card draws as its own state.
+ */
+@Immutable
+data class QuestSummary(
+    val clearedThisPeriod: Int,
+    val totalThisPeriod: Int,
+    val period: QuestPeriod,
+    val next: List<QuestProgress>,
+) {
+
+    /** Whether every quest of [period] is banked — the card's one celebratory state. */
+    val isCleared: Boolean get() = clearedThisPeriod == totalThisPeriod
 }

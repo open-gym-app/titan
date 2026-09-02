@@ -1,5 +1,6 @@
 package com.opengym.feature.home
 
+import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
@@ -8,12 +9,15 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.LatestPersonalRecordUseCase
+import com.opengym.core.domain.usecase.QuestProgressUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
@@ -57,6 +61,9 @@ import kotlin.time.Duration.Companion.minutes
 class HomeViewModelTest {
 
     private val sessions = FakeSessionStore()
+    private val aggregates = FakeQuestAggregates()
+    private val records = FakeQuestRecords()
+    private val completions = FakeQuestCompletions()
     private val drafts = FakeDraftStore()
     private val catalogue = FakeExerciseCatalogue(listOf(BENCH_PRESS))
     private val templates = FakeTemplateStore()
@@ -501,6 +508,61 @@ class HomeViewModelTest {
             assertEquals(
                 listOf(10_000L, 20_000L, 30_000L, 40_000L, 0L, 60_000L, 70_000L, 80_000L),
                 weeks.map { it.totalVolume },
+    // ─── The quest card ─────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a board nobody has touched draws no card at all`() =
+        runTest {
+            // Every quest at zero and none cleared: #110's "no chart of zeros" rule, applied to
+            // a board — see [QuestSummary]. The card appears the moment something moves.
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            assertNull("nothing on the board is nothing to draw", viewModel.uiState.value.quests)
+        }
+
+    @Test
+    fun `one finished session is enough to bring the card out`() =
+        runTest {
+            aggregates.sessionsFinished.value = 1
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertEquals(QuestPeriod.WEEKLY, quests.period)
+            assertEquals(0, quests.clearedThisPeriod)
+        }
+
+    @Test
+    fun `the card scores the weekly cadence, not the monthly one`() =
+        runTest {
+            // The near deadline. A monthly score moves too slowly to earn a place on a screen
+            // the user opens every day — see [HomeViewModel.summarise].
+            aggregates.sessionsFinished.value = 3
+            completions.completed.value = setOf("weekly_sessions")
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertEquals(QuestPeriod.WEEKLY, quests.period)
+            assertEquals(WEEKLY_QUEST_COUNT, quests.totalThisPeriod)
+            assertEquals(1, quests.clearedThisPeriod)
+        }
+
+    @Test
+    fun `the quests listed are the ones nearest to done, hardest last`() =
+        runTest {
+            // Two of three sessions and a fifth of the tonnage: "train three times" is the
+            // thing that could be finished today, so it leads.
+            aggregates.sessionsFinished.value = 2
+            aggregates.volumeMilligrams.value = 4_000_000L
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertEquals("weekly_sessions", quests.next.first().quest.id)
+            assertTrue(
+                "ordered by how close each one is",
+                quests.next.map { it.fraction } == quests.next.map { it.fraction }.sortedDescending(),
             )
         }
 
@@ -539,6 +601,69 @@ class HomeViewModelTest {
 
             assertEquals(emptyList<Long>(), home.volume.map { it.totalVolume })
             assertFalse(home.isLoading)
+    fun `the card lists a handful, not the whole board`() =
+        runTest {
+            aggregates.sessionsFinished.value = 1
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertEquals(QUEST_PREVIEW_COUNT, quests.next.size)
+        }
+
+    @Test
+    fun `a cleared quest leaves the list and is counted instead`() =
+        runTest {
+            aggregates.sessionsFinished.value = 3
+            completions.completed.value = setOf("weekly_sessions")
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertEquals(1, quests.clearedThisPeriod)
+            assertTrue(
+                "a banked quest is not offered again",
+                quests.next.none { it.quest.id == "weekly_sessions" },
+            )
+        }
+
+    @Test
+    fun `clearing every weekly quest is its own state`() =
+        runTest {
+            aggregates.sessionsFinished.value = 5
+            completions.completed.value = Quests.ALL
+                .filter { it.period == QuestPeriod.WEEKLY }
+                .mapTo(mutableSetOf()) { it.id }
+
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+
+            val quests = requireNotNull(viewModel.uiState.value.quests) { "the card is drawn" }
+            assertTrue("the cadence is cleared", quests.isCleared)
+            assertEquals(emptyList<Any>(), quests.next)
+        }
+
+    @Test
+    fun `a quest cleared while Home is open moves the score`() =
+        runTest {
+            aggregates.sessionsFinished.value = 3
+            val viewModel = viewModel(questCatalogue = Quests.ALL)
+            assertEquals(0, requireNotNull(viewModel.uiState.value.quests).clearedThisPeriod)
+
+            completions.completed.value = setOf("weekly_sessions")
+
+            assertEquals(1, requireNotNull(viewModel.uiState.value.quests).clearedThisPeriod)
+        }
+
+    @Test
+    fun `the dashboard draws before the board has answered`() =
+        runTest {
+            // The board's aggregates are the slowest read Home makes, and `combine` waits for
+            // every source — so the quest flow starts with a null rather than holding the whole
+            // screen back. See [HomeViewModel.quests].
+            val viewModel = viewModel()
+
+            assertFalse("the rest of the screen has loaded", viewModel.uiState.value.isLoading)
+            assertNull("with no card yet", viewModel.uiState.value.quests)
         }
 
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
@@ -588,6 +713,10 @@ class HomeViewModelTest {
         drafts: FakeDraftStore = this@HomeViewModelTest.drafts,
         templates: FakeTemplateStore = this@HomeViewModelTest.templates,
         state: FakeSessionStateStore = this@HomeViewModelTest.state,
+        // Empty by default, so the quest card is absent and every test in this suite stays
+        // about what it is named for. The board's own reads are never touched with no
+        // catalogue to read them for — see `QuestProgressUseCase.at`.
+        questCatalogue: List<Quest> = emptyList(),
     ): HomeViewModel {
         // A lock of this test's own rather than the shared one, so two tests running in the
         // same JVM cannot wait on each other's transitions.
@@ -600,6 +729,13 @@ class HomeViewModelTest {
             getTemplateSummaries = GetTemplateSummariesUseCase(templates, FakeSettings()),
             latestPersonalRecord = LatestPersonalRecordUseCase(records),
             volumeTrend = VolumeTrendUseCase(volume),
+            questProgress = QuestProgressUseCase(
+                progressionRepository = aggregates,
+                personalRecordRepository = records,
+                questRepository = completions,
+                clock = clock,
+                catalogue = questCatalogue,
+            ),
             resumeSession = ResumeSessionUseCase(sessions, state, clock, lock),
             discardSession = DiscardSessionUseCase(sessions, state, drafts, lock),
             clock = clock,
@@ -697,3 +833,10 @@ class HomeViewModelTest {
             date.atTime(LocalTime.NOON).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
 }
+
+/** How many quests the shipped catalogue puts on the weekly board. */
+private const val WEEKLY_QUEST_COUNT = 4
+
+/** How many open quests the card lists. Stated here rather than read off the ViewModel, so a
+ * change to the cut shows up as a failing test rather than as a test that agrees with itself. */
+private const val QUEST_PREVIEW_COUNT = 3

@@ -159,6 +159,10 @@ fun OpenGymNavHost(
                 onStartFromTemplate = { templateId ->
                     navController.openSetup(templateId = templateId)
                 },
+                // A push over the tabs onto the board, the same move the Stats hub's explore
+                // row makes and through the same helper — so back returns to Home with the tab
+                // it was on still selected.
+                onOpenQuestLog = { navController.openProgressionDetail(QuestLogDestination) },
                 // A tab switch and not a push: the sessions the week card counts are the
                 // Sessions tab's own list, and moving the user there through
                 // [OpenGymAppState.navigateToTopLevelDestination] is what leaves that tab on

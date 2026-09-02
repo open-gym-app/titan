@@ -106,5 +106,32 @@
     <string name="home_volume_label">Volume</string>
     <!-- What tapping the card does, as the click's own label. -->
     <string name="home_volume_open">Show training stats</string>
+    <!-- ── The quest card (#104) ─────────────────────────────────────────────────────
+         A quest is the one kind of goal that expires, so what is left this week belongs on
+         the screen the app opens on rather than two taps away. See `QuestSection`. -->
+
+    <string name="home_quests_heading">Quests</string>
+    <!-- %1$d cleared of %2$d, this week. -->
+    <string name="home_quests_score">%1$d / %2$d</string>
+    <string name="home_quests_progress">%1$s / %2$s</string>
+    <string name="home_quests_open_board">Open the quest board</string>
+    <string name="home_quests_open_board_description">Open the quest board, %1$d of %2$d cleared</string>
+    <string name="home_quests_description">%1$s, %2$s</string>
+    <string name="home_quests_all_clear_weekly">Every quest cleared this week. Strong week.</string>
+    <string name="home_quests_all_clear_monthly">Every quest cleared this month. Strong month.</string>
+
+    <!-- The quest names, resolved from the domain catalogue's ids. Duplicated from
+         `:feature:progression` and `:feature:session`, which draw the same seven: a string
+         resource is per module, and a shared one would mean a `:core:ui` that knows the
+         gamification catalogue. -->
+    <string name="quest_weekly_sessions">Train three times</string>
+    <string name="quest_weekly_sessions_plus">Train five times</string>
+    <string name="quest_weekly_record">Break a personal record</string>
+    <string name="quest_weekly_volume">Move 20 tonnes</string>
+    <string name="quest_monthly_sessions">Train twelve times</string>
+    <string name="quest_monthly_records">Break five personal records</string>
+    <string name="quest_monthly_volume">Move 80 tonnes</string>
+    <!-- A quest id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="quest_unknown">Quest</string>
 
 </resources>
