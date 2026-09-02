@@ -168,8 +168,15 @@ class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 
+    /**
+     * The exercise's own records, newest first — the order the contract promises and the order
+     * `bestByType` depends on, so a test that seeds two of a kind gets the same answer the store
+     * would give.
+     */
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
-        throw UnsupportedOperationException("no test here reads one exercise's records")
+        records.map { held ->
+            held.values.filter { it.exerciseId == exerciseId }.sortedByDescending { it.achievedAt }
+        }
 
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
         throw UnsupportedOperationException("no test here tallies records over a period")

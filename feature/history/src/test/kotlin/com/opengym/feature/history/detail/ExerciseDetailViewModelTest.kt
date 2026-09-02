@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.library.CHEST
 import com.opengym.feature.history.library.FakeExerciseRepository
+import com.opengym.feature.history.library.FakePersonalRecordRepository
 import com.opengym.feature.history.library.LATS
 import com.opengym.feature.history.library.TAXONOMY
 import com.opengym.feature.history.library.TRICEPS
@@ -45,6 +46,9 @@ import org.robolectric.RobolectricTestRunner
 @RunWith(RobolectricTestRunner::class)
 class ExerciseDetailViewModelTest {
 
+    /** No records seeded: the section under test is absent for an exercise with none. */
+    private val personalRecords = FakePersonalRecordRepository()
+
     private val repository = FakeExerciseRepository(
         exercises = listOf(DETAIL_BENCH, DETAIL_CUSTOM),
         links = mapOf(
@@ -73,7 +77,7 @@ class ExerciseDetailViewModelTest {
      */
     private fun TestScope.viewModel(exerciseId: Long): ExerciseDetailViewModel {
         val handle = SavedStateHandle(mapOf("exerciseId" to exerciseId, "addToSession" to false))
-        val viewModel = ExerciseDetailViewModel(handle, repository)
+        val viewModel = ExerciseDetailViewModel(handle, repository, personalRecords)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
         }

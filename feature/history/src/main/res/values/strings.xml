@@ -361,4 +361,10 @@
     <string name="template_editor_restarted">The editor reopened, so those exercises were not added. Pick them again.</string>
     <string name="template_editor_save_failed">Could not save the template</string>
 
+    <!-- ─── This exercise's bests, on its detail screen ────────────────────────────────── -->
+
+    <string name="detail_section_records">Personal records</string>
+    <!-- One row as a screen reader hears it: kind, figure, date. -->
+    <string name="detail_record_description">%1$s, %2$s, %3$s</string>
+
 </resources>

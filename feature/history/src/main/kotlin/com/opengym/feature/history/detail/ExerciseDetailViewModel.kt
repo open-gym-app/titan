@@ -7,7 +7,10 @@ import androidx.navigation.toRoute
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.bestByType
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.exercise.applyTo
 import com.opengym.feature.history.exercise.exerciseDraftOf
@@ -51,6 +54,7 @@ import kotlin.time.Duration.Companion.seconds
 class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val exerciseRepository: ExerciseRepository,
+    personalRecordRepository: PersonalRecordRepository,
 ) : ViewModel() {
 
     private val exerciseId = savedStateHandle.toRoute<ExerciseDetailDestination>().exerciseId
@@ -93,13 +97,31 @@ class ExerciseDetailViewModel @Inject constructor(
             initialValue = Vocabulary(),
         )
 
+    /**
+     * This exercise's bests, one per kind.
+     *
+     * `bestByType` rather than the whole list: the store hands over every record ever set on the
+     * exercise — three heaviest rows as the lift went 80, 86, 92 — and a section listing all of
+     * them would read as a log rather than as a set of bests. The rule that the newest of a kind
+     * is its best lives in the domain, beside the engine that makes it true.
+     */
+    private val records: StateFlow<List<PersonalRecord>> =
+        personalRecordRepository.getRecordsForExercise(exerciseId)
+            .map { records -> records.bestByType().values.sortedBy { it.type.ordinal } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = emptyList(),
+            )
+
     val uiState: StateFlow<ExerciseDetailUiState> = combine(
         loaded,
         exerciseRepository.getMuscleGroupLinks(exerciseId),
         vocabulary,
+        records,
         screenState,
-    ) { loaded, links, vocabulary, screen ->
-        buildState(loaded, links, vocabulary, screen)
+    ) { loaded, links, vocabulary, records, screen ->
+        buildState(loaded, links, vocabulary, records, screen)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -285,12 +307,14 @@ class ExerciseDetailViewModel @Inject constructor(
         loaded: Loaded?,
         links: List<ExerciseMuscleGroupLink>,
         vocabulary: Vocabulary,
+        records: List<PersonalRecord>,
         screen: ScreenState,
     ): ExerciseDetailUiState =
         ExerciseDetailUiState(
             exercise = loaded?.exercise,
             muscleLinks = links,
             taxonomy = vocabulary.taxonomy,
+            records = records,
             notesDraft = screen.noteDraft,
             isSavingNotes = screen.isSavingNotes,
             editDraft = screen.editDraft?.let { it.copy(isDuplicateName = it.isDuplicateIn(vocabulary.catalogue)) },

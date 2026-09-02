@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.feature.history.exercise.ExerciseDraft
 
 /**
@@ -37,6 +38,7 @@ data class ExerciseDetailUiState(
     val exercise: Exercise? = null,
     val muscleLinks: List<ExerciseMuscleGroupLink> = emptyList(),
     val taxonomy: List<MuscleGroup> = emptyList(),
+    val records: List<PersonalRecord> = emptyList(),
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,
     val editDraft: ExerciseDraft? = null,

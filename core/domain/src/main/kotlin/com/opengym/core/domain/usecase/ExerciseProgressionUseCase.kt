@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.ExerciseProgression
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.bestByType
 import com.opengym.core.domain.pr.OneRepMaxCalculator
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.ProgressionRepository
@@ -84,7 +85,7 @@ class ExerciseProgressionUseCase(
                 .map { preferences -> preferences.oneRepMaxFormula }
                 .distinctUntilChanged(),
         ) { attempts, totalSets, records, formula ->
-            val best = bestByType(records)
+            val best = records.bestByType()
             ExerciseProgression(
                 attempts = attempts,
                 estimates = estimates(attempts, formula),
@@ -93,13 +94,6 @@ class ExerciseProgressionUseCase(
                 totalSets = totalSets,
             )
         }
-
-    /**
-     * The best record of each kind: the first row of each type, since the store hands them
-     * over newest first and the newest of a kind is the best one.
-     */
-    private fun bestByType(records: List<PersonalRecord>): Map<PrType, PersonalRecord> =
-        records.groupBy(PersonalRecord::type).mapValues { (_, ofType) -> ofType.first() }
 
     /**
      * The kinds that were broken in [latest].
