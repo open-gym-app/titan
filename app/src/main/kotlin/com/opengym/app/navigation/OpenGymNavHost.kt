@@ -367,7 +367,17 @@ fun OpenGymNavHost(
         // Outside the tabs, like the exercise detail and the plate calculator: all four are
         // full-screen reading surfaces with their own bar, and the Stats title over a list of
         // personal records is chrome for the wrong screen.
-        progressionDetailGraph(onBack = { navController.popBackStack() })
+        progressionDetailGraph(
+            onBack = { navController.popBackStack() },
+            // A record opens the lift it was set on, with the lift already named — the same
+            // screen the hub's explore row reaches empty. `launchSingleTop` as everywhere else:
+            // two taps on a row dispatched before recomposition are two pushes of one screen.
+            onOpenExerciseProgression = { exerciseId ->
+                navController.navigate(ExerciseProgressionDestination(exerciseId)) {
+                    launchSingleTop = true
+                }
+            },
+        )
 
         settingsGraph(
             // The version name belongs to the module that ships, and `:app` is it. A feature's

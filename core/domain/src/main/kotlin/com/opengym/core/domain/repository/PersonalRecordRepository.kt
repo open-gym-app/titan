@@ -1,6 +1,7 @@
 package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import kotlinx.coroutines.flow.Flow
@@ -66,6 +67,47 @@ interface PersonalRecordRepository {
      * the records it has just written, and it needs it in the same breath.
      */
     suspend fun count(): Int
+
+    /**
+     * One window of the records list: every record across every exercise, newest first, with the
+     * figure each one beat and the name it was set on.
+     *
+     * ### Why a window and not a `PagingSource`
+     *
+     * Because this interface lives in `:core:domain`, which carries no Android dependencies —
+     * see ARCHITECTURE.md. `PagingData` and `PagingSource` are AndroidX types, so a contract
+     * shaped around them would put an androidx artifact in the dependency-free centre that every
+     * other module is allowed to depend on. An offset and a limit say the same thing in plain
+     * Kotlin, and `:feature:progression` builds its `PagingSource` over this.
+     *
+     * The cost is real and worth naming: Room invalidates its own `PagingSource` when the table
+     * changes, and a hand-rolled one over this gets no such signal. That is what
+     * [observeRecordCount] is for.
+     *
+     * @param type the kind to list, or **null** for all of them. Null rather than a set of all
+     *   six, so "no filter" and "every filter selected" are the same query rather than two.
+     * @param offset how many rows to skip. The caller's paging key.
+     * @param limit how many to return.
+     */
+    suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry>
+
+    /**
+     * How many records exist, re-emitted whenever the table changes.
+     *
+     * The invalidation signal a hand-rolled `PagingSource` has to be given, since it cannot be
+     * handed Room's. A count rather than a `Flow<Unit>` because it is the cheapest query that
+     * changes when the thing being listed does, and because the screen has a use for the figure
+     * itself — a list of every record wants to say how many there are.
+     *
+     * It does not catch every possible change: a record *edited* in place leaves the count alone.
+     * Nothing edits records — the engine only ever inserts — so the signal is complete for the
+     * writer that exists, and this note is here for the one that might not be.
+     */
+    fun observeRecordCount(): Flow<Int>
 
     /**
      * How many records were broken over [days], and across how many exercises.

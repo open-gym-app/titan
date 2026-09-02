@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.Tag
@@ -28,6 +29,7 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
@@ -164,6 +166,15 @@ class FakeExerciseRecordStore : PersonalRecordRepository {
 
     private fun unsupported(): Nothing =
         throw UnsupportedOperationException("the drill-down only reads one exercise's records")
+
+    /** Unused here: this fake serves the per-exercise reads, not the records list. */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = emptyList()
+
+    override fun observeRecordCount(): Flow<Int> = flowOf(0)
 }
 
 /** The catalogue, as the rows this screen looks a name up in. */

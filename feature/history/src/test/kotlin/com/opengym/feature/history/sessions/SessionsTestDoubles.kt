@@ -1,6 +1,7 @@
 package com.opengym.feature.history.sessions
 
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.SessionExercise
@@ -20,6 +21,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import java.time.LocalTime
@@ -119,6 +121,15 @@ class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = e
         record: PersonalRecord,
         isBetter: (current: PersonalRecord?) -> Boolean,
     ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
+
+    /** Unused here: this fake serves the reads its own screen makes, not the records list. */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = emptyList()
+
+    override fun observeRecordCount(): Flow<Int> = flowOf(0)
 }
 
 /** A record of the only kind that matters here: one achieved at a known instant. */

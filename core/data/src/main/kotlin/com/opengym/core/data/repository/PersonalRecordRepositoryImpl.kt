@@ -1,8 +1,11 @@
 package com.opengym.core.data.repository
 
 import com.opengym.core.data.db.dao.PersonalRecordDao
+import com.opengym.core.data.db.entity.PersonalRecordEntity
+import com.opengym.core.data.db.projection.PersonalRecordColumns
 import com.opengym.core.data.mapper.PersonalRecordMapper
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
@@ -52,6 +55,33 @@ class PersonalRecordRepositoryImpl @Inject constructor(
     override suspend fun count(): Int = personalRecordDao.count()
 
     /**
+     * One window of the list, with rows this build cannot read dropped.
+     *
+     * `mapNotNull` for the reason the other reads give: a row whose `pr_type` is unknown to this
+     * build is dropped rather than guessed at. That makes a page occasionally shorter than its
+     * limit, which the caller must not read as "the end of the list" — see
+     * `PersonalRecordsPagingSource`, which keys the next page off the offset it asked for rather
+     * than off how many rows came back.
+     */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> =
+        personalRecordDao.getRecordsPage(type = type?.name, limit = limit, offset = offset)
+            .mapNotNull { row ->
+                val record = personalRecordMapper.toDomainOrNull(row.record.toEntity()) ?: return@mapNotNull null
+                PersonalRecordEntry(
+                    record = record,
+                    exerciseName = row.exerciseName,
+                    previousValue = row.previousValue,
+                    isRecent = row.isRecent,
+                )
+            }
+
+    override fun observeRecordCount(): Flow<Int> = personalRecordDao.observeCount()
+
+    /**
      * Counted in SQLite, over rows this build may not be able to *read* — the same reasoning as
      * [count]: a record broken on a newer version still happened, and dropping it here would
      * make a period's tally depend on which build the user has installed.
@@ -84,3 +114,23 @@ class PersonalRecordRepositoryImpl @Inject constructor(
 
 /** What a day is, in the milliseconds `achieved_at` is stored in. */
 private const val MILLIS_PER_DAY = 86_400_000L
+
+/**
+ * The joined columns back into the entity shape the mapper already understands.
+ *
+ * The alternative is a second hand-written `pr_type`-to-domain mapping beside the one in
+ * `PersonalRecordMapper`, which is where the "drop what this build cannot read" rule lives.
+ */
+private fun PersonalRecordColumns.toEntity() =
+    PersonalRecordEntity(
+        id = id,
+        exerciseId = exerciseId,
+        workoutSetId = workoutSetId,
+        prType = prType,
+        weight = weight,
+        reps = reps,
+        distance = distance,
+        duration = duration,
+        estimated1Rm = estimated1Rm,
+        achievedAt = achievedAt,
+    )

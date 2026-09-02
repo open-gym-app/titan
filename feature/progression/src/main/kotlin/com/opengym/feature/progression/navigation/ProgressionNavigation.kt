@@ -6,6 +6,7 @@ import androidx.navigation.compose.navigation
 import com.opengym.feature.progression.detail.ProgressionDetail
 import com.opengym.feature.progression.detail.ProgressionDetailScreen
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
+import com.opengym.feature.progression.records.PersonalRecordsRoute
 import com.opengym.feature.progression.stats.StatsRoute
 import com.opengym.feature.progression.stats.component.StatsExploreActions
 import kotlinx.serialization.Serializable
@@ -86,17 +87,23 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 /**
  * The four screens the hub drills into, registered outside the tab scaffold.
  *
- * Three of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
+ * Two of the four are still one placeholder screen — see [ProgressionDetailScreen] for why
  * the destinations ship with the hub while the screens behind them are being built, and for
  * which issue replaces each. A registration is what the explore rows navigate to, so replacing
- * one is a change to the line below it and to nothing else; #102 is the first to be replaced,
+ * one is a change to the line below it and to nothing else; #102 was the first to be replaced,
  * and its entry is what the other three grow into.
  *
  * @param onBack a step back out. One lambda for all four, because it is one pop.
+ * @param onOpenExerciseProgression a record's exercise, opened on its own drill-down. Hoisted
+ *   rather than navigated here: both destinations live in this graph, but which one a record row
+ *   opens is a *routing* decision, and `:app` is where every other one of those is made.
  */
-fun NavGraphBuilder.progressionDetailGraph(onBack: () -> Unit) {
+fun NavGraphBuilder.progressionDetailGraph(
+    onBack: () -> Unit,
+    onOpenExerciseProgression: (Long) -> Unit,
+) {
     composable<PersonalRecordsDestination> {
-        ProgressionDetailScreen(detail = ProgressionDetail.RECORDS, onBack = onBack)
+        PersonalRecordsRoute(onBack = onBack, onOpenExercise = onOpenExerciseProgression)
     }
     composable<ExerciseProgressionDestination> {
         ExerciseProgressionRoute(onBack = onBack)

@@ -231,10 +231,13 @@ class PrDetectionUseCase(
         current: PersonalRecord?,
     ): Boolean {
         current ?: return true
-        return if (candidate.type == PrType.BEST_PACE) {
-            pace(candidate) < pace(current)
-        } else {
+        // Which way "better" runs is [PrType]'s to say, not this file's: the records list asks
+        // the same question when it works out how much a record improved on the one before it,
+        // and two copies of the rule are two things that can disagree.
+        return if (candidate.type.higherIsBetter) {
             metric(candidate) > metric(current)
+        } else {
+            pace(candidate) < pace(current)
         }
     }
 
