@@ -28,6 +28,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.WeeklyTraining
@@ -304,6 +305,7 @@ class FakeProgressStore(progress: UserProgress? = null) : GamificationRepository
     ): XpAward = unsupported()
 
     override suspend fun unlockedAchievementIds(): Set<String> = unsupported()
+    override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> = unsupported()
     override suspend fun unlockAchievement(
         achievementId: String,
         unlockedAt: Instant,

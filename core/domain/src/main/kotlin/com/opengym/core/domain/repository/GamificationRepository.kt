@@ -3,6 +3,7 @@ package com.opengym.core.domain.repository
 import com.opengym.core.domain.model.StreakResult
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import kotlinx.coroutines.flow.Flow
@@ -94,6 +95,18 @@ interface GamificationRepository {
      * (#104) is a different method, added when that screen exists.
      */
     suspend fun unlockedAchievementIds(): Set<String>
+
+    /**
+     * Every achievement the user holds, earliest first, as it changes.
+     *
+     * The `Flow` this contract's [unlockedAchievementIds] note promised #104. Both reads exist
+     * because they answer different questions: the cascade needs the id *set* at one exact
+     * moment and nothing else, while a grid needs the dates too and needs to keep up.
+     *
+     * Ordered by when each was earned, so the list reads as the user's own history rather than
+     * as the catalogue's order.
+     */
+    fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>>
 
     /**
      * Records [achievementId] as unlocked at [unlockedAt], and returns whether **this call**

@@ -22,5 +22,6 @@ fun UserProgressEntity.toDomain(): UserProgress =
         totalXp = totalXp,
         level = currentLevel,
         currentStreak = currentStreak,
+        longestStreak = longestStreak,
         lastCountedAt = lastCountedAt?.let(Instant::ofEpochMilli),
     )
