@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.opengym.core.domain.gamification.LevelTitle
 import com.opengym.core.domain.model.UserProgress
-import com.opengym.core.ui.chart.ProgressRing
 import com.opengym.core.ui.component.Eyebrow
+import com.opengym.core.ui.component.LaurelWreath
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
@@ -23,12 +23,17 @@ import com.opengym.feature.progression.quests.label
 /**
  * The screen's hero: what level the user is, how far into it, and what that rank is called.
  *
- * ### A ring, not a bar
+ * ### A wreath, not a ring and not a bar
  *
- * [ProgressRing] rather than the `LevelProgressBar` the session summary uses, and the two are
- * deliberately different. The summary draws a level being *crossed* — a bar that fills and sweeps
- * is a thing happening — while this draws a level being *held*. A ring reads as a rank and puts
- * the figure at its centre, which is what a user opening this screen came to see.
+ * Three shapes were tried here and only one of them is right. `LevelProgressBar`, which the
+ * session summary uses, draws a level being *crossed* — a bar that fills and sweeps is a thing
+ * happening. `ProgressRing` draws a level being *held*, which is closer, but a ring is the shape
+ * this app measures things in: it is on the stats hub and in half a dozen charts, so the rank read
+ * as one more figure among figures.
+ *
+ * [LaurelWreath] is neither. It is an *award*, it cannot be mistaken for a chart, and it still
+ * carries the progress honestly because its leaves fill as the XP does. That component's KDoc
+ * carries the full argument.
  *
  * ### The rank is the headline, the level is the figure
  *
@@ -55,7 +60,7 @@ internal fun LevelHeroCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
         ) {
-            ProgressRing(
+            LaurelWreath(
                 progress = progress.levelFraction,
                 label = stringResource(R.string.quest_log_level, progress.currentLevel),
                 valueLabel = stringResource(

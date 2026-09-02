@@ -26,6 +26,7 @@ import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.onboarding.navigation.OnboardingDestination
 import com.opengym.feature.onboarding.navigation.onboardingGraph
+import com.opengym.feature.progression.navigation.AchievementsDestination
 import com.opengym.feature.progression.navigation.BodyMeasurementsDestination
 import com.opengym.feature.progression.navigation.ExerciseProgressionDestination
 import com.opengym.feature.progression.navigation.PersonalRecordsDestination
@@ -386,6 +387,11 @@ fun OpenGymNavHost(
                 navController.navigate(ExerciseProgressionDestination(exerciseId)) {
                     launchSingleTop = true
                 }
+            },
+            // A push onto the quest log rather than a replacement of it: the board is where the
+            // user came from and the back press should put them back on it.
+            onOpenAchievements = {
+                navController.navigate(AchievementsDestination) { launchSingleTop = true }
             },
         )
 

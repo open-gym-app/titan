@@ -2,7 +2,7 @@ package com.opengym.feature.progression.quests
 
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.gamification.LevelTitle
-import com.opengym.core.domain.model.Achievement
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.UserProgress
 
@@ -10,12 +10,12 @@ import com.opengym.core.domain.model.UserProgress
  * Everything the quest log draws.
  *
  * One state object rather than a stream, unlike the records list: every section here is a bounded
- * value — a level, seven quests, six achievements, two streak figures — so there is nothing that
+ * value — a level, seven quests, a milestone count, two streak figures — so there is nothing that
  * has to be paged and nothing that is a stream rather than a list.
  *
  * ### The zero state is the default, and it is a real state
  *
- * Every field defaults to what a brand-new user holds: level 1, no streak, no achievements, and
+ * Every field defaults to what a brand-new user holds: level 1, no streak, no milestones, and
  * quests at zero progress. That is not a placeholder standing in for "not loaded yet" — it is
  * what the screen should draw for that user, and #104 asks for it explicitly. [isLoading] is the
  * separate question, and only two things on this screen actually depend on it; see below.
@@ -27,9 +27,11 @@ import com.opengym.core.domain.model.UserProgress
  * @property quests the board, in catalogue order, each with its progress and whether it is
  *   banked. Empty only before the first emission: the catalogue always has entries, so a user
  *   who has never trained sees every quest at zero rather than an empty section.
- * @property achievements every achievement in the catalogue, marked held or not. Never empty for
- *   the same reason, and never filtered: a grid that hid the locked ones would tell a new user
- *   there is nothing to earn.
+ * @property achievementsUnlocked how many milestones the user holds, and
+ * @property achievementsTotal how many there are — the `3 / 6` on the row that leads to them.
+ *   The counts and nothing more: the grid itself has its own screen and its own state, because an
+ *   achievement is a permanent unlock rather than a thing to do this week. See
+ *   `AchievementsUiState`, which carries that argument.
  * @property isLoading the first emission has not landed. What it gates is narrow — see
  *   [showsEmptyQuests] — because most of this screen is correct at its defaults.
  */
@@ -38,12 +40,28 @@ data class QuestLogUiState(
     val progress: UserProgress = UserProgress(),
     val levelTitle: LevelTitle? = null,
     val quests: List<QuestProgress> = emptyList(),
-    val achievements: List<AchievementEntry> = emptyList(),
+    val achievementsUnlocked: Int = 0,
+    val achievementsTotal: Int = 0,
     val isLoading: Boolean = true,
 ) {
 
-    /** How many achievements the user holds — the numerator of the grid's count. */
-    val unlockedCount: Int get() = achievements.count(AchievementEntry::isUnlocked)
+    /**
+     * The board, one entry per cadence that has quests in it, in [QuestPeriod] declaration order.
+     *
+     * Derived here rather than in the ViewModel because it is a *presentation* split: the domain
+     * hands over one list in catalogue order, and which of those rows are still live, how they
+     * score and what is left on them are all questions this screen asks. A cadence with nothing
+     * in it produces no entry at all rather than an empty group, which is what keeps the screen
+     * correct for a build whose catalogue carries only one of the two.
+     */
+    val boards: List<QuestPeriodBoard>
+        get() = quests
+            .groupBy { it.quest.period }
+            .let { byPeriod ->
+                QuestPeriod.entries.mapNotNull { period ->
+                    byPeriod[period]?.takeIf { it.isNotEmpty() }?.let { QuestPeriodBoard(period, it) }
+                }
+            }
 
     /**
      * Whether the quest section has nothing to draw.
@@ -67,20 +85,55 @@ data class QuestLogUiState(
 }
 
 /**
- * One cell of the achievements grid: a catalogue entry and whether it is held.
+ * One cadence's board: what is still open, what has been banked, and the score across both.
  *
- * The catalogue entry travels rather than just its id, so the grid can draw a locked cell from
- * the same source as an unlocked one. What it deliberately does **not** carry is anything about
- * *how* to unlock a locked achievement beyond what the catalogue already defines — #104 is
- * explicit that a locked entry reveals nothing extra.
+ * ### Live quests come first, and cleared ones are a separate group
  *
- * @property achievement the catalogue entry. Always present: the grid is built by walking the
- *   catalogue, so a stored id matching no entry — a milestone renamed without a migration —
- *   simply does not appear, rather than producing a cell with no definition behind it.
- * @property isUnlocked whether the user holds it.
+ * A completed quest used to stay in catalogue order, struck through. It read well on a board with
+ * one cleared row and badly on a board with five, where the two quests still worth acting on were
+ * buried among finished ones. Splitting them costs the stable ordering the old design protected —
+ * a row does move the moment it is cleared — and buys a board whose top is always the thing to do
+ * next. Within each group the catalogue's own order is kept, so nothing else shuffles.
+ *
+ * @property period the cadence these belong to.
+ * @property rows every quest of that cadence, in catalogue order, cleared and not.
  */
 @Immutable
-data class AchievementEntry(
-    val achievement: Achievement,
-    val isUnlocked: Boolean,
-)
+data class QuestPeriodBoard(
+    val period: QuestPeriod,
+    val rows: List<QuestProgress>,
+) {
+
+    /** The quests still to clear, in catalogue order. The group the board leads with. */
+    val live: List<QuestProgress> get() = rows.filterNot(QuestProgress::isComplete)
+
+    /** The quests already banked this period, in catalogue order. */
+    val cleared: List<QuestProgress> get() = rows.filter(QuestProgress::isComplete)
+
+    /** How many are banked — the numerator of the header's score. */
+    val clearedCount: Int get() = rows.count(QuestProgress::isComplete)
+
+    /** How many there are in total. Never zero: a board with no rows is not built. */
+    val total: Int get() = rows.size
+
+    /** Whether every quest of this cadence is banked. */
+    val isCleared: Boolean get() = clearedCount == total
+
+    /**
+     * What is still reachable this period, in XP.
+     *
+     * The sum of the *unbanked* rewards, which is the figure the header's subtitle is about: what
+     * the user can still earn before the period resets, not what the cadence is worth in total.
+     */
+    val remainingXp: Int get() = live.sumOf { it.quest.xpReward }
+
+    /**
+     * The score as a proportion, for the header's bar.
+     *
+     * Counted in *quests*, not in XP. A bar weighted by reward would move further for clearing an
+     * expensive quest than a cheap one, which is defensible arithmetic and a confusing bar: the
+     * figure printed beside it says `2 / 4`, and a bar that does not agree with the number it sits
+     * next to is worse than no bar.
+     */
+    val fraction: Float get() = if (total == 0) 0f else clearedCount.toFloat() / total
+}

@@ -1,11 +1,15 @@
 package com.opengym.feature.progression.quests
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import com.opengym.core.ui.theme.OpenGymTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -80,41 +84,88 @@ class QuestLogScreenTest {
     }
 
     @Test
-    fun `the board is split into this week and this month`() {
+    fun `the board opens on this week, with its own score`() {
         setContent(populatedQuestLog())
 
-        composeTestRule.onNodeWithText("This week").performScrollTo().assertIsDisplayed()
-        composeTestRule.onNodeWithText("This month").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun `the achievements grid counts what is held against the catalogue`() {
-        setContent(populatedQuestLog())
-
-        // Three of the six.
-        composeTestRule.onNodeWithText("3 / 6").performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun `a locked achievement is drawn and says only that it is locked`() {
-        setContent(populatedQuestLog())
-
-        // Present, so a user can see what there is to earn — and announced as locked, with
-        // nothing about the threshold behind it. See `AchievementGrid`.
+        // Two of the four weekly quests are banked, leaving 100 + 70 XP reachable. The cadence
+        // card speaks as one node — see `QuestPeriodHeader`.
+        composeTestRule.onNodeWithText("THIS WEEK").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("A month-long streak, locked")
+            .onNodeWithContentDescription("This week, 2 of 4 cleared, 170 XP still to earn")
             .performScrollTo()
             .assertIsDisplayed()
     }
 
     @Test
-    fun `an unlocked achievement is announced as unlocked`() {
+    fun `the month is a tab of its own, composed but not on screen`() {
+        setContent(populatedQuestLog())
+
+        // `assertExists` rather than `assertIsDisplayed`: the cadences are pages of a pager and
+        // only one is on screen at a time. What this pins is that the second page is *composed*
+        // — `beyondViewportPageCount = 1`, so the pager's height is the taller of the two and a
+        // swipe does not resize the screen under the thumb making it. See `QuestSections`.
+        composeTestRule.onNodeWithText("THIS MONTH").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("This month, 0 of 3 cleared, 830 XP still to earn")
+            .assertExists()
+    }
+
+    @Test
+    fun `a cleared quest leaves the live group for the cleared one`() {
+        setContent(populatedQuestLog())
+
+        // The board leads with what is left to do, and says what has been banked underneath.
+        // A cleared row keeps its name and its reward and loses its bar — see `ClearedQuestRow`.
+        composeTestRule
+            .onNodeWithText("Cleared · 2")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Train three times, complete, earned 60 XP")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a quest still open keeps its counts and its reward`() {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("First workout logged, unlocked")
+            .onNodeWithContentDescription("Train five times, 3 / 5, worth 100 XP")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `there is no cleared group on a board with nothing banked`() {
+        // A heading over nothing would be the screen listing what the user has not done.
+        setContent(emptyQuestLog())
+
+        composeTestRule.onAllNodesWithText("Cleared · 0").assertCountEquals(0)
+    }
+
+    @Test
+    fun `the achievements are one row away, counted`() {
+        setContent(populatedQuestLog())
+
+        // Three of the six, on a link rather than a grid: an achievement is a permanent unlock
+        // with nothing to act on today, so it is a screen away. See `AchievementsScreen`.
+        composeTestRule
+            .onNodeWithContentDescription("Achievements, 3 of 6 unlocked")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `tapping the achievements row asks for the grid`() {
+        setContent(populatedQuestLog())
+
+        composeTestRule
+            .onNodeWithContentDescription("Achievements, 3 of 6 unlocked")
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(1, openedAchievements)
     }
 
     @Test
@@ -176,12 +227,11 @@ class QuestLogScreenTest {
     }
 
     @Test
-    fun `a brand-new user sees every achievement, all locked`() {
+    fun `a brand-new user is told they hold no achievements yet`() {
         setContent(emptyQuestLog())
 
-        composeTestRule.onNodeWithText("0 / 6").performScrollTo().assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("First workout logged, locked")
+            .onNodeWithContentDescription("Achievements, 0 of 6 unlocked")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -209,10 +259,12 @@ class QuestLogScreenTest {
         composeTestRule.onNodeWithText("405 XP earned in total").assertIsDisplayed()
     }
 
+    private var openedAchievements = 0
+
     private fun setContent(state: QuestLogUiState) {
         composeTestRule.setContent {
             OpenGymTheme {
-                QuestLogScreen(state = state, onBack = {})
+                QuestLogScreen(state = state, onBack = {}, onOpenAchievements = { openedAchievements++ })
             }
         }
     }

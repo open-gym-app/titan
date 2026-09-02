@@ -3,6 +3,7 @@ package com.opengym.feature.progression.navigation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import com.opengym.feature.progression.achievements.AchievementsRoute
 import com.opengym.feature.progression.body.BodyMeasurementsRoute
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
 import com.opengym.feature.progression.quests.QuestLogRoute
@@ -50,13 +51,24 @@ data class ExerciseProgressionDestination(val exerciseId: Long = NO_EXERCISE)
 const val NO_EXERCISE: Long = 0L
 
 /**
- * The quest log (#104): level, XP, quests, achievements and loot.
+ * The quest log (#104): level, XP, the streak and the quest board.
  *
  * Reached from the hub's explore section and from nowhere else — the bottom bar is four tabs
  * on purpose. See `TopLevelDestination`.
  */
 @Serializable
 data object QuestLogDestination
+
+/**
+ * The achievements grid (#104), one push above the quest log.
+ *
+ * Its own destination because a milestone is its own kind of thing: a permanent, one-shot unlock
+ * with no deadline, where a quest resets every period. See `AchievementsScreen`. Reached from the
+ * quest log's own row and from nowhere else — it is deliberately *not* a sixth explore row, which
+ * would put two gamification entries on the hub for what a user thinks of as one place.
+ */
+@Serializable
+data object AchievementsDestination
 
 /** Body measurements (#109). The hub is the only way in, as it is for the quest log. */
 @Serializable
@@ -85,22 +97,25 @@ fun NavGraphBuilder.progressionGraph(actions: StatsExploreActions) {
 }
 
 /**
- * The four screens the hub drills into, registered outside the tab scaffold.
+ * The screens the hub drills into, registered outside the tab scaffold.
  *
- * All four are now real screens. They arrived one at a time behind a shared placeholder page,
+ * All five are real screens. They arrived one at a time behind a shared placeholder page,
  * which is why the destinations shipped with the hub rather than with the screens: a registration
  * is what an explore row navigates to, so replacing one was a change to the line below it and to
  * nothing else. #102 was the first to be replaced and #104 the last, and the placeholder went
  * with it.
  *
- * @param onBack a step back out. One lambda for all four, because it is one pop.
+ * @param onBack a step back out. One lambda for all of them, because it is one pop.
  * @param onOpenExerciseProgression a record's exercise, opened on its own drill-down. Hoisted
  *   rather than navigated here: both destinations live in this graph, but which one a record row
  *   opens is a *routing* decision, and `:app` is where every other one of those is made.
+ * @param onOpenAchievements the quest log's milestone row was tapped. Hoisted for the same
+ *   reason, and named for the event rather than the destination as everything here is.
  */
 fun NavGraphBuilder.progressionDetailGraph(
     onBack: () -> Unit,
     onOpenExerciseProgression: (Long) -> Unit,
+    onOpenAchievements: () -> Unit,
 ) {
     composable<PersonalRecordsDestination> {
         PersonalRecordsRoute(onBack = onBack, onOpenExercise = onOpenExerciseProgression)
@@ -109,7 +124,10 @@ fun NavGraphBuilder.progressionDetailGraph(
         ExerciseProgressionRoute(onBack = onBack)
     }
     composable<QuestLogDestination> {
-        QuestLogRoute(onBack = onBack)
+        QuestLogRoute(onBack = onBack, onOpenAchievements = onOpenAchievements)
+    }
+    composable<AchievementsDestination> {
+        AchievementsRoute(onBack = onBack)
     }
     composable<BodyMeasurementsDestination> {
         BodyMeasurementsRoute(onBack = onBack)

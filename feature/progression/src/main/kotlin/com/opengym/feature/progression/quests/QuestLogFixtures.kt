@@ -1,6 +1,5 @@
 package com.opengym.feature.progression.quests
 
-import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.gamification.LevelTitles
 import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.model.Quest
@@ -38,7 +37,8 @@ internal fun populatedQuestLog(): QuestLogUiState {
             at(quest = Quests.MONTHLY_VOLUME, progress = 51_000),
         ),
         // The two the ladder's lower rungs would have unlocked, and the first record.
-        achievements = unlocked("first_session", "ten_sessions", "first_record"),
+        achievementsUnlocked = 3,
+        achievementsTotal = ACHIEVEMENT_TOTAL,
         isLoading = false,
     )
 }
@@ -55,7 +55,8 @@ internal fun emptyQuestLog(): QuestLogUiState {
         progress = progress,
         levelTitle = LevelTitles.forLevel(progress.currentLevel),
         quests = board(*Quests.ALL.map { at(quest = it, progress = 0) }.toTypedArray()),
-        achievements = unlocked(),
+        achievementsUnlocked = 0,
+        achievementsTotal = ACHIEVEMENT_TOTAL,
         isLoading = false,
     )
 }
@@ -90,7 +91,8 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
             at(quest = Quests.MONTHLY_RECORDS, progress = 1),
             at(quest = Quests.MONTHLY_VOLUME, progress = 24_000),
         ),
-        achievements = unlocked("first_session"),
+        achievementsUnlocked = 1,
+        achievementsTotal = ACHIEVEMENT_TOTAL,
         isLoading = false,
     )
 }
@@ -118,11 +120,9 @@ private fun board(vararg entries: Pair<Quest, Int>): List<QuestProgress> =
         )
     }
 
-/** Every catalogue achievement, with [held] marked unlocked. */
-private fun unlocked(vararg held: String): List<AchievementEntry> =
-    Achievements.ALL.map { achievement ->
-        AchievementEntry(achievement = achievement, isUnlocked = achievement.id in held)
-    }
+/** What the shipped catalogue holds. A fixture states it rather than reading it, so a
+ * milestone added to the domain shows up here as a failing count rather than silently. */
+private const val ACHIEVEMENT_TOTAL = 6
 
 /** Wednesday 3 September 2025, so a fixture's periods are stable across runs. */
 private val FIXTURE_DAY: LocalDate = LocalDate.of(2025, Month.SEPTEMBER, 3)

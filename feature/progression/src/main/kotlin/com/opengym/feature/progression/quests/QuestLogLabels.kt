@@ -4,18 +4,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.gamification.LevelTitle
-import com.opengym.core.domain.model.Achievement
 import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.feature.progression.R
 import java.text.NumberFormat
 
 /**
  * The words behind the domain's ids.
  *
- * Three `when`s over string keys rather than names carried on the catalogues: `:core:domain` is a
- * plain Kotlin library with no `Context`, and putting user-visible English on `Quests`,
- * `Achievements` or `LevelTitles` would make the app untranslatable at three of the places it is
- * most visible. The same call `:feature:session` makes for the milestones it draws.
+ * `when`s over string keys rather than names carried on the catalogues: `:core:domain` is a plain
+ * Kotlin library with no `Context`, and putting user-visible English on `Quests` or `LevelTitles`
+ * would make the app untranslatable at two of the places it is most visible. The same call
+ * `AchievementsLabels` makes for the milestones, and `:feature:session` for the ones it draws.
  *
  * Each has an `else` that names the thing generically rather than blanking. An id with no string
  * behind it means a catalogue entry added or renamed without its resource — a build-time mistake,
@@ -35,23 +35,17 @@ internal fun Quest.label(): String =
     }
 
 /**
- * The milestone's words.
+ * The cadence's words — the heading over a group and the subject of its score.
  *
- * Duplicated from `:feature:session`, which draws the same six on the session summary. A string
- * resource belongs to one module, and the alternative — moving them to `:core:ui` — would give
- * the design-system module knowledge of the gamification catalogue, which is a worse edge than
- * six repeated lines.
+ * A `when` with no `else`, unlike the three catalogues below: [QuestPeriod] is a closed enum
+ * rather than a table of ids, so a third cadence added to the domain stops this compiling instead
+ * of shipping a group with no heading.
  */
 @Composable
-internal fun Achievement.label(): String =
-    when (id) {
-        "first_session" -> stringResource(R.string.achievement_first_session)
-        "ten_sessions" -> stringResource(R.string.achievement_ten_sessions)
-        "hundred_sessions" -> stringResource(R.string.achievement_hundred_sessions)
-        "seven_day_streak" -> stringResource(R.string.achievement_seven_day_streak)
-        "thirty_day_streak" -> stringResource(R.string.achievement_thirty_day_streak)
-        "first_record" -> stringResource(R.string.achievement_first_record)
-        else -> stringResource(R.string.achievement_unknown)
+internal fun QuestPeriod.heading(): String =
+    when (this) {
+        QuestPeriod.WEEKLY -> stringResource(R.string.quest_log_quests_weekly)
+        QuestPeriod.MONTHLY -> stringResource(R.string.quest_log_quests_monthly)
     }
 
 /** The rank's words. */

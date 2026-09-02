@@ -28,9 +28,9 @@ import java.time.Instant
  * The quest log's state assembly: three reads combined, and the two catalogues walked.
  *
  * The board's *figures* are not exercised here — `QuestProgressUseCaseTest` owns which aggregate a
- * metric reads and over what range. What this covers is the part the ViewModel owns: that a grid
- * cell exists for every catalogue entry whether held or not, that the rank comes from the table,
- * and that a change in the store reaches the state without the screen being re-created.
+ * metric reads and over what range. What this covers is the part the ViewModel owns: that the
+ * milestone count is held over the catalogue, that the rank comes from the table, and that a
+ * change in the store reaches the state without the screen being re-created.
  *
  * Collected in a launched job rather than read off `.value`, because `WhileSubscribed` produces
  * nothing at all without a subscriber — the same shape `PersonalRecordsViewModelTest` uses.
@@ -51,44 +51,32 @@ class QuestLogViewModelTest {
     private val records = FakeRecordReads()
     private val completions = FakeQuestCompletions()
 
-    // ─── The achievements grid ──────────────────────────────────────────────────────────
+    // ─── The milestone count ────────────────────────────────────────────────────────────
 
     @Test
-    fun `the grid has a cell for every catalogue achievement, held or not`() =
-        runTest {
-            gamification.unlocked.value = listOf(unlock("first_session"))
-
-            val state = collect()
-
-            assertEquals(Achievements.ALL.size, state().achievements.size)
-            assertEquals(Achievements.ALL.map { it.id }, state().achievements.map { it.achievement.id })
-        }
-
-    @Test
-    fun `an achievement on file is marked held and the rest are not`() =
+    fun `the milestone count is held over the whole catalogue`() =
         runTest {
             gamification.unlocked.value = listOf(unlock("first_session"), unlock("first_record"))
 
             val state = collect()
 
-            assertEquals(2, state().unlockedCount)
-            assertEquals(
-                setOf("first_session", "first_record"),
-                state().achievements.filter { it.isUnlocked }.map { it.achievement.id }.toSet(),
-            )
+            assertEquals(2, state().achievementsUnlocked)
+            assertEquals(Achievements.ALL.size, state().achievementsTotal)
         }
 
     @Test
-    fun `an id on file that matches no catalogue entry puts no cell in the grid`() =
+    fun `an id on file that matches no catalogue entry does not inflate the count`() =
         runTest {
-            // A milestone renamed without a migration. It must not produce a cell with no definition
-            // behind it, and it must not inflate the count — see the note on [QuestLogViewModel].
+            // A milestone renamed without a migration. Counted against the catalogue rather than
+            // taken as the row count, so it cannot push the numerator past the denominator —
+            // see the note on [QuestLogViewModel]. The grid it would have drawn a cell in is
+            // `AchievementsViewModel`'s, and `AchievementsViewModelTest` covers that half.
             gamification.unlocked.value = listOf(unlock("a_milestone_from_an_older_build"))
 
             val state = collect()
 
-            assertEquals(Achievements.ALL.size, state().achievements.size)
-            assertEquals(0, state().unlockedCount)
+            assertEquals(0, state().achievementsUnlocked)
+            assertEquals(Achievements.ALL.size, state().achievementsTotal)
         }
 
     // ─── The rank ───────────────────────────────────────────────────────────────────────
@@ -118,7 +106,7 @@ class QuestLogViewModelTest {
 
             assertEquals(1, state().progress.currentLevel)
             assertEquals(LevelTitles.NEWCOMER, state().levelTitle)
-            assertEquals(0, state().unlockedCount)
+            assertEquals(0, state().achievementsUnlocked)
             assertFalse("a user who has never trained is not tying a streak", state().isOnBestStreak)
         }
 
@@ -166,14 +154,14 @@ class QuestLogViewModelTest {
         }
 
     @Test
-    fun `an achievement unlocked while the screen is open fills its cell in`() =
+    fun `an achievement unlocked while the screen is open moves the count`() =
         runTest {
             val state = collect()
-            assertEquals(0, state().unlockedCount)
+            assertEquals(0, state().achievementsUnlocked)
 
             gamification.unlocked.value = listOf(unlock("first_session"))
 
-            assertEquals(1, state().unlockedCount)
+            assertEquals(1, state().achievementsUnlocked)
         }
 
     @Test

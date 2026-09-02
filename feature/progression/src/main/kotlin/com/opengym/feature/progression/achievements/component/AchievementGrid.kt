@@ -1,4 +1,4 @@
-package com.opengym.feature.progression.quests.component
+package com.opengym.feature.progression.achievements.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -18,8 +18,8 @@ import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
-import com.opengym.feature.progression.quests.AchievementEntry
-import com.opengym.feature.progression.quests.label
+import com.opengym.feature.progression.achievements.AchievementEntry
+import com.opengym.feature.progression.achievements.label
 
 /**
  * The achievements, held and not, two to a row.
@@ -77,12 +77,12 @@ private fun AchievementCell(
     val name = entry.achievement.label()
     val spoken = if (entry.isUnlocked) {
         stringResource(
-            R.string.quest_log_achievement_unlocked_description,
+            R.string.achievements_unlocked_description,
             name,
         )
     } else {
         stringResource(
-            R.string.quest_log_achievement_locked_description,
+            R.string.achievements_locked_description,
             name,
         )
     }
@@ -111,7 +111,7 @@ private fun AchievementCell(
             if (!entry.isUnlocked) {
                 Eyebrow(
                     text = stringResource(
-                        R.string.quest_log_achievement_locked,
+                        R.string.achievements_locked,
                     ),
                     textAlign = TextAlign.Center,
                 )

@@ -19,11 +19,18 @@ import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.StreakFlame
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
 
 /**
  * The streak: how many days running, and whether that is the best it has been.
+ *
+ * ### The flame burns while the streak does
+ *
+ * A live streak is drawn with [StreakFlame] beside its count — the one perpetual animation in the
+ * app, and the one figure on this screen that is true only until tomorrow. A streak of zero gets
+ * no flame at all rather than a dead one; that component's KDoc carries the argument.
  *
  * ### Two states, because a streak of zero is not a small streak
  *
@@ -93,9 +100,11 @@ private fun Streak(
             .clearAndSetSemantics {
                 contentDescription = if (isOnBest) "$days, $personalBest" else "$days, $best"
             },
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        StreakFlame()
+
         Text(
             text = days,
             style = OpenGymTheme.typography.numericLarge,

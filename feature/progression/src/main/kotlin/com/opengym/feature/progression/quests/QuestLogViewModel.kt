@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 /**
- * The quest log's state: level and rank, the quest board, the achievements grid, and the streak.
+ * The quest log's state: level and rank, the streak, the quest board, and the milestone count.
  *
  * ### Three reads, combined, and nothing polled
  *
@@ -26,11 +26,11 @@ import javax.inject.Inject
  *
  * ### The catalogues are walked, not queried
  *
- * The achievements grid is built by walking [Achievements.ALL] and marking which ids the user
- * holds, rather than by listing what they hold. Two things fall out of that and both are wanted:
- * a locked achievement has a cell, so a new user sees what there is to earn; and an id on file
- * that matches no catalogue entry — a milestone renamed without a migration — cannot put a cell
- * with no definition behind it into the grid.
+ * The milestone count is taken by walking [Achievements.ALL] and asking which ids the user holds,
+ * rather than by counting the rows on file. That is what keeps `3 / 6` honest when an id has been
+ * renamed without a migration: an unmatched row contributes nothing instead of pushing the
+ * numerator past the denominator. The grid those ids draw lives on its own screen — see
+ * `AchievementsViewModel`, which walks the same catalogue for the same reason.
  *
  * The rank is looked up the same way, from [LevelTitles], which is why a level past the end of
  * the table keeps the last rank instead of going blank.
@@ -59,12 +59,11 @@ class QuestLogViewModel @Inject constructor(
                 progress = progress,
                 levelTitle = LevelTitles.forLevel(progress.currentLevel),
                 quests = quests,
-                achievements = Achievements.ALL.map { achievement ->
-                    AchievementEntry(
-                        achievement = achievement,
-                        isUnlocked = achievement.id in heldIds,
-                    )
-                },
+                // Counted against the catalogue rather than taken as the row count: an id on
+                // file matching no entry — a milestone renamed without a migration — would
+                // otherwise push the numerator past the denominator.
+                achievementsUnlocked = Achievements.ALL.count { it.id in heldIds },
+                achievementsTotal = Achievements.ALL.size,
                 isLoading = false,
             )
         }.stateIn(

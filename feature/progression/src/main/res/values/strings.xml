@@ -328,6 +328,19 @@
     <string name="quest_log_quest_description">%1$s, %2$s, worth %3$d XP</string>
     <string name="quest_log_quest_description_done">%1$s, complete, earned %2$d XP</string>
     <string name="quest_log_quests_empty">No quests in this build</string>
+    <!-- The score heading a cadence: %1$d cleared of %2$d. -->
+    <string name="quest_log_period_score">%1$d/%2$d</string>
+    <!-- What is still reachable this period. Phrased as what is left rather than what is done:
+         the board exists to be acted on. -->
+    <string name="quest_log_period_remaining">%1$d XP still to earn</string>
+    <string name="quest_log_period_all_clear">Every quest cleared. Strong period.</string>
+    <!-- One sentence per cadence card: name, cleared, total, XP left. -->
+    <plurals name="quest_log_period_description">
+        <item quantity="one">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
+        <item quantity="other">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
+    </plurals>
+    <!-- The label over the quests already banked this period. -->
+    <string name="quest_log_quests_cleared">Cleared · %1$d</string>
 
     <!-- The quests themselves. Weekly first, then monthly, matching `Quests.ALL`. -->
     <string name="quest_weekly_sessions">Train three times</string>
@@ -340,15 +353,25 @@
     <!-- A quest id with no string behind it, which only a build mid-rename can produce. -->
     <string name="quest_unknown">Quest</string>
 
-    <!-- The achievements grid. -->
+    <!-- The row on the quest board that leads to the achievements. -->
     <string name="quest_log_achievements_heading">Achievements</string>
     <!-- %1$d held, %2$d in the catalogue. -->
     <string name="quest_log_achievements_count">%1$d / %2$d</string>
-    <string name="quest_log_achievement_locked">Locked</string>
+    <string name="quest_log_achievements_link_caption">Everything you have unlocked</string>
+    <string name="quest_log_achievements_link_description">Achievements, %1$d of %2$d unlocked</string>
+
+    <!-- The achievements screen (#104). Their own surface: an achievement is a permanent
+         one-shot unlock, a quest resets — see `AchievementsUiState`. -->
+    <string name="achievements_title">Achievements</string>
+    <string name="achievements_heading">Milestones</string>
+    <string name="achievements_caption">Permanent unlocks. Unlike quests, they never reset.</string>
+    <!-- %1$d held, %2$d in the catalogue. -->
+    <string name="achievements_count">%1$d / %2$d</string>
+    <string name="achievements_locked">Locked</string>
     <!-- A locked cell says only that it is locked — #104 is explicit that it reveals nothing
          about how to unlock it beyond what the catalogue already defines. -->
-    <string name="quest_log_achievement_locked_description">%1$s, locked</string>
-    <string name="quest_log_achievement_unlocked_description">%1$s, unlocked</string>
+    <string name="achievements_locked_description">%1$s, locked</string>
+    <string name="achievements_unlocked_description">%1$s, unlocked</string>
 
     <!-- The achievement names, resolved from the domain catalogue's ids. Duplicated from
          `:feature:session`, which draws the same milestones on the session summary: a string
