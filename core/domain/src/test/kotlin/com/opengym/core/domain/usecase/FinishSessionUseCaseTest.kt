@@ -45,6 +45,20 @@ class FinishSessionUseCaseTest {
             detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
             awardXp = awardXp,
             triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
+            // Over an empty catalogue: this suite is about finishing a session, not about what
+            // a quest is worth, and the real catalogue would complete `weekly_record` on every
+            // session here that breaks one. See `SessionCompletionPipelineTest.Rig`, which
+            // makes the same call for the same reason.
+            completeQuests = QuestCompletionUseCase(
+                questProgress = QuestProgressUseCase(
+                    progressionRepository = FakeProgressionRepository(),
+                    personalRecordRepository = personalRecords,
+                    questRepository = FakeQuestRepository(),
+                    catalogue = emptyList(),
+                ),
+                questRepository = FakeQuestRepository(),
+                awardXp = awardXp,
+            ),
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,
             gamificationRepository = gamification,

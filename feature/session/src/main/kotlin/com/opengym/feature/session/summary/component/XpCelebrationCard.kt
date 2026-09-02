@@ -369,4 +369,6 @@ private fun XpSource.label(): String =
 
         XpSourceKind.ACHIEVEMENTS ->
             pluralStringResource(R.plurals.summary_xp_source_achievements, count, count)
+
+        XpSourceKind.QUESTS -> pluralStringResource(R.plurals.summary_xp_source_quests, count, count)
     }

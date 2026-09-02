@@ -50,6 +50,7 @@ data class SessionProgression(
     val xp: List<XpGrant> = emptyList(),
     val streak: StreakUpdate? = null,
     val achievementsUnlocked: List<AchievementUnlock> = emptyList(),
+    val questsCompleted: List<QuestCompletion> = emptyList(),
     val failures: List<SessionProgressionFailure> = emptyList(),
 ) {
 
@@ -127,4 +128,14 @@ enum class SessionProgressionStep {
 
     /** Evaluate the catalogue and unlock what the session newly qualifies for. */
     ACHIEVEMENTS,
+
+    /**
+     * Complete the quests the session's period has now met, and pay them.
+     *
+     * After [PR_DETECTION] because a quest can complete on a record, and after [ACHIEVEMENTS]
+     * for no stronger reason than that one order has to be written down and quests have no
+     * claim on going first. Unlike [ACHIEVEMENTS] it does not depend on [STREAK] — no quest
+     * counts streak days — so a streak that could not be read does not take this step with it.
+     */
+    QUESTS,
 }

@@ -62,9 +62,17 @@ object XpCalculator {
     fun xpFor(event: XpEvent): Int =
         when (event) {
             XpEvent.SetLogged -> XP_PER_SET
+
             XpEvent.SessionFinished -> XP_PER_SESSION
+
             is XpEvent.PrBroken -> XP_PER_PR
+
             is XpEvent.AchievementUnlocked -> XP_PER_ACHIEVEMENT
+
+            // The only variant that prices itself. A quest's reward is part of its definition
+            // rather than a property of the kind, so it arrives on the event; see
+            // [XpEvent.QuestCompleted], which carries the argument.
+            is XpEvent.QuestCompleted -> event.xp
         }
 
     /**
