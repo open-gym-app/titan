@@ -446,6 +446,9 @@
 
     <!-- The XP ring, announced as its label, its fraction and how far round it has gone. -->
     <string name="progress_ring_description">%1$s, %2$s, %3$d%% complete</string>
+    <!-- The laurel wreath the quest log draws a rank in. Same shape of sentence as the
+         ring above: a wreath is an award rather than a chart, but it still reports a value. -->
+    <string name="laurel_wreath_description">%1$s, %2$s, %3$d%% complete</string>
 
     <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
 
