@@ -132,6 +132,7 @@ data class SummaryCelebration(
                 XpEvent.SessionFinished -> XpSourceKind.SESSION
                 is XpEvent.PrBroken -> XpSourceKind.RECORDS
                 is XpEvent.AchievementUnlocked -> XpSourceKind.ACHIEVEMENTS
+                is XpEvent.QuestCompleted -> XpSourceKind.QUESTS
             }
     }
 }
@@ -152,7 +153,7 @@ data class XpSource(
 )
 
 /**
- * The four things a session can be paid for, in the order the breakdown lists them.
+ * The five things a session can be paid for, in the order the breakdown lists them.
  *
  * Declaration order is display order, running from the routine to the rare: sets are what every
  * session has, an achievement is what a handful of sessions in a lifetime have. A breakdown that
@@ -171,6 +172,15 @@ enum class XpSourceKind {
 
     /** One per milestone unlocked — the points the unlock itself paid. */
     ACHIEVEMENTS,
+
+    /**
+     * One per quest completed — the reward the quest itself named.
+     *
+     * Last, so the line reads after the milestones it sits beside. Unlike every other kind
+     * these do not all pay the same: a quest carries its own price, so the line's total is a
+     * sum of different rewards rather than a count times a constant.
+     */
+    QUESTS,
 }
 
 /**

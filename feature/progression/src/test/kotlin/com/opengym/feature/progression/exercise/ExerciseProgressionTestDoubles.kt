@@ -124,6 +124,10 @@ class FakeExerciseProgressionStore : ProgressionRepository {
 
     override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
 
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = unsupported()
+
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+
     private fun unsupported(): Nothing =
         throw UnsupportedOperationException("the drill-down reads one exercise, not the whole period")
 }

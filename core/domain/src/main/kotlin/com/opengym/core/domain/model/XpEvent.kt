@@ -63,4 +63,31 @@ sealed interface XpEvent {
      * so an event survives the row being written and can be emitted before it.
      */
     data class AchievementUnlocked(val achievementId: String) : XpEvent
+
+    /**
+     * A quest completed, for the period it was completed in.
+     *
+     * ### Why this one carries its own price
+     *
+     * Every other variant is priced by a constant in
+     * [com.opengym.core.domain.gamification.XpCalculator] because every event of that kind is
+     * worth the same. Quests are not: the reward is part of what defines a quest — a month of
+     * training pays more than a good week — and it lives in the catalogue beside the target it
+     * is the price of, where a tuning pass can see the two together.
+     *
+     * The alternative is [com.opengym.core.domain.gamification.XpCalculator.xpFor] reading the
+     * catalogue to look the reward up by id, which would give that object a dependency and a
+     * failure mode ("what is an id nobody defines worth?") in exchange for nothing. So the
+     * price travels on the event and the calculator stays the pure arithmetic it says it is.
+     *
+     * @property questId the stable catalogue key, for the same reason
+     *   [AchievementUnlocked.achievementId] is one: it survives the row being written and can
+     *   be emitted before it.
+     * @property xp what this quest pays, copied off
+     *   [com.opengym.core.domain.model.Quest.xpReward] at the moment of completion.
+     */
+    data class QuestCompleted(
+        val questId: String,
+        val xp: Int,
+    ) : XpEvent
 }

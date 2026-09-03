@@ -4,6 +4,7 @@ import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.model.AchievementProgress
 import com.opengym.core.domain.model.AchievementUnlock
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.QuestCompletion
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionProgressionFailure
 import com.opengym.core.domain.model.SessionProgressionStep
@@ -29,8 +30,8 @@ import java.time.Instant
  *
  * ### The order is not free
  *
- * [SessionProgressionStep]'s declaration order is the running order, and three of the four
- * edges are forced:
+ * [SessionProgressionStep]'s declaration order is the running order, and all but one of
+ * its edges are forced:
  *
  * - **PR detection before XP**, because [XpEvent.PrBroken] is emitted once per record
  *   actually beaten, and which records those are is what detection answers.
@@ -41,9 +42,13 @@ import java.time.Instant
  * - **Achievements last**, because their own XP is paid inside
  *   [AchievementTriggerUseCase], behind the insert that makes the unlock unrepeatable.
  *
- * Quests and loot plug in after achievements when those issues land; they read the same
- * [AchievementProgress]-shaped view of a session that has already been priced, so nothing
- * above them moves to accommodate them.
+ * - **Quests after PR detection**, for the same reason achievements are: a quest that
+ *   completes on a record cannot see one that has not been written yet.
+ *
+ * Quests are ordered *after* achievements rather than beside them only because one order has
+ * to be written down; they do not read [AchievementProgress] and are not fenced by the streak.
+ * Loot plugs in after them when #107 lands, on the same terms — nothing above it moves to
+ * accommodate it.
  *
  * ### The failure contract: the workout is the user's, the XP is not
  *
@@ -60,16 +65,17 @@ import java.time.Instant
  * asks, and the cause is kept so a retry knows which step to run again. Cancellation is not a
  * failure and is rethrown untouched — a caller whose scope went away is not owed a report.
  *
- * A step that failed part way through still reports what it managed to write. All three
+ * A step that failed part way through still reports what it managed to write. All four
  * writing steps work one row at a time — a record per candidate, an award per event, an
- * unlock per milestone — and each is committed the moment its call returns, so each fills a
- * list this class owns instead of returning one at the end. [SessionProgression] therefore
- * carries the records that were written, the XP that was paid and the achievements that were
- * unlocked before the refusal, alongside the [SessionProgression.failures] entry saying the
- * step did not finish. A result that reported nothing over a store that had moved would be a
- * worse answer than a short one — and in every one of the three cases it would be
- * unrecoverable, because a re-entry beats no record it already wrote, unlocks no achievement
- * it already holds, and finds the session's XP claim already spent.
+ * unlock per milestone, a completion per quest — and each is committed the moment its call
+ * returns, so each fills a list this class owns instead of returning one at the end.
+ * [SessionProgression] therefore carries the records that were written, the XP that was paid,
+ * the achievements unlocked and the quests completed before the refusal, alongside the
+ * [SessionProgression.failures] entry saying the step did not finish. A result that reported
+ * nothing over a store that had moved would be a worse answer than a short one — and in every
+ * one of those cases it would be unrecoverable, because a re-entry beats no record it already
+ * wrote, unlocks no achievement it already holds, completes no quest already banked for the
+ * period, and finds the session's XP claim already spent.
  *
  * Steps are independent apart from the ordering above: a PR detection that fails part way
  * leaves the XP step paying for the session, its sets and the records that did land, and the
@@ -85,7 +91,7 @@ import java.time.Instant
  * already ran — a marker written at the end would not survive a crash before it, and one
  * written at the start would strand a half-run cascade forever.
  *
- * Three of the four steps are idempotent for free, and were built that way:
+ * Four of the five steps are idempotent for free, and were built that way:
  *
  * - detection compares *strictly* better, so a second pass beats the records the first one
  *   wrote and inserts nothing ([PrDetectionUseCase]);
@@ -93,9 +99,11 @@ import java.time.Instant
  *   [com.opengym.core.domain.model.StreakResult.Unchanged] ([StreakCalculator]), given a
  *   store that does not advance `lastCountedAt` for it;
  * - an unlock is insert-if-absent and its XP sits behind the insert's answer
- *   ([AchievementTriggerUseCase]).
+ *   ([AchievementTriggerUseCase]);
+ * - a quest completion is the same insert-if-absent, narrowed to a period, with its XP behind
+ *   the same answer ([QuestCompletionUseCase]).
  *
- * The fourth is not, and cannot be: [AwardXpUseCase] banks what it is handed, deliberately,
+ * The remaining one is not, and cannot be: [AwardXpUseCase] banks what it is handed, deliberately,
  * so re-emitting a session's events would pay for them twice. That one step is fenced by
  * [GamificationRepository.claimSessionXp] — a per-session claim taken **before** the awards,
  * which chooses under-paying a session torn in half over re-paying every session on every
@@ -147,6 +155,7 @@ class SessionCompletionPipeline(
     private val detectPersonalRecords: PrDetectionUseCase,
     private val awardXp: AwardXpUseCase,
     private val triggerAchievements: AchievementTriggerUseCase,
+    private val completeQuests: QuestCompletionUseCase,
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val gamificationRepository: GamificationRepository,
@@ -172,7 +181,7 @@ class SessionCompletionPipeline(
     ): SessionProgression {
         val failures = mutableListOf<SessionProgressionFailure>()
 
-        // Each of the three writing steps fills a list this method owns rather than returning
+        // Each of the four writing steps fills a list this method owns rather than returning
         // one, because `runStep` drops a step's return value when it throws and every write
         // these make is committed the moment it returns. A store that refuses the fifth of
         // nine must not take the four already on file out of the report with it.
@@ -197,15 +206,25 @@ class SessionCompletionPipeline(
             triggerAchievements(progressAfter(streak), finishedAt, into = unlocks)
         }
 
+        // Not fenced by the streak the way achievements are: no quest counts streak days, so a
+        // streak step that failed leaves this one evaluating a board that is entirely intact.
+        val quests = mutableListOf<QuestCompletion>()
+        runStep(SessionProgressionStep.QUESTS, failures) {
+            completeQuests(finishedAt, into = quests)
+        }
+
         return SessionProgression(
             sessionId = sessionId,
             recordsBroken = records,
             // The unlocks' own awards join the ledger so `xp` is the whole breakdown rather
             // than the part this class emitted; `achievementsUnlocked` keeps them attached to
             // what earned them, which is what a celebration draws.
-            xp = xp + unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) },
+            xp = xp +
+                unlocks.map { XpGrant(XpEvent.AchievementUnlocked(it.achievement.id), it.xp) } +
+                quests.map { XpGrant(XpEvent.QuestCompleted(it.quest.id, it.quest.xpReward), it.xp) },
             streak = streak,
             achievementsUnlocked = unlocks,
+            questsCompleted = quests,
             failures = failures,
         )
     }

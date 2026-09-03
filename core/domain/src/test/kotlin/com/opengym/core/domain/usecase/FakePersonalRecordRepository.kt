@@ -55,6 +55,15 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
     override suspend fun count(): Int = records.value.size
 
     /**
+     * Puts [record] on file without going through [insertIfBetter], for a test that wants a
+     * history rather than to exercise the detection rule — the quest board reading a period's
+     * records, say. Stamped with an id, as a stored row is.
+     */
+    fun seed(record: PersonalRecord) {
+        records.value += record.copy(id = nextId++)
+    }
+
+    /**
      * The period's tally, derived from what has been written rather than tracked separately —
      * the same rule the rest of this fake follows, so it cannot report a record the store does
      * not hold.

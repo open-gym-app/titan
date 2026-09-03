@@ -119,6 +119,32 @@ interface ProgressionRepository {
     fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long>
 
     /**
+     * How many sessions the user finished over [days].
+     *
+     * A scalar over an arbitrary period, like [getTrainingMillis] above it, rather than a
+     * series to be summed. [getWeeklyTraining] buckets by Monday weeks and a month is not a
+     * whole number of those, so summing it would be reading a charting API off its grain to
+     * get a figure this states directly.
+     *
+     * **Sessions, not training days.** [WeeklyTraining] carries both and is careful about the
+     * difference; this is the plain count, because a quest to train five times is met by five
+     * workouts however they fall. The two figures differ for anyone who trains twice in a day.
+     *
+     * Zero for a period with no training in it.
+     */
+    fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int>
+
+    /**
+     * Everything lifted over [days], in milligram-reps — the scalar twin of [getWeeklyVolume].
+     *
+     * Same rows, same units, same rule about a session that straddles the boundary counting
+     * whole; what it drops is the per-week grouping, for a caller that wants a period's total
+     * rather than a shape to draw. Zero for a period that lifted nothing, which includes a
+     * period of nothing but cardio.
+     */
+    fun getVolume(days: ClosedRange<LocalDate>): Flow<Long>
+
+    /**
      * The day the user's first finished session was closed out on, or **null** when they have
      * none.
      *

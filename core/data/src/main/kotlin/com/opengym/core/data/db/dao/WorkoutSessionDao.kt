@@ -170,6 +170,38 @@ interface WorkoutSessionDao {
     ): Flow<Long>
 
     /**
+     * How many sessions the user finished over the half-open day range
+     * `[startEpochDay, endEpochDayExclusive)`.
+     *
+     * A scalar over an arbitrary range, like [getTrainingMillis] beside it, rather than a
+     * series to be summed. The quest board asks for a *month*, and a month is not a whole
+     * number of the Monday weeks [getTrainingByWeek] buckets by — so summing that series would
+     * be reading a charting API off its grain to get an answer this states directly in one row.
+     *
+     * `COUNT(*)`, not `COUNT(DISTINCT day)`: a quest to train five times is met by five
+     * workouts however they fall across the days, which is the opposite of the reading
+     * [getTrainingByWeek] takes for consistency. The two figures differ for anyone who trains
+     * twice in a day, and both are correct for what they are asked.
+     *
+     * The same filter as every other aggregate here, so a session counts towards a quest
+     * exactly when it counts towards the charts.
+     */
+    @Query(
+        """
+        SELECT COUNT(*)
+        FROM workout_session s
+        WHERE s.is_in_progress = 0
+            AND s.completed_at IS NOT NULL
+            AND s.completed_at >= :startEpochDay * 86400000
+            AND s.completed_at < :endEpochDayExclusive * 86400000
+        """,
+    )
+    fun countFinishedIn(
+        startEpochDay: Long,
+        endEpochDayExclusive: Long,
+    ): Flow<Int>
+
+    /**
      * The day the user's first finished session was closed out on, or **null** when there is
      * none.
      *

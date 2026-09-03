@@ -92,6 +92,12 @@ class ProgressionRepositoryImpl @Inject constructor(
     override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> =
         sessionDao.getTrainingMillis(days.start.toEpochDay(), days.endInclusive.toEpochDay() + 1)
 
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> =
+        sessionDao.countFinishedIn(days.start.toEpochDay(), days.endInclusive.toEpochDay() + 1)
+
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> =
+        setDao.getVolumeIn(days.start.toEpochDay(), days.endInclusive.toEpochDay() + 1)
+
     override fun getFirstTrainingDay(): Flow<LocalDate?> =
         sessionDao.getFirstTrainingDay().map { epochDay -> epochDay?.let(LocalDate::ofEpochDay) }
 

@@ -28,6 +28,7 @@ class FinishSessionUseCaseTest {
 
     private val personalRecords = FakePersonalRecordRepository()
     private val gamification = FakeGamificationRepository()
+    private val quests = FakeQuestRepository()
     private val awardXp = AwardXpUseCase(gamification)
 
     /**
@@ -45,6 +46,23 @@ class FinishSessionUseCaseTest {
             detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
             awardXp = awardXp,
             triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
+            // Over an empty catalogue: this suite is about finishing a session, not about what
+            // a quest is worth, and the real catalogue would complete `weekly_record` on every
+            // session here that breaks one. See `SessionCompletionPipelineTest.Rig`, which
+            // makes the same call for the same reason.
+            completeQuests = QuestCompletionUseCase(
+                questProgress = QuestProgressUseCase(
+                    progressionRepository = FakeProgressionRepository(),
+                    personalRecordRepository = personalRecords,
+                    // The same store the pass writes to, so the board could see a completion
+                    // it banked — two instances would let the filter read a table nothing
+                    // ever writes.
+                    questRepository = quests,
+                    catalogue = emptyList(),
+                ),
+                questRepository = quests,
+                awardXp = awardXp,
+            ),
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,
             gamificationRepository = gamification,

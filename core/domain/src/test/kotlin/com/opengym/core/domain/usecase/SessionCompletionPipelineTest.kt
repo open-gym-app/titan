@@ -4,6 +4,9 @@ import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
+import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.StreakResult
@@ -21,6 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
+import java.time.ZoneOffset
 
 /**
  * The cascade's three contracts — the order, the failure contract and the re-entry contract —
@@ -452,6 +456,103 @@ class SessionCompletionPipelineTest {
             assertEquals(1, gamification.streakDays)
         }
 
+    // ─── The quest step ─────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a quest the session completes is reported and paid`() =
+        runTest {
+            val rig = Rig(questCatalogue = listOf(ONE_SESSION_QUEST))
+            rig.progression.setSessionsOn(FINISHED_AT.atZone(ZoneOffset.UTC).toLocalDate(), 1)
+            val sessionId = rig.finishSession()
+
+            val progression = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(ONE_SESSION_QUEST), progression.questsCompleted.map { it.quest })
+            // The completion's award joins the ledger, so `xp` is the whole breakdown.
+            assertTrue(
+                "the quest's award is missing from the ledger",
+                progression.xp.any { it.event == XpEvent.QuestCompleted(ONE_SESSION_QUEST.id, QUEST_XP) },
+            )
+            assertEquals(QUEST_XP, progression.questsCompleted.single().xp.awarded)
+        }
+
+    @Test
+    fun `a quest that completes on a record sees the record this session broke`() =
+        runTest {
+            // The ordering that matters: quests run after PR detection, so a quest counting
+            // records is evaluated against rows the same cascade has just written. Nothing is
+            // seeded here — the records come from detection.
+            val rig = Rig(questCatalogue = listOf(ONE_RECORD_QUEST))
+            val sessionId = rig.finishSession()
+
+            val progression = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(ONE_RECORD_QUEST), progression.questsCompleted.map { it.quest })
+        }
+
+    @Test
+    fun `re-running the cascade completes no quest a second time`() =
+        runTest {
+            val rig = Rig(questCatalogue = listOf(ONE_SESSION_QUEST))
+            rig.progression.setSessionsOn(FINISHED_AT.atZone(ZoneOffset.UTC).toLocalDate(), 1)
+            val sessionId = rig.finishSession()
+
+            rig.pipeline(sessionId, FINISHED_AT)
+            val again = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(emptyList<Any>(), again.questsCompleted)
+            assertEquals(1, rig.quests.written.size)
+        }
+
+    @Test
+    fun `a quest store that refuses leaves the workout and every earlier step intact`() =
+        runTest {
+            // The failure contract, at the last step: the session is closed out and its records,
+            // XP and achievements are on file. A quest write that fails is recorded, not thrown.
+            val rig = Rig(questCatalogue = listOf(ONE_SESSION_QUEST))
+            rig.progression.setSessionsOn(FINISHED_AT.atZone(ZoneOffset.UTC).toLocalDate(), 1)
+            val sessionId = rig.finishSession()
+            rig.quests.failNext = IllegalStateException("the quest table is not writable")
+
+            val progression = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.QUESTS), progression.failures.map { it.step })
+            assertEquals(emptyList<Any>(), progression.questsCompleted)
+            assertTrue("the earlier steps did not run", progression.recordsBroken.isNotEmpty())
+            assertTrue("the session was not paid for", progression.xpAwarded > 0)
+        }
+
+    @Test
+    fun `a streak that could not be read does not stop the quests`() =
+        runTest {
+            // Unlike achievements, which are fenced by the streak because their snapshot needs
+            // it. No quest counts streak days, so the board is entirely intact without one.
+            val rig = Rig(
+                questCatalogue = listOf(ONE_SESSION_QUEST),
+                decorateGamification = { FailingStreak(it) },
+            )
+            rig.progression.setSessionsOn(FINISHED_AT.atZone(ZoneOffset.UTC).toLocalDate(), 1)
+            val sessionId = rig.finishSession()
+
+            val progression = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(
+                listOf(SessionProgressionStep.STREAK, SessionProgressionStep.ACHIEVEMENTS),
+                progression.failures.map { it.step },
+            )
+            assertEquals(listOf(ONE_SESSION_QUEST), progression.questsCompleted.map { it.quest })
+        }
+
+    /** A store whose streak write refuses, leaving every other write working. */
+    private class FailingStreak(private val delegate: GamificationRepository) :
+        GamificationRepository by delegate {
+
+        override suspend fun updateStreak(
+            finishedAt: Instant,
+            decide: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
+        ): StreakUpdate = error("the progress row is not writable")
+    }
+
     /**
      * The stores and the composition under test, bundled so a test that needs a second,
      * independent history — the torn-cascade comparison, the ordering journal — can have one
@@ -468,11 +569,14 @@ class SessionCompletionPipelineTest {
     private class Rig(
         journal: MutableList<String>? = null,
         decorateGamification: (GamificationRepository) -> GamificationRepository = { it },
+        questCatalogue: List<Quest> = emptyList(),
     ) {
 
         val sessions = FakeSessionRepository()
         val records = FakePersonalRecordRepository()
         val gamification = FakeGamificationRepository()
+        val quests = FakeQuestRepository()
+        val progression = FakeProgressionRepository()
 
         private val observedRecords: PersonalRecordRepository =
             journal?.let { JournallingRecords(records, it) } ?: records
@@ -487,10 +591,33 @@ class SessionCompletionPipelineTest {
 
         private val awardXp = AwardXpUseCase(observedGamification)
 
+        /**
+         * The quest step, over an **empty catalogue** unless a test asks for one.
+         *
+         * Not over [Quests.ALL], deliberately. The quest board reads the same record store PR
+         * detection writes to, so the real catalogue would complete `weekly_record` on every
+         * session in this suite that breaks one — and every XP total asserted here, in tests
+         * about the XP step and the failure contract, would silently become a statement about
+         * what a quest costs. An empty catalogue makes the step run and find nothing, which
+         * keeps each test about the one thing it is named for; the tests that *are* about
+         * quests pass a catalogue in.
+         */
+        private val completeQuests = QuestCompletionUseCase(
+            questProgress = QuestProgressUseCase(
+                progressionRepository = progression,
+                personalRecordRepository = observedRecords,
+                questRepository = quests,
+                catalogue = questCatalogue,
+            ),
+            questRepository = quests,
+            awardXp = awardXp,
+        )
+
         val pipeline = SessionCompletionPipeline(
             detectPersonalRecords = detectPersonalRecords,
             awardXp = awardXp,
             triggerAchievements = AchievementTriggerUseCase(observedGamification, awardXp),
+            completeQuests = completeQuests,
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,
@@ -623,6 +750,26 @@ class SessionCompletionPipelineTest {
 
         /** When the fixture's session finished. A fixed instant, so the streak arithmetic is exact. */
         val FINISHED_AT: Instant = Instant.parse("2026-03-02T18:00:00Z")
+
+        const val QUEST_XP = 60
+
+        /** Met by the one session these tests finish. */
+        val ONE_SESSION_QUEST = Quest(
+            id = "one_session",
+            metric = QuestMetric.SESSIONS_FINISHED,
+            target = 1,
+            period = QuestPeriod.WEEKLY,
+            xpReward = QUEST_XP,
+        )
+
+        /** Met by the records PR detection writes for that session. */
+        val ONE_RECORD_QUEST = Quest(
+            id = "one_record",
+            metric = QuestMetric.RECORDS_BROKEN,
+            target = 1,
+            period = QuestPeriod.WEEKLY,
+            xpReward = QUEST_XP,
+        )
 
         const val DAY_SECONDS = 24L * 60 * 60
         const val HOUR_SECONDS = 60L * 60

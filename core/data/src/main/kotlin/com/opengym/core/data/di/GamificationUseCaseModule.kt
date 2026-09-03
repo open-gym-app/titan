@@ -2,10 +2,14 @@ package com.opengym.core.data.di
 
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.domain.repository.ProgressionRepository
+import com.opengym.core.domain.repository.QuestRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.usecase.AchievementTriggerUseCase
 import com.opengym.core.domain.usecase.AwardXpUseCase
 import com.opengym.core.domain.usecase.PrDetectionUseCase
+import com.opengym.core.domain.usecase.QuestCompletionUseCase
+import com.opengym.core.domain.usecase.QuestProgressUseCase
 import com.opengym.core.domain.usecase.SessionCompletionPipeline
 import dagger.Module
 import dagger.Provides
@@ -47,11 +51,42 @@ object GamificationUseCaseModule {
             awardXp = awardXp,
         )
 
+    /**
+     * The clock and the catalogue are both left at their defaults, for the reason
+     * [provideAchievementTriggerUseCase] leaves the achievement catalogue at its own: which
+     * quests exist is a property of the app rather than of a build's wiring, and the real clock
+     * is what production runs on. A test constructs this directly with both pinned.
+     */
+    @Provides
+    fun provideQuestProgressUseCase(
+        progressionRepository: ProgressionRepository,
+        personalRecordRepository: PersonalRecordRepository,
+        questRepository: QuestRepository,
+    ): QuestProgressUseCase =
+        QuestProgressUseCase(
+            progressionRepository = progressionRepository,
+            personalRecordRepository = personalRecordRepository,
+            questRepository = questRepository,
+        )
+
+    @Provides
+    fun provideQuestCompletionUseCase(
+        questProgress: QuestProgressUseCase,
+        questRepository: QuestRepository,
+        awardXp: AwardXpUseCase,
+    ): QuestCompletionUseCase =
+        QuestCompletionUseCase(
+            questProgress = questProgress,
+            questRepository = questRepository,
+            awardXp = awardXp,
+        )
+
     @Provides
     fun provideSessionCompletionPipeline(
         detectPersonalRecords: PrDetectionUseCase,
         awardXp: AwardXpUseCase,
         triggerAchievements: AchievementTriggerUseCase,
+        completeQuests: QuestCompletionUseCase,
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
@@ -60,6 +95,7 @@ object GamificationUseCaseModule {
             detectPersonalRecords = detectPersonalRecords,
             awardXp = awardXp,
             triggerAchievements = triggerAchievements,
+            completeQuests = completeQuests,
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
