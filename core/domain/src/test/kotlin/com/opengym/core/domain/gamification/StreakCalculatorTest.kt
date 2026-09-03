@@ -2,7 +2,9 @@ package com.opengym.core.domain.gamification
 
 import com.opengym.core.domain.model.StreakResult
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Duration
 import java.time.Instant
@@ -164,6 +166,71 @@ class StreakCalculatorTest {
     @Test
     fun `an unchanged result stores the streak the user already had`() {
         assertEquals(4, StreakResult.Unchanged.streakAfter(currentStreak = 4))
+    }
+
+    // ─── Is it still running? ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a streak counted today is still running`() {
+        assertTrue(
+            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(2))),
+        )
+    }
+
+    @Test
+    fun `a streak counted yesterday is still running, whatever the hour`() {
+        // The calendar arm, asked of a moment rather than of a session: somebody who trained
+        // at 19:00 yesterday has not lost anything by 09:00 today.
+        assertTrue(
+            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(14))),
+        )
+    }
+
+    @Test
+    fun `a streak inside the window is still running past the next calendar day`() {
+        // Monday 19:00 to Wednesday 06:00 is 35 hours: a day was skipped and the window has
+        // not closed, which is the case the grace period exists for.
+        assertTrue(
+            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(35))),
+        )
+    }
+
+    @Test
+    fun `a streak past the window has lapsed`() {
+        // Nothing has written to the row — a streak is only recomputed when a session
+        // finishes — so this is the whole of the difference between the stored figure and the
+        // truth. See UserProgress.currentStreak.
+        assertFalse(
+            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(37))),
+        )
+    }
+
+    @Test
+    fun `a user who has never counted a session has no streak running`() {
+        assertFalse(StreakCalculator.isLive(lastCountedAt = null, asOf = MONDAY_EVENING))
+    }
+
+    @Test
+    fun `a clock that has gone backwards does not cut a streak`() {
+        // A device whose clock jumped back says nothing about whether the streak lapsed, and
+        // taking a running streak away over it would be the app punishing a timezone change.
+        assertTrue(
+            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.minus(Duration.ofHours(4))),
+        )
+    }
+
+    @Test
+    fun `it lapses exactly where a session would stop extending it`() {
+        // The two questions are one rule — see `isLive`. This holds them to it at the boundary,
+        // which is the only place they could drift apart.
+        val lastMoment = MONDAY_EVENING.plus(StreakCalculator.GRACE_PERIOD).plus(Duration.ofDays(1))
+        val extends = StreakCalculator.onSessionFinished(
+            finishedAt = lastMoment,
+            lastCountedAt = MONDAY_EVENING,
+            currentStreak = 3,
+        ) != StreakResult.Reset
+
+        assertEquals(extends, StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = lastMoment))
     }
 
     // ─── The tuning dial ────────────────────────────────────────────────────────────────

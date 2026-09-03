@@ -69,12 +69,22 @@ import kotlin.math.roundToInt
  * mark that is already open closes it, which is the only way to put a tooltip away on a card
  * that is not a dialog.
  *
+ * ### A plot nobody is listening to does not take the tap
+ *
+ * [onSelect] is nullable, and null is what a chart on a card that *navigates* passes — Home's
+ * eight-week volume card, whose whole surface opens the stats tab. The tap detector is then not
+ * installed at all rather than installed over a callback that discards the tap: two things
+ * cannot own one gesture, and a plot that swallowed it would leave the card looking broken
+ * while the axis around it still worked.
+ *
  * @param label what the series is, for the description the chart hands a screen reader.
  * @param formatValue the caller's own formatter for the rail's figures, without a unit — see
  *   [chartValueTicks]. Null draws no rail and no gridlines.
  * @param selectedIndex which mark the tooltip is open on, or null. An index the series does
  *   not hold is ignored rather than clamped: it means the series changed under the selection,
  *   and pointing at a neighbouring mark would put a wrong figure on screen.
+ * @param onSelect the mark a thumb landed on, or **null** for a plot that is not touchable —
+ *   see above.
  */
 @Composable
 fun ChartPlot(
@@ -85,7 +95,7 @@ fun ChartPlot(
     height: Dp = ChartDefaults.HEIGHT,
     formatValue: ((Float) -> String)? = null,
     selectedIndex: Int? = null,
-    onSelect: (Int?) -> Unit = {},
+    onSelect: ((Int?) -> Unit)? = null,
 ) {
     val plottable = entries.isPlottable()
     val ticks = if (formatValue == null) emptyList() else chartValueTicks(entries, scale, formatValue)
@@ -111,9 +121,9 @@ fun ChartPlot(
                     .fillMaxWidth()
                     .height(height)
                     .then(
-                        if (plottable) {
+                        if (plottable && select != null) {
                             Modifier.chartSelection(entries, scale) { index ->
-                                select(if (index == currentSelection) null else index)
+                                select?.invoke(if (index == currentSelection) null else index)
                             }
                         } else {
                             Modifier

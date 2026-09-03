@@ -11,8 +11,12 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.ui.component.WeekDay
 import com.opengym.core.ui.format.formatSessionDate
@@ -46,6 +50,8 @@ class HomeScreenTest {
     private var startedEmpty = 0
     private var openedTemplates = 0
     private var openedSessions = 0
+    private var openedRecords = 0
+    private var openedStats = 0
 
     // ─── The resume banner ──────────────────────────────────────────────────────────────
 
@@ -226,10 +232,13 @@ class HomeScreenTest {
 
         composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsDisplayed()
         composeTestRule.onNodeWithText("Start from template").assertIsDisplayed()
-        // No banner, no week card, and no strip: nothing on this screen renders an empty
-        // shell — see HomeUiState.
+        // No header, no banner, no week card, no record and no chart of noughts: nothing on
+        // this screen renders an empty shell — see HomeUiState.
         composeTestRule.onNodeWithText("RESUME").assertDoesNotExist()
         composeTestRule.onNodeWithText("THIS WEEK").assertDoesNotExist()
+        composeTestRule.onNodeWithText("LVL 1").assertDoesNotExist()
+        composeTestRule.onNodeWithText("RECENT PR").assertDoesNotExist()
+        composeTestRule.onNodeWithText("VOLUME · LAST 8 WEEKS").assertDoesNotExist()
         // One line of prose in place of the cards that have nothing in them — see
         // QuickStartSection.
         composeTestRule
@@ -300,6 +309,121 @@ class HomeScreenTest {
         assertEquals(1, openedSessions)
     }
 
+    // ─── The progression cards ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `the header is one sentence, not a level and a bare proportion`() {
+        setContent(state())
+
+        // `LVL 14` and `40 / 100 XP` are drawn — the reference images are the evidence for
+        // that — and neither is a node of its own: the header clears its subtree and is read
+        // as one sentence, or a reader hears the same fact three times. See LevelHeader.
+        composeTestRule
+            .onNodeWithContentDescription("Level 14, 60 points to the next level")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `nothing banked yet draws no header`() {
+        setContent(state().copy(level = null))
+
+        // Not `LVL 1 · 0 / 100 XP` — see HomeUiState.level.
+        composeTestRule
+            .onNodeWithContentDescription("point to the next level", substring = true)
+            .assertDoesNotExist()
+        composeTestRule
+            .onNodeWithContentDescription("points to the next level", substring = true)
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun `a running streak is drawn beside the week's count`() {
+        setContent(state())
+
+        composeTestRule.onNodeWithText("3 sessions").assertIsDisplayed()
+        composeTestRule.onNodeWithText("12-day streak").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a streak that has lapsed is absent rather than zero`() {
+        setContent(state().copy(week = WeekState(days = WEEK, sessionCount = 3, streak = null)))
+
+        composeTestRule.onNodeWithText("3 sessions").assertIsDisplayed()
+        composeTestRule.onNodeWithText("streak", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the recent record card names the lift, the kind and what it beat`() {
+        setContent(state())
+
+        composeTestRule.onNodeWithText("RECENT PR").performScrollTo().assertIsDisplayed()
+        // The whole card is one node — the row clears its subtree, as it does in the records
+        // list — so the lift, the kind, the figure, the date and the improvement over the
+        // record it beat are asserted where a screen reader would meet them.
+        composeTestRule
+            .onNodeWithContentDescription("Deadlift, 1RM, 142 kg, 27 Apr, +7 kg")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the record card opens the list it is the newest of`() {
+        setContent(state())
+
+        composeTestRule
+            .onNodeWithContentDescription("Deadlift", substring = true)
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(1, openedRecords)
+    }
+
+    @Test
+    fun `the volume chart says what it holds rather than being an image`() {
+        setContent(state())
+
+        // The chart is one node carrying a sentence built from its own series — the semantics
+        // #144 solves once in `:core:ui` so four screens do not solve it four ways. The bars
+        // are a drawing; this is the only way the figures behind them are reachable.
+        composeTestRule
+            .onNodeWithContentDescription("Latest 28,400 kg", substring = true)
+            .assertExists()
+    }
+
+    @Test
+    fun `the volume card opens the stats behind it`() {
+        setContent(state())
+
+        composeTestRule
+            .onNodeWithContentDescription("Latest 28,400 kg", substring = true)
+            .performScrollTo()
+            .performClick()
+
+        assertEquals(1, openedStats)
+    }
+
+    @Test
+    fun `a fortnight in draws the cards that have something to say and no others`() {
+        // The partially-populated state: trained, so there is a week and a streak, but no
+        // record broken and too little volume to chart. Each absent card is absent rather than
+        // empty, which is the rule the screen is built on.
+        setContent(
+            HomeUiState(
+                level = LevelState(level = 2, xpIntoLevel = 75, xpForLevel = 100),
+                week = WeekState(days = WEEK, sessionCount = 3, streak = 3),
+                templates = TEMPLATES,
+                isLoading = false,
+            ),
+        )
+
+        composeTestRule
+            .onNodeWithContentDescription("Level 2, 25 points to the next level")
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("3-day streak").assertIsDisplayed()
+        composeTestRule.onNodeWithText("RECENT PR").assertDoesNotExist()
+        composeTestRule.onNodeWithText("VOLUME · LAST 8 WEEKS").assertDoesNotExist()
+    }
+
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
 
     private fun setContent(state: HomeUiState) {
@@ -313,17 +437,29 @@ class HomeScreenTest {
                     onStartFromTemplates = { openedTemplates++ },
                     onStartFromTemplate = startedFromTemplate::add,
                     onOpenSessions = { openedSessions++ },
+                    onOpenRecords = { openedRecords++ },
+                    onOpenStats = { openedStats++ },
                 )
             }
         }
     }
 
-    /** A settled Home: a week with three sessions in it, and two saved templates. */
+    /**
+     * A settled Home with every card on it: the standing, a week and a streak, two templates,
+     * the last record broken and eight weeks of volume.
+     *
+     * The fully-populated state #110 asks the tests to cover, and the default here because it
+     * is also the strictest: a card drawn when it should not be is only visible against a
+     * screen that has all of them.
+     */
     private fun state(resume: ResumeState? = null) =
         HomeUiState(
+            level = LevelState(level = 14, xpIntoLevel = 40, xpForLevel = 100),
             resume = resume,
-            week = WeekState(days = WEEK, sessionCount = 3),
+            week = WeekState(days = WEEK, sessionCount = 3, streak = 12),
             templates = TEMPLATES,
+            recentRecord = RECORD,
+            volume = VOLUME,
             isLoading = false,
         )
 
@@ -341,6 +477,47 @@ class HomeScreenTest {
                 sessionCount = if (offset in listOf(0, 2, 5)) 1 else 0,
                 isToday = offset == 5,
                 isFuture = offset > 5,
+            )
+        }
+
+        /** 2026-04-27, midday UTC — safely the same calendar day in every zone CI may run in. */
+        const val RECORD_ACHIEVED_AT = 1_777_291_200_000L
+
+        /**
+         * A one-rep-max estimate on the deadlift, up 7 kg on the record it beat.
+         *
+         * `ESTIMATED_1RM` rather than a heaviest lift because it is the kind that carries an
+         * improvement worth drawing, and the improvement is the half of this card that the
+         * records list also has to get right.
+         */
+        val RECORD = PersonalRecordEntry(
+            record = PersonalRecord(
+                id = 1L,
+                exerciseId = 1L,
+                workoutSetId = 1L,
+                type = PrType.ESTIMATED_1RM,
+                estimated1Rm = 142_000_000L,
+                achievedAt = RECORD_ACHIEVED_AT,
+            ),
+            exerciseName = "Deadlift",
+            previousValue = 135_000_000L,
+            isRecent = false,
+        )
+
+        /** Eight weeks of volume, one of them a week off, in milligram-reps. */
+        val VOLUME: List<WeeklyVolume> = listOf(
+            18_400L,
+            21_200L,
+            19_800L,
+            24_600L,
+            0L,
+            26_100L,
+            31_800L,
+            28_400L,
+        ).mapIndexed { index, kilograms ->
+            WeeklyVolume(
+                weekStart = LocalDate.of(2026, 4, 27).minusWeeks((7 - index).toLong()),
+                totalVolume = kilograms * 1_000_000L,
             )
         }
 

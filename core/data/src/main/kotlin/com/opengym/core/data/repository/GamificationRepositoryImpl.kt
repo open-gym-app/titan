@@ -5,9 +5,11 @@ import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.UserProgressDao
 import com.opengym.core.data.db.entity.AchievementEntity
 import com.opengym.core.data.db.entity.UserProgressEntity
+import com.opengym.core.data.mapper.toDomain
 import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
 import kotlinx.coroutines.flow.Flow
@@ -50,6 +52,13 @@ class GamificationRepositoryImpl @Inject constructor(
     private val achievementDao: AchievementDao,
     private val sessionXpClaimDao: SessionXpClaimDao,
 ) : GamificationRepository {
+
+    /**
+     * The one progress row, mapped, with its absence carried through as null — see the
+     * contract: a fresh install has no row, and that is a state a screen renders differently
+     * from a user who has trained and holds no points.
+     */
+    override fun observeProgress(): Flow<UserProgress?> = userProgressDao.observe().map { entity -> entity?.toDomain() }
 
     /**
      * Both levels come from [levelForTotalXp], on the totals either side of [delta], and the

@@ -10,6 +10,22 @@
 -->
 <resources>
 
+    <!-- ── The header ────────────────────────────────────────────────────────────── -->
+
+    <!-- The level, as the header draws it: "LVL 14". Abbreviated because it is chrome above
+         the screen rather than a heading on it, and mono so it lines up with every other
+         figure in the app. %1$d is the level. -->
+    <string name="home_level">LVL %1$d</string>
+    <!-- Points into the current level, over what a level costs: "40 / 100 XP". -->
+    <string name="home_level_progress">%1$d / %2$d XP</string>
+    <!-- The whole header as one sentence: it is a single node to a screen reader, so the two
+         figures above and the bar under them are said once, here. %1$d is the level, %2$d the
+         points still to go. -->
+    <plurals name="home_level_description">
+        <item quantity="one">Level %1$d, %2$d point to the next level</item>
+        <item quantity="other">Level %1$d, %2$d points to the next level</item>
+    </plurals>
+
     <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
 
     <!-- "RUNNING · 23:14": what the workout is doing, and how long it has been doing it.
@@ -40,6 +56,12 @@
         <item quantity="one">%1$d session</item>
         <item quantity="other">%1$d sessions</item>
     </plurals>
+    <!-- Consecutive days trained, beside the week's count. Only ever drawn for a streak that
+         is still running — a lapsed one is absent, not zero. -->
+    <plurals name="home_week_streak">
+        <item quantity="one">%1$d-day streak</item>
+        <item quantity="other">%1$d-day streak</item>
+    </plurals>
 
     <!-- ── Quick start ───────────────────────────────────────────────────────────── -->
 
@@ -54,5 +76,35 @@
     <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
     <string name="home_start_empty">Start empty session</string>
     <string name="home_start_from_template">Start from template</string>
+
+    <!-- ── The recent personal record ────────────────────────────────────────────── -->
+
+    <string name="home_record_heading">Recent PR</string>
+    <!-- What tapping the card does, as the click's own label: the list every record is in. -->
+    <string name="home_record_open">Show all personal records</string>
+    <!-- Marks a record set in the most recently finished session, which is the one thing on
+         this card that is news rather than history. -->
+    <string name="home_record_new_badge">New</string>
+    <!-- How much the record beat the one before it. %1$s carries its own unit. -->
+    <string name="home_record_improvement">+%1$s</string>
+    <!-- A record whose exercise has been removed from the catalogue since. The record still
+         stands, so the card is drawn with this rather than dropped. -->
+    <string name="home_record_unknown_exercise">Removed exercise</string>
+    <!-- The card as one sentence: exercise, kind, figure, date. -->
+    <string name="home_record_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <!-- ── The volume chart ──────────────────────────────────────────────────────── -->
+
+    <!-- The heading over the chart: "VOLUME · LAST 8 WEEKS". The count comes from the series
+         itself, so the heading cannot claim a window the bars do not cover. -->
+    <plurals name="home_volume_heading">
+        <item quantity="one">Volume · last week</item>
+        <item quantity="other">Volume · last %1$d weeks</item>
+    </plurals>
+    <!-- What the series is, for the sentence the chart hands a screen reader. Sentence case:
+         it opens that sentence. -->
+    <string name="home_volume_label">Volume</string>
+    <!-- What tapping the card does, as the click's own label. -->
+    <string name="home_volume_open">Show training stats</string>
 
 </resources>

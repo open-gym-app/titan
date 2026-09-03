@@ -3,6 +3,7 @@ package com.opengym.core.domain.repository
 import com.opengym.core.domain.model.StreakResult
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
@@ -17,13 +18,33 @@ import java.time.Instant
  * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] calls them. #145 adds the last
  * two, both for [com.opengym.core.domain.usecase.SessionCompletionPipeline]: [updateStreak],
  * which is the store #34 computed a streak with nowhere to put, and [claimSessionXp], which
- * is what makes the cascade safe to re-enter. #106 added [observeStreak] — the one method
- * here that exists for a screen rather than for the cascade, and the one exception to the
- * paragraph above: a protection allowance nothing can read is a mechanic that never happened.
- * The reads the home snapshot (#23) and the progression screen (#32) need arrive the same
- * way. #35 implements whatever this names by then.
+ * is what makes the cascade safe to re-enter. The two reads came the same way, once a screen
+ * existed to call them: #106 added [observeStreak], because a protection allowance nothing can
+ * read is a mechanic that never happened, and #110 added [observeProgress], the one Home's
+ * level and XP bar are drawn from.
  */
 interface GamificationRepository {
+
+    /**
+     * Where the user stands, re-emitted whenever any of it changes — or **null** while
+     * nothing has ever been banked.
+     *
+     * The read side of everything the four writes below produce. Each of those answers with
+     * what one session *did*; this is what is true now, which is the only form a screen can
+     * use: Home draws a level, an XP bar and a streak on a launch where nothing has happened
+     * at all.
+     *
+     * **Null rather than a zeroed row.** A fresh install has no row, and "nothing has been
+     * banked yet" is a state Home renders differently from a user who has trained and holds
+     * no points — the first draws no level header at all, per #110's rule that a card with
+     * nothing to say is absent rather than empty. Synthesising the default here would take
+     * that choice away from every caller; the write side supplies the same default where it
+     * is not a choice, in `UserProgressDao.mutate`.
+     *
+     * A `Flow`, unlike [unlockedAchievementIds], because its caller is a screen that has to
+     * repaint when the post-session cascade banks XP behind it.
+     */
+    fun observeProgress(): Flow<UserProgress?>
 
     /**
      * Adds [delta] points to the lifetime total and returns what that award did.

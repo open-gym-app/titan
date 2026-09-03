@@ -42,6 +42,11 @@ data object HomeDestination
  * @param onOpenSessions the user tapped the week card and wants the sessions behind the count.
  *   Named for the event and not for the move, as everything here is: that this is a *tab*
  *   switch rather than a push is the shell's knowledge, and Home has no idea it is in a tab.
+ * @param onOpenRecords the user tapped the recent-PR card and wants every record it is the
+ *   newest of. That the list lives in `:feature:progression` and is pushed over the tabs is
+ *   `:app`'s knowledge; this module has never heard of it.
+ * @param onOpenStats the user tapped the volume chart and wants the figures behind the shape.
+ *   A tab switch, like [onOpenSessions] and for the same reason, but named for the want.
  */
 fun NavGraphBuilder.homeGraph(
     onResumeSession: (sessionId: Long) -> Unit,
@@ -49,6 +54,8 @@ fun NavGraphBuilder.homeGraph(
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
     onOpenSessions: () -> Unit,
+    onOpenRecords: () -> Unit,
+    onOpenStats: () -> Unit,
 ) {
     navigation<HomeGraphDestination>(startDestination = HomeDestination) {
         composable<HomeDestination> {
@@ -58,6 +65,8 @@ fun NavGraphBuilder.homeGraph(
                 onStartFromTemplates = onStartFromTemplates,
                 onStartFromTemplate = onStartFromTemplate,
                 onOpenSessions = onOpenSessions,
+                onOpenRecords = onOpenRecords,
+                onOpenStats = onOpenStats,
             )
         }
     }

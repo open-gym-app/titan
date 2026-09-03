@@ -1,13 +1,16 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
 import java.time.Instant
 
 /**
@@ -48,6 +51,19 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     /** What is left of the protection allowance, as stored. */
     val protection: StreakProtection get() = streak.value.protection
 
+    /**
+     * The level last written beside [totalXp] — the column, not a derivation.
+     *
+     * Written from [GamificationRepository.addXp]'s own `levelForTotalXp` on the new total,
+     * which is what the contract requires of a real store: a fake that derived it on read
+     * could not reproduce a row written under an older curve.
+     */
+    var currentLevel: Int = XpCalculator.FIRST_LEVEL
+        private set
+
+    /** Whether anything has ever been written — the difference between no row and a zeroed one. */
+    private var written = false
+
     /** Sessions whose XP has been claimed — the marker row, such as it is. */
     private val xpClaims = mutableSetOf<Long>()
 
@@ -75,6 +91,28 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
      */
     val unlockedAchievements: Map<String, Instant> get() = unlocked.toMap()
 
+    /**
+     * The row as a screen reads it, or null while nothing has been written.
+     *
+     * Read when it is collected rather than pushed on every write: nothing in the domain's own
+     * tests watches this while it changes, and a fake that maintained a hot flow would be
+     * carrying machinery no test exercises.
+     */
+    override fun observeProgress(): Flow<UserProgress?> = flow { emit(stored()) }
+
+    /** The row as it stands, or null while nothing has ever been written to it. */
+    private fun stored(): UserProgress? =
+        if (!written) {
+            null
+        } else {
+            UserProgress(
+                totalXp = totalXp,
+                level = currentLevel,
+                currentStreak = streakDays,
+                lastCountedAt = lastCountedAt,
+            )
+        }
+
     override suspend fun addXp(
         delta: Int,
         levelForTotalXp: (totalXp: Long) -> Int,
@@ -82,6 +120,8 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
         addXpFailure?.let { throw it }
         val previousLevel = levelForTotalXp(totalXp)
         totalXp += delta
+        currentLevel = levelForTotalXp(totalXp)
+        written = true
         return XpAward(
             awarded = delta,
             totalXp = totalXp,
@@ -106,6 +146,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
         streakFailure?.let { throw it }
         val update = advance(streak.value)
         streak.value = update.state
+        written = true
         return update
     }
 
@@ -123,5 +164,6 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
             lastCountedAt = lastCountedAt,
             protection = protection,
         )
+        written = true
     }
 }

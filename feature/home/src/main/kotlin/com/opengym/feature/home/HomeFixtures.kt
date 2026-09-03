@@ -1,7 +1,11 @@
 package com.opengym.feature.home
 
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.ui.component.WeekDay
 import java.time.LocalDate
@@ -27,6 +31,9 @@ private val PREVIEW_WEEK_START: LocalDate = LocalDate.of(2026, 4, 27)
 
 /** 2026-04-29, 10:14 UTC — the day the previewed workout was opened. */
 private const val PREVIEW_STARTED_AT = 1_777_803_240_000L
+
+/** 2026-04-27, midday UTC — the Monday of the previewed week, when the record below was set. */
+private const val PREVIEW_RECORD_AT = 1_777_291_200_000L
 
 /**
  * Trained Monday and Tuesday, twice on Wednesday, which is also today.
@@ -70,6 +77,56 @@ internal val PREVIEW_PAUSED = ResumeState(
     isPaused = true,
 )
 
+/** Part way through level 14 — the header's ordinary case, neither empty nor about to tip. */
+internal val PREVIEW_LEVEL = LevelState(level = 14, xpIntoLevel = 40, xpForLevel = 100)
+
+/**
+ * A one-rep-max estimate on the deadlift, set in the last session and up 7 kg on the one it
+ * beat — the card with everything on it: a kind, a name, a figure, a `NEW` badge and an
+ * improvement.
+ */
+internal val PREVIEW_RECORD = PersonalRecordEntry(
+    record = PersonalRecord(
+        id = 1L,
+        exerciseId = 1L,
+        workoutSetId = 1L,
+        type = PrType.ESTIMATED_1RM,
+        estimated1Rm = 142_000_000L,
+        achievedAt = PREVIEW_RECORD_AT,
+    ),
+    exerciseName = "Deadlift",
+    previousValue = 135_000_000L,
+    isRecent = true,
+)
+
+/**
+ * Eight weeks of volume with one week clearly the heaviest and a week off in the middle of it.
+ *
+ * The rest week is the case worth having in a reference image: it is drawn as the zero it is
+ * rather than as a gap, which is the whole reason the series carries untrained weeks at all.
+ */
+internal val PREVIEW_VOLUME: List<WeeklyVolume> = listOf(
+    18_400,
+    21_200,
+    19_800,
+    24_600,
+    0,
+    26_100,
+    31_800,
+    28_400,
+).mapIndexed { index, kilograms ->
+    WeeklyVolume(
+        weekStart = PREVIEW_WEEK_START.minusWeeks((PREVIEW_VOLUME_WEEKS - 1 - index).toLong()),
+        totalVolume = kilograms * MILLIGRAMS_PER_KILOGRAM,
+    )
+}
+
+/** How many weeks [PREVIEW_VOLUME] covers — the same eight the card asks for. */
+private const val PREVIEW_VOLUME_WEEKS = 8
+
+/** What a kilogram is stored as, for writing the fixture above in units a reader recognises. */
+private const val MILLIGRAMS_PER_KILOGRAM = 1_000_000L
+
 /** Four saved templates, in the order the strip draws them. */
 private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(
     previewTemplate(1L, "Push Day", 8, 55.minutes, TemplateCategory.STRENGTH),
@@ -78,11 +135,30 @@ private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(
     previewTemplate(4L, "HIIT Cardio", 3, 28.minutes, TemplateCategory.ENDURANCE),
 )
 
-/** A settled Home, with everything M4 can fill in filled in. */
+/** A settled Home with every card on it — the state #110 asks the tests to cover first. */
 internal fun previewHome(resume: ResumeState? = PREVIEW_RESUME) =
     HomeUiState(
+        level = PREVIEW_LEVEL,
         resume = resume,
-        week = WeekState(days = PREVIEW_DAYS, sessionCount = 4),
+        week = WeekState(days = PREVIEW_DAYS, sessionCount = 4, streak = 12),
+        templates = PREVIEW_TEMPLATES,
+        recentRecord = PREVIEW_RECORD,
+        volume = PREVIEW_VOLUME,
+        isLoading = false,
+    )
+
+/**
+ * A week in: a level, a week and a streak, and nothing the progression engines can answer yet.
+ *
+ * The state a user is in for their first fortnight — they have trained, so the week is real,
+ * but they have broken no record and their eight weeks hold too little to chart. Each card is
+ * absent rather than empty, which is the rule the screen is built on and the reason this state
+ * has a reference image of its own.
+ */
+internal fun previewPartialHome() =
+    HomeUiState(
+        level = LevelState(level = 2, xpIntoLevel = 75, xpForLevel = 100),
+        week = WeekState(days = PREVIEW_DAYS, sessionCount = 4, streak = 3),
         templates = PREVIEW_TEMPLATES,
         isLoading = false,
     )

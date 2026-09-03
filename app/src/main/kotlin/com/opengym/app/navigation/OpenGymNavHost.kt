@@ -165,6 +165,16 @@ fun OpenGymNavHost(
                 onOpenSessions = {
                     appState.navigateToTopLevelDestination(TopLevelDestination.SESSIONS)
                 },
+                // A push over the tabs into `:feature:progression`'s records list — the same
+                // destination the hub's explore row opens, through the same helper. Home is the
+                // second way in, and the only one that starts from a record the user just set.
+                onOpenRecords = { navController.openProgressionDetail(PersonalRecordsDestination) },
+                // A tab switch rather than a push, exactly as the week card's is: the chart is a
+                // glance at the Stats tab's own hero, and moving the user there leaves that tab
+                // on the stack it already had.
+                onOpenStats = {
+                    appState.navigateToTopLevelDestination(TopLevelDestination.STATS)
+                },
             )
             historyGraph(
                 // A logged session opens the recap `:feature:session` draws, in its historical
