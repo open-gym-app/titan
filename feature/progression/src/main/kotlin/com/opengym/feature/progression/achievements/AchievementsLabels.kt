@@ -2,6 +2,7 @@ package com.opengym.feature.progression.achievements
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
+import com.opengym.core.domain.gamification.AchievementTier
 import com.opengym.core.domain.model.Achievement
 import com.opengym.feature.progression.R
 
@@ -27,4 +28,22 @@ internal fun Achievement.label(): String =
         "thirty_day_streak" -> stringResource(R.string.achievement_thirty_day_streak)
         "first_record" -> stringResource(R.string.achievement_first_record)
         else -> stringResource(R.string.achievement_unknown)
+    }
+
+/**
+ * The metal's name — `Gold`, `Silver`, `Bronze`.
+ *
+ * Spoken rather than drawn. The medal already *is* the metal, so printing the word under it would
+ * be the screen labelling its own picture; what needs it is the content description, where the
+ * rank is otherwise carried by a colour a screen reader cannot see. See `MedalShelf`.
+ *
+ * A `when` with no `else`: [AchievementTier] is a closed enum, so a fourth metal stops this
+ * compiling rather than shipping a medal nobody can name.
+ */
+@Composable
+internal fun AchievementTier.label(): String =
+    when (this) {
+        AchievementTier.GOLD -> stringResource(R.string.achievements_tier_gold)
+        AchievementTier.SILVER -> stringResource(R.string.achievements_tier_silver)
+        AchievementTier.BRONZE -> stringResource(R.string.achievements_tier_bronze)
     }

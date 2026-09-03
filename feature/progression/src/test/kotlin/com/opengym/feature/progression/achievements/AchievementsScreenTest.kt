@@ -1,5 +1,7 @@
 package com.opengym.feature.progression.achievements
 
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -13,13 +15,17 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 /**
- * The achievements grid, driven by hand-built state with no ViewModel and no Hilt graph, per
+ * The achievements shelf, driven by hand-built state with no ViewModel and no Hilt graph, per
  * CONTRIBUTING.md § Screens.
  *
- * These cases were `QuestLogScreenTest`'s while the grid lived at the bottom of the board. They
- * moved here with the screen and are unchanged in substance: a cell for every catalogue entry, a
- * locked one saying only that it is locked, an unlocked one announced as such, and a correct
- * total over both.
+ * The first cases were `QuestLogScreenTest`'s while the grid lived at the bottom of the board.
+ * They moved here with the screen and are unchanged in substance: a medal for every catalogue
+ * entry, a locked one saying only that it is locked, an unlocked one announced as such, and a
+ * correct total over both.
+ *
+ * What the medals added is asserted on the sentence a screen reader is given rather than on the
+ * drawing: the metal a milestone is struck in, the date it was earned, and the fact that a held
+ * medal can be struck again. The pixels are `AchievementsScreenPreview`'s job.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi")
@@ -49,13 +55,64 @@ class AchievementsScreenTest {
     }
 
     @Test
-    fun `an unlocked achievement is announced as unlocked`() {
+    fun `an unlocked achievement is announced with its metal and the day it was earned`() {
+        // The metal is spoken because the medal draws the rank in colour, and a rank carried by
+        // colour alone is a rank half the readers lose. See `MedalShelf`.
         setContent(populatedAchievements())
 
         composeTestRule
-            .onNodeWithContentDescription("First workout logged, unlocked")
+            .onNodeWithContentDescription("First workout logged, unlocked, Bronze medal, earned 14 Feb")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the top rung of a ladder is gold and the middle one silver`() {
+        // Ten sessions sits between one and a hundred; a hundred is the top of its ladder. Both
+        // are read off the catalogue rather than written down — see `Achievement.tier`.
+        setContent(AchievementsUiState(entries = unlocked("ten_sessions", "hundred_sessions"), isLoading = false))
+
+        composeTestRule
+            .onNodeWithContentDescription("Ten workouts in, unlocked, Silver medal, earned 14 Feb")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("One hundred workouts, unlocked, Gold medal, earned 15 Feb")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the screen leads with the newest medal`() {
+        // `populatedAchievements` dates its three a day apart in the order they are named, so the
+        // first record is the most recent of them. See `AchievementsUiState.latest`.
+        setContent(populatedAchievements())
+
+        composeTestRule
+            .onNodeWithContentDescription("Latest medal, First personal record, unlocked, Bronze medal, earned 16 Feb")
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a held medal can be struck again`() {
+        // The one thing on this screen that is only fun. It changes nothing, which is why the
+        // action carries a label rather than being an unnamed click on a decoration.
+        setContent(populatedAchievements())
+
+        composeTestRule
+            .onNodeWithContentDescription("First workout logged, unlocked, Bronze medal, earned 14 Feb")
+            .performScrollTo()
+            .assertHasClickAction()
+    }
+
+    @Test
+    fun `a locked medal is not pressable`() {
+        setContent(populatedAchievements())
+
+        composeTestRule
+            .onNodeWithContentDescription("A month-long streak, locked")
+            .performScrollTo()
+            .assertHasNoClickAction()
     }
 
     @Test
@@ -66,6 +123,17 @@ class AchievementsScreenTest {
         composeTestRule
             .onNodeWithContentDescription("First workout logged, locked")
             .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a user with no medals is told what strikes the first one`() {
+        // The hero's place is filled rather than left out: the screen is not empty, and a blank
+        // where the newest medal goes would read as one. See `NoMedalsYetCard`.
+        setContent(emptyAchievements())
+
+        composeTestRule
+            .onNodeWithContentDescription("No medals yet. Finish a workout and the first one is struck.")
             .assertIsDisplayed()
     }
 

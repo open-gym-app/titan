@@ -18,11 +18,13 @@ import org.junit.Test
 import java.time.Instant
 
 /**
- * The achievements grid's state assembly: one read, and the catalogue walked against it.
+ * The achievements shelf's state assembly: one read, and the catalogue walked against it.
  *
- * These three cases were `QuestLogViewModelTest`'s while the grid lived on that screen. They moved
- * with it, unchanged in substance: a cell for every catalogue entry held or not, an id on file
- * that matches nothing producing no cell, and an unlock reaching the grid while it is open.
+ * The first three cases were `QuestLogViewModelTest`'s while the grid lived on that screen. They
+ * moved with it, unchanged in substance: a medal for every catalogue entry held or not, an id on
+ * file that matches nothing producing no medal, and an unlock arriving while the screen is open.
+ * The rest cover what the medals added: the date a milestone was struck, and which one the hero
+ * leads with.
  *
  * Collected in a launched job rather than read off `.value`, because `WhileSubscribed` produces
  * nothing at all without a subscriber.
@@ -101,6 +103,57 @@ class AchievementsViewModelTest {
         }
 
     @Test
+    fun `a held achievement carries the date it was earned`() =
+        runTest {
+            gamification.unlocked.value = listOf(unlock("first_session", at = Instant.ofEpochMilli(DAY_MILLIS)))
+
+            val state = collect()
+
+            val held = state().entries.first { it.achievement.id == "first_session" }
+            assertEquals(DAY_MILLIS, held.unlockedAt)
+            assertEquals(null, state().entries.first { it.achievement.id == "ten_sessions" }.unlockedAt)
+        }
+
+    @Test
+    fun `the newest unlock is the one the screen leads with`() =
+        runTest {
+            // Out of catalogue order on purpose: the hero is the most recent medal, not the
+            // furthest down the catalogue. See `AchievementsUiState.latest`.
+            gamification.unlocked.value = listOf(
+                unlock("first_record", at = Instant.ofEpochMilli(2 * DAY_MILLIS)),
+                unlock("first_session", at = Instant.ofEpochMilli(DAY_MILLIS)),
+            )
+
+            val state = collect()
+
+            assertEquals("first_record", state().latest?.achievement?.id)
+        }
+
+    @Test
+    fun `two milestones earned at once lead with the dearer of them`() =
+        runTest {
+            // A first workout unlocks the first session milestone and the first record together.
+            // The tie breaks on catalogue order, which evaluates the cheapest first — so the one
+            // to lead with is the last of them, not the first.
+            gamification.unlocked.value = listOf(
+                unlock("first_session", at = Instant.ofEpochMilli(DAY_MILLIS)),
+                unlock("first_record", at = Instant.ofEpochMilli(DAY_MILLIS)),
+            )
+
+            val state = collect()
+
+            assertEquals("first_record", state().latest?.achievement?.id)
+        }
+
+    @Test
+    fun `a user who holds nothing has no medal to lead with`() =
+        runTest {
+            val state = collect()
+
+            assertEquals(null, state().latest)
+        }
+
+    @Test
     fun `nothing has answered before the first emission`() {
         val viewModel = AchievementsViewModel(gamificationRepository = gamification)
 
@@ -123,6 +176,12 @@ class AchievementsViewModelTest {
         return { viewModel.uiState.value }
     }
 
-    private fun unlock(id: String): UnlockedAchievement =
-        UnlockedAchievement(achievementId = id, unlockedAt = Instant.EPOCH)
+    private fun unlock(
+        id: String,
+        at: Instant = Instant.EPOCH,
+    ): UnlockedAchievement = UnlockedAchievement(achievementId = id, unlockedAt = at)
+
+    private companion object {
+        const val DAY_MILLIS = 86_400_000L
+    }
 }

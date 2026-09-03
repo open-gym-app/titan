@@ -1,6 +1,8 @@
 package com.opengym.feature.progression.achievements
 
 import androidx.compose.runtime.Immutable
+import com.opengym.core.domain.gamification.AchievementTier
+import com.opengym.core.domain.gamification.tier
 import com.opengym.core.domain.model.Achievement
 
 /**
@@ -18,7 +20,7 @@ import com.opengym.core.domain.model.Achievement
  * worth knowing from the board. See `QuestLogUiState.achievementsUnlocked`.
  *
  * @property entries every achievement in the catalogue, marked held or not, in catalogue order.
- *   Never filtered: a grid that hid the locked ones would tell a new user there is nothing to
+ *   Never filtered: a shelf that hid the locked ones would tell a new user there is nothing to
  *   earn. Empty only before the first emission.
  * @property isLoading the first read has not answered. Gates the empty-catalogue claim and
  *   nothing else — a user who holds none is a real, correct state and draws six locked cells.
@@ -31,6 +33,24 @@ data class AchievementsUiState(
 
     /** How many the user holds — the numerator of the header's count. */
     val unlockedCount: Int get() = entries.count(AchievementEntry::isUnlocked)
+
+    /**
+     * The most recently earned medal, or null when the user holds none.
+     *
+     * The screen's hero, and the reason [AchievementEntry.unlockedAt] travels at all. *Most
+     * recent* rather than *rarest*: the question a user opens this screen with is "what did I just
+     * get", and a screen that led with their gold instead would show the same medal for months
+     * while three new ones appeared quietly in the shelf below it.
+     *
+     * Ties break on catalogue order — the order unlocks are evaluated in, so two milestones
+     * cleared by one workout put the cheaper one first and the *dearer* one here, which is the
+     * one worth leading with. See `Achievements.ALL`.
+     */
+    val latest: AchievementEntry?
+        get() = entries.withIndex()
+            .filter { (_, entry) -> entry.isUnlocked }
+            .maxWithOrNull(compareBy({ (_, entry) -> entry.unlockedAt ?: Long.MIN_VALUE }, IndexedValue<*>::index))
+            ?.value
 }
 
 /**
@@ -45,9 +65,19 @@ data class AchievementsUiState(
  *   catalogue, so a stored id matching no entry — a milestone renamed without a migration —
  *   simply does not appear, rather than producing a cell with no definition behind it.
  * @property isUnlocked whether the user holds it.
+ * @property unlockedAt when it was earned, in epoch milliseconds, or null while it is locked. Two
+ *   things read it: the date under a held medal, and [AchievementsUiState.latest]. It is *not*
+ *   what decides whether the medal is drawn as held — [isUnlocked] is — so a row stored without a
+ *   timestamp by some future import still shows as earned, with no date under it.
+ * @property tier which metal it is struck in, read off the catalogue ladder rather than stored.
+ *   Resolved here rather than in the grid so the screen, its previews and its tests all rank a
+ *   milestone the same way, and so a composable never has to reach for the catalogue to draw one
+ *   cell. See [com.opengym.core.domain.gamification.tier].
  */
 @Immutable
 data class AchievementEntry(
     val achievement: Achievement,
     val isUnlocked: Boolean,
+    val unlockedAt: Long? = null,
+    val tier: AchievementTier = achievement.tier(),
 )

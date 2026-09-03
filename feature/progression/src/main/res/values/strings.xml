@@ -368,10 +368,31 @@
     <!-- %1$d held, %2$d in the catalogue. -->
     <string name="achievements_count">%1$d / %2$d</string>
     <string name="achievements_locked">Locked</string>
-    <!-- A locked cell says only that it is locked — #104 is explicit that it reveals nothing
+    <!-- A locked medal says only that it is locked — #104 is explicit that it reveals nothing
          about how to unlock it beyond what the catalogue already defines. -->
     <string name="achievements_locked_description">%1$s, locked</string>
-    <string name="achievements_unlocked_description">%1$s, unlocked</string>
+    <!-- %1$s the milestone, %2$s its metal. The metal is spoken because the medal draws the
+         rank in colour, and a rank carried by colour alone is a rank half the readers lose. -->
+    <string name="achievements_unlocked_description">%1$s, unlocked, %2$s medal</string>
+    <!-- The same, once a date is known: %3$s is when it was earned. -->
+    <string name="achievements_unlocked_dated_description">%1$s, unlocked, %2$s medal, earned %3$s</string>
+    <!-- What tapping a held medal does. Spoken as the action, never drawn: the medal replays its
+         strike, which is a flourish and not a state change worth labelling on screen. -->
+    <string name="achievements_replay_action">Strike it again</string>
+
+    <!-- The hero: the medal most recently earned, struck again as the screen opens. -->
+    <string name="achievements_latest_eyebrow">Latest medal</string>
+    <!-- %1$s the metal, %2$s the date it was struck. -->
+    <string name="achievements_latest_meta">%1$s · Earned %2$s</string>
+    <!-- The hero before there is one. Not an error and not an empty state: the shelf below is
+         full of what there is to earn, and this names the one action that strikes the first. -->
+    <string name="achievements_none_title">No medals yet</string>
+    <string name="achievements_none_body">Finish a workout and the first one is struck.</string>
+
+    <!-- The metals, which rank a milestone against the others measured the same way. -->
+    <string name="achievements_tier_gold">Gold</string>
+    <string name="achievements_tier_silver">Silver</string>
+    <string name="achievements_tier_bronze">Bronze</string>
 
     <!-- The achievement names, resolved from the domain catalogue's ids. Duplicated from
          `:feature:session`, which draws the same milestones on the session summary: a string
