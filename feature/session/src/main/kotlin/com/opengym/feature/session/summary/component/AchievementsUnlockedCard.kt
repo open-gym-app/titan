@@ -1,6 +1,5 @@
 package com.opengym.feature.session.summary.component
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,15 +11,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import com.opengym.core.domain.gamification.AchievementTier
+import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.tier
+import com.opengym.core.domain.model.AchievementMetric
+import com.opengym.core.ui.component.ACHIEVEMENT_MEDAL_COMPACT_SIZE
+import com.opengym.core.ui.component.AchievementMedal
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.rememberMedalCeremony
 import com.opengym.core.ui.theme.OpenGymTheme
-import com.opengym.core.ui.theme.PillShape
 import com.opengym.feature.session.R
 import com.opengym.feature.session.summary.SummaryAchievement
 
 /**
- * The milestones this session unlocked, one row each.
+ * The milestones this session unlocked, one row each, each medal struck as the recap opens.
  *
  * ### Why they are not folded into the XP breakdown
  *
@@ -40,6 +44,17 @@ import com.opengym.feature.session.summary.SummaryAchievement
  *
  * The caller draws nothing when the list is empty. Most sessions unlock nothing, and a card
  * saying so would be the screen listing what the user has not achieved.
+ *
+ * ### The medal is struck here, and this is the moment it is for
+ *
+ * The row used to carry a pill reading `MEDAL`, which was a label describing a thing rather than
+ * the thing. It is now the same medal the achievements screen shelves — same metal, same glyph,
+ * same ceremony — playing at the one moment the user has actually earned it. That the two surfaces
+ * draw the identical object is the point: the disc that lands on the recap is the disc that is
+ * waiting on the shelf afterwards, which is what makes the shelf worth opening.
+ *
+ * See `AchievementMedal` for the drawing and `MedalCeremony` for why an unlock is not the
+ * level-up's animation at a different volume.
  */
 @Composable
 internal fun AchievementsUnlockedCard(
@@ -65,26 +80,22 @@ private fun AchievementRow(
 ) {
     val title = achievement.title()
     val celebrationColors = OpenGymTheme.celebration
+    val catalogued = Achievements.ALL.firstOrNull { it.id == achievement.id }
 
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // The medal, as a pill rather than an icon: the app has no achievement artwork and a
-        // generic trophy repeated down the list says less than the milestone's own name.
-        Text(
-            text = stringResource(R.string.summary_achievement_badge),
-            style = OpenGymTheme.typography.eyebrow,
-            color = celebrationColors.onAchievement,
-            modifier = Modifier
-                .background(celebrationColors.achievement, PillShape)
-                .padding(
-                    horizontal = OpenGymTheme.spacing.md,
-                    vertical = OpenGymTheme.spacing.xs,
-                )
-                // The row's own sentence already says a milestone was unlocked.
-                .clearAndSetSemantics { },
+        AchievementMedal(
+            // A milestone this build does not recognise still draws, on the same reasoning the
+            // fallback title uses: it is a thing the user did. It gets the first rung's metal and
+            // the trophy, which claims nothing about a ladder this build cannot see.
+            tier = catalogued?.tier() ?: AchievementTier.BRONZE,
+            metric = catalogued?.metric ?: AchievementMetric.RECORDS_BROKEN,
+            isUnlocked = true,
+            size = ACHIEVEMENT_MEDAL_COMPACT_SIZE,
+            ceremony = rememberMedalCeremony(autoPlay = true),
         )
 
         Text(

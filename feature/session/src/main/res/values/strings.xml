@@ -346,7 +346,6 @@
     <string name="quest_unknown">Quest</string>
 
     <string name="summary_achievements">Achievements unlocked</string>
-    <string name="summary_achievement_badge">New</string>
 
     <!-- The milestone names. The catalogue is `Achievements` in the domain, which is a plain
          Kotlin object with no resources of its own; the words live here so the app stays
