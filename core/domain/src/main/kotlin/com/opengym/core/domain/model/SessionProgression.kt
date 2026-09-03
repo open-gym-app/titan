@@ -2,7 +2,7 @@ package com.opengym.core.domain.model
 
 /**
  * Everything finishing one session moved: the records it broke, the XP it paid, what it did
- * to the streak and which achievements it unlocked.
+ * to the streak, which achievements it unlocked and which quests it completed.
  *
  * The single value
  * [com.opengym.core.domain.usecase.SessionCompletionPipeline] returns, and the reason the
@@ -33,15 +33,18 @@ package com.opengym.core.domain.model
  * @property recordsBroken every personal record this session actually beat, one per
  *   [PrType] beaten per exercise. Empty on a re-run, since the second pass beats nothing.
  * @property xp every award banked, oldest first — the session's own events **and** the ones
- *   its achievement unlocks paid, so this is the whole breakdown rather than the part of it
- *   the cascade emitted directly. [achievementsUnlocked] carries the same awards again,
- *   attached to what earned them.
+ *   its achievement unlocks and quest completions paid, so this is the whole breakdown rather
+ *   than the part of it the cascade emitted directly. [achievementsUnlocked] and
+ *   [questsCompleted] carry the same awards again, attached to what earned them.
  * @property streak what the session did to the streak, or **null** if the streak step could
  *   not run (see [failures]). A finish with no cascade wired has no progression at all rather
  *   than an empty one — see [FinishedSession.progression] — so a null streak here always means
  *   the step was attempted and refused.
  * @property achievementsUnlocked the milestones this run unlocked — never ones the user
  *   already held.
+ * @property questsCompleted the quests this run completed, each with the period it was
+ *   completed into — never ones already on file for that period, so this is empty on a re-run
+ *   just as [achievementsUnlocked] is.
  * @property failures the steps that threw, in the order they were attempted.
  */
 data class SessionProgression(

@@ -155,8 +155,13 @@ class QuestCompletionUseCaseTest {
 
             rig.run(finishedAt = finishedAt)
 
-            assertEquals(finishedAt, rig.quests.completedAt(THREE_SESSIONS.id, LocalDate.of(2025, Month.SEPTEMBER, 1)))
-            assertEquals(finishedAt, rig.run(finishedAt = finishedAt).firstOrNull()?.completedAt ?: finishedAt)
+            val week = LocalDate.of(2025, Month.SEPTEMBER, 1)
+            assertEquals(finishedAt, rig.quests.completedAt(THREE_SESSIONS.id, week))
+
+            // A retry an hour later writes nothing, so the row keeps the workout's own moment.
+            rig.run(finishedAt = finishedAt.plusSeconds(3_600))
+
+            assertEquals(finishedAt, rig.quests.completedAt(THREE_SESSIONS.id, week))
         }
 
     // ─── When the store refuses ─────────────────────────────────────────────────────────
@@ -231,7 +236,7 @@ class QuestCompletionUseCaseTest {
 
         fun quest(
             id: String,
-            target: Int,
+            target: Long,
             period: QuestPeriod,
             xpReward: Int,
         ) = Quest(

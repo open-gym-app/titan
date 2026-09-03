@@ -23,16 +23,18 @@ import java.time.temporal.TemporalAdjusters
  *
  * @property id the stable id, used as the string-resource key and as half of the completion
  *   record's identity.
- * @property metric what is counted.
- * @property target how much of it completes the quest. Compared with `>=`, so a lifter who
- *   overshoots is done rather than stuck at 5/4.
+ * @property metric what is counted, and in what unit — a plain count for two of them and
+ *   milligrams for the third.
+ * @property target how much of [metric], **in [metric]'s own unit**, completes the quest.
+ *   Compared with `>=`, so a lifter who overshoots is done rather than stuck at 5/4. A `Long`
+ *   because a volume target is milligrams and twenty tonnes of them overflows an `Int`.
  * @property period how often it resets.
  * @property xpReward what completing it pays, once per period.
  */
 data class Quest(
     val id: String,
     val metric: QuestMetric,
-    val target: Int,
+    val target: Long,
     val period: QuestPeriod,
     val xpReward: Int,
 ) {
@@ -42,17 +44,20 @@ data class Quest(
         require(xpReward >= 0) { "a quest reward cannot be negative, was $xpReward for $id" }
     }
 
-    /** Whether [progress] has finished this quest. */
-    fun isMetBy(progress: Int): Boolean = progress >= target
+    /** Whether [progress], in [metric]'s unit, has finished this quest. */
+    fun isMetBy(progress: Long): Boolean = progress >= target
 }
 
 /**
- * What a quest counts.
+ * What a quest counts, and the unit [Quest.target] and `QuestProgress.progress` are in.
  *
  * Three, deliberately, and each one is a figure the app **already** aggregates — see
  * `QuestProgressUseCase`, which reads existing queries rather than adding one per quest. A
  * general rule engine is the thing this is not: #105 asks for a small set, and a fourth metric
  * should be added here when a fourth quest needs it rather than in anticipation.
+ *
+ * Each entry names its unit, because the unit is not the same for all three and a screen
+ * drawing `progress / target` has to know which it is holding.
  */
 enum class QuestMetric {
 
@@ -63,14 +68,19 @@ enum class QuestMetric {
     RECORDS_BROKEN,
 
     /**
-     * Volume lifted in the period, in **kilograms** rather than the milligrams everything is
-     * stored in.
+     * Volume lifted in the period, in the **milligrams** every weight in this app is stored in.
      *
-     * A quest target is a number a human reads on a card — "lift 20,000 kg" — and expressing it
-     * in milligrams would put a fourteen-digit constant in the catalogue for a figure the
-     * screen renders in kilos anyway. The conversion happens once, where the aggregate is read.
+     * Not kilograms, though a target reads better as one. [UnitSystem] exists, and the unit a
+     * quest is *shown* in is the user's, not the catalogue's: an imperial user has to read
+     * `24,251 / 44,092 lb`, with **both** numbers converted, and a domain that pre-divided by a
+     * kilogram would hand the screen a figure it could only suffix with `lb` or convert twice.
+     * Milligrams keep the choice where [UnitSystem] says it belongs — `:core:ui`'s
+     * `formatVolume`, which every other volume on every other screen already goes through.
+     *
+     * The catalogue keeps its legible targets regardless; it writes `kilograms(20_000)` rather
+     * than a fourteen-digit constant. See [com.opengym.core.domain.gamification.Quests].
      */
-    VOLUME_KILOGRAMS,
+    VOLUME_MILLIGRAMS,
 }
 
 /**

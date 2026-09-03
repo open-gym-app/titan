@@ -42,9 +42,6 @@ class FakeQuestRepository : QuestRepository {
             rows.keys.filter { it.periodStart == periodStart }.map(Key::questId).toSet()
         }
 
-    override suspend fun completedIdsOnce(periodStart: LocalDate): Set<String> =
-        completions.value.keys.filter { it.periodStart == periodStart }.map(Key::questId).toSet()
-
     override suspend fun completeQuest(
         questId: String,
         periodStart: LocalDate,

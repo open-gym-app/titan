@@ -1,7 +1,6 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.gamification.Quests
-import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
@@ -63,11 +62,12 @@ class QuestProgressUseCase(
     /**
      * The board, in [catalogue] order, recomputed whenever any figure behind it moves.
      *
-     * Today is read once per collection rather than per emission, so a board left open across
-     * midnight keeps reporting the period it was opened in until something else makes it
-     * re-emit. That is the same staleness every dated screen in the app has and is deliberately
-     * not solved with a ticker here: the correction arrives with the next finished session,
-     * which is the only event that could have changed the answer anyway.
+     * Today is read once, here, rather than per emission — and the flows behind it are built
+     * against that date — so a board left open across midnight keeps reporting the period it
+     * was built in until something calls this again. That is the same staleness every dated
+     * screen in the app has and is deliberately not solved with a ticker here: the correction
+     * arrives with the next finished session, which is the only event that could have changed
+     * the answer anyway.
      */
     operator fun invoke(): Flow<List<QuestProgress>> = at(today())
 
@@ -105,16 +105,18 @@ class QuestProgressUseCase(
         return combine(
             sessionsIn(days),
             recordsIn(days),
-            volumeKilogramsIn(days),
+            volumeIn(days),
             questRepository.observeCompletedIds(start),
         ) { sessions, records, volume, completed ->
             quests.map { quest ->
                 QuestProgress(
                     quest = quest,
+                    // Widened rather than narrowed: a count fits a `Long`, and a period's
+                    // volume in milligrams does not fit an `Int`.
                     progress = when (quest.metric) {
-                        QuestMetric.SESSIONS_FINISHED -> sessions
-                        QuestMetric.RECORDS_BROKEN -> records
-                        QuestMetric.VOLUME_KILOGRAMS -> volume
+                        QuestMetric.SESSIONS_FINISHED -> sessions.toLong()
+                        QuestMetric.RECORDS_BROKEN -> records.toLong()
+                        QuestMetric.VOLUME_MILLIGRAMS -> volume
                     },
                     isComplete = quest.id in completed,
                     periodStart = start,
@@ -131,19 +133,15 @@ class QuestProgressUseCase(
             .map { tally -> tally.records }
 
     /**
-     * The period's volume in kilograms.
+     * The period's volume, in the milligram-reps the store sums and nothing else.
      *
-     * The store sums milligram-reps, which is a figure with fourteen digits in it for an
-     * ordinary week; the catalogue states its targets in the kilos a card shows. Converted here,
-     * once, rather than in the catalogue — see [QuestMetric.VOLUME_KILOGRAMS].
-     *
-     * Rounded down: a quest asking for 20,000 kg is not met by 19,999.6, and rounding up would
-     * complete it a fraction of a rep early.
+     * Passed through undivided, which is the point: converting to a display unit here would
+     * decide for [com.opengym.core.domain.model.UnitSystem], and rounding to one would let
+     * 19,999.6 kg either miss the target or clear it a fraction of a rep early depending on
+     * which way it went. Compared exactly, and converted once, at the screen — see
+     * [QuestMetric.VOLUME_MILLIGRAMS].
      */
-    private fun volumeKilogramsIn(days: ClosedRange<LocalDate>): Flow<Int> =
-        progressionRepository.getVolume(days).map { milligrams ->
-            (milligrams / MILLIGRAMS_PER_KILOGRAM).toInt()
-        }
+    private fun volumeIn(days: ClosedRange<LocalDate>): Flow<Long> = progressionRepository.getVolume(days)
 
     /**
      * Today, in **UTC** — the zone every period boundary in this app is cut in.

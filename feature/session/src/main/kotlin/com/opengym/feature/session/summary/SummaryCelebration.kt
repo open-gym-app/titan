@@ -153,7 +153,7 @@ data class XpSource(
 )
 
 /**
- * The four things a session can be paid for, in the order the breakdown lists them.
+ * The five things a session can be paid for, in the order the breakdown lists them.
  *
  * Declaration order is display order, running from the routine to the rare: sets are what every
  * session has, an achievement is what a handful of sessions in a lifetime have. A breakdown that

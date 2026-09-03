@@ -32,15 +32,6 @@ interface QuestRepository {
     fun observeCompletedIds(periodStart: LocalDate): Flow<Set<String>>
 
     /**
-     * The same set, read once.
-     *
-     * For the completion pass, which runs inside a finishing session and needs a value rather
-     * than a stream — the same call [GamificationRepository.unlockedAchievementIds] makes, for
-     * the same reason.
-     */
-    suspend fun completedIdsOnce(periodStart: LocalDate): Set<String>
-
-    /**
      * Records [questId] as completed for the period opening on [periodStart], and answers
      * whether **this call** is the one that wrote it.
      *

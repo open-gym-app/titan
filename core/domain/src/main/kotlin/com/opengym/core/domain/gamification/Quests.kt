@@ -1,5 +1,6 @@
 package com.opengym.core.domain.gamification
 
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
@@ -41,6 +42,12 @@ import com.opengym.core.domain.model.QuestPeriod
  * weekly rewards above a session and at or below an achievement, monthly ones above every weekly
  * rung and worth at least two levels, and every ladder's harder rung above its easier one. A
  * tuning pass that breaks the economy's shape fails there rather than shipping.
+ *
+ * The volume targets are the one pair not written as the number they compare against: a
+ * [QuestMetric.VOLUME_MILLIGRAMS] target is milligrams, and "twenty tonnes" is more legible as
+ * [kilograms] of them than as `20_000_000_000`. The conversion is a multiplication in this file
+ * and nothing downstream sees a kilogram — see [QuestMetric.VOLUME_MILLIGRAMS] for why the
+ * domain does not divide.
  *
  * **These values are starting defaults**, like [Achievements]' thresholds and
  * [StreakCalculator.STREAK_GRACE_HOURS]: nothing here has been validated against real usage. Each
@@ -108,8 +115,8 @@ object Quests {
      */
     val WEEKLY_VOLUME = Quest(
         id = "weekly_volume",
-        metric = QuestMetric.VOLUME_KILOGRAMS,
-        target = 20_000,
+        metric = QuestMetric.VOLUME_MILLIGRAMS,
+        target = kilograms(20_000),
         period = QuestPeriod.WEEKLY,
         xpReward = 70,
     )
@@ -137,8 +144,8 @@ object Quests {
     /** Eighty tonnes in the month — four weeks of [WEEKLY_VOLUME], near enough. */
     val MONTHLY_VOLUME = Quest(
         id = "monthly_volume",
-        metric = QuestMetric.VOLUME_KILOGRAMS,
-        target = 80_000,
+        metric = QuestMetric.VOLUME_MILLIGRAMS,
+        target = kilograms(80_000),
         period = QuestPeriod.MONTHLY,
         xpReward = 280,
     )
@@ -161,3 +168,11 @@ object Quests {
         MONTHLY_VOLUME,
     )
 }
+
+/**
+ * [count] kilograms, as the milligrams a [QuestMetric.VOLUME_MILLIGRAMS] target is stated in.
+ *
+ * Here rather than at the two call sites so the catalogue keeps reading as the tonnages it
+ * describes, and so retuning one is still an edit to a single legible number.
+ */
+private fun kilograms(count: Int): Long = count * MILLIGRAMS_PER_KILOGRAM.toLong()

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "caa2024c670c753d36655357ef6ad5b5",
+    "identityHash": "40332454a3a619127e53050c0e78d9a9",
     "entities": [
       {
         "tableName": "exercise",
@@ -1305,12 +1305,23 @@
             "quest_id",
             "period_start"
           ]
-        }
+        },
+        "indices": [
+          {
+            "name": "index_quest_completion_period_start",
+            "unique": false,
+            "columnNames": [
+              "period_start"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_quest_completion_period_start` ON `${TABLE_NAME}` (`period_start`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'caa2024c670c753d36655357ef6ad5b5')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '40332454a3a619127e53050c0e78d9a9')"
     ]
   }
 }

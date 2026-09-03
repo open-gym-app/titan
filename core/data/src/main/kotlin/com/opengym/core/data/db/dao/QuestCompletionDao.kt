@@ -10,9 +10,8 @@ import kotlinx.coroutines.flow.Flow
 /**
  * What the user has completed, per quest and per period.
  *
- * Shaped like [AchievementDao] — insert-if-absent, and reads in both the shapes the
- * gamification surfaces need — with the period as the extra half of every key. See
- * [QuestCompletionEntity] for why that pair is the primary key.
+ * Shaped like [AchievementDao] — insert-if-absent, with the period as the extra half of
+ * every key. See [QuestCompletionEntity] for why that pair is the primary key.
  */
 @Dao
 interface QuestCompletionDao {
@@ -49,15 +48,4 @@ interface QuestCompletionDao {
      */
     @Query("SELECT quest_id FROM quest_completion WHERE period_start = :periodStart")
     fun observeCompletedIds(periodStart: Long): Flow<List<String>>
-
-    /**
-     * The same ids, read once.
-     *
-     * A suspend read for the completion pass, which runs right after a session finishes and
-     * must see a quest completed seconds ago — which a hot flow's latest emission is not
-     * guaranteed to be. The same call [AchievementDao.getAllIdsOnce] makes, and bounded the
-     * same way: by the catalogue, not by the table.
-     */
-    @Query("SELECT quest_id FROM quest_completion WHERE period_start = :periodStart")
-    suspend fun getCompletedIdsOnce(periodStart: Long): List<String>
 }

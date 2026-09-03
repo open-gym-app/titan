@@ -2,6 +2,7 @@ package com.opengym.core.data.db.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 
 /**
  * One quest the user has completed, in one period.
@@ -31,6 +32,22 @@ import androidx.room.Entity
  * An achievement is held forever; a quest recurs, so the *period* is half of what identifies a
  * completion.
  *
+ * ### And an index on the period, beside that key
+ *
+ * Nothing ever asks for one quest's completion. Both reads — the board's and the completion
+ * pass's — ask which quests were completed *in a period*, so they filter on `period_start`
+ * alone. A composite index is only usable from its leading column, and this one leads with
+ * `quest_id`, so without the index below every such read is a full table scan.
+ *
+ * Declaring the key as `(period_start, quest_id)` instead would fix it for free — the implicit
+ * index would then lead with the column both reads filter on, and `INSERT OR IGNORE` does not
+ * care which way round the pair is written. It is spelled out as its own index rather than left
+ * to that, because a key's column order is the kind of thing a later reader reorders for
+ * legibility, and the reads would go back to scanning with nothing to say they had.
+ *
+ * The cost of being explicit is a second B-tree over a table that grows by at most one row per
+ * quest per period — a few hundred rows a year — which is the smaller of the two prices.
+ *
  * @property questId the stable key from [com.opengym.core.domain.model.Quest.id]. Part of the
  *   storage contract: renaming one orphans every row written under the old spelling, and the
  *   quest becomes completable again in a period it was already paid for — which is why the
@@ -43,7 +60,11 @@ import androidx.room.Entity
  *   in epoch milliseconds, not the moment the row was written, so a cascade retried an hour
  *   later does not date the completion to the retry.
  */
-@Entity(tableName = "quest_completion", primaryKeys = ["quest_id", "period_start"])
+@Entity(
+    tableName = "quest_completion",
+    primaryKeys = ["quest_id", "period_start"],
+    indices = [Index("period_start")],
+)
 data class QuestCompletionEntity(
     @ColumnInfo(name = "quest_id")
     val questId: String,

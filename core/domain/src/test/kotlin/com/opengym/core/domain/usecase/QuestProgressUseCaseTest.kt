@@ -30,7 +30,7 @@ class QuestProgressUseCaseTest {
             val rig = Rig(catalogue = listOf(THREE_SESSIONS))
             rig.progression.setSessionsOn(WEDNESDAY, 2)
 
-            assertEquals(2, rig.board().single().progress)
+            assertEquals(2L, rig.board().single().progress)
         }
 
     @Test
@@ -42,7 +42,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(WEDNESDAY, 2)
             rig.progression.setSessionsOn(WEDNESDAY, 1)
 
-            assertEquals(3, rig.board().single().progress)
+            assertEquals(3L, rig.board().single().progress)
             assertTrue(rig.board().single().quest.isMetBy(rig.board().single().progress))
         }
 
@@ -53,28 +53,33 @@ class QuestProgressUseCaseTest {
             rig.records.seedRecord(WEDNESDAY)
             rig.records.seedRecord(WEDNESDAY)
 
-            assertEquals(2, rig.board().single().progress)
+            assertEquals(2L, rig.board().single().progress)
         }
 
     @Test
-    fun `volume is reported in kilograms rather than the milligrams it is stored in`() =
+    fun `volume is reported in the milligrams it is stored in, undivided`() =
         runTest {
+            // Not kilograms: the screen converts, because the unit is the user's. A domain that
+            // divided here would hand `:core:ui` a figure `formatVolume` could not convert to
+            // pounds without knowing it had already been converted once.
             val rig = Rig(catalogue = listOf(TWENTY_TONNES))
-            // 20,000 kg, in the milligram-reps the store actually sums.
-            rig.progression.setVolumeOn(WEDNESDAY, 20_000L * 1_000_000L)
-
-            assertEquals(20_000, rig.board().single().progress)
-        }
-
-    @Test
-    fun `a part of a kilogram does not finish a quest early`() =
-        runTest {
-            // Rounded down: 19,999.6 kg is not the 20,000 the quest asked for.
-            val rig = Rig(catalogue = listOf(TWENTY_TONNES))
-            rig.progression.setVolumeOn(WEDNESDAY, 20_000L * 1_000_000L - 400_000L)
+            rig.progression.setVolumeOn(WEDNESDAY, KILOGRAM * 20_000)
 
             val row = rig.board().single()
-            assertEquals(19_999, row.progress)
+            assertEquals(KILOGRAM * 20_000, row.progress)
+            assertTrue(row.quest.isMetBy(row.progress))
+        }
+
+    @Test
+    fun `a part of a kilogram short does not finish a quest early`() =
+        runTest {
+            // Compared exactly, with nothing rounded on the way: 19,999.6 kg is not the 20,000
+            // the quest asked for, and a domain that rounded to whole kilos either way would
+            // have to choose between missing this and clearing it a fraction of a rep early.
+            val rig = Rig(catalogue = listOf(TWENTY_TONNES))
+            rig.progression.setVolumeOn(WEDNESDAY, KILOGRAM * 20_000 - 400_000L)
+
+            val row = rig.board().single()
             assertFalse(row.quest.isMetBy(row.progress))
         }
 
@@ -83,9 +88,9 @@ class QuestProgressUseCaseTest {
         runTest {
             val rig = Rig(catalogue = listOf(ONE_RECORD))
             rig.progression.setSessionsOn(WEDNESDAY, 40)
-            rig.progression.setVolumeOn(WEDNESDAY, 900_000L * 1_000_000L)
+            rig.progression.setVolumeOn(WEDNESDAY, KILOGRAM * 900_000)
 
-            assertEquals(0, rig.board().single().progress)
+            assertEquals(0L, rig.board().single().progress)
         }
 
     // ─── The range ──────────────────────────────────────────────────────────────────────
@@ -97,7 +102,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(WEDNESDAY.minusWeeks(1), 5)
             rig.progression.setSessionsOn(WEDNESDAY, 1)
 
-            assertEquals(1, rig.board().single().progress)
+            assertEquals(1L, rig.board().single().progress)
         }
 
     @Test
@@ -111,7 +116,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(week.start.minusDays(1), 9)
             rig.progression.setSessionsOn(week.endInclusive.plusDays(1), 9)
 
-            assertEquals(2, rig.board().single().progress)
+            assertEquals(2L, rig.board().single().progress)
         }
 
     @Test
@@ -126,7 +131,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(LocalDate.of(2025, Month.OCTOBER, 1), 9)
             rig.progression.setSessionsOn(LocalDate.of(2025, Month.AUGUST, 31), 9)
 
-            assertEquals(2, rig.board().single().progress)
+            assertEquals(2L, rig.board().single().progress)
         }
 
     @Test
@@ -195,7 +200,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(WEDNESDAY, 1)
 
             val row = rig.board().single()
-            assertEquals(1, row.progress)
+            assertEquals(1L, row.progress)
             assertTrue(row.isComplete)
             assertEquals(1f, row.fraction, 0f)
         }
@@ -245,7 +250,7 @@ class QuestProgressUseCaseTest {
             rig.progression.setSessionsOn(WEDNESDAY, 9)
 
             val row = rig.board().single()
-            assertEquals(9, row.progress)
+            assertEquals(9L, row.progress)
             assertEquals(1f, row.fraction, 0f)
         }
 
@@ -281,10 +286,13 @@ class QuestProgressUseCaseTest {
 
         const val MILLIS_PER_DAY = 86_400_000L
 
+        /** One kilogram of the milligrams a volume figure is counted in. */
+        const val KILOGRAM = 1_000_000L
+
         val THREE_SESSIONS = quest("three_sessions", QuestMetric.SESSIONS_FINISHED, 3, QuestPeriod.WEEKLY)
         val FIVE_SESSIONS = quest("five_sessions", QuestMetric.SESSIONS_FINISHED, 5, QuestPeriod.WEEKLY)
         val ONE_RECORD = quest("one_record", QuestMetric.RECORDS_BROKEN, 1, QuestPeriod.WEEKLY)
-        val TWENTY_TONNES = quest("twenty_tonnes", QuestMetric.VOLUME_KILOGRAMS, 20_000, QuestPeriod.WEEKLY)
+        val TWENTY_TONNES = quest("twenty_tonnes", QuestMetric.VOLUME_MILLIGRAMS, KILOGRAM * 20_000, QuestPeriod.WEEKLY)
         val TWELVE_SESSIONS = quest("twelve_sessions", QuestMetric.SESSIONS_FINISHED, 12, QuestPeriod.MONTHLY)
 
         /**
@@ -295,7 +303,7 @@ class QuestProgressUseCaseTest {
         fun quest(
             id: String,
             metric: QuestMetric,
-            target: Int,
+            target: Long,
             period: QuestPeriod,
         ) = Quest(id = id, metric = metric, target = target, period = period, xpReward = 10)
     }

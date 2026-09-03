@@ -18,9 +18,11 @@ import java.time.LocalDate
  * the next session pay for the same quest twice.
  *
  * @property quest the definition, carrying the target, the period and the reward.
- * @property progress how much of [QuestMetric] has been done in [periodStart]'s period, clamped
- *   to nothing — it can exceed the target, and a board that wants `5/3` to read as `3/3` clamps
- *   at the point it draws rather than losing the real figure here.
+ * @property progress how much of [Quest.metric] has been done in [periodStart]'s period, in the
+ *   **same unit as [Quest.target]** — a count for two of the metrics and milligrams for
+ *   [QuestMetric.VOLUME_MILLIGRAMS], so a screen drawing the pair converts both or neither.
+ *   Clamped to nothing: it can exceed the target, and a board that wants `5/3` to read as `3/3`
+ *   clamps at the point it draws rather than losing the real figure here.
  * @property isComplete whether this quest's completion is on file for this period. See above:
  *   not `progress >= target`.
  * @property periodStart the first day of the period being reported, which is what a completion
@@ -28,7 +30,7 @@ import java.time.LocalDate
  */
 data class QuestProgress(
     val quest: Quest,
-    val progress: Int,
+    val progress: Long,
     val isComplete: Boolean,
     val periodStart: LocalDate,
 ) {

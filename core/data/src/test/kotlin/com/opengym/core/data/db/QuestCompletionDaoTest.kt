@@ -36,7 +36,7 @@ class QuestCompletionDaoTest : RoomTestBase() {
             val wrote = dao.insertIfAbsent(completion(WEEKLY_SESSIONS, THIS_WEEK, completedAt = 1_000))
 
             assertTrue(wrote)
-            assertEquals(listOf(WEEKLY_SESSIONS), dao.getCompletedIdsOnce(THIS_WEEK))
+            assertEquals(listOf(WEEKLY_SESSIONS), completedIdsIn(THIS_WEEK))
         }
 
     @Test
@@ -78,8 +78,8 @@ class QuestCompletionDaoTest : RoomTestBase() {
             dao.insertIfAbsent(completion(WEEKLY_SESSIONS, LAST_WEEK, completedAt = 1_000))
             dao.insertIfAbsent(completion(WEEKLY_RECORD, THIS_WEEK, completedAt = 2_000))
 
-            assertEquals(listOf(WEEKLY_RECORD), dao.getCompletedIdsOnce(THIS_WEEK))
-            assertEquals(listOf(WEEKLY_SESSIONS), dao.getCompletedIdsOnce(LAST_WEEK))
+            assertEquals(listOf(WEEKLY_RECORD), completedIdsIn(THIS_WEEK))
+            assertEquals(listOf(WEEKLY_SESSIONS), completedIdsIn(LAST_WEEK))
         }
 
     @Test
@@ -89,14 +89,13 @@ class QuestCompletionDaoTest : RoomTestBase() {
             val wrote = dao.insertIfAbsent(completion(WEEKLY_RECORD, THIS_WEEK, completedAt = 2_000))
 
             assertTrue(wrote)
-            assertEquals(setOf(WEEKLY_SESSIONS, WEEKLY_RECORD), dao.getCompletedIdsOnce(THIS_WEEK).toSet())
+            assertEquals(setOf(WEEKLY_SESSIONS, WEEKLY_RECORD), completedIdsIn(THIS_WEEK).toSet())
         }
 
     @Test
     fun `a period with nothing completed reports nothing rather than failing`() =
         runBlocking {
-            assertEquals(emptyList<String>(), dao.getCompletedIdsOnce(THIS_WEEK))
-            assertEquals(emptyList<String>(), dao.observeCompletedIds(THIS_WEEK).first())
+            assertEquals(emptyList<String>(), completedIdsIn(THIS_WEEK))
         }
 
     @Test
@@ -109,6 +108,8 @@ class QuestCompletionDaoTest : RoomTestBase() {
 
             assertEquals(listOf(WEEKLY_SESSIONS), dao.observeCompletedIds(THIS_WEEK).first())
         }
+
+    private suspend fun completedIdsIn(periodStart: Long): List<String> = dao.observeCompletedIds(periodStart).first()
 
     private suspend fun singleRow(): QuestCompletionEntity =
         db.questCompletionDao().observeCompletedIds(THIS_WEEK).first().let {

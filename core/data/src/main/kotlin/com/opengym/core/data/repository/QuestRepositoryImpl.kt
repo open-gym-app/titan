@@ -35,9 +35,6 @@ class QuestRepositoryImpl @Inject constructor(private val questCompletionDao: Qu
     override fun observeCompletedIds(periodStart: LocalDate): Flow<Set<String>> =
         questCompletionDao.observeCompletedIds(periodStart.toEpochDay()).map { it.toSet() }
 
-    override suspend fun completedIdsOnce(periodStart: LocalDate): Set<String> =
-        questCompletionDao.getCompletedIdsOnce(periodStart.toEpochDay()).toSet()
-
     override suspend fun completeQuest(
         questId: String,
         periodStart: LocalDate,

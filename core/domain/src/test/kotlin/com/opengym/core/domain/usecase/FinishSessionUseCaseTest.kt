@@ -28,6 +28,7 @@ class FinishSessionUseCaseTest {
 
     private val personalRecords = FakePersonalRecordRepository()
     private val gamification = FakeGamificationRepository()
+    private val quests = FakeQuestRepository()
     private val awardXp = AwardXpUseCase(gamification)
 
     /**
@@ -53,10 +54,13 @@ class FinishSessionUseCaseTest {
                 questProgress = QuestProgressUseCase(
                     progressionRepository = FakeProgressionRepository(),
                     personalRecordRepository = personalRecords,
-                    questRepository = FakeQuestRepository(),
+                    // The same store the pass writes to, so the board could see a completion
+                    // it banked — two instances would let the filter read a table nothing
+                    // ever writes.
+                    questRepository = quests,
                     catalogue = emptyList(),
                 ),
-                questRepository = FakeQuestRepository(),
+                questRepository = quests,
                 awardXp = awardXp,
             ),
             sessionRepository = sessions,
