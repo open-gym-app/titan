@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.ui.component.HairlineDivider
@@ -28,6 +29,7 @@ import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.QUEST_MARK_COMPACT_SIZE
 import com.opengym.core.ui.component.QuestMark
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.home.QuestSummary
 import com.opengym.feature.home.R
@@ -143,8 +145,8 @@ private fun QuestPreviewRow(
     val name = row.quest.label()
     val counts = stringResource(
         R.string.home_quests_progress,
-        formatCount(row.progress),
-        formatCount(row.quest.target),
+        formatQuestFigure(metric = row.quest.metric, value = row.progress),
+        formatQuestFigure(metric = row.quest.metric, value = row.quest.target),
     )
     val spoken = stringResource(R.string.home_quests_description, name, counts)
 
@@ -231,12 +233,26 @@ private fun Quest.label(): String =
     }
 
 /**
- * A count as the user reads it, with thousands grouped: `14,200`.
+ * One of a quest's two figures, in the unit its metric is read in rather than stored in.
  *
- * A volume target is five digits and an ungrouped `20000` is a number the eye has to count. In
- * the *formatting* locale rather than with a literal separator, the rule this codebase applies
- * to every figure it draws — the same helper `QuestLogLabels` carries for the board.
+ * Sessions and records are counts, grouped in the *formatting* locale rather than with a literal
+ * separator — an ungrouped `20000` is a number the eye has to count digits on. A volume figure is
+ * milligrams on the way in, since that is what [QuestMetric.VOLUME_MILLIGRAMS] stores, and
+ * printing it raw would put `20,000,000,000` under a quest called "Move 20 tonnes";
+ * [formatVolumeValue] puts it back in the user's own unit.
+ *
+ * The board draws its figures through the same two rules — see `QuestLogLabels.formatQuestFigure`.
+ * Duplicated rather than shared: the two modules each own their strings, and a helper in
+ * `:core:ui` would be a design system that knows what a quest is.
  */
 @Composable
-private fun formatCount(value: Int): String =
-    NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(value)
+private fun formatQuestFigure(
+    metric: QuestMetric,
+    value: Long,
+): String =
+    when (metric) {
+        QuestMetric.SESSIONS_FINISHED, QuestMetric.RECORDS_BROKEN ->
+            NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(value)
+
+        QuestMetric.VOLUME_MILLIGRAMS -> formatVolumeValue(value)
+    }

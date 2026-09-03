@@ -525,8 +525,6 @@ class FakeQuestCompletions : QuestRepository {
 
     override fun observeCompletedIds(periodStart: LocalDate): Flow<Set<String>> = completed
 
-    override suspend fun completedIdsOnce(periodStart: LocalDate): Set<String> = completed.value
-
     override suspend fun completeQuest(
         questId: String,
         periodStart: LocalDate,

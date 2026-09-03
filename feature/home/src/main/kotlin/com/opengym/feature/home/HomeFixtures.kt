@@ -4,7 +4,9 @@ import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.TemplateCategory
@@ -199,13 +201,13 @@ private val PREVIEW_QUESTS = QuestSummary(
     next = listOf(
         previewQuest(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 4),
         previewQuest(quest = Quests.WEEKLY_RECORD, progress = 0),
-        previewQuest(quest = Quests.WEEKLY_VOLUME, progress = 12_400),
+        previewQuest(quest = Quests.WEEKLY_VOLUME, progress = kilograms(count = 12_400)),
     ),
 )
 
 private fun previewQuest(
     quest: Quest,
-    progress: Int,
+    progress: Long,
 ): QuestProgress =
     QuestProgress(
         quest = quest,
@@ -213,3 +215,6 @@ private fun previewQuest(
         isComplete = false,
         periodStart = quest.period.startOf(PREVIEW_DAY),
     )
+
+/** [count] kilograms as the milligrams a [QuestMetric.VOLUME_MILLIGRAMS] figure is stated in. */
+private fun kilograms(count: Int): Long = count * MILLIGRAMS_PER_KILOGRAM.toLong()

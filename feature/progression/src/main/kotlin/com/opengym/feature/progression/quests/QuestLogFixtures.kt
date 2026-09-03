@@ -2,7 +2,9 @@ package com.opengym.feature.progression.quests
 
 import com.opengym.core.domain.gamification.LevelTitles
 import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.UserProgress
 import java.time.LocalDate
@@ -31,10 +33,10 @@ internal fun populatedQuestLog(): QuestLogUiState {
             at(quest = Quests.WEEKLY_SESSIONS, progress = 3),
             at(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 3),
             at(quest = Quests.WEEKLY_RECORD, progress = 1),
-            at(quest = Quests.WEEKLY_VOLUME, progress = 14_200),
+            at(quest = Quests.WEEKLY_VOLUME, progress = kilograms(count = 14_200)),
             at(quest = Quests.MONTHLY_SESSIONS, progress = 9),
             at(quest = Quests.MONTHLY_RECORDS, progress = 2),
-            at(quest = Quests.MONTHLY_VOLUME, progress = 51_000),
+            at(quest = Quests.MONTHLY_VOLUME, progress = kilograms(count = 51_000)),
         ),
         // The two the ladder's lower rungs would have unlocked, and the first record.
         achievementsUnlocked = 3,
@@ -86,10 +88,10 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
             at(quest = Quests.WEEKLY_SESSIONS, progress = 3),
             at(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 3),
             at(quest = Quests.WEEKLY_RECORD, progress = 0),
-            at(quest = Quests.WEEKLY_VOLUME, progress = 8_000),
+            at(quest = Quests.WEEKLY_VOLUME, progress = kilograms(count = 8_000)),
             at(quest = Quests.MONTHLY_SESSIONS, progress = 5),
             at(quest = Quests.MONTHLY_RECORDS, progress = 1),
-            at(quest = Quests.MONTHLY_VOLUME, progress = 24_000),
+            at(quest = Quests.MONTHLY_VOLUME, progress = kilograms(count = 24_000)),
         ),
         achievementsUnlocked = 1,
         achievementsTotal = ACHIEVEMENT_TOTAL,
@@ -107,10 +109,10 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
  */
 private fun at(
     quest: Quest,
-    progress: Int,
-): Pair<Quest, Int> = quest to progress
+    progress: Long,
+): Pair<Quest, Long> = quest to progress
 
-private fun board(vararg entries: Pair<Quest, Int>): List<QuestProgress> =
+private fun board(vararg entries: Pair<Quest, Long>): List<QuestProgress> =
     entries.map { (quest, progress) ->
         QuestProgress(
             quest = quest,
@@ -126,3 +128,6 @@ private const val ACHIEVEMENT_TOTAL = 6
 
 /** Wednesday 3 September 2025, so a fixture's periods are stable across runs. */
 private val FIXTURE_DAY: LocalDate = LocalDate.of(2025, Month.SEPTEMBER, 3)
+
+/** [count] kilograms as the milligrams a [QuestMetric.VOLUME_MILLIGRAMS] figure is stated in. */
+private fun kilograms(count: Int): Long = count * MILLIGRAMS_PER_KILOGRAM.toLong()

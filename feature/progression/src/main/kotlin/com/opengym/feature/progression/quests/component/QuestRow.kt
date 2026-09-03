@@ -28,7 +28,7 @@ import com.opengym.core.ui.theme.LocalReducedMotion
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.core.ui.theme.PillShape
 import com.opengym.feature.progression.R
-import com.opengym.feature.progression.quests.formatCount
+import com.opengym.feature.progression.quests.formatQuestFigure
 import com.opengym.feature.progression.quests.label
 
 /**
@@ -63,8 +63,8 @@ internal fun QuestRow(
     val name = row.quest.label()
     val counts = stringResource(
         R.string.quest_log_quest_progress,
-        formatCount(row.progress.toLong()),
-        formatCount(row.quest.target.toLong()),
+        formatQuestFigure(metric = row.quest.metric, value = row.progress),
+        formatQuestFigure(metric = row.quest.metric, value = row.quest.target),
     )
     val spoken = stringResource(R.string.quest_log_quest_description, name, counts, row.quest.xpReward)
 

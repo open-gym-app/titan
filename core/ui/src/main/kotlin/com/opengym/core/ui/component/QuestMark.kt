@@ -65,7 +65,7 @@ fun QuestMark(
         when (metric) {
             QuestMetric.SESSIONS_FINISHED -> quest.sessions
             QuestMetric.RECORDS_BROKEN -> quest.records
-            QuestMetric.VOLUME_KILOGRAMS -> quest.volume
+            QuestMetric.VOLUME_MILLIGRAMS -> quest.volume
         }
     }
     val tint = if (isComplete) {
@@ -74,7 +74,7 @@ fun QuestMark(
         when (metric) {
             QuestMetric.SESSIONS_FINISHED -> quest.onSessions
             QuestMetric.RECORDS_BROKEN -> quest.onRecords
-            QuestMetric.VOLUME_KILOGRAMS -> quest.onVolume
+            QuestMetric.VOLUME_MILLIGRAMS -> quest.onVolume
         }
     }
 
@@ -99,7 +99,7 @@ private fun QuestMetric.icon(): ImageVector =
     when (this) {
         QuestMetric.SESSIONS_FINISHED -> Icons.Outlined.FitnessCenter
         QuestMetric.RECORDS_BROKEN -> Icons.Outlined.EmojiEvents
-        QuestMetric.VOLUME_KILOGRAMS -> Icons.Outlined.Scale
+        QuestMetric.VOLUME_MILLIGRAMS -> Icons.Outlined.Scale
     }
 
 /** The mark beside a quest on the board. A shade larger than [ICON_TILE_SIZE], since it is round. */

@@ -5,7 +5,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.gamification.LevelTitle
 import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
+import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.feature.progression.R
 import java.text.NumberFormat
 
@@ -72,3 +74,25 @@ internal fun LevelTitle.label(): String =
 @Composable
 internal fun formatCount(value: Long): String =
     NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(value)
+
+/**
+ * One of a quest's two figures, in the unit its metric is *read* in rather than stored in.
+ *
+ * Sessions and records are counts and print as themselves. A volume target is milligrams — see
+ * [QuestMetric.VOLUME_MILLIGRAMS], which is stored that way so nothing downstream rounds — and
+ * printing that figure raw would put `20,000,000,000` under a quest called "Move 20 tonnes".
+ * [formatVolumeValue] converts it to the user's own unit, which is what every other weight in the
+ * app already does.
+ *
+ * A `when` with no `else`: a fourth metric stops this compiling rather than shipping a figure in
+ * whatever unit it happens to be stored in.
+ */
+@Composable
+internal fun formatQuestFigure(
+    metric: QuestMetric,
+    value: Long,
+): String =
+    when (metric) {
+        QuestMetric.SESSIONS_FINISHED, QuestMetric.RECORDS_BROKEN -> formatCount(value)
+        QuestMetric.VOLUME_MILLIGRAMS -> formatVolumeValue(value)
+    }

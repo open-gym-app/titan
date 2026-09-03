@@ -19,7 +19,7 @@ interface QuestRepository {
     /**
      * The quest ids completed in the period opening on [periodStart].
      *
-     * A `Flow`, unlike [completedIdsOnce]: a board is open while a session finishes behind it,
+     * A `Flow` rather than a one-shot read: a board is open while a session finishes behind it,
      * and a quest that completes must fill in rather than waiting for the screen to be left and
      * come back.
      *

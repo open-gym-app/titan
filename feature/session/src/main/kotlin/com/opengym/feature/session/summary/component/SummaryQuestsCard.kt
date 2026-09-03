@@ -202,7 +202,7 @@ private fun SummaryQuest.cadence(): String =
 private fun SummaryQuest.metric(): QuestMetric =
     when {
         id.endsWith("record") || id.endsWith("records") -> QuestMetric.RECORDS_BROKEN
-        id.endsWith("volume") -> QuestMetric.VOLUME_KILOGRAMS
+        id.endsWith("volume") -> QuestMetric.VOLUME_MILLIGRAMS
         else -> QuestMetric.SESSIONS_FINISHED
     }
 
