@@ -119,6 +119,31 @@ subprojects {
             // parameter for.
             systemProperty("user.timezone", "UTC")
 
+            // ### What a Robolectric test JVM is allowed to take
+            //
+            // The counterpart to the budget in `gradle.properties`: that file bounds how many
+            // of these run at once, this bounds how large each one gets. Both halves are
+            // needed — four unbounded JVMs are no safer than sixteen bounded ones.
+            //
+            // Metaspace is the one that matters here, and it is the reason a heap limit alone
+            // was not enough. Robolectric loads the Android framework through a sandbox
+            // classloader *per SDK-and-configuration combination*, so a module's screenshot
+            // tests hold several complete copies of the framework's class metadata — which
+            // lives in native memory and does not count against `-Xmx`. A test JVM given 512m
+            // of heap and no metaspace ceiling still grows past a gigabyte of resident memory,
+            // which is invisible in a heap dump and visible only to the kernel.
+            //
+            // 1g of heap is above what any module needs today (they passed on Gradle's 512m
+            // default) and leaves room for the hardware render mode the Compose convention
+            // plugin turns on, which allocates its bitmaps on the Java heap.
+            maxHeapSize = "1g"
+            jvmArgs("-XX:MaxMetaspaceSize=512m")
+
+            // One fork per module task, never several. Gradle would otherwise scale this with
+            // the core count *inside* a task that `org.gradle.workers.max` is already running
+            // beside three others, and the two limits would multiply instead of holding.
+            maxParallelForks = 1
+
             testLogging {
                 events("failed", "skipped")
                 exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
