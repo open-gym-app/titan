@@ -1,0 +1,539 @@
+package com.opengym.core.data.db
+
+import com.opengym.core.data.mapper.PersonalRecordMapper
+import com.opengym.core.data.mapper.SessionExerciseMapper
+import com.opengym.core.data.mapper.SessionMapper
+import com.opengym.core.data.mapper.WorkoutSetMapper
+import com.opengym.core.data.repository.GamificationRepositoryImpl
+import com.opengym.core.data.repository.PersonalRecordRepositoryImpl
+import com.opengym.core.data.repository.ProgressionRepositoryImpl
+import com.opengym.core.data.repository.QuestRepositoryImpl
+import com.opengym.core.data.repository.SessionRepositoryImpl
+import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.TrainingGoal
+import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.usecase.AchievementTriggerUseCase
+import com.opengym.core.domain.usecase.AwardXpUseCase
+import com.opengym.core.domain.usecase.PrDetectionUseCase
+import com.opengym.core.domain.usecase.QuestCompletionUseCase
+import com.opengym.core.domain.usecase.QuestProgressUseCase
+import com.opengym.core.domain.usecase.SessionCompletionPipeline
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
+import kotlin.time.Duration
+
+/**
+ * The whole post-session cascade, over the database it actually writes to.
+ *
+ * `SessionCompletionPipelineTest` in `:core:domain` already pins the cascade's three contracts
+ * against in-memory fakes, and those fakes are honest: each enforces the part of its interface
+ * the cascade leans on. What they cannot enforce is that the *stored* schema does — that an
+ * unlock is unrepeatable because a unique index says so rather than because a `Set` did, that
+ * a session's XP claim is a row, that a record insert compares against what SQL selected back,
+ * and that a quest's period boundary lands on rows a `WHERE` clause actually matched. Those are
+ * the joins between four components (#30, #33, #34, #35) that each claim idempotency
+ * individually, and #36 asks for them to be claimed together.
+ *
+ * So this builds the real pipeline over the real repository implementations over a real
+ * (Robolectric) SQLite, drives it through [SessionCompletionPipeline] rather than by calling
+ * the five use cases by hand, and reads the end state back through [UserProgressDao.observe]
+ * and [AchievementDao.getAll] — the same flows the screens subscribe to.
+ *
+ * ### Everything asserted is computed from the catalogues, not copied out of a run
+ *
+ * The expected totals below are spelled as counts times named constants — six sets, eight
+ * records, two milestones, two quests — so a retune of [XpCalculator]'s starting defaults moves
+ * the expectation with the economy, while a change to *how many* of anything the cascade
+ * produces still fails. A hand-copied `1035` would have inverted both.
+ *
+ * The one thing left as a literal is [FINISHED_AT], because the periods are the point: it is a
+ * Wednesday, so the week's Monday and the month's first are two different days from the
+ * session's own, and a quest paid out of the wrong period would show.
+ */
+class SessionCompletionCascadeTest : RoomTestBase() {
+
+    // The cascade as `GamificationUseCaseModule` composes it, minus Hilt. Constructed by hand
+    // rather than through a test component so the wiring under test is visible in the file
+    // that asserts on it — and so the catalogues stay at their production defaults, which is
+    // what makes the hand-computed figures below the app's own figures.
+    private val sessions by lazy {
+        SessionRepositoryImpl(
+            sessionDao = db.workoutSessionDao(),
+            sessionExerciseDao = db.sessionExerciseDao(),
+            setDao = db.workoutSetDao(),
+            sessionMapper = SessionMapper(),
+            sessionExerciseMapper = SessionExerciseMapper(),
+            setMapper = WorkoutSetMapper(),
+        )
+    }
+
+    private val records by lazy {
+        PersonalRecordRepositoryImpl(
+            personalRecordDao = db.personalRecordDao(),
+            personalRecordMapper = PersonalRecordMapper(),
+        )
+    }
+
+    private val gamification by lazy {
+        GamificationRepositoryImpl(
+            userProgressDao = db.userProgressDao(),
+            achievementDao = db.achievementDao(),
+            sessionXpClaimDao = db.sessionXpClaimDao(),
+        )
+    }
+
+    private val progression by lazy {
+        ProgressionRepositoryImpl(setDao = db.workoutSetDao(), sessionDao = db.workoutSessionDao())
+    }
+
+    private val quests by lazy { QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()) }
+
+    private val awardXp by lazy { AwardXpUseCase(gamificationRepository = gamification) }
+
+    private val detectPersonalRecords by lazy {
+        PrDetectionUseCase(
+            sessionRepository = sessions,
+            personalRecordRepository = records,
+            userPreferencesRepository = DefaultPreferences,
+        )
+    }
+
+    private val pipeline by lazy {
+        SessionCompletionPipeline(
+            detectPersonalRecords = detectPersonalRecords,
+            awardXp = awardXp,
+            triggerAchievements = AchievementTriggerUseCase(
+                gamificationRepository = gamification,
+                awardXp = awardXp,
+            ),
+            completeQuests = QuestCompletionUseCase(
+                questProgress = QuestProgressUseCase(
+                    progressionRepository = progression,
+                    personalRecordRepository = records,
+                    questRepository = quests,
+                ),
+                questRepository = quests,
+                awardXp = awardXp,
+            ),
+            sessionRepository = sessions,
+            personalRecordRepository = records,
+            gamificationRepository = gamification,
+        )
+    }
+
+    // ------------------------------------------------------------- the full cascade
+
+    @Test
+    fun `a first session pays for itself, its records, its milestones and its quests`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            pipeline(sessionId, FINISHED_AT)
+
+            val stored = db.userProgressDao().observe().first()
+            assertEquals(CLEAN_RUN_XP, stored?.totalXp)
+            assertEquals(XpCalculator.levelForTotalXp(CLEAN_RUN_XP), stored?.currentLevel)
+        }
+
+    @Test
+    fun `the level the stored total buys is a level the user actually crossed`() =
+        runBlocking {
+            // The fixture is built to cross several: a first session breaks every record type
+            // it has the columns for, and each is worth half a level on its own. A cascade that
+            // banked the total without recomputing the level would read as level 1 here.
+            val sessionId = seedFinishedSession()
+
+            pipeline(sessionId, FINISHED_AT)
+
+            val stored = db.userProgressDao().observe().first()
+            assertTrue(
+                "the fixture no longer crosses a level boundary, so it stopped testing the crossing",
+                (stored?.currentLevel ?: 0) > XpCalculator.FIRST_LEVEL,
+            )
+            // The one figure written out by hand rather than derived, as a check on the
+            // derivation: 25 for the session, 30 for six sets, 400 for eight records, 200 for
+            // two milestones and 380 for two quests is 1,035, which is ten whole levels and a
+            // third of the eleventh.
+            assertEquals(EXPECTED_LEVEL, stored?.currentLevel)
+        }
+
+    @Test
+    fun `every record the session broke is on file, one per type it has the columns for`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            // Two exercises, four types each: the sets carry a weight and a rep count and
+            // nothing else, so distance and pace have no candidate to offer.
+            assertEquals(RECORDS_BROKEN, db.personalRecordDao().count())
+            assertEquals(
+                setOf(PrType.MAX_WEIGHT, PrType.MAX_REPS, PrType.MAX_VOLUME, PrType.ESTIMATED_1RM),
+                progression.recordsBroken.map { it.type }.toSet(),
+            )
+        }
+
+    @Test
+    fun `the milestones the session earned are unlocked, and reported in catalogue order`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            // `first_record` is only reachable because detection wrote before the catalogue was
+            // evaluated: the metric is a count of rows, and there were none before this session.
+            assertEquals(
+                listOf(Achievements.FIRST_SESSION.id, Achievements.FIRST_RECORD.id),
+                progression.achievementsUnlocked.map { it.achievement.id },
+            )
+            assertEquals(UNLOCKED_AS_STORED, storedAchievementIds())
+        }
+
+    @Test
+    fun `an unlock is stamped with the day the workout happened, not the day it was processed`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(
+                listOf(FINISHED_AT.toEpochMilli(), FINISHED_AT.toEpochMilli()),
+                db.achievementDao().getAll().first().map { it.unlockedAt },
+            )
+        }
+
+    @Test
+    fun `the streak opens at one, on the day the session finished`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            pipeline(sessionId, FINISHED_AT)
+
+            val stored = db.userProgressDao().observe().first()
+            assertEquals(1, stored?.currentStreak)
+            assertEquals(1, stored?.longestStreak)
+            assertEquals(FINISHED_AT.toEpochMilli(), stored?.lastCountedAt)
+        }
+
+    @Test
+    fun `the quests completed are the ones the week and the month actually met`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            // Eight records clears both record quests. The session and volume quests are not
+            // met by one workout of this size, which is what keeps the pair above meaningful:
+            // a board that completed everything would assert nothing about the targets.
+            assertEquals(
+                listOf(Quests.WEEKLY_RECORD.id, Quests.MONTHLY_RECORDS.id),
+                progression.questsCompleted.map { it.quest.id },
+            )
+        }
+
+    @Test
+    fun `a quest is banked into the period the session was trained in`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            pipeline(sessionId, FINISHED_AT)
+
+            // The Monday that opens the session's week, not the session's own Wednesday: a
+            // completion filed against the wrong day would be re-payable the moment the board
+            // is read back for the period it belongs to.
+            assertEquals(setOf(Quests.WEEKLY_RECORD.id), quests.observeCompletedIds(WEEK_START).first())
+            assertEquals(setOf(Quests.MONTHLY_RECORDS.id), quests.observeCompletedIds(MONTH_START).first())
+        }
+
+    // --------------------------------------------------------- the re-entry contract
+
+    @Test
+    fun `finishing the same session twice pays for it once`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+            pipeline(sessionId, FINISHED_AT)
+
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(0, second.xpAwarded)
+            assertEquals(CLEAN_RUN_XP, db.userProgressDao().observe().first()?.totalXp)
+        }
+
+    @Test
+    fun `finishing the same session twice breaks no second record`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+            pipeline(sessionId, FINISHED_AT)
+
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            assertTrue("a re-entry beat a record it had already written", second.recordsBroken.isEmpty())
+            assertEquals(RECORDS_BROKEN, db.personalRecordDao().count())
+        }
+
+    @Test
+    fun `finishing the same session twice does not advance the streak`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+            pipeline(sessionId, FINISHED_AT)
+
+            pipeline(sessionId, FINISHED_AT)
+
+            val stored = db.userProgressDao().observe().first()
+            assertEquals(1, stored?.currentStreak)
+            assertEquals(1, stored?.longestStreak)
+        }
+
+    @Test
+    fun `finishing the same session twice duplicates no unlock and no completion`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+            pipeline(sessionId, FINISHED_AT)
+
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            assertTrue("a milestone unlocked twice", second.achievementsUnlocked.isEmpty())
+            assertTrue("a quest completed twice", second.questsCompleted.isEmpty())
+            assertEquals(UNLOCKED_AS_STORED, storedAchievementIds())
+            assertEquals(setOf(Quests.WEEKLY_RECORD.id), quests.observeCompletedIds(WEEK_START).first())
+        }
+
+    // ------------------------------------------------------------- a torn cascade
+
+    @Test
+    fun `a cascade torn between detection and the awards finishes what had not run`() =
+        runBlocking {
+            // The state a process death after PR detection leaves on the disk: the record rows
+            // are committed and nothing has been paid. Re-entering has to complete the cascade
+            // without repeating the part that already ran.
+            val sessionId = seedFinishedSession()
+            detectPersonalRecords(sessionId)
+
+            pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(RECORDS_BROKEN, db.personalRecordDao().count())
+            assertEquals(1, db.userProgressDao().observe().first()?.currentStreak)
+            // The records survive the tear and still count towards `first_record`, because the
+            // catalogue is evaluated against what the store holds rather than against what this
+            // run happened to do.
+            assertEquals(UNLOCKED_AS_STORED, storedAchievementIds())
+            assertEquals(
+                setOf(Quests.WEEKLY_RECORD.id, Quests.MONTHLY_RECORDS.id),
+                quests.observeCompletedIds(WEEK_START).first() + quests.observeCompletedIds(MONTH_START).first(),
+            )
+        }
+
+    @Test
+    fun `what a torn cascade costs is the records' own xp, and exactly that`() =
+        runBlocking {
+            // The deliberate half of the pipeline's trade, stated as a number. The re-entry's
+            // detection beats the rows the first pass wrote, so it emits no `PrBroken` to pay
+            // for — and nothing downstream rounds the loss up. Under-paying one torn session is
+            // the price of not re-paying every session on every crash-recovery boot; see
+            // `GamificationRepository.claimSessionXp`.
+            val sessionId = seedFinishedSession()
+            detectPersonalRecords(sessionId)
+
+            pipeline(sessionId, FINISHED_AT)
+
+            val stored = db.userProgressDao().observe().first()
+            assertEquals(CLEAN_RUN_XP - XpCalculator.XP_PER_PR * RECORDS_BROKEN, stored?.totalXp)
+            assertEquals(XpCalculator.levelForTotalXp(stored!!.totalXp), stored.currentLevel)
+        }
+
+    // -------------------------------------------------------------------- the fixture
+
+    /**
+     * The unlocks as the screens read them back — [AchievementDao.getAll]'s own order, which is
+     * not the catalogue's.
+     *
+     * One finished session dates every milestone it reached from the session's own timestamp,
+     * so `unlocked_at` ties and the query's `achievement_id` tie-break decides. That is the
+     * DAO's documented contract and the thing worth pinning here: the cascade's *reporting*
+     * order is a separate claim, asserted on the [com.opengym.core.domain.model.SessionProgression]
+     * it hands back.
+     */
+    private suspend fun storedAchievementIds(): List<String> =
+        db.achievementDao().getAll().first().map { it.achievementId }
+
+    /**
+     * One finished session: two exercises, three completed sets each, weights and reps that
+     * peak on different sets.
+     *
+     * The peaks are deliberately split — the heaviest set is not the longest — so a detection
+     * that reported one set for every record type would fail rather than coincide. Written
+     * through the DAOs rather than through [WorkoutHistoryFixture], because what the figures
+     * below are computed from is these exact six sets.
+     */
+    private suspend fun seedFinishedSession(): Long {
+        val sessionId = db.workoutSessionDao().insert(
+            session(
+                isInProgress = false,
+                lastActiveAt = FINISHED_AT.toEpochMilli(),
+                createdAt = FINISHED_AT.toEpochMilli() - HOUR_MILLIS,
+                completedAt = FINISHED_AT.toEpochMilli(),
+            ),
+        )
+
+        listOf("Bench Press", "Back Squat").forEachIndexed { position, name ->
+            val exerciseId = db.exerciseDao().insert(exercise(name = name))
+            val sessionExerciseId = db.sessionExerciseDao().insert(
+                sessionExercise(sessionId = sessionId, exerciseId = exerciseId, position = position),
+            )
+            SETS.forEachIndexed { index, set ->
+                db.workoutSetDao().insert(
+                    workoutSet(
+                        sessionExerciseId = sessionExerciseId,
+                        setNumber = index + 1,
+                        isCompleted = true,
+                        // Inside the session's own hour, so every record's `achievedAt` falls
+                        // in the week and the month the quests are scored against.
+                        completedAt = FINISHED_AT.toEpochMilli() - (SETS.size - index) * SET_INTERVAL_MILLIS,
+                        reps = set.reps,
+                        weight = set.weight,
+                    ),
+                )
+            }
+        }
+        return sessionId
+    }
+
+    /** One set of the fixture: the two columns that decide every record type it can break. */
+    private data class SetSpec(
+        val reps: Int,
+        val weight: Long,
+    )
+
+    private companion object {
+
+        /**
+         * A Wednesday evening.
+         *
+         * The day matters: the week it belongs to opens on Monday 2026-03-02 and the month on
+         * Sunday 2026-03-01, so all three dates are different and a quest banked against the
+         * session's own day rather than its period's start would fail
+         * `a quest is banked into the period the session was trained in`.
+         */
+        val FINISHED_AT: Instant = Instant.parse("2026-03-04T19:00:00Z")
+
+        /** The Monday that opens [FINISHED_AT]'s week. */
+        val WEEK_START: LocalDate = LocalDate.parse("2026-03-02")
+
+        /** The first of [FINISHED_AT]'s month. */
+        val MONTH_START: LocalDate = LocalDate.parse("2026-03-01")
+
+        const val HOUR_MILLIS = 3_600_000L
+
+        /** Ninety seconds between sets, so the session is a contiguous block of work. */
+        const val SET_INTERVAL_MILLIS = 90_000L
+
+        const val MILLIGRAMS_PER_KILOGRAM = 1_000_000L
+
+        /**
+         * Three working sets, peaking on different columns: the heaviest is the middle one and
+         * the longest is the last.
+         */
+        val SETS = listOf(
+            SetSpec(reps = 8, weight = 60 * MILLIGRAMS_PER_KILOGRAM),
+            SetSpec(reps = 6, weight = 80 * MILLIGRAMS_PER_KILOGRAM),
+            SetSpec(reps = 10, weight = 50 * MILLIGRAMS_PER_KILOGRAM),
+        )
+
+        const val EXERCISES = 2
+
+        /** Weight, reps, volume and estimated 1RM — see [RECORDS_BROKEN]. */
+        const val RECORD_TYPES_PER_EXERCISE = 4
+
+        /** Six, and every one of them completed — warm-ups are priced the same and there are none. */
+        val COMPLETED_SETS = EXERCISES * SETS.size
+
+        /**
+         * Four types per exercise: weight, reps, volume and estimated 1RM. Distance and pace
+         * need columns [SETS] does not carry, so they offer no candidate at all.
+         */
+        const val RECORDS_BROKEN = EXERCISES * RECORD_TYPES_PER_EXERCISE
+
+        /** `first_session` and `first_record`; no streak milestone is reachable on day one. */
+        const val MILESTONES = 2
+
+        /**
+         * The level [CLEAN_RUN_XP] buys, written out rather than derived.
+         *
+         * The only figure in this file that does not come off a catalogue, and deliberately:
+         * everything else is a count times a constant, which would still agree with a level
+         * computed the wrong way. A retune of the economy moves this by hand, on purpose.
+         */
+        const val EXPECTED_LEVEL = 11
+
+        /** Those two as the database returns them — see [storedAchievementIds]. */
+        val UNLOCKED_AS_STORED = listOf(Achievements.FIRST_RECORD.id, Achievements.FIRST_SESSION.id)
+
+        /**
+         * What a clean single run leaves on the progress row.
+         *
+         * Spelled out rather than summed from the result, so this is an expectation and not an
+         * echo: the session, its sets, its records, its milestones, and the two record quests
+         * eight PRs clear in one workout.
+         */
+        val CLEAN_RUN_XP: Long =
+            XpCalculator.XP_PER_SESSION.toLong() +
+                XpCalculator.XP_PER_SET * COMPLETED_SETS +
+                XpCalculator.XP_PER_PR * RECORDS_BROKEN +
+                XpCalculator.XP_PER_ACHIEVEMENT * MILESTONES +
+                Quests.WEEKLY_RECORD.xpReward +
+                Quests.MONTHLY_RECORDS.xpReward
+    }
+}
+
+/**
+ * The shipped defaults, read-only.
+ *
+ * The cascade reads exactly one preference — [PrDetectionUseCase] asks for the 1RM formula —
+ * and writes none, so a real DataStore here would be a file, a scope and a shutdown in service
+ * of one constant. Every setter throws rather than returning quietly: a cascade that started
+ * writing preferences should fail this suite loudly rather than have the write vanish.
+ */
+private object DefaultPreferences : UserPreferencesRepository {
+
+    override fun observe(): Flow<UserPreferences> = flowOf(UserPreferences())
+
+    override suspend fun setUnitSystem(unitSystem: UnitSystem) = readOnly()
+
+    override suspend fun setTheme(theme: ThemePreference) = readOnly()
+
+    override suspend fun setDefaultRestDuration(duration: Duration) = readOnly()
+
+    override suspend fun setBarWeight(barWeight: Long) = readOnly()
+
+    override suspend fun setPlateInventory(inventory: PlateInventory?) = readOnly()
+
+    override suspend fun setPlatePairs(
+        weight: Long,
+        pairs: Int,
+    ) = readOnly()
+
+    override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = readOnly()
+
+    override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
+
+    override suspend fun clear() = readOnly()
+
+    override suspend fun setOnboardingCompleted(completed: Boolean) = readOnly()
+
+    private fun readOnly(): Nothing = throw UnsupportedOperationException("the cascade writes no preferences")
+}
