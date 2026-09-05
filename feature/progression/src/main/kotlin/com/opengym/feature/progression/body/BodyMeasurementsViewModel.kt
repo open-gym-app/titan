@@ -60,17 +60,22 @@ class BodyMeasurementsViewModel @Inject constructor(
     /** The entry being logged or corrected, or null when the sheet is closed. */
     private val form = MutableStateFlow<BodyMeasurement?>(null)
 
+    /** Whether [save]'s write is still in flight. See [BodyMeasurementsUiState.isSaving]. */
+    private val saving = MutableStateFlow(false)
+
     val uiState: StateFlow<BodyMeasurementsUiState> = combine(
         timeframe.selected,
         repository.getAll(),
         form,
-    ) { selected, history, editing ->
+        saving,
+    ) { selected, history, editing, isSaving ->
         BodyMeasurementsUiState(
             timeframe = selected,
             isLoading = false,
             history = history,
             window = history.inside(selected),
             form = editing,
+            isSaving = isSaving,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -155,15 +160,29 @@ class BodyMeasurementsViewModel @Inject constructor(
      * has just typed and leave nothing on screen to say the entry was never stored. The form's
      * own text is keyed on the entry, so an unchanged entry means the boxes are still holding
      * what was typed when the sheet comes back.
+     *
+     * **And inert while the write is in flight**, which is the other half of that rule rather
+     * than a separate precaution. A sheet that stays up until the store answers is a save
+     * button that stays live until the store answers, and the second tap of a double-tap is a
+     * second [BodyMeasurementRepository.insert] — two identical entries, both dated now, in a
+     * history the user then has to prune. The guard is here as well as on the button because
+     * the button is a *drawing* of this flag: an event that arrives anyway — a slow frame, a
+     * key repeat, a test — is refused rather than merely discouraged. `SessionSummaryViewModel`
+     * spells the same pair out for every field it keeps open across a write.
      */
     private fun save(measurement: BodyMeasurement) {
         if (!BodyMeasurementValidator.validate(measurement).isValid) return
+        if (saving.value) return
 
         val stamped = measurement.copy(updatedAt = clock.nowMillis())
+        saving.value = true
 
         viewModelScope.launch {
-            write { if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped) }
-                ?.let { form.value = null }
+            val written =
+                write { if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped) }
+
+            saving.value = false
+            if (written != null) form.value = null
         }
     }
 

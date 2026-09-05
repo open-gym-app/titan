@@ -2,6 +2,7 @@ package com.opengym.feature.progression.body
 
 import com.opengym.core.domain.model.BodyMeasurement
 import com.opengym.core.domain.repository.BodyMeasurementRepository
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -28,11 +29,22 @@ class FakeBodyMeasurementStore(initial: List<BodyMeasurement> = emptyList()) : B
     /** Every id passed to [delete], in call order. */
     val deletions = mutableListOf<Long>()
 
+    /**
+     * Held across a write, for a test that needs the store to still be answering.
+     *
+     * Null is the ordinary fake, where every write lands the moment it is called. Set it and
+     * [insert] and [update] park until it is completed — which is the only way to observe the
+     * window a real store opens by suspending onto its IO dispatcher, and the window the log
+     * sheet is up for, since the form is closed on success only.
+     */
+    var gate: CompletableDeferred<Unit>? = null
+
     override fun getAll(): Flow<List<BodyMeasurement>> = entries.map { rows -> rows.sortedWith(NEWEST_FIRST) }
 
     override fun getLatest(): Flow<BodyMeasurement?> = getAll().map(List<BodyMeasurement>::firstOrNull)
 
     override suspend fun insert(measurement: BodyMeasurement): Long {
+        gate?.await()
         writes += measurement
         val id = nextId++
         entries.update { it + measurement.copy(id = id) }
@@ -40,6 +52,7 @@ class FakeBodyMeasurementStore(initial: List<BodyMeasurement> = emptyList()) : B
     }
 
     override suspend fun update(measurement: BodyMeasurement) {
+        gate?.await()
         writes += measurement
         entries.update { rows -> rows.map { if (it.id == measurement.id) measurement else it } }
     }

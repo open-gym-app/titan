@@ -162,6 +162,7 @@ fun BodyMeasurementsScreen(
             entry = entry,
             onSave = { onEvent(BodyMeasurementsEvent.Saved(it)) },
             onDismiss = { onEvent(BodyMeasurementsEvent.FormDismissed) },
+            isSaving = state.isSaving,
         )
     }
 }

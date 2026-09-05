@@ -62,6 +62,7 @@ fun MeasurementFormSheet(
     onSave: (BodyMeasurement) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    isSaving: Boolean = false,
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -71,7 +72,7 @@ fun MeasurementFormSheet(
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
-        MeasurementForm(entry = entry, onSave = onSave, onCancel = onDismiss)
+        MeasurementForm(entry = entry, onSave = onSave, onCancel = onDismiss, isSaving = isSaving)
     }
 }
 
@@ -107,6 +108,11 @@ fun MeasurementFormSheet(
  * refuses. Reading the bounds off the validator rather than restating them is what keeps the
  * form and the write path from drifting apart.
  *
+ * It also goes dead while [isSaving], which is not a third bound but the same button answering
+ * a different question: the sheet is closed on success only, so it is still on screen while the
+ * store is being written, and a button that stays live across that window logs the measurement
+ * twice for anybody who taps it twice.
+ *
  * ### The date is shown and not edited
  *
  * An entry is stamped when it is logged, and the history is ordered by that stamp. Back-dating
@@ -120,6 +126,7 @@ fun MeasurementForm(
     onSave: (BodyMeasurement) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
+    isSaving: Boolean = false,
 ) {
     val unitSystem = LocalUnitSystem.current
 
@@ -145,8 +152,10 @@ fun MeasurementForm(
     val figures = listOf(weight, chest, waist, arm, thigh, bodyFat)
     // An entry has to record something and every figure has to be within its bound — the two
     // rules `BodyMeasurementValidator` would refuse it for, checked here so the button is dead
-    // rather than the save silent.
-    val canSave = figures.none { it.isError } && figures.any { it.value != null }
+    // rather than the save silent. And not while a write is already in flight: the sheet is
+    // closed on success only, so the button outlives the tap that pressed it and a second one
+    // would log the measurement twice.
+    val canSave = figures.none { it.isError } && figures.any { it.value != null } && !isSaving
 
     val lengthUnit = unitSystem.lengthSuffix
 

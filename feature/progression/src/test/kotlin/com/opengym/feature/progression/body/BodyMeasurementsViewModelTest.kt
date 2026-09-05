@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.BodyMeasurement
 import com.opengym.feature.progression.stats.FixedClock
 import com.opengym.feature.progression.stats.ProgressionTimeframe
 import com.opengym.feature.progression.stats.StatsTimeframe
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -218,6 +219,35 @@ class BodyMeasurementsViewModelTest {
             assertNull(viewModel.uiState.value.form)
             assertEquals(1, viewModel.uiState.value.history.size)
             assertEquals(bodyKg(78, 4), viewModel.uiState.value.readings.weight)
+        }
+
+    @Test
+    fun `a second tap while the write is in flight does not log the measurement twice`() =
+        runTest {
+            val state = collect()
+            viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
+            val entry = requireNotNull(viewModel.uiState.value.form).copy(weight = bodyKg(78, 4))
+
+            // The store still answering — the window a real one opens by suspending onto its IO
+            // dispatcher, and the whole of the window the sheet is up for, since the form is
+            // closed on success only.
+            val write = CompletableDeferred<Unit>()
+            store.gate = write
+
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(entry))
+            assertTrue(state().isSaving)
+
+            // The second half of a double tap, on a button the sheet is still drawing.
+            viewModel.onEvent(BodyMeasurementsEvent.Saved(entry))
+
+            write.complete(Unit)
+            advanceUntilIdle()
+
+            // One row, not two identical ones both dated now for the user to prune.
+            assertEquals(1, store.writes.size)
+            assertEquals(1, state().history.size)
+            assertNull(state().form)
+            assertFalse(state().isSaving)
         }
 
     @Test

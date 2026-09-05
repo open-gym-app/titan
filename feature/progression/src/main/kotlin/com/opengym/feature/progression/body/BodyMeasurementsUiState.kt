@@ -28,6 +28,10 @@ import com.opengym.feature.progression.stats.StatsTimeframe
  * @param form the entry being logged or corrected, or **null** when the sheet is closed. A new
  *   entry carries [NEW_ENTRY] as its id and the values it was pre-filled with; see
  *   [BodyMeasurementsViewModel].
+ * @param isSaving the entry's write is in flight. The sheet stays up and its save button goes
+ *   inert, the shape `SessionSummaryUiState` uses for every write it keeps a field open across:
+ *   the form is closed on success only, so without this the button is live for as long as the
+ *   store takes and a second tap logs the measurement twice.
  */
 @Immutable
 data class BodyMeasurementsUiState(
@@ -36,6 +40,7 @@ data class BodyMeasurementsUiState(
     val history: List<BodyMeasurement> = emptyList(),
     val window: List<BodyMeasurement> = emptyList(),
     val form: BodyMeasurement? = null,
+    val isSaving: Boolean = false,
 ) {
 
     /**
