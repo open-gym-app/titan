@@ -114,7 +114,7 @@ class CollectiblesTest {
             Rarity.entries.zipWithNext { commoner, rarer ->
                 assertTrue(
                     "$source stocks $rarer wider than $commoner",
-                    bySize.getValue(rarer) <= bySize.getValue(commoner),
+                    bySize[rarer].orZero() <= bySize[commoner].orZero(),
                 )
             }
         }
@@ -130,4 +130,15 @@ class CollectiblesTest {
             Collectible(id = " ", rarity = Rarity.COMMON, source = DropSource.SESSION_FINISHED)
         }
     }
+
+    /**
+     * How wide a band is stocked, counting an unstocked one as the zero it is.
+     *
+     * `eachCount()` has no key for a band with nothing in it, so reading one through
+     * `getValue` would abort this test with a `NoSuchElementException` naming the map rather
+     * than fail it with the message above. An unstocked band is a real state — it is what
+     * `every band the table prices is stocked for every trigger` exists to catch — and it
+     * belongs to that test, not to this one.
+     */
+    private fun Int?.orZero(): Int = this ?: 0
 }

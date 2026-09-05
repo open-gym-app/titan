@@ -24,9 +24,12 @@ import com.opengym.core.domain.random.RandomSource
  * pool — would have had the drop rates move every time somebody added a line to the catalogue,
  * which is the failure mode this shape exists to avoid.
  *
- * The band is drawn before the trigger's pool is even looked at, so the sequence of numbers a
- * roll consumes does not depend on what is stocked. That is what lets a test state "this
- * sequence yields this drop" against a catalogue of its own and have the statement stay true.
+ * The band is drawn before the trigger's pool is even looked at, so what the *first* number
+ * means is a property of [DropRates] alone — "160 is a rare" stays true whatever the catalogue
+ * holds. The second number is not: it is an index into the pool that band filtered out, so both
+ * its bound and whether it is drawn at all depend on what is stocked (an unstocked band spends
+ * one number and stops). A test that wants to state "this sequence yields this drop" therefore
+ * supplies its own catalogue; one written against the shipped one is restating the shipped one.
  *
  * ### A band with nothing in it drops nothing
  *
