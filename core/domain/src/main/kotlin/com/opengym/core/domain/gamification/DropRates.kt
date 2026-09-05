@@ -30,10 +30,11 @@ import com.opengym.core.domain.model.Rarity
  *
  * Like [XpCalculator]'s constants and [StreakCalculator.STREAK_GRACE_HOURS], nothing here has
  * been validated against real usage. The relationships are the part worth arguing about; each
- * band is roughly half the one below it, which on a lifter training three times a week puts a
- * common every three weeks or so, an uncommon every six, a rare a handful of times a year, an
- * epic somewhere in it, and a legendary in the years — long enough that the top of the table
- * stays something to hear about rather than something to expect.
+ * band is a half to a quarter of the one below it, the fall steepening at the top, which on a
+ * lifter training three times a week puts a common every three weeks or so, an uncommon every
+ * six, a rare a handful of times a year, an epic somewhere in it, and a legendary in the years
+ * — long enough that the top of the table stays something to hear about rather than something
+ * to expect.
  *
  * Each number is named and read from nowhere else, so retuning one is an edit to a single line,
  * and a test that wants "the last roll that still drops a rare" asks the table rather than
