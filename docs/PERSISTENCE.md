@@ -30,6 +30,8 @@ The database is deliberately **not** built with `fallbackToDestructiveMigration`
 4. Build once so KSP exports `schemas/<new version>.json`, and commit it.
 5. Add a `MigrationFixture` for the version you migrate *from* in `DatabaseMigrationTest`: it seeds rows through raw SQL at the old version and asserts they survive the upgrade.
 
+**While the app is pre-release, version 1 is amended in place instead.** Nothing is installed that has to be carried forward, so an entity added today re-exports `1.json` over the committed one - steps 2, 3 and 5 have nothing to do, because there is no released version below the current one to migrate from. The cost is paid by whoever already has a build on their phone: the identity hash in `1.json` changes, `MIGRATIONS` is empty and there is no destructive fallback, so the next launch throws `Room cannot verify the data integrity` until the app is reinstalled or its data cleared. That trade ends at the first release - from the version that ships to a user onwards, `1.json` is a record of what shipped and the five steps above are the only way to change the schema.
+
 `DatabaseMigrationTest` enforces every step - it reads the current version and the exported schema list at runtime, so it never needs editing for a new version, only a fixture:
 
 | Test | Fails when |

@@ -36,6 +36,11 @@ interface CollectedItemRepository {
      *
      * @param limit how many drops to return, at least 1. A screen's figure rather than a
      *   default here, so the domain carries no opinion about how much of a list fits.
+     * @throws IllegalArgumentException if [limit] is under 1, and **from this call** rather
+     *   than from the returned flow: SQLite reads a negative `LIMIT` as no limit at all, so a
+     *   figure computed from an empty screen would otherwise hand back the whole inventory.
+     *   A caller that builds the flow in a property initialiser and wraps it in `catch` still
+     *   sees the throw, because it happens before there is a flow to catch it.
      */
     fun observeRecent(limit: Int): Flow<List<CollectedItem>>
 
