@@ -41,6 +41,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             userProgressDao = db.userProgressDao(),
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
+            sessionLootClaimDao = db.sessionLootClaimDao(),
         )
     }
 
@@ -144,6 +145,41 @@ class GamificationRepositoryImplTest : RoomTestBase() {
 
             assertTrue(repository.claimSessionXp(first))
             assertTrue(repository.claimSessionXp(second))
+        }
+
+    @Test
+    fun `a session's loot can be claimed once`() =
+        runBlocking {
+            val sessionId = db.workoutSessionDao().insert(session(isInProgress = false, completedAt = 1_000))
+
+            assertTrue(repository.claimSessionLoot(sessionId))
+            assertFalse(repository.claimSessionLoot(sessionId))
+        }
+
+    @Test
+    fun `the two claims fence their own steps and not each other`() =
+        runBlocking {
+            // Separate markers, because they fence separate steps: a run that died after the
+            // awards and before the roll must still be able to roll on re-entry.
+            val sessionId = db.workoutSessionDao().insert(session(isInProgress = false, completedAt = 1_000))
+
+            assertTrue(repository.claimSessionXp(sessionId))
+
+            assertTrue(repository.claimSessionLoot(sessionId))
+        }
+
+    @Test
+    fun `both claims go with the session they fence`() =
+        runBlocking {
+            // A claim outliving its workout would fence a session that no longer exists.
+            val sessionId = db.workoutSessionDao().insert(session(isInProgress = false, completedAt = 1_000))
+            repository.claimSessionXp(sessionId)
+            repository.claimSessionLoot(sessionId)
+
+            db.workoutSessionDao().delete(sessionId)
+
+            assertEquals(0, countRows("session_xp_claim"))
+            assertEquals(0, countRows("session_loot_claim"))
         }
 
     @Test

@@ -18,10 +18,11 @@ import java.time.Instant
  * [com.opengym.core.domain.usecase.AchievementTriggerUseCase] calls them. #145 adds the last
  * two, both for [com.opengym.core.domain.usecase.SessionCompletionPipeline]: [updateStreak],
  * which is the store #34 computed a streak with nowhere to put, and [claimSessionXp], which
- * is what makes the cascade safe to re-enter. The two reads came the same way, once a screen
- * existed to call them: #106 added [observeStreak], because a protection allowance nothing can
- * read is a mechanic that never happened, and #110 added [observeProgress], the one Home's
- * level and XP bar are drawn from.
+ * is what makes the cascade safe to re-enter. #171 adds [claimSessionLoot] beside it, because
+ * the roll it fences is the cascade's second un-idempotent step and takes the first one's
+ * answer. The two reads came the same way, once a screen existed to call them: #106 added
+ * [observeStreak], because a protection allowance nothing can read is a mechanic that never
+ * happened, and #110 added [observeProgress], the one Home's level and XP bar are drawn from.
  */
 interface GamificationRepository {
 
@@ -146,6 +147,34 @@ interface GamificationRepository {
      * achievement unlocked on a re-entry is one that was never paid for.
      */
     suspend fun claimSessionXp(sessionId: Long): Boolean
+
+    /**
+     * Claims the right to roll [sessionId]'s loot, and returns whether **this call** claimed it.
+     *
+     * [claimSessionXp]'s twin, over a marker table of its own, and every word of that method's
+     * argument applies here unchanged: `true` only when no claim was on file, the check and the
+     * write are one atomic operation, and the claim is taken *before* the thing it fences.
+     *
+     * ### Why the roll needs one
+     *
+     * XP is not the only step of the cascade that is un-idempotent by construction. A roll is a
+     * decision taken from a random source, so a re-entered cascade would roll again and hand out
+     * a second collectible for one workout. Unlike an unlock or a quest completion there is
+     * nothing on the way down to catch it: a second drop of the same collectible is a normal
+     * thing to hold, and `collected_item` carries no unique index precisely so that it stays
+     * possible — see [CollectedItemRepository].
+     *
+     * ### A claim of its own, rather than sharing XP's
+     *
+     * One marker for both would tie two unrelated steps together: an XP claim taken by a run
+     * that died before the loot step would fence a roll that never happened, and the drop would
+     * be lost to a tear that cost the user nothing else. They are separate rows for the same
+     * reason they are separate steps, and each is spent by the step it belongs to.
+     *
+     * The claim is spent whether or not the roll pays out, since what it fences is the roll —
+     * see [com.opengym.core.domain.usecase.LootRollUseCase], which is its only caller.
+     */
+    suspend fun claimSessionLoot(sessionId: Long): Boolean
 
     /**
      * Applies one finished session to the stored streak, and returns where that left it.

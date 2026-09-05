@@ -1,5 +1,7 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.domain.gamification.DropTableEvaluator
+import com.opengym.core.domain.repository.CollectedItemRepository
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.ProgressionRepository
@@ -7,6 +9,7 @@ import com.opengym.core.domain.repository.QuestRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.usecase.AchievementTriggerUseCase
 import com.opengym.core.domain.usecase.AwardXpUseCase
+import com.opengym.core.domain.usecase.LootRollUseCase
 import com.opengym.core.domain.usecase.PrDetectionUseCase
 import com.opengym.core.domain.usecase.QuestCompletionUseCase
 import com.opengym.core.domain.usecase.QuestProgressUseCase
@@ -81,12 +84,37 @@ object GamificationUseCaseModule {
             awardXp = awardXp,
         )
 
+    /**
+     * The drop engine, on its own defaults: the real [com.opengym.core.domain.random.RandomSource]
+     * and [com.opengym.core.domain.gamification.Collectibles.ALL].
+     *
+     * The same call [provideAchievementTriggerUseCase] and [provideQuestProgressUseCase] both
+     * make about their catalogues, plus one this module could get wrong on its own: a seeded
+     * generator named here would make every install roll the same collectibles in the same
+     * order. Only a test substitutes either.
+     */
+    @Provides
+    fun provideDropTableEvaluator(): DropTableEvaluator = DropTableEvaluator()
+
+    @Provides
+    fun provideLootRollUseCase(
+        dropTable: DropTableEvaluator,
+        collectedItemRepository: CollectedItemRepository,
+        gamificationRepository: GamificationRepository,
+    ): LootRollUseCase =
+        LootRollUseCase(
+            dropTable = dropTable,
+            collectedItemRepository = collectedItemRepository,
+            gamificationRepository = gamificationRepository,
+        )
+
     @Provides
     fun provideSessionCompletionPipeline(
         detectPersonalRecords: PrDetectionUseCase,
         awardXp: AwardXpUseCase,
         triggerAchievements: AchievementTriggerUseCase,
         completeQuests: QuestCompletionUseCase,
+        rollLoot: LootRollUseCase,
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
@@ -96,6 +124,7 @@ object GamificationUseCaseModule {
             awardXp = awardXp,
             triggerAchievements = triggerAchievements,
             completeQuests = completeQuests,
+            rollLoot = rollLoot,
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,

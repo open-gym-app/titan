@@ -26,7 +26,9 @@ import java.time.Instant
  * answer is what the trigger use case pays XP on; a fake that always said `true` would let an
  * idempotency test pass against a store that re-awards every session. [claimSessionXp] is the
  * same shape for the same reason: the cascade's re-entry contract rests entirely on the second
- * claim answering `false`.
+ * claim answering `false`. [claimSessionLoot] is a second, independent set of markers, because
+ * the two fence separate steps and a fake that shared one would let a cascade torn between them
+ * pass a test it should fail.
  *
  * [updateStreak] persists whatever the transition hands it and nothing else, which is exactly
  * what the contract asks of a real store: the rules about what to advance and what to spend
@@ -66,6 +68,9 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
 
     /** Sessions whose XP has been claimed — the marker row, such as it is. */
     private val xpClaims = mutableSetOf<Long>()
+
+    /** The same, for the roll: a separate set, because the two claims fence separate steps. */
+    private val lootClaims = mutableSetOf<Long>()
 
     /**
      * Thrown instead of banking, writing or reading, when set. The only way to reach the
@@ -141,6 +146,8 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     ): Boolean = unlocked.putIfAbsent(achievementId, unlockedAt) == null
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = xpClaims.add(sessionId)
+
+    override suspend fun claimSessionLoot(sessionId: Long): Boolean = lootClaims.add(sessionId)
 
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
         streakFailure?.let { throw it }

@@ -9,9 +9,10 @@ import java.time.Instant
  *
  * Two members, and narrow on purpose: a method appears here when something exists to call it,
  * the principle [PersonalRecordRepository] was built on and [GamificationRepository] restates.
- * #171 is what will call [recordDrop], at the one point a roll happens; #104's quest log is
- * what collects [observeRecent]. There is deliberately no "do I hold this one" and no count —
- * nothing asks, and a collectible that does something is a milestone of its own (see #107).
+ * [com.opengym.core.domain.usecase.LootRollUseCase] is what calls [recordDrop], at the one
+ * point a roll happens (#171); #104's quest log is what collects [observeRecent]. There is
+ * deliberately no "do I hold this one" and no count — nothing asks, and a collectible that does
+ * something is a milestone of its own (see #107).
  *
  * ### An inventory, not a set
  *
@@ -19,7 +20,8 @@ import java.time.Instant
  * because an unlock happens once and that answer is what XP is paid on. Nothing of the sort
  * applies here: a collectible can drop again, so every recorded drop is a new row and there is
  * no boolean to return. What stops a re-entered cascade rolling twice is a fence over the
- * *roll*, which is #171's and not this table's — see `SessionCompletionPipeline`.
+ * *roll* — [GamificationRepository.claimSessionLoot] — rather than anything this table does;
+ * see [com.opengym.core.domain.usecase.LootRollUseCase].
  */
 interface CollectedItemRepository {
 

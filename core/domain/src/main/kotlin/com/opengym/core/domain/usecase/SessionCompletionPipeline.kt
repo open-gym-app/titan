@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.model.AchievementProgress
 import com.opengym.core.domain.model.AchievementUnlock
+import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.QuestCompletion
 import com.opengym.core.domain.model.SessionProgression
@@ -23,14 +24,14 @@ import java.time.Instant
  * Everything that happens *because* a session was finished, in one ordered place.
  *
  * M5 grew five consequences of a finished workout — records detected (#30), XP paid (#33),
- * the streak moved and achievements unlocked (#34), quests advanced (#M5-11) and loot rolled
- * (#M5-13) — each written as a use case that is *given* a finished session and none of them
+ * the streak moved and achievements unlocked (#34), quests advanced (#105) and loot rolled
+ * (#107) — each written as a use case that is *given* a finished session and none of them
  * saying who does the giving. This is the giver. It exists so the order is stated once, in
  * code, rather than re-derived by every caller that finishes a workout.
  *
  * ### The order is not free
  *
- * [SessionProgressionStep]'s declaration order is the running order, and all but one of
+ * [SessionProgressionStep]'s declaration order is the running order, and all but two of
  * its edges are forced:
  *
  * - **PR detection before XP**, because [XpEvent.PrBroken] is emitted once per record
@@ -47,8 +48,11 @@ import java.time.Instant
  *
  * Quests are ordered *after* achievements rather than beside them only because one order has
  * to be written down; they do not read [AchievementProgress] and are not fenced by the streak.
- * Loot plugs in after them when #107 lands, on the same terms — nothing above it moves to
- * accommodate it.
+ *
+ * **Loot is the other free position, and the freer of the two.** A roll reads none of the
+ * figures the steps above it write, and none of them reads a drop; it is last because it
+ * arrived last (#171) and nothing above it had to move to let it in. What it needs instead of
+ * an ordering is a fence of its own — see the re-entry contract below.
  *
  * ### The failure contract: the workout is the user's, the XP is not
  *
@@ -65,8 +69,8 @@ import java.time.Instant
  * asks, and the cause is kept so a retry knows which step to run again. Cancellation is not a
  * failure and is rethrown untouched — a caller whose scope went away is not owed a report.
  *
- * A step that failed part way through still reports what it managed to write. All four
- * writing steps work one row at a time — a record per candidate, an award per event, an
+ * A step that failed part way through still reports what it managed to write. Four of the
+ * five writing steps work one row at a time — a record per candidate, an award per event, an
  * unlock per milestone, a completion per quest — and each is committed the moment its call
  * returns, so each fills a list this class owns instead of returning one at the end.
  * [SessionProgression] therefore carries the records that were written, the XP that was paid,
@@ -75,7 +79,10 @@ import java.time.Instant
  * nothing over a store that had moved would be a worse answer than a short one — and in every
  * one of those cases it would be unrecoverable, because a re-entry beats no record it already
  * wrote, unlocks no achievement it already holds, completes no quest already banked for the
- * period, and finds the session's XP claim already spent.
+ * period, and finds the session's XP and loot claims already spent.
+ *
+ * The fifth, loot, needs no such list: it writes at most one row, so a step that threw wrote
+ * nothing at all and a plain return value loses nothing to the throw.
  *
  * Steps are independent apart from the ordering above: a PR detection that fails part way
  * leaves the XP step paying for the session, its sets and the records that did land, and the
@@ -91,7 +98,7 @@ import java.time.Instant
  * already ran — a marker written at the end would not survive a crash before it, and one
  * written at the start would strand a half-run cascade forever.
  *
- * Four of the five steps are idempotent for free, and were built that way:
+ * Four of the six steps are idempotent for free, and were built that way:
  *
  * - detection compares *strictly* better, so a second pass beats the records the first one
  *   wrote and inserts nothing ([PrDetectionUseCase]);
@@ -104,15 +111,24 @@ import java.time.Instant
  * - a quest completion is the same insert-if-absent, narrowed to a period, with its XP behind
  *   the same answer ([QuestCompletionUseCase]).
  *
- * The remaining one is not, and cannot be: [AwardXpUseCase] banks what it is handed, deliberately,
- * so re-emitting a session's events would pay for them twice. That one step is fenced by
- * [GamificationRepository.claimSessionXp] — a per-session claim taken **before** the awards,
- * which chooses under-paying a session torn in half over re-paying every session on every
- * crash-recovery boot. See that method for the whole of the trade.
+ * The remaining two are not, and cannot be. [AwardXpUseCase] banks what it is handed,
+ * deliberately, so re-emitting a session's events would pay for them twice; and a roll is a
+ * decision taken from a random source, so re-entering would roll again and hand out a second
+ * collectible — and unlike an unlock there is nothing downstream to catch it, since a second
+ * legitimate drop of the same collectible is a normal thing to hold. Each is fenced by a claim
+ * of its own, taken **before** the step it protects:
+ * [GamificationRepository.claimSessionXp] and [GamificationRepository.claimSessionLoot]. Both
+ * choose under-paying a session torn in half over re-paying every session on every
+ * crash-recovery boot. See [GamificationRepository.claimSessionXp] for the whole of the trade,
+ * and [LootRollUseCase] for why the roll takes the same one rather than a cleverer answer.
+ *
+ * Two claims rather than one shared marker, because they fence two independent steps: a run
+ * that died after the awards and before the roll must still be able to roll on re-entry, which
+ * a single "the cascade ran" row could not express.
  *
  * What re-entry therefore produces is an *empty* [SessionProgression], not a repeat of the
- * first one: nothing was broken, nothing was paid, nothing was unlocked, because nothing
- * happened this time.
+ * first one: nothing was broken, nothing was paid, nothing was unlocked and nothing dropped,
+ * because nothing happened this time.
  *
  * ### What a *torn* run costs, which is not the same question
  *
@@ -127,10 +143,15 @@ import java.time.Instant
  *   they still count towards `first_record`, because [AchievementProgress] is built from
  *   what the store holds rather than from what this run happened to do.
  *
- * Both are the same trade taken twice: under-paying a session torn in half, against re-paying
- * one on every crash-recovery boot. Nothing above rounds the loss up, and no step compensates
- * for another's — a cascade that guessed at what a previous pass had already paid is how a
- * user ends up with XP for a workout they did once and the app finished three times.
+ * A third, in a currency of its own: a tear **between the loot claim and the drop's row** costs
+ * the session its collectible outright, since the claim is spent and no later run rolls again.
+ * It is the rarer loss of the three — four sessions in five roll nothing to lose — and the
+ * alternative is a device that drops a collectible on every crash-recovery boot.
+ *
+ * All of them are the same trade taken again: under-paying a session torn in half, against
+ * re-paying one on every crash-recovery boot. Nothing above rounds the loss up, and no step
+ * compensates for another's — a cascade that guessed at what a previous pass had already paid
+ * is how a user ends up with XP for a workout they did once and the app finished three times.
  *
  * ### Where this is invoked from
  *
@@ -157,6 +178,7 @@ class SessionCompletionPipeline(
     private val awardXp: AwardXpUseCase,
     private val triggerAchievements: AchievementTriggerUseCase,
     private val completeQuests: QuestCompletionUseCase,
+    private val rollLoot: LootRollUseCase,
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val gamificationRepository: GamificationRepository,
@@ -182,10 +204,11 @@ class SessionCompletionPipeline(
     ): SessionProgression {
         val failures = mutableListOf<SessionProgressionFailure>()
 
-        // Each of the four writing steps fills a list this method owns rather than returning
-        // one, because `runStep` drops a step's return value when it throws and every write
-        // these make is committed the moment it returns. A store that refuses the fifth of
-        // nine must not take the four already on file out of the report with it.
+        // Each of the four list-filling steps fills a list this method owns rather than
+        // returning one, because `runStep` drops a step's return value when it throws and every
+        // write these make is committed the moment it returns. A store that refuses the fifth of
+        // nine must not take the four already on file out of the report with it. Loot is the
+        // writer that needs none — see its own comment below.
         val records = mutableListOf<PersonalRecord>()
         runStep(SessionProgressionStep.PR_DETECTION, failures) {
             detectPersonalRecords(sessionId, into = records)
@@ -212,6 +235,14 @@ class SessionCompletionPipeline(
             completeQuests(finishedAt, into = quests)
         }
 
+        // The one step whose result is a plain return value rather than a list this method
+        // owns: at most one row is written, so there is no partial write for a throw to lose.
+        // Null therefore covers three answers — the table paid nothing, the session had already
+        // been rolled for, or the step failed — and `failures` is where the third is stated.
+        val loot: Collectible? = runStep(SessionProgressionStep.LOOT, failures) {
+            rollLoot(sessionId, finishedAt)
+        }
+
         return SessionProgression(
             sessionId = sessionId,
             recordsBroken = records,
@@ -224,6 +255,7 @@ class SessionCompletionPipeline(
             streak = streak,
             achievementsUnlocked = unlocks,
             questsCompleted = quests,
+            lootDropped = loot,
             failures = failures,
         )
     }

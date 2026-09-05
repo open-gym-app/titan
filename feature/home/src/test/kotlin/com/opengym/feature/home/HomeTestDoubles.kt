@@ -310,6 +310,7 @@ class FakeProgressStore(progress: UserProgress? = null) : GamificationRepository
     ): Boolean = unsupported()
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = unsupported()
+    override suspend fun claimSessionLoot(sessionId: Long): Boolean = unsupported()
     override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate = unsupported()
 
     /**

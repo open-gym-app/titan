@@ -4,12 +4,15 @@ import com.opengym.core.data.mapper.PersonalRecordMapper
 import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
+import com.opengym.core.data.repository.CollectedItemRepositoryImpl
 import com.opengym.core.data.repository.GamificationRepositoryImpl
 import com.opengym.core.data.repository.PersonalRecordRepositoryImpl
 import com.opengym.core.data.repository.ProgressionRepositoryImpl
 import com.opengym.core.data.repository.QuestRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.DropRates
+import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -19,9 +22,11 @@ import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.AchievementTriggerUseCase
 import com.opengym.core.domain.usecase.AwardXpUseCase
+import com.opengym.core.domain.usecase.LootRollUseCase
 import com.opengym.core.domain.usecase.PrDetectionUseCase
 import com.opengym.core.domain.usecase.QuestCompletionUseCase
 import com.opengym.core.domain.usecase.QuestProgressUseCase
@@ -94,6 +99,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             userProgressDao = db.userProgressDao(),
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
+            sessionLootClaimDao = db.sessionLootClaimDao(),
         )
     }
 
@@ -102,6 +108,27 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     }
 
     private val quests by lazy { QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()) }
+
+    private val collectedItems by lazy {
+        CollectedItemRepositoryImpl(collectedItemDao = db.collectedItemDao())
+    }
+
+    /**
+     * The roll, wired to a table that never pays out.
+     *
+     * What this suite drives is the cascade over a real database, and a *random* step would make
+     * every assertion below depend on a die roll. Pinned to nothing-dropped rather than to a
+     * guaranteed drop because that is the common answer on the shipped rates anyway — four
+     * triggers in five pay nothing — and because the loot step's own behaviour, including its
+     * claim, is `LootRollUseCaseTest`'s subject rather than this one's.
+     */
+    private val rollLoot by lazy {
+        LootRollUseCase(
+            dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
+            collectedItemRepository = collectedItems,
+            gamificationRepository = gamification,
+        )
+    }
 
     private val awardXp by lazy { AwardXpUseCase(gamificationRepository = gamification) }
 
@@ -130,6 +157,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 questRepository = quests,
                 awardXp = awardXp,
             ),
+            rollLoot = rollLoot,
             sessionRepository = sessions,
             personalRecordRepository = records,
             gamificationRepository = gamification,
