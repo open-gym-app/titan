@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
@@ -96,7 +97,7 @@ class SessionSummaryViewModel @Inject constructor(
     }
 
     /**
-     * What this finish earned, collected once.
+     * What this finish moved, collected once.
      *
      * Read here rather than inside [buildContent], and that placement is the whole contract:
      * the hand-off is emptied by the first taker, while `buildContent` is a `combine` transform
@@ -113,12 +114,20 @@ class SessionSummaryViewModel @Inject constructor(
      * the slot a just-finished recap is on its way to read, and a week-old workout has nothing
      * to announce in any case — see the mode's own doc.
      */
-    private val celebration: SummaryCelebration? =
-        if (mode == SessionSummaryMode.JUST_FINISHED) {
-            progressionHandoff.take(destination.sessionId)?.let(SummaryCelebration::from)
-        } else {
-            null
-        }
+    private val progression: SessionProgression? =
+        if (mode == SessionSummaryMode.JUST_FINISHED) progressionHandoff.take(destination.sessionId) else null
+
+    /** The points, the level they moved and the milestones they unlocked. */
+    private val celebration: SummaryCelebration? = progression?.let(SummaryCelebration::from)
+
+    /**
+     * Whether this session's missed day was paid for out of the streak-protection allowance.
+     *
+     * Derived from the same taken value rather than from a second read, for the reason the
+     * hand-off's doc gives: it is emptied by its first taker. Two independent `take` calls
+     * would leave whichever ran second with nothing.
+     */
+    private val streakSave: SummaryStreakSave? = progression?.let(SummaryStreakSave::from)
 
     /** What the user is in the middle of, which the store has no opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
@@ -493,6 +502,7 @@ class SessionSummaryViewModel @Inject constructor(
                 recordsByExercise = records.associateBy(PersonalRecord::exerciseId),
             ),
             celebration = celebration,
+            streakSave = streakSave,
             notes = session.notes,
             isLoading = false,
         )

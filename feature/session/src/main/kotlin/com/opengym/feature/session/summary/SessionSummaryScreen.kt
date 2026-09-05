@@ -58,6 +58,7 @@ import com.opengym.feature.session.summary.component.AchievementsUnlockedCard
 import com.opengym.feature.session.summary.component.ExerciseBreakdownCard
 import com.opengym.feature.session.summary.component.NewRecordsCard
 import com.opengym.feature.session.summary.component.SessionMusclesCard
+import com.opengym.feature.session.summary.component.StreakSavedCard
 import com.opengym.feature.session.summary.component.XpCelebrationCard
 import kotlin.time.Duration.Companion.seconds
 
@@ -292,6 +293,21 @@ private fun SummaryContent(
                         Section(title = stringResource(R.string.summary_achievements)) {
                             AchievementsUnlockedCard(achievements = celebration.achievements)
                         }
+                    }
+                }
+            }
+        }
+
+        // Below the payoff and above the records, and outside the `celebration` block on
+        // purpose: a session can save a streak while earning nothing at all — a re-entered
+        // cascade pays no XP, and the streak step is not fenced by the XP claim. Null on nearly
+        // every session; see [SummaryStreakSave].
+        val streakSave = state.streakSave
+        if (streakSave != null) {
+            item(key = SECTION_STREAK) {
+                SummarySection {
+                    Section(title = stringResource(R.string.summary_streak_saved)) {
+                        StreakSavedCard(save = streakSave)
                     }
                 }
             }
@@ -680,6 +696,7 @@ private const val SECTION_HEADER = "header"
 private const val SECTION_STATS = "stats"
 private const val SECTION_CELEBRATION = "celebration"
 private const val SECTION_ACHIEVEMENTS = "achievements"
+private const val SECTION_STREAK = "streak"
 private const val SECTION_RECORDS = "records"
 private const val SECTION_MUSCLES = "muscles"
 private const val SECTION_EXERCISES = "exercises"

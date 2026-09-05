@@ -4,11 +4,17 @@ import com.opengym.core.data.db.dao.AchievementDao
 import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.UserProgressDao
 import com.opengym.core.data.db.entity.AchievementEntity
-import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.data.db.entity.UserProgressEntity
+import com.opengym.core.domain.model.StreakProtection
+import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import java.time.Instant
+import java.time.YearMonth
 import javax.inject.Inject
 
 /**
@@ -27,11 +33,17 @@ import javax.inject.Inject
  * either can be retuned, while keeping the read they operate on and the write that follows in
  * one operation, which no split across layers could do.
  *
+ * The streak goes further than the curve does: [updateStreak]'s transform returns the *whole*
+ * of the next state rather than a verdict this class then applies, so the same-day anchor rule
+ * and the protection allowance have no second statement here to drift from the first.
+ *
  * ### Instants are stored to the millisecond
  *
  * Every timestamp column is epoch milliseconds, so the sub-millisecond part of an [Instant] is
  * dropped on the way in. Nothing reads it back: the streak is judged in days and whole hours,
- * and an unlock is dated for display.
+ * and an unlock is dated for display. The one column that is not a timestamp or a count is
+ * `protection_period`, a `YYYY-MM` string — see [UserProgressEntity] for why a month is stored
+ * as what it is rather than as a number.
  */
 class GamificationRepositoryImpl @Inject constructor(
     private val userProgressDao: UserProgressDao,
@@ -80,40 +92,72 @@ class GamificationRepositoryImpl @Inject constructor(
     override suspend fun claimSessionXp(sessionId: Long): Boolean = sessionXpClaimDao.claim(sessionId)
 
     /**
-     * Applies the two rules the contract states, and no others: the streak becomes whatever
-     * [StreakResult.streakAfter] answers, and `lastCountedAt` advances to [finishedAt] unless
-     * the result is [StreakResult.Unchanged].
+     * Reads the stored state, hands it to the rule, writes back what the rule answers with.
      *
-     * That second rule is the whole of the same-day guarantee. A store that advanced the
-     * timestamp on every session would slide the grace window forward with each workout of a
-     * two-a-day, and a re-run of an already-counted session would stop being a no-op.
+     * There is no rule on this side. [advance] returns the whole of the next
+     * [com.opengym.core.domain.model.StreakState] — the streak, the best one ever held, the
+     * anchor the same-day guarantee is measured from and what is left of the protection
+     * allowance — and this persists it as given. That is the point of the shape:
+     * `StreakCalculator` is the one place any of it can be retuned, and the read it operates
+     * on and the write that follows are still one transaction, which no split across the two
+     * layers could give.
      *
-     * `longestStreak` is maintained here rather than by the calculator because it is a property
-     * of the *history* rather than of the session being applied: only the store has seen the
-     * streaks that came before. It never falls — a reset lowers the current streak and leaves
-     * the best one standing, which is what makes it worth a column of its own.
+     * `longestStreak` moved into the domain with the rest of it. It used to be maintained
+     * here, on the argument that only the store has seen the streaks that came before — but
+     * the store hands the rule every one of those figures now, so keeping a `maxOf` on this
+     * side would have been a second place the state is decided.
      */
-    override suspend fun updateStreak(
-        finishedAt: Instant,
-        computeStreak: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-    ): StreakUpdate {
-        lateinit var result: StreakResult
-        val updated = userProgressDao.mutate { current ->
-            val computed = computeStreak(
-                current.lastCountedAt?.let(Instant::ofEpochMilli),
-                current.currentStreak,
-            )
-            result = computed
-            val days = computed.streakAfter(current.currentStreak)
-            // Only a session that counted moves the timestamp — see the doc above.
-            val countedAt =
-                if (computed == StreakResult.Unchanged) current.lastCountedAt else finishedAt.toEpochMilli()
-            current.copy(
-                currentStreak = days,
-                longestStreak = maxOf(current.longestStreak, days),
-                lastCountedAt = countedAt,
-            )
+    override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
+        lateinit var update: StreakUpdate
+        userProgressDao.mutate { current ->
+            update = advance(current.toStreakState())
+            current.with(update.state)
         }
-        return StreakUpdate(result = result, days = updated.currentStreak)
+        return update
     }
+
+    /**
+     * The stored state, or a fresh one until anything has ever been written.
+     *
+     * `UserProgressDao.observe` answers null for an untouched table, deliberately, so the XP
+     * surfaces can tell "nothing banked" from "nothing written". The streak has no such
+     * distinction to draw — a user with no row and a user with no streak are the same lifter —
+     * so the null is collapsed here rather than pushed to every screen.
+     *
+     * Distinct emissions only. Room invalidates by *table*, and `user_progress` carries the XP
+     * total beside the streak, so a finished session's dozen awards each re-run this query and
+     * each hand back a [StreakState] identical to the last one. A screen collecting this would
+     * recompose a dozen times for a streak that moved once.
+     */
+    override fun observeStreak(): Flow<StreakState> =
+        userProgressDao.observe().map { it?.toStreakState() ?: StreakState() }.distinctUntilChanged()
 }
+
+/** The streak columns of the progress row, as the domain's value. */
+private fun UserProgressEntity.toStreakState(): StreakState =
+    StreakState(
+        currentStreak = currentStreak,
+        longestStreak = longestStreak,
+        lastCountedAt = lastCountedAt?.let(Instant::ofEpochMilli),
+        protection = StreakProtection(
+            remaining = protectionRemaining,
+            period = protectionPeriod?.let(YearMonth::parse),
+            lastConsumedAt = protectionConsumedAt?.let(Instant::ofEpochMilli),
+        ),
+    )
+
+/**
+ * This row with [state] written over its streak columns, and the XP columns left alone.
+ *
+ * A `copy` rather than a new entity: the progress row carries the XP total and the level
+ * beside the streak, and a streak write that constructed a whole row would zero them.
+ */
+private fun UserProgressEntity.with(state: StreakState): UserProgressEntity =
+    copy(
+        currentStreak = state.currentStreak,
+        longestStreak = state.longestStreak,
+        lastCountedAt = state.lastCountedAt?.toEpochMilli(),
+        protectionRemaining = state.protection.remaining,
+        protectionPeriod = state.protection.period?.toString(),
+        protectionConsumedAt = state.protection.lastConsumedAt?.toEpochMilli(),
+    )

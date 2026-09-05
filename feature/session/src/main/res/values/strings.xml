@@ -297,6 +297,35 @@
         <item quantity="other">Level %1$d, %2$d points to the next level</item>
     </plurals>
 
+    <!-- ─── Streak protection (#106) ───────────────────────────────────────────────────
+         Drawn only when this session's missed day was actually paid for out of the monthly
+         allowance, which is a rare card. See `SummaryStreakSave` for why the recap reports a
+         resource the app spent without asking. -->
+
+    <string name="summary_streak_saved">Streak saved</string>
+    <!-- The pill on the card. Short enough to sit beside the sentence on a 360dp screen. -->
+    <string name="summary_streak_saved_badge">Saved</string>
+    <!-- %1$d is the streak *after* this session, which is the figure worth confirming - the
+         protection covered the missed day and today counted on top of it. -->
+    <plurals name="summary_streak_saved_headline">
+        <item quantity="one">A protection covered your missed day. Your streak stands at %1$d day.</item>
+        <item quantity="other">A protection covered your missed day. Your streak stands at %1$d days.</item>
+    </plurals>
+    <!-- The cost, beside the marks that show it. %1$d is what is left this month. -->
+    <plurals name="summary_streak_protections_left">
+        <item quantity="one">%1$d left this month</item>
+        <item quantity="other">%1$d left this month</item>
+    </plurals>
+    <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
+         in words: a user with none left is one bad day from losing the streak above. -->
+    <string name="summary_streak_protections_none">None left this month</string>
+    <!-- What a screen reader hears in place of the two lines above, which are the visible half
+         of a sentence whose other half is the row of marks beside them. %1$d is what is left,
+         %2$d the month's allowance - a reader who cannot see three marks with one greyed out
+         needs both counts and the word for what they are. -->
+    <string name="summary_streak_protections_left_description">%1$d of %2$d streak protections left this month</string>
+    <string name="summary_streak_protections_none_description">None of your %1$d streak protections are left this month</string>
+
     <string name="summary_achievements">Achievements unlocked</string>
     <string name="summary_achievement_badge">New</string>
 

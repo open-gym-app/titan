@@ -11,11 +11,14 @@ package com.opengym.core.domain.model
  *
  * ### Why [Reset] is its own case
  *
- * #106 adds streak protection — a monthly allowance that saves a streak the user would
+ * #106 added streak protection — a monthly allowance that saves a streak the user would
  * otherwise have broken. That mechanic is exactly "intercept a [Reset] and decide whether to
  * spend an allowance on it", which is only possible while the break is a value somebody can
- * pattern-match on. Folding it into `Incremented(1)` would leave #106 re-deriving the break
- * from the gap it was handed, which is the calculator's rule reimplemented in a second place.
+ * pattern-match on. Folding it into `Incremented(1)` would have left #106 re-deriving the
+ * break from the gap it was handed, which is the calculator's rule reimplemented in a second
+ * place. [Protected] is the interception, and it is a fourth case rather than an
+ * [Incremented] with a flag beside it for the same reason: what a surface does about a
+ * protected day is nothing like what it does about an ordinary one.
  */
 sealed interface StreakResult {
 
@@ -52,6 +55,26 @@ sealed interface StreakResult {
         val newStreak: Int = FIRST_DAY
 
         override fun streakAfter(currentStreak: Int): Int = newStreak
+    }
+
+    /**
+     * The streak would have broken, and a protection was spent to keep it — see
+     * [StreakProtection].
+     *
+     * The streak advances exactly as it would have on an unbroken day: the protection covers
+     * the day that was missed, and the session in hand is a day trained, so it counts. It is
+     * *not* worth two days — the covered day was not training, and a mechanic that paid for
+     * rest would make the streak a measure of how many protections a user had left.
+     *
+     * @property protectionsRemaining what is left of the month's allowance **after** this one
+     *   was spent, which is the figure the quest log draws and the sentence #39's
+     *   notification is written from ("2 protections left this month"). Carried on the result
+     *   rather than re-read, because the read that produced it is the same atomic operation
+     *   that spent the protection; anything re-reading it afterwards could see a later
+     *   session's answer.
+     */
+    data class Protected(val protectionsRemaining: Int) : StreakResult {
+        override fun streakAfter(currentStreak: Int): Int = currentStreak + 1
     }
 
     /**

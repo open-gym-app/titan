@@ -27,6 +27,7 @@ internal fun previewState(
     notesDraft: String? = null,
     templateName: String? = null,
     celebration: SummaryCelebration? = null,
+    streakSave: SummaryStreakSave? = null,
 ): SessionSummaryUiState {
     val muscles = previewMuscleVolume()
 
@@ -47,6 +48,7 @@ internal fun previewState(
         secondaryMuscles = muscles.keys.filterNot { it.id in setOf(CHEST_ID, SHOULDERS_ID) },
         exercises = previewExercises(),
         celebration = celebration,
+        streakSave = streakSave,
         notes = notes,
         notesDraft = notesDraft,
         templateName = templateName,
@@ -219,3 +221,15 @@ internal fun previewMilestoneCelebration(): SummaryCelebration =
         levelProgress = 0.12f,
         xpIntoLevel = 12,
     )
+
+/**
+ * A session that spent a streak protection: the streak stands at thirteen days and one of the
+ * month's three is gone.
+ *
+ * The figures from the wireframe's own notification — twelve days saved, two protections left —
+ * carried over so the card and the copy that inspired it say the same thing.
+ */
+internal fun previewStreakSave(): SummaryStreakSave = SummaryStreakSave(streakDays = 13, protectionsRemaining = 2)
+
+/** The same save with the month exhausted, which is the line the card has to say plainly. */
+internal fun previewLastStreakSave(): SummaryStreakSave = SummaryStreakSave(streakDays = 13, protectionsRemaining = 0)

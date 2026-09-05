@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "40332454a3a619127e53050c0e78d9a9",
+    "identityHash": "8c0d9d8a9c59b352c77085577f46a890",
     "entities": [
       {
         "tableName": "exercise",
@@ -1176,7 +1176,7 @@
       },
       {
         "tableName": "user_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `total_xp` INTEGER NOT NULL, `current_level` INTEGER NOT NULL, `current_streak` INTEGER NOT NULL, `longest_streak` INTEGER NOT NULL, `last_counted_at` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `total_xp` INTEGER NOT NULL, `current_level` INTEGER NOT NULL, `current_streak` INTEGER NOT NULL, `longest_streak` INTEGER NOT NULL, `last_counted_at` INTEGER, `protection_remaining` INTEGER NOT NULL, `protection_period` TEXT, `protection_consumed_at` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1211,6 +1211,22 @@
           {
             "fieldPath": "lastCountedAt",
             "columnName": "last_counted_at",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "protectionRemaining",
+            "columnName": "protection_remaining",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protectionPeriod",
+            "columnName": "protection_period",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "protectionConsumedAt",
+            "columnName": "protection_consumed_at",
             "affinity": "INTEGER"
           }
         ],
@@ -1321,7 +1337,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '40332454a3a619127e53050c0e78d9a9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8c0d9d8a9c59b352c77085577f46a890')"
     ]
   }
 }

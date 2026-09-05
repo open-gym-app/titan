@@ -4,10 +4,12 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.StreakProtection
 
 /**
  * The user's gamification progress: the XP they have banked, the level it buys, the streak
- * they are on, and the session that streak was last counted from.
+ * they are on, the session that streak was last counted from, and what is left of the monthly
+ * allowance that saves it from a missed day.
  *
  * ### One row, pinned by the schema
  *
@@ -43,6 +45,20 @@ import com.opengym.core.domain.gamification.XpCalculator
  *   the last session finished": a second session on a day already counted leaves this where
  *   it is, which is what keeps the same-day rule from sliding the grace window forward with
  *   every workout — the calculator's parameter of the same name says the rest.
+ * @property protectionRemaining streak protections left in [protectionPeriod]. Defaulted to a
+ *   full allowance, which is what a user who has never trained holds — see [StreakProtection].
+ * @property protectionPeriod the month [protectionRemaining] belongs to, as `YYYY-MM`
+ *   (`YearMonth.toString()`), or null for an allowance nothing has ever touched. Text rather
+ *   than a number because a month is what it is: the column is readable in a database browser
+ *   and sorts chronologically, and nothing joins or ranges over it. The rollover into a new
+ *   month is applied by
+ *   [com.opengym.core.domain.gamification.StreakCalculator.advance] on the way in, so this
+ *   column trails the calendar for a user who has not trained this month — see
+ *   `GamificationRepository.observeStreak` for why that is deliberate.
+ * @property protectionConsumedAt when a protection was last spent, in epoch milliseconds, or
+ *   null if none ever has been. Kept for the surfaces that report it, not for the mechanic:
+ *   nothing decides anything from this column, and the guarantee that a protection is not
+ *   spent twice for one day rests on [lastCountedAt] instead.
  */
 @Entity(tableName = "user_progress")
 data class UserProgressEntity(
@@ -59,6 +75,12 @@ data class UserProgressEntity(
     val longestStreak: Int = 0,
     @ColumnInfo(name = "last_counted_at")
     val lastCountedAt: Long? = null,
+    @ColumnInfo(name = "protection_remaining")
+    val protectionRemaining: Int = StreakProtection.MONTHLY_ALLOWANCE,
+    @ColumnInfo(name = "protection_period")
+    val protectionPeriod: String? = null,
+    @ColumnInfo(name = "protection_consumed_at")
+    val protectionConsumedAt: Long? = null,
 ) {
 
     companion object {
@@ -84,6 +106,9 @@ data class UserProgressEntity(
                 "`current_streak` INTEGER NOT NULL, " +
                 "`longest_streak` INTEGER NOT NULL, " +
                 "`last_counted_at` INTEGER, " +
+                "`protection_remaining` INTEGER NOT NULL, " +
+                "`protection_period` TEXT, " +
+                "`protection_consumed_at` INTEGER, " +
                 "PRIMARY KEY(`id`), " +
                 "CHECK (`id` = $SINGLE_ROW_ID))"
     }
