@@ -96,8 +96,9 @@ import java.time.Instant
  * - detection compares *strictly* better, so a second pass beats the records the first one
  *   wrote and inserts nothing ([PrDetectionUseCase]);
  * - the streak's same-day rule leaves an already-counted session
- *   [com.opengym.core.domain.model.StreakResult.Unchanged] ([StreakCalculator]), given a
- *   store that does not advance `lastCountedAt` for it;
+ *   [com.opengym.core.domain.model.StreakResult.Unchanged] ([StreakCalculator]), which is
+ *   also what stops a re-entry spending a second streak protection on the same missed day —
+ *   see [StreakCalculator.advance];
  * - an unlock is insert-if-absent and its XP sits behind the insert's answer
  *   ([AchievementTriggerUseCase]);
  * - a quest completion is the same insert-if-absent, narrowed to a period, with its XP behind
@@ -196,9 +197,7 @@ class SessionCompletionPipeline(
         }
 
         val streak = runStep(SessionProgressionStep.STREAK, failures) {
-            gamificationRepository.updateStreak(finishedAt) { lastCountedAt, currentStreak ->
-                StreakCalculator.onSessionFinished(finishedAt, lastCountedAt, currentStreak)
-            }
+            gamificationRepository.updateStreak { state -> StreakCalculator.advance(state, finishedAt) }
         }
 
         val unlocks = mutableListOf<AchievementUnlock>()

@@ -33,6 +33,14 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * has the problem: the bottom bar, which draws its own uppercase label rather than using this,
  * had to work around it by hand.
  *
+ * **[contentDescription] is the way out when the words on screen are shorter than the fact.**
+ * An eyebrow is three or four words in a fixed column, so it is sometimes the visible half of
+ * a sentence whose other half is drawn beside it — `2 LEFT THIS MONTH` next to the marks that
+ * say what there are two of. A reader who cannot see the marks needs the whole sentence, and
+ * it belongs here rather than on the marks: those are what a sighted reader glances at, and
+ * duplicating the sentence onto them would have the reader hear it twice. Passing this does
+ * not change a pixel.
+ *
  * **A container that merges its descendants has to speak for itself.** A merged node carrying
  * a description anywhere inside it is announced as that description and nothing else, so an
  * eyebrow dropped into a `clickable` card silences the card's other text. Home's resume banner
@@ -50,6 +58,9 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param maxLines how many lines it may wrap to. One by default, and clipped rather than
  *   ellipsised: an eyebrow is three or four words in a fixed column, and a heading that
  *   breaks `SET` across two lines is worse than one that is a pixel short.
+ * @param contentDescription what a screen reader hears in place of the drawn text. [text]
+ *   itself by default, which is the right answer for a heading; see the note above for the
+ *   call site that has more to say than it has room to draw.
  */
 @Composable
 fun Eyebrow(
@@ -58,7 +69,9 @@ fun Eyebrow(
     color: Color = MaterialTheme.colorScheme.onSurfaceVariant,
     textAlign: TextAlign? = null,
     maxLines: Int = 1,
+    contentDescription: String = text,
 ) {
+    val spoken = contentDescription
     Text(
         text = text.uppercase(Locale.current.platformLocale),
         style = OpenGymTheme.typography.eyebrow,
@@ -68,7 +81,8 @@ fun Eyebrow(
         overflow = TextOverflow.Clip,
         // The description rides on the text's own node, so a call site that speaks for its
         // whole contents — the cards that `clearAndSetSemantics` — still wipes it along with
-        // everything else in there, which is what those call sites want.
-        modifier = modifier.semantics { contentDescription = text },
+        // everything else in there, which is what those call sites want. Read into a local
+        // first: inside the lambda, the bare name is the semantics property, not the parameter.
+        modifier = modifier.semantics { this.contentDescription = spoken },
     )
 }

@@ -1,9 +1,13 @@
 package com.opengym.core.domain.usecase
 
-import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakProtection
+import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.time.Instant
 
 /**
@@ -21,10 +25,10 @@ import java.time.Instant
  * same shape for the same reason: the cascade's re-entry contract rests entirely on the second
  * claim answering `false`.
  *
- * [updateStreak] applies the two rules the contract states — store what
- * [StreakResult.streakAfter] answers, advance `lastCountedAt` only when the result is not
- * [StreakResult.Unchanged] — rather than storing whatever it is told. A fake that advanced the
- * timestamp unconditionally would let a re-run of a counted session read as a new day.
+ * [updateStreak] persists whatever the transition hands it and nothing else, which is exactly
+ * what the contract asks of a real store: the rules about what to advance and what to spend
+ * live in `StreakCalculator`, and a fake that applied a rule of its own would be testing a
+ * second implementation of them.
  *
  * Single-threaded, like the tests that use it, so it does not reproduce the real store's
  * transactional serialisation; the awards below are never actually interleaved.
@@ -34,12 +38,15 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     var totalXp: Long = initialXp
         private set
 
-    /** The streak on file, and the session it was last counted from. */
-    var streakDays: Int = 0
-        private set
+    /** The streak row, such as it is — the state the store persists between sessions. */
+    private val streak = MutableStateFlow(StreakState())
 
-    var lastCountedAt: Instant? = null
-        private set
+    val streakDays: Int get() = streak.value.currentStreak
+
+    val lastCountedAt: Instant? get() = streak.value.lastCountedAt
+
+    /** What is left of the protection allowance, as stored. */
+    val protection: StreakProtection get() = streak.value.protection
 
     /** Sessions whose XP has been claimed — the marker row, such as it is. */
     private val xpClaims = mutableSetOf<Long>()
@@ -95,25 +102,26 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = xpClaims.add(sessionId)
 
-    override suspend fun updateStreak(
-        finishedAt: Instant,
-        computeStreak: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-    ): StreakUpdate {
+    override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
         streakFailure?.let { throw it }
-        val result = computeStreak(lastCountedAt, streakDays)
-        streakDays = result.streakAfter(streakDays)
-        // Only a session that counted moves the timestamp — the same-day rule is measured
-        // from the first counted session of a day, not the latest one.
-        if (result != StreakResult.Unchanged) lastCountedAt = finishedAt
-        return StreakUpdate(result = result, days = streakDays)
+        val update = advance(streak.value)
+        streak.value = update.state
+        return update
     }
+
+    override fun observeStreak(): Flow<StreakState> = streak.asStateFlow()
 
     /** Seeds a streak already on file, as a user with history would have. */
     fun seedStreak(
         days: Int,
         lastCountedAt: Instant,
+        protection: StreakProtection = StreakProtection(),
     ) {
-        streakDays = days
-        this.lastCountedAt = lastCountedAt
+        streak.value = StreakState(
+            currentStreak = days,
+            longestStreak = days,
+            lastCountedAt = lastCountedAt,
+            protection = protection,
+        )
     }
 }

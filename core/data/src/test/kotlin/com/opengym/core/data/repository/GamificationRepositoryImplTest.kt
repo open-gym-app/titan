@@ -5,7 +5,9 @@ import com.opengym.core.data.db.entity.UserProgressEntity
 import com.opengym.core.data.db.session
 import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakResult
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -17,11 +19,12 @@ import java.time.Instant
 /**
  * The gamification store through the repository, over a real SQLite.
  *
- * The domain already pins what the curve and the streak rule *say* — `XpCalculatorTest` and
- * `StreakCalculatorTest` do that without a database — so what is left for this class is the
- * half only a store can get wrong: that both levels come from the curve rather than from the
- * level column, that a streak's timestamp advances on exactly the sessions it should, and that
- * the two idempotent writes answer `true` once and `false` afterwards.
+ * The domain already pins what the curve and the streak rule *say* — `XpCalculatorTest`,
+ * `StreakCalculatorTest` and `StreakProtectionTest` do that without a database — so what is
+ * left for this class is the half only a store can get wrong: that both levels come from the
+ * curve rather than from the level column, that a streak's timestamp and its protection
+ * allowance reach the columns they belong in and come back the same, and that the two
+ * idempotent writes answer `true` once and `false` afterwards.
  */
 class GamificationRepositoryImplTest : RoomTestBase() {
 
@@ -29,6 +32,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
         val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
         val TUESDAY_EVENING: Instant = Instant.parse("2026-03-03T19:00:00Z")
         val TUESDAY_LATER: Instant = Instant.parse("2026-03-03T21:30:00Z")
+        val WEDNESDAY_EVENING: Instant = Instant.parse("2026-03-04T19:00:00Z")
         val FRIDAY_EVENING: Instant = Instant.parse("2026-03-06T19:00:00Z")
     }
 
@@ -41,10 +45,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
     }
 
     /** Applies the real rule, which is what the contract hands in rather than deciding here. */
-    private suspend fun finish(at: Instant) =
-        repository.updateStreak(at) { lastCountedAt, currentStreak ->
-            StreakCalculator.onSessionFinished(at, lastCountedAt, currentStreak)
-        }
+    private suspend fun finish(at: Instant) = repository.updateStreak { state -> StreakCalculator.advance(state, at) }
 
     private suspend fun award(delta: Int) = repository.addXp(delta, XpCalculator::levelForTotalXp)
 
@@ -194,6 +195,67 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             assertEquals(StreakResult.FIRST_DAY, update.days)
             assertEquals(2, db.userProgressDao().getOnce()?.longestStreak)
             assertEquals(FRIDAY_EVENING.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
+        }
+
+    @Test
+    fun `a missed day is paid for out of the allowance, and the row says so`() =
+        runBlocking {
+            finish(MONDAY_EVENING)
+            finish(TUESDAY_EVENING)
+            finish(WEDNESDAY_EVENING)
+
+            // The Thursday went untrained. The streak is three days old, so it is worth saving.
+            val update = finish(FRIDAY_EVENING)
+
+            assertEquals(StreakResult.Protected(StreakProtection.MONTHLY_ALLOWANCE - 1), update.result)
+            assertEquals(4, update.days)
+            val stored = db.userProgressDao().getOnce()
+            assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, stored?.protectionRemaining)
+            assertEquals("2026-03", stored?.protectionPeriod)
+            assertEquals(FRIDAY_EVENING.toEpochMilli(), stored?.protectionConsumedAt)
+        }
+
+    @Test
+    fun `re-applying a protected session spends no second protection`() =
+        runBlocking {
+            finish(MONDAY_EVENING)
+            finish(TUESDAY_EVENING)
+            finish(WEDNESDAY_EVENING)
+            finish(FRIDAY_EVENING)
+
+            // The cascade re-entered for the same workout — a crash-recovery boot, or a retry.
+            val again = finish(FRIDAY_EVENING)
+
+            assertEquals(StreakResult.Unchanged, again.result)
+            assertEquals(4, again.days)
+            assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, again.protectionsRemaining)
+        }
+
+    @Test
+    fun `the streak state is readable, allowance and all`() =
+        runBlocking {
+            finish(MONDAY_EVENING)
+            finish(TUESDAY_EVENING)
+            finish(WEDNESDAY_EVENING)
+            finish(FRIDAY_EVENING)
+
+            val state = repository.observeStreak().first()
+
+            assertEquals(4, state.currentStreak)
+            assertEquals(4, state.longestStreak)
+            assertEquals(FRIDAY_EVENING, state.lastCountedAt)
+            assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, state.protection.remaining)
+            assertEquals(FRIDAY_EVENING, state.protection.lastConsumedAt)
+        }
+
+    @Test
+    fun `a lifter who has never trained reads as a full allowance rather than as nothing`() =
+        runBlocking {
+            val state = repository.observeStreak().first()
+
+            assertEquals(0, state.currentStreak)
+            assertNull(state.lastCountedAt)
+            assertEquals(StreakProtection(), state.protection)
         }
 
     @Test

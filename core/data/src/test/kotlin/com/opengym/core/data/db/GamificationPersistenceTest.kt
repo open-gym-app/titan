@@ -7,6 +7,8 @@ import com.opengym.core.data.db.entity.UserProgressEntity
 import com.opengym.core.data.repository.GamificationRepositoryImpl
 import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.StreakProtection
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -17,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import java.time.YearMonth
 
 /**
  * That gamification progress is on the disk rather than in the process.
@@ -38,6 +41,8 @@ class GamificationPersistenceTest {
         const val DB_NAME = "gamification-persistence-test.db"
         val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
         val TUESDAY_EVENING: Instant = Instant.parse("2026-03-03T19:00:00Z")
+        val WEDNESDAY_EVENING: Instant = Instant.parse("2026-03-04T19:00:00Z")
+        val FRIDAY_EVENING: Instant = Instant.parse("2026-03-06T19:00:00Z")
     }
 
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -67,9 +72,7 @@ class GamificationPersistenceTest {
         runBlocking {
             val first = open()
             first.gamification().addXp(XpCalculator.XP_PER_LEVEL * 2 + 40, XpCalculator::levelForTotalXp)
-            first.gamification().updateStreak(MONDAY_EVENING) { lastCountedAt, currentStreak ->
-                StreakCalculator.onSessionFinished(MONDAY_EVENING, lastCountedAt, currentStreak)
-            }
+            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
             first.close()
 
             val reopened = open()
@@ -86,15 +89,12 @@ class GamificationPersistenceTest {
     fun `a streak carries on across a restart rather than starting over`() =
         runBlocking {
             val first = open()
-            first.gamification().updateStreak(MONDAY_EVENING) { lastCountedAt, currentStreak ->
-                StreakCalculator.onSessionFinished(MONDAY_EVENING, lastCountedAt, currentStreak)
-            }
+            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
             first.close()
 
             val reopened = open()
-            val update = reopened.gamification().updateStreak(TUESDAY_EVENING) { lastCountedAt, currentStreak ->
-                StreakCalculator.onSessionFinished(TUESDAY_EVENING, lastCountedAt, currentStreak)
-            }
+            val update = reopened.gamification()
+                .updateStreak { state -> StreakCalculator.advance(state, TUESDAY_EVENING) }
             reopened.close()
 
             assertEquals(2, update.days)
@@ -117,6 +117,30 @@ class GamificationPersistenceTest {
         }
 
     @Test
+    fun `a spent streak protection is still spent after a restart`() =
+        runBlocking {
+            val first = open()
+            val gamification = first.gamification()
+            gamification.updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
+            gamification.updateStreak { state -> StreakCalculator.advance(state, TUESDAY_EVENING) }
+            gamification.updateStreak { state -> StreakCalculator.advance(state, WEDNESDAY_EVENING) }
+            // The Thursday missed: one protection buys the streak back.
+            gamification.updateStreak { state -> StreakCalculator.advance(state, FRIDAY_EVENING) }
+            first.close()
+
+            val reopened = open()
+            val state = reopened.gamification().observeStreak().first()
+            reopened.close()
+
+            // The point of the test: an allowance held only in memory would come back full,
+            // and a user could break a streak once a boot for free.
+            assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, state.protection.remaining)
+            assertEquals(YearMonth.of(2026, 3), state.protection.period)
+            assertEquals(FRIDAY_EVENING, state.protection.lastConsumedAt)
+            assertEquals(4, state.currentStreak)
+        }
+
+    @Test
     fun `the single-row constraint is on the file, not just on the builder`() =
         runBlocking {
             val first = open()
@@ -128,8 +152,9 @@ class GamificationPersistenceTest {
             // table on the file has to refuse this whoever writes it.
             val failure = runCatching {
                 reopened.openHelper.writableDatabase.execSQL(
-                    "INSERT INTO user_progress (id, total_xp, current_level, current_streak, longest_streak) " +
-                        "VALUES (2, 0, 1, 0, 0)",
+                    "INSERT INTO user_progress " +
+                        "(id, total_xp, current_level, current_streak, longest_streak, protection_remaining) " +
+                        "VALUES (2, 0, 1, 0, 0, 3)",
                 )
             }.exceptionOrNull()
             reopened.close()

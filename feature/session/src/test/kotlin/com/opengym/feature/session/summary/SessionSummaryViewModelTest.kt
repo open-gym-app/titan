@@ -8,6 +8,10 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.StreakProtection
+import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakState
+import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.WorkoutSession
@@ -670,6 +674,98 @@ class SessionSummaryViewModelTest {
             // is the app telling a user who just trained that it did not count.
             assertNull(state.celebration)
         }
+
+    // ─── Streak protection (#106) ───────────────────────────────────────────────────────
+
+    @Test
+    fun `a session that spent a protection reports what it saved and what is left`() =
+        runTest {
+            progressionHandoff.offer(progression().copy(streak = protectedStreak()))
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertEquals(13, state.streakSave?.streakDays)
+            assertEquals(2, state.streakSave?.protectionsRemaining)
+        }
+
+    @Test
+    fun `an ordinary streak day reports no save`() =
+        runTest {
+            progressionHandoff.offer(
+                progression().copy(
+                    streak = StreakUpdate(
+                        result = StreakResult.Incremented(13),
+                        state = StreakState(currentStreak = 13, longestStreak = 13),
+                    ),
+                ),
+            )
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertNull(state.streakSave)
+        }
+
+    @Test
+    fun `a streak that broke with nothing left to spend reports no save`() =
+        runTest {
+            progressionHandoff.offer(
+                progression().copy(
+                    streak = StreakUpdate(
+                        result = StreakResult.Reset,
+                        state = StreakState(
+                            currentStreak = StreakResult.FIRST_DAY,
+                            longestStreak = 12,
+                            protection = StreakProtection(remaining = 0),
+                        ),
+                    ),
+                ),
+            )
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            // The streak is genuinely gone, and a card about the protection mechanic is not how
+            // the user should find that out.
+            assertNull(state.streakSave)
+        }
+
+    @Test
+    fun `a save is reported even when the session earned no points`() =
+        runTest {
+            // A re-entered cascade: the XP claim is spent, so nothing is paid — but the streak
+            // step is not behind that claim and can still report a protected day.
+            progressionHandoff.offer(
+                SessionProgression(sessionId = SESSION_ID, streak = protectedStreak()),
+            )
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            assertNull(state.celebration)
+            assertEquals(13, state.streakSave?.streakDays)
+        }
+
+    @Test
+    fun `both halves of one progression survive the single take`() =
+        runTest {
+            progressionHandoff.offer(progression().copy(streak = protectedStreak()))
+
+            val state = viewModel(sets = pushDaySets()).uiState.value
+
+            // The hand-off is emptied by its first taker, so two independent reads would leave
+            // whichever ran second with nothing.
+            assertEquals(135, state.celebration?.xpAwarded)
+            assertEquals(13, state.streakSave?.streakDays)
+        }
+
+    /** A twelve-day streak carried through a missed day, with one of the three spent on it. */
+    private fun protectedStreak(): StreakUpdate =
+        StreakUpdate(
+            result = StreakResult.Protected(protectionsRemaining = 2),
+            state = StreakState(
+                currentStreak = 13,
+                longestStreak = 13,
+                protection = StreakProtection(remaining = 2),
+            ),
+        )
 
     /**
      * A finish worth 135 points: twelve sets, the session itself, and one record.

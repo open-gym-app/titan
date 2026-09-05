@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
@@ -369,7 +370,8 @@ class SessionCompletionPipelineTest {
 
             val second = pipeline(sessionId, FINISHED_AT)
 
-            assertEquals(StreakUpdate(StreakResult.Unchanged, days = 1), second.streak)
+            assertEquals(StreakResult.Unchanged, second.streak?.result)
+            assertEquals(1, second.streak?.days)
             assertEquals(1, gamification.streakDays)
         }
 
@@ -547,10 +549,8 @@ class SessionCompletionPipelineTest {
     private class FailingStreak(private val delegate: GamificationRepository) :
         GamificationRepository by delegate {
 
-        override suspend fun updateStreak(
-            finishedAt: Instant,
-            decide: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-        ): StreakUpdate = error("the progress row is not writable")
+        override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate =
+            error("the progress row is not writable")
     }
 
     /**
@@ -708,12 +708,9 @@ class SessionCompletionPipelineTest {
             return delegate.addXp(delta, levelForTotalXp)
         }
 
-        override suspend fun updateStreak(
-            finishedAt: Instant,
-            computeStreak: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-        ): StreakUpdate {
+        override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate {
             journal += "streak"
-            return delegate.updateStreak(finishedAt, computeStreak)
+            return delegate.updateStreak(advance)
         }
 
         override suspend fun unlockAchievement(

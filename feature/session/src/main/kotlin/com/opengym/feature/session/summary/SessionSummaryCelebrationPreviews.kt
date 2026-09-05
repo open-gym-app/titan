@@ -34,3 +34,27 @@ fun SessionSummaryScreenLevelUpPreview() {
 fun SessionSummaryScreenMilestonePreview() {
     PreviewScreen(previewState(celebration = previewMilestoneCelebration()), reducedMotion = true)
 }
+
+@Preview(name = "Session summary - streak saved", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun SessionSummaryScreenStreakSavedPreview() {
+    PreviewScreen(
+        previewState(celebration = previewCelebration(), streakSave = previewStreakSave()),
+        reducedMotion = true,
+    )
+}
+
+/*
+ * The allowance exhausted, and no XP beside it.
+ *
+ * Both halves are deliberate. Zero remaining is the one state the card says in words rather
+ * than in a count, and a save with no celebration above it is a real session — the streak step
+ * is not fenced by the XP claim, so a re-entered cascade can report a protected day and nothing
+ * else. It is also the only preview where this card is the first thing under the stat grid,
+ * which is the layout worth having a reference for.
+ */
+@Preview(name = "Session summary - streak saved, none left", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun SessionSummaryScreenStreakSpentPreview() {
+    PreviewScreen(previewState(streakSave = previewLastStreakSave()), reducedMotion = true)
+}
