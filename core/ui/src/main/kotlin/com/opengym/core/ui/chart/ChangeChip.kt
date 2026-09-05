@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -58,6 +59,31 @@ fun ChangeChip(
         description = spoken,
     )
 }
+
+/** The same chip from a [ChartChange] a caller is already carrying. See [SeriesHeroCard]. */
+@Composable
+fun ChangeChip(
+    change: ChartChange,
+    modifier: Modifier = Modifier,
+) {
+    ChangeChip(direction = change.direction, value = change.value, modifier = modifier)
+}
+
+/**
+ * How far a hero figure moved against the period before it: the arrow, and the magnitude.
+ *
+ * One value rather than two parameters on [SeriesHeroCard], because a direction with no
+ * magnitude and a magnitude with no direction are both halves of a chip nobody can draw — and
+ * a card whose change is *absent* (a first period, with nothing behind it to compare against)
+ * says so by passing null once instead of by two nullables that have to agree.
+ *
+ * @param value already formatted and **unsigned**: `18%`, `1.2 kg`. See [ChangeChip].
+ */
+@Immutable
+data class ChartChange(
+    val direction: ChangeDirection,
+    val value: String,
+)
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

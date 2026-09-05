@@ -37,8 +37,8 @@ import com.opengym.feature.progression.R
  *
  * So the *destinations* ship with the hub and the *screens* do not. Each is one page saying
  * what belongs there and which issue is building it, and each is replaced wholesale by that
- * issue: #103 the PR list, #104 the quest log, #109 body measurements. Per-exercise
- * progression (#102) has already been through that and is gone from here, which is what the
+ * issue: #103 the PR list, #104 the quest log. Per-exercise progression (#102) and body
+ * measurements (#109) have already been through that and are gone from here, which is what the
  * arrangement was for — replacing one is a change to one entry and one registration.
  *
  * ### Full screen, not inside the tab
@@ -92,10 +92,10 @@ fun ProgressionDetailScreen(
  * Which of the remaining drill-downs this page is standing in for.
  *
  * An enum rather than a screen each, because the page is identical apart from two strings and
- * three copies of it would be three files to delete instead of one entry to remove. Each entry
- * names the issue that replaces it, so a reader who lands here knows where the real screen is
- * being built — #102 and #103 have already taken their entries out, which is the arrangement
- * working.
+ * a copy of it per drill-down would be a file to delete instead of an entry to remove. Each
+ * entry names the issue that replaces it, so a reader who lands here knows where the real
+ * screen is being built — #102, #103 and #109 have already taken theirs out, which is the
+ * arrangement working. When the last one goes, so does this file.
  */
 enum class ProgressionDetail(
     @param:StringRes val titleRes: Int,
@@ -103,9 +103,6 @@ enum class ProgressionDetail(
 ) {
     /** #104 — level, XP, quests, achievements and loot. */
     QUEST_LOG(R.string.explore_quests_title, R.string.progression_detail_quests_body),
-
-    /** #109 — body weight, body fat and the parts, over time. */
-    MEASUREMENTS(R.string.explore_measurements_title, R.string.progression_detail_measurements_body),
 }
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────

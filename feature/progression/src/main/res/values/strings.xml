@@ -88,7 +88,6 @@
     <string name="progression_detail_back">Back</string>
     <string name="progression_detail_glyph">◈</string>
     <string name="progression_detail_quests_body">Your level, XP, active quests, achievements and loot. Arriving with the quest log.</string>
-    <string name="progression_detail_measurements_body">Body weight, body fat and the parts you track, over time. Arriving with body measurements.</string>
 
     <!-- ── The per-exercise drill-down (#102) ────────────────────────────────────── -->
 
@@ -205,5 +204,77 @@
     <!-- The rows on screen loaded and the page below them did not. Drawn at the foot of the list
          rather than over it, because what is already listed is still true. -->
     <string name="records_error_more">Could not load more records.</string>
+
+    <!-- ── The body measurements screen (#109) ──────────────────────────────────── -->
+
+    <string name="body_title">Body</string>
+    <string name="body_log_action">Log measurements</string>
+
+    <!-- The hero. Sentence case: the eyebrow uppercases, and the chart opens its own spoken
+         description with the same string. -->
+    <string name="body_weight_label">Body weight</string>
+
+    <!-- Stands in for a figure that has never been measured, everywhere on this screen. A dash
+         rather than a zero: "0 cm" is a reading somebody took, and this one has not been. -->
+    <string name="body_no_reading">—</string>
+
+    <!-- The four parts, as a tape measure goes round them. -->
+    <string name="body_part_chest">Chest</string>
+    <string name="body_part_waist">Waist</string>
+    <string name="body_part_arm">Arm</string>
+    <string name="body_part_thigh">Thigh</string>
+    <!-- A part and its reading, announced as one phrase: "Chest, 102 cm". A label and a figure
+         read as two unrelated fragments is not the same information. -->
+    <string name="body_measurement_description">%1$s, %2$s</string>
+
+    <!-- The two composition tiles. Lean mass is derived from the other two figures rather than
+         stored — see BodyMeasurement.leanMass. -->
+    <string name="body_fat_label">Body fat</string>
+    <string name="body_lean_mass_label">Lean mass</string>
+
+    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+
+    <string name="body_health_connect_heading">Health Connect</string>
+    <string name="body_health_connect_label">Sync with Health Connect</string>
+    <string name="body_health_connect_detail">Weight and body fat, in and out</string>
+
+    <!-- ── The history ──────────────────────────────────────────────────────────── -->
+
+    <string name="body_history_heading">History</string>
+    <!-- Between the figures on one row: "78.4 kg · Chest 102 cm · 14.2%". Quoted,
+         because Android trims unquoted leading and trailing whitespace. -->
+    <string name="body_history_separator">" · "</string>
+    <string name="body_history_part">%1$s %2$s</string>
+    <!-- What tapping and swiping a row do, said before the gesture rather than after it. -->
+    <string name="body_history_edit">Edit the entry from %1$s</string>
+    <string name="body_history_delete">Delete the entry from %1$s</string>
+    <!-- Only reachable for a row no version of this app can write: the validator refuses an
+         entry that records nothing. -->
+    <string name="body_history_empty_entry">No measurements</string>
+
+    <!-- ── The form ─────────────────────────────────────────────────────────────── -->
+
+    <string name="body_form_title_new">Log measurements</string>
+    <string name="body_form_title_edit">Edit entry</string>
+    <string name="body_form_save">Save</string>
+    <string name="body_form_cancel">Cancel</string>
+    <!-- Each box says what it holds and what unit it is in, since the unit follows the user's
+         setting and a box labelled "Chest" alone would be a number with no scale. -->
+    <string name="body_field_weight">Weight (%1$s)</string>
+    <string name="body_field_chest">Chest (%1$s)</string>
+    <string name="body_field_waist">Waist (%1$s)</string>
+    <string name="body_field_arm">Arm (%1$s)</string>
+    <string name="body_field_thigh">Thigh (%1$s)</string>
+    <string name="body_field_body_fat">Body fat (%1$s)</string>
+    <string name="body_field_notes">Notes</string>
+
+    <!-- ── The empty state ──────────────────────────────────────────────────────── -->
+
+    <!-- One state, unlike the other progression screens: every figure here is the last one
+         recorded rather than a sum over the window, so a quiet period has nothing to say. -->
+    <string name="body_empty_glyph">◷</string>
+    <string name="body_empty_title">Nothing measured yet</string>
+    <string name="body_empty_body">Log your weight, your body fat or a tape measurement and this fills in — every field is optional, so one number is a start.</string>
+    <string name="body_empty_action">Log a measurement</string>
 
 </resources>

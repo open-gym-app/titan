@@ -40,6 +40,10 @@ import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.PreferenceGroup
+import com.opengym.core.ui.component.PreferenceInfoRow
+import com.opengym.core.ui.component.PreferenceRow
+import com.opengym.core.ui.component.PreferenceSoonRow
 import com.opengym.core.ui.component.detail
 import com.opengym.core.ui.component.detailOrNull
 import com.opengym.core.ui.component.label
@@ -50,10 +54,6 @@ import com.opengym.feature.settings.component.BarWeightDialog
 import com.opengym.feature.settings.component.ChoiceDialog
 import com.opengym.feature.settings.component.DeleteAllDataDialog
 import com.opengym.feature.settings.component.SettingsChoice
-import com.opengym.feature.settings.component.SettingsGroup
-import com.opengym.feature.settings.component.SettingsInfoRow
-import com.opengym.feature.settings.component.SettingsRow
-import com.opengym.feature.settings.component.SettingsSoonRow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -174,14 +174,14 @@ private fun AppearanceGroup(
     preferences: UserPreferences,
     onEvent: (SettingsEvent) -> Unit,
 ) {
-    SettingsGroup(title = stringResource(R.string.settings_group_appearance)) {
-        SettingsRow(
+    PreferenceGroup(title = stringResource(R.string.settings_group_appearance)) {
+        PreferenceRow(
             label = stringResource(R.string.settings_theme),
             value = preferences.theme.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.THEME)) },
         )
         HairlineDivider()
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_units),
             value = preferences.unitSystem.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.UNITS)) },
@@ -190,7 +190,7 @@ private fun AppearanceGroup(
         // Not a disabled row and not a picker: Android already has this setting, it already
         // works here, and a second copy of it inside the app is a place for the two to
         // disagree. The row exists to say so, which is why it states the value it follows.
-        SettingsInfoRow(
+        PreferenceInfoRow(
             label = stringResource(R.string.settings_font_scale),
             value = stringResource(R.string.settings_font_scale_value),
             supporting = stringResource(R.string.settings_font_scale_detail),
@@ -203,28 +203,28 @@ private fun WorkoutGroup(
     preferences: UserPreferences,
     onEvent: (SettingsEvent) -> Unit,
 ) {
-    SettingsGroup(title = stringResource(R.string.settings_group_workout)) {
-        SettingsRow(
+    PreferenceGroup(title = stringResource(R.string.settings_group_workout)) {
+        PreferenceRow(
             label = stringResource(R.string.settings_rest_timer),
             value = preferences.defaultRestDuration.formatAsClock(),
             supporting = stringResource(R.string.settings_rest_timer_detail),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.REST_DURATION)) },
         )
         HairlineDivider()
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_bar_weight),
             value = formatWeight(preferences.barWeight, preferences.unitSystem),
             supporting = stringResource(R.string.settings_bar_weight_detail),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.BAR_WEIGHT)) },
         )
         HairlineDivider()
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_training_goal),
             value = preferences.trainingGoal.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.TRAINING_GOAL)) },
         )
         HairlineDivider()
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_one_rep_max_formula),
             value = preferences.oneRepMaxFormula.label(),
             supporting = stringResource(R.string.settings_one_rep_max_formula_detail),
@@ -235,18 +235,18 @@ private fun WorkoutGroup(
 
 @Composable
 private fun DataGroup(onEvent: (SettingsEvent) -> Unit) {
-    SettingsGroup(title = stringResource(R.string.settings_group_data)) {
-        SettingsSoonRow(
+    PreferenceGroup(title = stringResource(R.string.settings_group_data)) {
+        PreferenceSoonRow(
             label = stringResource(R.string.settings_backup),
             supporting = stringResource(R.string.settings_soon_detail),
         )
         HairlineDivider()
-        SettingsSoonRow(label = stringResource(R.string.settings_export))
+        PreferenceSoonRow(label = stringResource(R.string.settings_export))
         HairlineDivider()
-        SettingsSoonRow(label = stringResource(R.string.settings_health_connect))
+        PreferenceSoonRow(label = stringResource(R.string.settings_health_connect))
         HairlineDivider()
         // The one row in this group that is real, and the only destructive action in the app.
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_delete_all),
             supporting = stringResource(R.string.settings_delete_all_detail),
             destructive = true,
@@ -257,12 +257,12 @@ private fun DataGroup(onEvent: (SettingsEvent) -> Unit) {
 
 @Composable
 private fun NotificationsGroup() {
-    SettingsGroup(title = stringResource(R.string.settings_group_notifications)) {
-        SettingsSoonRow(label = stringResource(R.string.settings_reminders))
+    PreferenceGroup(title = stringResource(R.string.settings_group_notifications)) {
+        PreferenceSoonRow(label = stringResource(R.string.settings_reminders))
         HairlineDivider()
-        SettingsSoonRow(label = stringResource(R.string.settings_streak_protection))
+        PreferenceSoonRow(label = stringResource(R.string.settings_streak_protection))
         HairlineDivider()
-        SettingsSoonRow(label = stringResource(R.string.settings_marketplace))
+        PreferenceSoonRow(label = stringResource(R.string.settings_marketplace))
     }
 }
 
@@ -271,10 +271,10 @@ private fun AboutGroup(
     appVersion: String,
     onOpenLink: (String) -> Unit,
 ) {
-    SettingsGroup(title = stringResource(R.string.settings_group_about)) {
-        SettingsInfoRow(label = stringResource(R.string.settings_version), value = appVersion)
+    PreferenceGroup(title = stringResource(R.string.settings_group_about)) {
+        PreferenceInfoRow(label = stringResource(R.string.settings_version), value = appVersion)
         HairlineDivider()
-        SettingsRow(
+        PreferenceRow(
             label = stringResource(R.string.settings_github),
             supporting = stringResource(R.string.settings_github_detail),
             external = true,
@@ -283,7 +283,7 @@ private fun AboutGroup(
         HairlineDivider()
         // Disabled until there is somewhere to send people. A row promising a donation link
         // that opens nothing is worse than one that says it is not ready.
-        SettingsSoonRow(label = stringResource(R.string.settings_donate))
+        PreferenceSoonRow(label = stringResource(R.string.settings_donate))
     }
 }
 

@@ -50,9 +50,7 @@
     <string name="settings_footer">No account. No cloud. Everything stays on this phone.</string>
 
     <!-- Row affordances -->
-    <string name="settings_soon">Soon</string>
     <string name="settings_soon_detail">Coming in a later release</string>
-    <string name="settings_opens_externally">Opens in your browser</string>
 
     <!-- Pickers -->
     <string name="settings_dialog_cancel">Cancel</string>

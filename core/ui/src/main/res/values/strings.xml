@@ -478,4 +478,12 @@
     <string name="preference_one_rep_max_brzycki">Brzycki</string>
     <string name="preference_one_rep_max_brzycki_detail">More accurate at low reps</string>
 
+    <!-- ── Preference rows ──────────────────────────────────────────────────────── -->
+
+    <!-- The badge on a row whose feature has not shipped yet. Settings carries a dozen of
+         them; the body screen's Health Connect row is the same promise on a second screen. -->
+    <string name="preference_soon">Soon</string>
+    <!-- Said before the tap rather than after it: leaving the app is worth announcing. -->
+    <string name="preference_opens_externally">Opens in your browser</string>
+
 </resources>
