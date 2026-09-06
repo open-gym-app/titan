@@ -95,7 +95,14 @@ fun OpenGymNavHost(
     val activity = LocalActivity.current
     DisposableEffect(activity, navController) {
         val provider = activity as? OnNewIntentProvider
-        val listener = Consumer<Intent> { intent -> navController.handleDeepLink(intent) }
+        val listener = Consumer<Intent> { intent ->
+            // Replace the activity's launch intent as well as handling it now: a config-change
+            // recreation after the app was opened from a notification re-runs `NavHost`'s own
+            // `handleDeepLink` against `getIntent()`, so a stale deep link left there would be
+            // navigated a second time and push a duplicate destination onto the back stack.
+            activity?.intent = intent
+            navController.handleDeepLink(intent)
+        }
         provider?.addOnNewIntentListener(listener)
         onDispose { provider?.removeOnNewIntentListener(listener) }
     }

@@ -1303,11 +1303,22 @@ class ActiveSessionViewModel @Inject constructor(
      * Failures are swallowed. The alarm and the note are a convenience over a countdown that is
      * running correctly either way, and a workout is not worth losing to a notification manager
      * that refused.
+     *
+     * Serialised through [backgroundRestJob] the way [saveDraft] is through `draftSave`:
+     * `backgroundRestTimer.set` suspends inside `Notifier.post` on a store read, so two calls
+     * launched close together — three taps of "+15s", or a set logged and then FINISH — can
+     * otherwise resume out of order and leave the OS holding a deadline the timer has moved
+     * past, or re-post a countdown for a workout that is already over. Cancelling the one in
+     * flight makes the later call the winner every time.
      */
     private fun publishRest(snapshot: RestTimerSnapshot) {
         val rest = backgroundRest(snapshot)
-        viewModelScope.launch { runCatching { backgroundRestTimer.set(rest) } }
+        backgroundRestJob?.cancel()
+        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(rest) } }
     }
+
+    /** The rest publication in flight, so the next one supersedes it. See [publishRest]. */
+    private var backgroundRestJob: Job? = null
 
     /**
      * The rest as something outside this app can hold, or **null** when there is nothing to
@@ -1351,7 +1362,8 @@ class ActiveSessionViewModel @Inject constructor(
      * they just ran, and writing one here would put back the thing it deleted.
      */
     private fun clearBackgroundRest() {
-        viewModelScope.launch { runCatching { backgroundRestTimer.set(null) } }
+        backgroundRestJob?.cancel()
+        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(null) } }
     }
 
     // ─── The layout of the workout ──────────────────────────────────────────────────────
