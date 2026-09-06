@@ -70,10 +70,21 @@ class NotificationChannels @Inject constructor(@param:ApplicationContext private
                     NotificationKind.REST_TIMER -> setSound(
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
                         AudioAttributes.Builder()
-                            // `USAGE_ALARM`, not `USAGE_NOTIFICATION`: this is the end of a
-                            // countdown the user started, and it has to be audible under the
-                            // same rules an alarm is — including through a silenced ringer.
-                            .setUsage(AudioAttributes.USAGE_ALARM)
+                            // `USAGE_NOTIFICATION`, which is a change of mind from #176: this
+                            // channel was registered with `USAGE_ALARM` on the argument that the
+                            // end of a countdown the user started should be audible under the
+                            // same rules an alarm is.
+                            //
+                            // It should not, because the app already answers that question in
+                            // the other direction. `RestAlertStyle` is the rule both halves of
+                            // the alert follow — the in-app one and this — and it says a phone
+                            // on *vibrate* buzzes and makes no sound. The alarm stream is not
+                            // muted by the ringer, so `USAGE_ALARM` would have this half of the
+                            // alert playing a tone in the one mode the other half is silent in.
+                            // The usage is the only place that distinction can be honoured:
+                            // above API 26 the channel owns the sound, and a per-notification
+                            // `setSilent` can only turn *both* off.
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
                             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                             .build(),
                     )

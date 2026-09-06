@@ -13,4 +13,41 @@
     -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!--
+      The exact alarm behind the background rest timer, in the two spellings the platform has
+      had for it.
+
+      `SCHEDULE_EXACT_ALARM` is granted at install below Android 13 and needs asking for above
+      it, so it is capped at 32 and `USE_EXACT_ALARM` takes over from 33. That second permission
+      is install-time and is reserved by Google Play for apps whose core function is an alarm
+      clock, a calendar or a **timer**; a rest timer the user starts by hand, whose entire value
+      is going off on the second, is squarely the third. The alternative — asking for
+      `SCHEDULE_EXACT_ALARM` at runtime through a full-screen system settings page — is a
+      prompt for a feature that has to work the first time somebody rests between two sets.
+
+      `AndroidBackgroundRestTimer` checks `canScheduleExactAlarms()` regardless and falls back to
+      an inexact wake-up, so a device or a policy that refuses leaves the alert late rather than
+      absent.
+    -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+
+    <application>
+
+        <!--
+          The rest alarm going off, and "Skip rest" being pressed on the notification.
+
+          `exported="false"`: both intents are explicit and come from this app's own pending
+          intents, so nothing outside it has any business sending either. `directBootAware` is
+          deliberately absent — a rest cannot be started before the device is unlocked, so there
+          is none to announce in that window.
+        -->
+        <receiver
+            android:name=".notification.RestTimerReceiver"
+            android:exported="false" />
+
+    </application>
+
 </manifest>

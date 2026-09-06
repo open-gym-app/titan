@@ -1,11 +1,16 @@
 package com.opengym.app.navigation
 
+import android.content.Intent
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.app.OnNewIntentProvider
+import androidx.core.util.Consumer
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.navigation
@@ -73,6 +78,27 @@ fun OpenGymNavHost(
     modifier: Modifier = Modifier,
 ) {
     val navController = appState.navController
+
+    // Deep links that arrive while the app is already running.
+    //
+    // `NavHost` reads the activity's *launch* intent itself, which covers a link tapped with
+    // the app dead. It has no way to see a second one: MainActivity is `singleTop`, so a
+    // notification tapped while the workout is already on screen is delivered to `onNewIntent`
+    // and nothing about the composition changes. Without this, tapping the rest timer's
+    // notification with the app open brings the app forward and lands wherever the user last
+    // was — which for the one case the link exists for is *usually* right and silently wrong
+    // the rest of the time.
+    //
+    // Registered here rather than in `MainActivity` because this is where the `NavController`
+    // is; the activity is reached through `OnNewIntentProvider`, which every `ComponentActivity`
+    // implements.
+    val activity = LocalActivity.current
+    DisposableEffect(activity, navController) {
+        val provider = activity as? OnNewIntentProvider
+        val listener = Consumer<Intent> { intent -> navController.handleDeepLink(intent) }
+        provider?.addOnNewIntentListener(listener)
+        onDispose { provider?.removeOnNewIntentListener(listener) }
+    }
 
     // The exercise picker's answer, on its way back to whoever opened it.
     //

@@ -28,9 +28,25 @@ package com.opengym.core.domain.notification
  *   carry the meaning on its own.
  * @param tag distinguishes two live notifications of the same [kind]. Null for the usual case
  *   of one at a time.
- * @param ongoing the user cannot swipe it away, and it stays until the app cancels it. For
- *   [NotificationKind.SESSION] alone — a session that is still running is a fact about the
- *   app's state, not an announcement, and dismissing the note would not end the session.
+ * @param ongoing the user cannot swipe it away, and it stays until the app cancels it. For a
+ *   note about something the app is still doing — a session left running, a rest counting down
+ *   — rather than for an announcement: dismissing it would not end the thing it describes.
+ * @param silent posted without a sound, a buzz or a heads-up, however loud its channel is. For
+ *   a notification that is *updated* rather than announced — the rest countdown is re-posted
+ *   every time the user adjusts it, and a channel loud enough to be heard across a gym would
+ *   otherwise announce each of those. The announcement that follows is a separate post with
+ *   this off.
+ * @param deepLink where a tap lands, as an `opengym://` URI from
+ *   [com.opengym.core.domain.navigation.DeepLinks]. Null opens the app wherever it was, which
+ *   is right for a notification with no particular screen behind it and wrong for every one
+ *   that has one.
+ * @param countdownTo epoch millis UTC the platform counts down to, drawn in place of the
+ *   timestamp and ticked by the system itself. The reason a rest notification is posted **once**
+ *   rather than re-posted every second: a shade that redraws its own countdown costs nothing,
+ *   and a wake-up a second costs the battery of the phone in the user's pocket. Null for the
+ *   ordinary case of a notification about something that already happened.
+ * @param actions buttons along the bottom, in order. Each is a [NotificationCommand] the app
+ *   can carry out with no screen of it alive — see [NotificationAction].
  */
 data class AppNotification(
     val kind: NotificationKind,
@@ -38,7 +54,41 @@ data class AppNotification(
     val body: String,
     val tag: String? = null,
     val ongoing: Boolean = false,
+    val silent: Boolean = false,
+    val deepLink: String? = null,
+    val countdownTo: Long? = null,
+    val actions: List<NotificationAction> = emptyList(),
 )
+
+/**
+ * A button on a notification: what it says, and what it does.
+ *
+ * @param label the word on the button. Resolved text, for the reason [AppNotification.title] is.
+ * @param command what pressing it means. A value rather than a callback, because the press can
+ *   arrive at a process that has been started from cold to receive it — there is no lambda from
+ *   the moment the notification was posted still alive to invoke.
+ */
+data class NotificationAction(
+    val label: String,
+    val command: NotificationCommand,
+)
+
+/**
+ * Something a notification's button asks the app to do.
+ *
+ * A sealed type rather than a string id and a bag of extras: every one of these has to survive
+ * a round trip out to the system and back into a process that may be starting from nothing, and
+ * a typed command is the difference between that round trip being checked by the compiler and
+ * being checked by whoever notices the button stopped working.
+ */
+sealed interface NotificationCommand {
+
+    /**
+     * End the rest running in [sessionId] now — the lifter is back under the bar and said so
+     * without unlocking.
+     */
+    data class SkipRest(val sessionId: Long) : NotificationCommand
+}
 
 /** What became of a [AppNotification] handed to a [Notifier]. */
 enum class NotificationOutcome {

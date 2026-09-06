@@ -21,7 +21,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.opengym.core.domain.timer.RestAlertStyle
 import com.opengym.core.domain.timer.RestTimerState
+import com.opengym.core.domain.timer.RingerMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -69,13 +71,14 @@ import kotlinx.coroutines.withContext
  *
  * ### Respecting the system
  *
- * The tone is the user's own notification sound and is not played at all unless the ringer is
- * in its normal mode, so a phone on silent or vibrate stays that way.
+ * The tone is the user's own notification sound and the buzz is the device's vibrator, and
+ * which of the two a given ringer position allows is **not decided here**. It is
+ * [RestAlertStyle.forRingerMode], in `:core:domain`, because the app says "your rest is over"
+ * twice over — here, and through a notification when the phone is in a pocket — and a second
+ * copy of the rule is the copy that goes on ringing after this one is fixed. See that function
+ * for the table and for why the buzz survives one notch further down than the tone.
  *
- * The buzz is the device's vibrator, and it runs one step wider than the tone: a phone in
- * *vibrate* mode buzzes, because vibrate is the mode that asks for exactly this. Silent stops
- * it, on the same reasoning that stops the tone — a phone told to be still is not overridden
- * from a gym. It is played under notification vibration attributes, so the system applies the
+ * The vibration is played under notification vibration attributes, so the system applies the
  * user's own notification-vibration setting to it rather than this deciding.
  *
  * @param state the rest timer, as the screen already has it.
@@ -102,10 +105,13 @@ fun RestExpiryAlert(
 
     LaunchedEffect(state) {
         if (enabled && wasRunning && state is RestTimerState.Finished) {
+            // One reading of the ringer for both halves, so they cannot be answered against a
+            // switch the user flipped in between.
+            val style = RestAlertStyle.forRingerMode(context.ringerMode())
             // The buzz first, and without suspending: it is the half that reaches a lifter who
             // is not holding the phone, and it should not be queued behind an audio stack.
-            context.vibrateRestOver()
-            tone.playIfRingerIsOn(context)
+            if (style.vibration) context.vibrateRestOver()
+            if (style.tone) tone?.playSafely()
         }
         wasRunning = state is RestTimerState.Running
     }
@@ -147,19 +153,28 @@ private fun rememberNotificationTone(enabled: Boolean): Ringtone? {
 }
 
 /**
- * Plays the notification sound once, or nothing at all.
+ * The device's ringer switch, as the domain names it.
  *
- * Silent unless the ringer is in its normal mode — a phone set to vibrate or to silent has
- * been told what to do, and an app that overrode it here would be doing so in a gym. Playing
- * is best-effort for the same reason a draft save is: an audio stack that refuses is not
- * something to interrupt a workout over.
+ * An unreadable audio service reads as [RingerMode.NORMAL], matching the background path: the
+ * alert is the point of the feature, and a phone that cannot say whether it has been silenced
+ * has not been silenced.
  */
-private suspend fun Ringtone?.playIfRingerIsOn(context: Context) {
-    val tone = this ?: return
-    val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-    if (audio.ringerMode != AudioManager.RINGER_MODE_NORMAL) return
+private fun Context.ringerMode(): RingerMode =
+    when ((getSystemService(Context.AUDIO_SERVICE) as? AudioManager)?.ringerMode) {
+        AudioManager.RINGER_MODE_SILENT -> RingerMode.SILENT
+        AudioManager.RINGER_MODE_VIBRATE -> RingerMode.VIBRATE
+        else -> RingerMode.NORMAL
+    }
 
-    withContext(Dispatchers.IO) { runCatching { tone.play() } }
+/**
+ * Plays the notification sound once, off the main thread.
+ *
+ * Best-effort for the same reason a draft save is: an audio stack that refuses is not something
+ * to interrupt a workout over. Whether it should play at all is [RestAlertStyle]'s answer, taken
+ * before this is called.
+ */
+private suspend fun Ringtone.playSafely() {
+    withContext(Dispatchers.IO) { runCatching { play() } }
 }
 
 /**
@@ -169,6 +184,8 @@ private suspend fun Ringtone?.playIfRingerIsOn(context: Context) {
  * bench picks up a vibration that a notification tone loses to the room. Two short pulses
  * rather than one long one, because one is indistinguishable from every other notification the
  * phone makes and a pattern is recognisable without being an alarm.
+ *
+ * Whether the ringer allows it is [RestAlertStyle]'s answer, taken by the caller.
  *
  * This is the real vibrator and not Compose's view-level haptics, which is what was here
  * before. That call is a *tick* — the feedback a long-press gives under a finger already on
@@ -180,11 +197,6 @@ private suspend fun Ringtone?.playIfRingerIsOn(context: Context) {
  * still gets the tone and the screen.
  */
 private fun Context.vibrateRestOver() {
-    // Vibrate mode buzzes — that is what the mode is for — and only silent stops it. Note this
-    // is one notch wider than [playNotificationTone], which needs the ringer fully on.
-    val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
-    if (audio != null && audio.ringerMode == AudioManager.RINGER_MODE_SILENT) return
-
     val vibrator = defaultVibrator() ?: return
     if (!vibrator.hasVibrator()) return
 

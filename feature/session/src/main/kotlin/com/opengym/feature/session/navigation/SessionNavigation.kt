@@ -7,7 +7,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import com.opengym.core.domain.navigation.DeepLinks
 import com.opengym.feature.session.active.ActiveSessionEvent
 import com.opengym.feature.session.active.ActiveSessionRoute
 import com.opengym.feature.session.active.ActiveSessionViewModel
@@ -67,7 +69,14 @@ data class NewSessionDestination(
  */
 const val NO_TEMPLATE: Long = -1L
 
-/** The workout in progress (#26). */
+/**
+ * The workout in progress (#26).
+ *
+ * The one destination with an address outside the app: `opengym://session/active/{sessionId}`,
+ * which is what the rest timer's notification opens. See [DeepLinks], which is where the base
+ * path is written down for both ends of that — the URI is built in `:core:data` and registered
+ * here, and a literal on each side is a link that silently opens nothing.
+ */
 @Serializable
 data class ActiveSessionDestination(val sessionId: Long)
 
@@ -185,7 +194,12 @@ fun NavGraphBuilder.sessionGraph(
                 onPickedExercisesHandled = exercisePicker.onSelectionHandled,
             )
         }
-        composable<ActiveSessionDestination> {
+        composable<ActiveSessionDestination>(
+            // `basePath` and nothing else: Navigation appends one path segment per required
+            // route argument, in declaration order, so this *is* `.../active/{sessionId}` and
+            // stays right if the route ever grows another argument.
+            deepLinks = listOf(navDeepLink<ActiveSessionDestination>(basePath = DeepLinks.ACTIVE_SESSION)),
+        ) {
             val snackbarHostState = remember { SnackbarHostState() }
             val viewModel: ActiveSessionViewModel = hiltViewModel()
 
