@@ -13,6 +13,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -209,6 +211,17 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
     }
 
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) {
+        dataStore.edit { it[UserPreferencesKeys.notificationKey(kind)] = enabled }
+    }
+
+    override suspend fun setNotificationPermissionRequested() {
+        dataStore.edit { it[UserPreferencesKeys.NOTIFICATION_PERMISSION_REQUESTED] = true }
+    }
+
     /**
      * Empties the store, which is how every setting returns to its default.
      *
@@ -262,35 +275,94 @@ private object UserPreferencesKeys {
     val TRAINING_GOAL = stringPreferencesKey("training_goal")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
+    val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
+
+    /**
+     * One key per notification kind, spelled out rather than derived from the enum.
+     *
+     * `booleanPreferencesKey("notifications_" + kind.name.lowercase())` would be shorter and
+     * would rename every user's stored flag the day somebody renames an entry — the same trap
+     * the note above describes, made worse by being invisible at the rename site. The `when`
+     * is exhaustive, so a fifth kind is a compile error here rather than a setting that reads
+     * as off however often it is switched on.
+     */
+    fun notificationKey(kind: NotificationKind) =
+        when (kind) {
+            NotificationKind.REMINDERS -> booleanPreferencesKey("notifications_reminders")
+            NotificationKind.REST_TIMER -> booleanPreferencesKey("notifications_rest_timer")
+            NotificationKind.SESSION -> booleanPreferencesKey("notifications_session")
+            NotificationKind.PROGRESSION -> booleanPreferencesKey("notifications_progression")
+        }
 }
 
 /**
  * The stored keys as a [UserPreferences], with the default standing in wherever the store
  * has no usable answer.
  *
- * "No usable answer" is three cases and they are handled identically: the key is absent
+ * "No usable answer" is four cases and they are handled identically: the key is absent
  * (a fresh install, or a setting never changed), the key holds an enum name this build
- * does not have (a value written by a newer build, or one since renamed), or the key
- * holds a number the model refuses (a non-positive rest or bar weight, which no setter
- * would have written). The last is the only one that would otherwise throw, and it would
- * throw from inside a `map` on a flow a screen is collecting.
+ * does not have (a value written by a newer build, or one since renamed), the key holds a
+ * number the model refuses (a non-positive rest or bar weight, which no setter would have
+ * written), or the key holds a value of the wrong *type* altogether — a build that stored
+ * a flag as text, or a hand-edited file. The last two are the ones that would otherwise
+ * throw, and they would throw from inside a `map` on a flow a screen is collecting.
+ *
+ * Every read below therefore goes through [valueOrNull] rather than `Preferences.get`,
+ * which casts the stored value to the key's type and throws [ClassCastException] when it
+ * is something else. That exception is not an [IOException], so `observe`'s `retryWhen`
+ * would not catch it either: one mistyped entry would take down every screen in the app
+ * until the file was deleted.
  */
 private fun toUserPreferences(stored: Preferences): UserPreferences {
     val defaults = UserPreferences()
     return UserPreferences(
-        unitSystem = stored[UserPreferencesKeys.UNIT_SYSTEM].toEnumOrDefault(defaults.unitSystem),
-        theme = stored[UserPreferencesKeys.THEME].toEnumOrDefault(defaults.theme),
-        defaultRestDuration = stored[UserPreferencesKeys.REST_DURATION_SECONDS]
+        unitSystem = stored.valueOrNull(UserPreferencesKeys.UNIT_SYSTEM).toEnumOrDefault(defaults.unitSystem),
+        theme = stored.valueOrNull(UserPreferencesKeys.THEME).toEnumOrDefault(defaults.theme),
+        defaultRestDuration = stored.valueOrNull(UserPreferencesKeys.REST_DURATION_SECONDS)
             ?.seconds
             ?.takeIf { it > Duration.ZERO && it.isFinite() }
             ?: defaults.defaultRestDuration,
-        barWeight = stored[UserPreferencesKeys.BAR_WEIGHT]?.takeIf { it > 0 } ?: defaults.barWeight,
-        plateInventory = stored[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull(),
-        trainingGoal = stored[UserPreferencesKeys.TRAINING_GOAL].toEnumOrDefault(defaults.trainingGoal),
-        onboardingCompleted = stored[UserPreferencesKeys.ONBOARDING_COMPLETED] ?: defaults.onboardingCompleted,
-        oneRepMaxFormula = stored[UserPreferencesKeys.ONE_REP_MAX_FORMULA].toEnumOrDefault(defaults.oneRepMaxFormula),
+        barWeight = stored.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)?.takeIf { it > 0 } ?: defaults.barWeight,
+        plateInventory = stored.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
+        trainingGoal = stored.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
+        onboardingCompleted = stored.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
+            ?: defaults.onboardingCompleted,
+        oneRepMaxFormula = stored.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
+            .toEnumOrDefault(defaults.oneRepMaxFormula),
+        notifications = stored.toNotificationPreferences(defaults.notifications),
     )
 }
+
+/**
+ * The value under [key], or **null** when there is none *of that type*.
+ *
+ * `Preferences.get` is an unchecked cast in disguise: it looks the entry up by name and hands
+ * it back as the key's type, so a `boolean` key over an entry some other build wrote as text
+ * throws where every caller here expects a null. See [toUserPreferences] for why throwing is
+ * not survivable on this path.
+ *
+ * `reified`, and that is the whole of it: an unreified `as? T` over an erased type parameter
+ * checks nothing at all and defers the same [ClassCastException] to whoever uses the result.
+ */
+private inline fun <reified T : Any> Preferences.valueOrNull(key: Preferences.Key<T>): T? = asMap()[key] as? T
+
+/**
+ * The notification flags, one key at a time, defaulting per kind.
+ *
+ * The per-key fallback matters more here than anywhere else in this file: the default is not
+ * uniform — the rest timer starts on and the other three start off — so a whole-object
+ * fallback would turn one unreadable flag into three settings reverting at once. Reading each
+ * key against its own default keeps a store that is half-written readable as exactly the half
+ * that was written.
+ */
+private fun Preferences.toNotificationPreferences(defaults: NotificationPreferences): NotificationPreferences =
+    NotificationPreferences(
+        enabled = NotificationKind.entries
+            .filter { kind -> valueOrNull(UserPreferencesKeys.notificationKey(kind)) ?: (kind in defaults) }
+            .toSet(),
+        permissionRequested = valueOrNull(UserPreferencesKeys.NOTIFICATION_PERMISSION_REQUESTED)
+            ?: defaults.permissionRequested,
+    )
 
 /*
  * The plate inventory, as one line of text.

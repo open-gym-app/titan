@@ -5,6 +5,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import kotlinx.coroutines.flow.Flow
 import java.io.IOException
@@ -180,4 +182,39 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setOnboardingCompleted(completed: Boolean)
+
+    /**
+     * Records whether the user wants notifications of [kind].
+     *
+     * One kind at a time, like every other setter here, and for the extra reason that the
+     * settings screen writes one switch per tap: a whole-[NotificationPreferences] setter
+     * would make two switches flipped in quick succession a read-modify-write race, which is
+     * the failure the note at the top of this file exists to prevent.
+     *
+     * The preference is only half of whether anything is posted. `Notifier` checks it *and*
+     * the permission, so writing `true` here is the user saying what they want rather than
+     * the app promising to deliver it.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    )
+
+    /**
+     * Records that the system's notification permission prompt has been shown once.
+     *
+     * Write-only and one-way — there is no setter back to false, because the event it records
+     * cannot un-happen and Android will not show the prompt twice whatever this says. It is
+     * the app's own memory of having asked, which is the only way to tell a user who has not
+     * been asked from one who refused: see [NotificationPreferences.permissionRequested].
+     *
+     * Written when the prompt is *raised*, not when it is answered. A user who dismisses it
+     * with the back gesture has still been asked, and asking again on the next tap is how an
+     * app trains someone to refuse.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setNotificationPermissionRequested()
 }

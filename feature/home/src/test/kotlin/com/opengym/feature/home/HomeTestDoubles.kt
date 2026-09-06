@@ -37,6 +37,7 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.model.XpAward
+import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.GamificationRepository
@@ -283,6 +284,14 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
+
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) = write { it.copy(notifications = it.notifications.with(kind, enabled)) }
+
+    override suspend fun setNotificationPermissionRequested() =
+        write { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
 
     override suspend fun clear() = write { UserPreferences() }
 

@@ -6,6 +6,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPermission
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.LocalDataRepository
@@ -65,6 +67,14 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) = write { it.copy(notifications = it.notifications.with(kind, enabled)) }
+
+    override suspend fun setNotificationPermissionRequested() =
+        write { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
+
     override suspend fun clear() = write { UserPreferences() }
 
     private fun write(transform: (UserPreferences) -> UserPreferences) {
@@ -89,5 +99,28 @@ class FakeLocalDataRepository(initial: DataFootprint = DataFootprint()) : LocalD
         deleteCount++
         deleteFailure?.let { throw it }
         footprint.value = DataFootprint()
+    }
+}
+
+/**
+ * The system's answer about notifications, under the test's control.
+ *
+ * A class rather than a lambda because the answer has to be able to *change* mid-test: the
+ * whole point of the permission plumbing is that a user can leave for system settings and come
+ * back with a different answer, and the recheck event is what is being tested. [allowed] is
+ * therefore a `var`, and every read goes through the same method the real one does.
+ */
+class FakeNotificationPermission(
+    var allowed: Boolean = false,
+    override val isRuntimePermissionRequired: Boolean = true,
+) : NotificationPermission {
+
+    /** How many times the state has been read, so a test can assert nothing polls it. */
+    var reads: Int = 0
+        private set
+
+    override fun areNotificationsAllowed(): Boolean {
+        reads++
+        return allowed
     }
 }

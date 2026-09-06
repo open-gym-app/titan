@@ -24,6 +24,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -643,6 +644,13 @@ private object DefaultPreferences : UserPreferencesRepository {
     override suspend fun clear() = readOnly()
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = readOnly()
+
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) = readOnly()
+
+    override suspend fun setNotificationPermissionRequested() = readOnly()
 
     private fun readOnly(): Nothing = throw UnsupportedOperationException("the cascade writes no preferences")
 }

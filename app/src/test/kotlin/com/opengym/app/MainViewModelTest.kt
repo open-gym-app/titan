@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
@@ -157,6 +158,17 @@ class MainViewModelTest {
             pairs: Int,
         ) {
             preferences.update { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
+        }
+
+        override suspend fun setNotificationEnabled(
+            kind: NotificationKind,
+            enabled: Boolean,
+        ) {
+            preferences.update { it.copy(notifications = it.notifications.with(kind, enabled)) }
+        }
+
+        override suspend fun setNotificationPermissionRequested() {
+            preferences.update { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
         }
 
         override suspend fun clear() {

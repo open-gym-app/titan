@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The only user-facing strings the data layer owns: the names Android shows for this app's
+  notification channels, under Settings → Apps → OpenGym → Notifications.
+
+  They live here rather than in `:core:ui` because the channels are registered here and
+  nowhere else, and a name is what the user reads when deciding whether to silence a channel
+  — so each description says what turning it off would cost, not what the channel is.
+-->
+<resources>
+
+    <string name="notification_channel_reminders">Workout reminders</string>
+    <string name="notification_channel_reminders_description">The nudge on the days you asked to train.</string>
+
+    <string name="notification_channel_rest_timer">Rest timer</string>
+    <string name="notification_channel_rest_timer_description">Says the rest is over when the screen is off. Turning this off means hearing nothing between sets.</string>
+
+    <string name="notification_channel_session">Unfinished sessions</string>
+    <string name="notification_channel_session_description">A silent note while a session is still running.</string>
+
+    <string name="notification_channel_progression">Streaks and rewards</string>
+    <string name="notification_channel_progression_description">New levels, completed quests and loot.</string>
+
+</resources>

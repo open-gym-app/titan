@@ -3,6 +3,7 @@ package com.opengym.feature.settings
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationPermissionState
 
 /**
  * Everything the settings screen draws, as one value.
@@ -25,6 +26,15 @@ import com.opengym.core.domain.model.UserPreferences
  *   would leave the user watching a settings screen that is quietly emptying itself.
  * @param message a one-shot outcome to show and forget. Present only between the event that
  *   caused it and the screen acknowledging it with [SettingsEvent.MessageShown].
+ * @param notificationPermission whether the system will carry what the notification switches
+ *   ask for. Not a preference and not stored: it is re-read from the system every time the
+ *   screen resumes, because it changes in system settings with the app not running. A switch
+ *   that is on while this is [NotificationPermissionState.DENIED] is a switch that does
+ *   nothing, and the group says so rather than looking healthy.
+ * @param notificationPermissionRequest a one-shot: raise the system permission prompt. The
+ *   ViewModel decides *when* to ask — the first time a notification is turned on — and the
+ *   screen is the only thing that can actually ask, so the decision travels as state and is
+ *   cleared by [SettingsEvent.Notification.PermissionRequestShown].
  */
 @Immutable
 data class SettingsUiState(
@@ -33,6 +43,8 @@ data class SettingsUiState(
     val dialog: SettingsDialog? = null,
     val isDeleting: Boolean = false,
     val message: SettingsMessage? = null,
+    val notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
+    val notificationPermissionRequest: Boolean = false,
 )
 
 /**

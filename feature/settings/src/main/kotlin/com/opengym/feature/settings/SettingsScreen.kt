@@ -1,5 +1,10 @@
 package com.opengym.feature.settings
 
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,11 +32,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -39,11 +47,16 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPermissionState
+import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.PreferenceGroup
 import com.opengym.core.ui.component.PreferenceInfoRow
 import com.opengym.core.ui.component.PreferenceRow
 import com.opengym.core.ui.component.PreferenceSoonRow
+import com.opengym.core.ui.component.PreferenceSwitchRow
 import com.opengym.core.ui.component.detail
 import com.opengym.core.ui.component.detailOrNull
 import com.opengym.core.ui.component.label
@@ -89,6 +102,34 @@ fun SettingsRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+
+    // Everything platform-shaped about the notification permission lives in the route rather
+    // than in `SettingsScreen`, which stays a function of its state: only something attached
+    // to an Activity can raise a permission prompt or start an intent, and a stateless screen
+    // that could do either would need one to be tested.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        // The result is ignored on purpose. Granted or refused, the answer worth having is the
+        // system's own — the user may have answered the prompt, or dismissed it, or turned the
+        // switch off in the settings behind it — so the ViewModel goes and asks.
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked) },
+    )
+
+    LaunchedEffect(state.notificationPermissionRequest) {
+        if (!state.notificationPermissionRequest) return@LaunchedEffect
+        // Cleared before the prompt goes up, not after: `launch` does not suspend until the
+        // user answers, and leaving the flag set would raise a second prompt on the next
+        // recomposition.
+        viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown)
+        permissionLauncher.launch(POST_NOTIFICATIONS)
+    }
+
+    // The blocked row leads out to the system settings, where the user may change the answer.
+    // Coming back is the only signal that they did — there is no callback for it.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked)
+    }
 
     SettingsScreen(
         state = state,
@@ -99,9 +140,33 @@ fun SettingsRoute(
         // Not hoisted to `:app`: opening a URL is not navigation, it leaves the app entirely,
         // and `LocalUriHandler` is already the platform seam a test can replace.
         onOpenLink = uriHandler::openUri,
+        onOpenNotificationSettings = { context.startActivity(appNotificationSettingsIntent(context)) },
         modifier = modifier,
     )
 }
+
+/**
+ * The permission the switches below are backed by, named here because this is the one place
+ * the app asks for it.
+ *
+ * A literal rather than `Manifest.permission.POST_NOTIFICATIONS` would be the mistake; the
+ * constant exists on every version, and only *holding* it is Android 13+.
+ */
+private const val POST_NOTIFICATIONS = android.Manifest.permission.POST_NOTIFICATIONS
+
+/**
+ * Android's own notification settings for this app — the screen where a refused permission can
+ * still be granted.
+ *
+ * `ACTION_APP_NOTIFICATION_SETTINGS` rather than the app's details page, so the user lands on
+ * the channels themselves rather than one level up from them. `NEW_TASK` because the launch is
+ * from an application context in the general case, and starting an activity without it there
+ * throws.
+ */
+private fun appNotificationSettingsIntent(context: Context): Intent =
+    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 /**
  * Every setting the app has, and a row for every one it is going to have.
@@ -123,6 +188,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenLink: (String) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,7 +229,12 @@ fun SettingsScreen(
             AppearanceGroup(state.preferences, onEvent)
             WorkoutGroup(state.preferences, onEvent)
             DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
-            NotificationsGroup()
+            NotificationsGroup(
+                notifications = state.preferences.notifications,
+                permission = state.notificationPermission,
+                onEvent = onEvent,
+                onOpenNotificationSettings = onOpenNotificationSettings,
+            )
             AboutGroup(appVersion = appVersion, onOpenLink = onOpenLink)
             Footer()
         }
@@ -263,13 +334,67 @@ private fun DataGroup(
     }
 }
 
+/**
+ * The four notification switches, and whatever the system has to say about them.
+ *
+ * A switch here records what the user *wants*; whether anything arrives is the permission's
+ * business, and the two are drawn as two things on purpose. A denied permission does not
+ * disable the switches — the setting is still theirs to change, and greying it out would say
+ * otherwise while hiding what they came here to set — it flags the ones that are on and not
+ * working, and adds the one row that can still fix it.
+ */
 @Composable
-private fun NotificationsGroup() {
+private fun NotificationsGroup(
+    notifications: NotificationPreferences,
+    permission: NotificationPermissionState,
+    onEvent: (SettingsEvent) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+) {
     PreferenceGroup(title = stringResource(R.string.settings_group_notifications)) {
-        PreferenceSoonRow(label = stringResource(R.string.settings_reminders))
-        HairlineDivider()
-        PreferenceSoonRow(label = stringResource(R.string.settings_streak_protection))
-        HairlineDivider()
+        when (permission) {
+            NotificationPermissionState.GRANTED -> Unit
+
+            // Refused, or switched off in system settings. The prompt will not come back, so
+            // the only thing left to offer is the way to the screen that can undo it.
+            NotificationPermissionState.DENIED -> {
+                PreferenceRow(
+                    label = stringResource(R.string.settings_notifications_blocked),
+                    supporting = stringResource(R.string.settings_notifications_blocked_detail),
+                    external = true,
+                    onClick = onOpenNotificationSettings,
+                )
+                HairlineDivider()
+            }
+
+            // Never asked — which a fresh install is, with the rest timer already on. The
+            // switches ask on the way past; this row is for the user whose setting is already
+            // enabled and so has nothing left to enable.
+            NotificationPermissionState.NOT_REQUESTED -> {
+                PreferenceRow(
+                    label = stringResource(R.string.settings_notifications_allow),
+                    supporting = stringResource(R.string.settings_notifications_allow_detail),
+                    onClick = { onEvent(SettingsEvent.Notification.PermissionRequested) },
+                )
+                HairlineDivider()
+            }
+        }
+
+        NotificationKind.entries.forEach { kind ->
+            PreferenceSwitchRow(
+                label = stringResource(kind.labelRes()),
+                supporting = stringResource(kind.detailRes()),
+                checked = kind in notifications,
+                // Only a switch that is *on* can be blocked. Flagging an off one would be
+                // telling the user that something they turned off is not being delivered.
+                badge = stringResource(R.string.settings_notifications_badge_blocked)
+                    .takeIf { kind in notifications && permission == NotificationPermissionState.DENIED },
+                badgeTone = BadgeTone.CRITICAL,
+                onCheckedChange = { onEvent(SettingsEvent.Notification.Toggled(kind, it)) },
+            )
+            HairlineDivider()
+        }
+
+        // The one row in this group still waiting on a milestone: the marketplace is M8 (#52).
         PreferenceSoonRow(label = stringResource(R.string.settings_marketplace))
     }
 }
@@ -455,6 +580,7 @@ fun SettingsScreenPreview() {
             onBack = {},
             onOpenBackup = {},
             onOpenLink = {},
+            onOpenNotificationSettings = {},
         )
     }
 }
@@ -478,6 +604,7 @@ fun SettingsScreenDarkPreview() {
             onBack = {},
             onOpenBackup = {},
             onOpenLink = {},
+            onOpenNotificationSettings = {},
         )
     }
 }
@@ -503,6 +630,30 @@ fun SettingsScreenDeleteDialogPreview() {
             onBack = {},
             onOpenBackup = {},
             onOpenLink = {},
+            onOpenNotificationSettings = {},
+        )
+    }
+}
+
+@Preview(name = "Settings - notifications blocked", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun SettingsScreenNotificationsBlockedPreview() {
+    OpenGymTheme {
+        SettingsScreen(
+            state = SettingsUiState(
+                preferences = UserPreferences(
+                    notifications = NotificationPreferences(
+                        enabled = setOf(NotificationKind.REST_TIMER, NotificationKind.REMINDERS),
+                    ),
+                ),
+                notificationPermission = NotificationPermissionState.DENIED,
+            ),
+            appVersion = "1.0",
+            onEvent = {},
+            onBack = {},
+            onOpenBackup = {},
+            onOpenLink = {},
+            onOpenNotificationSettings = {},
         )
     }
 }
@@ -518,6 +669,7 @@ fun SettingsScreenThemeDialogPreview() {
             onBack = {},
             onOpenBackup = {},
             onOpenLink = {},
+            onOpenNotificationSettings = {},
         )
     }
 }

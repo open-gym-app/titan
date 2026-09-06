@@ -46,6 +46,9 @@ dependencies {
     ksp(libs.room.compiler)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
+    // `NotificationManagerCompat` and `NotificationCompat`, which this module is the only one
+    // allowed to import — see `AndroidNotifier`.
+    implementation(libs.androidx.core.ktx)
 
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

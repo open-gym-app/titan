@@ -3,6 +3,7 @@ package com.opengym.core.data.repository
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
@@ -12,6 +13,8 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import kotlinx.coroutines.CoroutineScope
@@ -239,6 +242,9 @@ class UserPreferencesRepositoryImplTest {
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
+            repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
+            repository.setNotificationEnabled(NotificationKind.PROGRESSION, true)
+            repository.setNotificationPermissionRequested()
         }
 
         // A second store over the same file, the first one's scope finished and its
@@ -254,6 +260,13 @@ class UserPreferencesRepositoryImplTest {
                     trainingGoal = TrainingGoal.CUSTOM,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                     onboardingCompleted = true,
+                    notifications = NotificationPreferences(
+                        // The rest timer switched off and the progression channel on: both
+                        // the other way round from the defaults, so neither can pass by
+                        // accident.
+                        enabled = setOf(NotificationKind.PROGRESSION),
+                        permissionRequested = true,
+                    ),
                 ),
                 repository.observe().first(),
             )
@@ -283,6 +296,9 @@ class UserPreferencesRepositoryImplTest {
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
+            repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
+            repository.setNotificationEnabled(NotificationKind.SESSION, true)
+            repository.setNotificationPermissionRequested()
 
             repository.clear()
 
@@ -575,6 +591,91 @@ class UserPreferencesRepositoryImplTest {
                 runBlocking { repository.observe().first() }
             }
         }
+
+    // --- notifications ----------------------------------------------------
+
+    @Test
+    fun `a fresh install wants the rest timer and nothing else`() =
+        withStore { repository ->
+            val notifications = repository.observe().first().notifications
+
+            // The one default-on notification, and the reason it is the exception: by the
+            // time it fires, the user has already asked for it by starting a rest. See
+            // `NotificationPreferences`.
+            assertEquals(setOf(NotificationKind.REST_TIMER), notifications.enabled)
+            // Nothing has been said to the user yet, which is what stops a fresh install
+            // rendering its notification rows as blocked.
+            assertFalse(notifications.permissionRequested)
+        }
+
+    @Test
+    fun `each notification kind is stored on its own`() =
+        withStore { repository ->
+            NotificationKind.entries.forEach { kind ->
+                repository.setNotificationEnabled(kind, true)
+                assertTrue("$kind should be on", kind in repository.observe().first().notifications)
+            }
+
+            // And off again one at a time, leaving the others where they were — the whole
+            // point of a key per kind rather than one stored set.
+            repository.setNotificationEnabled(NotificationKind.SESSION, false)
+
+            assertEquals(
+                NotificationKind.entries.toSet() - NotificationKind.SESSION,
+                repository.observe().first().notifications.enabled,
+            )
+        }
+
+    @Test
+    fun `turning the rest timer off is stored, rather than read back as its default`() =
+        withStore { repository ->
+            // The one kind where "off" and "never written" are different answers, and the
+            // case a per-kind default gets wrong if it is applied over a stored value.
+            repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
+
+            assertFalse(NotificationKind.REST_TIMER in repository.observe().first().notifications)
+        }
+
+    @Test
+    fun `a notification flag this build cannot read falls back to that kind's own default`() =
+        withRawStore { repository, store ->
+            // One unreadable key, not a whole unreadable document: the reminders flag is
+            // stored as text by some other build, and the rest timer beside it must survive
+            // it — with its own default, which is not the same as the other three's.
+            store.edit { it[stringPreferencesKey("notifications_reminders")] = "yes" }
+
+            val notifications = repository.observe().first().notifications
+
+            assertEquals(setOf(NotificationKind.REST_TIMER), notifications.enabled)
+        }
+
+    @Test
+    fun `having asked for the permission is remembered, and cannot be un-asked`() =
+        withRawStore { repository, store ->
+            repository.setNotificationPermissionRequested()
+            assertTrue(repository.observe().first().notifications.permissionRequested)
+
+            // There is no setter back to false — the event cannot un-happen — so the only way
+            // to check the flag is not merely being derived is to write it away by hand.
+            store.edit { it[booleanPreferencesKey("notification_permission_requested")] = false }
+
+            assertFalse(repository.observe().first().notifications.permissionRequested)
+        }
+
+    @Test
+    fun `the notification settings survive process death`() {
+        withStore { repository ->
+            repository.setNotificationEnabled(NotificationKind.REMINDERS, true)
+            repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
+            repository.setNotificationPermissionRequested()
+        }
+
+        withStore { repository ->
+            val notifications = repository.observe().first().notifications
+            assertEquals(setOf(NotificationKind.REMINDERS), notifications.enabled)
+            assertTrue(notifications.permissionRequested)
+        }
+    }
 
     /** [withRawStore] for the tests that have no reason to reach past the repository. */
     private fun withStore(block: suspend CoroutineScope.(UserPreferencesRepositoryImpl) -> Unit) =

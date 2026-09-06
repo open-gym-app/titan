@@ -1,5 +1,6 @@
 package com.opengym.core.domain.model
 
+import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -91,6 +92,17 @@ data class UserPreferences(
      * who skips every question has still completed onboarding.
      */
     val onboardingCompleted: Boolean = false,
+
+    /**
+     * Which kinds of notification the user has agreed to — see [NotificationPreferences].
+     *
+     * Here rather than in a store of its own, because it is a setting like any other: the
+     * settings screen renders it beside the theme and the unit system, `clear()` puts it back
+     * to its default with everything else, and a second store would be a second thing to read
+     * before the first frame. The nesting is what keeps four flags from being four more
+     * top-level fields on a class that already has eight.
+     */
+    val notifications: NotificationPreferences = NotificationPreferences(),
 ) {
     init {
         // Whole seconds, not merely positive and finite. A rest is set in seconds, shown

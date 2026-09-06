@@ -9,11 +9,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -21,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -113,6 +116,58 @@ fun PreferenceRow(
 }
 
 /**
+ * A row that is a setting in itself: on or off, no picker in between.
+ *
+ * The whole row is the control, not the switch at the end of it. `Modifier.toggleable` with
+ * [Role.Switch] puts the state and the action on the one node carrying the label, so TalkBack
+ * announces "Rest timer, switch, on" and a 48dp-wide target becomes a 360dp one; the [Switch]
+ * itself is handed `onCheckedChange = null`, which leaves it as the picture of the state
+ * rather than a second, competing control announced beside the first.
+ *
+ * @param badge a short flag drawn between the label and the switch — "Blocked", where the user
+ *   has turned something on that the system is not letting through. Deliberately not a
+ *   *disabled* row: the preference is still theirs to set, and greying it out would say the
+ *   opposite while hiding the setting they came to change.
+ * @param badgeTone how loud the badge is. [BadgeTone.CRITICAL] for a setting that is on and not
+ *   working, which is the case worth colour.
+ */
+@Composable
+fun PreferenceSwitchRow(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    supporting: String? = null,
+    badge: String? = null,
+    badgeTone: BadgeTone = BadgeTone.NEUTRAL,
+) {
+    PreferenceRowLayout(
+        label = label,
+        value = null,
+        supporting = supporting,
+        labelColor = MaterialTheme.colorScheme.onSurface,
+        trailingIcon = null,
+        trailingIconDescription = null,
+        badge = badge,
+        badgeTone = badgeTone,
+        trailing = {
+            Switch(
+                checked = checked,
+                // Null, so the row's own `toggleable` is the only thing in the semantics tree
+                // that can be pressed. A switch with its own handler here would be a second
+                // node with the same action, announced and reachable separately.
+                onCheckedChange = null,
+            )
+        },
+        modifier = modifier.toggleable(
+            value = checked,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ),
+    )
+}
+
+/**
  * A row that states something and cannot be tapped: the version, the font scale.
  *
  * Not a disabled row. Nothing is missing and nothing is coming — the value simply is what it
@@ -195,7 +250,9 @@ private fun PreferenceRowLayout(
     trailingIconDescription: String?,
     modifier: Modifier = Modifier,
     badge: String? = null,
+    badgeTone: BadgeTone = BadgeTone.NEUTRAL,
     leading: ImageVector? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
@@ -241,8 +298,10 @@ private fun PreferenceRowLayout(
         }
 
         if (badge != null) {
-            OpenGymBadge(text = badge)
+            OpenGymBadge(text = badge, tone = badgeTone)
         }
+
+        trailing?.invoke()
 
         if (trailingIcon != null) {
             Icon(
@@ -295,6 +354,18 @@ private fun PreferenceRowCatalogue() {
             PreferenceRow(label = "Units", value = "Metric", onClick = {})
             HairlineDivider()
             PreferenceInfoRow(label = "Version", value = "1.0.0")
+        }
+        PreferenceGroup(title = "Notifications") {
+            PreferenceSwitchRow(label = "Workout reminders", checked = false, onCheckedChange = {})
+            HairlineDivider()
+            PreferenceSwitchRow(
+                label = "Rest timer",
+                supporting = "When the rest ends with the app closed",
+                checked = true,
+                badge = "Blocked",
+                badgeTone = BadgeTone.CRITICAL,
+                onCheckedChange = {},
+            )
         }
         PreferenceGroup(title = "Data") {
             PreferenceSoonRow(label = "Backup", supporting = "Coming in a later release")

@@ -16,6 +16,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -355,6 +356,14 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setOnboardingCompleted(completed: Boolean) =
         record("setOnboardingCompleted") { delegate.setOnboardingCompleted(completed) }
+
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) = record("setNotificationEnabled") { delegate.setNotificationEnabled(kind, enabled) }
+
+    override suspend fun setNotificationPermissionRequested() =
+        record("setNotificationPermissionRequested") { delegate.setNotificationPermissionRequested() }
 
     override suspend fun clear() = record("clear") { delegate.clear() }
 

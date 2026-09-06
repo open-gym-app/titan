@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -67,6 +68,14 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
+
+    override suspend fun setNotificationEnabled(
+        kind: NotificationKind,
+        enabled: Boolean,
+    ) = write { it.copy(notifications = it.notifications.with(kind, enabled)) }
+
+    override suspend fun setNotificationPermissionRequested() =
+        write { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
 
     override suspend fun clear() = write { UserPreferences() }
 

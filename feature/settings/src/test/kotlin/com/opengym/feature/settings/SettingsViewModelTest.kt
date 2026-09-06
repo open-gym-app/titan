@@ -6,8 +6,12 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPermissionState
+import com.opengym.core.domain.notification.NotificationPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -18,7 +22,9 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.IOException
@@ -36,6 +42,7 @@ class SettingsViewModelTest {
 
     private val preferences = FakeUserPreferencesRepository()
     private val localData = FakeLocalDataRepository()
+    private val notificationPermission = FakeNotificationPermission()
 
     @Before
     fun setUpMainDispatcher() {
@@ -217,12 +224,188 @@ class SettingsViewModelTest {
             assertEquals(false, viewModel.uiState.value.isDeleting)
         }
 
+    // --- notifications ----------------------------------------------------
+
+    @Test
+    fun `enabling nothing asks for nothing`() =
+        runTest {
+            // The acceptance criterion, stated as a test: the permission prompt is not part of
+            // opening settings, and it is not part of changing a setting that has nothing to
+            // do with notifications. A prompt with no context attached is the one most
+            // reliably refused, and a refusal cannot be taken back.
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.ThemeSelected(ThemePreference.DARK))
+            viewModel.onEvent(SettingsEvent.UnitSystemSelected(UnitSystem.IMPERIAL))
+            viewModel.onEvent(SettingsEvent.DialogRequested(SettingsDialog.DELETE_ALL))
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertFalse(preferences.observe().first().notifications.permissionRequested)
+        }
+
+    @Test
+    fun `turning a notification off asks for nothing either`() =
+        runTest {
+            // The rest timer is the one kind that starts on, so turning it *off* is the first
+            // notification event most users produce. There is nothing to deliver, so there is
+            // nothing to ask for.
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REST_TIMER, false))
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertFalse(preferences.observe().first().notifications.permissionRequested)
+        }
+
+    @Test
+    fun `turning the first notification on is what raises the prompt`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
+
+            val state = viewModel.uiState.value
+            assertTrue(state.notificationPermissionRequest)
+            // The preference is stored whatever the permission turns out to be: it is what the
+            // user wants, not a promise that anything will arrive.
+            assertTrue(NotificationKind.REMINDERS in state.preferences.notifications)
+        }
+
+    @Test
+    fun `the prompt goes up once, however many switches are turned on`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown)
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.SESSION, true))
+
+            // Android shows it once and answers for the user thereafter, so a second request
+            // would be a no-op the user never sees — and the row that leads into the system
+            // settings is what the screen offers instead.
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertEquals(NotificationPermissionState.DENIED, viewModel.uiState.value.notificationPermission)
+        }
+
+    @Test
+    fun `a permission that is already granted is not asked for`() =
+        runTest {
+            val viewModel = viewModel(notificationPermission = FakeNotificationPermission(allowed = true))
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.PROGRESSION, true))
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertEquals(NotificationPermissionState.GRANTED, viewModel.uiState.value.notificationPermission)
+        }
+
+    @Test
+    fun `there is nothing to prompt for below Android 13, so the state is denied outright`() =
+        runTest {
+            // No runtime permission to ask for: notifications were granted at install and the
+            // user has since switched them off by hand. Only system settings can undo that.
+            val viewModel = viewModel(
+                notificationPermission = FakeNotificationPermission(
+                    allowed = false,
+                    isRuntimePermissionRequired = false,
+                ),
+            )
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertEquals(NotificationPermissionState.DENIED, viewModel.uiState.value.notificationPermission)
+        }
+
+    @Test
+    fun `the state follows the system when the screen comes back`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown)
+
+            // The user answers the prompt, or comes back from the system settings the blocked
+            // row leads to. Nothing tells the app but the recheck.
+            notificationPermission.allowed = true
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked)
+
+            assertEquals(NotificationPermissionState.GRANTED, viewModel.uiState.value.notificationPermission)
+        }
+
+    @Test
+    fun `the row that offers the prompt raises it without a switch being touched`() =
+        runTest {
+            // The fresh-install case the switches cannot reach: the rest timer is already on,
+            // so there is nothing left to enable, and the permission has still never been asked
+            // for.
+            val viewModel = viewModel()
+            collectState(viewModel)
+            assertEquals(NotificationPermissionState.NOT_REQUESTED, viewModel.uiState.value.notificationPermission)
+
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRequested)
+
+            assertTrue(viewModel.uiState.value.notificationPermissionRequest)
+        }
+
+    @Test
+    fun `the request is cleared once the screen has raised it`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRequested)
+
+            viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown)
+
+            // Or the next recomposition raises a second prompt over the first.
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+        }
+
+    @Test
+    fun `a notification write that fails says so`() =
+        runTest {
+            val failing = FakeUserPreferencesRepository()
+            failing.writeFailure = IOException("no space left on device")
+            val viewModel = viewModel(preferences = failing)
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
+
+            assertEquals(SettingsMessage.SAVE_FAILED, viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `a store that already knows the answer renders the switches from it`() =
+        runTest {
+            val viewModel = viewModel(
+                preferences = FakeUserPreferencesRepository(
+                    UserPreferences(
+                        notifications = NotificationPreferences(
+                            enabled = setOf(NotificationKind.SESSION),
+                            permissionRequested = true,
+                        ),
+                    ),
+                ),
+            )
+            collectState(viewModel)
+
+            val notifications = viewModel.uiState.value.preferences.notifications
+            assertEquals(setOf(NotificationKind.SESSION), notifications.enabled)
+            assertEquals(NotificationPermissionState.DENIED, viewModel.uiState.value.notificationPermission)
+        }
+
     // --- helpers ----------------------------------------------------------
 
     private fun viewModel(
         preferences: FakeUserPreferencesRepository = this.preferences,
         localData: FakeLocalDataRepository = this.localData,
-    ) = SettingsViewModel(preferences, localData)
+        notificationPermission: FakeNotificationPermission = this.notificationPermission,
+    ) = SettingsViewModel(preferences, localData, notificationPermission)
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */
     private fun TestScope.collectState(viewModel: SettingsViewModel) {
