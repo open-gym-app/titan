@@ -1,5 +1,6 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.domain.notification.ProgressionAnnouncer
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
@@ -117,6 +118,7 @@ object SessionUseCaseModule {
         sessionStateRepository: SessionStateRepository,
         inProgressSessionRepository: InProgressSessionRepository,
         completeSession: SessionCompletionPipeline,
+        announceProgression: ProgressionAnnouncer,
     ): FinishSessionUseCase =
         FinishSessionUseCase(
             sessionRepository = sessionRepository,
@@ -135,6 +137,12 @@ object SessionUseCaseModule {
             // silently pays nothing is exactly the failure the nullable default was holding
             // open, and there is no longer a reason to leave it open.
             completeSession = completeSession,
+            // What the cascade earned, said out loud when nobody was watching the recap that
+            // would otherwise have celebrated it (#179). Non-optional for the same reason the
+            // pipeline above is: the finish that most needs announcing is the one from the idle
+            // nudge's "Finish now", where there is no screen at all — and a null here would
+            // make that the finish that silently says nothing.
+            announce = announceProgression,
         )
 
     @Provides

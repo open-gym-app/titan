@@ -30,6 +30,9 @@ object DeepLinks {
     /** The host the session flow's links sit under — the manifest filter matches on it. */
     const val SESSION_HOST: String = "session"
 
+    /** The host the progression screens sit under. Matched by the same filter. */
+    const val PROGRESSION_HOST: String = "progression"
+
     /**
      * The workout in progress, without its id: `opengym://session/active`.
      *
@@ -40,4 +43,14 @@ object DeepLinks {
 
     /** The workout in progress: `opengym://session/active/42`. */
     fun activeSession(sessionId: Long): String = "$ACTIVE_SESSION/$sessionId"
+
+    /**
+     * The quest log: `opengym://progression/quests`.
+     *
+     * A constant rather than a function, because the destination takes no arguments — and
+     * therefore the base path and the whole URI are the same string. It is where both of the
+     * things a progression notification announces are drawn: the recent loot, and what is left
+     * of the month's streak allowance.
+     */
+    const val QUEST_LOG: String = "$SCHEME://$PROGRESSION_HOST/quests"
 }

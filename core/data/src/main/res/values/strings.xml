@@ -51,4 +51,59 @@
         <item quantity="other">%1$d sets logged, nothing since</item>
     </plurals>
 
+    <!-- What a finished workout earned, for a user who was not looking at the recap that
+         would otherwise have celebrated it. Three headlines, because a session can save a
+         streak, drop loot, or do both — and the two joined would be longer than a notification
+         title gets to be before the platform truncates it. -->
+    <string name="progression_notification_streak">Streak protection used</string>
+    <string name="progression_notification_loot">New loot unlocked</string>
+    <string name="progression_notification_both">Streak saved, and loot found</string>
+
+    <!-- Both counts are plurals rather than a number pushed into a sentence: "1 protections
+         left" is the failure that a concatenated count always eventually ships, and #41's
+         languages have more categories than English does. -->
+    <plurals name="progression_notification_streak_saved">
+        <item quantity="one">Saved your %1$d-day streak.</item>
+        <item quantity="other">Saved your %1$d-day streak.</item>
+    </plurals>
+    <plurals name="progression_notification_protections_left">
+        <item quantity="one">%1$d protection left this month.</item>
+        <item quantity="other">%1$d protections left this month.</item>
+    </plurals>
+
+    <!-- The rarity is spelled out rather than carried by the wireframe's glyph alone, which is
+         decoration: a screen reader says nothing about it, and a colour is no use to somebody
+         who cannot tell two of them apart. -->
+    <string name="progression_notification_loot_found">You found a %1$s · %2$s.</string>
+
+    <!--
+      The collectible names and the rarity bands, a second copy of `:feature:progression`'s.
+
+      No module can hold one copy. Android merges a library's resources into its *dependents*,
+      and `:core:data` and a feature module are siblings that the architecture forbids from
+      depending on each other — so the choice is two copies of fifteen short nouns, or a
+      notification composed in the presentation layer where the app being dead means there is
+      no presentation layer running. #41 has both sets to translate; a reword in one place
+      leaves the other saying the old name. The ids they are keyed on are part of the storage
+      contract and pinned by a test, so the mapping itself cannot drift.
+    -->
+    <string name="progression_collectible_chalk_block">Chalk block</string>
+    <string name="progression_collectible_spare_collar">Spare collar</string>
+    <string name="progression_collectible_worn_wristband">Worn wristband</string>
+    <string name="progression_collectible_lifting_strap">Lifting strap</string>
+    <string name="progression_collectible_steel_shaker">Steel shaker</string>
+    <string name="progression_collectible_pet_egg">Pet egg</string>
+    <string name="progression_collectible_golden_dumbbell">Golden dumbbell</string>
+    <string name="progression_collectible_iron_crown">Iron crown</string>
+    <!-- Deliberately not `:feature:progression`'s "Unknown find": that one is a list item and
+         this one sits inside "You found a …", where a capitalised noun phrase reads as broken
+         grammar. The two differing here is the sentence working, not the copies drifting. -->
+    <string name="progression_collectible_unknown">new collectible</string>
+
+    <string name="progression_rarity_common">Common</string>
+    <string name="progression_rarity_uncommon">Uncommon</string>
+    <string name="progression_rarity_rare">Rare</string>
+    <string name="progression_rarity_epic">Epic</string>
+    <string name="progression_rarity_legendary">Legendary</string>
+
 </resources>

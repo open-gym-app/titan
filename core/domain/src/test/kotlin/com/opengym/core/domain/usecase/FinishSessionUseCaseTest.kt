@@ -5,10 +5,12 @@ import com.opengym.core.domain.gamification.DropRates
 import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.SessionError
+import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
 import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.notification.ProgressionAnnouncer
 import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.flow.first
@@ -35,50 +37,129 @@ class FinishSessionUseCaseTest {
     private val awardXp = AwardXpUseCase(gamification)
 
     /**
-     * The same use case with the gamification cascade wired in, which the app has no binding
-     * for until #35 lands. Everything above it is deliberately the plain one: the session's own
+     * The cascade, as a property rather than inline, so the two use cases below can be the
+     * same one with and without something listening for its result.
+     */
+    private val cascade = SessionCompletionPipeline(
+        detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
+        awardXp = awardXp,
+        triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
+        // Over an empty catalogue: this suite is about finishing a session, not about what a
+        // quest is worth, and the real catalogue would complete `weekly_record` on every
+        // session here that breaks one. See `SessionCompletionPipelineTest.Rig`, which makes
+        // the same call for the same reason.
+        completeQuests = QuestCompletionUseCase(
+            questProgress = QuestProgressUseCase(
+                progressionRepository = FakeProgressionRepository(),
+                personalRecordRepository = personalRecords,
+                // The same store the pass writes to, so the board could see a completion it
+                // banked — two instances would let the filter read a table nothing ever writes.
+                questRepository = quests,
+                catalogue = emptyList(),
+            ),
+            questRepository = quests,
+            awardXp = awardXp,
+        ),
+        // Over a table that drops nothing, for the reason the quest catalogue is empty: this
+        // suite is about finishing a session, and a drop it does not assert would only be a row
+        // nobody reads. `SessionCompletionPipelineTest` is where the roll is tested.
+        rollLoot = LootRollUseCase(
+            dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
+            collectedItemRepository = FakeCollectedItemRepository(),
+            gamificationRepository = gamification,
+        ),
+        sessionRepository = sessions,
+        personalRecordRepository = personalRecords,
+        gamificationRepository = gamification,
+    )
+
+    /**
+     * The same use case with the gamification cascade wired in, which the app had no binding
+     * for until #35 landed. [finishSession] is deliberately the plain one: the session's own
      * behaviour is not supposed to change with a cascade attached, and a suite that only ever
      * ran the wired variant could not tell.
      */
-    private val finishWithCascade = FinishSessionUseCase(
-        sessions,
-        state,
-        drafts,
-        clock,
-        completeSession = SessionCompletionPipeline(
-            detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
-            awardXp = awardXp,
-            triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
-            // Over an empty catalogue: this suite is about finishing a session, not about what
-            // a quest is worth, and the real catalogue would complete `weekly_record` on every
-            // session here that breaks one. See `SessionCompletionPipelineTest.Rig`, which
-            // makes the same call for the same reason.
-            completeQuests = QuestCompletionUseCase(
-                questProgress = QuestProgressUseCase(
-                    progressionRepository = FakeProgressionRepository(),
-                    personalRecordRepository = personalRecords,
-                    // The same store the pass writes to, so the board could see a completion
-                    // it banked — two instances would let the filter read a table nothing
-                    // ever writes.
-                    questRepository = quests,
-                    catalogue = emptyList(),
-                ),
-                questRepository = quests,
-                awardXp = awardXp,
-            ),
-            // Over a table that drops nothing, for the reason the quest catalogue is empty:
-            // this suite is about finishing a session, and a drop it does not assert would only
-            // be a row nobody reads. `SessionCompletionPipelineTest` is where the roll is tested.
-            rollLoot = LootRollUseCase(
-                dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
-                collectedItemRepository = FakeCollectedItemRepository(),
-                gamificationRepository = gamification,
-            ),
-            sessionRepository = sessions,
-            personalRecordRepository = personalRecords,
-            gamificationRepository = gamification,
-        ),
-    )
+    private val finishWithCascade = FinishSessionUseCase(sessions, state, drafts, clock, completeSession = cascade)
+
+    private val announcer = RecordingProgressionAnnouncer()
+
+    /** The cascade-wired use case with something listening for what it reported. */
+    private val finishWithAnnouncer =
+        FinishSessionUseCase(sessions, state, drafts, clock, completeSession = cascade, announce = announcer)
+
+    /** The same, with nothing pricing the session — so there is no payoff to announce. */
+    private val finishAnnouncedWithoutCascade =
+        FinishSessionUseCase(sessions, state, drafts, clock, completeSession = null, announce = announcer)
+
+    // --- announcing the payoff --------------------------------------------
+
+    @Test
+    fun `the payoff is handed to the announcer exactly as the cascade reported it`() =
+        runTest {
+            // The one thing this use case owes #179: the value it already has, passed on
+            // unchanged. What is worth saying about it, and whether anything is at all, is the
+            // announcer's own — nothing here inspects it.
+            startWithSets()
+
+            val finished = finishWithAnnouncer().getOrThrow()
+
+            assertEquals(listOf(finished.progression), announcer.announced)
+        }
+
+    @Test
+    fun `a finish with no progression announces nothing`() =
+        runTest {
+            // Nothing was priced, so there is nothing to say. The announcer is not called with
+            // an empty result either, which would make "nothing happened" and "nobody worked
+            // out whether anything happened" the same event to it.
+            startWithSets()
+
+            finishAnnouncedWithoutCascade().getOrThrow()
+
+            assertTrue(announcer.announced.isEmpty())
+        }
+
+    @Test
+    fun `a refused finish announces nothing`() =
+        runTest {
+            // No sets, so the finish is refused and the session stays open. Announcing a payoff
+            // for a workout that was not closed out would be announcing one that does not exist.
+            startWithSets(sets = 0)
+
+            val outcome = finishWithAnnouncer()
+
+            assertTrue(outcome.isFailure)
+            assertTrue(announcer.announced.isEmpty())
+        }
+
+    @Test
+    fun `an announcer that throws leaves the workout finished`() =
+        runTest {
+            // By the time it runs the row is closed out and the payoff is banked. A
+            // notification that could not be posted must not come back as a finish that did
+            // not happen — the same trade the draft clear and the cascade both make.
+            val sessionId = startWithSets()
+            announcer.failure = IllegalStateException("the notification manager is gone")
+
+            val finished = finishWithAnnouncer().getOrThrow()
+
+            assertEquals(sessionId, finished.summary.sessionId)
+            assertEquals(false, sessions.stored(sessionId)?.isInProgress)
+        }
+
+    /** [ProgressionAnnouncer] as a list of what it was handed. */
+    private class RecordingProgressionAnnouncer : ProgressionAnnouncer {
+
+        val announced = mutableListOf<SessionProgression>()
+
+        /** Thrown instead of recording, when set. */
+        var failure: Throwable? = null
+
+        override suspend fun announce(progression: SessionProgression) {
+            failure?.let { throw it }
+            announced += progression
+        }
+    }
 
     /** Starts a session with one exercise carrying [sets] completed sets, and returns its id. */
     private suspend fun startWithSets(sets: Int = 1): Long {
