@@ -62,7 +62,7 @@ class HomeViewModelTest {
 
     private val sessions = FakeSessionStore()
     private val aggregates = FakeQuestAggregates()
-    private val records = FakeQuestRecords()
+    private val questRecords = FakeQuestRecords()
     private val completions = FakeQuestCompletions()
     private val drafts = FakeDraftStore()
     private val catalogue = FakeExerciseCatalogue(listOf(BENCH_PRESS))
@@ -508,6 +508,9 @@ class HomeViewModelTest {
             assertEquals(
                 listOf(10_000L, 20_000L, 30_000L, 40_000L, 0L, 60_000L, 70_000L, 80_000L),
                 weeks.map { it.totalVolume },
+            )
+        }
+
     // ─── The quest card ─────────────────────────────────────────────────────────────────
 
     @Test
@@ -601,6 +604,9 @@ class HomeViewModelTest {
 
             assertEquals(emptyList<Long>(), home.volume.map { it.totalVolume })
             assertFalse(home.isLoading)
+        }
+
+    @Test
     fun `the card lists a handful, not the whole board`() =
         runTest {
             aggregates.sessionsFinished.value = 1
@@ -731,7 +737,7 @@ class HomeViewModelTest {
             volumeTrend = VolumeTrendUseCase(volume),
             questProgress = QuestProgressUseCase(
                 progressionRepository = aggregates,
-                personalRecordRepository = records,
+                personalRecordRepository = questRecords,
                 questRepository = completions,
                 clock = clock,
                 catalogue = questCatalogue,

@@ -6,6 +6,7 @@ import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.gamification.Collectibles
 import com.opengym.core.domain.gamification.LevelTitles
 import com.opengym.core.domain.gamification.StreakCalculator
+import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.repository.CollectedItemRepository
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.time.Clock
@@ -14,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
 import java.time.YearMonth
@@ -79,7 +81,11 @@ class QuestLogViewModel @Inject constructor(
 
     val uiState: StateFlow<QuestLogUiState> =
         combine(
-            gamificationRepository.observeProgress(),
+            // The store answers null while nothing has ever been banked (#110's rule, which
+            // Home draws no header at all on). The board has something to draw in that state —
+            // level 1 and an invitation to start a streak — so the zero row is substituted
+            // here rather than each card below asking.
+            gamificationRepository.observeProgress().map { it ?: UserProgress() },
             gamificationRepository.observeUnlockedAchievements(),
             questProgress(),
             gamificationRepository.observeStreak(),
@@ -88,7 +94,7 @@ class QuestLogViewModel @Inject constructor(
             val heldIds = unlocked.mapTo(mutableSetOf()) { it.achievementId }
             QuestLogUiState(
                 progress = progress,
-                levelTitle = LevelTitles.forLevel(progress.currentLevel),
+                levelTitle = LevelTitles.forLevel(progress.level),
                 quests = quests,
                 // Counted against the catalogue rather than taken as the row count: an id on
                 // file matching no entry — a milestone renamed without a migration — would

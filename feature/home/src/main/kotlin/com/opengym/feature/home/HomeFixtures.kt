@@ -1,10 +1,10 @@
 package com.opengym.feature.home
 
+import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
-import com.opengym.core.domain.gamification.Quests
-import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
@@ -124,15 +124,12 @@ internal val PREVIEW_VOLUME: List<WeeklyVolume> = listOf(
 ).mapIndexed { index, kilograms ->
     WeeklyVolume(
         weekStart = PREVIEW_WEEK_START.minusWeeks((PREVIEW_VOLUME_WEEKS - 1 - index).toLong()),
-        totalVolume = kilograms * MILLIGRAMS_PER_KILOGRAM,
+        totalVolume = kilograms * MILLIGRAMS_PER_KILOGRAM.toLong(),
     )
 }
 
 /** How many weeks [PREVIEW_VOLUME] covers — the same eight the card asks for. */
 private const val PREVIEW_VOLUME_WEEKS = 8
-
-/** What a kilogram is stored as, for writing the fixture above in units a reader recognises. */
-private const val MILLIGRAMS_PER_KILOGRAM = 1_000_000L
 
 /** Four saved templates, in the order the strip draws them. */
 private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(

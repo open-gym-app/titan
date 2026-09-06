@@ -96,7 +96,7 @@ class QuestLogViewModelTest {
     @Test
     fun `the rank comes from the table rather than from the level number`() =
         runTest {
-            gamification.progress.value = UserProgress(totalXp = 1_240, currentLevel = 13)
+            gamification.progress.value = UserProgress(totalXp = 1_240, level = 13)
 
             assertEquals(LevelTitles.STEEL_FORGED, collect()().levelTitle)
         }
@@ -104,7 +104,7 @@ class QuestLogViewModelTest {
     @Test
     fun `a level past the end of the table keeps the last rank`() =
         runTest {
-            gamification.progress.value = UserProgress(totalXp = 99_999, currentLevel = 400)
+            gamification.progress.value = UserProgress(totalXp = 99_999, level = 400)
 
             assertEquals(LevelTitles.LEGEND, collect()().levelTitle)
         }
@@ -116,7 +116,7 @@ class QuestLogViewModelTest {
         runTest {
             val state = collect()
 
-            assertEquals(1, state().progress.currentLevel)
+            assertEquals(1, state().progress.level)
             assertEquals(LevelTitles.NEWCOMER, state().levelTitle)
             assertEquals(0, state().achievementsUnlocked)
             assertFalse("a user who has never trained is not tying a streak", state().isOnBestStreak)
@@ -157,11 +157,11 @@ class QuestLogViewModelTest {
         runTest {
             // #104's "update reactively", concretely: a workout finishing behind this screen.
             val state = collect()
-            assertEquals(1, state().progress.currentLevel)
+            assertEquals(1, state().progress.level)
 
-            gamification.progress.value = UserProgress(totalXp = 450, currentLevel = 5)
+            gamification.progress.value = UserProgress(totalXp = 450, level = 5)
 
-            assertEquals(5, state().progress.currentLevel)
+            assertEquals(5, state().progress.level)
             assertEquals(LevelTitles.IRON_DISCIPLE, state().levelTitle)
         }
 

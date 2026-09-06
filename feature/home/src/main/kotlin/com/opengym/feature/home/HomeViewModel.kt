@@ -181,6 +181,8 @@ class HomeViewModel @Inject constructor(
             latestPersonalRecord(),
             volumeTrend(TrainingWeek.trailing(weeks = VOLUME_WEEKS, endingOn = day)),
         ) { progress, record, volume -> Readings(progress = progress, record = record, volume = volume) }
+
+    /**
      * This week's board, or null while it is unknown and for a user with nothing to show.
      *
      * ### Why this is combined in separately
@@ -408,6 +410,10 @@ class HomeViewModel @Inject constructor(
             level = level,
             xpIntoLevel = into.toInt(),
             xpForLevel = XpCalculator.XP_PER_LEVEL,
+        )
+    }
+
+    /**
      * The board as the dashboard shows it, or **null** when there is nothing worth showing.
      *
      * ### Which cadence

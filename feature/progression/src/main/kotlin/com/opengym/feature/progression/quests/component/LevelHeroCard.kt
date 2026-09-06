@@ -62,7 +62,7 @@ internal fun LevelHeroCard(
         ) {
             LaurelWreath(
                 progress = progress.levelFraction,
-                label = stringResource(R.string.quest_log_level, progress.currentLevel),
+                label = stringResource(R.string.quest_log_level, progress.level),
                 valueLabel = stringResource(
                     R.string.quest_log_level_xp,
                     formatCount(progress.xpIntoLevel),
@@ -72,7 +72,7 @@ internal fun LevelHeroCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Eyebrow(text = stringResource(R.string.quest_log_level_short))
                     Text(
-                        text = "${progress.currentLevel}",
+                        text = "${progress.level}",
                         style = OpenGymTheme.typography.numericDisplay,
                         color = MaterialTheme.colorScheme.primary,
                     )

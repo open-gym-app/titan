@@ -31,13 +31,13 @@ import java.time.ZoneOffset
 internal fun populatedQuestLog(): QuestLogUiState {
     val progress = UserProgress(
         totalXp = 1_240,
-        currentLevel = 13,
+        level = 13,
         currentStreak = 6,
         longestStreak = 21,
     )
     return QuestLogUiState(
         progress = progress,
-        levelTitle = LevelTitles.forLevel(progress.currentLevel),
+        levelTitle = LevelTitles.forLevel(progress.level),
         quests = board(
             at(quest = Quests.WEEKLY_SESSIONS, progress = 3),
             at(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 3),
@@ -74,7 +74,7 @@ internal fun emptyQuestLog(): QuestLogUiState {
     val progress = UserProgress()
     return QuestLogUiState(
         progress = progress,
-        levelTitle = LevelTitles.forLevel(progress.currentLevel),
+        levelTitle = LevelTitles.forLevel(progress.level),
         quests = board(*Quests.ALL.map { at(quest = it, progress = 0) }.toTypedArray()),
         achievementsUnlocked = 0,
         achievementsTotal = ACHIEVEMENT_TOTAL,
@@ -100,13 +100,13 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
     // Level 5 opens at 400 XP on the shipped curve; 405 is five points into it.
     val progress = UserProgress(
         totalXp = 405,
-        currentLevel = 5,
+        level = 5,
         currentStreak = 3,
         longestStreak = 3,
     )
     return QuestLogUiState(
         progress = progress,
-        levelTitle = LevelTitles.forLevel(progress.currentLevel),
+        levelTitle = LevelTitles.forLevel(progress.level),
         quests = board(
             at(quest = Quests.WEEKLY_SESSIONS, progress = 3),
             at(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 3),
