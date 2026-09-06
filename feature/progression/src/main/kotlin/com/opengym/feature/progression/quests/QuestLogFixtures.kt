@@ -1,14 +1,23 @@
 package com.opengym.feature.progression.quests
 
+import com.opengym.core.domain.gamification.Collectibles
 import com.opengym.core.domain.gamification.LevelTitles
 import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.model.CollectedItem
+import com.opengym.core.domain.model.Collectible
+import com.opengym.core.domain.model.DropSource
 import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestProgress
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.UserProgress
+import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.Month
+import java.time.YearMonth
+import java.time.ZoneOffset
 
 /*
  * States the previews render and the screen tests drive.
@@ -41,6 +50,16 @@ internal fun populatedQuestLog(): QuestLogUiState {
         // The two the ladder's lower rungs would have unlocked, and the first record.
         achievementsUnlocked = 3,
         achievementsTotal = ACHIEVEMENT_TOTAL,
+        // One spent this month, which is the state worth drawing: a full allowance and an empty
+        // one are both uniform rows, and only a partly-spent one shows what the marks mean.
+        protection = StreakProtection(remaining = 2, period = FIXTURE_MONTH),
+        // One of each emphasis the row can take — a rare drop in the accent, two commoner ones
+        // not — because that contrast is the whole of the section's design (see RecentLootCard).
+        recentLoot = listOf(
+            drop(Collectibles.PET_EGG, daysAgo = 1),
+            drop(Collectibles.LIFTING_STRAP, daysAgo = 4),
+            drop(Collectibles.CHALK_BLOCK, daysAgo = 6),
+        ),
         isLoading = false,
     )
 }
@@ -59,6 +78,10 @@ internal fun emptyQuestLog(): QuestLogUiState {
         quests = board(*Quests.ALL.map { at(quest = it, progress = 0) }.toTypedArray()),
         achievementsUnlocked = 0,
         achievementsTotal = ACHIEVEMENT_TOTAL,
+        // Untouched, and stamped with no month: what a fresh install actually holds.
+        protection = StreakProtection(),
+        // No drops, so the section is absent rather than an empty card — QuestLogUiState.showsLoot.
+        recentLoot = emptyList(),
         isLoading = false,
     )
 }
@@ -95,6 +118,9 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
         ),
         achievementsUnlocked = 1,
         achievementsTotal = ACHIEVEMENT_TOTAL,
+        protection = StreakProtection(remaining = 3, period = FIXTURE_MONTH),
+        // A single drop, which is the section at its shortest — a user a few weeks in.
+        recentLoot = listOf(drop(Collectibles.WORN_WRISTBAND, daysAgo = 2)),
         isLoading = false,
     )
 }
@@ -128,6 +154,32 @@ private const val ACHIEVEMENT_TOTAL = 6
 
 /** Wednesday 3 September 2025, so a fixture's periods are stable across runs. */
 private val FIXTURE_DAY: LocalDate = LocalDate.of(2025, Month.SEPTEMBER, 3)
+
+/** [FIXTURE_DAY]'s month, which is the one a fixture's allowance is stamped with. */
+private val FIXTURE_MONTH: YearMonth = YearMonth.from(FIXTURE_DAY)
+
+/** [FIXTURE_DAY] at midnight UTC — the instant the drops below are dated back from. */
+private val FIXTURE_INSTANT: Instant = FIXTURE_DAY.atStartOfDay(ZoneOffset.UTC).toInstant()
+
+/**
+ * A drop of [collectible], [daysAgo] days before [FIXTURE_DAY].
+ *
+ * Dated off a fixed day rather than off `now`, like every other figure here, so the date each row
+ * prints is the same on every run — which is what lets these fixtures back a screenshot test.
+ */
+private fun drop(
+    collectible: Collectible,
+    daysAgo: Long,
+): LootDrop =
+    LootDrop(
+        item = CollectedItem(
+            id = daysAgo,
+            collectibleId = collectible.id,
+            source = DropSource.SESSION_FINISHED.key,
+            acquiredAt = FIXTURE_INSTANT.minus(Duration.ofDays(daysAgo)),
+        ),
+        collectible = collectible,
+    )
 
 /** [count] kilograms as the milligrams a [QuestMetric.VOLUME_MILLIGRAMS] figure is stated in. */
 private fun kilograms(count: Int): Long = count * MILLIGRAMS_PER_KILOGRAM.toLong()

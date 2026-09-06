@@ -2,8 +2,11 @@ package com.opengym.feature.progression.quests
 
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.gamification.LevelTitle
+import com.opengym.core.domain.model.CollectedItem
+import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.QuestProgress
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.UserProgress
 
 /**
@@ -32,6 +35,15 @@ import com.opengym.core.domain.model.UserProgress
  *   The counts and nothing more: the grid itself has its own screen and its own state, because an
  *   achievement is a permanent unlock rather than a thing to do this week. See
  *   `AchievementsUiState`, which carries that argument.
+ * @property protection what is left of this month's streak allowance, **already replenished for
+ *   the month the screen is drawing in** — the ViewModel applies
+ *   [StreakProtection.replenishedFor], as `GamificationRepository.observeStreak` requires of
+ *   every consumer that renders the count. Defaulted to a full allowance, which is a fresh
+ *   install's real state.
+ * @property recentLoot the latest drops, newest first, each paired with the catalogue entry that
+ *   describes it. Empty for a user who has never been dropped anything, which is a real state
+ *   rather than a loading one — see [showsLoot], which is what decides whether the section is
+ *   drawn at all.
  * @property isLoading the first emission has not landed. What it gates is narrow — see
  *   [showsEmptyQuests] — because most of this screen is correct at its defaults.
  */
@@ -42,6 +54,8 @@ data class QuestLogUiState(
     val quests: List<QuestProgress> = emptyList(),
     val achievementsUnlocked: Int = 0,
     val achievementsTotal: Int = 0,
+    val protection: StreakProtection = StreakProtection(),
+    val recentLoot: List<LootDrop> = emptyList(),
     val isLoading: Boolean = true,
 ) {
 
@@ -82,7 +96,38 @@ data class QuestLogUiState(
      */
     val isOnBestStreak: Boolean
         get() = progress.currentStreak > 0 && progress.currentStreak >= progress.longestStreak
+
+    /**
+     * Whether the recent-loot section is drawn at all.
+     *
+     * Absent rather than empty for a user with no drops. Every other section here has something
+     * true to say at zero — level 1 is a level, a streak of none is an invitation, a quest at zero
+     * is a quest to go and clear — and an empty loot card has none of that: it would be a heading
+     * over a blank promising a thing the user cannot go and do, since a drop is rolled by the app
+     * rather than earned on purpose. Gated on [isLoading] as well, so the section does not flash
+     * in and out on the frame before the store answers.
+     */
+    val showsLoot: Boolean get() = !isLoading && recentLoot.isNotEmpty()
 }
+
+/**
+ * One drop, with what the catalogue says about it.
+ *
+ * The pairing is done once in the ViewModel rather than at each of the three places the row draws
+ * from it, because the lookup can *fail*: a drop whose id this build does not recognise is a real
+ * row (see [Collectibles.byId]), and a screen that resolved it separately for the name, the rarity
+ * and the tile would have three chances to forget that.
+ *
+ * @property item the drop as stored — what was pulled, from what, and when.
+ * @property collectible the catalogue entry behind [CollectedItem.collectibleId], or **null** for
+ *   a drop this build cannot name. The row draws such a drop as a nameless one of unknown rarity
+ *   rather than dropping it, because it is loot the user genuinely holds.
+ */
+@Immutable
+data class LootDrop(
+    val item: CollectedItem,
+    val collectible: Collectible?,
+)
 
 /**
  * One cadence's board: what is still open, what has been banked, and the score across both.

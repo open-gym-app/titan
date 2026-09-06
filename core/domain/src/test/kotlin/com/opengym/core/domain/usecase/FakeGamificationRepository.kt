@@ -160,8 +160,11 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     override suspend fun unlockAchievement(
         achievementId: String,
         unlockedAt: Instant,
-    ): Boolean = (unlocked.putIfAbsent(achievementId, unlockedAt) == null)
-        .also { if (it) revision.value++ }
+    ): Boolean {
+        val wrote = unlocked.putIfAbsent(achievementId, unlockedAt) == null
+        if (wrote) revision.value++
+        return wrote
+    }
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = xpClaims.add(sessionId)
 

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -14,12 +15,14 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymBadge
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.StreakFlame
+import com.opengym.core.ui.component.StreakShields
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
 
@@ -45,17 +48,27 @@ import com.opengym.feature.progression.R
  * current run *is* the best, the card says so and drops the redundant number. That is the moment
  * worth marking on this screen, so it takes the accent badge.
  *
- * ### Streak protection is not here
+ * ### Streak protection sits under the count, not beside it
  *
- * #104 asks for streak-protection status alongside these figures. It comes from #M5-12, which has
- * not landed, and there is no partial version of it worth drawing: a card that showed a
- * protection state the app cannot actually apply would be telling the user their streak is safe
- * when nothing is holding it. The row is added with the feature.
+ * The allowance (#106) is drawn on this card because it is a fact *about* the streak above it —
+ * what is standing between that number and a bad week — and nowhere else on the screen would say
+ * that. It is below a rule rather than in the same row because it is a different kind of fact: the
+ * streak is what the user did, the allowance is what the app will do for them, and the two read as
+ * one confused figure when set side by side.
+ *
+ * Drawn in **both** streak states, unlike everything else here. A user with no streak still has an
+ * allowance, and it is the state where knowing about it matters most — a protection is what keeps
+ * the run they are about to start from being lost to one missed day. The card would also be
+ * claiming the allowance did not exist by omitting it, which is worse than saying nothing.
+ *
+ * The marks come from [StreakShields] in `:core:ui`, which the just-finished recap draws too;
+ * the count in words sits beside them and the marks stay silent, per that component's contract.
  */
 @Composable
 internal fun StreakCard(
     progress: UserProgress,
     isOnBest: Boolean,
+    protection: StreakProtection,
     modifier: Modifier = Modifier,
 ) {
     OpenGymCard(modifier = modifier.fillMaxWidth()) {
@@ -72,6 +85,64 @@ internal fun StreakCard(
             } else {
                 Streak(progress = progress, isOnBest = isOnBest)
             }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Protection(protection = protection)
+        }
+    }
+}
+
+/**
+ * The allowance: what it is called, how many are left, and a mark for each.
+ *
+ * The marks carry no semantics of their own — [StreakShields] is passed null — because the row is
+ * one fact and is announced as one: the label, then the count in words. A reader that heard the
+ * marks *and* the line would hear the same thing twice, which is the case that component's
+ * contract calls out.
+ */
+@Composable
+private fun Protection(protection: StreakProtection) {
+    val remaining = protection.remaining.coerceIn(0, StreakProtection.MONTHLY_ALLOWANCE)
+    val label = stringResource(R.string.quest_log_protection_label)
+    val left = if (remaining == 0) {
+        stringResource(R.string.quest_log_protection_none)
+    } else {
+        pluralStringResource(R.plurals.quest_log_protection_left, remaining, remaining)
+    }
+    val spoken = if (remaining == 0) {
+        stringResource(R.string.quest_log_protection_none_description, StreakProtection.MONTHLY_ALLOWANCE)
+    } else {
+        stringResource(
+            R.string.quest_log_protection_description,
+            remaining,
+            StreakProtection.MONTHLY_ALLOWANCE,
+        )
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clearAndSetSemantics { contentDescription = "$label, $spoken" },
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StreakShields(
+            remaining = remaining,
+            allowance = StreakProtection.MONTHLY_ALLOWANCE,
+            contentDescription = null,
+        )
+        Column {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = left,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

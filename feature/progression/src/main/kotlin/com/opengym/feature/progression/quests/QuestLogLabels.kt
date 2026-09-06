@@ -4,9 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.gamification.LevelTitle
+import com.opengym.core.domain.model.Collectible
+import com.opengym.core.domain.model.DropSource
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
+import com.opengym.core.domain.model.Rarity
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.feature.progression.R
 import java.text.NumberFormat
@@ -62,6 +65,61 @@ internal fun LevelTitle.label(): String =
         "unbreakable" -> stringResource(R.string.level_title_unbreakable)
         "legend" -> stringResource(R.string.level_title_legend)
         else -> stringResource(R.string.level_title_unknown)
+    }
+
+/**
+ * A collectible's name, or a generic one for a drop this build cannot place.
+ *
+ * The `null` receiver is the case this exists for and is why the extension is on the nullable
+ * type: a drop row carries an id, not an entry, so an inventory can genuinely hold something the
+ * catalogue has no line for — a newer build's collectible, or one renamed without a migration.
+ * Such a drop is still the user's loot and is named generically rather than hidden.
+ */
+@Composable
+internal fun Collectible?.label(): String =
+    when (this?.id) {
+        "chalk_block" -> stringResource(R.string.collectible_chalk_block)
+        "spare_collar" -> stringResource(R.string.collectible_spare_collar)
+        "worn_wristband" -> stringResource(R.string.collectible_worn_wristband)
+        "lifting_strap" -> stringResource(R.string.collectible_lifting_strap)
+        "steel_shaker" -> stringResource(R.string.collectible_steel_shaker)
+        "pet_egg" -> stringResource(R.string.collectible_pet_egg)
+        "golden_dumbbell" -> stringResource(R.string.collectible_golden_dumbbell)
+        "iron_crown" -> stringResource(R.string.collectible_iron_crown)
+        else -> stringResource(R.string.collectible_unknown)
+    }
+
+/**
+ * The rarity band's word.
+ *
+ * Exhaustive over [Rarity] with a separate `null` arm rather than an `else`, so a band added to
+ * the domain stops this compiling instead of shipping a drop labelled "Unknown". Null is the
+ * unplaceable drop above, whose band nothing can know.
+ */
+@Composable
+internal fun Rarity?.label(): String =
+    when (this) {
+        Rarity.COMMON -> stringResource(R.string.rarity_common)
+        Rarity.UNCOMMON -> stringResource(R.string.rarity_uncommon)
+        Rarity.RARE -> stringResource(R.string.rarity_rare)
+        Rarity.EPIC -> stringResource(R.string.rarity_epic)
+        Rarity.LEGENDARY -> stringResource(R.string.rarity_legendary)
+        null -> stringResource(R.string.rarity_unknown)
+    }
+
+/**
+ * What produced a drop, from the `source` key stored on the row.
+ *
+ * A `when` over the stored **key** rather than over [DropSource], because that column is not an
+ * enum: it holds whatever the engine that rolled the drop wrote, and a row naming a trigger this
+ * build does not know reads back as it was written (see `CollectedItem.source`). The `else` is
+ * that row, and it says the one thing still true of it.
+ */
+@Composable
+internal fun dropSourceLabel(sourceKey: String): String =
+    when (sourceKey) {
+        DropSource.SESSION_FINISHED.key -> stringResource(R.string.drop_source_session_finished)
+        else -> stringResource(R.string.drop_source_unknown)
     }
 
 /**

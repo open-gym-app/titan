@@ -63,6 +63,7 @@ fun SessionSummaryScreenStreakSavedPreview() {
 @Composable
 fun SessionSummaryScreenStreakSpentPreview() {
     PreviewScreen(previewState(streakSave = previewLastStreakSave()), reducedMotion = true)
+}
 
 /*
  * The milestone card on its own, at both metals it can draw.

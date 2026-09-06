@@ -1,13 +1,15 @@
 package com.opengym.feature.progression.quests
 
+import com.opengym.core.domain.model.CollectedItem
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
-import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
+import com.opengym.core.domain.repository.CollectedItemRepository
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.QuestRepository
@@ -30,10 +32,13 @@ class FakeGamificationReads : GamificationRepository {
 
     val progress = MutableStateFlow(UserProgress())
     val unlocked = MutableStateFlow(emptyList<UnlockedAchievement>())
+    val streak = MutableStateFlow(StreakState())
 
     override fun observeProgress(): Flow<UserProgress> = progress
 
     override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> = unlocked
+
+    override fun observeStreak(): Flow<StreakState> = streak
 
     override suspend fun addXp(
         delta: Int,
@@ -49,10 +54,36 @@ class FakeGamificationReads : GamificationRepository {
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = readOnly()
 
-    override suspend fun updateStreak(
-        finishedAt: Instant,
-        computeStreak: (lastCountedAt: Instant?, currentStreak: Int) -> StreakResult,
-    ): StreakUpdate = readOnly()
+    override suspend fun claimSessionLoot(sessionId: Long): Boolean = readOnly()
+
+    override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate = readOnly()
+}
+
+/**
+ * The drop inventory, over a list a test writes to.
+ *
+ * [requestedLimit] is recorded rather than enforced, which is the point of keeping it: what the
+ * screen has to get right is that it *asks* for a bounded read (the store treats a limit under 1
+ * as no limit at all — see `CollectedItemRepository.observeRecent`), and a fake that silently
+ * truncated would hide a ViewModel that asked for everything.
+ */
+class FakeCollectedItemReads : CollectedItemRepository {
+
+    val recent = MutableStateFlow(emptyList<CollectedItem>())
+
+    var requestedLimit: Int? = null
+        private set
+
+    override fun observeRecent(limit: Int): Flow<List<CollectedItem>> {
+        requestedLimit = limit
+        return recent
+    }
+
+    override suspend fun recordDrop(
+        collectibleId: String,
+        source: String,
+        acquiredAt: Instant,
+    ): Unit = readOnly()
 }
 
 /** The record reads the quest board makes, and nothing else. */

@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.DropSource
 import com.opengym.core.domain.model.Rarity
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -27,6 +28,23 @@ class CollectiblesTest {
     @Test
     fun `no two collectibles share an id`() {
         assertEquals(Collectibles.ALL.size, Collectibles.ALL.map(Collectible::id).toSet().size)
+    }
+
+    // ─── The lookup a drop row is read back through ─────────────────────────────────────
+
+    @Test
+    fun `every catalogue entry is reachable by its own id`() {
+        for (collectible in Collectibles.ALL) {
+            assertEquals(collectible, Collectibles.byId(collectible.id))
+        }
+    }
+
+    @Test
+    fun `an id this build does not know reads back as nothing rather than throwing`() {
+        // A drop written by a newer version, or one renamed without a migration. It is a row the
+        // store can genuinely hold, so the lookup has to have an answer for it: #104 draws such a
+        // drop generically rather than crashing on loot the user actually earned.
+        assertNull(Collectibles.byId("a_collectible_from_the_future"))
     }
 
     @Test

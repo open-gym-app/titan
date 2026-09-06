@@ -315,6 +315,66 @@
     <string name="quest_log_streak_none">No streak yet</string>
     <string name="quest_log_streak_none_body">Train today to start one.</string>
 
+    <!-- ─── Streak protection (#106) ──────────────────────────────────────────────────────
+         The monthly allowance that covers a missed day, drawn under the streak as marks plus
+         this line. Spent automatically, which is why the label says what they do rather than
+         inviting the user to use one. -->
+
+    <string name="quest_log_protection_label">Streak protection</string>
+    <plurals name="quest_log_protection_left">
+        <item quantity="one">%1$d left this month</item>
+        <item quantity="other">%1$d left this month</item>
+    </plurals>
+    <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
+         in words: a user with none left is one bad day from losing the streak above. -->
+    <string name="quest_log_protection_none">None left this month</string>
+    <!-- What a screen reader hears in place of the marks, which are the visible half of a
+         sentence whose other half is the line beside them. %1$d is what is left, %2$d the
+         month's allowance — a reader who cannot see three marks with one greyed out needs both
+         counts and the word for what they are. -->
+    <string name="quest_log_protection_description">%1$d of %2$d streak protections left this month</string>
+    <string name="quest_log_protection_none_description">None of your %1$d streak protections are left this month</string>
+
+    <!-- ─── Recent loot (#170) ────────────────────────────────────────────────────────────
+         The latest drops. The section is absent rather than empty for a user with none — see
+         QuestLogUiState.showsLoot. -->
+
+    <string name="quest_log_loot_heading">Recent loot</string>
+    <!-- A drop's second line: "Finished workout · 24 Apr". -->
+    <string name="quest_log_loot_meta">%1$s · %2$s</string>
+    <!-- The whole row as one phrase, since it is one fact: "Pet egg, Rare, Finished workout,
+         24 Apr" — the same comma-separated shape a quest row is announced in. -->
+    <string name="quest_log_loot_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <!-- The collectible names, resolved from the domain catalogue's ids. -->
+    <string name="collectible_chalk_block">Chalk block</string>
+    <string name="collectible_spare_collar">Spare collar</string>
+    <string name="collectible_worn_wristband">Worn wristband</string>
+    <string name="collectible_lifting_strap">Lifting strap</string>
+    <string name="collectible_steel_shaker">Steel shaker</string>
+    <string name="collectible_pet_egg">Pet egg</string>
+    <string name="collectible_golden_dumbbell">Golden dumbbell</string>
+    <string name="collectible_iron_crown">Iron crown</string>
+    <!-- A drop this build has no catalogue entry for — a newer version's collectible, or one
+         renamed without a migration. Still the user's loot, so it is named rather than hidden. -->
+    <string name="collectible_unknown">Unknown find</string>
+
+    <!-- The rarity bands. Ordered commonest first in the domain; the words carry the band and
+         the accent marks only whether it is one worth noticing. -->
+    <string name="rarity_common">Common</string>
+    <string name="rarity_uncommon">Uncommon</string>
+    <string name="rarity_rare">Rare</string>
+    <string name="rarity_epic">Epic</string>
+    <string name="rarity_legendary">Legendary</string>
+    <!-- The band of a drop with no catalogue entry behind it. -->
+    <string name="rarity_unknown">Unknown</string>
+
+    <!-- What produced a drop, resolved from DropSource.key. Short because it shares a line with
+         the date under a name and a rarity badge, and the date is the half that gets ellipsed
+         away if this grows — "From a finished workout · 2 Sep" does not fit a 360dp screen. -->
+    <string name="drop_source_session_finished">Finished workout</string>
+    <string name="drop_source_unknown">Earlier find</string>
+
     <!-- The quest board. -->
     <string name="quest_log_quests_heading">Quests</string>
     <string name="quest_log_quests_weekly">This week</string>

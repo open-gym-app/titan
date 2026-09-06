@@ -259,6 +259,65 @@ class QuestLogScreenTest {
         composeTestRule.onNodeWithText("405 XP earned in total").assertIsDisplayed()
     }
 
+    // ─── Streak protection ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the allowance is drawn with what is left of it`() {
+        setContent(populatedQuestLog())
+
+        composeTestRule
+            .onNodeWithContentDescription("Streak protection, 2 of 3 streak protections left this month")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a brand-new user is shown a full allowance beside their absent streak`() {
+        // Drawn in both streak states: a user with no streak still has an allowance, and it is
+        // what keeps the run they are about to start from being lost to one missed day.
+        setContent(emptyQuestLog())
+
+        composeTestRule
+            .onNodeWithContentDescription("Streak protection, 3 of 3 streak protections left this month")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    // ─── Recent loot ────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a drop is drawn with its rarity and what produced it`() {
+        setContent(populatedQuestLog())
+
+        composeTestRule
+            .onNodeWithContentDescription("Pet egg, Rare, Finished workout, 2 Sep")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `every recent drop is listed, commonest included`() {
+        setContent(populatedQuestLog())
+
+        composeTestRule
+            .onNodeWithContentDescription("Lifting strap, Uncommon, Finished workout, 30 Aug")
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Chalk block, Common, Finished workout, 28 Aug")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `a user with no drops gets no loot section at all`() {
+        // Absent rather than empty: a heading over a blank would promise a thing the user cannot
+        // go and do, since a drop is rolled by the app rather than earned on purpose.
+        setContent(emptyQuestLog())
+
+        composeTestRule.onAllNodesWithText("RECENT LOOT").assertCountEquals(0)
+    }
+
     private var openedAchievements = 0
 
     private fun setContent(state: QuestLogUiState) {

@@ -96,6 +96,22 @@ object Collectibles {
         GOLDEN_DUMBBELL,
         IRON_CROWN,
     )
+
+    /**
+     * The catalogue entry [id] names, or **null** if this build has none.
+     *
+     * Null rather than a throw, and that is the whole reason this exists rather than callers
+     * indexing [ALL] themselves. A drop row holds an id and nothing else (see [Collectible]), so
+     * a row written by a newer build — or by one whose spelling was changed without a migration —
+     * reads back as an id with no entry behind it. That is a state the store can genuinely be in,
+     * so the read has to have an answer for it: #104's recent-loot section draws such a drop
+     * generically instead of crashing on the inventory the user actually earned.
+     *
+     * A scan rather than a map. The catalogue is eight entries and the caller is a screen drawing
+     * at most a handful of rows; an index built to serve that would be a second copy of [ALL] to
+     * keep in step for no measurable gain.
+     */
+    fun byId(id: String): Collectible? = ALL.firstOrNull { it.id == id }
 }
 
 /**

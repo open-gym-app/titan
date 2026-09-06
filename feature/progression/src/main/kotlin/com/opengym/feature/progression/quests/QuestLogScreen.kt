@@ -47,6 +47,7 @@ import com.opengym.feature.progression.quests.component.ClearedQuestRow
 import com.opengym.feature.progression.quests.component.LevelHeroCard
 import com.opengym.feature.progression.quests.component.QuestPeriodHeader
 import com.opengym.feature.progression.quests.component.QuestRow
+import com.opengym.feature.progression.quests.component.RecentLootCard
 import com.opengym.feature.progression.quests.component.StreakCard
 import kotlinx.coroutines.launch
 
@@ -93,13 +94,15 @@ fun QuestLogRoute(
  * screen, and is what #104 asks for. The only thing gated on loading is the claim that a build has
  * no quests at all; see [QuestLogUiState.showsEmptyQuests].
  *
- * ### What is missing, and deliberately not faked
+ * ### The order is what the user came for, then what happened to them
  *
- * #104 also asks for a **recent loot** section (#M5-13) and **streak-protection status**
- * (#M5-12). Neither feature exists yet, and there is no partial version of either worth drawing:
- * an empty loot card would promise a feature the app does not have, and a protection state the
- * app cannot apply would tell the user their streak is safe when nothing is holding it. Both are
- * sections added with their features rather than placeholders added now.
+ * Level, streak, quests, milestones, loot. The first four are things the user is *doing* — a rank
+ * they are climbing, a run they are keeping, a board to clear, a count to raise — and the board is
+ * placed above the milestone row because it is the only part of this screen that expires. Loot is
+ * last because it is the one section the user cannot act on at all: a drop is rolled by the app
+ * when a workout ends, so it is a reward to notice on the way past rather than a thing to go and
+ * get. It is also the only section that is absent rather than empty when there is nothing in it —
+ * see [QuestLogUiState.showsLoot].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -145,7 +148,11 @@ internal fun QuestLogScreen(
         ) {
             LevelHeroCard(progress = state.progress, title = state.levelTitle)
 
-            StreakCard(progress = state.progress, isOnBest = state.isOnBestStreak)
+            StreakCard(
+                progress = state.progress,
+                isOnBest = state.isOnBestStreak,
+                protection = state.protection,
+            )
 
             QuestSections(state = state)
 
@@ -154,6 +161,16 @@ internal fun QuestLogScreen(
                 total = state.achievementsTotal,
                 onClick = onOpenAchievements,
             )
+
+            if (state.showsLoot) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+                ) {
+                    SectionHeading(text = stringResource(R.string.quest_log_loot_heading))
+                    RecentLootCard(drops = state.recentLoot)
+                }
+            }
         }
     }
 }
