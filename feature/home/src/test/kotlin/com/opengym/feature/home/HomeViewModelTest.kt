@@ -5,12 +5,18 @@ import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
+import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.LatestPersonalRecordUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
+import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -27,6 +33,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -54,6 +61,9 @@ class HomeViewModelTest {
     private val catalogue = FakeExerciseCatalogue(listOf(BENCH_PRESS))
     private val templates = FakeTemplateStore()
     private val state = FakeSessionStateStore()
+    private val progress = FakeProgressStore()
+    private val records = FakeRecordStore()
+    private val volume = FakeVolumeStore()
     private val clock = FixedClock(middayOn(TODAY))
 
     @Before
@@ -388,7 +398,181 @@ class HomeViewModelTest {
             assertFalse(home.isLoading)
         }
 
+    // ─── The progression cards ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `the standing becomes a level and the points banked into it`() =
+        runTest {
+            // 1,340 points on a hundred-a-level curve: level 14, forty points in.
+            progress.setProgress(standing(totalXp = 1_340, level = 14))
+
+            val level = requireNotNull(viewModel().uiState.value.level)
+
+            assertEquals(14, level.level)
+            assertEquals(40, level.xpIntoLevel)
+            assertEquals(100, level.xpForLevel)
+        }
+
+    @Test
+    fun `nothing banked yet draws no header at all`() =
+        runTest {
+            // Not `LVL 1 · 0 / 100 XP`. A user who has done nothing is told what they can do,
+            // not what they have not — see HomeUiState.level.
+            val home = viewModel().uiState.value
+
+            assertNull(home.level)
+            assertFalse(home.isLoading)
+        }
+
+    @Test
+    fun `a streak counted today is still running, and is drawn`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            progress.setProgress(standing(currentStreak = 12, lastCountedAt = TODAY))
+
+            assertEquals(12, requireNotNull(viewModel().uiState.value.week).streak)
+        }
+
+    @Test
+    fun `a streak counted yesterday is still running`() =
+        runTest {
+            // The boundary the whole mechanic turns on: the day after counts, so a lifter who
+            // trained yesterday and has not trained today has not lost anything yet.
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            progress.setProgress(standing(currentStreak = 4, lastCountedAt = TODAY.minusDays(1)))
+
+            assertEquals(4, requireNotNull(viewModel().uiState.value.week).streak)
+        }
+
+    @Test
+    fun `a streak nobody kept up is not drawn, however long it was`() =
+        runTest {
+            // The stored figure is still 12: a streak is only recomputed when a session
+            // finishes, and nothing has. Drawing it would tell somebody who last trained five
+            // days ago that they are twelve days deep.
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            progress.setProgress(standing(currentStreak = 12, lastCountedAt = TODAY.minusDays(5)))
+
+            assertNull(requireNotNull(viewModel().uiState.value.week).streak)
+        }
+
+    @Test
+    fun `a user who has never had a streak is not shown a zero`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            progress.setProgress(standing(currentStreak = 0, lastCountedAt = null))
+
+            assertNull(requireNotNull(viewModel().uiState.value.week).streak)
+        }
+
+    @Test
+    fun `the newest record is the one the card draws`() =
+        runTest {
+            records.setRecords(listOf(record(id = 2, weight = 142_000_000), record(id = 1, weight = 135_000_000)))
+
+            val record = requireNotNull(viewModel().uiState.value.recentRecord)
+
+            assertEquals(2L, record.record.id)
+        }
+
+    @Test
+    fun `a user who has broken no record gets no card`() =
+        runTest {
+            val home = viewModel().uiState.value
+
+            assertNull(home.recentRecord)
+            assertFalse(home.isLoading)
+        }
+
+    @Test
+    fun `the chart covers eight weeks, the untrained ones as zeroes`() =
+        runTest {
+            // Nine weeks seeded, one of them empty: the ninth is outside the window and the
+            // empty one is a bucket rather than a gap, or the bars either side of it would be
+            // drawn as if training had carried on through it.
+            volume.setWeeks(
+                lastWeekOf = TODAY,
+                volumes = listOf(90_000, 10_000, 20_000, 30_000, 40_000, 0, 60_000, 70_000, 80_000),
+            )
+
+            val weeks = viewModel().uiState.value.volume
+
+            assertEquals(8, weeks.size)
+            assertEquals(
+                listOf(10_000L, 20_000L, 30_000L, 40_000L, 0L, 60_000L, 70_000L, 80_000L),
+                weeks.map { it.totalVolume },
+            )
+        }
+
+    @Test
+    fun `xp banked behind the screen moves the header with nobody revisiting it`() =
+        runTest {
+            // The post-session cascade writes while Home is the screen underneath — the recap
+            // is over it, and backing out of the recap lands here without a fresh read. All
+            // four cards are flows for this reason; the header is the one with a figure that
+            // moves on every set.
+            val viewModel = viewModel()
+            assertNull(viewModel.uiState.value.level)
+
+            progress.setProgress(standing(totalXp = 1_340, level = 14))
+
+            assertEquals(14, viewModel.uiState.value.level?.level)
+        }
+
+    @Test
+    fun `a record broken behind the screen appears with nobody revisiting it`() =
+        runTest {
+            val viewModel = viewModel()
+            assertNull(viewModel.uiState.value.recentRecord)
+
+            records.setRecords(listOf(record(id = 1, weight = 142_000_000)))
+
+            assertEquals(1L, viewModel.uiState.value.recentRecord?.record?.id)
+        }
+
+    @Test
+    fun `eight weeks with nothing in them draw no chart`() =
+        runTest {
+            // A brand-new user and a lapsed one both land here, and neither is told anything by
+            // eight noughts — see HomeUiState.volume.
+            val home = viewModel().uiState.value
+
+            assertEquals(emptyList<Long>(), home.volume.map { it.totalVolume })
+            assertFalse(home.isLoading)
+        }
+
     // ─── Rig ────────────────────────────────────────────────────────────────────────────
+
+    /** The stored progress row, with only the figures a test cares about spelled out. */
+    private fun standing(
+        totalXp: Long = 0,
+        level: Int = 1,
+        currentStreak: Int = 0,
+        lastCountedAt: LocalDate? = null,
+    ) = UserProgress(
+        totalXp = totalXp,
+        level = level,
+        currentStreak = currentStreak,
+        lastCountedAt = lastCountedAt?.let { Instant.ofEpochMilli(middayOn(it)) },
+    )
+
+    /** A heaviest-lift record of [weight] milligrams, set today. */
+    private fun record(
+        id: Long,
+        weight: Long,
+    ) = PersonalRecordEntry(
+        record = PersonalRecord(
+            id = id,
+            exerciseId = 1L,
+            workoutSetId = id,
+            type = PrType.MAX_WEIGHT,
+            weight = weight,
+            achievedAt = clock.now,
+        ),
+        exerciseName = "Deadlift",
+        previousValue = null,
+        isRecent = true,
+    )
 
     /** Eight saved templates, `Template 1` to `Template 8` — two more than the strip holds. */
     private fun eightTemplates(): FakeTemplateStore {
@@ -412,7 +596,10 @@ class HomeViewModelTest {
             sessionRepository = sessions,
             inProgressSessionRepository = drafts,
             exerciseRepository = catalogue,
+            gamificationRepository = progress,
             getTemplateSummaries = GetTemplateSummariesUseCase(templates, FakeSettings()),
+            latestPersonalRecord = LatestPersonalRecordUseCase(records),
+            volumeTrend = VolumeTrendUseCase(volume),
             resumeSession = ResumeSessionUseCase(sessions, state, clock, lock),
             discardSession = DiscardSessionUseCase(sessions, state, drafts, lock),
             clock = clock,

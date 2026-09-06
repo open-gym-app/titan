@@ -7,7 +7,6 @@ import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -29,7 +28,18 @@ import java.time.LocalDate
 class FakePersonalRecordRepository : PersonalRecordRepository {
 
     private val records = MutableStateFlow<List<PersonalRecord>>(emptyList())
+    private val names = mutableMapOf<Long, String>()
     private var nextId = 1L
+
+    /**
+     * Records achieved at or after this count as *recent* — the `NEW` badge's condition.
+     *
+     * A timestamp rather than a session id because this fake holds no sessions: the real query
+     * marks the rows set in the most recently finished one, and "everything from this moment on"
+     * is the same set for a test that seeds its records in order. Null marks nothing, which is
+     * what a store with no finished session behind it would answer.
+     */
+    var recentSince: Long? = null
 
     /** Every row written, oldest first, for assertions a `Flow` read would be clumsy for. */
     val inserted: List<PersonalRecord> get() = records.value
@@ -122,14 +132,66 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
         return stored
     }
 
-    /** Unused here: this fake serves the PR engine's reads, not the records list. */
+    /**
+     * One window of the records list: every record newest first, with the figure it beat and
+     * the name it was set on.
+     *
+     * The previous figure is derived rather than stored, on the same rule the rest of this fake
+     * follows: it is the row of the same exercise and type achieved immediately before this one,
+     * which is what the real query's window function finds. A fake that carried it as a field
+     * could report an improvement over a record the store does not hold.
+     *
+     * Names come from [nameExercise] and are **null** until a test supplies one — the state a
+     * record whose exercise has since been deleted is in, which is a case the callers draw
+     * differently and so worth being the default.
+     */
     override suspend fun getRecordsPage(
         type: PrType?,
         offset: Int,
         limit: Int,
-    ): List<PersonalRecordEntry> = emptyList()
+    ): List<PersonalRecordEntry> =
+        records.value
+            .filter { type == null || it.type == type }
+            .sortedByDescending(PersonalRecord::achievedAt)
+            .drop(offset)
+            .take(limit)
+            .map { record ->
+                PersonalRecordEntry(
+                    record = record,
+                    exerciseName = names[record.exerciseId],
+                    previousValue = previousValueOf(record),
+                    isRecent = recentSince?.let { record.achievedAt >= it } == true,
+                )
+            }
 
-    override fun observeRecordCount(): Flow<Int> = flowOf(0)
+    override fun observeRecordCount(): Flow<Int> = records.map { it.size }
+
+    /** What [exerciseId] is called, for the rows a list joins the catalogue onto. */
+    fun nameExercise(
+        exerciseId: Long,
+        name: String,
+    ) {
+        names[exerciseId] = name
+    }
+
+    /**
+     * The figure [record] beat: the previous row of its exercise and type, read through the
+     * same `when` [PersonalRecordEntry.value] uses so the two cannot disagree about which
+     * column a kind's figure lives in.
+     */
+    private fun previousValueOf(record: PersonalRecord): Long? =
+        records.value
+            .filter {
+                it.exerciseId == record.exerciseId &&
+                    it.type == record.type &&
+                    it.achievedAt < record.achievedAt
+            }
+            .maxByOrNull(PersonalRecord::achievedAt)
+            ?.let { previous -> previous.asEntry().value }
+
+    /** A record as a bare row, so its own figure can be read through the model's `when`. */
+    private fun PersonalRecord.asEntry() =
+        PersonalRecordEntry(record = this, exerciseName = null, previousValue = null, isRecent = false)
 }
 
 /** What a day is, in the milliseconds a record's `achievedAt` is stored in. */

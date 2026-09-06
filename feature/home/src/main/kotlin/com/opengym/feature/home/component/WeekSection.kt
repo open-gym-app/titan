@@ -3,11 +3,13 @@ package com.opengym.feature.home.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -28,14 +30,20 @@ import com.opengym.feature.home.WeekState
  * │  M   T   W   T   F   S   S              │
  * │  ▓   ░   ▓   ░   ░   ▓   ░              │
  * │ ─────────────────────────────────────── │
- * │ 3 sessions                              │
+ * │ 3 sessions                 12-day streak│
  * └─────────────────────────────────────────┘
  * ```
  *
  * The count under the rule is the week's, not the month's and not all time: it is the figure
- * that answers "am I keeping this up" at a glance, and the only one on this screen that M4 can
- * answer honestly. The streak the wireframe draws beside it needs #34's engine and arrives with
- * #110 — see [WeekState].
+ * that answers "am I keeping this up" at a glance.
+ *
+ * ### The streak is the same question over a longer window
+ *
+ * It sits on the same line for that reason, and it takes the accent because it is the one
+ * figure on this card that is a *result* rather than a fact — the distinction `StatTile` draws
+ * for the same treatment. A streak that has lapsed is not drawn at all rather than drawn as
+ * zero: the ViewModel is what decides whether the stored figure is still running, and null here
+ * means it is not — see [WeekState.streak].
  *
  * **The whole card opens the Sessions tab.** A dashboard card carrying a figure is a thing
  * users tap, and seven cells and a count that answer nothing back is a control that dead-ends;
@@ -72,15 +80,29 @@ fun WeekSection(
             ) {
                 WeekStrip(days = week.days)
                 HairlineDivider()
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.home_week_sessions,
-                        week.sessionCount,
-                        week.sessionCount,
-                    ),
-                    style = OpenGymTheme.typography.numeric,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = pluralStringResource(
+                            R.plurals.home_week_sessions,
+                            week.sessionCount,
+                            week.sessionCount,
+                        ),
+                        style = OpenGymTheme.typography.numeric,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    week.streak?.let { streak ->
+                        Text(
+                            text = pluralStringResource(R.plurals.home_week_streak, streak, streak),
+                            style = OpenGymTheme.typography.numeric,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
     }

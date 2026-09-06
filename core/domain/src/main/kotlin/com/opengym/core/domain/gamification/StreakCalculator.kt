@@ -114,8 +114,7 @@ object StreakCalculator {
             isSameDay(lastCountedAt, finishedAt) -> StreakResult.Unchanged
 
             // Either arm is enough, and neither is enough on its own — see the class doc.
-            gap <= GRACE_PERIOD || isNextDay(lastCountedAt, finishedAt) ->
-                StreakResult.Incremented(currentStreak + 1)
+            extends(lastCountedAt, finishedAt, gap) -> StreakResult.Incremented(currentStreak + 1)
 
             else -> StreakResult.Reset
         }
@@ -272,6 +271,50 @@ object StreakCalculator {
         anchor: Instant,
         finishedAt: Instant,
     ): Long = ChronoUnit.DAYS.between(anchor.streakDate(), finishedAt.streakDate()) - 1
+
+    /**
+     * Whether a streak last counted at [lastCountedAt] is **still running** at [asOf] — the
+     * question a screen asks, as opposed to the question a finished session asks.
+     *
+     * A stored streak is only ever recomputed when a session finishes, so the figure on the
+     * row stays at twelve for as long as nobody trains: it is what the streak *was*, not what
+     * it is. Drawing it unasked tells a lifter who last trained in March that they are twelve
+     * days deep, which is the one thing a streak must never do. This is that check, and it is
+     * here rather than in the surface because it is the same rule [onSessionFinished] applies
+     * — a streak is alive exactly while a session finishing now would extend it, plus the day
+     * it was counted on, which extends nothing and has not lapsed either.
+     *
+     * @param lastCountedAt when the streak was last counted, or null for a user who has none —
+     *   for whom the answer is false whatever the stored figure says, the same contradiction
+     *   [onSessionFinished] resolves the same way.
+     * @param asOf the moment being asked about, normally now.
+     */
+    fun isLive(
+        lastCountedAt: Instant?,
+        asOf: Instant,
+    ): Boolean {
+        if (lastCountedAt == null) return false
+
+        val gap = Duration.between(lastCountedAt, asOf)
+        // A clock that has gone backwards past the last counted session says nothing about
+        // whether the streak lapsed, so it is left standing rather than cut.
+        if (gap.isNegative) return true
+
+        return isSameDay(lastCountedAt, asOf) || extends(lastCountedAt, asOf, gap)
+    }
+
+    /**
+     * Whether something happening at [at] continues a streak last counted at [lastCountedAt]
+     * — the window, or the next calendar day. Stated once, because [onSessionFinished] and
+     * [isLive] are the same rule asked about a session and about a moment.
+     *
+     * @param gap the distance between the two, which both callers have already measured.
+     */
+    private fun extends(
+        lastCountedAt: Instant,
+        at: Instant,
+        gap: Duration,
+    ): Boolean = gap <= GRACE_PERIOD || isNextDay(lastCountedAt, at)
 
     private fun isSameDay(
         first: Instant,

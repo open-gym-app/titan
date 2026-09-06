@@ -277,4 +277,56 @@ class GamificationRepositoryImplTest : RoomTestBase() {
         runBlocking {
             assertNull(db.userProgressDao().getOnce())
         }
+
+    // ─── Reading the row back ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a user with no row reads as no progress at all`() =
+        runBlocking {
+            // Null rather than a zeroed row: Home draws no level header for somebody who has
+            // never banked a point, and a synthesised `level 1, 0 XP` would take that choice
+            // away from every caller. See GamificationRepository.observeProgress.
+            assertNull(repository.observeProgress().first())
+        }
+
+    @Test
+    fun `the standing reads back everything a screen draws`() =
+        runBlocking {
+            award(XpCalculator.XP_PER_LEVEL * 3 + 40)
+            finish(MONDAY_EVENING)
+
+            val progress = requireNotNull(repository.observeProgress().first())
+
+            assertEquals((XpCalculator.XP_PER_LEVEL * 3 + 40).toLong(), progress.totalXp)
+            assertEquals(XpCalculator.FIRST_LEVEL + 3, progress.level)
+            assertEquals(StreakResult.FIRST_DAY, progress.currentStreak)
+            assertEquals(MONDAY_EVENING, progress.lastCountedAt)
+        }
+
+    @Test
+    fun `the standing re-emits when something is banked behind the screen`() =
+        runBlocking {
+            // The whole reason this is a flow: the post-session cascade writes while Home is
+            // the screen underneath, and a one-shot read would leave the header a level behind.
+            val progress = repository.observeProgress()
+            assertNull(progress.first())
+
+            award(XpCalculator.XP_PER_SESSION)
+
+            assertEquals(XpCalculator.XP_PER_SESSION.toLong(), progress.first()?.totalXp)
+        }
+
+    @Test
+    fun `a streak with no session behind it reads as no timestamp`() =
+        runBlocking {
+            // The contradictory row: XP banked, nothing counted. `lastCountedAt` is the half a
+            // reader can trust, and it is null — see StreakCalculator.isLive, which answers
+            // false for it however long the stored streak says it is.
+            award(XpCalculator.XP_PER_SET)
+
+            val progress = requireNotNull(repository.observeProgress().first())
+
+            assertEquals(0, progress.currentStreak)
+            assertNull(progress.lastCountedAt)
+        }
 }

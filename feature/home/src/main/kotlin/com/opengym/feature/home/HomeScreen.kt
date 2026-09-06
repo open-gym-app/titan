@@ -26,17 +26,21 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.DiscardSessionDialog
 import com.opengym.core.ui.theme.OpenGymTheme
+import com.opengym.feature.home.component.LevelHeader
 import com.opengym.feature.home.component.QuickStartSection
+import com.opengym.feature.home.component.RecentRecordSection
 import com.opengym.feature.home.component.ResumeCard
+import com.opengym.feature.home.component.VolumeSection
 import com.opengym.feature.home.component.WeekSection
 import kotlinx.coroutines.flow.filterNotNull
 
 /**
  * The dashboard, wired to its ViewModel.
  *
- * Every navigation out of Home is a parameter rather than an event, because none of the four
+ * Every navigation out of Home is a parameter rather than an event, because not one of the
  * destinations belongs to this module: the workout, the new-session flow and its template step
- * all live in `:feature:session`, and `:app` is what knows that — see `homeGraph`.
+ * live in `:feature:session`, the records list and the stats tab in `:feature:progression`, and
+ * `:app` is what knows that — see `homeGraph`.
  *
  * @param onResumeSession the open workout should be picked back up; the id is the session to
  *   open. Nothing is resumed here: the workout screen calls `ResumeSessionUseCase` itself, so
@@ -45,6 +49,8 @@ import kotlinx.coroutines.flow.filterNotNull
  * @param onStartFromTemplates the user wants to pick a template first.
  * @param onStartFromTemplate the user picked one from the quick-start strip.
  * @param onOpenSessions the week card was tapped: the user wants the sessions it is counting.
+ * @param onOpenRecords the recent-PR card was tapped: the user wants every record, not the one.
+ * @param onOpenStats the volume chart was tapped: the user wants the figures behind the shape.
  */
 @Composable
 fun HomeRoute(
@@ -53,6 +59,8 @@ fun HomeRoute(
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
     onOpenSessions: () -> Unit,
+    onOpenRecords: () -> Unit,
+    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -66,6 +74,8 @@ fun HomeRoute(
         onStartFromTemplates = onStartFromTemplates,
         onStartFromTemplate = onStartFromTemplate,
         onOpenSessions = onOpenSessions,
+        onOpenRecords = onOpenRecords,
+        onOpenStats = onOpenStats,
         modifier = modifier,
     )
 }
@@ -75,23 +85,25 @@ fun HomeRoute(
  *
  * ### What is on it, in the order it matters
  *
- * A workout the app is still holding open comes first and takes the accent, because a user
- * who has one has exactly one thing they want from this screen. Under it, the week — the one
- * figure that answers "am I keeping this up" without opening anything. Then the ways in: two
- * actions, and the templates as a strip for the case where the workout is already decided.
+ * The standing first, as a header rather than a card — see [LevelHeader]. Then a workout the
+ * app is still holding open, which takes the accent, because a user who has one has exactly one
+ * thing they want from this screen. Under it, the week and the streak beside it — the figures
+ * that answer "am I keeping this up" without opening anything. Then the ways in: two actions,
+ * and the templates as a strip for the case where the workout is already decided.
+ *
+ * **The two progression cards come last, and that is where they belong.** The last record
+ * broken and eight weeks of volume are what the user has *done*; everything above them is what
+ * they might do next, and a dashboard that opened with history would put the way into a workout
+ * below the fold on the one screen the app is meant to be quickest from. Both are ways into the
+ * screens that hold the whole answer — the records list and the stats tab.
  *
  * ### Nothing renders as an empty shell
  *
- * Each block is drawn only when it has something to say — the rule #110 states for the cards it
- * adds, applied here to the two that exist. A first-launch user gets the quick-start actions
- * and nothing else: no banner, no strip of seven blank squares, no "0 sessions". The screen is
- * allowed to be short.
- *
- * ### The wireframe's other three cards
- *
- * Variant A also draws a streak, a recent PR and eight weeks of volume. All three need engines
- * that do not exist in M4 — #34, #30 and #31 — and #110 adds them once they do. They are
- * absent rather than stubbed, for the reason above.
+ * Each block is drawn only when it has something to say — #110's rule, applied to all six. A
+ * first-launch user gets the quick-start actions and nothing else: no header, no banner, no
+ * strip of seven blank squares, no "0 sessions", no chart of noughts. The screen is allowed to
+ * be short, and it fills in one card at a time as the engines behind them have something to
+ * report.
  */
 @Composable
 fun HomeScreen(
@@ -102,6 +114,8 @@ fun HomeScreen(
     onStartFromTemplates: () -> Unit,
     onStartFromTemplate: (templateId: Long) -> Unit,
     onOpenSessions: () -> Unit,
+    onOpenRecords: () -> Unit,
+    onOpenStats: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -145,6 +159,9 @@ fun HomeScreen(
             // A screen that stays empty for the frame the queries take is the cheaper half of
             // that trade.
             if (!state.isLoading) {
+                state.level?.let { level ->
+                    LevelHeader(level = level)
+                }
                 state.resume?.let { resume ->
                     ResumeCard(
                         resume = resume,
@@ -169,6 +186,13 @@ fun HomeScreen(
                     // No week means nothing has ever been finished — see HomeUiState.week.
                     isFirstLaunch = state.week == null,
                 )
+
+                state.recentRecord?.let { record ->
+                    RecentRecordSection(record = record, onClick = onOpenRecords)
+                }
+                if (state.volume.isNotEmpty()) {
+                    VolumeSection(weeks = state.volume, onClick = onOpenStats)
+                }
             }
         }
     }
@@ -231,6 +255,21 @@ fun HomeScreenPausedPreview() {
     }
 }
 
+/**
+ * A user a fortnight in: a level, a week and a streak, and no progression cards at all.
+ *
+ * The middle of the three states #110 asks for, and the one a screenshot is worth most on —
+ * "fully populated" and "brand new" are both easy to get right by accident, and this is where a
+ * card that renders an empty shell instead of disappearing would show up.
+ */
+@Preview(name = "Home - a fortnight in", showBackground = true, heightDp = 720)
+@Composable
+fun HomeScreenPartialPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        HomePreview(state = previewPartialHome())
+    }
+}
+
 @Preview(name = "Home - first launch", showBackground = true, heightDp = 720)
 @Composable
 fun HomeScreenFirstLaunchPreview() {
@@ -265,7 +304,7 @@ fun HomeScreenLargeFontPreview() {
     }
 }
 
-/** The screen with its four navigations tied off, so a preview says only what it is showing. */
+/** The screen with its navigations tied off, so a preview says only what it is showing. */
 @Composable
 private fun HomePreview(state: HomeUiState) {
     HomeScreen(
@@ -276,5 +315,7 @@ private fun HomePreview(state: HomeUiState) {
         onStartFromTemplates = {},
         onStartFromTemplate = {},
         onOpenSessions = {},
+        onOpenRecords = {},
+        onOpenStats = {},
     )
 }

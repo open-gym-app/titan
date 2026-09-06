@@ -3,39 +3,58 @@ package com.opengym.feature.home
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PlannedSet
+import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionTotals
+import com.opengym.core.domain.model.StreakState
+import com.opengym.core.domain.model.StreakUpdate
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.model.UserProgress
+import com.opengym.core.domain.model.WeeklyTraining
+import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.model.WorkoutTemplate
+import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.stats.TrainingWeek
 import com.opengym.core.domain.time.Clock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import java.time.Instant
+import java.time.LocalDate
 import kotlin.time.Duration
 
 /*
@@ -266,6 +285,139 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override suspend fun clear() = write { UserPreferences() }
 
     private fun write(transform: (UserPreferences) -> UserPreferences) = preferences.update(transform)
+}
+
+/** The one progress row: the level, the XP and the streak, as a screen reads them. */
+class FakeProgressStore(progress: UserProgress? = null) : GamificationRepository {
+
+    private val stored = MutableStateFlow(progress)
+
+    override fun observeProgress(): Flow<UserProgress?> = stored.asStateFlow()
+
+    fun setProgress(progress: UserProgress?) {
+        stored.value = progress
+    }
+
+    override suspend fun addXp(
+        delta: Int,
+        levelForTotalXp: (totalXp: Long) -> Int,
+    ): XpAward = unsupported()
+
+    override suspend fun unlockedAchievementIds(): Set<String> = unsupported()
+    override suspend fun unlockAchievement(
+        achievementId: String,
+        unlockedAt: Instant,
+    ): Boolean = unsupported()
+
+    override suspend fun claimSessionXp(sessionId: Long): Boolean = unsupported()
+    override suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate = unsupported()
+
+    /**
+     * Home draws its streak off [observeProgress], never off this — the row carries the count
+     * the screen needs, and a second flow would be a second thing to keep in step with it.
+     */
+    override fun observeStreak(): Flow<StreakState> = unsupported()
+
+    /** Home reads the standing. Writing to it is the cascade's, and never this screen's. */
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home only reads progress")
+}
+
+/**
+ * The records table, as far as `LatestPersonalRecordUseCase` reads it: a count to watch, and a
+ * page to take the newest off.
+ *
+ * The page is served from the same list the count is taken of, so a test that seeds two records
+ * cannot end up with a count and a row that disagree — which is the one thing the use case's
+ * two reads could get wrong.
+ */
+class FakeRecordStore(records: List<PersonalRecordEntry> = emptyList()) : PersonalRecordRepository {
+
+    private val stored = MutableStateFlow(records)
+
+    override fun observeRecordCount(): Flow<Int> = stored.map { it.size }
+
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> =
+        stored.value
+            .filter { type == null || it.record.type == type }
+            .drop(offset)
+            .take(limit)
+
+    fun setRecords(records: List<PersonalRecordEntry>) {
+        stored.value = records
+    }
+
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = unsupported()
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = unsupported()
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> = unsupported()
+    override suspend fun count(): Int = unsupported()
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = unsupported()
+
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home reads the newest record")
+}
+
+/**
+ * The weekly aggregates, as far as `VolumeTrendUseCase` reads them.
+ *
+ * [setWeeks] takes whole weeks and the read filters them by the period it is asked for, exactly
+ * as the query does — which is what lets a test seed nine weeks and assert that the card draws
+ * eight.
+ */
+class FakeVolumeStore(weeks: List<WeeklyVolume> = emptyList()) : ProgressionRepository {
+
+    private val stored = MutableStateFlow(weeks)
+
+    override fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>> =
+        stored.map { rows -> rows.filter { it.weekStart in days }.sortedBy(WeeklyVolume::weekStart) }
+
+    override fun hasTrainingHistory(): Flow<Boolean> = stored.map { it.isNotEmpty() }
+
+    /**
+     * [volumes] in milligram-reps, the most recent week last, ending on [lastWeekOf]'s week.
+     *
+     * A zero is stored as **no row**, which is what the query does: the aggregate is a `GROUP
+     * BY` over sets that exist, and a week nobody trained in has none. Filling those gaps back
+     * in is `VolumeTrendUseCase`'s job, so a fake that stored the zeroes would be doing the
+     * work under test.
+     */
+    fun setWeeks(
+        lastWeekOf: LocalDate,
+        volumes: List<Long>,
+    ) {
+        val lastWeek = TrainingWeek.startOf(lastWeekOf)
+        stored.value = volumes
+            .mapIndexed { index, volume ->
+                WeeklyVolume(
+                    weekStart = lastWeek.minusWeeks((volumes.size - 1 - index).toLong()),
+                    totalVolume = volume,
+                )
+            }
+            .filter { it.totalVolume > 0 }
+    }
+
+    override fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>> = unsupported()
+    override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> = unsupported()
+    override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = unsupported()
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun getFirstTrainingDay(): Flow<LocalDate?> = unsupported()
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> = unsupported()
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = unsupported()
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unsupported()
+
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("home reads volume by week")
 }
 
 /** A saved template, with [exerciseCount] rows under it so its estimate is not zero. */

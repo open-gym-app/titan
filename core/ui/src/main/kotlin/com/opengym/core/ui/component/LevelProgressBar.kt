@@ -3,6 +3,7 @@ package com.opengym.core.ui.component
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -37,14 +38,20 @@ import androidx.compose.ui.unit.dp
  *   that computed it from an XP total and a threshold can land a hair outside on a rounding.
  * @param contentDescription what a screen reader says. Required rather than derived: the sentence
  *   needs the level number and the points remaining, and neither is in this component.
+ * @param color the fill. The accent by default, which is what a level bar is drawn in
+ *   everywhere the app is not celebrating one — Home's header, and whatever else comes to draw
+ *   a standing. The just-finished recap passes `OpenGymTheme.celebration.xp` instead: the same
+ *   hue by construction, named from the palette that owns that moment.
+ * @param trackColor the distance still to go. The deep neutral the bars of a chart use, so a
+ *   track and an unlit bar read alike.
  */
 @Composable
 fun LevelProgressBar(
     progress: () -> Float,
     contentDescription: String,
-    color: Color,
-    trackColor: Color,
     modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.primary,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
 ) {
     Canvas(
         modifier = modifier

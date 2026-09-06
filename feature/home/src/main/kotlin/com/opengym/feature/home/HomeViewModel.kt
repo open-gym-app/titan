@@ -2,17 +2,26 @@ package com.opengym.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.opengym.core.domain.gamification.StreakCalculator
+import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.TemplateSummary
+import com.opengym.core.domain.model.UserProgress
+import com.opengym.core.domain.model.VolumeTrend
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
+import com.opengym.core.domain.stats.TrainingWeek
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.LatestPersonalRecordUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
+import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import com.opengym.core.ui.component.WeekDay
 import com.opengym.core.ui.format.firstDayOfWeek
 import com.opengym.core.ui.format.localDateOf
@@ -67,30 +76,44 @@ import kotlin.time.Duration.Companion.seconds
  * is folded on afterwards over the banner alone — the same split `ActiveSessionViewModel`
  * makes, and for the same reason.
  *
+ * ### The four progression cards are read, not computed
+ *
+ * The streak, the level, the last record broken and the eight-week volume series all come from
+ * engines that already exist — #34's store, #33's curve, #30's table and #31's aggregation —
+ * and none of the arithmetic is redone here. The one judgement this class makes over them is
+ * whether the *stored* streak is still running, which nothing else can make: a streak is only
+ * recomputed when a session finishes, so the row keeps its figure while the days pass. See
+ * [liveStreak].
+ *
  * ### The day is a source, not something read on the way past
  *
  * Which day it is decides the today ring and which calendar week is being counted, and it
  * changes on its own — at midnight, with nothing else happening. Reading it off the clock while
  * assembling would only ever answer for a screen that was being rebuilt anyway, so a phone left
  * on Home overnight would keep its ring on yesterday and keep counting last week. It is a flow
- * beside the other four instead, waking once per day at local midnight — see [today].
+ * of its own instead, waking once per day at local midnight — see [today] — and it carries the
+ * progression window with it, since the eight weeks of volume end on the week it names.
  */
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 /*
- * Seven constructor parameters, one over the threshold, and every one is a graph edge: the
- * sessions and their draft, the catalogue the draft's exercise is named from, the templates the
- * quick-start strip offers, the two transitions the banner's Discard runs, and the clock the
- * banner is drawn against. Bundling them behind a holder to satisfy the count would put a type
- * in the way of reading what the screen depends on, which is the one thing the list is good
- * for. The same trade `NewSessionViewModel` records.
+ * Ten constructor parameters, and every one is a graph edge: the sessions and their draft, the
+ * catalogue the draft's exercise is named from, the templates the quick-start strip offers, the
+ * two transitions the banner's Discard runs, the clock the banner is drawn against, and the
+ * three progression sources #110 added — the standing, the last record broken, and the volume
+ * series. Bundling them behind a holder to satisfy the count would put a type in the way of
+ * reading what the screen depends on, which is the one thing the list is good for. The same
+ * trade `NewSessionViewModel` records.
  */
 @Suppress("LongParameterList")
 class HomeViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val exerciseRepository: ExerciseRepository,
+    private val gamificationRepository: GamificationRepository,
     getTemplateSummaries: GetTemplateSummariesUseCase,
+    private val latestPersonalRecord: LatestPersonalRecordUseCase,
+    private val volumeTrend: VolumeTrendUseCase,
     private val resumeSession: ResumeSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
     private val clock: Clock,
@@ -131,6 +154,31 @@ class HomeViewModel @Inject constructor(
     }.distinctUntilChanged()
 
     /**
+     * The day it is and everything M5 reads over it, kept together on purpose.
+     *
+     * The volume series is a *window* — the eight weeks ending with the one the user is living
+     * in — so it is a function of the day, and the day already re-emits at local midnight. Made
+     * one flow rather than two: [today] is a cold loop with a `delay` in it, and collecting it
+     * twice would run two midnight timers for one question. `flatMapLatest` is what re-runs the
+     * three reads on the new window when the day turns, and drops the old one's rows rather
+     * than racing them.
+     *
+     * The other two travel with it because there is nowhere cheaper to put them: [combine] takes
+     * five typed sources, the outer one below already has five, and a sixth would fall through to
+     * the array overload and lose every type on the way.
+     */
+    private val progression: Flow<Progression> =
+        today.flatMapLatest { day -> readProgression(day).map { Progression(day = day, readings = it) } }
+
+    /** The three progression reads, over the window [day] falls at the end of. */
+    private fun readProgression(day: LocalDate): Flow<Readings> =
+        combine(
+            gamificationRepository.observeProgress(),
+            latestPersonalRecord(),
+            volumeTrend(TrainingWeek.trailing(weeks = VOLUME_WEEKS, endingOn = day)),
+        ) { progress, record, volume -> Readings(progress = progress, record = record, volume = volume) }
+
+    /**
      * Everything the reads decide, with the clock left out of it.
      *
      * The first value arrives only once **every** input has answered, which is what makes
@@ -143,9 +191,9 @@ class HomeViewModel @Inject constructor(
         workout,
         getTemplateSummaries(),
         screenState,
-        today,
-    ) { sessions, workout, templates, screen, today ->
-        assemble(sessions, workout, templates, screen, today)
+        progression,
+    ) { sessions, workout, templates, screen, progression ->
+        assemble(sessions, workout, templates, screen, progression)
     }.stateIn(
         scope = viewModelScope,
         // Long enough to survive a rotation without re-reading three queries, short enough that
@@ -301,12 +349,19 @@ class HomeViewModel @Inject constructor(
         workout: ActiveWorkout?,
         templates: List<TemplateSummary>,
         screen: ScreenState,
-        today: LocalDate,
+        progression: Progression,
     ): Assembled =
         Assembled(
             state = HomeUiState(
-                week = sessions.weekOf(today = today, weekStart = firstDayOfWeek()),
+                level = progression.readings.progress?.standing(),
+                week = sessions.weekOf(
+                    today = progression.day,
+                    weekStart = firstDayOfWeek(),
+                    streak = progression.readings.progress.liveStreak(),
+                ),
                 templates = templates.quickStart(sessions),
+                recentRecord = progression.readings.record,
+                volume = progression.readings.volume.weeks,
                 isLoading = false,
                 confirmingDiscard = screen.confirmingDiscard,
                 isDiscarding = screen.isDiscarding,
@@ -314,6 +369,49 @@ class HomeViewModel @Inject constructor(
             ),
             workout = workout,
         )
+
+    /**
+     * The standing as the header draws it: the level, and how far into it.
+     *
+     * The points into the level are derived from the *total* rather than trusted to be
+     * consistent with the stored level, and then clamped — the two are written together and
+     * cannot ordinarily disagree, but a retune of the curve leaves rows that were written under
+     * the old one, and a bar drawn past its own end or behind its own start is the visible half
+     * of that. See `GamificationRepository.addXp`, which is where the pair is kept honest.
+     */
+    private fun UserProgress.standing(): LevelState {
+        val into = (totalXp - XpCalculator.xpRequiredForLevel(level))
+            .coerceIn(0, XpCalculator.XP_PER_LEVEL.toLong())
+
+        return LevelState(
+            level = level,
+            xpIntoLevel = into.toInt(),
+            xpForLevel = XpCalculator.XP_PER_LEVEL,
+        )
+    }
+
+    /**
+     * The streak, if it is still running, and **null** if it is not.
+     *
+     * A stored streak is only recomputed when a session finishes, so the row keeps saying
+     * twelve for as long as nobody trains — see [StreakCalculator.isLive], which is the rule
+     * asked here rather than restated.
+     *
+     * Asked at assembly, which is every time the tab is opened and again at each local
+     * midnight. A streak lapses [StreakCalculator.STREAK_GRACE_HOURS] after the session it was
+     * counted from rather than on any boundary this screen wakes for, so a phone left on Home
+     * can hold a lapsed figure until the day turns. A timer for that would be a wake-up
+     * scheduled per user per streak to take away a number nobody is looking at.
+     *
+     * Zero reads as no streak rather than as "0 days": the store only ever writes at least
+     * [com.opengym.core.domain.model.StreakResult.FIRST_DAY] for a session that counted, so a
+     * zero here is a user who has never had one.
+     */
+    private fun UserProgress?.liveStreak(): Int? {
+        val progress = this ?: return null
+        if (!StreakCalculator.isLive(progress.lastCountedAt, Instant.ofEpochMilli(clock.nowMillis()))) return null
+        return progress.currentStreak.takeIf { it > 0 }
+    }
 
     /**
      * The templates the quick-start strip offers: the ones this user actually trains from,
@@ -342,6 +440,19 @@ class HomeViewModel @Inject constructor(
         return sortedByDescending { lastStarted[it.template.id] ?: NEVER_STARTED }
             .take(QUICK_START_TEMPLATES)
     }
+
+    /** The day the screen is being assembled for, and everything read over it. */
+    private data class Progression(
+        val day: LocalDate,
+        val readings: Readings,
+    )
+
+    /** The three progression reads, as one value — see [readProgression]. */
+    private data class Readings(
+        val progress: UserProgress?,
+        val record: PersonalRecordEntry?,
+        val volume: VolumeTrend,
+    )
 
     /** What the screen owns and what the stores do not know about. */
     private data class ScreenState(
@@ -420,6 +531,15 @@ class HomeViewModel @Inject constructor(
 
         /** Ranks below every real timestamp, so a template never trained from sorts last. */
         const val NEVER_STARTED = Long.MIN_VALUE
+
+        /**
+         * How many weeks of volume the card draws.
+         *
+         * Eight, as the wireframe has it: two months is long enough for a block of training to
+         * have a shape and short enough that eight bars are still legible on a 360dp card. The
+         * hub (#32) is where a year is read; this is a glance.
+         */
+        const val VOLUME_WEEKS = 8
     }
 }
 
@@ -429,7 +549,9 @@ class HomeViewModel @Inject constructor(
  * Returns **null** for a user who has never finished a session, which is what makes the card
  * disappear rather than render as seven empty squares over a zero — see [HomeUiState.week].
  * A user who has trained before but not this week gets an empty strip, which is a real and
- * useful thing to be told.
+ * useful thing to be told — and their streak, if they still have one, goes with it: the strip
+ * and the streak answer the same question over two different lengths of time, which is why the
+ * wireframe puts them on one line.
  *
  * The session still in progress is not counted. It is drawn by the banner above, and counting
  * a workout that has not happened yet would put a filled square on today for somebody who has
@@ -442,6 +564,7 @@ class HomeViewModel @Inject constructor(
 private fun List<WorkoutSession>.weekOf(
     today: LocalDate,
     weekStart: DayOfWeek,
+    streak: Int?,
 ): WeekState? {
     val logged = filterNot(WorkoutSession::isInProgress)
     if (logged.isEmpty()) return null
@@ -463,7 +586,11 @@ private fun List<WorkoutSession>.weekOf(
         )
     }
 
-    return WeekState(days = days, sessionCount = days.sumOf(WeekDay::sessionCount))
+    return WeekState(
+        days = days,
+        sessionCount = days.sumOf(WeekDay::sessionCount),
+        streak = streak,
+    )
 }
 
 private const val DAYS_PER_WEEK = 7
