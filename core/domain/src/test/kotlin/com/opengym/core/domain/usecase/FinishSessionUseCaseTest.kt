@@ -1,12 +1,15 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.DropRates
+import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
 import com.opengym.core.domain.model.StreakResult
+import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -62,6 +65,14 @@ class FinishSessionUseCaseTest {
                 ),
                 questRepository = quests,
                 awardXp = awardXp,
+            ),
+            // Over a table that drops nothing, for the reason the quest catalogue is empty:
+            // this suite is about finishing a session, and a drop it does not assert would only
+            // be a row nobody reads. `SessionCompletionPipelineTest` is where the roll is tested.
+            rollLoot = LootRollUseCase(
+                dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
+                collectedItemRepository = FakeCollectedItemRepository(),
+                gamificationRepository = gamification,
             ),
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,

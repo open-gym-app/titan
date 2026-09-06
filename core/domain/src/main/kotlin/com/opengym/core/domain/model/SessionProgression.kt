@@ -2,7 +2,8 @@ package com.opengym.core.domain.model
 
 /**
  * Everything finishing one session moved: the records it broke, the XP it paid, what it did
- * to the streak, which achievements it unlocked and which quests it completed.
+ * to the streak, which achievements it unlocked, which quests it completed and what the drop
+ * table handed over.
  *
  * The single value
  * [com.opengym.core.domain.usecase.SessionCompletionPipeline] returns, and the reason the
@@ -14,11 +15,12 @@ package com.opengym.core.domain.model
  * ### An empty one is a normal answer
  *
  * A session that broke nothing, on a day the streak was already counted for, by a user who
- * holds every achievement they qualify for, produces empty lists and no unlocks. So does a
- * **re-run** of a session already processed: the cascade is safe to re-enter and reports
- * nothing the second time, because nothing happened the second time — see the pipeline's
- * re-entry contract. Neither case is a failure, and neither is distinguishable from the other
- * here on purpose: what the value says is what this run changed.
+ * holds every achievement they qualify for and whose roll came up short, produces empty lists,
+ * no unlocks and no drop. So does a **re-run** of a session already processed: the cascade is
+ * safe to re-enter and reports nothing the second time, because nothing happened the second
+ * time — see the pipeline's re-entry contract. Neither case is a failure, and neither is
+ * distinguishable from the other here on purpose: what the value says is what this run
+ * changed.
  *
  * ### Failures are carried, not thrown
  *
@@ -45,6 +47,13 @@ package com.opengym.core.domain.model
  * @property questsCompleted the quests this run completed, each with the period it was
  *   completed into — never ones already on file for that period, so this is empty on a re-run
  *   just as [achievementsUnlocked] is.
+ * @property lootDropped what the session's roll produced, or **null** for the ordinary session
+ *   that produced nothing — which is most of them, since four triggers in five pay out nothing
+ *   at all on the shipped rates. Null is also what a re-run answers, and what a loot step that
+ *   failed leaves behind ([failures] is where the difference is stated); a caller drawing a
+ *   recap treats all three the same, because none of them is a drop to show. The catalogue
+ *   value rather than the stored row: the rarity a celebration styles on is what the roll
+ *   decided, and nothing is read back to learn it.
  * @property failures the steps that threw, in the order they were attempted.
  */
 data class SessionProgression(
@@ -54,6 +63,7 @@ data class SessionProgression(
     val streak: StreakUpdate? = null,
     val achievementsUnlocked: List<AchievementUnlock> = emptyList(),
     val questsCompleted: List<QuestCompletion> = emptyList(),
+    val lootDropped: Collectible? = null,
     val failures: List<SessionProgressionFailure> = emptyList(),
 ) {
 
@@ -141,4 +151,14 @@ enum class SessionProgressionStep {
      * counts streak days — so a streak that could not be read does not take this step with it.
      */
     QUESTS,
+
+    /**
+     * Roll the finished session's drop table, and store whatever it produced.
+     *
+     * Last, and nothing above it moved to let it in: it reads none of the figures the earlier
+     * steps write, and none of them reads a drop. What it needs instead is a fence of its own,
+     * because a roll is the one step besides [XP] that a re-entry could repeat — see
+     * [com.opengym.core.domain.usecase.LootRollUseCase].
+     */
+    LOOT,
 }

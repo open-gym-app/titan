@@ -14,6 +14,7 @@ import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
 import com.opengym.core.data.db.dao.QuestCompletionDao
 import com.opengym.core.data.db.dao.SessionExerciseDao
+import com.opengym.core.data.db.dao.SessionLootClaimDao
 import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.TagDao
 import com.opengym.core.data.db.dao.UserProgressDao
@@ -30,6 +31,7 @@ import com.opengym.core.data.db.entity.MuscleGroupEntity
 import com.opengym.core.data.db.entity.PersonalRecordEntity
 import com.opengym.core.data.db.entity.QuestCompletionEntity
 import com.opengym.core.data.db.entity.SessionExerciseEntity
+import com.opengym.core.data.db.entity.SessionLootClaimEntity
 import com.opengym.core.data.db.entity.SessionXpClaimEntity
 import com.opengym.core.data.db.entity.TagEntity
 import com.opengym.core.data.db.entity.TemplateExerciseEntity
@@ -57,6 +59,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
         UserProgressEntity::class,
         AchievementEntity::class,
         SessionXpClaimEntity::class,
+        SessionLootClaimEntity::class,
         QuestCompletionEntity::class,
         CollectedItemEntity::class,
     ],
@@ -78,6 +81,7 @@ abstract class OpenGymDatabase : RoomDatabase() {
     abstract fun userProgressDao(): UserProgressDao
     abstract fun achievementDao(): AchievementDao
     abstract fun sessionXpClaimDao(): SessionXpClaimDao
+    abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
 

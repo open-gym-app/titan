@@ -1,6 +1,7 @@
 package com.opengym.core.data.repository
 
 import com.opengym.core.data.db.dao.AchievementDao
+import com.opengym.core.data.db.dao.SessionLootClaimDao
 import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.UserProgressDao
 import com.opengym.core.data.db.entity.AchievementEntity
@@ -22,10 +23,11 @@ import javax.inject.Inject
 /**
  * The gamification progress, over Room.
  *
- * Three tables rather than one, because they are three different kinds of fact: `user_progress`
- * is a single mutable row, `achievement` is a growing set of unlocks, and `session_xp_claim` is
- * a set of markers. Each of the contract's writes is one atomic operation, and the atomicity is
- * where all of the difficulty is — see the DAOs for how each one gets it.
+ * Four tables rather than one, because they are three different kinds of fact: `user_progress`
+ * is a single mutable row, `achievement` is a growing set of unlocks, and `session_xp_claim`
+ * and `session_loot_claim` are sets of markers — one per un-idempotent step of the cascade,
+ * each spent by the step it fences. Each of the contract's writes is one atomic operation, and
+ * the atomicity is where all of the difficulty is — see the DAOs for how each one gets it.
  *
  * ### The rules stay in the domain
  *
@@ -51,6 +53,7 @@ class GamificationRepositoryImpl @Inject constructor(
     private val userProgressDao: UserProgressDao,
     private val achievementDao: AchievementDao,
     private val sessionXpClaimDao: SessionXpClaimDao,
+    private val sessionLootClaimDao: SessionLootClaimDao,
 ) : GamificationRepository {
 
     /**
@@ -99,6 +102,8 @@ class GamificationRepositoryImpl @Inject constructor(
         )
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = sessionXpClaimDao.claim(sessionId)
+
+    override suspend fun claimSessionLoot(sessionId: Long): Boolean = sessionLootClaimDao.claim(sessionId)
 
     /**
      * Reads the stored state, hands it to the rule, writes back what the rule answers with.

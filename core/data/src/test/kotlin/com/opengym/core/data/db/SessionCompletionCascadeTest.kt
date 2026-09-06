@@ -4,24 +4,32 @@ import com.opengym.core.data.mapper.PersonalRecordMapper
 import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
 import com.opengym.core.data.mapper.WorkoutSetMapper
+import com.opengym.core.data.repository.CollectedItemRepositoryImpl
 import com.opengym.core.data.repository.GamificationRepositoryImpl
 import com.opengym.core.data.repository.PersonalRecordRepositoryImpl
 import com.opengym.core.data.repository.ProgressionRepositoryImpl
 import com.opengym.core.data.repository.QuestRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.DropRates
+import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.Collectible
+import com.opengym.core.domain.model.DropSource
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.Rarity
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.AchievementTriggerUseCase
 import com.opengym.core.domain.usecase.AwardXpUseCase
+import com.opengym.core.domain.usecase.LootRollUseCase
 import com.opengym.core.domain.usecase.PrDetectionUseCase
 import com.opengym.core.domain.usecase.QuestCompletionUseCase
 import com.opengym.core.domain.usecase.QuestProgressUseCase
@@ -31,6 +39,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
@@ -94,6 +103,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             userProgressDao = db.userProgressDao(),
             achievementDao = db.achievementDao(),
             sessionXpClaimDao = db.sessionXpClaimDao(),
+            sessionLootClaimDao = db.sessionLootClaimDao(),
         )
     }
 
@@ -102,6 +112,27 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     }
 
     private val quests by lazy { QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()) }
+
+    private val collectedItems by lazy {
+        CollectedItemRepositoryImpl(collectedItemDao = db.collectedItemDao())
+    }
+
+    /**
+     * The roll, wired to a table that never pays out.
+     *
+     * What this suite drives is the cascade over a real database, and a *random* step would make
+     * every assertion below depend on a die roll. Pinned to nothing-dropped rather than to a
+     * guaranteed drop because that is the common answer on the shipped rates anyway — four
+     * triggers in five pay nothing — and because the loot step's own behaviour, including its
+     * claim, is `LootRollUseCaseTest`'s subject rather than this one's.
+     */
+    private val rollLoot by lazy {
+        LootRollUseCase(
+            dropTable = DropTableEvaluator(RandomSource { DropRates.TOTAL_WEIGHT - 1 }, emptyList()),
+            collectedItemRepository = collectedItems,
+            gamificationRepository = gamification,
+        )
+    }
 
     private val awardXp by lazy { AwardXpUseCase(gamificationRepository = gamification) }
 
@@ -113,7 +144,16 @@ class SessionCompletionCascadeTest : RoomTestBase() {
         )
     }
 
-    private val pipeline by lazy {
+    private val pipeline by lazy { pipelineWith(rollLoot) }
+
+    /**
+     * The cascade as `GamificationUseCaseModule` composes it, with the roll left open.
+     *
+     * Every step here is the real implementation over the real database; only the loot step is a
+     * parameter, because it is the one whose answer a case may need to force. [pipeline] is this
+     * with [rollLoot]'s never-drops table, which is what all but the loot cases want.
+     */
+    private fun pipelineWith(rollLoot: LootRollUseCase) =
         SessionCompletionPipeline(
             detectPersonalRecords = detectPersonalRecords,
             awardXp = awardXp,
@@ -130,8 +170,29 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 questRepository = quests,
                 awardXp = awardXp,
             ),
+            rollLoot = rollLoot,
             sessionRepository = sessions,
             personalRecordRepository = records,
+            gamificationRepository = gamification,
+        )
+
+    /**
+     * The same roll, over a table that always pays out — and always the same thing.
+     *
+     * [rollLoot] is pinned to nothing-dropped so no assertion elsewhere depends on a die roll,
+     * which leaves `collected_item` the one write in this cascade that nothing drives over a real
+     * database: `LootRollUseCaseTest` owns the step's logic, but it owns it against
+     * `FakeCollectedItemRepository`, and a fake is exactly what this suite exists to not settle
+     * for. So the two loot cases below take this instead.
+     *
+     * Its own single-entry catalogue rather than [com.opengym.core.domain.gamification.Collectibles.ALL],
+     * the call `DropTableEvaluatorTest` makes: what drops is not the subject here, so a case that
+     * named a shipped collectible would fail the day somebody stocked another common.
+     */
+    private val alwaysDrops by lazy {
+        LootRollUseCase(
+            dropTable = DropTableEvaluator(RandomSource { 0 }, listOf(ONLY_DROP)),
+            collectedItemRepository = collectedItems,
             gamificationRepository = gamification,
         )
     }
@@ -260,6 +321,25 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             assertEquals(setOf(Quests.MONTHLY_RECORDS.id), quests.observeCompletedIds(MONTH_START).first())
         }
 
+    @Test
+    fun `a drop the cascade rolled is on file, dated to the workout`() =
+        runBlocking {
+            val sessionId = seedFinishedSession()
+
+            val progression = pipelineWith(alwaysDrops)(sessionId, FINISHED_AT)
+
+            // Reported and stored, and the row is read back through the repository a screen
+            // subscribes to rather than off the DAO — so the mapper and the column types are in
+            // the round trip too.
+            assertEquals(ONLY_DROP, progression.lootDropped)
+            val stored = collectedItems.observeRecent(limit = 1).first().single()
+            assertEquals(ONLY_DROP.id, stored.collectibleId)
+            assertEquals(DropSource.SESSION_FINISHED.key, stored.source)
+            // The workout's own moment, not the roll's: `acquired_at` is stored as millis, so a
+            // stamp taken from a clock here would be off by however long the cascade ran.
+            assertEquals(FINISHED_AT, stored.acquiredAt)
+        }
+
     // --------------------------------------------------------- the re-entry contract
 
     @Test
@@ -311,6 +391,22 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             assertTrue("a quest completed twice", second.questsCompleted.isEmpty())
             assertEquals(UNLOCKED_AS_STORED, storedAchievementIds())
             assertEquals(setOf(Quests.WEEKLY_RECORD.id), quests.observeCompletedIds(WEEK_START).first())
+        }
+
+    @Test
+    fun `finishing the same session twice rolls no second collectible`() =
+        runBlocking {
+            // The step whose repeat nothing downstream could catch: `collected_item` carries no
+            // unique index, because the same collectible dropping again is a normal thing to own.
+            // So `session_loot_claim` is the only thing between a crash-recovery boot and a free
+            // pull — and here it is a row the schema holds rather than a `Set` a fake holds.
+            val sessionId = seedFinishedSession()
+            pipelineWith(alwaysDrops)(sessionId, FINISHED_AT)
+
+            val second = pipelineWith(alwaysDrops)(sessionId, FINISHED_AT)
+
+            assertNull("a second collectible was rolled for one session", second.lootDropped)
+            assertEquals(1, collectedItems.observeRecent(limit = 2).first().size)
         }
 
     // ------------------------------------------------------------- a torn cascade
@@ -420,6 +516,19 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     )
 
     private companion object {
+
+        /**
+         * The one entry [alwaysDrops] can hand out.
+         *
+         * Its rarity is the commonest band so a roll of zero reaches it, and its id is this
+         * file's own rather than a shipped one — what lands is not the subject, that the row
+         * survives the round trip is.
+         */
+        val ONLY_DROP = Collectible(
+            id = "cascade_test_drop",
+            rarity = Rarity.COMMON,
+            source = DropSource.SESSION_FINISHED,
+        )
 
         /**
          * A Wednesday evening.

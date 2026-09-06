@@ -1,12 +1,18 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.gamification.Achievements
+import com.opengym.core.domain.gamification.DropRates
+import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.gamification.XpCalculator
+import com.opengym.core.domain.model.CollectedItem
+import com.opengym.core.domain.model.Collectible
+import com.opengym.core.domain.model.DropSource
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
+import com.opengym.core.domain.model.Rarity
 import com.opengym.core.domain.model.SessionProgressionStep
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.StreakResult
@@ -16,6 +22,8 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.model.XpEvent
+import com.opengym.core.domain.random.RandomSource
+import com.opengym.core.domain.repository.CollectedItemRepository
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.CancellationException
@@ -45,12 +53,13 @@ class SessionCompletionPipelineTest {
     private val sessions get() = rig.sessions
     private val records get() = rig.records
     private val gamification get() = rig.gamification
+    private val inventory get() = rig.inventory
     private val pipeline get() = rig.pipeline
 
     // ---------------------------------------------------------------- the order
 
     @Test
-    fun `the steps run in the order records, xp, streak, achievements`() =
+    fun `the steps run in the order records, xp, streak, achievements, loot`() =
         runTest {
             val journal = mutableListOf<String>()
             val journalled = Rig(journal)
@@ -60,8 +69,9 @@ class SessionCompletionPipelineTest {
 
             // Every store is touched more than once — nine awards, four records, two unlocks
             // and the achievement XP behind them — so it is the order they are *first* reached
-            // in that is the ordering constraint.
-            assertEquals(listOf("record", "xp", "streak", "achievement"), journal.distinct())
+            // in that is the ordering constraint. Loot is the exception: at most one row, and
+            // it is last.
+            assertEquals(listOf("record", "xp", "streak", "achievement", "loot"), journal.distinct())
         }
 
     @Test
@@ -553,6 +563,108 @@ class SessionCompletionPipelineTest {
             error("the progress row is not writable")
     }
 
+    // ─── The loot step ──────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a finished session's drop is reported and stored against the workout's moment`() =
+        runTest {
+            val sessionId = rig.finishSession()
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(DROPPED_COLLECTIBLE, progression.lootDropped)
+            // Dated to the workout rather than to the roll, so a cascade re-entered an hour
+            // later would still file the drop under the session that earned it.
+            assertEquals(
+                listOf(
+                    CollectedItem(1L, DROPPED_COLLECTIBLE.id, DropSource.SESSION_FINISHED.key, FINISHED_AT),
+                ),
+                inventory.recorded,
+            )
+        }
+
+    @Test
+    fun `a session whose roll pays out nothing reports no drop and is not a failure`() =
+        runTest {
+            val rig = Rig(dropTable = NEVER_DROPS)
+            val sessionId = rig.finishSession()
+
+            val progression = rig.pipeline(sessionId, FINISHED_AT)
+
+            assertNull(progression.lootDropped)
+            assertTrue(rig.inventory.recorded.isEmpty())
+            // The common answer on the shipped rates, and an ordinary one: nothing dropped is
+            // not a step that failed.
+            assertTrue(progression.isComplete)
+        }
+
+    @Test
+    fun `re-running the cascade rolls no second drop`() =
+        runTest {
+            val sessionId = rig.finishSession()
+            val first = pipeline(sessionId, FINISHED_AT)
+
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            // The table would drop again given the chance — it always does — so the empty
+            // second result is the claim doing its job rather than an unlucky roll.
+            assertEquals(DROPPED_COLLECTIBLE, first.lootDropped)
+            assertNull(second.lootDropped)
+            assertEquals(1, inventory.recorded.size)
+        }
+
+    @Test
+    fun `a second session rolls on a claim of its own`() =
+        runTest {
+            val morning = rig.finishSession(exerciseId = 10L)
+            pipeline(morning, FINISHED_AT)
+            val laterThatDay = FINISHED_AT.plusSeconds(HOUR_SECONDS * 2)
+            val evening = rig.finishSession(exerciseId = 20L, completedAt = laterThatDay)
+
+            val progression = pipeline(evening, laterThatDay)
+
+            // A claim is per session, not per day: the streak counts days shown up, the roll
+            // does not.
+            assertEquals(DROPPED_COLLECTIBLE, progression.lootDropped)
+            assertEquals(2, inventory.recorded.size)
+        }
+
+    @Test
+    fun `an inventory that refuses leaves the workout and every earlier step intact`() =
+        runTest {
+            // The failure contract at the last step of all: the session is closed out and its
+            // records, XP, streak and achievements are on file. A drop that cannot be written
+            // is recorded, not thrown.
+            val sessionId = rig.finishSession()
+            inventory.failNext = IllegalStateException("the inventory is not writable")
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(listOf(SessionProgressionStep.LOOT), progression.failures.map { it.step })
+            assertNull(progression.lootDropped)
+            assertTrue("the earlier steps did not run", progression.recordsBroken.isNotEmpty())
+            assertTrue("the session was not paid for", progression.xpAwarded > 0)
+            assertEquals(1, gamification.streakDays)
+            assertEquals(2, progression.achievementsUnlocked.size)
+        }
+
+    @Test
+    fun `a drop lost to a refused write is not rolled again on re-entry`() =
+        runTest {
+            // The tear this deliberately does not recover from, and the same trade the XP claim
+            // names: the claim is taken before the write, so a refused row costs that session
+            // its collectible outright rather than risking one on every crash-recovery boot.
+            val sessionId = rig.finishSession()
+            inventory.failNext = IllegalStateException("the inventory is not writable")
+            pipeline(sessionId, FINISHED_AT)
+
+            val second = pipeline(sessionId, FINISHED_AT)
+
+            assertNull(second.lootDropped)
+            assertTrue(inventory.recorded.isEmpty())
+            assertTrue(second.isComplete)
+        }
+
     /**
      * The stores and the composition under test, bundled so a test that needs a second,
      * independent history — the torn-cascade comparison, the ordering journal — can have one
@@ -570,6 +682,7 @@ class SessionCompletionPipelineTest {
         journal: MutableList<String>? = null,
         decorateGamification: (GamificationRepository) -> GamificationRepository = { it },
         questCatalogue: List<Quest> = emptyList(),
+        dropTable: DropTableEvaluator = ALWAYS_DROPS,
     ) {
 
         val sessions = FakeSessionRepository()
@@ -577,11 +690,14 @@ class SessionCompletionPipelineTest {
         val gamification = FakeGamificationRepository()
         val quests = FakeQuestRepository()
         val progression = FakeProgressionRepository()
+        val inventory = FakeCollectedItemRepository()
 
         private val observedRecords: PersonalRecordRepository =
             journal?.let { JournallingRecords(records, it) } ?: records
         private val observedGamification: GamificationRepository =
             decorateGamification(journal?.let { JournallingGamification(gamification, it) } ?: gamification)
+        private val observedInventory: CollectedItemRepository =
+            journal?.let { JournallingInventory(inventory, it) } ?: inventory
 
         val detectPersonalRecords = PrDetectionUseCase(
             sessionRepository = sessions,
@@ -613,11 +729,28 @@ class SessionCompletionPipelineTest {
             awardXp = awardXp,
         )
 
+        /**
+         * The loot step, over a **one-entry catalogue that always drops** unless a test says
+         * otherwise.
+         *
+         * The shipped rates would make this suite's assertions about drops flaky by design —
+         * four sessions in five roll nothing — and the shipped catalogue would make them
+         * statements about whatever it stocks this month. A table that always pays out the same
+         * collectible keeps every loot assertion here about the cascade: that the drop is
+         * reported, dated and stored, and that a re-entry produces none.
+         */
+        private val rollLoot = LootRollUseCase(
+            dropTable = dropTable,
+            collectedItemRepository = observedInventory,
+            gamificationRepository = observedGamification,
+        )
+
         val pipeline = SessionCompletionPipeline(
             detectPersonalRecords = detectPersonalRecords,
             awardXp = awardXp,
             triggerAchievements = AchievementTriggerUseCase(observedGamification, awardXp),
             completeQuests = completeQuests,
+            rollLoot = rollLoot,
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,
@@ -722,6 +855,22 @@ class SessionCompletionPipelineTest {
         }
     }
 
+    /** The same again, for the one row the loot step writes. */
+    private class JournallingInventory(
+        private val delegate: CollectedItemRepository,
+        private val journal: MutableList<String>,
+    ) : CollectedItemRepository by delegate {
+
+        override suspend fun recordDrop(
+            collectibleId: String,
+            source: String,
+            acquiredAt: Instant,
+        ) {
+            journal += "loot"
+            delegate.recordDrop(collectibleId, source, acquiredAt)
+        }
+    }
+
     /**
      * Banks [awards] awards and refuses every one after them — the store failing part way
      * through a run, which [FakeGamificationRepository.addXpFailure] cannot express because it
@@ -749,6 +898,25 @@ class SessionCompletionPipelineTest {
         val FINISHED_AT: Instant = Instant.parse("2026-03-02T18:00:00Z")
 
         const val QUEST_XP = 60
+
+        /**
+         * The whole catalogue this suite rolls against — one common, dropped by a finished
+         * session, so no assertion here is a statement about what the shipped table stocks.
+         */
+        val DROPPED_COLLECTIBLE = Collectible(
+            id = "test_chalk",
+            rarity = Rarity.COMMON,
+            source = DropSource.SESSION_FINISHED,
+        )
+
+        /** Lowest roll there is: the first band, and its first entry. See `DropRates`. */
+        val ALWAYS_DROPS = DropTableEvaluator(RandomSource { 0 }, listOf(DROPPED_COLLECTIBLE))
+
+        /** Past the last band, which is the table's no-drop remainder. */
+        val NEVER_DROPS = DropTableEvaluator(
+            RandomSource { DropRates.TOTAL_WEIGHT - 1 },
+            listOf(DROPPED_COLLECTIBLE),
+        )
 
         /** Met by the one session these tests finish. */
         val ONE_SESSION_QUEST = Quest(

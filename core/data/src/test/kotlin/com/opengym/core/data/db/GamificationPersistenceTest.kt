@@ -61,6 +61,7 @@ class GamificationPersistenceTest {
             userProgressDao = userProgressDao(),
             achievementDao = achievementDao(),
             sessionXpClaimDao = sessionXpClaimDao(),
+            sessionLootClaimDao = sessionLootClaimDao(),
         )
 
     private fun OpenGymDatabase.inventory() = CollectedItemRepositoryImpl(collectedItemDao())

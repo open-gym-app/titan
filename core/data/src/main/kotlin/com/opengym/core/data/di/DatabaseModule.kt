@@ -11,6 +11,7 @@ import com.opengym.core.data.db.dao.MuscleGroupDao
 import com.opengym.core.data.db.dao.PersonalRecordDao
 import com.opengym.core.data.db.dao.QuestCompletionDao
 import com.opengym.core.data.db.dao.SessionExerciseDao
+import com.opengym.core.data.db.dao.SessionLootClaimDao
 import com.opengym.core.data.db.dao.SessionXpClaimDao
 import com.opengym.core.data.db.dao.TagDao
 import com.opengym.core.data.db.dao.UserProgressDao
@@ -88,6 +89,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideSessionXpClaimDao(db: OpenGymDatabase): SessionXpClaimDao = db.sessionXpClaimDao()
+
+    @Provides
+    @Singleton
+    fun provideSessionLootClaimDao(db: OpenGymDatabase): SessionLootClaimDao = db.sessionLootClaimDao()
 
     @Provides
     @Singleton

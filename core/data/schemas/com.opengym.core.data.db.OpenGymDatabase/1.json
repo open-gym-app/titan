@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "409063748b088b8829f8906c1add3acc",
+    "identityHash": "b47cf5dcfa7e6b2b5a468babaca8cef7",
     "entities": [
       {
         "tableName": "exercise",
@@ -1293,6 +1293,37 @@
         ]
       },
       {
+        "tableName": "session_loot_claim",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`session_id` INTEGER NOT NULL, PRIMARY KEY(`session_id`), FOREIGN KEY(`session_id`) REFERENCES `workout_session`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "sessionId",
+            "columnName": "session_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "session_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "workout_session",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "session_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
         "tableName": "quest_completion",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`quest_id` TEXT NOT NULL, `period_start` INTEGER NOT NULL, `completed_at` INTEGER NOT NULL, PRIMARY KEY(`quest_id`, `period_start`))",
         "fields": [
@@ -1384,7 +1415,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '409063748b088b8829f8906c1add3acc')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b47cf5dcfa7e6b2b5a468babaca8cef7')"
     ]
   }
 }
