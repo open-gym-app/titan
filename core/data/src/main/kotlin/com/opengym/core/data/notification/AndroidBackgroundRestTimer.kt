@@ -13,6 +13,7 @@ import com.opengym.core.domain.notification.NotificationAction
 import com.opengym.core.domain.notification.NotificationCommand
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
+import com.opengym.core.domain.notification.NotificationTarget
 import com.opengym.core.domain.notification.Notifier
 import com.opengym.core.domain.timer.BackgroundRest
 import com.opengym.core.domain.timer.BackgroundRestTimer
@@ -121,7 +122,7 @@ class AndroidBackgroundRestTimer @Inject constructor(
                 actions = listOf(
                     NotificationAction(
                         label = context.getString(R.string.rest_notification_skip),
-                        command = NotificationCommand.SkipRest(rest.sessionId),
+                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.sessionId)),
                     ),
                 ),
             ),
@@ -159,7 +160,7 @@ class AndroidBackgroundRestTimer @Inject constructor(
                 actions = listOf(
                     NotificationAction(
                         label = context.getString(R.string.rest_notification_skip),
-                        command = NotificationCommand.SkipRest(rest.sessionId),
+                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.sessionId)),
                     ),
                 ),
             ),

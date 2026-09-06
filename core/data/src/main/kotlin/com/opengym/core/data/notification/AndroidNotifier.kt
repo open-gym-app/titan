@@ -13,6 +13,7 @@ import com.opengym.core.domain.notification.NotificationAction
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
 import com.opengym.core.domain.notification.NotificationPermission
+import com.opengym.core.domain.notification.NotificationTarget
 import com.opengym.core.domain.notification.Notifier
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -139,23 +140,29 @@ private fun Context.open(deepLink: String): PendingIntent =
     )
 
 /**
- * A press on one of the notification's buttons, as a broadcast this module receives.
+ * A press on one of the notification's buttons.
  *
- * A broadcast rather than an activity, because the whole point of a notification button is that
- * it works without the app being opened — "skip rest" from a lock screen must not drag the user
- * into a screen they did not ask for.
+ * The two targets are two different sorts of pending intent, and the distinction is the
+ * platform's: only an activity may bring the app to the front from the background, and only a
+ * broadcast may do something *without* doing that. A "skip rest" or a "finish now" pressed on a
+ * lock screen must be the second sort — dragging the user into a screen they did not ask for is
+ * the opposite of what the button is for.
  *
  * `FLAG_IMMUTABLE`, as everything here is: nothing outside this app has any business editing
  * the intent, and on Android 12 and up a mutable one without a declared reason is refused
  * outright.
  */
 private fun Context.press(action: NotificationAction): PendingIntent =
-    PendingIntent.getBroadcast(
-        this,
-        NotificationCommands.requestCode(action.command),
-        NotificationCommands.intent(this, action.command),
-        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-    )
+    when (val target = action.target) {
+        is NotificationTarget.Screen -> open(target.deepLink)
+
+        is NotificationTarget.Command -> PendingIntent.getBroadcast(
+            this,
+            NotificationCommands.requestCode(target.command),
+            NotificationCommands.intent(this, target.command),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
 
 /**
  * The one request code every deep link shares.
@@ -200,6 +207,6 @@ internal val NotificationKind.category: String
     get() = when (this) {
         NotificationKind.REMINDERS -> NotificationCompat.CATEGORY_REMINDER
         NotificationKind.REST_TIMER -> NotificationCompat.CATEGORY_ALARM
-        NotificationKind.SESSION -> NotificationCompat.CATEGORY_PROGRESS
+        NotificationKind.SESSION -> NotificationCompat.CATEGORY_REMINDER
         NotificationKind.PROGRESSION -> NotificationCompat.CATEGORY_STATUS
     }

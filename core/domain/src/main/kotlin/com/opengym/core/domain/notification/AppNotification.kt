@@ -45,8 +45,9 @@ package com.opengym.core.domain.notification
  *   rather than re-posted every second: a shade that redraws its own countdown costs nothing,
  *   and a wake-up a second costs the battery of the phone in the user's pocket. Null for the
  *   ordinary case of a notification about something that already happened.
- * @param actions buttons along the bottom, in order. Each is a [NotificationCommand] the app
- *   can carry out with no screen of it alive — see [NotificationAction].
+ * @param actions buttons along the bottom, in order — see [NotificationAction]. Each either
+ *   opens a screen or does something with no screen at all; Android draws at most three, so a
+ *   notification with more than that is asking the user to choose from a list it will truncate.
  */
 data class AppNotification(
     val kind: NotificationKind,
@@ -64,22 +65,49 @@ data class AppNotification(
  * A button on a notification: what it says, and what it does.
  *
  * @param label the word on the button. Resolved text, for the reason [AppNotification.title] is.
- * @param command what pressing it means. A value rather than a callback, because the press can
+ * @param target what pressing it means. A value rather than a callback, because the press can
  *   arrive at a process that has been started from cold to receive it — there is no lambda from
  *   the moment the notification was posted still alive to invoke.
  */
 data class NotificationAction(
     val label: String,
-    val command: NotificationCommand,
+    val target: NotificationTarget,
 )
 
 /**
- * Something a notification's button asks the app to do.
+ * Where a notification's button leads.
+ *
+ * Two kinds, and the split is the platform's rather than a taste: opening a screen and running
+ * something without one are a different sort of pending intent, and only one of them is allowed
+ * to bring the app to the front from the background. A button that means "do this and stay out
+ * of my way" must be the second sort — dragging somebody into a screen they did not ask for is
+ * the opposite of what a notification action is for.
+ */
+sealed interface NotificationTarget {
+
+    /**
+     * Opens a screen, by an `opengym://` URI from
+     * [com.opengym.core.domain.navigation.DeepLinks].
+     */
+    data class Screen(val deepLink: String) : NotificationTarget
+
+    /** Carries out [command] with no screen at all. */
+    data class Command(val command: NotificationCommand) : NotificationTarget
+}
+
+/**
+ * Something a notification's button asks the app to do, with nothing of it on screen.
  *
  * A sealed type rather than a string id and a bag of extras: every one of these has to survive
  * a round trip out to the system and back into a process that may be starting from nothing, and
  * a typed command is the difference between that round trip being checked by the compiler and
  * being checked by whoever notices the button stopped working.
+ *
+ * Each of them is also a thing the user can ask for *twice* — a double tap, or a tap racing the
+ * same action taken in the app — so each must be safe to carry out again. That is the session
+ * lifecycle's own guarantee rather than something the receiver arranges: every one of these goes
+ * through a use case that reads the session's state first and refuses a transition that has
+ * already happened.
  */
 sealed interface NotificationCommand {
 
@@ -88,6 +116,24 @@ sealed interface NotificationCommand {
      * without unlocking.
      */
     data class SkipRest(val sessionId: Long) : NotificationCommand
+
+    /**
+     * Close [sessionId] out with what it has logged, from the idle nudge.
+     *
+     * Not a quiet, special-cased finish: it runs the same pipeline the END button runs, so a
+     * workout closed from a notification earns exactly what its sets earn. Refused, harmlessly,
+     * for a session that is no longer in progress.
+     */
+    data class FinishSession(val sessionId: Long) : NotificationCommand
+
+    /**
+     * Throw [sessionId] away, from the idle nudge.
+     *
+     * Offered in place of [FinishSession] for a session with nothing logged in it — there is no
+     * history worth writing for a workout that never started, and finishing one is refused
+     * anyway.
+     */
+    data class DiscardSession(val sessionId: Long) : NotificationCommand
 }
 
 /** What became of a [AppNotification] handed to a [Notifier]. */

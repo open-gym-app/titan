@@ -7,6 +7,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.notification.NotificationCommand
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
+import com.opengym.core.domain.notification.NotificationTarget
 import com.opengym.core.domain.timer.BackgroundRest
 import com.opengym.core.domain.timer.RestTimerSnapshot
 import kotlinx.coroutines.test.runTest
@@ -85,8 +86,8 @@ class AndroidBackgroundRestTimerTest {
             val note = notifier.showing!!
             assertEquals("opengym://session/active/7", note.deepLink)
             assertEquals(
-                listOf(NotificationCommand.SkipRest(SESSION_ID)),
-                note.actions.map { it.command },
+                listOf(NotificationTarget.Command(NotificationCommand.SkipRest(SESSION_ID))),
+                note.actions.map { it.target },
             )
         }
 

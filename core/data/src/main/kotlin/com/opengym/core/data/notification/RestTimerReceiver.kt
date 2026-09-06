@@ -109,10 +109,13 @@ class RestTimerBroadcasts @Inject constructor(
         when (val command = NotificationCommands.of(intent)) {
             is NotificationCommand.SkipRest -> skip(command.sessionId)
 
-            // A broadcast this build does not understand — a notification posted by a newer
-            // version and left in the shade across an upgrade, say. Nothing to do, and nothing
-            // worth failing over.
-            null -> Unit
+            // Not this receiver's — the session commands go to `IdleSessionReceiver` — or from
+            // a build that knew something this one does not, as a notification left in the
+            // shade across an upgrade would be. Neither is worth failing over.
+            is NotificationCommand.FinishSession,
+            is NotificationCommand.DiscardSession,
+            null,
+            -> Unit
         }
     }
 

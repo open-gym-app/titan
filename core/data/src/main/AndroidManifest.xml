@@ -48,6 +48,15 @@
             android:name=".notification.RestTimerReceiver"
             android:exported="false" />
 
+        <!--
+          The idle-session alarm going off, and either of its buttons being pressed. Same
+          reasoning as above: explicit intents from this app's own pending intents, so nothing
+          outside it has any business sending one.
+        -->
+        <receiver
+            android:name=".notification.IdleSessionReceiver"
+            android:exported="false" />
+
     </application>
 
 </manifest>

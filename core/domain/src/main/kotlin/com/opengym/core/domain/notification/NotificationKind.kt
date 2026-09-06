@@ -31,7 +31,13 @@ enum class NotificationKind {
      */
     REST_TIMER,
 
-    /** "You left a session running." A quiet, ongoing note about unfinished work — #178. */
+    /**
+     * "You left a workout open." The nudge about a session nobody is working out — #178.
+     *
+     * Quiet by construction rather than by choice: the channel is registered at low importance
+     * with no sound, because the user is not waiting on this and an interruption would be a
+     * reminder behaving like an alarm.
+     */
     SESSION,
 
     /** "New level, quest complete, loot dropped." The reward announcements — #179. */

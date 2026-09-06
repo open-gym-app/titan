@@ -12,6 +12,7 @@ import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
 import com.opengym.core.domain.notification.NotificationPermission
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.notification.NotificationTarget
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import io.mockk.every
 import io.mockk.mockk
@@ -183,7 +184,10 @@ class AndroidNotifierTest {
             notifier.post(
                 REST_OVER.copy(
                     actions = listOf(
-                        NotificationAction("Skip rest", NotificationCommand.SkipRest(sessionId = 7)),
+                        NotificationAction(
+                            label = "Skip rest",
+                            target = NotificationTarget.Command(NotificationCommand.SkipRest(sessionId = 7)),
+                        ),
                     ),
                 ),
             )

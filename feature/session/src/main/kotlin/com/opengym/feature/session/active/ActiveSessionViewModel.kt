@@ -25,6 +25,7 @@ import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.session.IdleSessionMonitor
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.time.Clock
@@ -167,6 +168,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
+    private val idleSessionMonitor: IdleSessionMonitor,
     restSkipRequests: RestSkipRequests,
     private val clock: Clock,
     timeSource: TimeSource,
@@ -449,6 +451,16 @@ class ActiveSessionViewModel @Inject constructor(
             ActiveSessionEvent.DiscardConfirmed -> discard()
 
             ActiveSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
+
+            // Nobody needs telling their workout is open while they are looking at it, and
+            // leaving is the moment it becomes worth saying — see `IdleSessionMonitor`. Both
+            // are wrapped: an alarm that could not be set is not worth taking a workout down
+            // for, and neither is one that could not be cancelled.
+            ActiveSessionEvent.ScreenShown ->
+                viewModelScope.launch { runCatching { idleSessionMonitor.disarm() } }
+
+            ActiveSessionEvent.ScreenHidden ->
+                viewModelScope.launch { runCatching { idleSessionMonitor.arm() } }
 
             else -> Unit
         }
@@ -1775,6 +1787,11 @@ class ActiveSessionViewModel @Inject constructor(
                     // taken down by name rather than left to the scope.
                     restTimer.cancel()
                     clearBackgroundRest()
+                    // Awaited rather than launched, unlike everything else on the way out: the
+                    // state update below is what navigates away, and the pop takes
+                    // `viewModelScope` with it — a coroutine started here and not yet run would
+                    // be cancelled, leaving an alarm pending over a workout that is over.
+                    runCatching { idleSessionMonitor.disarm() }
                     screenState.update {
                         it.copy(finishedSessionId = finished.summary.sessionId, isRestSheetOpen = false)
                     }
@@ -1822,6 +1839,8 @@ class ActiveSessionViewModel @Inject constructor(
                     // in the middle of. See [finish].
                     restTimer.cancel()
                     clearBackgroundRest()
+                    // Awaited, as on the way out through the recap. See [finish].
+                    runCatching { idleSessionMonitor.disarm() }
                     screenState.update {
                         it.copy(isDiscarded = true, confirmingDiscard = false, isRestSheetOpen = false)
                     }

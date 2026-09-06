@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
+import com.opengym.core.domain.session.IdleSessionMonitor
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.timer.BackgroundRest
 import com.opengym.core.domain.timer.BackgroundRestTimer
@@ -473,4 +474,30 @@ class FakeRestSkipRequests : RestSkipRequests {
     override suspend fun skip(sessionId: Long) {
         requests.emit(sessionId)
     }
+}
+
+/**
+ * The idle nudge, as a list of what it was told.
+ *
+ * Ordered rather than a pair of counters, because what these tests assert is the *sequence*: an
+ * arm that lands after a disarm is an alarm pending over a workout that is over, and two
+ * counters cannot tell that from the right way round.
+ */
+class FakeIdleSessionMonitor : IdleSessionMonitor {
+
+    /** Every call, oldest first. */
+    val calls = mutableListOf<Call>()
+
+    override suspend fun arm() {
+        calls += Call.ARMED
+    }
+
+    override suspend fun disarm() {
+        calls += Call.DISARMED
+    }
+
+    /** Whether the nudge is pointed at anything, as far as this fake is concerned. */
+    val isArmed: Boolean get() = calls.lastOrNull() == Call.ARMED
+
+    enum class Call { ARMED, DISARMED }
 }
