@@ -28,10 +28,20 @@ class FakeCollectedItemRepository : CollectedItemRepository {
     /** When set, the next [recordDrop] throws it instead of writing. Cleared on use. */
     var failNext: Throwable? = null
 
-    /** Newest first, as the query's `ORDER BY acquired_at DESC, id DESC` returns them. */
+    /**
+     * Newest first, as the query's `ORDER BY acquired_at DESC, id DESC` returns them.
+     *
+     * Sorted rather than simply reversed, because insertion order is not acquisition order: a
+     * cascade re-entered at boot for a session finished yesterday writes an older `acquiredAt`
+     * after a newer one, and a fake that read the list backwards would hand that drop back as
+     * the most recent one.
+     */
     override fun observeRecent(limit: Int): Flow<List<CollectedItem>> {
         require(limit >= 1) { "a recent-drops read must ask for at least one, was $limit" }
-        return drops.map { held -> held.asReversed().take(limit) }
+        return drops.map { held ->
+            held.sortedWith(compareByDescending<CollectedItem> { it.acquiredAt }.thenByDescending { it.id })
+                .take(limit)
+        }
     }
 
     override suspend fun recordDrop(
