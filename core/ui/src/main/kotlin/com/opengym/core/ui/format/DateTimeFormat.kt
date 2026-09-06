@@ -3,9 +3,12 @@ package com.opengym.core.ui.format
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.chrono.IsoChronology
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeFormatterBuilder
 import java.time.format.DecimalStyle
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
@@ -223,6 +226,52 @@ fun weekdayInitial(
     day: DayOfWeek,
     locale: Locale = formattingLocale(),
 ): String = day.getDisplayName(TextStyle.NARROW, locale)
+
+/**
+ * A wall-clock time with no date behind it: `18:00`, `6:00 PM`.
+ *
+ * The twin of [formatTimeOfDay] for a caller holding a [LocalTime] rather than an instant — a
+ * reminder is "18:00 on Mondays", which is a time that has not happened and may happen many
+ * times. Both go through the same localized SHORT style, so the reminder row and a session's
+ * start time are written the same way on the same phone.
+ */
+fun formatTimeOfDay(
+    time: LocalTime,
+    locale: Locale = formattingLocale(),
+): String =
+    DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+        .withLocale(locale)
+        .format(time)
+
+/**
+ * Whether [locale] writes the time on a 24-hour clock.
+ *
+ * Read off the localized SHORT pattern — the same pattern [formatTimeOfDay] renders through —
+ * so a control that *sets* a time and the row that reads it back cannot disagree about whether
+ * there is a meridiem.
+ *
+ * Deliberately not `android.text.format.DateFormat.is24HourFormat(context)`, which reads the
+ * device's own 12/24 setting. That setting would be the better answer if the rest of the app
+ * followed it, and the rest of the app does not: every time in it goes through
+ * `DateTimeFormatter.ofLocalizedTime`, which is locale-derived. One source, consistently
+ * wrong-in-the-same-way, beats two that disagree on the same screen — and unlike the platform
+ * call this needs no `Context`, so a preview and a screenshot can render it.
+ */
+internal fun is24HourClock(locale: Locale = formattingLocale()): Boolean {
+    val pattern = DateTimeFormatterBuilder.getLocalizedDateTimePattern(
+        // Null date style: the time half of the pattern on its own.
+        null,
+        FormatStyle.SHORT,
+        IsoChronology.INSTANCE,
+        locale,
+    )
+    // `a` is the meridiem field and `h`/`K` are the two 12-hour hour fields. A pattern with
+    // none of them counts from 0 or 1 to 23.
+    return TWELVE_HOUR_FIELDS.none(pattern::contains)
+}
+
+/** The pattern letters that mean a clock face runs to twelve. See [is24HourClock]. */
+private val TWELVE_HOUR_FIELDS = listOf('a', 'h', 'K')
 
 /** The first day of the week [locale] writes a calendar from — Monday, Sunday or Saturday. */
 fun firstDayOfWeek(locale: Locale = formattingLocale()): DayOfWeek = WeekFields.of(locale).firstDayOfWeek

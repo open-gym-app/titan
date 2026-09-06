@@ -1,19 +1,26 @@
 package com.opengym.app.navigation
 
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.app.OnNewIntentProvider
 import androidx.core.util.Consumer
+import androidx.navigation.NavDeepLinkRequest
+import androidx.navigation.NavDestination
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.navigation
+import androidx.navigation.navOptions
 import com.opengym.app.BuildConfig
 import com.opengym.feature.history.navigation.ADDED_EXERCISE_ID_KEY
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
@@ -48,6 +55,7 @@ import com.opengym.feature.session.navigation.SessionSummaryDestination
 import com.opengym.feature.session.navigation.sessionGraph
 import com.opengym.feature.session.navigation.sessionSummaryGraph
 import com.opengym.feature.settings.navigation.BackupDestination
+import com.opengym.feature.settings.navigation.ReminderDestination
 import com.opengym.feature.settings.navigation.settingsGraph
 
 /**
@@ -79,32 +87,45 @@ fun OpenGymNavHost(
 ) {
     val navController = appState.navController
 
-    // Deep links that arrive while the app is already running.
+    val activity = LocalActivity.current
+
+    // The link this launch was started by, taken off the activity **before** `NavHost` sees it.
     //
-    // `NavHost` reads the activity's *launch* intent itself, which covers a link tapped with
-    // the app dead. It has no way to see a second one: MainActivity is `singleTop`, so a
-    // notification tapped while the workout is already on screen is delivered to `onNewIntent`
-    // and nothing about the composition changes. Without this, tapping the rest timer's
-    // notification with the app open brings the app forward and lands wherever the user last
-    // was — which for the one case the link exists for is *usually* right and silently wrong
-    // the rest of the time.
+    // `NavHost` hands the launch intent to `NavController.setGraph`, which opens the link with
+    // options of its own: it pops the whole graph *inclusive* and puts the target on an empty
+    // stack. That is the "back reaches an empty task" this app must not do — a reminder tapped
+    // from the lock screen would open the setup flow, and the first back press would leave the
+    // app rather than landing on Home.
+    //
+    // Clearing the data is what stops that: `handleDeepLink` finds nothing to do, and
+    // [openDeepLink] below opens it instead, over the tabs. Read in a `remember` keyed on the
+    // activity so it happens once, on the composition that precedes `NavHost`'s own.
+    val launchLink = remember(activity) { activity?.intent?.consumeDeepLink() }
+
+    // Links that arrive while the app is already running.
+    //
+    // MainActivity is `singleTop`, so a notification tapped while the workout is on screen is
+    // delivered to `onNewIntent` and nothing about the composition changes. Without this,
+    // tapping the rest timer's notification with the app open brings the app forward and lands
+    // wherever the user last was — which for the one case the link exists for is *usually*
+    // right and silently wrong the rest of the time.
     //
     // Registered here rather than in `MainActivity` because this is where the `NavController`
     // is; the activity is reached through `OnNewIntentProvider`, which every `ComponentActivity`
-    // implements.
-    val activity = LocalActivity.current
+    // implements. It goes through the same [openDeepLink] as the launch one, so a link opens
+    // the same screen with the same stack under it however the app happened to be running.
     DisposableEffect(activity, navController) {
         val provider = activity as? OnNewIntentProvider
         val listener = Consumer<Intent> { intent ->
-            // Replace the activity's launch intent as well as handling it now: a config-change
-            // recreation after the app was opened from a notification re-runs `NavHost`'s own
-            // `handleDeepLink` against `getIntent()`, so a stale deep link left there would be
-            // navigated a second time and push a duplicate destination onto the back stack.
-            activity?.intent = intent
-            navController.handleDeepLink(intent)
+            intent.consumeDeepLink()?.let(navController::openDeepLink)
         }
         provider?.addOnNewIntentListener(listener)
         onDispose { provider?.removeOnNewIntentListener(listener) }
+    }
+
+    // After the first composition, so the graph exists to match the link against.
+    LaunchedEffect(launchLink, navController) {
+        launchLink?.let(navController::openDeepLink)
     }
 
     // The exercise picker's answer, on its way back to whoever opened it.
@@ -445,6 +466,11 @@ fun OpenGymNavHost(
             onOpenBackup = {
                 navController.navigate(BackupDestination) { launchSingleTop = true }
             },
+            // A push over settings, which is itself outside the tabs, and single-top for the
+            // same reason as the row above it.
+            onOpenReminders = {
+                navController.navigate(ReminderDestination) { launchSingleTop = true }
+            },
         )
     }
 }
@@ -527,4 +553,66 @@ private fun NavHostController.openSetup(
  */
 private fun NavHostController.exitSessionFlow() {
     popBackStack(SessionGraphDestination, inclusive = true)
+}
+
+/**
+ * The `opengym://` link this intent carries, taken off it so nothing opens it twice.
+ *
+ * Both callers need the *clearing* as much as the value. `NavHost` hands the launch intent to
+ * `NavController.setGraph`, which opens any link on it with options that empty the back stack;
+ * the `onNewIntent` listener would otherwise leave a link on the activity's intent for a later
+ * recomposition to open again. Reading it once and blanking it is what makes [openDeepLink] the
+ * only thing that ever acts on one.
+ *
+ * Null for an ordinary launch — the launcher icon, or a return from the recents list.
+ */
+internal fun Intent.consumeDeepLink(): Uri? {
+    if (action != Intent.ACTION_VIEW) return null
+    return data?.also { data = null }
+}
+
+/**
+ * Open [uri], leaving the tabs underneath it.
+ *
+ * ### Why this exists rather than `NavController.handleDeepLink`
+ *
+ * Because of the options that one uses. It pops the graph *inclusive* and puts the target on an
+ * empty stack, which is right for an app whose deep links are its whole content and wrong for
+ * this one: every link the app posts points at a screen that lives over the tabs, and a first
+ * back press that leaves the app is the "empty task" #39's acceptance criteria rule out. The
+ * `popUpTo` below is not inclusive, so the tabs stay under whatever the link opens and back
+ * reaches Home.
+ *
+ * The `popUpTo` names the graph's **start destination** rather than the tabs graph around it,
+ * and the distinction is the whole of whether this works: popping up to a *graph* leaves the
+ * graph's own entry and pops the destination inside it, so the user lands on a route that draws
+ * nothing. `findStartDestination` walks down to Home, which is the screen that has to be there.
+ *
+ * It also trims anything the user had pushed above Home, which is the right answer for the one
+ * case it changes: a link tapped while the user is three screens deep opens the screen the link
+ * names, rather than opening it on top of a stack they would have to back out of one entry at a
+ * time. Back from a notification means "I am done with this", and the honest destination for
+ * that is where the app opens.
+ *
+ * ### A link this build does not know does nothing
+ *
+ * `navigate` throws for a URI no destination matches — a link from a later version left in the
+ * notification shade across a downgrade, or a hand-typed `adb` command. Nothing is worth
+ * crashing the app the user has just opened, so [NavDestination.hasDeepLink] is asked first and
+ * an unmatched link leaves them where they were.
+ *
+ * `internal` rather than private so `DeepLinkNavigationTest` can drive the running-app path
+ * through it. That is not a seam opened for the test: it is the one funnel both real paths use,
+ * and a test that reached the same behaviour some other way would be testing something else.
+ */
+internal fun NavHostController.openDeepLink(uri: Uri) {
+    if (!graph.hasDeepLink(uri)) return
+
+    navigate(
+        NavDeepLinkRequest.Builder.fromUri(uri).build(),
+        navOptions {
+            popUpTo(graph.findStartDestination().id) { inclusive = false }
+            launchSingleTop = true
+        },
+    )
 }

@@ -7,9 +7,12 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.notification.ReminderPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import kotlinx.coroutines.flow.Flow
 import java.io.IOException
+import java.time.DayOfWeek
+import java.time.LocalTime
 import kotlin.time.Duration
 
 /**
@@ -217,4 +220,41 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setNotificationPermissionRequested()
+
+    /**
+     * Records whether the workout reminder fires on [day], leaving the other six alone.
+     *
+     * One day at a time rather than the whole set, for the reason the note at the top of this
+     * file gives and that [setPlatePairs] gives at length: a caller doing the read-modify-write
+     * itself — read the days off a screen's state, add one, write the set back — drops any
+     * change that has not round-tripped through [observe] yet, and two cells tapped inside the
+     * time one write takes is what tapping out a schedule looks like. The read-modify-write
+     * still happens; it happens inside the store's own transaction, where it is serialised.
+     *
+     * Clearing the last day is allowed and leaves a reminder with nowhere to fire — see
+     * [ReminderPreferences.days]. It does not turn the reminder off; that is
+     * [setNotificationEnabled] with [NotificationKind.REMINDERS], and the two are kept apart so
+     * a user who clears the days to think again does not lose the switch as well.
+     *
+     * **Nothing here reschedules anything.** The alarms are
+     * [com.opengym.core.domain.notification.ReminderScheduler]'s, and the caller that writes
+     * this is the caller that must sync them — a store that scheduled alarms would be a store
+     * that needs an `AlarmManager` to be tested.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setReminderDay(
+        day: DayOfWeek,
+        enabled: Boolean,
+    )
+
+    /**
+     * Records the time of day the workout reminder fires at.
+     *
+     * @throws IllegalArgumentException if [time] carries seconds or nanoseconds — a reminder
+     * is set to the minute, and [ReminderPreferences] refuses to hold anything finer than the
+     * picker can express or the settings row can read back.
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setReminderTime(time: LocalTime)
 }

@@ -34,6 +34,16 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <!--
+      The reboot broadcast, for the alarms behind the workout reminder.
+
+      `AlarmManager` keeps nothing across a restart, so without this a phone rebooted on Sunday
+      night has no Monday reminder and says nothing about it — the setting is still on. The
+      permission is install-time and covers only `BOOT_COMPLETED`; the app-update case
+      (`MY_PACKAGE_REPLACED`) needs no permission and is handled by the same receiver.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application>
 
         <!--
@@ -56,6 +66,34 @@
         <receiver
             android:name=".notification.IdleSessionReceiver"
             android:exported="false" />
+
+        <!--
+          A scheduled reminder falling due. `exported="false"` like the two above: the intent is
+          explicit and comes from this app's own pending intent.
+        -->
+        <receiver
+            android:name=".notification.ReminderReceiver"
+            android:exported="false" />
+
+        <!--
+          The one receiver that is exported, because the two things it listens for are the
+          *system's* broadcasts and an un-exported receiver would never hear them.
+          `android:exported="true"` is therefore required rather than incidental, and the
+          receiver checks the action itself rather than trusting the filter — see BootReceiver.
+
+          `MY_PACKAGE_REPLACED` sits in the same filter and is delivered only to this app.
+          Deliberately not `directBootAware`: the preferences the schedule is read from live in
+          credential-encrypted storage, so there is nothing to read before the first unlock, and
+          `BOOT_COMPLETED` already arrives after it.
+        -->
+        <receiver
+            android:name=".notification.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

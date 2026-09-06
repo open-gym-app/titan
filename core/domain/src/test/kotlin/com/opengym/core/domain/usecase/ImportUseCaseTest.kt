@@ -30,6 +30,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.time.DayOfWeek
+import java.time.LocalTime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -364,6 +366,13 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setNotificationPermissionRequested() =
         record("setNotificationPermissionRequested") { delegate.setNotificationPermissionRequested() }
+
+    override suspend fun setReminderDay(
+        day: DayOfWeek,
+        enabled: Boolean,
+    ) = record("setReminderDay") { delegate.setReminderDay(day, enabled) }
+
+    override suspend fun setReminderTime(time: LocalTime) = record("setReminderTime") { delegate.setReminderTime(time) }
 
     override suspend fun clear() = record("clear") { delegate.clear() }
 

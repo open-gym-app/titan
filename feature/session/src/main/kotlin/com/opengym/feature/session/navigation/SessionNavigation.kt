@@ -35,6 +35,12 @@ data object SessionGraphDestination
 /**
  * Template picking and exercise selection, before the clock starts (#25).
  *
+ * Reachable from outside the app: `opengym://session/new` is where the workout reminder lands
+ * — see [DeepLinks], which is where that URI is written down for both ends of it. A reminder
+ * arriving while a workout is *already* running links to [ActiveSessionDestination] instead,
+ * and that choice is made where the honest answer is, in the notification; this screen is the
+ * fallback either way, and it already offers to pick a running session back up.
+ *
  * The two arguments are entry points rather than state: Home offers its own ways into this
  * flow (#23) and each of them means "open the flow *here*". Route arguments rather than three
  * destinations drawing the same screen, matching [SessionSummaryDestination.historical] and
@@ -174,7 +180,14 @@ fun NavGraphBuilder.sessionGraph(
     onSessionDiscarded: () -> Unit,
 ) {
     navigation<SessionGraphDestination>(startDestination = NewSessionDestination()) {
-        composable<NewSessionDestination> { entry ->
+        composable<NewSessionDestination>(
+            // `opengym://session/new`, where a scheduled reminder lands (#39). Both of this
+            // route's arguments are defaulted, so the base path *is* the whole pattern and
+            // Navigation appends nothing — a reminder opens the flow at the top with no
+            // template and no picker, which is the only entry point that is not somebody's
+            // deliberate choice of one.
+            deepLinks = listOf(navDeepLink<NewSessionDestination>(basePath = DeepLinks.NEW_SESSION)),
+        ) { entry ->
             val destination: NewSessionDestination = entry.toRoute()
 
             NewSessionRoute(

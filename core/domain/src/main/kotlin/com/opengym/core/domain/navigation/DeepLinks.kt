@@ -34,6 +34,17 @@ object DeepLinks {
     const val PROGRESSION_HOST: String = "progression"
 
     /**
+     * Setting a workout up: `opengym://session/new`.
+     *
+     * Where a scheduled reminder lands, and the only one of these URIs that points at a screen
+     * for something that does not exist yet. A constant rather than a function even though
+     * `NewSessionDestination` has two arguments: both are defaulted, so the base path *is* the
+     * whole route, and neither of them is a reminder's to choose — a nudge to train opens the
+     * flow at the top and lets the user say what they are doing.
+     */
+    const val NEW_SESSION: String = "$SCHEME://$SESSION_HOST/new"
+
+    /**
      * The workout in progress, without its id: `opengym://session/active`.
      *
      * Handed to `navDeepLink<ActiveSessionDestination>(basePath = …)`, which appends the

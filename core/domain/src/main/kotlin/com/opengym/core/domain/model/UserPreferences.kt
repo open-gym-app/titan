@@ -1,6 +1,7 @@
 package com.opengym.core.domain.model
 
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.notification.ReminderPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -103,6 +104,17 @@ data class UserPreferences(
      * top-level fields on a class that already has eight.
      */
     val notifications: NotificationPreferences = NotificationPreferences(),
+
+    /**
+     * When the workout reminder fires, if the user has switched it on — see
+     * [ReminderPreferences].
+     *
+     * Beside [notifications] rather than inside it, because it answers a different question:
+     * [notifications] says *whether* each kind may be posted, and this says *when* one
+     * particular kind is due. Folding the schedule into the set of enabled kinds would give
+     * one of the four a shape the other three do not have.
+     */
+    val reminders: ReminderPreferences = ReminderPreferences(),
 ) {
     init {
         // Whole seconds, not merely positive and finite. A rest is set in seconds, shown

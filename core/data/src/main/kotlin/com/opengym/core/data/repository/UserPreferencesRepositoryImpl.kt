@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.data.di.UserPreferencesStore
@@ -15,6 +16,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.notification.ReminderPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -25,6 +27,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
+import java.time.DayOfWeek
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration
@@ -227,6 +231,54 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     }
 
     /**
+     * One day of the reminder's schedule, read-modified-written inside the store's own
+     * transaction — see the interface for why this is not a whole-set setter.
+     *
+     * The stored form is the ISO day numbers joined by a comma: `1,3,5`. Numbers rather than
+     * `DayOfWeek.name`, and this is the one place in the file where the stored form is *not*
+     * an enum's name. `DayOfWeek` is `java.time`'s rather than ours, so its constant names are
+     * fixed by the platform and cannot drift, and the ISO numbering they carry is the same
+     * contract. It also keeps a stored line legible in the order the week runs, which
+     * `FRIDAY,MONDAY,WEDNESDAY` is not.
+     *
+     * Sorted on the way out so one schedule has one spelling. An emptied set writes an **empty
+     * entry** rather than removing the key, and the difference is load-bearing: a missing key
+     * means "never set" and reads back as [ReminderPreferences.DEFAULT_DAYS], where an empty
+     * one means "the user cleared them all" and must survive as that.
+     */
+    override suspend fun setReminderDay(
+        day: DayOfWeek,
+        enabled: Boolean,
+    ) {
+        dataStore.edit { preferences ->
+            // Through the same type-checked read the mapper uses, for the reason
+            // [setPlatePairs] gives: `Preferences.get` casts, and a mistyped entry would throw
+            // out of the middle of a transaction rather than falling back to the default.
+            val stored = preferences.asMap().valueOrNull(UserPreferencesKeys.REMINDER_DAYS)?.toReminderDays()
+                ?: ReminderPreferences().days
+            val days = if (enabled) stored + day else stored - day
+            preferences[UserPreferencesKeys.REMINDER_DAYS] =
+                days.map(DayOfWeek::getValue).sorted().joinToString(REMINDER_DAY_SEPARATOR)
+        }
+    }
+
+    /**
+     * The reminder's time, as minutes past midnight.
+     *
+     * One integer rather than `LocalTime.toString`, for the reason the rest duration is stored
+     * as seconds: it is a quantity, it is compared and formatted rather than parsed, and a
+     * stored `18:00` invites a build that writes `18:00:00` and one that cannot read it back.
+     *
+     * Validated here as well as in [ReminderPreferences], because this is the boundary a
+     * caller reaches without going through the model — the same belt-and-braces
+     * [setDefaultRestDuration] applies to a duration the model also refuses.
+     */
+    override suspend fun setReminderTime(time: LocalTime) {
+        require(time.second == 0 && time.nano == 0) { "a reminder is set to the minute, was $time" }
+        dataStore.edit { it[UserPreferencesKeys.REMINDER_TIME_MINUTES] = time.toSecondOfDay() / SECONDS_PER_MINUTE }
+    }
+
+    /**
      * Empties the store, which is how every setting returns to its default.
      *
      * `clear()` rather than writing each default back, and the difference is what happens to
@@ -280,6 +332,8 @@ private object UserPreferencesKeys {
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
+    val REMINDER_DAYS = stringPreferencesKey("reminder_days_iso")
+    val REMINDER_TIME_MINUTES = intPreferencesKey("reminder_time_minutes")
 
     /**
      * One key per notification kind, spelled out rather than derived from the enum.
@@ -338,6 +392,7 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
         oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
             .toEnumOrDefault(defaults.oneRepMaxFormula),
         notifications = values.toNotificationPreferences(defaults.notifications),
+        reminders = values.toReminderPreferences(defaults.reminders),
     )
 }
 
@@ -377,6 +432,43 @@ private fun Map<Preferences.Key<*>, Any>.toNotificationPreferences(
         permissionRequested = valueOrNull(UserPreferencesKeys.NOTIFICATION_PERMISSION_REQUESTED)
             ?: defaults.permissionRequested,
     )
+
+/**
+ * The reminder schedule, degrading one half at a time.
+ *
+ * The two keys are read against their own defaults rather than as a pair, so a store that has
+ * a time and no days — a write interrupted between the two, or a build that only ever wrote
+ * one of them — keeps the time the user chose instead of reverting the whole schedule.
+ *
+ * An entry that cannot be read as a schedule falls back the way every other key here does. For
+ * the days that means an unparseable *number* is dropped and the rest of the line kept, which
+ * is the same "keep what survived" rule the plate inventory follows; a line that is present
+ * and yields nothing is an empty schedule, because that is what the user cleared it to. It is
+ * only an **absent** key that means "never set" and takes the default.
+ */
+private fun Map<Preferences.Key<*>, Any>.toReminderPreferences(defaults: ReminderPreferences): ReminderPreferences =
+    ReminderPreferences(
+        days = valueOrNull(UserPreferencesKeys.REMINDER_DAYS)?.toReminderDays() ?: defaults.days,
+        timeOfDay = valueOrNull(UserPreferencesKeys.REMINDER_TIME_MINUTES)?.toTimeOfDayOrNull() ?: defaults.timeOfDay,
+    )
+
+/** `1,3,5` as the days it names, skipping anything that is not one of the seven. */
+private fun String.toReminderDays(): Set<DayOfWeek> =
+    split(REMINDER_DAY_SEPARATOR)
+        .mapNotNull { it.toIntOrNull()?.takeIf { day -> day in DayOfWeek.MONDAY.value..DayOfWeek.SUNDAY.value } }
+        .map(DayOfWeek::of)
+        .toSet()
+
+/** Minutes past midnight as a time, or null for a number that is not one of the day's. */
+private fun Int.toTimeOfDayOrNull(): LocalTime? =
+    takeIf { it in 0 until MINUTES_PER_DAY }?.let { LocalTime.ofSecondOfDay(it.toLong() * SECONDS_PER_MINUTE) }
+
+/** The separator in the stored day line. A comma, because the line is a list of numbers. */
+private const val REMINDER_DAY_SEPARATOR = ","
+
+private const val SECONDS_PER_MINUTE = 60
+
+private const val MINUTES_PER_DAY = 24 * 60
 
 /*
  * The plate inventory, as one line of text.

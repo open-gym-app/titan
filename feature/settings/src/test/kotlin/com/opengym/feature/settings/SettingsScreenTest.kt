@@ -23,6 +23,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.notification.ReminderPreferences
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,6 +31,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.time.DayOfWeek
+import java.time.LocalTime
 import java.util.Locale
 import kotlin.time.Duration.Companion.seconds
 
@@ -50,6 +53,7 @@ class SettingsScreenTest {
     private val events = mutableListOf<SettingsEvent>()
     private val openedLinks = mutableListOf<String>()
     private var notificationSettingsOpened = 0
+    private var remindersOpened = 0
 
     /** How many times the Backup & restore row asked to navigate. */
     private var backupOpened = 0
@@ -274,7 +278,6 @@ class SettingsScreenTest {
         // it would pass a screenshot test and tell a blind user nothing.
         composeTestRule.onNodeWithText("Rest timer alerts").performScrollTo().assertIsOn()
         composeTestRule.onNodeWithText("Streaks and rewards").performScrollTo().assertIsOn()
-        composeTestRule.onNodeWithText("Workout reminders").performScrollTo().assertIsOff()
         composeTestRule.onNodeWithText("Unfinished sessions").performScrollTo().assertIsOff()
     }
 
@@ -282,12 +285,58 @@ class SettingsScreenTest {
     fun `flipping a switch reports the kind and the direction`() {
         setContent(UserPreferences(notifications = NotificationPreferences(enabled = emptySet())))
 
-        composeTestRule.onNodeWithText("Workout reminders").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Unfinished sessions").performScrollTo().performClick()
 
         assertEquals(
-            listOf(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true)),
+            listOf(SettingsEvent.Notification.Toggled(NotificationKind.SESSION, true)),
             events,
         )
+    }
+
+    @Test
+    fun `the reminders row reads back the schedule rather than carrying a switch`() =
+        withLocale(Locale.UK) {
+            setContent(
+                UserPreferences(
+                    notifications = NotificationPreferences(enabled = setOf(NotificationKind.REMINDERS)),
+                    reminders = ReminderPreferences(
+                        days = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+                        timeOfDay = LocalTime.of(18, 0),
+                    ),
+                ),
+            )
+
+            // Pinned to a 24-hour locale, because the value is rendered through the same
+            // localized pattern every other time in the app is: on an American phone the same
+            // schedule reads `MWF · 6:00 PM`, and asserting one of the two would be asserting the
+            // machine the test runs on.
+            composeTestRule.onNodeWithText("MWF · 18:00").performScrollTo().assertIsDisplayed()
+        }
+
+    @Test
+    fun `a reminder that is switched off reads as off, whatever is scheduled`() =
+        withLocale(Locale.UK) {
+            // The schedule is still stored and still shown on the screen behind the row. What this
+            // row reports is whether anything is going to arrive.
+            setContent(
+                UserPreferences(
+                    notifications = NotificationPreferences(enabled = emptySet()),
+                    reminders = ReminderPreferences(timeOfDay = LocalTime.of(18, 0)),
+                ),
+            )
+
+            composeTestRule.onNodeWithText("Off").performScrollTo().assertIsDisplayed()
+            composeTestRule.onNodeWithText("MWF · 18:00").assertDoesNotExist()
+        }
+
+    @Test
+    fun `the reminders row opens the reminder screen instead of toggling anything`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Workout reminders").performScrollTo().performClick()
+
+        assertEquals(1, remindersOpened)
+        assertEquals(emptyList<SettingsEvent>(), events)
     }
 
     @Test
@@ -494,6 +543,7 @@ class SettingsScreenTest {
                     onOpenBackup = { backupOpened++ },
                     onOpenLink = openedLinks::add,
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
+                    onOpenReminders = { remindersOpened++ },
                 )
             }
         }

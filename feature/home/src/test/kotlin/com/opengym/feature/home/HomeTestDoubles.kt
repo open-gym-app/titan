@@ -56,8 +56,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlin.time.Duration
 
 /*
@@ -292,6 +294,17 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
 
     override suspend fun setNotificationPermissionRequested() =
         write { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
+
+    override suspend fun setReminderDay(
+        day: DayOfWeek,
+        enabled: Boolean,
+    ) = write {
+        val days = it.reminders.days
+        it.copy(reminders = it.reminders.copy(days = if (enabled) days + day else days - day))
+    }
+
+    override suspend fun setReminderTime(time: LocalTime) =
+        write { it.copy(reminders = it.reminders.copy(timeOfDay = time)) }
 
     override suspend fun clear() = write { UserPreferences() }
 

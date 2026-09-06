@@ -1,12 +1,5 @@
 package com.opengym.feature.settings
 
-import android.content.ActivityNotFoundException
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,8 +33,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -63,12 +54,15 @@ import com.opengym.core.ui.component.detail
 import com.opengym.core.ui.component.detailOrNull
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.format.formatAsClock
+import com.opengym.core.ui.format.formatReminderSchedule
 import com.opengym.core.ui.format.formatWeight
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.component.BarWeightDialog
 import com.opengym.feature.settings.component.ChoiceDialog
 import com.opengym.feature.settings.component.DeleteAllDataDialog
+import com.opengym.feature.settings.component.NotificationPermissionEffects
 import com.opengym.feature.settings.component.SettingsChoice
+import com.opengym.feature.settings.component.startAppNotificationSettings
 import kotlinx.coroutines.flow.filterNotNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -99,6 +93,7 @@ fun SettingsRoute(
     appVersion: String,
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenReminders: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -109,29 +104,13 @@ fun SettingsRoute(
     // Everything platform-shaped about the notification permission lives in the route rather
     // than in `SettingsScreen`, which stays a function of its state: only something attached
     // to an Activity can raise a permission prompt or start an intent, and a stateless screen
-    // that could do either would need one to be tested.
-    val permissionLauncher = rememberLauncherForActivityResult(
-        // The result is ignored on purpose. Granted or refused, the answer worth having is the
-        // system's own — the user may have answered the prompt, or dismissed it, or turned the
-        // switch off in the settings behind it — so the ViewModel goes and asks.
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked) },
+    // that could do either would need one to be tested. The reminder screen does the same
+    // three things, which is why they are one composable — see [NotificationPermissionEffects].
+    NotificationPermissionEffects(
+        request = state.notificationPermissionRequest,
+        onRequestShown = { viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown) },
+        onRecheck = { viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked) },
     )
-
-    LaunchedEffect(state.notificationPermissionRequest) {
-        if (!state.notificationPermissionRequest) return@LaunchedEffect
-        // Cleared before the prompt goes up, not after: `launch` does not suspend until the
-        // user answers, and leaving the flag set would raise a second prompt on the next
-        // recomposition.
-        viewModel.onEvent(SettingsEvent.Notification.PermissionRequestShown)
-        permissionLauncher.launch(POST_NOTIFICATIONS)
-    }
-
-    // The blocked row leads out to the system settings, where the user may change the answer.
-    // Coming back is the only signal that they did — there is no callback for it.
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked)
-    }
 
     SettingsScreen(
         state = state,
@@ -143,53 +122,10 @@ fun SettingsRoute(
         // and `LocalUriHandler` is already the platform seam a test can replace.
         onOpenLink = uriHandler::openUri,
         onOpenNotificationSettings = { context.startAppNotificationSettings() },
+        onOpenReminders = onOpenReminders,
         modifier = modifier,
     )
 }
-
-/**
- * The permission the switches below are backed by, named here because this is the one place
- * the app asks for it.
- *
- * A literal rather than `Manifest.permission.POST_NOTIFICATIONS` would be the mistake; the
- * constant exists on every version, and only *holding* it is Android 13+.
- */
-private const val POST_NOTIFICATIONS = android.Manifest.permission.POST_NOTIFICATIONS
-
-/**
- * Opens Android's own notification settings for this app — the screen where a refused
- * permission can still be granted.
- *
- * `ACTION_APP_NOTIFICATION_SETTINGS` rather than the app's details page, so the user lands on
- * the channels themselves rather than one level up from them. `NEW_TASK` because the launch is
- * from an application context in the general case, and starting an activity without it there
- * throws.
- *
- * Falls back to the app's details page, and then to nothing, because neither screen is
- * guaranteed to exist: a build without the notification settings activity — a stripped AOSP
- * image, a TV or Wear device — resolves nothing, and an unguarded `startActivity` there turns
- * a row the user tapped for help into an `ActivityNotFoundException` that takes the app down.
- */
-private fun Context.startAppNotificationSettings() {
-    val channels = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    if (startActivityOrNothing(channels)) return
-
-    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-        .setData(Uri.fromParts("package", packageName, null))
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    startActivityOrNothing(details)
-}
-
-/** @return whether something opened. Nothing resolved is a dead row, not a crash. */
-private fun Context.startActivityOrNothing(intent: Intent): Boolean =
-    try {
-        startActivity(intent)
-        true
-    } catch (_: ActivityNotFoundException) {
-        false
-    }
 
 /**
  * Every setting the app has, and a row for every one it is going to have.
@@ -212,6 +148,7 @@ fun SettingsScreen(
     onOpenBackup: () -> Unit,
     onOpenLink: (String) -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onOpenReminders: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -253,10 +190,11 @@ fun SettingsScreen(
             WorkoutGroup(state.preferences, onEvent)
             DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
             NotificationsGroup(
-                notifications = state.preferences.notifications,
+                preferences = state.preferences,
                 permission = state.notificationPermission,
                 onEvent = onEvent,
                 onOpenNotificationSettings = onOpenNotificationSettings,
+                onOpenReminders = onOpenReminders,
             )
             AboutGroup(appVersion = appVersion, onOpenLink = onOpenLink)
             Footer()
@@ -368,11 +306,14 @@ private fun DataGroup(
  */
 @Composable
 private fun NotificationsGroup(
-    notifications: NotificationPreferences,
+    preferences: UserPreferences,
     permission: NotificationPermissionState,
     onEvent: (SettingsEvent) -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onOpenReminders: () -> Unit,
 ) {
+    val notifications = preferences.notifications
+
     PreferenceGroup(title = stringResource(R.string.settings_group_notifications)) {
         when (permission) {
             NotificationPermissionState.GRANTED -> Unit
@@ -402,7 +343,26 @@ private fun NotificationsGroup(
             }
         }
 
-        NotificationKind.entries.forEach { kind ->
+        // The reminders row is a way in rather than a switch, and it is the only one of the
+        // four that is: the other three are a notification the app decides to post, where this
+        // one is an appointment the user sets. Its switch, its days and its time live on the
+        // screen behind it — see `ReminderScreen` — and the value column reads the schedule
+        // back the way the wireframe draws it: `MWF · 18:00`.
+        PreferenceRow(
+            label = stringResource(NotificationKind.REMINDERS.labelRes()),
+            value = when {
+                NotificationKind.REMINDERS in notifications -> formatReminderSchedule(preferences.reminders)
+
+                // The switch, not the schedule. A row reading `MWF · 18:00` for a reminder
+                // that is turned off states a time nothing is going to happen at.
+                else -> stringResource(R.string.settings_reminders_off)
+            },
+            supporting = stringResource(NotificationKind.REMINDERS.detailRes()),
+            onClick = onOpenReminders,
+        )
+        HairlineDivider()
+
+        NotificationKind.entries.filterNot { it == NotificationKind.REMINDERS }.forEach { kind ->
             PreferenceSwitchRow(
                 label = stringResource(kind.labelRes()),
                 supporting = stringResource(kind.detailRes()),
@@ -604,6 +564,7 @@ fun SettingsScreenPreview() {
             onOpenBackup = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
+            onOpenReminders = {},
         )
     }
 }
@@ -628,6 +589,7 @@ fun SettingsScreenDarkPreview() {
             onOpenBackup = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
+            onOpenReminders = {},
         )
     }
 }
@@ -654,6 +616,7 @@ fun SettingsScreenDeleteDialogPreview() {
             onOpenBackup = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
+            onOpenReminders = {},
         )
     }
 }
@@ -677,6 +640,7 @@ fun SettingsScreenNotificationsBlockedPreview() {
             onOpenBackup = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
+            onOpenReminders = {},
         )
     }
 }
@@ -693,6 +657,7 @@ fun SettingsScreenThemeDialogPreview() {
             onOpenBackup = {},
             onOpenLink = {},
             onOpenNotificationSettings = {},
+            onOpenReminders = {},
         )
     }
 }
