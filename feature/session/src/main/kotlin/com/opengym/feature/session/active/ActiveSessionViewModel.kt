@@ -203,6 +203,19 @@ class ActiveSessionViewModel @Inject constructor(
     private val screenState = MutableStateFlow(ScreenState())
 
     /**
+     * Orders [IdleSessionMonitor.arm] and [IdleSessionMonitor.disarm] against each other.
+     *
+     * `ScreenShown` and `ScreenHidden` each launch their call independently, and `arm` — unlike
+     * `disarm` — suspends on two store reads before it touches the alarm. A quick hide-then-show
+     * (a recents-app flick, a system dialog stealing focus) can therefore have the *later* call
+     * finish *first*: `disarm` returns immediately while `arm` is still reading, so the alarm
+     * `disarm` just cancelled comes back a moment later. Serializing the two calls behind one
+     * lock, taken before either does anything, keeps them finishing in the order the events
+     * arrived in rather than the order their work happened to complete in.
+     */
+    private val idleSessionMutex = Mutex()
+
+    /**
      * The correction being written for each row, so the next one can queue behind it.
      *
      * Kept here rather than in [ScreenState] because it is not state the screen has a use for —
@@ -457,10 +470,14 @@ class ActiveSessionViewModel @Inject constructor(
             // are wrapped: an alarm that could not be set is not worth taking a workout down
             // for, and neither is one that could not be cancelled.
             ActiveSessionEvent.ScreenShown ->
-                viewModelScope.launch { runCatching { idleSessionMonitor.disarm() } }
+                viewModelScope.launch {
+                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.disarm() } }
+                }
 
             ActiveSessionEvent.ScreenHidden ->
-                viewModelScope.launch { runCatching { idleSessionMonitor.arm() } }
+                viewModelScope.launch {
+                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.arm() } }
+                }
 
             else -> Unit
         }

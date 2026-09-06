@@ -1,6 +1,5 @@
 package com.opengym.core.data.notification
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.opengym.core.data.R
@@ -23,11 +22,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,27 +34,16 @@ import javax.inject.Singleton
  * name is the one shape a test cannot construct with its own doubles, and everything worth
  * testing here is on the other side of it.
  */
-class IdleSessionReceiver : BroadcastReceiver() {
+class IdleSessionReceiver : SuspendingBroadcastReceiver() {
 
-    override fun onReceive(
+    override suspend fun handle(
         context: Context,
         intent: Intent,
     ) {
-        val broadcasts = EntryPointAccessors
+        EntryPointAccessors
             .fromApplication(context.applicationContext, IdleSessionEntryPoint::class.java)
             .idleSessionBroadcasts()
-
-        // `goAsync`, because both paths read a store and one of them closes a workout out
-        // through the whole completion pipeline. Without it the system may kill the process the
-        // instant `onReceive` returns, which for a launch-from-cold is long before any of that.
-        val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-            try {
-                broadcasts.handle(intent)
-            } finally {
-                pending.finish()
-            }
-        }
+            .handle(intent)
     }
 }
 
