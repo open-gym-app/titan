@@ -49,6 +49,11 @@ dependencies {
 
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
+    // The backup round trip asserts on the *document*, not only on the rows it restores: which
+    // keys a table's rows carry, that a null column is written rather than omitted, that a
+    // version this build does not read is refused. All of that needs a JSON parser here.
+    // `:core:domain` keeps its own copy `implementation`, so nothing in `main` sees this.
+    testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.androidx.junit)
     testImplementation(libs.room.testing)
     testImplementation(libs.hilt.android.testing)

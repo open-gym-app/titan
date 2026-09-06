@@ -22,6 +22,16 @@ complexity:
     excludes:
       - '**/test/**'
       - '**/androidTest/**'
+  # A `when` whose every branch is a single expression counts as one decision, not as one per
+  # branch. Detekt's default counts each entry, which makes an *exhaustive dispatch over a
+  # closed set* the most complex thing in the codebase — `BackupTable` has nineteen constants,
+  # so the four `when`s that map a table to its rows, its serializer, its reader and its delete
+  # all score 20 against a limit of 14. The metric is measuring the schema's width, and the risk
+  # it exists to catch is the opposite one: a branch nobody thought of, which the compiler
+  # already refuses on a sealed set. A branch with a *block* body still counts, so a `when` that
+  # grows real logic in it is caught as before.
+  CyclomaticComplexMethod:
+    ignoreSimpleWhenEntries: true
   LongParameterList:
     ignoreDefaultParameters: true
     ignoreDataClasses: true

@@ -35,7 +35,17 @@ private val packageBranchFloor = "0.75".toBigDecimal()
 // one that is most of what it counts: `ActiveSet` alone contributes 72 missed branches,
 // which drags the module's branch ratio from 87% down to 71% on its own. A floor set
 // under that measures how many fields the models have, not how well they are tested.
-private val generatedHeavyPackages = listOf("com.opengym.core.domain.model")
+//
+// `backup.model` is the same case at its worst: it is the export format, so it is twenty-one
+// data classes that between them restate every column of every table — `WorkoutSetRow` alone
+// is seventeen fields — and it holds no behaviour beyond one `when` over the table enum. The
+// backup logic that *does* branch (the validator, the writer, the format, the two use cases)
+// lives in `backup` and `usecase`, which carry the full floor; the split between the two
+// packages is exactly so that the exclusion here cannot cover for it.
+private val generatedHeavyPackages = listOf(
+    "com.opengym.core.domain.model",
+    "com.opengym.core.domain.backup.model",
+)
 
 tasks.test {
     // So a plain `./gradlew test` leaves a readable report behind, rather than only the
