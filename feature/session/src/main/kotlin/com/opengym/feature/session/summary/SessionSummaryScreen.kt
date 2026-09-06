@@ -59,6 +59,7 @@ import com.opengym.feature.session.summary.component.ExerciseBreakdownCard
 import com.opengym.feature.session.summary.component.NewRecordsCard
 import com.opengym.feature.session.summary.component.SessionMusclesCard
 import com.opengym.feature.session.summary.component.StreakSavedCard
+import com.opengym.feature.session.summary.component.SummaryQuestsCard
 import com.opengym.feature.session.summary.component.XpCelebrationCard
 import kotlin.time.Duration.Companion.seconds
 
@@ -283,6 +284,19 @@ private fun SummaryContent(
                 SummarySection {
                     Section(title = stringResource(R.string.summary_xp_earned)) {
                         XpCelebrationCard(celebration = celebration)
+                    }
+                }
+            }
+
+            // Above the milestones: a quest is the thing most sessions that clear anything
+            // clear, and an unlock is the rarer event that reads better after it. Both sit
+            // under the XP card, which is where the total they contributed to is drawn.
+            if (celebration.quests.isNotEmpty()) {
+                item(key = SECTION_QUESTS) {
+                    SummarySection {
+                        Section(title = stringResource(R.string.summary_quests)) {
+                            SummaryQuestsCard(quests = celebration.quests)
+                        }
                     }
                 }
             }
@@ -695,6 +709,7 @@ private const val TEMPLATE_BUTTON_WEIGHT = 1.4f
 private const val SECTION_HEADER = "header"
 private const val SECTION_STATS = "stats"
 private const val SECTION_CELEBRATION = "celebration"
+private const val SECTION_QUESTS = "quests"
 private const val SECTION_ACHIEVEMENTS = "achievements"
 private const val SECTION_STREAK = "streak"
 private const val SECTION_RECORDS = "records"

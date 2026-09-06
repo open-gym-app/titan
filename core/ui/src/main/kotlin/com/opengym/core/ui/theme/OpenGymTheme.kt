@@ -64,6 +64,10 @@ fun OpenGymTheme(
             if (dark) OpenGymDarkSessionChrome else OpenGymLightSessionChrome,
         LocalOpenGymCelebrationColors provides
             if (dark) OpenGymDarkCelebrationColors else OpenGymLightCelebrationColors,
+        LocalOpenGymQuestColors provides
+            if (dark) OpenGymDarkQuestColors else OpenGymLightQuestColors,
+        LocalOpenGymMedalColors provides
+            if (dark) OpenGymDarkMedalColors else OpenGymLightMedalColors,
         // Provided here rather than read at the call sites that animate: it is a
         // content-resolver read, and one provision is what lets a preview or a test render
         // the still version by passing [reducedMotion]. See [LocalReducedMotion].
@@ -142,6 +146,18 @@ object OpenGymTheme {
         @ReadOnlyComposable
         get() = LocalOpenGymCelebrationColors.current
 
+    /** The grounds a quest's mark is drawn on. See [OpenGymQuestColors]. */
+    val quest: OpenGymQuestColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOpenGymQuestColors.current
+
+    /** The metals an achievement medal is struck in. See [OpenGymMedalColors]. */
+    val medal: OpenGymMedalColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalOpenGymMedalColors.current
+
     /** The dark bar the active workout runs under. See [OpenGymSessionChrome]. */
     val sessionChrome: OpenGymSessionChrome
         @Composable
@@ -184,6 +200,16 @@ internal val LocalOpenGymSessionChrome = staticCompositionLocalOf { OpenGymLight
  * unwrapped preview still draws the celebration rather than throwing.
  */
 internal val LocalOpenGymCelebrationColors = staticCompositionLocalOf { OpenGymLightCelebrationColors }
+
+/*
+ * The quest board's marks, on the same terms as the three above.
+ */
+internal val LocalOpenGymQuestColors = staticCompositionLocalOf { OpenGymLightQuestColors }
+
+/*
+ * The achievement metals, on the same terms as the four above.
+ */
+internal val LocalOpenGymMedalColors = staticCompositionLocalOf { OpenGymLightMedalColors }
 
 /**
  * The units every number the user reads is rendered in.

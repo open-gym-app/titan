@@ -369,6 +369,43 @@ class SessionSummaryScreenTest {
     }
 
     @Test
+    fun `names the quests the session cleared, and which deadline they met`() {
+        setContent(previewState(celebration = previewCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            // The cadence line, which sits under the name — scrolling to the lower of the two
+            // brings both into view, where scrolling to the heading brings neither.
+            .performScrollToNode(hasText("This week"))
+
+        // The whole point of the section: before it, clearing a quest was invisible at the
+        // moment it happened and the breakdown said only that something called "quests" had
+        // paid 60 XP. The name and the cadence are what a lifter actually wants told.
+        composeTestRule.onNodeWithText("Train three times").assertIsDisplayed()
+        composeTestRule.onNodeWithText("This week").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the breakdown still carries what the quests paid`() {
+        setContent(previewState(celebration = previewCelebration()))
+
+        composeTestRule.onNode(hasScrollAction())
+            .performScrollToNode(hasContentDescription("135 experience points earned"))
+
+        // The points appear twice on this screen in two roles — a contribution to the total,
+        // and a footnote to the thing that was earned. See `SummaryQuestsCard`.
+        composeTestRule.onNodeWithText("1 quest").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a session that cleared nothing draws no quest section`() {
+        setContent(previewState(celebration = previewLevelUpCelebration()))
+
+        // Absent, not empty. Most sessions clear nothing, and a heading over an empty card
+        // would be the screen listing what the user did not finish.
+        composeTestRule.onAllNodesWithText("QUESTS CLEARED").assertCountEquals(0)
+    }
+
+    @Test
     fun `a session that earned nothing draws no payoff at all`() {
         setContent(previewState(celebration = null))
 

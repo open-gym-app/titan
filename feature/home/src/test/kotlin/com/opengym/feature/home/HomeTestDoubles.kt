@@ -28,6 +28,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.WeeklyTraining
@@ -42,6 +43,7 @@ import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.ProgressionRepository
+import com.opengym.core.domain.repository.QuestRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.TemplateRepository
@@ -304,6 +306,7 @@ class FakeProgressStore(progress: UserProgress? = null) : GamificationRepository
     ): XpAward = unsupported()
 
     override suspend fun unlockedAchievementIds(): Set<String> = unsupported()
+    override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> = unsupported()
     override suspend fun unlockAchievement(
         achievementId: String,
         unlockedAt: Instant,
@@ -437,3 +440,94 @@ fun template(
             sets = List(3) { PlannedSet() },
         )
     }
+
+/*
+ * The three reads the quest board is built from.
+ *
+ * Only the aggregates `QuestProgressUseCase` actually calls are implemented; every other member
+ * throws, on the same terms as the stores above — a stub that quietly returned a plausible value
+ * would let a screen that started reading one pass this suite unnoticed.
+ *
+ * Home's own suite runs with an **empty catalogue** by default, so none of these is touched and
+ * the card is absent. The tests that are about the card pass a catalogue in — see
+ * [HomeViewModelTest].
+ */
+
+/** The session and volume aggregates, as flows a test writes to. */
+class FakeQuestAggregates : ProgressionRepository {
+
+    val sessionsFinished = MutableStateFlow(0)
+    val volumeMilligrams = MutableStateFlow(0L)
+
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = sessionsFinished
+
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = volumeMilligrams
+
+    override fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>> = unused()
+
+    override fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>> = unused()
+
+    override fun hasTrainingHistory(): Flow<Boolean> = unused()
+
+    override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> = unused()
+
+    override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> = unused()
+
+    override fun getFirstTrainingDay(): Flow<LocalDate?> = unused()
+
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> = unused()
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = unused()
+
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unused()
+
+    private fun unused(): Nothing = error("the quest board does not read this")
+}
+
+/** The record tally, as a flow a test writes to. */
+class FakeQuestRecords : PersonalRecordRepository {
+
+    val tally = MutableStateFlow(RecordTally(records = 0, exercises = 0))
+
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> = tally
+
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = unused()
+
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = unused()
+
+    override suspend fun count(): Int = unused()
+
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = unused()
+
+    override fun observeRecordCount(): Flow<Int> = unused()
+
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = unused()
+
+    private fun unused(): Nothing = error("the quest board does not read this")
+}
+
+/** What has been banked this period, as a flow a test writes to. */
+class FakeQuestCompletions : QuestRepository {
+
+    val completed = MutableStateFlow(emptySet<String>())
+
+    override fun observeCompletedIds(periodStart: LocalDate): Flow<Set<String>> = completed
+
+    override suspend fun completeQuest(
+        questId: String,
+        periodStart: LocalDate,
+        completedAt: Instant,
+    ): Boolean = error("the quest board never writes")
+}

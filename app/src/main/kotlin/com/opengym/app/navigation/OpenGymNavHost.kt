@@ -26,6 +26,7 @@ import com.opengym.feature.home.navigation.HomeGraphDestination
 import com.opengym.feature.home.navigation.homeGraph
 import com.opengym.feature.onboarding.navigation.OnboardingDestination
 import com.opengym.feature.onboarding.navigation.onboardingGraph
+import com.opengym.feature.progression.navigation.AchievementsDestination
 import com.opengym.feature.progression.navigation.BodyMeasurementsDestination
 import com.opengym.feature.progression.navigation.ExerciseProgressionDestination
 import com.opengym.feature.progression.navigation.PersonalRecordsDestination
@@ -158,6 +159,10 @@ fun OpenGymNavHost(
                 onStartFromTemplate = { templateId ->
                     navController.openSetup(templateId = templateId)
                 },
+                // A push over the tabs onto the board, the same move the Stats hub's explore
+                // row makes and through the same helper — so back returns to Home with the tab
+                // it was on still selected.
+                onOpenQuestLog = { navController.openProgressionDetail(QuestLogDestination) },
                 // A tab switch and not a push: the sessions the week card counts are the
                 // Sessions tab's own list, and moving the user there through
                 // [OpenGymAppState.navigateToTopLevelDestination] is what leaves that tab on
@@ -386,6 +391,11 @@ fun OpenGymNavHost(
                 navController.navigate(ExerciseProgressionDestination(exerciseId)) {
                     launchSingleTop = true
                 }
+            },
+            // A push onto the quest log rather than a replacement of it: the board is where the
+            // user came from and the back press should put them back on it.
+            onOpenAchievements = {
+                navController.navigate(AchievementsDestination) { launchSingleTop = true }
             },
         )
 

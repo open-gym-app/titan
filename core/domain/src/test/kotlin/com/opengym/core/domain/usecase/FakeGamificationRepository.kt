@@ -4,6 +4,7 @@ import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 
 /**
@@ -66,6 +68,19 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     /** Whether anything has ever been written — the difference between no row and a zeroed one. */
     private var written = false
 
+    /** The best [streakDays] ever reached, as the real row keeps it. */
+    val longestStreak: Int get() = streak.value.longestStreak
+
+    /**
+     * Bumped by every write, so [observeUnlockedAchievements] has something to re-emit on.
+     *
+     * The rest of this fake's state is plain mutable fields, which a `Flow` cannot follow. One
+     * counter over all of them rather than a flow per field: what a consumer needs is to be
+     * woken when *something* changed and to re-read, which is what a real store's table
+     * observer does anyway.
+     */
+    private val revision = MutableStateFlow(0)
+
     /** Sessions whose XP has been claimed — the marker row, such as it is. */
     private val xpClaims = mutableSetOf<Long>()
 
@@ -114,6 +129,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
                 totalXp = totalXp,
                 level = currentLevel,
                 currentStreak = streakDays,
+                longestStreak = longestStreak,
                 lastCountedAt = lastCountedAt,
             )
         }
@@ -127,6 +143,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
         totalXp += delta
         currentLevel = levelForTotalXp(totalXp)
         written = true
+        revision.value++
         return XpAward(
             awarded = delta,
             totalXp = totalXp,
@@ -143,7 +160,11 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     override suspend fun unlockAchievement(
         achievementId: String,
         unlockedAt: Instant,
-    ): Boolean = unlocked.putIfAbsent(achievementId, unlockedAt) == null
+    ): Boolean {
+        val wrote = unlocked.putIfAbsent(achievementId, unlockedAt) == null
+        if (wrote) revision.value++
+        return wrote
+    }
 
     override suspend fun claimSessionXp(sessionId: Long): Boolean = xpClaims.add(sessionId)
 
@@ -154,6 +175,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
         val update = advance(streak.value)
         streak.value = update.state
         written = true
+        revision.value++
         return update
     }
 
@@ -172,5 +194,20 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
             protection = protection,
         )
         written = true
+        revision.value++
     }
+
+    /*
+     * The unlock list (#104), driven off [revision]: it re-reads the map above whenever a write
+     * bumps it, which is as reactive as a store whose state is plain mutable fields can honestly
+     * be. [observeProgress] above is not driven off it — nothing in the domain's own tests
+     * watches the row while it changes, and the two reads are free to differ on that.
+     */
+
+    override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> =
+        revision.map {
+            unlocked
+                .map { (id, at) -> UnlockedAchievement(achievementId = id, unlockedAt = at) }
+                .sortedWith(compareBy({ it.unlockedAt }, { it.achievementId }))
+        }
 }

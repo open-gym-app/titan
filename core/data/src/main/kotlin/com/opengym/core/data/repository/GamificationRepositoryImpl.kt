@@ -10,6 +10,7 @@ import com.opengym.core.data.mapper.toDomain
 import com.opengym.core.domain.model.StreakProtection
 import com.opengym.core.domain.model.StreakState
 import com.opengym.core.domain.model.StreakUpdate
+import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.domain.model.XpAward
 import com.opengym.core.domain.repository.GamificationRepository
@@ -92,6 +93,16 @@ class GamificationRepositoryImpl @Inject constructor(
     }
 
     override suspend fun unlockedAchievementIds(): Set<String> = achievementDao.getAllIdsOnce().toSet()
+
+    override fun observeUnlockedAchievements(): Flow<List<UnlockedAchievement>> =
+        achievementDao.getAll().map { rows ->
+            rows.map { row ->
+                UnlockedAchievement(
+                    achievementId = row.achievementId,
+                    unlockedAt = Instant.ofEpochMilli(row.unlockedAt),
+                )
+            }
+        }
 
     override suspend fun unlockAchievement(
         achievementId: String,

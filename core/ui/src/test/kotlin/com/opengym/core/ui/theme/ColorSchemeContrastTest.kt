@@ -200,6 +200,78 @@ class ColorSchemeContrastTest {
     }
 
     @Test
+    fun `a quest mark's glyph reads on its own ground, in both schemes`() {
+        // `OpenGymQuestColors` claims this check by name. Three tinted grounds, each carrying an
+        // icon and nothing else — so the threshold is the **control** one: an icon is a
+        // non-text graphical object, and holding a 40dp glyph to a body-text ratio would push
+        // every ground to a tint so pale it stopped distinguishing the three metrics at all.
+        //
+        // The ground itself is measured against the card it sits on too. A mark that meets AA
+        // against its glyph and disappears into the surface behind it is a mark nobody can find,
+        // which is the whole job it was added to do.
+        listOf(
+            Triple("light", OpenGymLightQuestColors, OpenGymLightColorScheme),
+            Triple("dark", OpenGymDarkQuestColors, OpenGymDarkColorScheme),
+        ).forEach { (name, quest, scheme) ->
+            val pairs = listOf(
+                Triple("onSessions on sessions", contrast(quest.onSessions, quest.sessions), CONTROL),
+                Triple("onRecords on records", contrast(quest.onRecords, quest.records), CONTROL),
+                Triple("onVolume on volume", contrast(quest.onVolume, quest.volume), CONTROL),
+                Triple("sessions on the card", contrast(quest.sessions, scheme.surfaceContainerLow), MARK),
+                Triple("records on the card", contrast(quest.records, scheme.surfaceContainerLow), MARK),
+                Triple("volume on the card", contrast(quest.volume, scheme.surfaceContainerLow), MARK),
+            )
+            val failures = pairs.mapNotNull { (label, ratio, minimum) ->
+                "%s = %.2f:1 (needs %.1f:1)".format(label, ratio, minimum).takeIf { ratio < minimum }
+            }
+            assertTrue(
+                "$name quest marks fail:\n" + failures.joinToString("\n"),
+                failures.isEmpty(),
+            )
+        }
+    }
+
+    @Test
+    fun `a medal's glyph reads on its own metal, in both schemes`() {
+        // `OpenGymMedalColors` claims this check by name. The threshold is the **control** one for
+        // the same reason the quest marks take it: the glyph struck into a disc is a graphical
+        // object, not a line of text, and holding it to a body-text ratio would force every metal
+        // towards a tone that stopped looking like metal.
+        //
+        // Each metal is measured against the card behind it as well. A gold that meets AA against
+        // its own glyph and dissolves into the surface is a medal nobody can see — and the locked
+        // disc is the one most at risk of it, since it is a neutral on a neutral by design.
+        listOf(
+            Triple("light", OpenGymLightMedalColors, OpenGymLightColorScheme),
+            Triple("dark", OpenGymDarkMedalColors, OpenGymDarkColorScheme),
+        ).forEach { (name, medal, scheme) ->
+            val pairs = listOf(
+                Triple("goldGlyph on goldFace", contrast(medal.goldGlyph, medal.goldFace), CONTROL),
+                Triple("silverGlyph on silverFace", contrast(medal.silverGlyph, medal.silverFace), CONTROL),
+                Triple("bronzeGlyph on bronzeFace", contrast(medal.bronzeGlyph, medal.bronzeFace), CONTROL),
+                Triple("lockedGlyph on lockedFace", contrast(medal.lockedGlyph, medal.lockedFace), CONTROL),
+                // The rim is what gives a disc an edge; a rim that matched its own face would
+                // leave the medal a flat circle with no boundary at all.
+                Triple("goldRim against goldFace", contrast(medal.goldRim, medal.goldFace), MARK),
+                Triple("silverRim against silverFace", contrast(medal.silverRim, medal.silverFace), MARK),
+                Triple("bronzeRim against bronzeFace", contrast(medal.bronzeRim, medal.bronzeFace), MARK),
+                Triple("lockedRim against lockedFace", contrast(medal.lockedRim, medal.lockedFace), MARK),
+                Triple("gold on the card", contrast(medal.goldFace, scheme.surfaceContainerLow), MARK),
+                Triple("silver on the card", contrast(medal.silverFace, scheme.surfaceContainerLow), MARK),
+                Triple("bronze on the card", contrast(medal.bronzeFace, scheme.surfaceContainerLow), MARK),
+                Triple("locked on the card", contrast(medal.lockedFace, scheme.surfaceContainerLow), MARK),
+            )
+            val failures = pairs.mapNotNull { (label, ratio, minimum) ->
+                "%s = %.2f:1 (needs %.1f:1)".format(label, ratio, minimum).takeIf { ratio < minimum }
+            }
+            assertTrue(
+                "$name medals fail:\n" + failures.joinToString("\n"),
+                failures.isEmpty(),
+            )
+        }
+    }
+
+    @Test
     fun `the progress rail's two states are told apart`() {
         // The rail encodes one thing — how much of the workout is behind you — and it encodes
         // it entirely in the difference between these two colours. 3:1 rather than 1.3:1 as
@@ -279,6 +351,17 @@ class ColorSchemeContrastTest {
 
         /** Not a WCAG figure: two big filled shapes next to each other, told apart. */
         const val ADJACENT_PLATES = 1.3
+
+        /**
+         * Not a WCAG figure either: a tinted mark, told apart from the card behind it.
+         *
+         * Lower than [CONTROL] on purpose. A quest mark is not a control and carries no meaning
+         * a reader can lose — the glyph inside it and the row's own words both say what the
+         * quest counts — so what this holds is that the tile reads as a *shape* on the surface
+         * rather than dissolving into it. Pushing it to 3:1 would force three grounds dark
+         * enough to compete with the accent, which is the thing the palette exists not to do.
+         */
+        const val MARK = 1.15
 
         fun contrast(
             a: Color,

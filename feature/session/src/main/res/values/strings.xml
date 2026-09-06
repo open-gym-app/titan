@@ -325,9 +325,27 @@
          needs both counts and the word for what they are. -->
     <string name="summary_streak_protections_left_description">%1$d of %2$d streak protections left this month</string>
     <string name="summary_streak_protections_none_description">None of your %1$d streak protections are left this month</string>
+    <!-- The quests a workout cleared. Named rather than left as a breakdown line: a total
+         says what they paid, and what a lifter wants is which one they finished. -->
+    <string name="summary_quests">Quests cleared</string>
+    <string name="summary_quest_weekly">This week</string>
+    <string name="summary_quest_monthly">This month</string>
+
+    <!-- The quest names, resolved from the domain catalogue's ids. Duplicated from
+         `:feature:progression`, which draws the same seven on the board: a string resource is
+         per module, and a shared one would mean a `:core:ui` that knows the gamification
+         catalogue. The same trade the achievement names below are already under. -->
+    <string name="quest_weekly_sessions">Train three times</string>
+    <string name="quest_weekly_sessions_plus">Train five times</string>
+    <string name="quest_weekly_record">Break a personal record</string>
+    <string name="quest_weekly_volume">Move 20 tonnes</string>
+    <string name="quest_monthly_sessions">Train twelve times</string>
+    <string name="quest_monthly_records">Break five personal records</string>
+    <string name="quest_monthly_volume">Move 80 tonnes</string>
+    <!-- A quest id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="quest_unknown">Quest</string>
 
     <string name="summary_achievements">Achievements unlocked</string>
-    <string name="summary_achievement_badge">New</string>
 
     <!-- The milestone names. The catalogue is `Achievements` in the domain, which is a plain
          Kotlin object with no resources of its own; the words live here so the app stays

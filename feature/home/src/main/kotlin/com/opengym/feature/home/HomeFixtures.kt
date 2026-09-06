@@ -1,14 +1,21 @@
 package com.opengym.feature.home
 
+import com.opengym.core.domain.gamification.Quests
+import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.Quest
+import com.opengym.core.domain.model.QuestMetric
+import com.opengym.core.domain.model.QuestPeriod
+import com.opengym.core.domain.model.QuestProgress
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.ui.component.WeekDay
 import java.time.LocalDate
+import java.time.Month
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -117,15 +124,12 @@ internal val PREVIEW_VOLUME: List<WeeklyVolume> = listOf(
 ).mapIndexed { index, kilograms ->
     WeeklyVolume(
         weekStart = PREVIEW_WEEK_START.minusWeeks((PREVIEW_VOLUME_WEEKS - 1 - index).toLong()),
-        totalVolume = kilograms * MILLIGRAMS_PER_KILOGRAM,
+        totalVolume = kilograms * MILLIGRAMS_PER_KILOGRAM.toLong(),
     )
 }
 
 /** How many weeks [PREVIEW_VOLUME] covers — the same eight the card asks for. */
 private const val PREVIEW_VOLUME_WEEKS = 8
-
-/** What a kilogram is stored as, for writing the fixture above in units a reader recognises. */
-private const val MILLIGRAMS_PER_KILOGRAM = 1_000_000L
 
 /** Four saved templates, in the order the strip draws them. */
 private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(
@@ -144,6 +148,7 @@ internal fun previewHome(resume: ResumeState? = PREVIEW_RESUME) =
         templates = PREVIEW_TEMPLATES,
         recentRecord = PREVIEW_RECORD,
         volume = PREVIEW_VOLUME,
+        quests = PREVIEW_QUESTS,
         isLoading = false,
     )
 
@@ -174,3 +179,39 @@ private fun previewTemplate(
     exerciseCount = exerciseCount,
     estimatedDuration = duration,
 )
+
+/** Wednesday 3 September 2025, so a preview's periods are stable across runs. */
+private val PREVIEW_DAY: LocalDate = LocalDate.of(2025, Month.SEPTEMBER, 3)
+
+/**
+ * A mid-week board: one weekly quest banked, three still open.
+ *
+ * Built from the real catalogue rather than from invented quests, so a preview shows what ships —
+ * the call `populatedQuestLog()` makes in `:feature:progression`. The three open ones are ordered
+ * nearest-first, which is the order the card is given by [HomeViewModel] rather than one it sorts
+ * for itself.
+ */
+private val PREVIEW_QUESTS = QuestSummary(
+    clearedThisPeriod = 1,
+    totalThisPeriod = 4,
+    period = QuestPeriod.WEEKLY,
+    next = listOf(
+        previewQuest(quest = Quests.WEEKLY_SESSIONS_PLUS, progress = 4),
+        previewQuest(quest = Quests.WEEKLY_RECORD, progress = 0),
+        previewQuest(quest = Quests.WEEKLY_VOLUME, progress = kilograms(count = 12_400)),
+    ),
+)
+
+private fun previewQuest(
+    quest: Quest,
+    progress: Long,
+): QuestProgress =
+    QuestProgress(
+        quest = quest,
+        progress = progress,
+        isComplete = false,
+        periodStart = quest.period.startOf(PREVIEW_DAY),
+    )
+
+/** [count] kilograms as the milligrams a [QuestMetric.VOLUME_MILLIGRAMS] figure is stated in. */
+private fun kilograms(count: Int): Long = count * MILLIGRAMS_PER_KILOGRAM.toLong()

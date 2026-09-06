@@ -83,11 +83,11 @@
     <string name="explore_calendar_title">Training calendar</string>
     <string name="explore_calendar_caption">Frequency and rest days</string>
 
-    <!-- ── The drill-downs, until the issues that build them land ────────────────── -->
+    <!-- ── Shared by the drill-downs ─────────────────────────────────────────────── -->
 
+    <!-- The back affordance on all four drill-down bars. Keeps its name from when they shared
+         a placeholder page; it is the one part of that page that outlived it. -->
     <string name="progression_detail_back">Back</string>
-    <string name="progression_detail_glyph">◈</string>
-    <string name="progression_detail_quests_body">Your level, XP, active quests, achievements and loot. Arriving with the quest log.</string>
 
     <!-- ── The per-exercise drill-down (#102) ────────────────────────────────────── -->
 
@@ -276,5 +276,197 @@
     <string name="body_empty_title">Nothing measured yet</string>
     <string name="body_empty_body">Log your weight, your body fat or a tape measurement and this fills in — every field is optional, so one number is a start.</string>
     <string name="body_empty_action">Log a measurement</string>
+    <!-- ─── The quest log (#104) ──────────────────────────────────────────────────────── -->
+
+    <string name="quest_log_title">Quest log</string>
+
+    <!-- The level hero. %1$d is the level; the ring reads the fraction out separately. -->
+    <string name="quest_log_level">Level %1$d</string>
+    <string name="quest_log_level_short">LVL</string>
+    <!-- %1$s and %2$s are formatted XP figures: "2,140 / 3,000 XP". -->
+    <string name="quest_log_level_xp">%1$s / %2$s XP</string>
+    <!-- The lifetime total, under the ring. %1$s is a formatted figure. -->
+    <string name="quest_log_total_xp">%1$s XP earned in total</string>
+
+    <!-- The ranks. A level past the last band keeps the last rank; see `LevelTitles`. -->
+    <string name="level_title_newcomer">Newcomer</string>
+    <string name="level_title_regular">Regular</string>
+    <string name="level_title_iron_disciple">Iron Disciple</string>
+    <string name="level_title_steel_forged">Steel Forged</string>
+    <string name="level_title_relentless">Relentless</string>
+    <string name="level_title_unbreakable">Unbreakable</string>
+    <string name="level_title_legend">Legend</string>
+    <!-- A rank id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="level_title_unknown">Lifter</string>
+
+    <!-- The streak. -->
+    <string name="quest_log_streak_heading">Streak</string>
+    <plurals name="quest_log_streak_days">
+        <item quantity="one">%1$d day</item>
+        <item quantity="other">%1$d days</item>
+    </plurals>
+    <plurals name="quest_log_streak_best">
+        <item quantity="one">Best: %1$d day</item>
+        <item quantity="other">Best: %1$d days</item>
+    </plurals>
+    <!-- Shown instead of the best when the current run *is* the best: "5 days, best 5" reads as
+         a coincidence, this reads as the thing it is. -->
+    <string name="quest_log_streak_personal_best">Your best yet</string>
+    <string name="quest_log_streak_none">No streak yet</string>
+    <string name="quest_log_streak_none_body">Train today to start one.</string>
+
+    <!-- ─── Streak protection (#106) ──────────────────────────────────────────────────────
+         The monthly allowance that covers a missed day, drawn under the streak as marks plus
+         this line. Spent automatically, which is why the label says what they do rather than
+         inviting the user to use one. -->
+
+    <string name="quest_log_protection_label">Streak protection</string>
+    <plurals name="quest_log_protection_left">
+        <item quantity="one">%1$d left this month</item>
+        <item quantity="other">%1$d left this month</item>
+    </plurals>
+    <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
+         in words: a user with none left is one bad day from losing the streak above. -->
+    <string name="quest_log_protection_none">None left this month</string>
+    <!-- What a screen reader hears in place of the marks, which are the visible half of a
+         sentence whose other half is the line beside them. %1$d is what is left, %2$d the
+         month's allowance — a reader who cannot see three marks with one greyed out needs both
+         counts and the word for what they are. -->
+    <string name="quest_log_protection_description">%1$d of %2$d streak protections left this month</string>
+    <string name="quest_log_protection_none_description">None of your %1$d streak protections are left this month</string>
+
+    <!-- ─── Recent loot (#170) ────────────────────────────────────────────────────────────
+         The latest drops. The section is absent rather than empty for a user with none — see
+         QuestLogUiState.showsLoot. -->
+
+    <string name="quest_log_loot_heading">Recent loot</string>
+    <!-- A drop's second line: "Finished workout · 24 Apr". -->
+    <string name="quest_log_loot_meta">%1$s · %2$s</string>
+    <!-- The whole row as one phrase, since it is one fact: "Pet egg, Rare, Finished workout,
+         24 Apr" — the same comma-separated shape a quest row is announced in. -->
+    <string name="quest_log_loot_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <!-- The collectible names, resolved from the domain catalogue's ids. -->
+    <string name="collectible_chalk_block">Chalk block</string>
+    <string name="collectible_spare_collar">Spare collar</string>
+    <string name="collectible_worn_wristband">Worn wristband</string>
+    <string name="collectible_lifting_strap">Lifting strap</string>
+    <string name="collectible_steel_shaker">Steel shaker</string>
+    <string name="collectible_pet_egg">Pet egg</string>
+    <string name="collectible_golden_dumbbell">Golden dumbbell</string>
+    <string name="collectible_iron_crown">Iron crown</string>
+    <!-- A drop this build has no catalogue entry for — a newer version's collectible, or one
+         renamed without a migration. Still the user's loot, so it is named rather than hidden. -->
+    <string name="collectible_unknown">Unknown find</string>
+
+    <!-- The rarity bands. Ordered commonest first in the domain; the words carry the band and
+         the accent marks only whether it is one worth noticing. -->
+    <string name="rarity_common">Common</string>
+    <string name="rarity_uncommon">Uncommon</string>
+    <string name="rarity_rare">Rare</string>
+    <string name="rarity_epic">Epic</string>
+    <string name="rarity_legendary">Legendary</string>
+    <!-- The band of a drop with no catalogue entry behind it. -->
+    <string name="rarity_unknown">Unknown</string>
+
+    <!-- What produced a drop, resolved from DropSource.key. Short because it shares a line with
+         the date under a name and a rarity badge, and the date is the half that gets ellipsed
+         away if this grows — "From a finished workout · 2 Sep" does not fit a 360dp screen. -->
+    <string name="drop_source_session_finished">Finished workout</string>
+    <string name="drop_source_unknown">Earlier find</string>
+
+    <!-- The quest board. -->
+    <string name="quest_log_quests_heading">Quests</string>
+    <string name="quest_log_quests_weekly">This week</string>
+    <string name="quest_log_quests_monthly">This month</string>
+    <!-- Progress as the user reads it: "2 / 4". Not localised as a fraction — it is two counts
+         with a separator, not a ratio to be spoken. -->
+    <string name="quest_log_quest_progress">%1$s / %2$s</string>
+    <string name="quest_log_quest_reward">+%1$d XP</string>
+    <string name="quest_log_quest_done">Done</string>
+    <!-- One sentence per quest row, for a screen reader. -->
+    <string name="quest_log_quest_description">%1$s, %2$s, worth %3$d XP</string>
+    <string name="quest_log_quest_description_done">%1$s, complete, earned %2$d XP</string>
+    <string name="quest_log_quests_empty">No quests in this build</string>
+    <!-- The score heading a cadence: %1$d cleared of %2$d. -->
+    <string name="quest_log_period_score">%1$d/%2$d</string>
+    <!-- What is still reachable this period. Phrased as what is left rather than what is done:
+         the board exists to be acted on. -->
+    <string name="quest_log_period_remaining">%1$d XP still to earn</string>
+    <string name="quest_log_period_all_clear">Every quest cleared. Strong period.</string>
+    <!-- One sentence per cadence card: name, cleared, total, XP left. -->
+    <plurals name="quest_log_period_description">
+        <item quantity="one">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
+        <item quantity="other">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
+    </plurals>
+    <!-- The same card once nothing is left, which the plural above would read out as "0 XP still
+         to earn" — the same fact phrased as a disappointment. Matches what the card draws. -->
+    <string name="quest_log_period_description_cleared">%1$s, %2$d of %3$d cleared. Every quest cleared.</string>
+    <!-- The label over the quests already banked this period. -->
+    <string name="quest_log_quests_cleared">Cleared · %1$d</string>
+
+    <!-- The quests themselves. Weekly first, then monthly, matching `Quests.ALL`. -->
+    <string name="quest_weekly_sessions">Train three times</string>
+    <string name="quest_weekly_sessions_plus">Train five times</string>
+    <string name="quest_weekly_record">Break a personal record</string>
+    <string name="quest_weekly_volume">Move 20 tonnes</string>
+    <string name="quest_monthly_sessions">Train twelve times</string>
+    <string name="quest_monthly_records">Break five personal records</string>
+    <string name="quest_monthly_volume">Move 80 tonnes</string>
+    <!-- A quest id with no string behind it, which only a build mid-rename can produce. -->
+    <string name="quest_unknown">Quest</string>
+
+    <!-- The row on the quest board that leads to the achievements. -->
+    <string name="quest_log_achievements_heading">Achievements</string>
+    <!-- %1$d held, %2$d in the catalogue. -->
+    <string name="quest_log_achievements_count">%1$d / %2$d</string>
+    <string name="quest_log_achievements_link_caption">Everything you have unlocked</string>
+    <string name="quest_log_achievements_link_description">Achievements, %1$d of %2$d unlocked</string>
+
+    <!-- The achievements screen (#104). Their own surface: an achievement is a permanent
+         one-shot unlock, a quest resets — see `AchievementsUiState`. -->
+    <string name="achievements_title">Achievements</string>
+    <string name="achievements_heading">Milestones</string>
+    <string name="achievements_caption">Permanent unlocks. Unlike quests, they never reset.</string>
+    <!-- %1$d held, %2$d in the catalogue. -->
+    <string name="achievements_count">%1$d / %2$d</string>
+    <string name="achievements_locked">Locked</string>
+    <!-- A locked medal says only that it is locked — #104 is explicit that it reveals nothing
+         about how to unlock it beyond what the catalogue already defines. -->
+    <string name="achievements_locked_description">%1$s, locked</string>
+    <!-- %1$s the milestone, %2$s its metal. The metal is spoken because the medal draws the
+         rank in colour, and a rank carried by colour alone is a rank half the readers lose. -->
+    <string name="achievements_unlocked_description">%1$s, unlocked, %2$s medal</string>
+    <!-- The same, once a date is known: %3$s is when it was earned. -->
+    <string name="achievements_unlocked_dated_description">%1$s, unlocked, %2$s medal, earned %3$s</string>
+    <!-- What tapping a held medal does. Spoken as the action, never drawn: the medal replays its
+         strike, which is a flourish and not a state change worth labelling on screen. -->
+    <string name="achievements_replay_action">Strike it again</string>
+
+    <!-- The hero: the medal most recently earned, struck again as the screen opens. -->
+    <string name="achievements_latest_eyebrow">Latest medal</string>
+    <!-- %1$s the metal, %2$s the date it was struck. -->
+    <string name="achievements_latest_meta">%1$s · Earned %2$s</string>
+    <!-- The hero before there is one. Not an error and not an empty state: the shelf below is
+         full of what there is to earn, and this names the one action that strikes the first. -->
+    <string name="achievements_none_title">No medals yet</string>
+    <string name="achievements_none_body">Finish a workout and the first one is struck.</string>
+
+    <!-- The metals, which rank a milestone against the others measured the same way. -->
+    <string name="achievements_tier_gold">Gold</string>
+    <string name="achievements_tier_silver">Silver</string>
+    <string name="achievements_tier_bronze">Bronze</string>
+
+    <!-- The achievement names, resolved from the domain catalogue's ids. Duplicated from
+         `:feature:session`, which draws the same milestones on the session summary: a string
+         resource is per module, and a shared one would mean a `:core:ui` that knows the
+         gamification catalogue. -->
+    <string name="achievement_first_session">First workout logged</string>
+    <string name="achievement_ten_sessions">Ten workouts in</string>
+    <string name="achievement_hundred_sessions">One hundred workouts</string>
+    <string name="achievement_seven_day_streak">A week-long streak</string>
+    <string name="achievement_thirty_day_streak">A month-long streak</string>
+    <string name="achievement_first_record">First personal record</string>
+    <string name="achievement_unknown">Achievement</string>
 
 </resources>

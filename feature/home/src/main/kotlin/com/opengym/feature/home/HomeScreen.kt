@@ -27,6 +27,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.DiscardSessionDialog
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.home.component.LevelHeader
+import com.opengym.feature.home.component.QuestSection
 import com.opengym.feature.home.component.QuickStartSection
 import com.opengym.feature.home.component.RecentRecordSection
 import com.opengym.feature.home.component.ResumeCard
@@ -61,6 +62,7 @@ fun HomeRoute(
     onOpenSessions: () -> Unit,
     onOpenRecords: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenQuestLog: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -76,6 +78,7 @@ fun HomeRoute(
         onOpenSessions = onOpenSessions,
         onOpenRecords = onOpenRecords,
         onOpenStats = onOpenStats,
+        onOpenQuestLog = onOpenQuestLog,
         modifier = modifier,
     )
 }
@@ -116,6 +119,7 @@ fun HomeScreen(
     onOpenSessions: () -> Unit,
     onOpenRecords: () -> Unit,
     onOpenStats: () -> Unit,
+    onOpenQuestLog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -171,6 +175,12 @@ fun HomeScreen(
                 }
                 state.week?.let { week ->
                     WeekSection(week = week, onClick = onOpenSessions)
+                }
+                // Under the week and above the ways in: the week says what has happened, the
+                // quests say what is left, and the buttons are what to do about it. Absent for
+                // a user with nothing on the board — see [QuestSummary].
+                state.quests?.let { quests ->
+                    QuestSection(quests = quests, onClick = onOpenQuestLog)
                 }
 
                 QuickStartSection(
@@ -317,5 +327,6 @@ private fun HomePreview(state: HomeUiState) {
         onOpenSessions = {},
         onOpenRecords = {},
         onOpenStats = {},
+        onOpenQuestLog = {},
     )
 }
