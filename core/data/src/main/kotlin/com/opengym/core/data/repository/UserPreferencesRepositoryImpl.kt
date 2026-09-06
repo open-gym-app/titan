@@ -188,11 +188,15 @@ class UserPreferencesRepositoryImpl @Inject constructor(
     ) {
         val edited = PlateStock(weight = weight, pairs = pairs)
         dataStore.edit { preferences ->
-            val stored = preferences[UserPreferencesKeys.PLATE_INVENTORY]?.toPlateInventoryOrNull()
+            // Through the same type-checked read the mapper uses: `Preferences.get` casts, and
+            // an entry of the wrong type here would throw out of the middle of a transaction
+            // rather than degrading to the default the way every read in this file does.
+            val values = preferences.asMap()
+            val stored = values.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull()
             // The rack the editor was showing them: an unset key draws the standard set, so an
             // edit against it has to start from that same set rather than from an empty rack.
             val current = stored ?: PlateInventory.defaultFor(
-                preferences[UserPreferencesKeys.UNIT_SYSTEM].toEnumOrDefault(UserPreferences().unitSystem),
+                values.valueOrNull(UserPreferencesKeys.UNIT_SYSTEM).toEnumOrDefault(UserPreferences().unitSystem),
             )
             preferences[UserPreferencesKeys.PLATE_INVENTORY] =
                 current.withPairs(edited.weight, edited.pairs).encode()
@@ -315,21 +319,25 @@ private object UserPreferencesKeys {
  */
 private fun toUserPreferences(stored: Preferences): UserPreferences {
     val defaults = UserPreferences()
+    // `asMap()` builds a fresh map every call, so it is taken once for the dozen reads below
+    // rather than once per read: this runs on every emission of a flow the app root and every
+    // screen collect, and per-key copying makes a linear lookup quadratic in the store's size.
+    val values = stored.asMap()
     return UserPreferences(
-        unitSystem = stored.valueOrNull(UserPreferencesKeys.UNIT_SYSTEM).toEnumOrDefault(defaults.unitSystem),
-        theme = stored.valueOrNull(UserPreferencesKeys.THEME).toEnumOrDefault(defaults.theme),
-        defaultRestDuration = stored.valueOrNull(UserPreferencesKeys.REST_DURATION_SECONDS)
+        unitSystem = values.valueOrNull(UserPreferencesKeys.UNIT_SYSTEM).toEnumOrDefault(defaults.unitSystem),
+        theme = values.valueOrNull(UserPreferencesKeys.THEME).toEnumOrDefault(defaults.theme),
+        defaultRestDuration = values.valueOrNull(UserPreferencesKeys.REST_DURATION_SECONDS)
             ?.seconds
             ?.takeIf { it > Duration.ZERO && it.isFinite() }
             ?: defaults.defaultRestDuration,
-        barWeight = stored.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)?.takeIf { it > 0 } ?: defaults.barWeight,
-        plateInventory = stored.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
-        trainingGoal = stored.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
-        onboardingCompleted = stored.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
+        barWeight = values.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)?.takeIf { it > 0 } ?: defaults.barWeight,
+        plateInventory = values.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
+        trainingGoal = values.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
+        onboardingCompleted = values.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
             ?: defaults.onboardingCompleted,
-        oneRepMaxFormula = stored.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
+        oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
             .toEnumOrDefault(defaults.oneRepMaxFormula),
-        notifications = stored.toNotificationPreferences(defaults.notifications),
+        notifications = values.toNotificationPreferences(defaults.notifications),
     )
 }
 
@@ -341,10 +349,14 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
  * throws where every caller here expects a null. See [toUserPreferences] for why throwing is
  * not survivable on this path.
  *
+ * Over the map rather than over [Preferences] itself, because `Preferences.asMap` copies: the
+ * caller takes the snapshot once and reads every key out of it.
+ *
  * `reified`, and that is the whole of it: an unreified `as? T` over an erased type parameter
  * checks nothing at all and defers the same [ClassCastException] to whoever uses the result.
  */
-private inline fun <reified T : Any> Preferences.valueOrNull(key: Preferences.Key<T>): T? = asMap()[key] as? T
+private inline fun <reified T : Any> Map<Preferences.Key<*>, Any>.valueOrNull(key: Preferences.Key<T>): T? =
+    this[key] as? T
 
 /**
  * The notification flags, one key at a time, defaulting per kind.
@@ -355,7 +367,9 @@ private inline fun <reified T : Any> Preferences.valueOrNull(key: Preferences.Ke
  * key against its own default keeps a store that is half-written readable as exactly the half
  * that was written.
  */
-private fun Preferences.toNotificationPreferences(defaults: NotificationPreferences): NotificationPreferences =
+private fun Map<Preferences.Key<*>, Any>.toNotificationPreferences(
+    defaults: NotificationPreferences,
+): NotificationPreferences =
     NotificationPreferences(
         enabled = NotificationKind.entries
             .filter { kind -> valueOrNull(UserPreferencesKeys.notificationKey(kind)) ?: (kind in defaults) }

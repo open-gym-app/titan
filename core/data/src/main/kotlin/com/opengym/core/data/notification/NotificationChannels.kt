@@ -60,10 +60,12 @@ class NotificationChannels @Inject constructor(@param:ApplicationContext private
             .setDescription(context.getString(kind.descriptionRes))
             .setVibrationEnabled(kind == NotificationKind.REST_TIMER)
             .apply {
-                // Every channel is given a sound explicitly, including the one that is given
-                // none: a channel left alone takes the device's default notification tone
-                // whatever its importance, so "silent" has to be said rather than implied by
-                // being quiet.
+                // Only the two channels that want something other than the device's default
+                // notification tone say so. A channel left alone takes that tone whatever its
+                // importance, which is right for the two nudges and wrong for both of the
+                // others — so "silent" has to be said rather than implied by being quiet, and
+                // the rest timer's alarm routing has to be said rather than assumed from its
+                // category.
                 when (kind) {
                     NotificationKind.REST_TIMER -> setSound(
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),

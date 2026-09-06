@@ -1,7 +1,9 @@
 package com.opengym.feature.settings
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -140,7 +142,7 @@ fun SettingsRoute(
         // Not hoisted to `:app`: opening a URL is not navigation, it leaves the app entirely,
         // and `LocalUriHandler` is already the platform seam a test can replace.
         onOpenLink = uriHandler::openUri,
-        onOpenNotificationSettings = { context.startActivity(appNotificationSettingsIntent(context)) },
+        onOpenNotificationSettings = { context.startAppNotificationSettings() },
         modifier = modifier,
     )
 }
@@ -155,18 +157,39 @@ fun SettingsRoute(
 private const val POST_NOTIFICATIONS = android.Manifest.permission.POST_NOTIFICATIONS
 
 /**
- * Android's own notification settings for this app — the screen where a refused permission can
- * still be granted.
+ * Opens Android's own notification settings for this app — the screen where a refused
+ * permission can still be granted.
  *
  * `ACTION_APP_NOTIFICATION_SETTINGS` rather than the app's details page, so the user lands on
  * the channels themselves rather than one level up from them. `NEW_TASK` because the launch is
  * from an application context in the general case, and starting an activity without it there
  * throws.
+ *
+ * Falls back to the app's details page, and then to nothing, because neither screen is
+ * guaranteed to exist: a build without the notification settings activity — a stripped AOSP
+ * image, a TV or Wear device — resolves nothing, and an unguarded `startActivity` there turns
+ * a row the user tapped for help into an `ActivityNotFoundException` that takes the app down.
  */
-private fun appNotificationSettingsIntent(context: Context): Intent =
-    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+private fun Context.startAppNotificationSettings() {
+    val channels = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    if (startActivityOrNothing(channels)) return
+
+    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+        .setData(Uri.fromParts("package", packageName, null))
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    startActivityOrNothing(details)
+}
+
+/** @return whether something opened. Nothing resolved is a dead row, not a crash. */
+private fun Context.startActivityOrNothing(intent: Intent): Boolean =
+    try {
+        startActivity(intent)
+        true
+    } catch (_: ActivityNotFoundException) {
+        false
+    }
 
 /**
  * Every setting the app has, and a row for every one it is going to have.

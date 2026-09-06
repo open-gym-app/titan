@@ -115,12 +115,5 @@ class FakeNotificationPermission(
     override val isRuntimePermissionRequired: Boolean = true,
 ) : NotificationPermission {
 
-    /** How many times the state has been read, so a test can assert nothing polls it. */
-    var reads: Int = 0
-        private set
-
-    override fun areNotificationsAllowed(): Boolean {
-        reads++
-        return allowed
-    }
+    override fun areNotificationsAllowed(): Boolean = allowed
 }

@@ -186,9 +186,21 @@ class SettingsViewModel @Inject constructor(
      * on their next tap is how an app teaches somebody to refuse.
      */
     private suspend fun maybeRequestNotificationPermission() {
+        // A prompt already waiting for the screen to raise it is the answer to this question,
+        // and the store cannot say so yet — two switches turned on inside one write's round
+        // trip would otherwise both decide to ask, and the second launch is a prompt Android
+        // discards while the first is still up.
+        if (screenState.value.notificationPermissionRequest) return
+
         val alreadyRequested = userPreferencesRepository.observe().first().notifications.permissionRequested
+        // Published rather than only consulted: this is a fresh read of a value that changes
+        // outside the app, and dropping it would leave the group rendering "Blocked" over a
+        // permission the user has just granted somewhere else until the next resume.
+        val allowed = notificationPermission.areNotificationsAllowed()
+        screenState.update { it.copy(notificationsAllowed = allowed) }
+
         val state = NotificationPermissionState.of(
-            allowed = notificationPermission.areNotificationsAllowed(),
+            allowed = allowed,
             runtimePermissionRequired = notificationPermission.isRuntimePermissionRequired,
             alreadyRequested = alreadyRequested,
         )
