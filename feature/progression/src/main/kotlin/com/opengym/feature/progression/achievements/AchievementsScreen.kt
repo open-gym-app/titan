@@ -100,6 +100,13 @@ internal fun AchievementsScreen(
             )
         },
     ) { innerPadding ->
+        // Nothing at all until the read lands, the way the summary and the dashboard wait. The
+        // catalogue is a compile-time constant but *what is held* is not, and drawing early
+        // tells a user with five medals that they have none, at `0 / 0`, for the frame the query
+        // takes. Worse than the flicker: the hero is keyed on the milestone, so the correction
+        // strikes a medal earned weeks ago as though it had just been won.
+        if (state.isLoading) return@Scaffold
+
         Column(
             modifier = Modifier
                 .fillMaxSize()

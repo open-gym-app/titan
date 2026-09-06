@@ -149,6 +149,19 @@ class AchievementsScreenTest {
             .assertIsDisplayed()
     }
 
+    @Test
+    fun `nothing is drawn until the read has answered`() {
+        // The default state, which is what the ViewModel emits before the store answers. A
+        // shelf drawn from it would tell a lifter holding five medals that they hold none, and
+        // then strike their newest one again on the way to the truth. See `AchievementsScreen`.
+        setContent(AchievementsUiState())
+
+        composeTestRule.onNodeWithText("0 / 0").assertDoesNotExist()
+        composeTestRule
+            .onNodeWithContentDescription("No medals yet. Finish a workout and the first one is struck.")
+            .assertDoesNotExist()
+    }
+
     private fun setContent(state: AchievementsUiState) {
         composeTestRule.setContent {
             OpenGymTheme {

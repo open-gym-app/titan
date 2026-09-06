@@ -16,6 +16,7 @@ import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.QuestProgressUseCase
 import com.opengym.feature.progression.stats.FakeProgressionStore
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -43,6 +44,7 @@ import java.time.ZoneOffset
  * Collected in a launched job rather than read off `.value`, because `WhileSubscribed` produces
  * nothing at all without a subscriber — the same shape `PersonalRecordsViewModelTest` uses.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class QuestLogViewModelTest {
 
     @Before

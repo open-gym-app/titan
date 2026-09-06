@@ -38,6 +38,15 @@ import javax.inject.Inject
  * the only thing read from it here. They are separate reads in the store for that reason and are
  * kept separate here rather than one being derived from the other.
  *
+ * ### Whether the streak is still running is this class's judgement to make
+ *
+ * The stored count is only recomputed when a session finishes, so the row still reads twelve for
+ * a user who last trained in March — see [com.opengym.core.domain.model.UserProgress.currentStreak],
+ * which says in as many words that a surface drawing the figure unasked is a surface that lies.
+ * [StreakCalculator.isLive] against the clock is that ask, and it travels as
+ * [QuestLogUiState.isStreakLive] rather than by zeroing the count, because the card still has the
+ * best-ever run to draw. `HomeViewModel.liveStreak` asks the same question of the same figure.
+ *
  * ### The allowance is replenished for the month being drawn in
  *
  * `observeStreak` hands back the allowance **as stored**, which in a month the user has not yet
@@ -92,16 +101,22 @@ class QuestLogViewModel @Inject constructor(
             collectedItems.observeRecent(RECENT_LOOT_LIMIT),
         ) { progress, unlocked, quests, streak, loot ->
             val heldIds = unlocked.mapTo(mutableSetOf()) { it.achievementId }
+            val now = Instant.ofEpochMilli(clock.nowMillis())
             QuestLogUiState(
                 progress = progress,
                 levelTitle = LevelTitles.forLevel(progress.level),
                 quests = quests,
+                // The one judgement over the stored row this screen has to make for itself: the
+                // count is only recomputed when a session finishes, so it stands at twelve for as
+                // long as nobody trains. See `StreakCalculator.isLive`, and `HomeViewModel`, which
+                // asks the same question of the same figure.
+                isStreakLive = StreakCalculator.isLive(lastCountedAt = progress.lastCountedAt, asOf = now),
                 // Counted against the catalogue rather than taken as the row count: an id on
                 // file matching no entry — a milestone renamed without a migration — would
                 // otherwise push the numerator past the denominator.
                 achievementsUnlocked = Achievements.ALL.count { it.id in heldIds },
                 achievementsTotal = Achievements.ALL.size,
-                protection = streak.protection.replenishedFor(currentStreakMonth()),
+                protection = streak.protection.replenishedFor(streakMonthOf(now)),
                 // Resolved against the catalogue here rather than in the row, so a drop this
                 // build cannot name is dealt with once. It is kept rather than filtered out:
                 // it is loot the user holds, and a list that silently shortened would be a
@@ -117,9 +132,8 @@ class QuestLogViewModel @Inject constructor(
             initialValue = QuestLogUiState(),
         )
 
-    /** Now, as a month in the zone the streak and its allowance are both judged in. */
-    private fun currentStreakMonth(): YearMonth =
-        YearMonth.from(Instant.ofEpochMilli(clock.nowMillis()).atZone(StreakCalculator.STREAK_ZONE))
+    /** [at] as a month in the zone the streak and its allowance are both judged in. */
+    private fun streakMonthOf(at: Instant): YearMonth = YearMonth.from(at.atZone(StreakCalculator.STREAK_ZONE))
 
     private companion object {
 

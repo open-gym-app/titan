@@ -78,14 +78,26 @@ internal fun QuestPeriodHeader(
     modifier: Modifier = Modifier,
 ) {
     val heading = board.period.heading()
-    val spoken = pluralStringResource(
-        R.plurals.quest_log_period_description,
-        board.remainingXp,
-        heading,
-        board.clearedCount,
-        board.total,
-        board.remainingXp,
-    )
+    // The spoken line says what the visible one says. A cleared cadence read out as "0 XP still
+    // to earn" would be the same fact phrased as a disappointment — the exact reading the
+    // subtitle below switches away from, and a reader who cannot see it deserves the switch too.
+    val spoken = if (board.isCleared) {
+        stringResource(
+            R.string.quest_log_period_description_cleared,
+            heading,
+            board.clearedCount,
+            board.total,
+        )
+    } else {
+        pluralStringResource(
+            R.plurals.quest_log_period_description,
+            board.remainingXp,
+            heading,
+            board.clearedCount,
+            board.total,
+            board.remainingXp,
+        )
+    }
 
     val reducedMotion = LocalReducedMotion.current
 

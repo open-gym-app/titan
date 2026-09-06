@@ -23,9 +23,10 @@ import com.opengym.core.domain.model.UserProgress
  * what the screen should draw for that user, and #104 asks for it explicitly. [isLoading] is the
  * separate question, and only two things on this screen actually depend on it; see below.
  *
- * @property progress the level, XP and streak. Defaulted to a fresh install's zeroes, which the
- *   store's own read guarantees rather than approximates — see
- *   `GamificationRepository.observeProgress`, which never emits null.
+ * @property progress the level, XP and streak. Defaulted to a fresh install's zeroes, which is
+ *   what the ViewModel substitutes for the **null** `GamificationRepository.observeProgress`
+ *   emits while nothing has ever been banked — see `QuestLogViewModel`, so no card below has to
+ *   know the row is written on the first award rather than seeded.
  * @property levelTitle the rank [progress]'s level carries, from the catalogue.
  * @property quests the board, in catalogue order, each with its progress and whether it is
  *   banked. Empty only before the first emission: the catalogue always has entries, so a user
@@ -44,6 +45,12 @@ import com.opengym.core.domain.model.UserProgress
  *   describes it. Empty for a user who has never been dropped anything, which is a real state
  *   rather than a loading one — see [showsLoot], which is what decides whether the section is
  *   drawn at all.
+ * @property isStreakLive whether [UserProgress.currentStreak] is **still running**, judged by the
+ *   ViewModel against the clock — see [com.opengym.core.domain.gamification.StreakCalculator.isLive].
+ *   The stored count is only ever recomputed when a session finishes, so the row keeps its figure
+ *   while the days pass; drawing it unasked tells a lifter who last trained in March that they are
+ *   twelve days deep, which is the one thing a streak must never do. Defaulted to true because a
+ *   fixture or a preview states the streak it wants drawn rather than a moment to judge it at.
  * @property isLoading the first emission has not landed. What it gates is narrow — see
  *   [showsEmptyQuests] — because most of this screen is correct at its defaults.
  */
@@ -56,6 +63,7 @@ data class QuestLogUiState(
     val achievementsTotal: Int = 0,
     val protection: StreakProtection = StreakProtection(),
     val recentLoot: List<LootDrop> = emptyList(),
+    val isStreakLive: Boolean = true,
     val isLoading: Boolean = true,
 ) {
 
@@ -93,6 +101,10 @@ data class QuestLogUiState(
      * Drawn rather than the two figures alone, because "5 days, best 5" reads as a coincidence
      * and "5 days — your best yet" reads as the thing it is. False at zero: a user who has never
      * trained is not tying a record.
+     *
+     * A question about the *stored* run, so it says nothing about whether that run is still
+     * going — [isStreakLive] is what decides whether the count is drawn at all, and a lapsed
+     * streak never reaches the badge this answers for.
      */
     val isOnBestStreak: Boolean
         get() = progress.currentStreak > 0 && progress.currentStreak >= progress.longestStreak

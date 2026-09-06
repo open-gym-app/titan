@@ -150,6 +150,7 @@ internal fun QuestLogScreen(
 
             StreakCard(
                 progress = state.progress,
+                isLive = state.isStreakLive,
                 isOnBest = state.isOnBestStreak,
                 protection = state.protection,
             )

@@ -42,6 +42,12 @@ import com.opengym.feature.progression.R
  * than a `0` next to a flame, which is a number that reads as a failure rather than as a
  * beginning.
  *
+ * A **lapsed** run reads the same way, and that is the point of [isLive]. The stored count is only
+ * recomputed when a session finishes, so it stands at twelve for as long as nobody trains; drawing
+ * it unasked would tell somebody who last trained in March that they are twelve days deep, which
+ * is the one thing a streak must never do. The ViewModel asks the clock — see
+ * `StreakCalculator.isLive` — and this card draws the invitation for a run that is over.
+ *
  * ### "Your best yet" replaces the best, rather than sitting beside it
  *
  * `5 days · Best: 5 days` is two figures the reader has to compare to find the fact. When the
@@ -67,6 +73,7 @@ import com.opengym.feature.progression.R
 @Composable
 internal fun StreakCard(
     progress: UserProgress,
+    isLive: Boolean,
     isOnBest: Boolean,
     protection: StreakProtection,
     modifier: Modifier = Modifier,
@@ -80,7 +87,7 @@ internal fun StreakCard(
         ) {
             Eyebrow(text = stringResource(R.string.quest_log_streak_heading))
 
-            if (progress.currentStreak == 0) {
+            if (progress.currentStreak == 0 || !isLive) {
                 NoStreak()
             } else {
                 Streak(progress = progress, isOnBest = isOnBest)

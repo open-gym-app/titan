@@ -430,6 +430,12 @@ class HomeViewModel @Inject constructor(
      * things they have not done. That is #110's "no chart of zeros" rule, and [HomeUiState]
      * applies it to every card here. The first logged set moves a quest, and the card appears.
      *
+     * The test is over the **whole** board rather than over the cadence being drawn, and that
+     * distinction is the difference between "this user has never started" and "it is Monday". A
+     * weekly board resets to zero at every period boundary, so asking only the weekly rows would
+     * take the card away from an established lifter every Monday morning — at exactly the moment
+     * a full week's XP is still reachable and the reminder is worth the most.
+     *
      * ### Nearest first, cut to three
      *
      * The open quests are ordered by how close they are to done, because the question a
@@ -438,8 +444,8 @@ class HomeViewModel @Inject constructor(
      */
     private fun List<QuestProgress>.summarise(): QuestSummary? {
         val period = map { it.quest.period }.minByOrNull { it.ordinal } ?: return null
+        if (none { it.isComplete || it.progress > 0 }) return null
         val rows = filter { it.quest.period == period }
-        if (rows.none { it.isComplete || it.progress > 0 }) return null
 
         return QuestSummary(
             clearedThisPeriod = rows.count { it.isComplete },

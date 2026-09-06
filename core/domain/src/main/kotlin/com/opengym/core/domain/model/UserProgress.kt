@@ -57,8 +57,15 @@ data class UserProgress(
     val lastCountedAt: Instant? = null,
 ) {
 
-    /** Points earned since [level] was reached — the numerator of the ring. */
-    val xpIntoLevel: Long get() = totalXp - XpCalculator.xpRequiredForLevel(level)
+    /**
+     * Points earned since [level] was reached — the numerator of the ring.
+     *
+     * Clamped into its own denominator for the reason [levelFraction] is: [level] and [totalXp]
+     * are two stored values that a retuned curve can put out of step, and a screen printing the
+     * raw subtraction would draw `-1,160 / 200 XP` under a wreath that is correctly empty.
+     */
+    val xpIntoLevel: Long
+        get() = (totalXp - XpCalculator.xpRequiredForLevel(level)).coerceIn(0, xpForNextLevel.coerceAtLeast(0))
 
     /** Points from [level] to the next — the denominator of the ring. */
     val xpForNextLevel: Long

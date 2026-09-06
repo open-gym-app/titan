@@ -22,8 +22,10 @@ import com.opengym.core.domain.model.Achievement
  * @property entries every achievement in the catalogue, marked held or not, in catalogue order.
  *   Never filtered: a shelf that hid the locked ones would tell a new user there is nothing to
  *   earn. Empty only before the first emission.
- * @property isLoading the first read has not answered. Gates the empty-catalogue claim and
- *   nothing else — a user who holds none is a real, correct state and draws six locked cells.
+ * @property isLoading the first read has not answered, and the screen draws nothing while it is
+ *   set. Distinct from holding none, which is a real, correct state that draws six locked cells:
+ *   the two are indistinguishable in [entries] alone, and the screen must not make the second
+ *   claim — a `0 / 6` and a "no medals yet" — of a user it has not yet heard about.
  */
 @Immutable
 data class AchievementsUiState(

@@ -399,6 +399,9 @@
         <item quantity="one">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
         <item quantity="other">%1$s, %2$d of %3$d cleared, %4$d XP still to earn</item>
     </plurals>
+    <!-- The same card once nothing is left, which the plural above would read out as "0 XP still
+         to earn" — the same fact phrased as a disappointment. Matches what the card draws. -->
+    <string name="quest_log_period_description_cleared">%1$s, %2$d of %3$d cleared. Every quest cleared.</string>
     <!-- The label over the quests already banked this period. -->
     <string name="quest_log_quests_cleared">Cleared · %1$d</string>
 

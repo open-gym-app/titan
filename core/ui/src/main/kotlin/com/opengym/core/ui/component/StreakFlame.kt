@@ -43,7 +43,9 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *
  * Not a slower flicker: a user who has asked the system for no animation is asking for a picture,
  * and this becomes one. The flame is still drawn, because the *shape* carries the meaning and only
- * the movement is decoration. See [LocalReducedMotion].
+ * the movement is decoration. The infinite transition is not merely ignored but never started —
+ * a perpetual animation nobody reads still keeps a screen from ever going idle. See
+ * [LocalReducedMotion].
  *
  * **It says nothing.** No content description: the row it sits in already speaks the streak as one
  * sentence, and "flame" read out before "12 days" is a decoration announcing itself.
@@ -57,30 +59,40 @@ fun StreakFlame(
 ) {
     val reducedMotion = LocalReducedMotion.current
 
-    // Two beats at slightly different periods, so the flame never repeats a shape it has just
-    // shown. One would read as a pulse; two read as a flicker.
-    val transition = rememberInfiniteTransition(label = "streak flame")
-    val stretch by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = STRETCH_PEAK,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = STRETCH_MILLIS),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "stretch",
-    )
-    val lean by transition.animateFloat(
-        initialValue = -LEAN_PEAK,
-        targetValue = LEAN_PEAK,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = LEAN_MILLIS),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "lean",
-    )
+    val scaleY: Float
+    val skew: Float
+    if (reducedMotion) {
+        // Not merely held at its resting values: the transition is never *started*. An infinite
+        // animation nobody reads still asks the runtime for a frame forever, which is a screen
+        // that cannot go idle — the opposite of what a user who turned animations off asked for.
+        scaleY = 1f
+        skew = 0f
+    } else {
+        // Two beats at slightly different periods, so the flame never repeats a shape it has just
+        // shown. One would read as a pulse; two read as a flicker.
+        val transition = rememberInfiniteTransition(label = "streak flame")
+        val stretch by transition.animateFloat(
+            initialValue = 1f,
+            targetValue = STRETCH_PEAK,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = STRETCH_MILLIS),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "stretch",
+        )
+        val lean by transition.animateFloat(
+            initialValue = -LEAN_PEAK,
+            targetValue = LEAN_PEAK,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = LEAN_MILLIS),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "lean",
+        )
 
-    val scaleY = if (reducedMotion) 1f else stretch
-    val skew = if (reducedMotion) 0f else lean
+        scaleY = stretch
+        skew = lean
+    }
 
     Canvas(
         modifier = modifier
