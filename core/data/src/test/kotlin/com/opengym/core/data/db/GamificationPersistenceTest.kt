@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.data.db.entity.UserProgressEntity
+import com.opengym.core.data.repository.CollectedItemRepositoryImpl
 import com.opengym.core.data.repository.GamificationRepositoryImpl
 import com.opengym.core.domain.gamification.StreakCalculator
 import com.opengym.core.domain.gamification.XpCalculator
@@ -61,6 +62,8 @@ class GamificationPersistenceTest {
             achievementDao = achievementDao(),
             sessionXpClaimDao = sessionXpClaimDao(),
         )
+
+    private fun OpenGymDatabase.inventory() = CollectedItemRepositoryImpl(collectedItemDao())
 
     @After
     fun deleteDatabaseFile() {
@@ -138,6 +141,25 @@ class GamificationPersistenceTest {
             assertEquals(YearMonth.of(2026, 3), state.protection.period)
             assertEquals(FRIDAY_EVENING, state.protection.lastConsumedAt)
             assertEquals(4, state.currentStreak)
+        }
+
+    @Test
+    fun `collected items are still held on the next launch, duplicates included`() =
+        runBlocking {
+            val first = open()
+            first.inventory().recordDrop("pet_egg", "session_finished", MONDAY_EVENING)
+            first.inventory().recordDrop("pet_egg", "new_gym_explored", TUESDAY_EVENING)
+            first.close()
+
+            val reopened = open()
+            val held = reopened.inventory().observeRecent(limit = 10).first()
+            reopened.close()
+
+            // Two rows rather than one: an inventory that came back deduplicated would be a
+            // set, and the second pull of a collectible would be lost on every restart.
+            assertEquals(listOf("pet_egg", "pet_egg"), held.map { it.collectibleId })
+            assertEquals(listOf("new_gym_explored", "session_finished"), held.map { it.source })
+            assertEquals(listOf(TUESDAY_EVENING, MONDAY_EVENING), held.map { it.acquiredAt })
         }
 
     @Test

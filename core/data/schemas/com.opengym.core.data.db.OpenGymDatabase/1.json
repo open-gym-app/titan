@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "8c0d9d8a9c59b352c77085577f46a890",
+    "identityHash": "409063748b088b8829f8906c1add3acc",
     "entities": [
       {
         "tableName": "exercise",
@@ -1333,11 +1333,58 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_quest_completion_period_start` ON `${TABLE_NAME}` (`period_start`)"
           }
         ]
+      },
+      {
+        "tableName": "collected_item",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `collectible_id` TEXT NOT NULL, `source` TEXT NOT NULL, `acquired_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "collectibleId",
+            "columnName": "collectible_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "acquiredAt",
+            "columnName": "acquired_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_collected_item_acquired_at",
+            "unique": false,
+            "columnNames": [
+              "acquired_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_collected_item_acquired_at` ON `${TABLE_NAME}` (`acquired_at`)"
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8c0d9d8a9c59b352c77085577f46a890')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '409063748b088b8829f8906c1add3acc')"
     ]
   }
 }

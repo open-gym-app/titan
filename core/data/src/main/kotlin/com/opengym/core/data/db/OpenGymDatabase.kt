@@ -7,6 +7,7 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.opengym.core.data.db.dao.AchievementDao
 import com.opengym.core.data.db.dao.BodyMeasurementDao
+import com.opengym.core.data.db.dao.CollectedItemDao
 import com.opengym.core.data.db.dao.ExerciseDao
 import com.opengym.core.data.db.dao.LocalDataDao
 import com.opengym.core.data.db.dao.MuscleGroupDao
@@ -21,6 +22,7 @@ import com.opengym.core.data.db.dao.WorkoutSetDao
 import com.opengym.core.data.db.dao.WorkoutTemplateDao
 import com.opengym.core.data.db.entity.AchievementEntity
 import com.opengym.core.data.db.entity.BodyMeasurementEntity
+import com.opengym.core.data.db.entity.CollectedItemEntity
 import com.opengym.core.data.db.entity.ExerciseEntity
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
@@ -56,6 +58,7 @@ import com.opengym.core.data.db.entity.WorkoutTemplateEntity
         AchievementEntity::class,
         SessionXpClaimEntity::class,
         QuestCompletionEntity::class,
+        CollectedItemEntity::class,
     ],
     version = 1,
     exportSchema = true,
@@ -76,6 +79,7 @@ abstract class OpenGymDatabase : RoomDatabase() {
     abstract fun achievementDao(): AchievementDao
     abstract fun sessionXpClaimDao(): SessionXpClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
+    abstract fun collectedItemDao(): CollectedItemDao
 
     companion object {
         val foreignKeysCallback = object : Callback() {
