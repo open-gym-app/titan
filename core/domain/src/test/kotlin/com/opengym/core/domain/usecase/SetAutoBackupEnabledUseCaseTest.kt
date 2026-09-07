@@ -79,6 +79,27 @@ class SetAutoBackupEnabledUseCaseTest {
             assertEquals(0, scheduler.scheduleCount)
             assertEquals(0, scheduler.cancelCount)
         }
+
+    /**
+     * The other half failing, which is the same forbidden state from the other side.
+     *
+     * A `schedule()` that throws with the flag already stored leaves a switch the screen draws
+     * *on* — it is drawn from the store — under a sentence saying the switch could not be
+     * saved, over work nobody enqueued. The flag goes back, so the screen tells the truth.
+     */
+    @Test
+    fun `a scheduler that refuses the work puts the flag back`() =
+        runTest {
+            scheduler.failsToSchedule = true
+
+            val failure = runCatching { setEnabled(true) }.exceptionOrNull()
+
+            assertTrue(
+                "the scheduler's failure should reach the caller, was $failure",
+                failure is IllegalStateException,
+            )
+            assertFalse("the toggle must not read on with nothing enqueued", repository.current.enabled)
+        }
 }
 
 /** The schedule store, in memory, with the one failure the interface documents. */
@@ -91,6 +112,8 @@ private class FakeAutoBackupRepository : AutoBackupRepository {
     val current: AutoBackupSchedule get() = schedule.value
 
     override fun observe(): Flow<AutoBackupSchedule> = schedule.asStateFlow()
+
+    override suspend fun read(): AutoBackupSchedule = schedule.value
 
     override suspend fun setEnabled(enabled: Boolean) = write { it.copy(enabled = enabled) }
 
@@ -113,7 +136,11 @@ private class RecordingScheduler : AutoBackupScheduler {
     var cancelCount = 0
         private set
 
+    /** When true, [schedule] throws the way `WorkManager.getInstance` does on a broken process. */
+    var failsToSchedule = false
+
     override fun schedule() {
+        if (failsToSchedule) error("WorkManager is not initialised")
         scheduleCount++
     }
 

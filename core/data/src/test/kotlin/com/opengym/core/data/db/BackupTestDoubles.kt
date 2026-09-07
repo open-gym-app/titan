@@ -85,9 +85,17 @@ class InMemoryAutoBackupRepository(enabled: Boolean = true) : AutoBackupReposito
     /** When true, every write throws the way a store with no space does. */
     var writesFail = false
 
+    /** When true, [read] throws the way a damaged or unreadable store does. */
+    var readsFail = false
+
     val current: AutoBackupSchedule get() = schedule.value
 
     override fun observe(): Flow<AutoBackupSchedule> = schedule
+
+    override suspend fun read(): AutoBackupSchedule {
+        if (readsFail) throw IOException("the auto-backup store is not readable")
+        return schedule.value
+    }
 
     override suspend fun setEnabled(enabled: Boolean) = write { it.copy(enabled = enabled) }
 

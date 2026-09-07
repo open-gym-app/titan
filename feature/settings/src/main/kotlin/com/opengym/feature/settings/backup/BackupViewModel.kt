@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -89,6 +91,18 @@ class BackupViewModel @Inject constructor(
 
     /** What the screen owns, as opposed to what the store does. */
     private val screenState = MutableStateFlow(ScreenState())
+
+    /**
+     * One toggle write at a time, in the order the taps arrived.
+     *
+     * Not the [BackupUiState.isBusy] guard — this is the one control that stays live during an
+     * export — but a lock over itself. Two taps land as two coroutines, and unserialized their
+     * two halves interleave: "on" storing the flag, "off" storing it back, "on" enqueueing and
+     * "off" cancelling leaves the store reading on with the work cancelled, which is exactly
+     * the state [SetAutoBackupEnabledUseCase] exists to make unreachable. A fair mutex makes
+     * the second tap wait for the first and win, which is what a user tapping twice means.
+     */
+    private val autoBackupWrites = Mutex()
 
     val uiState: StateFlow<BackupUiState> = combine(
         localDataRepository.observeFootprint(),
@@ -220,7 +234,13 @@ class BackupViewModel @Inject constructor(
             // Broad for the reason the export's is: `IOException` is what the store documents,
             // but a scheduler that refuses the work is a platform failure of a shape this build
             // cannot enumerate, and both leave the user looking at the same unchanged switch.
-            val failed = runCatching { setAutoBackupEnabled(enabled) }.fold(
+            //
+            // On IO, not on the main thread: the first `schedule()` of a process is what
+            // initialises WorkManager, which opens its own database — a control that is
+            // reachable mid-export has no business blocking the frame that draws it.
+            val failed = runCatching {
+                autoBackupWrites.withLock { withContext(Dispatchers.IO) { setAutoBackupEnabled(enabled) } }
+            }.fold(
                 onSuccess = { false },
                 onFailure = { failure ->
                     if (failure is CancellationException) throw failure

@@ -14,16 +14,36 @@ import java.io.IOException
  *
  * - **Current value on subscribe**, so `observe().first()` returns on a fresh install rather
  *   than suspending until something writes.
- * - **Never empty, never failing.** Every field of [AutoBackupSchedule] has a default and the
- *   flow falls back to it — a store that cannot be read is an off toggle, which is the safe
- *   answer for a thing that writes files.
+ * - **Never empty, never failing.** Every field of [AutoBackupSchedule] has a default and
+ *   [observe] falls back to it — a store that cannot be read draws the toggle off, which is the
+ *   safe answer for a screen that has to put something under the heading.
+ * - **Except for [read].** The same value, fetched once, allowed to throw. "Off" and "I could
+ *   not tell" are the same frame to a screen and opposite instructions to the worker, so the
+ *   caller that acts on the flag gets a read that distinguishes them.
  * - **Writes throw.** [setEnabled] in particular: a toggle that moved and did not save is a
  *   user who thinks their data is being copied every week.
  */
 interface AutoBackupRepository {
 
-    /** The schedule as it stands, re-emitted on every change. */
+    /** The schedule as it stands, re-emitted on every change. Never fails; see [read]. */
     fun observe(): Flow<AutoBackupSchedule>
+
+    /**
+     * The schedule as it stands, read once — failing rather than falling back.
+     *
+     * For the caller that *acts* on the flag instead of drawing it, which today is the weekly
+     * worker. To it, "the user turned it off" and "the store could not be read" are the
+     * difference between a week correctly skipped and a week silently lost: taking [observe]'s
+     * fallback would have it report success, write no file, ask for no retry, record no failure,
+     * and leave the backup screen showing the previous week's date as though this one had gone
+     * fine. Throwing puts that run into the same retry-then-report path as a failed write.
+     *
+     * A screen must not call this. [observe] is what draws the toggle, and a read that throws on
+     * the way to a first frame is exactly what the contract above exists to prevent.
+     *
+     * @throws IOException if the store cannot be read.
+     */
+    suspend fun read(): AutoBackupSchedule
 
     /**
      * Records whether the user wants weekly backups.

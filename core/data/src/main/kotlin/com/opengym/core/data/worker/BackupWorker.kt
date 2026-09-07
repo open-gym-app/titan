@@ -15,7 +15,6 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
@@ -44,6 +43,13 @@ import java.io.IOException
  * one DataStore read and makes the toggle the authority on whether files are written, rather
  * than whatever the job scheduler happens to still hold.
  *
+ * It is [AutoBackupRepository.read] rather than `observe().first()`, and the difference matters
+ * at three in the morning: the flow falls back to `enabled = false` when the store cannot be
+ * read, so a transient IO error would look exactly like the user having turned it off — the run
+ * would report success, write nothing, ask for no retry and record no failure, and the backup
+ * screen would keep showing the previous week's date. The strict read throws instead, and the
+ * run joins the retry-then-report path below.
+ *
  * @property exportBackup the same use case the manual export runs — one document format, one
  *   code path, and a file a restore reads back without knowing which produced it.
  * @property files where the backup goes, what it is called and how many are kept.
@@ -65,24 +71,25 @@ class BackupWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result =
         withContext(ioDispatcher) {
-            // Success rather than failure: there is nothing wrong, the user simply turned it
-            // off. A failure here would burn a retry and then mark the row as broken.
-            if (!autoBackupRepository.observe().first().enabled) return@withContext Result.success()
-
             val startedAt = clock.nowMillis()
-            runCatching { writeBackup(startedAt) }
-                .fold(
-                    onSuccess = { Result.success() },
-                    // Broad, like the manual export's: every way a file write fails means the
-                    // same thing to a run that cannot ask anybody anything, and narrowing it
-                    // would let a storage failure this build has not thought of crash a
-                    // background job. Cancellation is not caught — `runCatching` would swallow
-                    // it, so it is re-thrown before anything is recorded.
-                    onFailure = { failure ->
-                        if (failure is CancellationException) throw failure
-                        giveUpOrRetry(startedAt)
-                    },
-                )
+            runCatching {
+                // Skipping is a success rather than a failure: there is nothing wrong, the user
+                // simply turned it off, and failing would burn a retry and mark the row broken.
+                // A read that *throws* is not that case — it stays inside `runCatching` and is
+                // handled below, because an unreadable store is not an answer.
+                if (autoBackupRepository.read().enabled) writeBackup(startedAt)
+            }.fold(
+                onSuccess = { Result.success() },
+                // Broad, like the manual export's: every way a file write fails means the same
+                // thing to a run that cannot ask anybody anything, and narrowing it would let a
+                // storage failure this build has not thought of crash a background job.
+                // Cancellation is not caught — `runCatching` would swallow it, so it is
+                // re-thrown before anything is recorded.
+                onFailure = { failure ->
+                    if (failure is CancellationException) throw failure
+                    giveUpOrRetry(startedAt)
+                },
+            )
         }
 
     /** Scratch file, stream, rename, prune, record. Throws on any storage failure. */
@@ -110,11 +117,14 @@ class BackupWorker @AssistedInject constructor(
      *
      * [runAttemptCount] is zero on the first run, so the comparison counts *this* attempt.
      * Recording is itself a store write and can fail; a run that cannot even say it failed
-     * still stops, because retrying it would only produce the same pair of failures.
+     * still stops, because retrying it would only produce the same pair of failures. The one
+     * throw that is not swallowed is cancellation, as everywhere else here — a job the OS took
+     * back is not a job that failed.
      */
     private suspend fun giveUpOrRetry(startedAt: Long): Result {
         if (runAttemptCount + 1 < MAX_RUN_ATTEMPTS) return Result.retry()
         runCatching { autoBackupRepository.recordFailure(startedAt) }
+            .onFailure { if (it is CancellationException) throw it }
         return Result.failure()
     }
 

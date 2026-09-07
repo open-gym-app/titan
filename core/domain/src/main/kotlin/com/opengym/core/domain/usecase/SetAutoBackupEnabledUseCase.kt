@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.backup.AutoBackupScheduler
 import com.opengym.core.domain.repository.AutoBackupRepository
 import java.io.IOException
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Turns the weekly automatic backup on or off: the stored flag and the scheduled work, together.
@@ -23,6 +24,15 @@ import java.io.IOException
  * enqueued against a flag that then failed to save would run once a week with the toggle
  * reading off, and nothing on the screen would offer a way to stop it.
  *
+ * ### And the flag is put back if the schedule refuses
+ *
+ * The platform half can fail too — `WorkManager.getInstance` throws on a process where
+ * WorkManager cannot be initialised — and a stored `true` left behind by a `schedule()` that
+ * threw is precisely the state this class exists to make unreachable: a switch the screen draws
+ * *on*, under a sentence saying the switch could not be saved, over work nobody enqueued. So
+ * the write is undone before the failure is re-thrown, and the caller sees the toggle where it
+ * was.
+ *
  * @property autoBackupRepository holds the flag.
  * @property scheduler enqueues and cancels the periodic work — see [AutoBackupScheduler] for
  *   why the platform half arrives as a port.
@@ -40,10 +50,21 @@ class SetAutoBackupEnabledUseCase(
      * not an error.
      *
      * @throws IOException if the flag cannot be stored — in which case the schedule is left
-     *   exactly as it was.
+     *   exactly as it was. Whatever [AutoBackupScheduler] throws also propagates, with the
+     *   stored flag put back first.
      */
     suspend operator fun invoke(enabled: Boolean) {
         autoBackupRepository.setEnabled(enabled)
-        if (enabled) scheduler.schedule() else scheduler.cancel()
+
+        runCatching { if (enabled) scheduler.schedule() else scheduler.cancel() }
+            .onFailure { failure ->
+                if (failure !is CancellationException) {
+                    // Best-effort: a store that refuses the second write has already told the
+                    // caller something is wrong through the first exception, and reporting the
+                    // rollback's instead would name the wrong failure.
+                    runCatching { autoBackupRepository.setEnabled(!enabled) }
+                }
+                throw failure
+            }
     }
 }

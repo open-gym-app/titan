@@ -215,6 +215,8 @@ class InMemoryAutoBackupSchedule : AutoBackupRepository {
 
     override fun observe(): Flow<AutoBackupSchedule> = schedule.asStateFlow()
 
+    override suspend fun read(): AutoBackupSchedule = schedule.value
+
     override suspend fun setEnabled(enabled: Boolean) = write { it.copy(enabled = enabled) }
 
     override suspend fun recordSuccess(at: Long) = write { it.copy(lastSuccessAt = at, lastFailureAt = null) }

@@ -23,6 +23,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.IOException
 
 /**
  * [AutoBackupRepositoryImpl] against a real Preferences DataStore over a real file.
@@ -118,6 +119,37 @@ class AutoBackupRepositoryImplTest {
             repository.setEnabled(false)
             assertEquals(LAST_SUCCESS_AT, repository.observe().first().lastSuccessAt)
         }
+
+    /** The strict read agrees with the flow whenever there is nothing wrong with the file. */
+    @Test
+    fun `the strict read returns what the flow shows`() =
+        withStore { repository ->
+            repository.setEnabled(true)
+            repository.recordSuccess(LAST_SUCCESS_AT)
+
+            assertEquals(repository.observe().first(), repository.read())
+        }
+
+    /**
+     * The two reads over a file neither of them can parse, which is the point of having two.
+     *
+     * `observe()` falls back so the backup screen has a first frame to draw. `read()` throws so
+     * the worker retries instead of mistaking an unreadable store for a toggle the user turned
+     * off — which would cost that week's backup with nothing anywhere saying so. Asserted
+     * together, because it is the *pair* that is the contract.
+     */
+    @Test
+    fun `an unreadable store falls back for the flow and fails for the strict read`() {
+        withStore { repository -> repository.setEnabled(true) }
+        storeFile.writeText("not a preferences file")
+
+        withStore { repository ->
+            assertEquals(AutoBackupSchedule(), repository.observe().first())
+
+            val failure = runCatching { repository.read() }.exceptionOrNull()
+            assertTrue("the strict read fell back instead of failing: $failure", failure is IOException)
+        }
+    }
 
     /**
      * The corrupt-file case, which no setter could have produced.

@@ -192,6 +192,38 @@ class BackupWorkerTest : RoomTestBase() {
         }
 
     /**
+     * A store that cannot be read is not a toggle that is off.
+     *
+     * `observe()` falls back to `enabled = false` so the backup screen always has a first frame
+     * to draw, and a worker that read the flag through it would answer a transient DataStore
+     * error at three in the morning by reporting success: no file, no retry, nothing recorded,
+     * and a row still showing last week's date. The strict read throws, which puts the run in
+     * the same retry path as a failed write.
+     */
+    @Test
+    fun `a run that cannot read the toggle retries rather than skipping the week`() =
+        runBlocking {
+            autoBackup.readsFail = true
+
+            assertEquals(ListenableWorker.Result.retry(), run())
+
+            assertEquals(emptyList<String>(), files.existing().map { it.name })
+            assertNull(autoBackup.current.lastSuccessAt)
+        }
+
+    /** And when the retries do not fix it, the row says so rather than staying quiet. */
+    @Test
+    fun `a toggle that stays unreadable is reported after the retries`() =
+        runBlocking {
+            autoBackup.readsFail = true
+
+            assertEquals(ListenableWorker.Result.failure(), run(runAttemptCount = LAST_ATTEMPT))
+
+            assertEquals(FIRST_SUNDAY, autoBackup.current.lastFailureAt)
+            assertTrue(autoBackup.current.hasFailed)
+        }
+
+    /**
      * The first stumble is not news.
      *
      * A storage volume that is busy or briefly unavailable is usually not still that on the

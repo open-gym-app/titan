@@ -6,7 +6,6 @@ import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.preferencesDataStoreFile
 import com.opengym.core.data.backup.WorkManagerAutoBackupScheduler
 import com.opengym.core.data.repository.AutoBackupRepositoryImpl
 import com.opengym.core.domain.backup.AutoBackupScheduler
@@ -20,6 +19,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -59,11 +59,27 @@ abstract class AutoBackupModule {
     companion object {
 
         /**
-         * The file's name, without the `.preferences_pb` suffix
-         * [preferencesDataStoreFile] adds. As persisted a format as the keys inside it:
-         * renaming it turns every install's schedule off and forgets when it last ran.
+         * The file, under `no_backup/` rather than under `files/`.
+         *
+         * As persisted a path as the keys inside it: moving it turns every install's schedule
+         * off and forgets when it last ran.
+         *
+         * **Excluded from Android's own backup, deliberately**, which is the same reasoning
+         * that keeps the schedule out of the app's export envelope carried one step further.
+         * `android:allowBackup` is on, so anything under `files/` travels to a new device in a
+         * cloud restore or a device-to-device transfer — while WorkManager keeps its own
+         * database in `no_backup/` and therefore does not. A store that travelled would land on
+         * the new phone with `auto_backup_enabled = true` and no work enqueued behind it: a
+         * switch drawn on, saying "Last backup 26 Apr", over a schedule that will never run
+         * again. Sharing WorkManager's directory is what keeps the two facts one fact.
          */
+        private fun storeFile(context: Context): File =
+            File(File(context.noBackupFilesDir, DATASTORE_DIRECTORY), "$STORE_NAME.preferences_pb")
+
         private const val STORE_NAME = "auto-backup"
+
+        /** What `preferencesDataStoreFile` would have used under `files/`, kept for familiarity. */
+        private const val DATASTORE_DIRECTORY = "datastore"
 
         /**
          * Built through the factory rather than the `preferencesDataStore` delegate, for
@@ -85,7 +101,7 @@ abstract class AutoBackupModule {
             PreferenceDataStoreFactory.create(
                 corruptionHandler = ReplaceFileCorruptionHandler { emptyPreferences() },
                 scope = CoroutineScope(ioDispatcher + SupervisorJob()),
-                produceFile = { context.preferencesDataStoreFile(STORE_NAME) },
+                produceFile = { storeFile(context) },
             )
     }
 }

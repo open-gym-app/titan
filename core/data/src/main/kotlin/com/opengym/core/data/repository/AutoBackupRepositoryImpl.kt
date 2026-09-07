@@ -13,6 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.retryWhen
 import java.io.IOException
@@ -38,7 +39,8 @@ import kotlin.time.Duration.Companion.seconds
  * (fall back rather than throw, [retryWhen] rather than `catch` so a transient IO error does
  * not end the collection for the process's life), the same asymmetry on writes (they throw),
  * and the same per-key degradation — a timestamp that is not a plausible instant reads as "no
- * run" rather than as a date in 1970.
+ * run" rather than as a date in 1970. The one addition is [read], which is that read contract
+ * inverted for the one caller that needs it — see its note below.
  */
 @Singleton
 class AutoBackupRepositoryImpl @Inject constructor(
@@ -58,6 +60,16 @@ class AutoBackupRepositoryImpl @Inject constructor(
             .map(::toSchedule)
             .distinctUntilChanged()
             .conflate()
+
+    /**
+     * One cold read, with neither [retryWhen] nor a fallback under it.
+     *
+     * `dataStore.data` throws [IOException] when the file cannot be read — including the
+     * `CorruptionException` a damaged one raises — and that is left to reach the caller. It is
+     * the whole difference between this and [observe], and the reason the worker can tell an
+     * unreadable store apart from a toggle the user turned off.
+     */
+    override suspend fun read(): AutoBackupSchedule = toSchedule(dataStore.data.first())
 
     override suspend fun setEnabled(enabled: Boolean) {
         dataStore.edit { it[AutoBackupKeys.ENABLED] = enabled }
