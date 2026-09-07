@@ -118,7 +118,17 @@ class InProgressSessionRepositoryImpl @Inject constructor(
         )
     }
 
-    private companion object {
+    /**
+     * The two file names, public because `:app` reads them.
+     *
+     * Both sit in `files/`, which Android's own backup carries to a new device unless a rule
+     * names them — so `:app`'s `BackupRulesTest` builds the paths it expects those rules to
+     * exclude out of these constants rather than out of literals of its own. A rename here
+     * fails that test, which is the only signal there would ever be: the wrong outcome is a
+     * half-finished workout from another phone restored over the one in front of the user,
+     * and nothing about it looks like a bug until it happens.
+     */
+    companion object {
         const val DOCUMENT_NAME = "in-progress-session.json"
 
         /**

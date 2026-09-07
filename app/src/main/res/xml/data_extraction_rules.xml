@@ -25,7 +25,18 @@
   replace whatever the user has with a months-old snapshot. Worse for the database
   specifically: the `-wal` and `-shm` sidecars are backed up as separate files with no
   guarantee they are consistent with the `.db` they came from, and a `.db` restored beside a
-  mismatched `-wal` comes back corrupt rather than merely stale. Hence all three, by name.
+  mismatched `-wal` comes back corrupt rather than merely stale. Hence all three, by name —
+  and `-journal` as a fourth, because Room's default journal mode is `AUTOMATIC`, which is WAL
+  on most devices and `TRUNCATE` on a low-RAM one, where the sidecar is a rollback journal
+  under that name instead. A stale journal restored beside a database that is not there is the
+  same corruption by a different file.
+
+  `backups/` is listed in two domains for one directory, and both are needed: the export
+  writes to the app's external files directory when there is one and falls back to `files/`
+  when `getExternalFilesDir` is null (`AutoBackupFiles.directory`, `BackupViewModel`, and the
+  two paths `file_paths.xml` declares for the same reason). Excluding only the `external` copy
+  would leave every export on the phone that took the fallback travelling to Drive — the one
+  file this whole boundary exists to keep on the device.
 
   `no_backup/` is exempt from all of this by the platform and needs no entry — which is why
   the auto-backup schedule store lives there (see AutoBackupModule), alongside WorkManager's
@@ -41,9 +52,11 @@
         <exclude domain="database" path="open-gym.db" />
         <exclude domain="database" path="open-gym.db-wal" />
         <exclude domain="database" path="open-gym.db-shm" />
+        <exclude domain="database" path="open-gym.db-journal" />
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
     </cloud-backup>
 
@@ -56,9 +69,11 @@
         <exclude domain="database" path="open-gym.db" />
         <exclude domain="database" path="open-gym.db-wal" />
         <exclude domain="database" path="open-gym.db-shm" />
+        <exclude domain="database" path="open-gym.db-journal" />
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
     </device-transfer>
 

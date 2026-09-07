@@ -26,7 +26,7 @@ import java.io.File
  * kind of context is a signature that lies; `BackupSharingTest` is what caught it.
  */
 internal fun Context.shareBackup(fileName: String) {
-    val file = File(File(getExternalFilesDir(null) ?: filesDir, BACKUP_DIRECTORY), fileName)
+    val file = File(File(getExternalFilesDir(null) ?: filesDir, BackupViewModel.BACKUP_DIRECTORY), fileName)
     val uri: Uri = FileProvider.getUriForFile(this, "$packageName$FILE_PROVIDER_SUFFIX", file)
 
     val send = Intent(Intent.ACTION_SEND).apply {
@@ -65,6 +65,3 @@ internal val RESTORE_MIME_TYPES = arrayOf(
 
 /** Matches the `<provider>` authority this module's manifest declares. */
 private const val FILE_PROVIDER_SUFFIX = ".fileprovider"
-
-/** Matches `BackupViewModel.BACKUP_DIRECTORY`; the two are one directory and this is the reader. */
-private const val BACKUP_DIRECTORY = "backups"

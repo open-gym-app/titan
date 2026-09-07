@@ -78,9 +78,6 @@ abstract class AutoBackupModule {
 
         private const val STORE_NAME = "auto-backup"
 
-        /** What `preferencesDataStoreFile` would have used under `files/`, kept for familiarity. */
-        private const val DATASTORE_DIRECTORY = "datastore"
-
         /**
          * Built through the factory rather than the `preferencesDataStore` delegate, for
          * `UserPreferencesModule`'s reasons: the delegate's one-store-per-Context scoping is

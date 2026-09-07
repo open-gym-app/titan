@@ -432,16 +432,26 @@ class BackupViewModel @Inject constructor(
         val lastSave: SaveOutcome? = null,
     )
 
-    private companion object {
+    companion object {
 
-        val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
+        private val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
 
+        /**
+         * `backups/`, the same directory `AutoBackupFiles` writes to from `:core:data`.
+         *
+         * The two are spelled separately because this module may not depend on that one
+         * (docs/ARCHITECTURE.md), and a constant duplicated with a comment asking nobody to
+         * change one copy is not a contract. Public is what turns it into one: `:app` depends
+         * on both sides of that edge, and its `BackupRulesTest` asserts the two strings are
+         * equal — and that Android's backup rules exclude the directory they name.
+         */
         const val BACKUP_DIRECTORY = "backups"
-        const val FILE_NAME_PREFIX = "opengym-backup-"
-        const val FILE_NAME_SUFFIX = ".json"
+
+        private const val FILE_NAME_PREFIX = "opengym-backup-"
+        private const val FILE_NAME_SUFFIX = ".json"
 
         /** `w` opens without truncating; the `t` is what replaces a document rather than overwriting its front. */
-        const val TRUNCATING_WRITE = "wt"
+        private const val TRUNCATING_WRITE = "wt"
 
         /**
          * Not `.json.tmp`: nothing offers a file under this name to the share sheet, and the
@@ -449,9 +459,9 @@ class BackupViewModel @Inject constructor(
          * guard — a truncated one fails to decode before a row is written — but a half-backup
          * that does not look like a backup is one fewer thing to pick by mistake.
          */
-        const val SCRATCH_SUFFIX = ".tmp"
+        private const val SCRATCH_SUFFIX = ".tmp"
 
-        val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")
+        private val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")
     }
 }
 

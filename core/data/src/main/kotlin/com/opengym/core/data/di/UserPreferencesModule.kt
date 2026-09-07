@@ -36,6 +36,19 @@ import javax.inject.Singleton
 annotation class UserPreferencesStore
 
 /**
+ * The directory DataStore keeps its files in, relative to the root it is given.
+ *
+ * Not a name this app chose — [preferencesDataStoreFile] hardcodes it under `filesDir` — but a
+ * name this app has to know twice over. `AutoBackupModule` builds its path by hand to reach
+ * `no_backup/` and spells the directory itself, and `:app`'s backup rules exclude the whole
+ * directory rather than the one file inside it, because a store writes a `.tmp` sibling on
+ * every commit and a second store put here later would otherwise travel to Google's servers.
+ * `UserPreferencesStoreLocationTest` is what keeps this constant and DataStore's own layout
+ * the same fact.
+ */
+const val DATASTORE_DIRECTORY = "datastore"
+
+/**
  * The user settings store and the repository over it.
  *
  * `@Singleton` on the [DataStore] is load-bearing rather than an optimisation, the way it

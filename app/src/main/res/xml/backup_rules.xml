@@ -14,8 +14,10 @@
     <exclude domain="database" path="open-gym.db" />
     <exclude domain="database" path="open-gym.db-wal" />
     <exclude domain="database" path="open-gym.db-shm" />
+    <exclude domain="database" path="open-gym.db-journal" />
     <exclude domain="file" path="datastore" />
     <exclude domain="file" path="in-progress-session.json" />
     <exclude domain="file" path="in-progress-session.json.tmp" />
+    <exclude domain="file" path="backups" />
     <exclude domain="external" path="backups" />
 </full-backup-content>
