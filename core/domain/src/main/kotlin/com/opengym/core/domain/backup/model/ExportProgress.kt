@@ -10,10 +10,12 @@ package com.opengym.core.domain.backup.model
  * and the alternative is an indeterminate spinner on the one operation a user will not
  * interrupt.
  *
- * [rowsTotal] is fixed for the run and never revised. Nothing writes to the database while an
- * export reads it in the app's own use (#38 blocks the screen), and a row that arrived after
- * the count would only mean the bar finishes a little past its end — which is a better failure
- * than a total that jumps backwards mid-progress.
+ * [rowsTotal] is the up-front count for every [Writing] and is never revised while the run is
+ * in flight. Nothing writes to the database while an export reads it in the app's own use (#38
+ * blocks the screen), and a row that arrived after the count would only mean the bar finishes a
+ * little past its end — which is a better failure than a total that jumps backwards
+ * mid-progress. [Complete] is the one emission that restates it, as the number of rows that
+ * actually went into the file; see that variant.
  */
 sealed interface ExportProgress {
 
@@ -41,8 +43,11 @@ sealed interface ExportProgress {
      *
      * The terminal emission, and the only one that says the file is complete — a collector that
      * stopped at the last [Writing] would be looking at a truncated document. [rowsWritten] and
-     * [rowsTotal] are equal here by construction; both are carried so a caller can log the
-     * figure without special-casing this variant.
+     * [rowsTotal] are equal here by construction, because both are what was *written* rather
+     * than what was counted up front: the file's own row count is the honest figure to finish
+     * on, and it differs from the earlier [Writing.rowsTotal] only if something wrote to the
+     * database mid-export. Both are carried so a caller can log the figure without
+     * special-casing this variant.
      */
     data class Complete(
         override val rowsWritten: Long,

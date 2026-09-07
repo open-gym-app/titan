@@ -24,11 +24,14 @@ import com.opengym.core.domain.backup.model.UserProgressRow
 import com.opengym.core.domain.backup.model.WorkoutSessionRow
 import com.opengym.core.domain.backup.model.WorkoutSetRow
 import com.opengym.core.domain.backup.model.WorkoutTemplateRow
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.int
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import java.io.IOException
 
 /**
  * The wire format of an [ExportDocument]: one [Json] configuration, one row encoder, and one
@@ -40,14 +43,16 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * ### Reading the version first
  *
- * [decode] parses the document with every field left as raw JSON, checks `schema_version`, and
- * only then decodes against *this* build's model. A future document is therefore refused for
- * the reason it should be — the version — rather than incidentally, by the decoder tripping
- * over a table it does not recognise. The two failures are distinct values here
- * ([ImportError.UnsupportedSchemaVersion] against [ImportError.MalformedJson]) where
- * `ActiveSessionFormat` collapses both to null, and the difference is what the two documents
- * are worth: a draft is disposable and a backup is the only copy, so "written by a newer
- * version" has to be a sentence the user can act on.
+ * [decode] streams the document once for `schema_version` alone, with every other key skipped,
+ * and only then decodes it against *this* build's model. A future document is therefore refused
+ * for the reason it should be — the version — rather than incidentally, by the decoder tripping
+ * over a table it does not recognise. Two passes over the bytes rather than one over a parsed
+ * tree, because a tree of a 50,000-set history is heap this app does not have; see [decode].
+ *
+ * The two failures are distinct values here ([ImportError.UnsupportedSchemaVersion] against
+ * [ImportError.MalformedJson]) where `ActiveSessionFormat` collapses both to null, and the
+ * difference is what the two documents are worth: a draft is disposable and a backup is the
+ * only copy, so "written by a newer version" has to be a sentence the user can act on.
  *
  * ### Why `ignoreUnknownKeys` is on for a format this strict
  *
@@ -135,41 +140,89 @@ object ExportFormat {
     }
 
     /**
-     * The document [text] holds, or the reason it was refused.
+     * The document [source] holds, or the reason it was refused.
+     *
+     * ### Two passes, and no tree
+     *
+     * [source] is opened twice: once to read [VERSION_KEY] with every other key skipped, and —
+     * only if that version is this build's — once more to decode the document itself. Both
+     * passes stream, so at no point does the *text* exist as a value; the parser sees 16 KiB of
+     * it at a time and the document being built is the only thing that grows.
+     *
+     * The obvious alternative is one pass into a `JsonElement` tree, read the version off it,
+     * then decode the document from the tree. It was that, and the cost is the reason it is not
+     * any more: a tree is a `JsonObject` of `JsonArray`s of `JsonObject`s of boxed
+     * `JsonPrimitive`s, several times the size of the text it came from, held *at the same
+     * time* as the decoded document — and this app commits to a 50,000-set history on a phone
+     * that may have 2 GB of RAM. The second pass buys that back for one more sequential read of
+     * a file, which is I/O the import was going to do anyway and no heap at all.
+     *
+     * Reading the version first is not an optimisation and cannot be dropped: a document from a
+     * newer build has to be refused *for its version*, which means learning the version before
+     * anything is decoded against this build's model. See the class doc.
      *
      * @return [Decoded.Success] with the parsed document, [Decoded.Refused] with
-     *   [ImportError.UnsupportedSchemaVersion] when the version is not this build's, or
-     *   [ImportError.MalformedJson] when the text is not a document at all.
+     *   [ImportError.UnsupportedSchemaVersion] when the version is not this build's,
+     *   [ImportError.MalformedJson] when the bytes are not a document at all, or
+     *   [ImportError.IoFailure] when they could not be read.
      */
-    fun decode(text: String): Decoded =
+    fun decode(source: ImportSource): Decoded =
         try {
-            // Parsed once into a tree, then interpreted from the tree, rather than parsed twice
-            // — the version has to be read before the document is decoded against this build's
-            // model, and re-reading tens of megabytes of JSON to learn one integer is not a
-            // price worth paying for one fewer local.
-            val element = json.parseToJsonElement(text)
-            when (val version = element.jsonObject[VERSION_KEY]?.jsonPrimitive?.int) {
+            when (val version = source.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
 
-                ExportDocument.SCHEMA_VERSION ->
-                    Decoded.Success(json.decodeFromJsonElement(ExportDocument.serializer(), element))
+                ExportDocument.SCHEMA_VERSION -> Decoded.Success(source.readDocument())
 
                 else -> Decoded.Refused(
                     ImportError.UnsupportedSchemaVersion(found = version, supported = ExportDocument.SCHEMA_VERSION),
                 )
             }
         } catch (failure: IllegalArgumentException) {
-            // Covers every way this can fail at once: `SerializationException` *is* an
-            // `IllegalArgumentException`, and so is what `jsonObject`/`jsonPrimitive` throw
-            // when the text is JSON but not an object, or holds a version that is not a
-            // number. All of them mean the same thing to the caller — this is not a document.
+            // Covers every way the text can fail to be a document at once: `SerializationException`
+            // *is* an `IllegalArgumentException`, and it is what the decoder throws for JSON that
+            // is not an object, a version that is not a number, a missing column and a truncated
+            // file alike. All of them mean the same thing to the caller.
             Decoded.Refused(ImportError.MalformedJson(failure.message.orEmpty()))
+        } catch (failure: IOException) {
+            // The bytes could not be read — a revoked content URI, a removed SD card. Not a
+            // malformed document: they never arrived, so nothing can be said about their shape,
+            // and the two are different sentences for a screen to show.
+            Decoded.Refused(ImportError.IoFailure(failure.message.orEmpty()))
         }
+
+    /**
+     * The version this source's document claims, or null if it does not claim one.
+     *
+     * [VersionEnvelope] declares that one field and nothing else, so `ignoreUnknownKeys` makes
+     * the whole rest of the document — every table, every row — a value the lexer walks past
+     * without building anything from. The pass costs a read of the file and a few dozen bytes
+     * of heap.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun ImportSource.readVersion(): Int? =
+        open().use { json.decodeFromStream(VersionEnvelope.serializer(), it) }.schemaVersion
+
+    /** The whole document, streamed off a second opening of the same bytes. */
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun ImportSource.readDocument(): ExportDocument =
+        open().use { json.decodeFromStream(ExportDocument.serializer(), it) }
+
+    /**
+     * The document as the version pass sees it: one integer, and permission to ignore the rest.
+     *
+     * A class rather than a hand-rolled scan of the first few bytes, because the key is not
+     * promised to come first. This build's exports put it there and every file the app has ever
+     * written begins with it, but a document is a file a user can hand-edit, and a reader that
+     * refused a re-serialised backup for holding its keys in another order would be refusing it
+     * for nothing. The decoder finds the key wherever it is, at the cost of walking to it.
+     */
+    @Serializable
+    private class VersionEnvelope(@SerialName(VERSION_KEY) val schemaVersion: Int? = null)
 
     /** What [decode] answers: a document, or the typed reason there is not one. */
     sealed interface Decoded {
 
-        /** [text][decode] held a document at this build's schema version. */
+        /** The [source][decode] held a document at this build's schema version. */
         data class Success(val document: ExportDocument) : Decoded
 
         /** It did not, and this is why. */

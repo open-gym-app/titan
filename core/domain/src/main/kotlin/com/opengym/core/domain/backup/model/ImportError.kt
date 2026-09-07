@@ -18,9 +18,9 @@ package com.opengym.core.domain.backup.model
  * [MalformedJson] are decided before anything is read from the database at all;
  * [ConstraintViolation] is decided by validating the document's own referential integrity
  * *before* the wipe, and is caught a second time inside the transaction as a backstop, where
- * the rollback is SQLite's. [IoFailure] can only be raised by the settings write, which happens
- * after the rows are committed and is the one step whose failure leaves a partial result — see
- * that variant.
+ * the rollback is SQLite's. [IoFailure] is raised either by reading the file, which happens
+ * before all of those, or by the settings write, which happens after the rows are committed and
+ * is the one step whose failure leaves a partial result — see that variant.
  */
 sealed interface ImportError {
 
@@ -69,19 +69,18 @@ sealed interface ImportError {
     data class ConstraintViolation(val reason: String) : ImportError
 
     /**
-     * A store other than the database could not be written — the in-progress draft on the way
-     * in, or the settings on the way out.
+     * A store other than the database could not be read or written — the document on the way
+     * in, the in-progress draft, or the settings on the way out.
      *
-     * The only error that *may* leave work done, and which half it is depends on where it was
-     * raised. The draft is cleared before the transaction, so a failure there leaves the
-     * database exactly as it was, like the three above. The settings are restored **last**,
-     * deliberately and for a reason [ExportDocument] gives, so a failure there leaves the rows
-     * committed and the settings not — which is the better half to lose, since a user with
-     * their whole history back and the wrong units is one setting away from where they wanted
-     * to be. A screen must say so either way rather than report a clean restore.
-     *
-     * Reading the file is the caller's job — `ImportUseCase` takes the document as text — so an
-     * unreadable file is this error raised by whoever did the reading, not by the use case.
+     * The only error that *may* leave work done, and which of the three raised it decides
+     * whether it did. The document is read first of all, through an `ImportSource` the use case
+     * opens itself, so a revoked content URI or a removed SD card leaves the database exactly
+     * as it was — as does a failure clearing the draft, which happens before the transaction.
+     * The settings are restored **last**, deliberately and for a reason [ExportDocument] gives,
+     * so a failure *there* leaves the rows committed and the settings not — which is the better
+     * half to lose, since a user with their whole history back and the wrong units is one
+     * setting away from where they wanted to be. A screen must say so either way rather than
+     * report a clean restore.
      *
      * @property reason the underlying message, for a log.
      */

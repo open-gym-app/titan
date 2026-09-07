@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -50,9 +51,7 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
     UserPreferences(
         unitSystem = unitSystem.asEnumOr(UnitSystem.METRIC),
         theme = theme.asEnumOr(ThemePreference.SYSTEM),
-        defaultRestDuration = defaultRestDurationSeconds
-            .takeIf { it >= MIN_REST_SECONDS }
-            ?.seconds
+        defaultRestDuration = defaultRestDurationSeconds.asRestDurationOrNull()
             ?: UserPreferences.DEFAULT_REST_DURATION,
         barWeight = barWeight.takeIf { it > 0 } ?: UserPreferences.DEFAULT_BAR_WEIGHT,
         plateInventory = plateInventory?.toInventoryOrNull(),
@@ -78,6 +77,20 @@ private fun List<PlateStockPayload>.toInventoryOrNull(): PlateInventory? =
         null
     }
 
+/**
+ * These many seconds as a rest [UserPreferences] would accept, or **null** if it would not.
+ *
+ * Both ends have to be checked, and the far one is the less obvious: [Duration] saturates
+ * rather than overflowing, so a hand-edited or corrupted `default_rest_duration_seconds` past
+ * what it can hold comes back as [Duration.INFINITE], which the model's `require` refuses. An
+ * exception there would escape [toPreferences] — `ImportUseCase` types only
+ * `BackupConstraintException` and `IOException` — and it would do so *after* the tables have
+ * already been replaced, killing the restore over a rest timer. Falling back is the whole rule
+ * this half of the mapping follows.
+ */
+private fun Long.asRestDurationOrNull(): Duration? =
+    takeIf { it >= MIN_REST_SECONDS }?.seconds?.takeIf { it.isFinite() }
+
 /** The constant of [T] named by this string, or [fallback] when this build has no such constant. */
 private inline fun <reified T : Enum<T>> String.asEnumOr(fallback: T): T =
     enumValues<T>().firstOrNull { it.name == this } ?: fallback
@@ -85,6 +98,8 @@ private inline fun <reified T : Enum<T>> String.asEnumOr(fallback: T): T =
 /**
  * The shortest rest [UserPreferences] will accept. Spelled here because a payload holding zero
  * has to be caught *before* the constructor sees it: the model throws on it, and an import that
- * threw over a setting would be an import that lost a history over a rest timer.
+ * threw over a setting would be an import that lost a history over a rest timer. The longest is
+ * not a constant — it is whatever [Duration] can still represent finitely, see
+ * [asRestDurationOrNull].
  */
 private const val MIN_REST_SECONDS = 1L

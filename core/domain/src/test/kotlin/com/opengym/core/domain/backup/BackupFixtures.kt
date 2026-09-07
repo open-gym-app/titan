@@ -24,6 +24,15 @@ import com.opengym.core.domain.backup.model.WorkoutSetRow
 import com.opengym.core.domain.backup.model.WorkoutTemplateRow
 
 /**
+ * [this] as an [ImportSource], for a test that just built the document it wants decoded.
+ *
+ * The one place a string becomes a source, so the awkwardness stays in the tests where it
+ * belongs: a test holds the whole document because it wrote it a line ago, and nothing on a
+ * phone ever will — see [ImportSource] for what that costs at 50,000 sets.
+ */
+fun String.asSource(): ImportSource = ImportSource { byteInputStream() }
+
+/**
  * A document with **every table non-empty** and every reference resolving, for the tests that
  * need a valid whole rather than one interesting row.
  *

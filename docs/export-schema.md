@@ -131,8 +131,9 @@ screen's wipe: it reclaims space with a `VACUUM`, which cannot run inside a tran
 replays the seed afterwards, which this must not do. `BackupRepositoryImpl` explains it at the
 class level.
 
-The one step outside the transaction is the settings write, which happens after the rows are
-committed — see `ImportError.IoFailure`.
+The two steps outside the transaction are the file read, which happens before anything is
+touched, and the settings write, which happens after the rows are committed — see
+`ImportError.IoFailure`.
 
 ## What an import refuses
 
@@ -143,8 +144,8 @@ it was.
 | --- | --- | --- |
 | `MalformedJson` | Not JSON, or not shaped like a document — a missing required column, a string where a number belongs, a truncated file | Untouched |
 | `UnsupportedSchemaVersion` | `schema_version` is not this build's | Untouched |
-| `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits | Untouched |
-| `IoFailure` | A store other than the database could not be written — the draft on the way in, the settings on the way out | Untouched if it was the draft; rows restored and settings not if it was the settings, which is the only partial outcome and the reason it is reported rather than swallowed |
+| `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits | Untouched. `BackupValidator` decides it before anything is cleared; on the rarer path where SQLite decides it instead, the transaction rolls back and every table is still untouched, but the live session and its draft — cleared before the transaction opens, deliberately — stay cleared |
+| `IoFailure` | A store other than the database could not be read or written — the file itself, the draft on the way in, the settings on the way out | Untouched if it was the file or the draft; rows restored and settings not if it was the settings, which is the only partial outcome and the reason it is reported rather than swallowed |
 
 `ConstraintViolation` is decided by checking the document **against itself, before the wipe**,
 which is possible only because import replaces: the file is the whole database afterwards, so
@@ -206,11 +207,22 @@ into an `ExportSink`, so peak memory is one page of rows and the text it encodes
 the history's size. `ExportStreamingTest` exports the 1,000-session / 50,000-set fixture and
 asserts no chunk handed to the sink is bigger than a page's worth.
 
-An **import** does hold the document, and that is deliberate: whether a `workout_set`'s parent
-exists cannot be answered until every `session_exercise` in the file has been seen, so the
-document has to be whole in memory before the wipe. Streaming the parse would mean either
+An **import** does hold the decoded document, and that is deliberate: whether a `workout_set`'s
+parent exists cannot be answered until every `session_exercise` in the file has been seen, so
+the document has to be whole in memory before the wipe. Streaming that too would mean either
 validating nothing, or wiping first and discovering the problem afterwards — and the second is
 how a restore eats a training history.
+
+It does **not** hold the file's text, and on a 2 GB phone the difference is the feature.
+`ImportUseCase` takes an `ImportSource` — something that opens a stream — rather than a
+`String`, so the JSON is never a value: the decoder reads it in 16 KiB batches and discards
+each one. That means two passes over the bytes, one to read `schema_version` with every other
+key skipped and one to decode the document, which is a second sequential read of a file and no
+heap at all. The alternative it replaced — parse into a `JsonElement` tree, read the version
+off it, decode the document from it — held the text, a tree several times its size and the
+document all at once, which at 50,000 sets is hundreds of megabytes on a device that has 2 GB
+for everything. `ExportFormatDecodeTest` pins both halves: that the source is opened twice
+rather than read once into anything, and that a target-scale document decodes off a file.
 
 ## Checking a file by hand
 

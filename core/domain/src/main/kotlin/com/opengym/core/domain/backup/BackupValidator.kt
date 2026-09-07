@@ -53,7 +53,9 @@ object BackupValidator {
      *
      * The checks are grouped by the part of the schema they cover and chained with elvis, so
      * the first failure short-circuits the rest: nothing after it is evaluated, including the
-     * id sets it would have built.
+     * id sets it would have built — which is why those are `by lazy` rather than locals. At the
+     * scale the app targets, `workoutSets` alone is a fifty-thousand-entry set built for one
+     * check that a malformed document usually never reaches.
      */
     fun validate(document: ExportDocument): ImportError.ConstraintViolation? =
         catalogueConstraints(document)
@@ -63,9 +65,9 @@ object BackupValidator {
 
     /** `muscle_group`, `tag`, `exercise` and the two join tables that hang off them. */
     private fun catalogueConstraints(document: ExportDocument): ImportError.ConstraintViolation? {
-        val exercises = document.exercise.mapTo(mutableSetOf()) { it.id }
-        val muscleGroups = document.muscleGroup.mapTo(mutableSetOf()) { it.id }
-        val tags = document.tag.mapTo(mutableSetOf()) { it.id }
+        val exercises by lazy { document.exercise.mapTo(mutableSetOf()) { it.id } }
+        val muscleGroups by lazy { document.muscleGroup.mapTo(mutableSetOf()) { it.id } }
+        val tags by lazy { document.tag.mapTo(mutableSetOf()) { it.id } }
 
         return unique(BackupTable.MUSCLE_GROUP, "id", document.muscleGroup.map { it.id })
             ?: unique(BackupTable.MUSCLE_GROUP, "name", document.muscleGroup.map { it.name })
@@ -95,9 +97,9 @@ object BackupValidator {
 
     /** `workout_template`, `template_exercise`, `template_set`. */
     private fun templateConstraints(document: ExportDocument): ImportError.ConstraintViolation? {
-        val templates = document.workoutTemplate.mapTo(mutableSetOf()) { it.id }
-        val exercises = document.exercise.mapTo(mutableSetOf()) { it.id }
-        val templateExercises = document.templateExercise.mapTo(mutableSetOf()) { it.id }
+        val templates by lazy { document.workoutTemplate.mapTo(mutableSetOf()) { it.id } }
+        val exercises by lazy { document.exercise.mapTo(mutableSetOf()) { it.id } }
+        val templateExercises by lazy { document.templateExercise.mapTo(mutableSetOf()) { it.id } }
 
         return unique(BackupTable.WORKOUT_TEMPLATE, "id", document.workoutTemplate.map { it.id })
             ?: unique(BackupTable.TEMPLATE_EXERCISE, "id", document.templateExercise.map { it.id })
@@ -123,12 +125,12 @@ object BackupValidator {
 
     /** `workout_session`, `session_exercise`, `workout_set`, `personal_record`. */
     private fun historyConstraints(document: ExportDocument): ImportError.ConstraintViolation? {
-        val templates = document.workoutTemplate.mapTo(mutableSetOf()) { it.id }
-        val exercises = document.exercise.mapTo(mutableSetOf()) { it.id }
-        val templateExercises = document.templateExercise.mapTo(mutableSetOf()) { it.id }
-        val sessions = document.workoutSession.mapTo(mutableSetOf()) { it.id }
-        val sessionExercises = document.sessionExercise.mapTo(mutableSetOf()) { it.id }
-        val workoutSets = document.workoutSet.mapTo(mutableSetOf()) { it.id }
+        val templates by lazy { document.workoutTemplate.mapTo(mutableSetOf()) { it.id } }
+        val exercises by lazy { document.exercise.mapTo(mutableSetOf()) { it.id } }
+        val templateExercises by lazy { document.templateExercise.mapTo(mutableSetOf()) { it.id } }
+        val sessions by lazy { document.workoutSession.mapTo(mutableSetOf()) { it.id } }
+        val sessionExercises by lazy { document.sessionExercise.mapTo(mutableSetOf()) { it.id } }
+        val workoutSets by lazy { document.workoutSet.mapTo(mutableSetOf()) { it.id } }
 
         return unique(BackupTable.WORKOUT_SESSION, "id", document.workoutSession.map { it.id })
             ?: unique(BackupTable.SESSION_EXERCISE, "id", document.sessionExercise.map { it.id })
@@ -158,7 +160,7 @@ object BackupValidator {
 
     /** `body_measurement`, the two claim tables, and everything the gamification group holds. */
     private fun gamificationConstraints(document: ExportDocument): ImportError.ConstraintViolation? {
-        val sessions = document.workoutSession.mapTo(mutableSetOf()) { it.id }
+        val sessions by lazy { document.workoutSession.mapTo(mutableSetOf()) { it.id } }
 
         return unique(BackupTable.BODY_MEASUREMENT, "id", document.bodyMeasurement.map { it.id })
             ?: unique(BackupTable.SESSION_XP_CLAIM, "session_id", document.sessionXpClaim.map { it.sessionId })

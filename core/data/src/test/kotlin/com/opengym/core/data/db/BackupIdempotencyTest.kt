@@ -13,6 +13,7 @@ import com.opengym.core.data.repository.QuestRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.domain.backup.ExportSink
+import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.BackupTable
 import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.model.Collectible
@@ -218,7 +219,7 @@ class BackupIdempotencyTest : RoomTestBase() {
     private suspend fun restoreThroughAnExport() {
         val text = StringBuilder()
         export(ExportSink { text.append(it) }, APP_VERSION).toList()
-        import(text.toString()).toList()
+        import(ImportSource { text.toString().byteInputStream() }).toList()
     }
 
     /**

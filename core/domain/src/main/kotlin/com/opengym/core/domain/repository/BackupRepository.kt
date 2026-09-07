@@ -15,7 +15,7 @@ import com.opengym.core.domain.backup.model.ExportDocument
  * interface talks about tables and pages instead of sessions and sets.
  *
  * `:core:domain` still names no Room symbol. What the data layer owes is below; how it does it
- * — DAOs, a transaction, `PRAGMA defer_foreign_keys` — is its own business.
+ * — DAOs, a transaction, the order the statements run in — is its own business.
  *
  * ### Reading is paged, and that is the point
  *
@@ -68,10 +68,11 @@ interface BackupRepository {
      * Rows go in in [BackupTable.entries] order, which is dependency order, so foreign keys
      * hold at every point rather than only at the end.
      *
-     * @param onTableWritten called once per table, after its rows are in, with the running
-     *   total of rows written across the whole document. It runs *inside* the transaction, so a
-     *   caller must not block in it — `ImportUseCase` sends into a channel, which is safe from
-     *   any context.
+     * @param onTableWritten called at least once per table, with the running total of rows
+     *   written across the whole document — a table inserted in several batches reports after
+     *   each one, and an empty table still reports once, so a caller may name every table but
+     *   must not count emissions. It runs *inside* the transaction, so a caller must not block
+     *   in it — `ImportUseCase` sends into a channel, which is safe from any context.
      * @throws com.opengym.core.domain.backup.BackupConstraintException if the database refuses
      *   a row. `BackupValidator` has already checked everything the schema can express, so this
      *   is the backstop for a constraint it does not model; the transaction is rolled back

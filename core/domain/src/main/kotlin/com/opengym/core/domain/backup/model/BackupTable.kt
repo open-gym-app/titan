@@ -91,9 +91,11 @@ enum class BackupTable(val tableName: String) {
          * The order a wipe deletes in: [entries] reversed, so a child table is emptied before
          * the parent it points at.
          *
-         * `PRAGMA defer_foreign_keys` would make the order irrelevant, and the importer sets it
-         * anyway as a belt to this brace — but a delete order that is correct on its own means a
-         * wipe still behaves if that pragma is ever dropped, and it costs one property to state.
+         * `PRAGMA defer_foreign_keys` would make the order irrelevant, and the importer
+         * deliberately does *not* set it — see `BackupRepositoryImpl` and
+         * docs/export-schema.md. Foreign keys stay enforced for the whole wipe, so this order
+         * is the only thing keeping a `DELETE FROM` off a `RESTRICT`, and getting it wrong
+         * fails a test rather than being covered for by a pragma.
          */
         val DELETE_ORDER: List<BackupTable> get() = entries.reversed()
     }

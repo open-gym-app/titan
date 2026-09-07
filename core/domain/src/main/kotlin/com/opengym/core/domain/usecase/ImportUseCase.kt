@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import com.opengym.core.domain.backup.BackupConstraintException
 import com.opengym.core.domain.backup.BackupValidator
 import com.opengym.core.domain.backup.ExportFormat
+import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.ExportDocument
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.backup.model.ImportProgress
@@ -33,9 +34,9 @@ import java.io.IOException
  *
  * ### The order, and what each step guarantees
  *
- * 1. **Parse and check the version.** [ExportFormat] reads `schema_version` before it
- *    interprets anything else, so a file from a newer build is refused for the reason it should
- *    be rather than by the decoder tripping over a table it does not know.
+ * 1. **Parse and check the version.** [ExportFormat] streams the file for `schema_version`
+ *    before it interprets anything else, so a file from a newer build is refused for the reason
+ *    it should be rather than by the decoder tripping over a table it does not know.
  * 2. **Validate the document against itself.** Every foreign key, primary key and unique index
  *    in the file, checked while the database is still untouched — possible only because import
  *    replaces, so the file is the whole database and every reference in it must resolve inside
@@ -83,28 +84,33 @@ class ImportUseCase(
 ) {
 
     /**
-     * Restores the device from [document], the whole text of an export file.
+     * Restores the device from [document], an export file this will open and read itself.
      *
-     * Takes a `String` rather than a stream, unlike the export side, and the asymmetry is the
-     * validation: whether a `workout_set`'s parent exists cannot be answered until every
-     * `session_exercise` in the file has been seen, so the document has to be whole in memory
-     * *before* the wipe. Streaming the parse would mean either validating nothing or wiping
-     * first and discovering the problem afterwards, and the second is how a restore eats a
-     * training history.
+     * An [ImportSource] rather than the text, for the reason [ImportSource] gives: the file is
+     * tens of megabytes at the scale the app commits to, and a `String` of it is twice that in
+     * heap, held for as long as the caller holds it — on top of the document being built. The
+     * bytes are streamed instead, so the *parse* costs nothing that lasts.
+     *
+     * What is still held whole is the decoded [ExportDocument], and that asymmetry with the
+     * export side is the validation: whether a `workout_set`'s parent exists cannot be answered
+     * until every `session_exercise` in the file has been seen, so the document has to be in
+     * memory *before* the wipe. Streaming that too would mean either validating nothing or
+     * wiping first and discovering the problem afterwards, and the second is how a restore eats
+     * a training history.
      *
      * A `channelFlow` rather than a `flow`, because [BackupRepository.replaceAll] reports its
      * progress from inside the database transaction — a different coroutine context, which a
      * plain flow's `emit` refuses.
      */
-    operator fun invoke(document: String): Flow<ImportProgress> =
+    operator fun invoke(document: ImportSource): Flow<ImportProgress> =
         channelFlow {
             send(ImportProgress.Validating)
             send(restore(document))
         }
 
-    /** Parses, validates and applies [text], answering with the run's terminal progress. */
-    private suspend fun ProducerScope<ImportProgress>.restore(text: String): ImportProgress {
-        val parsed = when (val decoded = ExportFormat.decode(text)) {
+    /** Reads, validates and applies [source], answering with the run's terminal progress. */
+    private suspend fun ProducerScope<ImportProgress>.restore(source: ImportSource): ImportProgress {
+        val parsed = when (val decoded = ExportFormat.decode(source)) {
             is ExportFormat.Decoded.Refused -> return ImportProgress.Failed(decoded.error)
             is ExportFormat.Decoded.Success -> decoded.document
         }

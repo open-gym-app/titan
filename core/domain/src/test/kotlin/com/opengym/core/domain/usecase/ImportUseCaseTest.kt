@@ -1,6 +1,7 @@
 package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.backup.BackupConstraintException
+import com.opengym.core.domain.backup.asSource
 import com.opengym.core.domain.backup.model.BackupTable
 import com.opengym.core.domain.backup.model.ExportDocument
 import com.opengym.core.domain.backup.model.ImportError
@@ -161,9 +162,9 @@ class ImportUseCaseTest {
     @Test
     fun `a document from a newer version is refused, and nothing is touched`() =
         runTest {
-            val newer = encode(sampleDocument()).replace("\"schema_version\":1", "\"schema_version\":2")
+            val newer = text(sampleDocument()).replace("\"schema_version\":1", "\"schema_version\":2")
 
-            val emissions = importer().invoke(newer).toList()
+            val emissions = importer().invoke(newer.asSource()).toList()
 
             assertEquals(
                 ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
@@ -175,7 +176,7 @@ class ImportUseCaseTest {
     @Test
     fun `a document that is not JSON is refused, and nothing is touched`() =
         runTest {
-            val emissions = importer().invoke("this is not a backup").toList()
+            val emissions = importer().invoke("this is not a backup".asSource()).toList()
 
             assertTrue(failure(emissions) is ImportError.MalformedJson)
             assertUntouched()
@@ -243,6 +244,21 @@ class ImportUseCaseTest {
             assertEquals(sampleDocument(), backup.replaced)
         }
 
+    /**
+     * The other half of [ImportError.IoFailure]: a file that cannot be read at all.
+     *
+     * Reported like the settings failure and unlike it in what it leaves behind — the document
+     * is read before anything is cleared, so this one really is "nothing happened".
+     */
+    @Test
+    fun `a document that cannot be read is reported as an IO failure`() =
+        runTest {
+            val emissions = importer().invoke { throw IOException("permission denied") }.toList()
+
+            assertEquals(ImportProgress.Failed(ImportError.IoFailure("permission denied")), emissions.last())
+            assertUntouched()
+        }
+
     /** A bug is not a corrupt file: only the two documented failures are caught. */
     @Test
     fun `an unexpected failure is not reported as a bad backup`() =
@@ -272,7 +288,10 @@ class ImportUseCaseTest {
             sessionStateRepository = sessionState,
         )
 
-    private fun encode(document: ExportDocument) = json.encodeToString(ExportDocument.serializer(), document)
+    /** [document] as the use case takes it: bytes to be opened, never a string it holds. */
+    private fun encode(document: ExportDocument) = text(document).asSource()
+
+    private fun text(document: ExportDocument) = json.encodeToString(ExportDocument.serializer(), document)
 
     private fun failure(emissions: List<ImportProgress>): ImportError =
         (emissions.last() as ImportProgress.Failed).error

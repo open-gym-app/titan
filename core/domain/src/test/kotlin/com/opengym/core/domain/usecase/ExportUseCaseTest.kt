@@ -3,6 +3,7 @@ package com.opengym.core.domain.usecase
 import app.cash.turbine.test
 import com.opengym.core.domain.backup.ExportFormat
 import com.opengym.core.domain.backup.ExportSink
+import com.opengym.core.domain.backup.asSource
 import com.opengym.core.domain.backup.model.BackupTable
 import com.opengym.core.domain.backup.model.ExportDocument
 import com.opengym.core.domain.backup.model.ExportProgress
@@ -36,7 +37,7 @@ class ExportUseCaseTest {
 
             exporter().invoke(ExportSink { text.append(it) }, APP_VERSION).toList()
 
-            val document = (ExportFormat.decode(text.toString()) as ExportFormat.Decoded.Success).document
+            val document = (ExportFormat.decode(text.toString().asSource()) as ExportFormat.Decoded.Success).document
             assertEquals(EXPORTED_AT, document.exportedAt)
             assertEquals(APP_VERSION, document.appVersion)
             assertEquals(ExportDocument.SCHEMA_VERSION, document.schemaVersion)
@@ -49,7 +50,7 @@ class ExportUseCaseTest {
 
             exporter().invoke(ExportSink { text.append(it) }, APP_VERSION).toList()
 
-            val document = (ExportFormat.decode(text.toString()) as ExportFormat.Decoded.Success).document
+            val document = (ExportFormat.decode(text.toString().asSource()) as ExportFormat.Decoded.Success).document
             BackupTable.entries.forEach { table ->
                 assertEquals("${table.tableName} did not round-trip", stored.rows(table), document.rows(table))
             }
@@ -64,7 +65,7 @@ class ExportUseCaseTest {
 
             exporter().invoke(ExportSink { text.append(it) }, APP_VERSION).toList()
 
-            val document = (ExportFormat.decode(text.toString()) as ExportFormat.Decoded.Success).document
+            val document = (ExportFormat.decode(text.toString().asSource()) as ExportFormat.Decoded.Success).document
             assertEquals(preferences.observe().first().toPayload(), document.preferences)
             assertEquals("IMPERIAL", document.preferences.unitSystem)
             assertEquals("DARK", document.preferences.theme)
@@ -121,7 +122,7 @@ class ExportUseCaseTest {
             val emissions = exporter(empty).invoke(ExportSink { text.append(it) }, APP_VERSION).toList()
 
             assertEquals(0L, (emissions.last() as ExportProgress.Complete).rowsWritten)
-            val document = (ExportFormat.decode(text.toString()) as ExportFormat.Decoded.Success).document
+            val document = (ExportFormat.decode(text.toString().asSource()) as ExportFormat.Decoded.Success).document
             assertEquals(0L, document.rowCount)
         }
 

@@ -4,6 +4,7 @@ import com.opengym.core.data.repository.BackupRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.domain.backup.ExportFormat
 import com.opengym.core.domain.backup.ExportSink
+import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.BackupTable
 import com.opengym.core.domain.backup.model.ExportDocument
 import com.opengym.core.domain.backup.model.ImportError
@@ -73,7 +74,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            val progress = import(document).toList()
+            val progress = import(source(document)).toList()
 
             assertEquals(ImportProgress.Complete(rowsWritten = rowCount(before)), progress.last())
             BackupTable.entries.forEach { table ->
@@ -91,7 +92,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            import(document).toList()
+            import(source(document)).toList()
 
             assertEquals(before, db.dumpTable(BackupTable.WORKOUT_SET))
             val performed = db.dumpTable(BackupTable.WORKOUT_SET).first { it["id"] == "1" }
@@ -108,7 +109,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            import(document).toList()
+            import(source(document)).toList()
 
             val unnamed = db.dumpTable(BackupTable.WORKOUT_SESSION).first { it["id"] == "2" }
             assertEquals(null, unnamed["name"])
@@ -128,7 +129,7 @@ class BackupRoundTripTest : RoomTestBase() {
             db.backupDao().insertTags(listOf(tag(name = "added later").copy(id = 99)))
             assertEquals(3, db.dumpTable(BackupTable.TAG).size)
 
-            import(document).toList()
+            import(source(document)).toList()
 
             assertEquals(2, db.dumpTable(BackupTable.TAG).size)
             assertTrue(db.dumpTable(BackupTable.TAG).none { it["name"] == "added later" })
@@ -145,7 +146,7 @@ class BackupRoundTripTest : RoomTestBase() {
                 preferences = preferencesPayload(),
             )
 
-            val progress = import(json.encodeToString(ExportDocument.serializer(), empty)).toList()
+            val progress = import(source(json.encodeToString(ExportDocument.serializer(), empty))).toList()
 
             assertEquals(ImportProgress.Complete(rowsWritten = 0), progress.last())
             BackupTable.entries.forEach { assertEquals("${it.tableName} is not empty", 0, db.dumpTable(it).size) }
@@ -164,7 +165,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            import(document).toList()
+            import(source(document)).toList()
 
             assertEquals(listOf(mapOf("session_id" to "1")), db.dumpTable(BackupTable.SESSION_XP_CLAIM))
             assertEquals(listOf(mapOf("session_id" to "1")), db.dumpTable(BackupTable.SESSION_LOOT_CLAIM))
@@ -178,7 +179,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            import(document).toList()
+            import(source(document)).toList()
 
             assertTrue(db.dumpTable(BackupTable.ACHIEVEMENT).any { it["achievement_id"] == "from_a_newer_version" })
         }
@@ -191,7 +192,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
 
             wipeEverything()
-            import(document).toList()
+            import(source(document)).toList()
 
             assertEquals(2, db.dumpTable(BackupTable.COLLECTED_ITEM).count { it["collectible_id"] == "steel_shaker" })
         }
@@ -208,7 +209,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val before = db.dumpEverything()
             val newer = exportToText().replace("\"schema_version\":1", "\"schema_version\":2")
 
-            val progress = import(newer).toList()
+            val progress = import(source(newer)).toList()
 
             assertEquals(
                 ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
@@ -223,7 +224,7 @@ class BackupRoundTripTest : RoomTestBase() {
             db.seedEveryTable()
             val before = db.dumpEverything()
 
-            val progress = import("{ this is not a backup").toList()
+            val progress = import(source("{ this is not a backup")).toList()
 
             assertTrue((progress.last() as ImportProgress.Failed).error is ImportError.MalformedJson)
             assertEquals(before, db.dumpEverything())
@@ -251,7 +252,7 @@ class BackupRoundTripTest : RoomTestBase() {
                 ),
             )
 
-            val progress = import(json.encodeToString(ExportDocument.serializer(), orphaned)).toList()
+            val progress = import(source(json.encodeToString(ExportDocument.serializer(), orphaned))).toList()
 
             val error = (progress.last() as ImportProgress.Failed).error
             assertTrue("expected a constraint violation, was $error", error is ImportError.ConstraintViolation)
@@ -266,7 +267,7 @@ class BackupRoundTripTest : RoomTestBase() {
             val document = exportToText()
             sessionState.update(SessionState.Active(sessionId = 1, startedAt = STARTED_AT))
 
-            import(document).toList()
+            import(source(document)).toList()
 
             assertEquals(SessionState.Idle, sessionState.observe().first())
             assertEquals(1, draft.clearCount)
@@ -319,7 +320,15 @@ class BackupRoundTripTest : RoomTestBase() {
         ) { _, _ -> }
     }
 
-    private fun decode(text: String) = (ExportFormat.decode(text) as ExportFormat.Decoded.Success).document
+    private fun decode(text: String) = (ExportFormat.decode(source(text)) as ExportFormat.Decoded.Success).document
+
+    /**
+     * [text] as the importer takes it: something to open, not something to hold.
+     *
+     * A test has the document as a string because it just built it; a screen will hand over a
+     * content URI and never materialise one. See [ImportSource].
+     */
+    private fun source(text: String) = ImportSource { text.byteInputStream() }
 
     private fun rowCount(dump: Map<BackupTable, List<Map<String, String?>>>) = dump.values.sumOf { it.size.toLong() }
 

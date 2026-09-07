@@ -6,6 +6,7 @@ import com.opengym.core.data.db.entity.UserProgressEntity
 import com.opengym.core.data.repository.BackupRepositoryImpl
 import com.opengym.core.domain.backup.ExportSink
 import com.opengym.core.domain.backup.model.BackupTable
+import com.opengym.core.domain.backup.model.ExportDocument
 import com.opengym.core.domain.backup.model.UserProgressRow
 import com.opengym.core.domain.usecase.ExportUseCase
 import kotlinx.coroutines.Dispatchers
@@ -109,13 +110,31 @@ class ExportSchemaTest : RoomTestBase() {
             )
         }
 
-    /** The document says which schema it was written at, and it has to be the one on disk. */
+    /**
+     * The document says which *format* it was written at, and the schema these tests read is the
+     * live database's own.
+     *
+     * Two assertions rather than one, because the two versions are deliberately independent:
+     * [ExportDocument.SCHEMA_VERSION] versions the JSON and the Room version versions the file,
+     * and docs/export-schema.md is explicit that a migration ladder has nothing to say about a
+     * document. What has to hold is that the export stamps its own constant — a build that
+     * bumped the format and forgot the writer would ship files every reader refuses — and that
+     * [schema] is reading the schema of the database under test rather than a stale asset.
+     */
     @Test
-    fun `the exported document is written at the database's own version`() {
-        val databaseVersion = schema().getValue("database").jsonObject.getValue("version").jsonPrimitive.int
+    fun `the document carries the format version, and the schema read is the database's own`() =
+        runBlocking {
+            val databaseVersion = schema().getValue("database").jsonObject.getValue("version").jsonPrimitive.int
+            assertEquals(databaseVersion, db.openHelper.readableDatabase.version)
 
-        assertEquals(databaseVersion, db.openHelper.readableDatabase.version)
-    }
+            db.seedEveryTable()
+            val document = Json.parseToJsonElement(exportToText()).jsonObject
+
+            assertEquals(
+                ExportDocument.SCHEMA_VERSION,
+                document.getValue("schema_version").jsonPrimitive.int,
+            )
+        }
 
     private suspend fun exportToText(): String {
         val text = StringBuilder()

@@ -114,6 +114,18 @@ class PreferencesMappingTest {
         assertEquals(UserPreferences.DEFAULT_REST_DURATION, payload.toPreferences().defaultRestDuration)
     }
 
+    /**
+     * The far end of the same bound. `Duration` saturates rather than overflowing, so a rest
+     * past what it can hold becomes `INFINITE` — which `UserPreferences` refuses, and the
+     * exception would escape an import that has already replaced every table.
+     */
+    @Test
+    fun `a rest longer than a duration can hold falls back to the default`() {
+        val payload = samplePreferences().copy(defaultRestDurationSeconds = Long.MAX_VALUE)
+
+        assertEquals(UserPreferences.DEFAULT_REST_DURATION, payload.toPreferences().defaultRestDuration)
+    }
+
     @Test
     fun `a bar of no weight falls back to the Olympic bar`() {
         val payload = samplePreferences().copy(barWeight = 0)

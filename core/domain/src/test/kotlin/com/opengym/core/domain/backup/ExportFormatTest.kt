@@ -43,7 +43,7 @@ class ExportFormatTest {
         runTest {
             val document = sampleDocument()
 
-            val decoded = ExportFormat.decode(stream(document))
+            val decoded = ExportFormat.decode(stream(document).asSource())
 
             assertEquals(ExportFormat.Decoded.Success(document), decoded)
         }
@@ -147,14 +147,30 @@ class ExportFormatTest {
  * Streams [document] through an [ExportWriter] and returns the whole text it produced.
  *
  * Top-level so [ExportFormatDecodeTest] and [ExportWriterTest] share one driver, and so the
- * protocol the writer documents — header, tables in order, finish — is spelled out once.
+ * protocol the writer documents — header, tables in order, finish — is spelled out once. For a
+ * document too big to want as a value, use [writeTo] and give it somewhere to go.
  */
 internal suspend fun stream(
     document: ExportDocument,
     pageSize: Int = 2,
 ): String {
     val text = StringBuilder()
-    val writer = ExportWriter(ExportSink { chunk -> text.append(chunk) })
+    writeTo(ExportSink { chunk -> text.append(chunk) }, document, pageSize)
+    return text.toString()
+}
+
+/**
+ * Writes [document] into [sink] a page at a time, in the order [ExportWriter] documents.
+ *
+ * The whole of the export protocol as a test drives it: header, every table in [BackupTable]
+ * order — empty ones included, because the document's key set is constant — then finish.
+ */
+internal suspend fun writeTo(
+    sink: ExportSink,
+    document: ExportDocument,
+    pageSize: Int,
+) {
+    val writer = ExportWriter(sink)
     writer.writeHeader(document.exportedAt, document.appVersion, document.preferences)
     BackupTable.entries.forEach { table ->
         val rows = document.rows(table)
@@ -165,5 +181,4 @@ internal suspend fun stream(
         }
     }
     writer.finish()
-    return text.toString()
 }

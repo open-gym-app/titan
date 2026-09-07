@@ -16,8 +16,13 @@ package com.opengym.core.domain.backup
  *   drops or rewrites them produces invalid JSON, and nothing downstream checks.
  * - A chunk is **not a JSON value**. It is whatever fragment the writer had ready, which is
  *   usually a row and a comma but may be half an object boundary. Nothing may parse one.
- * - [write] **suspends**, so a sink doing real I/O does not need a dispatcher of its own; the
- *   exporter is already off the main thread.
+ * - [write] **suspends**, but it is called on whatever context collects `ExportUseCase`'s flow:
+ *   the use case adds no `flowOn`, and the only thing that dispatches is the repository's own
+ *   reads. Encoding a page and handing it here therefore happen on the collector's thread, so
+ *   **either the collector or the sink has to be off the main one** — a `viewModelScope.launch`
+ *   with no dispatcher would put tens of megabytes of JSON and every file write on it. #38
+ *   owes that choice; a sink doing real I/O and unsure of its caller should wrap its body in
+ *   `withContext`.
  * - A failure is thrown, not returned. It aborts the export at that chunk — the caller is left
  *   holding a truncated file, which is the honest outcome and why #38 writes to a scratch file
  *   and only moves it into place once the flow reports [ExportProgress.Complete].
