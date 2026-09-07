@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.backup.ExportFormat
+import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
@@ -78,7 +79,7 @@ class BackupViewModelTest {
             val outcome = viewModel.uiState.first { it.lastExport != null }.lastExport
 
             val succeeded = outcome as ExportOutcome.Succeeded
-            val document = ExportFormat.decode(backupFile(succeeded.fileName).readText())
+            val document = ExportFormat.decode(source(backupFile(succeeded.fileName)))
             assertTrue(
                 "the export should be a readable document, was $document",
                 document is ExportFormat.Decoded.Success,
@@ -352,6 +353,12 @@ class BackupViewModelTest {
     private fun backupDirectory() = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
 
     private fun backupFile(name: String) = File(backupDirectory(), name)
+
+    /**
+     * [file] as an [ImportSource] — a handle that re-opens, which is what the decoder needs:
+     * it reads the version off one stream and the document off a second.
+     */
+    private fun source(file: File) = ImportSource { file.inputStream() }
 
     private companion object {
 

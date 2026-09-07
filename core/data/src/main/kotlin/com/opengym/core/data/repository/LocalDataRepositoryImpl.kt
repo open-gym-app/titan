@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
 import com.opengym.core.data.db.DatabaseSeed
 import com.opengym.core.data.db.OpenGymDatabase
+import com.opengym.core.data.di.DATABASE_NAME
 import com.opengym.core.data.di.IoDispatcher
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.SessionState
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -137,6 +139,10 @@ class LocalDataRepositoryImpl @Inject constructor(
             }
             .distinctUntilChanged()
             .conflate()
+            // The transform stats three files, and a collector is a ViewModel on Main. One
+            // `flowOn` keeps that syscall — and Room's own delivery — off the frame the
+            // settings screen is drawing.
+            .flowOn(ioDispatcher)
 
     /**
      * [NonCancellable], which is the one place in the app that earns it.
@@ -175,6 +181,11 @@ class LocalDataRepositoryImpl @Inject constructor(
      * as a fraction of what `du` says. `Context.getDatabasePath` resolves a bare name to the
      * app's own database directory, so the WAL and the shared-memory file are its siblings.
      *
+     * The name is [DATABASE_NAME], the one `DatabaseModule` opens Room with, rather than a
+     * second copy of the string: reaching the open file's path off the instance
+     * (`openHelper.databaseName`) is null for the in-memory database every test builds, so a
+     * shared constant is what keeps a rename from silently zeroing this.
+     *
      * Zero rather than a failure. This exists to put an order of magnitude on a backup
      * screen, and a device where the file cannot be stat'd is not a device that should be
      * unable to draw one — the same call [observeFootprint] makes about the counts.
@@ -194,16 +205,6 @@ class LocalDataRepositoryImpl @Inject constructor(
      * wrong swaps two plausible numbers in a dialog nobody reads twice.
      */
     private companion object {
-
-        /**
-         * The database file's name, as `DatabaseModule` builds it.
-         *
-         * A second copy of a string, and the alternative is worse: `OpenGymDatabase` is
-         * constructed by Hilt from a name that lives in the module, and reaching the open
-         * file's path off the instance (`openHelper.databaseName`) is null for the in-memory
-         * database every test builds. `LocalDataRepositoryImplTest` pins the two together.
-         */
-        const val DATABASE_NAME = "open-gym.db"
 
         /** SQLite's write-ahead log and shared-memory siblings, both next to the main file. */
         const val WAL_SUFFIX = "-wal"

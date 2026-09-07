@@ -170,16 +170,15 @@ private fun FootprintCard(footprint: DataFootprint) {
             )
         }
 
+        // The platform's own formatter for the size, so `2.4 MB` follows the device's locale
+        // and the same unit convention the system storage screen uses.
+        val size = stringResource(
+            R.string.backup_footprint_size,
+            Formatter.formatShortFileSize(context, footprint.databaseBytes),
+        )
+
         Text(
-            text = listOfNotNull(
-                footprint.trainingSince(),
-                // The platform's own formatter, so `2.4 MB` follows the device's locale and
-                // the same unit convention the system storage screen uses.
-                stringResource(
-                    R.string.backup_footprint_size,
-                    Formatter.formatShortFileSize(context, footprint.databaseBytes),
-                ),
-            ).joinToString(SUMMARY_SEPARATOR),
+            text = footprint.trainingSince() + SUMMARY_SEPARATOR + size,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

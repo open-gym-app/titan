@@ -25,6 +25,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+/**
+ * The database file's name, on disk under the app's own database directory.
+ *
+ * Named once and shared rather than written twice: `LocalDataRepositoryImpl` has to stat the
+ * file *by name* to put a size on the backup screen, and a rename here that it did not follow
+ * would turn that figure into a permanent zero — a wrong number nobody would notice.
+ */
+internal const val DATABASE_NAME = "open-gym.db"
+
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -35,7 +44,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
-        Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
+        Room.databaseBuilder(context, OpenGymDatabase::class.java, DATABASE_NAME)
             .addCallback(OpenGymDatabase.foreignKeysCallback)
             .addCallback(OpenGymDatabase.singleRowProgressCallback)
             .addCallback(OpenGymDatabase.seedCallback(context.assets))

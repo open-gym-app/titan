@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.backup.ExportSink
+import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.backup.model.ImportProgress
 import com.opengym.core.domain.repository.LocalDataRepository
@@ -36,8 +37,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### Where the file goes, and why this class knows
  *
- * `ExportUseCase` takes an [ExportSink] and `ImportUseCase` takes a `String`: neither knows
- * about files, content URIs or share sheets, which is what keeps them testable in a module
+ * `ExportUseCase` takes an [ExportSink] and `ImportUseCase` takes an [ImportSource]: neither
+ * knows about files, content URIs or share sheets, which is what keeps them testable in a module
  * with no Android on its classpath. Somebody has to bridge that to the platform, and it is
  * here rather than in `:core:data` because what is being bridged is not app *state* — it is a
  * transient file the user is about to hand to another app, and a `Uri` that arrives from an
@@ -178,10 +179,12 @@ class BackupViewModel @Inject constructor(
     /**
      * Replaces everything on the device with the confirmed document.
      *
-     * Reading the file is this class's job and `ImportUseCase`'s explicitly is not, so an
-     * unreadable URI — revoked permission, a file deleted between the picker and the
-     * confirmation — is caught here and reported as the [ImportError.IoFailure] the domain
-     * documents for exactly that case. Everything the *import* refuses arrives as a
+     * *Opening* the file is this class's job and `ImportUseCase`'s explicitly is not, so the
+     * URI is handed over as an [ImportSource] the decoder re-opens for itself. An unreadable
+     * one — revoked permission, a file deleted between the picker and the confirmation —
+     * comes back as the [ImportError.IoFailure] the domain documents for exactly that case,
+     * and anything the platform throws that is not an `IOException` is caught here and
+     * reported as the same. Everything the *import* refuses arrives as a
      * [ImportProgress.Failed] emission instead, and is already typed.
      */
     private fun restore() {
@@ -197,13 +200,19 @@ class BackupViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // Broad on purpose, and for the reason the export's is: reading a document the
-            // user chose can fail in ways a `catch (IOException)` does not cover — a revoked
-            // permission, a provider that has gone away — and every one of them means the same
-            // thing to them. What is *not* caught here is anything the import itself refuses:
-            // `ImportUseCase` never throws those, it emits them, already typed.
+            // `Dispatchers.IO` around the *whole run* rather than around the file read alone:
+            // `ImportUseCase` adds no dispatcher of its own, so parsing tens of megabytes of
+            // JSON and checking every foreign key in it would otherwise happen on Main — the
+            // choice `ImportSource` says #38 owes. `screenState` is a `MutableStateFlow`, so
+            // mirroring progress back out of here is safe from any thread.
+            //
+            // The catch is broad on purpose, and for the reason the export's is: opening a
+            // document the user chose can fail in ways a `catch (IOException)` does not cover —
+            // a revoked permission, a provider that has gone away — and every one of them means
+            // the same thing to them. What is *not* caught here is anything the import itself
+            // refuses: `ImportUseCase` never throws those, it emits them, already typed.
             val outcome = runCatching {
-                runImport(withContext(Dispatchers.IO) { readDocument(uri) })
+                withContext(Dispatchers.IO) { runImport(documentAt(uri)) }
             }.getOrElse { failure ->
                 if (failure is CancellationException) throw failure
                 RestoreOutcome.Failed(ImportError.IoFailure(failure.message.orEmpty()))
@@ -213,7 +222,7 @@ class BackupViewModel @Inject constructor(
     }
 
     /** Collects the import, mirroring its progress into [BackupPhase] and keeping the terminal one. */
-    private suspend fun runImport(document: String): RestoreOutcome {
+    private suspend fun runImport(document: ImportSource): RestoreOutcome {
         var terminal: ImportProgress? = null
         importBackup(document).collect { progress ->
             terminal = progress
@@ -231,12 +240,23 @@ class BackupViewModel @Inject constructor(
         }
     }
 
-    /** The document's text, or a throw the caller turns into [ImportError.IoFailure]. */
-    private fun readDocument(uri: String): String =
-        context.contentResolver.openInputStream(Uri.parse(uri))
-            ?.bufferedReader()
-            ?.use { it.readText() }
-            ?: throw IOException("nothing to read at $uri")
+    /**
+     * The chosen document as an [ImportSource]: a *re-openable* handle, never its text.
+     *
+     * [ImportSource.open] is called more than once per import — the decoder reads the version
+     * and then the document — so this hands back a new stream over the same content URI each
+     * time rather than a cached `String`. That is also what keeps a 30 MB backup off the heap:
+     * a `String` of it would be 60 MB of UTF-16 before a row had been parsed.
+     *
+     * A URI that resolves to nothing throws, which `ExportFormat.decode` already reports as
+     * [ImportError.IoFailure] with the database untouched.
+     */
+    private fun documentAt(uri: String): ImportSource {
+        val document = Uri.parse(uri)
+        return ImportSource {
+            context.contentResolver.openInputStream(document) ?: throw IOException("nothing to read at $uri")
+        }
+    }
 
     /**
      * Where backups are written: `backups/` under the app's own external files directory.

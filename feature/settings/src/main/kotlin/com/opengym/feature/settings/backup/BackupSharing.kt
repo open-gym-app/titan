@@ -42,7 +42,7 @@ internal fun Context.shareBackup(fileName: String) {
 /** What the exporter writes, and what the restore picker is filtered to. */
 internal const val BACKUP_MIME_TYPE = "application/json"
 
-/** Matches the `<provider>` authority in `:app`'s manifest. */
+/** Matches the `<provider>` authority this module's manifest declares. */
 private const val FILE_PROVIDER_SUFFIX = ".fileprovider"
 
 /** Matches `BackupViewModel.BACKUP_DIRECTORY`; the two are one directory and this is the reader. */

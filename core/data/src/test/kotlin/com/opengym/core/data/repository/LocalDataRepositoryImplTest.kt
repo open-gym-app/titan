@@ -15,6 +15,7 @@ import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.db.template
 import com.opengym.core.data.db.workoutSet
+import com.opengym.core.data.di.DATABASE_NAME
 import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
@@ -165,7 +166,9 @@ class LocalDataRepositoryImplTest {
      * The size itself cannot be asserted here — every test builds an *in-memory* database, so
      * there is no file to stat and the figure is legitimately zero. What can be pinned is the
      * thing that would silently make it zero on a real device too: a rename of the file that
-     * `LocalDataRepositoryImpl` does not follow.
+     * `LocalDataRepositoryImpl` does not follow. It cannot, now — [DATABASE_NAME] is the
+     * production constant `DatabaseModule` opens Room with and the one the size is stat'd
+     * under — and this is the literal that says which file that is.
      */
     @Test
     fun `the size is measured against the database the app actually opens`() {
@@ -253,25 +256,15 @@ class LocalDataRepositoryImplTest {
 
     // --- helpers ----------------------------------------------------------
 
-    /** One row of every kind the footprint counts. */
     private companion object {
 
         /** 2024-03-04, so the "training since" line has a month behind it. */
         const val FIRST_SESSION_AT = 1_709_510_400_000L
 
         const val LATER_SESSION_AT = 1_788_600_000_000L
-
-        /**
-         * A third copy of the database's name, and deliberately a literal.
-         *
-         * `LocalDataRepositoryImpl` holds one because it has to stat the file by name, and
-         * `DatabaseModule` holds the one Room opens. This one exists so that changing either
-         * without the other fails here rather than turning the backup screen's size into a
-         * permanent zero — which is a wrong number nobody would notice.
-         */
-        const val DATABASE_NAME = "open-gym.db"
     }
 
+    /** One row of every kind the footprint counts. */
     private suspend fun seedUserData() {
         val exerciseId = db.exerciseDao().insert(ExerciseEntity(name = "Sandbag carry", isCustom = true))
         db.workoutTemplateDao().insert(template())
