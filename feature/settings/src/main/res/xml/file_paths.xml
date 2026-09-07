@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What the app's FileProvider is allowed to hand to another app.
+
+  Backups only, and only the `backups/` directory under app-specific storage — not the whole
+  files directory, which also holds `in-progress-session.json`. A provider scoped wider would
+  let any app that guessed a path read a draft workout out of an authority granted for a
+  share sheet.
+
+  Both variants of app-specific storage are declared because `BackupViewModel` falls back from
+  external to internal on a device with no external volume mounted; the path a backup is
+  written to has to be one this provider can serve either way.
+-->
+<paths>
+    <external-files-path
+        name="backups"
+        path="backups/" />
+    <files-path
+        name="internal-backups"
+        path="backups/" />
+</paths>

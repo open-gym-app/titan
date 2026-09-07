@@ -43,6 +43,9 @@ class SettingsScreenTest {
     private val events = mutableListOf<SettingsEvent>()
     private val openedLinks = mutableListOf<String>()
 
+    /** How many times the Backup & restore row asked to navigate. */
+    private var backupOpened = 0
+
     // --- reading the stored values ----------------------------------------
 
     @Test
@@ -212,8 +215,6 @@ class SettingsScreenTest {
         // `assertIsNotEnabled` reads the semantics tree, which is what TalkBack reads. A row
         // that was only dimmed would pass a screenshot test and fail a blind user.
         listOf(
-            "Backup & restore",
-            "Export JSON",
             "Health Connect",
             "Workout reminders",
             "Streak protection",
@@ -228,8 +229,23 @@ class SettingsScreenTest {
     fun `tapping a disabled row does nothing at all`() {
         setContent()
 
-        composeTestRule.onNodeWithText("Export JSON").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Health Connect").performScrollTo().performClick()
 
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    /**
+     * #38's first acceptance criterion, from the settings side: the row is a way in rather
+     * than a promise. It navigates instead of reporting an event, because where the user goes
+     * is `:app`'s decision and not the ViewModel's.
+     */
+    @Test
+    fun `the backup row navigates rather than reporting an event`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Backup & restore").performScrollTo().performClick()
+
+        assertEquals(1, backupOpened)
         assertEquals(emptyList<SettingsEvent>(), events)
     }
 
@@ -371,6 +387,7 @@ class SettingsScreenTest {
                     appVersion = appVersion,
                     onEvent = events::add,
                     onBack = {},
+                    onOpenBackup = { backupOpened++ },
                     onOpenLink = openedLinks::add,
                 )
             }

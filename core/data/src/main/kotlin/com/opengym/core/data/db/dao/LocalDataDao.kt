@@ -45,4 +45,20 @@ interface LocalDataDao {
 
     @Query("SELECT COUNT(*) FROM body_measurement")
     fun countBodyMeasurements(): Flow<Int>
+
+    /**
+     * When the oldest session on the device was started, or **null** on a device that has
+     * never logged one.
+     *
+     * `MIN(created_at)` over `workout_session`, which is not one of the six counts and is not
+     * a seventh count either — but it answers the same screen's question and is read from the
+     * same table, so a DAO of its own would be a file holding one query. Nullable because
+     * `MIN` over no rows is NULL, which is exactly the answer wanted; a `COUNT`-shaped query
+     * would have returned 0 and dated a fresh install to 1970.
+     *
+     * `created_at` rather than `completed_at`: a session started and abandoned still marks
+     * when this device began being used, and `completed_at` is null on every one of them.
+     */
+    @Query("SELECT MIN(created_at) FROM workout_session")
+    fun firstSessionAt(): Flow<Long?>
 }

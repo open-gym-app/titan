@@ -41,6 +41,36 @@ data class DataFootprint(
 
     /** Logged body measurement entries — a weigh-in, a set of circumferences, or both. */
     val bodyMeasurements: Int = 0,
+
+    /**
+     * When the oldest session on the device was started, epoch milliseconds UTC, or **null**
+     * when nothing has been logged.
+     *
+     * "Since March 2024" is what makes a backup screen's numbers mean something: 184 sessions
+     * over two years and 184 over two months are the same count and not the same history. It
+     * is the *created* stamp rather than the completed one, because a session that was started
+     * and abandoned still marks when this device began being used.
+     *
+     * Null and a count of zero always agree — there is no session to take a date from — but
+     * the two are separate fields because a caller rendering the date does not want to reach
+     * for [sessions] to find out whether it may.
+     */
+    val firstSessionAt: Long? = null,
+
+    /**
+     * How much space the database file itself takes, in bytes.
+     *
+     * The one figure here that is not a count of something the user made, and it is included
+     * for the question a backup screen has to answer before an export: *roughly how big is
+     * this going to be?* It is the database rather than the export — a JSON document of the
+     * same rows is larger, since it spells out a column name per value — so it is an order of
+     * magnitude rather than a promise, which is all a screen should claim.
+     *
+     * Zero before the first read arrives, and on a device where the file cannot be measured.
+     * It is deliberately **not** part of [isEmpty]: a database with nothing in it still has a
+     * page of schema in it, so a size is never a reason to say there is something to lose.
+     */
+    val databaseBytes: Long = 0,
 ) {
     init {
         require(sessions >= 0 && sets >= 0 && templates >= 0) {
@@ -49,6 +79,7 @@ data class DataFootprint(
         require(personalRecords >= 0 && customExercises >= 0 && bodyMeasurements >= 0) {
             "a footprint cannot be negative, was $this"
         }
+        require(databaseBytes >= 0) { "a database cannot occupy negative space, was $databaseBytes" }
     }
 
     /**

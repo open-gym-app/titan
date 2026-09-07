@@ -15,6 +15,7 @@ import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.db.template
 import com.opengym.core.data.db.workoutSet
+import com.opengym.core.data.di.DATABASE_NAME
 import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
@@ -130,10 +131,50 @@ class LocalDataRepositoryImplTest {
                     personalRecords = 1,
                     customExercises = 1,
                     bodyMeasurements = 1,
+                    firstSessionAt = FIRST_SESSION_AT,
                 ),
                 repository.observeFootprint().first(),
             )
         }
+
+    /**
+     * The oldest session's *start*, which is what "training since March 2024" is drawn from —
+     * see #38's footprint card.
+     */
+    @Test
+    fun `the footprint dates the device to its oldest session`() =
+        runBlocking {
+            db.workoutSessionDao().insert(session(createdAt = FIRST_SESSION_AT, lastActiveAt = FIRST_SESSION_AT))
+            db.workoutSessionDao().insert(session(createdAt = LATER_SESSION_AT, lastActiveAt = LATER_SESSION_AT))
+
+            assertEquals(FIRST_SESSION_AT, repository.observeFootprint().first().firstSessionAt)
+        }
+
+    /**
+     * Null rather than zero on a device that has never logged one: `MIN` over no rows is NULL,
+     * and a count-shaped query would have dated a fresh install to 1970.
+     */
+    @Test
+    fun `a device with no sessions has no date rather than the epoch`() =
+        runBlocking {
+            assertNull(repository.observeFootprint().first().firstSessionAt)
+        }
+
+    /**
+     * The database name the size is measured under is the one `DatabaseModule` opens.
+     *
+     * The size itself cannot be asserted here — every test builds an *in-memory* database, so
+     * there is no file to stat and the figure is legitimately zero. What can be pinned is the
+     * thing that would silently make it zero on a real device too: a rename of the file that
+     * `LocalDataRepositoryImpl` does not follow. It cannot, now — [DATABASE_NAME] is the
+     * production constant `DatabaseModule` opens Room with and the one the size is stat'd
+     * under — and this is the literal that says which file that is.
+     */
+    @Test
+    fun `the size is measured against the database the app actually opens`() {
+        assertEquals("open-gym.db", DATABASE_NAME)
+        assertEquals(0L, runBlocking { repository.observeFootprint().first().databaseBytes })
+    }
 
     @Test
     fun `a seeded exercise is not counted as the user's, a custom one is`() =
@@ -215,11 +256,21 @@ class LocalDataRepositoryImplTest {
 
     // --- helpers ----------------------------------------------------------
 
+    private companion object {
+
+        /** 2024-03-04, so the "training since" line has a month behind it. */
+        const val FIRST_SESSION_AT = 1_709_510_400_000L
+
+        const val LATER_SESSION_AT = 1_788_600_000_000L
+    }
+
     /** One row of every kind the footprint counts. */
     private suspend fun seedUserData() {
         val exerciseId = db.exerciseDao().insert(ExerciseEntity(name = "Sandbag carry", isCustom = true))
         db.workoutTemplateDao().insert(template())
-        val sessionId = db.workoutSessionDao().insert(session(isInProgress = false))
+        val sessionId = db.workoutSessionDao().insert(
+            session(isInProgress = false, createdAt = FIRST_SESSION_AT, lastActiveAt = FIRST_SESSION_AT),
+        )
         val sessionExerciseId = db.sessionExerciseDao().insert(
             sessionExercise(sessionId = sessionId, exerciseId = exerciseId, position = 0),
         )
