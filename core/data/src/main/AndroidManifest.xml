@@ -76,12 +76,18 @@
             android:exported="false" />
 
         <!--
-          The one receiver that is exported, because the two things it listens for are the
-          *system's* broadcasts and an un-exported receiver would never hear them.
+          The one receiver that is exported, because everything it listens for is a *system*
+          broadcast and an un-exported receiver would never hear one.
           `android:exported="true"` is therefore required rather than incidental, and the
           receiver checks the action itself rather than trusting the filter — see BootReceiver.
 
-          `MY_PACKAGE_REPLACED` sits in the same filter and is delivered only to this app.
+          `MY_PACKAGE_REPLACED` sits in the same filter and is delivered only to this app. The
+          two clock actions are there because an alarm holds an absolute instant while the
+          schedule is a wall-clock time: a flight or a corrected clock leaves the seven standing
+          alarms pointed at the wrong local time, and only a re-sync fixes it. Both are exempt
+          from the background limits on implicit broadcasts, so a manifest receiver still hears
+          them.
+
           Deliberately not `directBootAware`: the preferences the schedule is read from live in
           credential-encrypted storage, so there is nothing to read before the first unlock, and
           `BOOT_COMPLETED` already arrives after it.
@@ -92,6 +98,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
 

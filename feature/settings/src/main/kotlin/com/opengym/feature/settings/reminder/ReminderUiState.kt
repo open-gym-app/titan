@@ -49,6 +49,13 @@ data class ReminderUiState(
      * Three things have to be true and the screen draws a different line for each way they are
      * not — the switch, at least one day, and the permission. This is the one that means "there
      * is a date to put on the header"; the others are said in the sentence under it.
+     *
+     * The permission is checked here rather than folded into [nextOccurrence] because the two
+     * answer different questions: [nextOccurrence] is *when the schedule comes round*, which is
+     * still a fact while Android is dropping the notification, and it is what the header would
+     * name again the moment the permission is granted. This is *whether the header may present
+     * itself as live* — the accent border and the bright time — and a blocked reminder may not,
+     * or the card would be claiming a delivery while the line under it says there is none.
      */
-    val hasNextOccurrence: Boolean get() = nextOccurrence != null
+    val hasNextOccurrence: Boolean get() = nextOccurrence != null && permission.isGranted
 }

@@ -74,6 +74,7 @@ fun ReminderScreen(
     onEvent: (ReminderEvent) -> Unit,
     onBack: () -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onOpenExactAlarmSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -124,6 +125,7 @@ fun ReminderScreen(
                         isExact = state.isExact,
                         onEvent = onEvent,
                         onOpenNotificationSettings = onOpenNotificationSettings,
+                        onOpenExactAlarmSettings = onOpenExactAlarmSettings,
                     )
                 }
             }
@@ -256,7 +258,8 @@ private fun DaysGroup(
  *
  * Two independent things, and up to both of them are drawn: the notification may not be
  * delivered at all, and it may not be delivered on time. They have different causes, different
- * ways out, and a user who has fixed one still needs telling about the other.
+ * ways out — two different pages of the system settings — and a user who has fixed one still
+ * needs telling about the other.
  */
 @Composable
 private fun PermissionRows(
@@ -264,6 +267,7 @@ private fun PermissionRows(
     isExact: Boolean,
     onEvent: (ReminderEvent) -> Unit,
     onOpenNotificationSettings: () -> Unit,
+    onOpenExactAlarmSettings: () -> Unit,
 ) {
     when (permission) {
         NotificationPermissionState.GRANTED -> Unit
@@ -294,15 +298,16 @@ private fun PermissionRows(
 
     if (!isExact) {
         HairlineDivider()
-        // Stated rather than offered as a fix. The exact-alarm permission is granted on a
-        // full-screen system page that most users will not find and fewer will want, and the
-        // cost of not having it is measured in minutes — so the honest thing is to say the
-        // reminder may be a little late and leave it there.
+        // Stated first and offered second. The cost of not having the permission is measured in
+        // minutes, so the row leads with what the user will actually notice rather than with a
+        // demand — but the tap goes to the page that grants exact alarms, not to the
+        // notification channels above, which carry no switch for this and would leave somebody
+        // hunting for one that is not there.
         PreferenceRow(
             label = stringResource(R.string.reminder_inexact),
             supporting = stringResource(R.string.reminder_inexact_detail),
             external = true,
-            onClick = onOpenNotificationSettings,
+            onClick = onOpenExactAlarmSettings,
         )
     }
 }
@@ -365,6 +370,7 @@ fun ReminderScreenPreview() {
             onEvent = {},
             onBack = {},
             onOpenNotificationSettings = {},
+            onOpenExactAlarmSettings = {},
         )
     }
 }
@@ -384,10 +390,19 @@ fun ReminderScreenOffPreview() {
             onEvent = {},
             onBack = {},
             onOpenNotificationSettings = {},
+            onOpenExactAlarmSettings = {},
         )
     }
 }
 
+/**
+ * Blocked, and carrying an occurrence — which is the state the ViewModel actually produces.
+ *
+ * The date is computed from the switch and the days alone, so a blocked reminder still has
+ * one. Leaving it out here would have made the preview a picture of a state that cannot
+ * happen, and the header quiet for the wrong reason; with it, the golden is what proves the
+ * card does not draw itself as live while the line under it says Android is dropping it.
+ */
 @Preview(name = "Reminder - blocked and inexact", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun ReminderScreenBlockedPreview() {
@@ -395,12 +410,14 @@ fun ReminderScreenBlockedPreview() {
         ReminderScreen(
             state = ReminderUiState(
                 enabled = true,
+                nextOccurrence = NEXT_MONDAY_MILLIS,
                 permission = NotificationPermissionState.DENIED,
                 isExact = false,
             ),
             onEvent = {},
             onBack = {},
             onOpenNotificationSettings = {},
+            onOpenExactAlarmSettings = {},
         )
     }
 }
@@ -417,6 +434,7 @@ fun ReminderScreenNoDaysPreview() {
             onEvent = {},
             onBack = {},
             onOpenNotificationSettings = {},
+            onOpenExactAlarmSettings = {},
         )
     }
 }

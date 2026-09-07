@@ -72,6 +72,11 @@ class AndroidReminderScheduler @Inject constructor(
             else -> preferences.reminders.nextOccurrences(clock.nowMillis(), ZoneId.systemDefault())
         }
 
+        // Asked once for the whole pass rather than once inside each of seven `schedule`
+        // calls: it is a binder call into the system, and the revocation that could land
+        // halfway through is the same race `schedule` already catches.
+        val exact = isExact()
+
         // Every day is visited, not only the wanted ones: a day the user has just cleared is
         // a day with an alarm still standing, and this is where it comes down. That is also
         // what makes `sync` safe to call after any change at all — there is nothing to cancel
@@ -79,7 +84,7 @@ class AndroidReminderScheduler @Inject constructor(
         DayOfWeek.entries.forEach { day ->
             when (val at = wanted[day]) {
                 null -> cancel(day)
-                else -> schedule(day, at)
+                else -> schedule(day, at, exact)
             }
         }
     }
@@ -92,24 +97,32 @@ class AndroidReminderScheduler @Inject constructor(
     /**
      * Sets [day]'s alarm for [at], as exactly as this device will allow.
      *
-     * `RTC_WAKEUP` because the deadline is a wall-clock appointment. An elapsed-time alarm
-     * would survive a clock change and a time-zone change, which is precisely what it must not
-     * do: a lifter who flies to Lisbon wants 18:00 local, not 18:00 Paris.
+     * `RTC_WAKEUP` because the deadline is a moment on the wall clock rather than a delay:
+     * an elapsed-time alarm set eight hours out is eight hours out however the clock is
+     * corrected in the meantime, where this one tracks `System.currentTimeMillis`.
+     *
+     * It does *not* follow the time zone — [at] is an absolute instant, and 18:00 Paris stays
+     * 17:00 in Lisbon. `BootReceiver` is what re-arms the week when the zone moves; nothing
+     * `AlarmManager` offers would do it here.
      *
      * `runCatching` around the call itself for the race the check cannot close — the user
      * revoking the exact-alarm permission between [isExact] and here — and for the OEM that
      * refuses a wake-up outright. A reminder that could not be set is not worth taking the
      * settings screen down for.
+     *
+     * @param exact what [isExact] answered for this pass. Passed in rather than asked again per
+     *   day, which would be seven binder calls for one answer.
      */
     private fun schedule(
         day: DayOfWeek,
         at: Long,
+        exact: Boolean,
     ) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         val pending = reminderIntent(context, day)
 
         runCatching {
-            if (isExact()) {
+            if (exact) {
                 manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)
             } else {
                 manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pending)

@@ -41,6 +41,7 @@ class ReminderScreenTest {
 
     private val events = mutableListOf<ReminderEvent>()
     private var notificationSettingsOpened = 0
+    private var exactAlarmSettingsOpened = 0
 
     // --- the header ---------------------------------------------------------
 
@@ -190,6 +191,18 @@ class ReminderScreenTest {
     }
 
     @Test
+    fun `and that row leads to the exact-alarm page, not to the notification one`() {
+        // Two permissions on two system screens. Sending somebody looking for the alarm switch
+        // to the notification channels is a row that opens the wrong page and says nothing.
+        setContent(ReminderUiState(enabled = true, isExact = false))
+
+        composeTestRule.onNodeWithText("May arrive late").performScrollTo().performClick()
+
+        assertEquals(1, exactAlarmSettingsOpened)
+        assertEquals(0, notificationSettingsOpened)
+    }
+
+    @Test
     fun `and says nothing when it can`() {
         setContent(ReminderUiState(enabled = true, isExact = true))
 
@@ -204,6 +217,7 @@ class ReminderScreenTest {
                     onEvent = events::add,
                     onBack = {},
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
+                    onOpenExactAlarmSettings = { exactAlarmSettingsOpened++ },
                 )
             }
         }

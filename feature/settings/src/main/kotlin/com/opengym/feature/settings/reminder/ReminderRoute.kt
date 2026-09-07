@@ -8,6 +8,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.feature.settings.component.NotificationPermissionEffects
 import com.opengym.feature.settings.component.startAppNotificationSettings
+import com.opengym.feature.settings.component.startExactAlarmSettings
 
 /**
  * The reminder screen, wired to its ViewModel.
@@ -36,6 +37,9 @@ fun ReminderRoute(
         onEvent = viewModel::onEvent,
         onBack = onBack,
         onOpenNotificationSettings = { context.startAppNotificationSettings() },
+        // A different page of the system settings from the one above: notifications and exact
+        // alarms are two permissions, and the row for each has to lead where its own answer is.
+        onOpenExactAlarmSettings = { context.startExactAlarmSettings() },
         modifier = modifier,
     )
 }

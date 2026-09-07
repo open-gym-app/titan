@@ -255,7 +255,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
             // [setPlatePairs] gives: `Preferences.get` casts, and a mistyped entry would throw
             // out of the middle of a transaction rather than falling back to the default.
             val stored = preferences.asMap().valueOrNull(UserPreferencesKeys.REMINDER_DAYS)?.toReminderDays()
-                ?: ReminderPreferences().days
+                ?: ReminderPreferences.DEFAULT_DAYS
             val days = if (enabled) stored + day else stored - day
             preferences[UserPreferencesKeys.REMINDER_DAYS] =
                 days.map(DayOfWeek::getValue).sorted().joinToString(REMINDER_DAY_SEPARATOR)

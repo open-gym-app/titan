@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -67,12 +68,16 @@ internal fun NotificationPermissionEffects(
 
 /**
  * Opens Android's own notification settings for this app — the screen where a refused
- * permission can still be granted, and where an exact-alarm one is reached from.
+ * permission can still be granted.
  *
  * `ACTION_APP_NOTIFICATION_SETTINGS` rather than the app's details page, so the user lands on
  * the channels themselves rather than one level up from them. `NEW_TASK` because the launch is
  * from an application context in the general case, and starting an activity without it there
  * throws.
+ *
+ * Not where an exact alarm is granted — that is [startExactAlarmSettings], on a different page
+ * of the system settings. The channel screen carries no alarm toggle, and a row about a late
+ * reminder that opens it is a row that answers a question the user did not ask.
  *
  * Falls back to the app's details page, and then to nothing, because neither screen is
  * guaranteed to exist: a build without the notification settings activity — a stripped AOSP
@@ -85,11 +90,40 @@ internal fun Context.startAppNotificationSettings() {
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     if (startActivityOrNothing(channels)) return
 
-    val details = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+    startActivityOrNothing(appDetailsSettings())
+}
+
+/**
+ * Opens the system page that carries this app's exact-alarm switch.
+ *
+ * A second destination rather than a reuse of [startAppNotificationSettings], because they are
+ * two permissions on two screens: whether a notification is delivered, and whether an alarm may
+ * wake the device on the minute. The reminder screen says both out loud and each row has to
+ * lead to the page that can actually change the answer.
+ *
+ * `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` exists from Android 12, which is also the first version
+ * that can withhold the permission — below it `AndroidReminderScheduler.isExact` is always true
+ * and the row that leads here is never drawn.
+ *
+ * Falls back to the app's details page, which lists "Alarms & reminders" one tap in, and then
+ * to nothing, for the reason the notification one does.
+ */
+internal fun Context.startExactAlarmSettings() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val exactAlarms = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+            .setData(Uri.fromParts("package", packageName, null))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (startActivityOrNothing(exactAlarms)) return
+    }
+
+    startActivityOrNothing(appDetailsSettings())
+}
+
+/** The app's own page in system settings, which is the last stop for either permission. */
+private fun Context.appDetailsSettings(): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
         .setData(Uri.fromParts("package", packageName, null))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    startActivityOrNothing(details)
-}
 
 /** @return whether something opened. Nothing resolved is a dead row, not a crash. */
 private fun Context.startActivityOrNothing(intent: Intent): Boolean =

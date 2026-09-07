@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -104,6 +105,24 @@ class ReminderViewModelTest {
             collect(viewModel)
 
             assertNull(viewModel.uiState.value.nextOccurrence)
+        }
+
+    @Test
+    fun `a blocked reminder keeps its date but does not present the header as live`() =
+        runTest {
+            val viewModel = viewModel(enabled = true)
+            collect(viewModel)
+
+            // The prompt has been up and Android has answered it with a refusal. The schedule
+            // is untouched; what is gone is the delivery.
+            viewModel.onEvent(ReminderEvent.PermissionRequested)
+
+            assertEquals(NotificationPermissionState.DENIED, viewModel.uiState.value.permission)
+            // The date is still a fact, and it is the one the header names again the moment the
+            // permission comes back. But the card may not draw itself as live — accent border,
+            // bright time — above a line that says the notification is not arriving.
+            assertNotNull(viewModel.uiState.value.nextOccurrence)
+            assertFalse(viewModel.uiState.value.hasNextOccurrence)
         }
 
     @Test
@@ -256,10 +275,10 @@ class ReminderViewModelTest {
     @Test
     fun `the row that offers the prompt raises it, and syncs on the way past`() =
         runTest {
-            // For the user whose reminder is already on and who therefore has no switch left to
-            // flip. The sync matters as much as the prompt: a schedule stored while the
-            // permission was missing has no alarms behind it, because `sync` refuses to arm
-            // what `Notifier` would drop.
+            // For the user whose reminder is already on and who therefore has no switch left
+            // to flip. The sync matters as much as the prompt, and not because it depends on
+            // the permission: it is the rule with no exceptions in it — every event that goes
+            // through `write` re-points the alarms, including the ones that store nothing.
             val viewModel = viewModel(enabled = true)
             collect(viewModel)
 

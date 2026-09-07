@@ -1,6 +1,5 @@
 package com.opengym.core.data.notification
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.opengym.core.data.R
@@ -22,11 +21,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,28 +33,21 @@ import javax.inject.Singleton
  * reason `RestTimerReceiver` and `IdleSessionReceiver` reach theirs that way: a class the
  * system instantiates by name is the one shape a test cannot construct with its own doubles,
  * and everything worth testing is on the other side of it.
+ *
+ * [SuspendingBroadcastReceiver] for the `goAsync` the other two need and this one needs more of:
+ * it reads three stores and then re-arms seven alarms, on a process the system may have started
+ * from cold to deliver the broadcast.
  */
-class ReminderReceiver : BroadcastReceiver() {
+class ReminderReceiver : SuspendingBroadcastReceiver() {
 
-    override fun onReceive(
+    override suspend fun handle(
         context: Context,
         intent: Intent,
     ) {
-        val broadcasts = EntryPointAccessors
+        EntryPointAccessors
             .fromApplication(context.applicationContext, ReminderEntryPoint::class.java)
             .reminderBroadcasts()
-
-        // `goAsync`, because this reads three stores and then re-arms seven alarms, on a
-        // process the system may have started from cold to deliver the broadcast. Without it
-        // the process may be killed the instant `onReceive` returns — long before any of that.
-        val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-            try {
-                broadcasts.handle(intent)
-            } finally {
-                pending.finish()
-            }
-        }
+            .handle(intent)
     }
 }
 
@@ -116,7 +104,12 @@ class ReminderBroadcasts @Inject constructor(
         // importantly, nothing to re-arm from.
         reminderDayOf(intent) ?: return
 
-        notifyDue()
+        // Wrapped, and the re-arm below is outside it. The notification is what this wake-up
+        // exists for, but it is also the half that reads two stores and talks to the platform,
+        // and a refusal from any of them must not cost next week's alarm: an unguarded throw
+        // here would skip the sync *and* escape into the receiver's own coroutine, where there
+        // is nothing to catch it.
+        runCatching { notifyDue() }
 
         // After the notification, not before: the user's reminder arriving is the thing this
         // wake-up exists for, and a store that refuses to be re-read should not be able to

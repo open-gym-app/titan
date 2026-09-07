@@ -174,10 +174,11 @@ class ReminderViewModel @Inject constructor(
     /**
      * Runs a settings write and re-points the alarms at what it left behind.
      *
-     * `sync` is called even when [block] wrote nothing — the permission row's event does — and
-     * that is deliberate rather than wasteful: a user who has just granted the permission has
-     * a schedule stored and no alarms set for it, because `sync` refuses to arm what `Notifier`
-     * would drop. This is the moment that becomes untrue.
+     * `sync` runs after every one of them, including the permission row's event, which writes
+     * nothing this could react to. That is one branch fewer rather than a claim about the
+     * permission: `sync` reads the store itself and is idempotent, so a pass that changes
+     * nothing costs seven pending intents and buys a rule with no exceptions in it — every
+     * write is followed by a sync, and there is no fourth caller to get it wrong.
      *
      * Catches [Throwable] for the reason `SettingsViewModel.write` gives: the store is not the
      * only thing that can refuse, `setReminderTime` validates its argument, and the ways a
