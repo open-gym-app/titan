@@ -54,10 +54,20 @@ class ExportStreamingTest : RoomTestBase() {
         )
     }
 
+    /**
+     * The target-scale run, and the only test here that pays for it.
+     *
+     * Seeding 1,000 sessions and 50,000 sets takes real time, and `LargeHistoryBenchmarkTest`
+     * in this same module already does it twice — so the memory guarantee, the progress
+     * contract and the file's contents are asserted in one pass over one fixture rather than
+     * in three tests over three. They are one run of the exporter either way; splitting them
+     * would triple the cost of the suite to make three failures nameable instead of one.
+     */
     @Test
-    fun `the target-scale history exports in pages, and the file parses`() =
+    fun `the target-scale history exports in pages, reports determinately, and parses`() =
         runBlocking {
             val seeded = seedHistory(TARGET_SCALE)
+            val expected = rowsInDatabase()
             val file = temporaryFolder.newFile("export.json")
             var largestChunk = 0
 
@@ -69,28 +79,21 @@ class ExportStreamingTest : RoomTestBase() {
                 APP_VERSION,
             ).toList()
 
-            assertEquals(rowsInDatabase(), (progress.last() as ExportProgress.Complete).rowsWritten)
+            // Determinate from the first emission, monotonic, and finishing on the count.
+            assertEquals(expected, progress.first().rowsTotal)
+            progress.zipWithNext { earlier, later ->
+                assertTrue("progress went backwards", later.rowsWritten >= earlier.rowsWritten)
+            }
+            assertEquals(expected, (progress.last() as ExportProgress.Complete).rowsWritten)
+
+            // The memory guarantee, asserted the only way it can be from outside: a writer that
+            // had built the document and handed it over in one call would fail this by two
+            // orders of magnitude.
             assertTrue(
                 "a chunk of $largestChunk characters is more than a page of rows: the writer stopped streaming",
                 largestChunk < MAX_CHUNK_CHARACTERS,
             )
             assertSetsAndSessions(file, seeded.spec)
-        }
-
-    /** A determinate bar over 50,000 sets, and one that never goes backwards. */
-    @Test
-    fun `progress over the target-scale history is determinate and monotonic`() =
-        runBlocking {
-            seedHistory(TARGET_SCALE)
-            val expected = rowsInDatabase()
-
-            val progress = export(ExportSink { }, APP_VERSION).toList()
-
-            assertEquals(expected, progress.first().rowsTotal)
-            progress.zipWithNext { earlier, later ->
-                assertTrue("progress went backwards", later.rowsWritten >= earlier.rowsWritten)
-            }
-            assertEquals(expected, progress.last().rowsWritten)
         }
 
     /**
