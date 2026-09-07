@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,20 +65,21 @@ fun BackupRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Filtered to JSON, which is what the exporter writes. A cancelled picker calls back with
-    // null and sends no event at all — which is what leaves the database untouched, and is
-    // the whole of what "a cancelled picker changes nothing" needs.
+    // Filtered to [RESTORE_MIME_TYPES] rather than to the one type the exporter writes, because
+    // a backup that has been off the device comes back declaring something else. A cancelled
+    // picker calls back with null and sends no event at all — which is what leaves the database
+    // untouched, and is the whole of what "a cancelled picker changes nothing" needs.
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) viewModel.onEvent(BackupEvent.RestoreFileChosen(uri.toString()))
     }
 
-    // Handed the file the moment an export completes, then acknowledged so a rotation cannot
-    // open a second sheet. `FileProvider` rather than a `file://` URI: passing one of those to
-    // another app has thrown `FileUriExposedException` since Android 7.
-    LaunchedEffect(state.share) {
-        val fileName = state.share ?: return@LaunchedEffect
-        context.shareBackup(fileName)
-        viewModel.onEvent(BackupEvent.ShareHandled)
+    // Where a copy of the finished export goes. `CreateDocument` is the *only* way an app can
+    // put a file somewhere the user can find it: `Android/data/…`, where the export is written,
+    // is off limits to file managers on Android 11 and up, and no permission exists that would
+    // change that — `WRITE_EXTERNAL_STORAGE` has done nothing since Android 10. The picker
+    // seeds the name field with the export's, so the file keeps its timestamp.
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->
+        if (uri != null) viewModel.onEvent(BackupEvent.SaveDestinationChosen(uri.toString()))
     }
 
     BackupScreen(
@@ -86,7 +87,13 @@ fun BackupRoute(
         appVersion = appVersion,
         onEvent = viewModel::onEvent,
         onBack = onBack,
-        onPickFile = { picker.launch(arrayOf(BACKUP_MIME_TYPE)) },
+        onPickFile = { picker.launch(RESTORE_MIME_TYPES) },
+        onSaveCopy = saver::launch,
+        // Straight to the platform, with no round trip through the ViewModel: a share sheet
+        // leaves no state behind, changes nothing, and the file it needs is already named on
+        // the screen. `FileProvider` rather than a `file://` URI, which has thrown
+        // `FileUriExposedException` since Android 7 — see `shareBackup`.
+        onShare = context::shareBackup,
         modifier = modifier,
     )
 }
@@ -103,6 +110,11 @@ fun BackupRoute(
  *   launching an `ActivityResultContract` needs a launcher remembered in a composition that
  *   is *not* under test in a screen test — the route owns it, and a test drives the same
  *   button by passing its own lambda.
+ * @param onSaveCopy opens the "create document" picker, seeded with the export's file name, so
+ *   the user can put a copy somewhere they can actually reach. Hoisted for [onPickFile]'s
+ *   reason; the copy itself is the ViewModel's, reported back as [BackupUiState.lastSave].
+ * @param onShare hands the named export to the system share sheet. Hoisted rather than sent as
+ *   an event because it is pure platform: nothing about the app changes when a sheet opens.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,6 +124,8 @@ fun BackupScreen(
     onEvent: (BackupEvent) -> Unit,
     onBack: () -> Unit,
     onPickFile: () -> Unit,
+    onSaveCopy: (String) -> Unit,
+    onShare: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -127,7 +141,13 @@ fun BackupScreen(
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
         ) {
             FootprintCard(state.footprint)
-            ExportSection(state = state, appVersion = appVersion, onEvent = onEvent)
+            ExportSection(
+                state = state,
+                appVersion = appVersion,
+                onEvent = onEvent,
+                onSaveCopy = onSaveCopy,
+                onShare = onShare,
+            )
             RestoreSection(state = state, onEvent = onEvent, onPickFile = onPickFile)
         }
     }
@@ -185,11 +205,21 @@ private fun FootprintCard(footprint: DataFootprint) {
     }
 }
 
+/**
+ * The export button, what it is doing, and what came of it.
+ *
+ * The outcome of a successful export is where the two things a user can *do* with the file
+ * live, because until it exists there is nothing to do them to. "Save a copy" is first and
+ * named first in the description: the file the export writes is in app-specific storage that
+ * no file manager can browse, so a user who never presses it has a backup they cannot reach.
+ */
 @Composable
 private fun ExportSection(
     state: BackupUiState,
     appVersion: String,
     onEvent: (BackupEvent) -> Unit,
+    onSaveCopy: (String) -> Unit,
+    onShare: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
         SectionHeading(text = stringResource(R.string.backup_export_title))
@@ -207,25 +237,48 @@ private fun ExportSection(
             Text(text = stringResource(R.string.backup_export_action))
         }
 
-        val exporting = state.phase as? BackupPhase.Exporting
-        if (exporting != null) {
-            ProgressRow(
+        when (val phase = state.phase) {
+            is BackupPhase.Exporting -> ProgressRow(
                 label = stringResource(R.string.backup_exporting),
-                completed = exporting.rowsWritten,
-                total = exporting.rowsTotal,
+                completed = phase.rowsWritten,
+                total = phase.rowsTotal,
             )
+
+            // Indeterminate, and honestly so: a copy has no row count of its own, and the
+            // bytes it moves are not the number the export just finished reporting.
+            BackupPhase.Saving -> ProgressRow(label = stringResource(R.string.backup_saving))
+
+            else -> Unit
         }
 
         when (val outcome = state.lastExport) {
             null -> Unit
 
-            is ExportOutcome.Succeeded -> OutcomeCard(
+            is ExportOutcome.Succeeded -> ExportedCard(
                 text = stringResource(R.string.backup_export_done, outcome.fileName, outcome.rowsWritten),
+                isBusy = state.isBusy,
+                onSaveCopy = { onSaveCopy(outcome.fileName) },
+                onShare = { onShare(outcome.fileName) },
                 onDismiss = { onEvent(BackupEvent.OutcomeDismissed) },
             )
 
             ExportOutcome.Failed -> OutcomeCard(
                 text = stringResource(R.string.backup_export_failed),
+                isError = true,
+                onDismiss = { onEvent(BackupEvent.OutcomeDismissed) },
+            )
+        }
+
+        when (state.lastSave) {
+            null -> Unit
+
+            SaveOutcome.Succeeded -> OutcomeCard(
+                text = stringResource(R.string.backup_save_done),
+                onDismiss = { onEvent(BackupEvent.OutcomeDismissed) },
+            )
+
+            SaveOutcome.Failed -> OutcomeCard(
+                text = stringResource(R.string.backup_save_failed),
                 isError = true,
                 onDismiss = { onEvent(BackupEvent.OutcomeDismissed) },
             )
@@ -321,6 +374,61 @@ private fun ProgressRow(
             )
         } else {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/**
+ * The successful export: what it wrote, and the two things that can be done with it.
+ *
+ * Its own composable rather than an `actions` slot on [OutcomeCard], because it is a different
+ * shape and not a variant of one. Every other outcome is a sentence with a way to dismiss it,
+ * and fits on one line beside its button; this one is a sentence over a row of three, and
+ * folding both into one function would be a conditional layout pretending to be a parameter.
+ *
+ * All three are text buttons, of equal weight, in the order they are wanted. "Save a copy" is
+ * not emphasised into a filled button even though it is the one that matters most: three
+ * controls at three weights inside a card that is itself a footnote is more hierarchy than a
+ * card deserves, and a filled button next to `Share` would read as a commitment rather than a
+ * choice between two ways of keeping the file.
+ *
+ * @param isBusy whether the copy is already running — the buttons go inert while it is, since
+ *   a second destination picked mid-write would have two copies reading one file.
+ */
+@Composable
+private fun ExportedCard(
+    text: String,
+    isBusy: Boolean,
+    onSaveCopy: () -> Unit,
+    onShare: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    OpenGymCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(
+                start = OpenGymTheme.spacing.card,
+                top = OpenGymTheme.spacing.sm,
+                bottom = OpenGymTheme.spacing.sm,
+                end = OpenGymTheme.spacing.sm,
+            ),
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onSaveCopy, enabled = !isBusy) {
+                    Text(text = stringResource(R.string.backup_save_copy_action))
+                }
+                TextButton(onClick = onShare, enabled = !isBusy) {
+                    Text(text = stringResource(R.string.backup_share_action))
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                TextButton(onClick = onDismiss) {
+                    Text(text = stringResource(R.string.backup_dismiss))
+                }
+            }
         }
     }
 }
@@ -438,6 +546,8 @@ fun BackupScreenPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -452,6 +562,8 @@ fun BackupScreenEmptyPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -469,6 +581,8 @@ fun BackupScreenExportingPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -489,6 +603,38 @@ fun BackupScreenExportedPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
+        )
+    }
+}
+
+/**
+ * The copy in flight: an indeterminate bar, and the card's own buttons inert behind it.
+ *
+ * Worth a reference of its own because it is the one state where a card that is *finished*
+ * has to look unavailable — a user who taps "Save a copy" twice would otherwise have two
+ * writes reading one file.
+ */
+@Preview(name = "Backup - saving a copy", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun BackupScreenSavingPreview() {
+    OpenGymTheme {
+        BackupScreen(
+            appVersion = PREVIEW_APP_VERSION,
+            state = BackupUiState(
+                footprint = SAMPLE_FOOTPRINT,
+                phase = BackupPhase.Saving,
+                lastExport = ExportOutcome.Succeeded(
+                    fileName = "opengym-backup-2026-09-06-1432.json",
+                    rowsWritten = 52_180,
+                ),
+            ),
+            onEvent = {},
+            onBack = {},
+            onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -506,6 +652,8 @@ fun BackupScreenRestoreConfirmationPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -523,6 +671,8 @@ fun BackupScreenRestoringPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -540,6 +690,8 @@ fun BackupScreenRestoredPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -559,6 +711,8 @@ fun BackupScreenUnsupportedVersionPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }
@@ -576,6 +730,8 @@ fun BackupScreenMalformedPreview() {
             onEvent = {},
             onBack = {},
             onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
         )
     }
 }

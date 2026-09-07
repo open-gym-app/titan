@@ -41,14 +41,25 @@ sealed interface BackupEvent {
      */
     data object RestoreConfirmed : BackupEvent
 
-    /** The share sheet has been launched; drop the file so a rotation does not open a second one. */
-    data object ShareHandled : BackupEvent
+    /**
+     * The user picked where a copy of the last export should go.
+     *
+     * The counterpart of [RestoreFileChosen], and it arrives the same way — from a system
+     * picker the route launched, as a string, with a cancelled picker sending nothing at all.
+     * Unlike a restore it needs no confirmation: writing a file the user just named, at a
+     * location they just chose, destroys nothing.
+     *
+     * @property uri where to write, as a string. It is a document the picker has already
+     *   created, so the copy truncates it rather than appending to it.
+     */
+    data class SaveDestinationChosen(val uri: String) : BackupEvent
 
     /**
-     * The user dismissed the outcome of the last export or restore.
+     * The user dismissed the outcome of the last export, copy or restore.
      *
-     * Both at once rather than one each: only one of them can be showing, since starting
-     * either operation clears both.
+     * All three at once rather than one each: an export and a restore cannot both be showing,
+     * since starting either clears both, and a copy's outcome is a footnote to the export's
+     * that has nothing left to say once the card naming the file is gone.
      */
     data object OutcomeDismissed : BackupEvent
 }

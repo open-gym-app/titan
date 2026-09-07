@@ -107,12 +107,17 @@
     <string name="backup_footprint_size">%1$s of data</string>
 
     <string name="backup_export_title">Export</string>
-    <string name="backup_export_detail">Writes every workout, template, record and setting to one JSON file, then offers it to share. Nothing leaves the phone unless you send it somewhere.</string>
+    <string name="backup_export_detail">Writes every workout, template, record and setting to one JSON file. Save a copy where you can find it again, or send it somewhere — nothing leaves the phone until you do.</string>
     <string name="backup_export_action">Export a backup</string>
     <string name="backup_exporting">Exporting…</string>
     <string name="backup_export_done">Saved %1$s — %2$d rows.</string>
     <string name="backup_export_failed">The backup could not be written. Check there is space on the device and try again.</string>
     <string name="backup_share_title">Share backup</string>
+    <string name="backup_save_copy_action">Save a copy…</string>
+    <string name="backup_share_action">Share</string>
+    <string name="backup_saving">Saving a copy…</string>
+    <string name="backup_save_done">A copy is saved where you chose.</string>
+    <string name="backup_save_failed">The copy could not be written there. Choose another location and try again.</string>
 
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>

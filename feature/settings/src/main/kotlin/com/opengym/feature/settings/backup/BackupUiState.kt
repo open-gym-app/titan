@@ -24,9 +24,10 @@ import com.opengym.core.domain.model.DataFootprint
  * @param lastRestore the outcome of the most recent restore. Persistent for a stronger
  *   reason — a failed restore has to leave a sentence on the screen saying *which* failure it
  *   was and that the data is untouched, and four seconds of snackbar is not that.
- * @param share a file waiting to be handed to the system share sheet. The one genuinely
- *   one-shot field here, cleared by [BackupEvent.ShareHandled] once the screen has launched
- *   the intent, so a rotation does not open a second sheet.
+ * @param lastSave how the last "save a copy" ended, or null if the user has not asked for one.
+ *   Separate from [lastExport] rather than folded into it because the two are separate facts
+ *   about separate files — the export succeeded and its card must keep saying so, and offering
+ *   the buttons that copy and share it, whether or not a copy to a chosen folder then failed.
  */
 @Immutable
 data class BackupUiState(
@@ -35,10 +36,10 @@ data class BackupUiState(
     val pendingRestoreUri: String? = null,
     val lastExport: ExportOutcome? = null,
     val lastRestore: RestoreOutcome? = null,
-    val share: String? = null,
+    val lastSave: SaveOutcome? = null,
 ) {
 
-    /** Whether an export or a restore is running. Both buttons and the picker go inert while it is. */
+    /** Whether anything is running. Both buttons and the picker go inert while something is. */
     val isBusy: Boolean get() = phase != BackupPhase.Idle
 }
 
@@ -70,6 +71,17 @@ sealed interface BackupPhase {
         val rowsWritten: Long,
         val rowsTotal: Long,
     ) : BackupPhase
+
+    /**
+     * The finished export is being copied to the place the user picked.
+     *
+     * The one phase with no row count, and it does not want one: this is a byte-for-byte copy
+     * of a file that already exists, so there is nothing to count that the user would
+     * recognise. It is a phase at all — rather than a copy that happens silently — because a
+     * 30 MB write to an SD card or a cloud provider is not instant, and because [isBusy] is
+     * what stops a second export from overwriting the file being read.
+     */
+    data object Saving : BackupPhase
 }
 
 /** How the last export ended. */
@@ -94,6 +106,22 @@ sealed interface ExportOutcome {
      * user somewhere different. The partial file is deleted before this is reported.
      */
     data object Failed : ExportOutcome
+}
+
+/**
+ * How the last "save a copy" ended.
+ *
+ * Two cases with nothing in them, for the reason [ExportOutcome.Failed] carries nothing: the
+ * user chose the destination a moment ago, so naming it back at them says nothing they do not
+ * know, and every way a write to it can fail leads to the same "pick somewhere else".
+ */
+sealed interface SaveOutcome {
+
+    /** The bytes are at the location the user picked. */
+    data object Succeeded : SaveOutcome
+
+    /** The destination could not be written — no space, a provider that went away, a revoked grant. */
+    data object Failed : SaveOutcome
 }
 
 /** How the last restore ended. */

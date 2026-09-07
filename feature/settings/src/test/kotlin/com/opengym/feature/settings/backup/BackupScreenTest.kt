@@ -36,6 +36,8 @@ class BackupScreenTest {
 
     private val events = mutableListOf<BackupEvent>()
     private var pickerOpened = 0
+    private val saved = mutableListOf<String>()
+    private val shared = mutableListOf<String>()
 
     // --- what is on the device --------------------------------------------
 
@@ -84,17 +86,81 @@ class BackupScreenTest {
 
     @Test
     fun `a finished export names the file it wrote`() {
-        setContent(
-            lastExport = ExportOutcome.Succeeded(
-                fileName = "opengym-backup-2026-09-06-1432.json",
-                rowsWritten = 52_180,
-            ),
-        )
+        setContent(lastExport = EXPORTED)
 
         composeTestRule
             .onNodeWithText("opengym-backup-2026-09-06-1432.json", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    /**
+     * The fix for a backup nobody could reach: the export lands in app-specific storage, which
+     * no file manager may browse, so the card has to offer a way out to a real folder.
+     */
+    @Test
+    fun `a finished export offers to save a copy of the file it named`() {
+        setContent(lastExport = EXPORTED)
+
+        composeTestRule.onNodeWithText("Save a copy…").performScrollTo().performClick()
+
+        assertEquals(listOf("opengym-backup-2026-09-06-1432.json"), saved)
+        assertEquals(emptyList<BackupEvent>(), events)
+    }
+
+    /** Sharing is the platform's, not the ViewModel's: the screen reports nothing when it happens. */
+    @Test
+    fun `a finished export offers to share the file it named`() {
+        setContent(lastExport = EXPORTED)
+
+        composeTestRule.onNodeWithText("Share").performScrollTo().performClick()
+
+        assertEquals(listOf("opengym-backup-2026-09-06-1432.json"), shared)
+        assertEquals(emptyList<BackupEvent>(), events)
+    }
+
+    /** Nothing is offered until there is a file: both actions are about a named export. */
+    @Test
+    fun `an export that has not happened offers neither action`() {
+        setContent(footprint = FOOTPRINT)
+
+        assertTrue(
+            "the copy and share actions belong to a finished export",
+            composeTestRule.onAllNodesWithText("Save a copy…").fetchSemanticsNodes().isEmpty() &&
+                composeTestRule.onAllNodesWithText("Share").fetchSemanticsNodes().isEmpty(),
+        )
+    }
+
+    /** A second destination picked mid-copy would have two writes reading one file. */
+    @Test
+    fun `a copy in flight says so and holds the card's own buttons inert`() {
+        setContent(phase = BackupPhase.Saving, lastExport = EXPORTED)
+
+        // The bar and its caption speak as one node, as the export's do, so it is found by
+        // what it announces rather than by the text drawn in it.
+        composeTestRule.onNodeWithContentDescription("Saving a copy…").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Save a copy…").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Share").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a saved copy says where it went in the user's terms`() {
+        setContent(lastExport = EXPORTED, lastSave = SaveOutcome.Succeeded)
+
+        composeTestRule.onNodeWithText("saved where you chose", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    /** A copy that failed must not read as an export that failed: the backup is still there. */
+    @Test
+    fun `a failed copy points at the destination rather than the backup`() {
+        setContent(lastExport = EXPORTED, lastSave = SaveOutcome.Failed)
+
+        composeTestRule.onNodeWithText("Choose another location", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("opengym-backup-2026-09-06-1432.json", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -275,6 +341,7 @@ class BackupScreenTest {
         pendingRestoreUri: String? = null,
         lastExport: ExportOutcome? = null,
         lastRestore: RestoreOutcome? = null,
+        lastSave: SaveOutcome? = null,
         appVersion: String = "1.0",
     ) {
         composeTestRule.setContent {
@@ -286,11 +353,14 @@ class BackupScreenTest {
                         pendingRestoreUri = pendingRestoreUri,
                         lastExport = lastExport,
                         lastRestore = lastRestore,
+                        lastSave = lastSave,
                     ),
                     appVersion = appVersion,
                     onEvent = events::add,
                     onBack = {},
                     onPickFile = { pickerOpened++ },
+                    onSaveCopy = saved::add,
+                    onShare = shared::add,
                 )
             }
         }
@@ -302,6 +372,12 @@ class BackupScreenTest {
         const val FIRST_SESSION_AT = 1_711_929_600_000L
 
         const val SOME_URI = "content://downloads/opengym-backup.json"
+
+        /** A finished export, which is what both card actions are about. */
+        val EXPORTED = ExportOutcome.Succeeded(
+            fileName = "opengym-backup-2026-09-06-1432.json",
+            rowsWritten = 52_180,
+        )
 
         val FOOTPRINT = DataFootprint(
             sessions = 184,

@@ -39,8 +39,29 @@ internal fun Context.shareBackup(fileName: String) {
     startActivity(chooser)
 }
 
-/** What the exporter writes, and what the restore picker is filtered to. */
+/** What the exporter writes, and what the share sheet offers it as. */
 internal const val BACKUP_MIME_TYPE = "application/json"
+
+/**
+ * What the restore picker will let the user choose — deliberately wider than what we write.
+ *
+ * `OpenDocument` greys out every file whose *provider* reports a type outside this list, and a
+ * backup that has been anywhere reports whatever that trip decided: a messenger attachment and
+ * a re-download both commonly arrive as `application/octet-stream`, some providers sniff a
+ * `.json` file as `text/plain`, and a user staring at their own greyed-out backup has no way to
+ * widen the filter from inside the picker. Nothing is lost by admitting them — the file is
+ * parsed and version-checked before a single row is written, so a wrong pick fails as a typed
+ * `ImportError` with the database untouched, which is a better answer than an unselectable file.
+ *
+ * Still a list rather than the wildcard type: naming the shapes keeps the picker's own "recent"
+ * view useful, and the four below are the ones a real backup actually turns up as.
+ */
+internal val RESTORE_MIME_TYPES = arrayOf(
+    BACKUP_MIME_TYPE,
+    "text/json",
+    "text/plain",
+    "application/octet-stream",
+)
 
 /** Matches the `<provider>` authority this module's manifest declares. */
 private const val FILE_PROVIDER_SUFFIX = ".fileprovider"

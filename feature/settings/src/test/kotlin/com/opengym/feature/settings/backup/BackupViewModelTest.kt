@@ -115,19 +115,88 @@ class BackupViewModelTest {
             assertTrue((outcome as ExportOutcome.Succeeded).rowsWritten > 0)
         }
 
-    /** A completed export offers itself to the share sheet exactly once. */
+    // --- saving a copy -----------------------------------------------------
+
+    /**
+     * The point of the whole feature: the bytes reach a place the user picked.
+     *
+     * The export itself lands in app-specific external storage, which no file manager may
+     * browse on Android 11 and up, so an export that is never copied out is a backup that
+     * cannot be restored from anywhere.
+     */
     @Test
-    fun `a finished export offers the file to share, and forgets it once handled`() =
+    fun `a copy writes the exported document to the chosen destination`() =
         runTest {
             val viewModel = viewModel()
             collect(viewModel)
 
             viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
-            val shared = viewModel.uiState.first { it.share != null }.share
+            val exported = viewModel.uiState.first { it.lastExport != null }.lastExport
+            val destination = File(temporaryFolder, "somewhere-the-user-can-find-it.json")
 
-            assertEquals((viewModel.uiState.value.lastExport as ExportOutcome.Succeeded).fileName, shared)
-            viewModel.onEvent(BackupEvent.ShareHandled)
-            assertNull(viewModel.uiState.value.share)
+            viewModel.onEvent(BackupEvent.SaveDestinationChosen(Uri.fromFile(destination).toString()))
+            val outcome = viewModel.uiState.first { it.lastSave != null }.lastSave
+
+            assertEquals(SaveOutcome.Succeeded, outcome)
+            assertEquals(
+                backupFile((exported as ExportOutcome.Succeeded).fileName).readText(),
+                destination.readText(),
+            )
+        }
+
+    /** A shorter backup written over a longer one must not keep the tail of the old document. */
+    @Test
+    fun `a copy over an existing file truncates it`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            val destination = File(temporaryFolder, "already-there.json")
+            destination.writeText("x".repeat(LONGER_THAN_ANY_BACKUP))
+
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val exported = viewModel.uiState.first { it.lastExport != null }.lastExport
+            viewModel.onEvent(BackupEvent.SaveDestinationChosen(Uri.fromFile(destination).toString()))
+            viewModel.uiState.first { it.lastSave != null }
+
+            assertEquals(
+                backupFile((exported as ExportOutcome.Succeeded).fileName).readText(),
+                destination.readText(),
+            )
+        }
+
+    /** An unwritable destination is the user's problem to re-pick, not a crash and not a lost export. */
+    @Test
+    fun `a copy that cannot be written reports a failure and leaves the export alone`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val exported = viewModel.uiState.first { it.lastExport != null }.lastExport
+
+            // A directory, which no stream can be opened onto — the same throw a provider
+            // that has gone away between the pick and the write produces.
+            viewModel.onEvent(BackupEvent.SaveDestinationChosen(Uri.fromFile(temporaryFolder).toString()))
+            val state = viewModel.uiState.first { it.lastSave != null }
+
+            assertEquals(SaveOutcome.Failed, state.lastSave)
+            assertEquals(exported, state.lastExport)
+            assertEquals(BackupPhase.Idle, state.phase)
+        }
+
+    /** Nothing to copy before there has been an export, and a destination alone is not one. */
+    @Test
+    fun `a destination picked before any export copies nothing`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            val destination = File(temporaryFolder, "nothing-to-put-here.json")
+            viewModel.onEvent(BackupEvent.SaveDestinationChosen(Uri.fromFile(destination).toString()))
+
+            assertNull(viewModel.uiState.value.lastSave)
+            assertEquals(false, destination.exists())
         }
 
     /** No `.tmp` is left behind: a truncated document is something somebody would restore from. */
@@ -352,6 +421,14 @@ class BackupViewModelTest {
 
     private fun backupDirectory() = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
 
+    /**
+     * Somewhere to copy *to* that is not [backupDirectory].
+     *
+     * `cacheDir` rather than the backup directory, because a test asserting that a copy landed
+     * where the user pointed it should not be able to pass by reading the file it started from.
+     */
+    private val temporaryFolder: File get() = context.cacheDir
+
     private fun backupFile(name: String) = File(backupDirectory(), name)
 
     /**
@@ -368,5 +445,8 @@ class BackupViewModelTest {
         const val EXPORTED_AT = 1_788_697_774_000L
 
         const val SOME_URI = "content://downloads/opengym-backup.json"
+
+        /** Bigger than the document a seeded backend exports, so a truncation is visible. */
+        const val LONGER_THAN_ANY_BACKUP = 100_000
     }
 }

@@ -33,7 +33,7 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The backup screen's state, and the two operations behind it.
+ * The backup screen's state, and the three operations behind it.
  *
  * ### Where the file goes, and why this class knows
  *
@@ -41,8 +41,8 @@ import kotlin.time.Duration.Companion.seconds
  * knows about files, content URIs or share sheets, which is what keeps them testable in a module
  * with no Android on its classpath. Somebody has to bridge that to the platform, and it is
  * here rather than in `:core:data` because what is being bridged is not app *state* — it is a
- * transient file the user is about to hand to another app, and a `Uri` that arrives from an
- * `ActivityResultContract` this screen launched. `InProgressSessionRepositoryImpl` is behind a
+ * transient file the user is about to copy somewhere or hand to another app, and the two `Uri`s
+ * that arrive from the `ActivityResultContract`s this screen launched. `InProgressSessionRepositoryImpl` is behind a
  * repository because the draft is durable state the app reads back; a backup is not.
  *
  * ### Written to a scratch file and moved into place
@@ -55,7 +55,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### Blocking work goes to `Dispatchers.IO`
  *
- * Opening a stream, writing tens of megabytes and reading a document back are all blocking,
+ * Opening a stream, writing tens of megabytes, copying a file and reading a document back are
+ * all blocking,
  * and `viewModelScope` dispatches on Main. The dispatcher is named inline rather than injected
  * because the qualifier that would carry it lives in `:core:data`, which a feature module may
  * not depend on — see docs/ARCHITECTURE.md. `BackupViewModelTest` therefore awaits the state
@@ -64,10 +65,11 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### One operation at a time
  *
- * Both are guarded on [BackupUiState.isBusy]. Two exports racing would fight over one scratch
- * path; an export racing a restore would read rows out of a database being wiped. Neither is
- * reachable through the UI — the buttons go inert — and the guard is what makes that a
- * property of the ViewModel rather than of the screen drawing it.
+ * All three are guarded on [BackupUiState.isBusy]. Two exports racing would fight over one
+ * scratch path; an export racing a restore would read rows out of a database being wiped; an
+ * export racing a copy would rewrite the file the copy is reading. None is reachable through
+ * the UI — the buttons go inert — and the guard is what makes that a property of the ViewModel
+ * rather than of the screen drawing it.
  */
 @HiltViewModel
 class BackupViewModel @Inject constructor(
@@ -91,7 +93,7 @@ class BackupViewModel @Inject constructor(
             pendingRestoreUri = screen.pendingRestoreUri,
             lastExport = screen.lastExport,
             lastRestore = screen.lastRestore,
-            share = screen.share,
+            lastSave = screen.lastSave,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -102,25 +104,38 @@ class BackupViewModel @Inject constructor(
     fun onEvent(event: BackupEvent) {
         when (event) {
             is BackupEvent.ExportRequested -> export(event.appVersion)
+
             is BackupEvent.RestoreFileChosen -> screenState.update { it.copy(pendingRestoreUri = event.uri) }
+
             BackupEvent.RestoreDismissed -> screenState.update { it.copy(pendingRestoreUri = null) }
+
             BackupEvent.RestoreConfirmed -> restore()
-            BackupEvent.ShareHandled -> screenState.update { it.copy(share = null) }
-            BackupEvent.OutcomeDismissed -> screenState.update { it.copy(lastExport = null, lastRestore = null) }
+
+            is BackupEvent.SaveDestinationChosen -> saveCopy(event.uri)
+
+            BackupEvent.OutcomeDismissed -> screenState.update {
+                it.copy(lastExport = null, lastRestore = null, lastSave = null)
+            }
         }
     }
 
     /**
-     * Writes the whole device into a new file and offers it to the share sheet.
+     * Writes the whole device into a new file under [backupDirectory].
      *
-     * The outcome is set before [ScreenState.share], and both in one update, so a screen that
-     * recomposes between them cannot see a completed export with nothing to share or a share
-     * with no sentence explaining it.
+     * Nothing is handed anywhere afterwards: the outcome names the file and the screen offers
+     * to copy or share it. That is deliberate — an export that opened a share sheet by itself
+     * put a chooser in front of a user whose next tap was usually "save this somewhere I can
+     * find it", which the sheet on most devices does not even offer.
      */
     private fun export(appVersion: String) {
         if (screenState.value.phase != BackupPhase.Idle) return
         screenState.update {
-            it.copy(phase = BackupPhase.Exporting(0, 0), lastExport = null, lastRestore = null)
+            it.copy(
+                phase = BackupPhase.Exporting(0, 0),
+                lastExport = null,
+                lastRestore = null,
+                lastSave = null,
+            )
         }
 
         viewModelScope.launch {
@@ -133,13 +148,7 @@ class BackupViewModel @Inject constructor(
                 if (failure is CancellationException) throw failure
                 ExportOutcome.Failed
             }
-            screenState.update {
-                it.copy(
-                    phase = BackupPhase.Idle,
-                    lastExport = outcome,
-                    share = (outcome as? ExportOutcome.Succeeded)?.fileName,
-                )
-            }
+            screenState.update { it.copy(phase = BackupPhase.Idle, lastExport = outcome) }
         }
     }
 
@@ -177,6 +186,70 @@ class BackupViewModel @Inject constructor(
     }
 
     /**
+     * Copies the last export to the document the user picked, byte for byte.
+     *
+     * ### Why this exists at all
+     *
+     * [backupDirectory] is app-specific external storage, which no file manager may browse on
+     * Android 11 and up, and the share sheet lists apps that *receive* a file rather than
+     * places to put one — on a stock device nothing in it offers "save to Downloads". So an
+     * export the user could not reach was the whole of what the feature delivered. The system
+     * document picker is the way out, and it needs no permission: `WRITE_EXTERNAL_STORAGE` has
+     * been a no-op since Android 10, and the URI arrives already writable.
+     *
+     * ### A copy rather than a redirect
+     *
+     * The export still writes to its own directory first and this copies from there, rather
+     * than streaming into the chosen URI directly. Two reasons: the scratch-file-and-rename
+     * that keeps a failed export from leaving a restorable half-document has no equivalent on
+     * a URI somebody else's provider owns, and a copy that fails costs the user a second tap
+     * instead of the whole export. It also leaves the file in one place for [shareBackup].
+     */
+    private fun saveCopy(destination: String) {
+        val fileName = (screenState.value.lastExport as? ExportOutcome.Succeeded)?.fileName ?: return
+        if (screenState.value.phase != BackupPhase.Idle) return
+        screenState.update { it.copy(phase = BackupPhase.Saving, lastSave = null) }
+
+        viewModelScope.launch {
+            // Broad for the reason the export's is: a destination the user chose through a
+            // picker can fail in ways `IOException` does not cover — a provider that has gone
+            // away between the pick and the write, a grant revoked — and all of them mean the
+            // same "that did not work, choose somewhere else".
+            val outcome = runCatching {
+                withContext(Dispatchers.IO) { copyInto(File(backupDirectory(), fileName), Uri.parse(destination)) }
+                SaveOutcome.Succeeded
+            }.getOrElse { failure ->
+                if (failure is CancellationException) throw failure
+                SaveOutcome.Failed
+            }
+            screenState.update { it.copy(phase = BackupPhase.Idle, lastSave = outcome) }
+        }
+    }
+
+    /**
+     * Streams [source] into [destination], truncating whatever the picker created there.
+     *
+     * `copyTo` rather than `readBytes`, and for the reason [ImportSource] exists: the file may
+     * be tens of megabytes, and a phone drawing a progress bar should never hold a training
+     * history in a byte array to move it eight inches.
+     *
+     * The mode is `"wt"` and the `t` is the whole point. Plain `"w"` opens for writing *without
+     * truncating* — `ContentResolver` maps it to `MODE_WRITE_ONLY or MODE_CREATE` and nothing
+     * else — so overwriting a longer document with a shorter one leaves the old tail past the
+     * end of the new one. The result is a file that is not JSON, produced by a save the user
+     * was told had succeeded, and found only when a restore refuses it. `BackupViewModelTest`
+     * pins it.
+     */
+    private fun copyInto(
+        source: File,
+        destination: Uri,
+    ) {
+        val sink = context.contentResolver.openOutputStream(destination, TRUNCATING_WRITE)
+            ?: throw IOException("nothing to write at $destination")
+        sink.use { output -> source.inputStream().use { input -> input.copyTo(output) } }
+    }
+
+    /**
      * Replaces everything on the device with the confirmed document.
      *
      * *Opening* the file is this class's job and `ImportUseCase`'s explicitly is not, so the
@@ -196,6 +269,7 @@ class BackupViewModel @Inject constructor(
                 pendingRestoreUri = null,
                 lastExport = null,
                 lastRestore = null,
+                lastSave = null,
             )
         }
 
@@ -288,7 +362,7 @@ class BackupViewModel @Inject constructor(
         val pendingRestoreUri: String? = null,
         val lastExport: ExportOutcome? = null,
         val lastRestore: RestoreOutcome? = null,
-        val share: String? = null,
+        val lastSave: SaveOutcome? = null,
     )
 
     private companion object {
@@ -299,7 +373,15 @@ class BackupViewModel @Inject constructor(
         const val FILE_NAME_PREFIX = "opengym-backup-"
         const val FILE_NAME_SUFFIX = ".json"
 
-        /** Not `.json.tmp`: a picker filtered to JSON must not offer a half-written export. */
+        /** `w` opens without truncating; the `t` is what replaces a document rather than overwriting its front. */
+        const val TRUNCATING_WRITE = "wt"
+
+        /**
+         * Not `.json.tmp`: nothing offers a file under this name to the share sheet, and the
+         * restore picker sorts by the name a user recognises. The document itself is the real
+         * guard — a truncated one fails to decode before a row is written — but a half-backup
+         * that does not look like a backup is one fewer thing to pick by mistake.
+         */
         const val SCRATCH_SUFFIX = ".tmp"
 
         val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")
