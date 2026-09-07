@@ -28,10 +28,21 @@ class RecordingNotifier(
     /** Everything actually posted, oldest first. */
     val posted: List<AppNotification> get() = log.filterIsInstance<Event.Posted>().map { it.notification }
 
+    /**
+     * Everything handed to [post], oldest first, *including* what [outcome] then suppressed.
+     *
+     * The difference between this and [posted] is the only way a caller under test can be shown
+     * to have gone through the preference gate rather than around it: a caller that composed
+     * nothing at all and one whose notification the preference refused both leave [posted]
+     * empty.
+     */
+    val attempted = mutableListOf<AppNotification>()
+
     /** The notification on screen: the last post, unless a cancellation came after it. */
     val showing: AppNotification? get() = (log.lastOrNull() as? Event.Posted)?.notification
 
     override suspend fun post(notification: AppNotification): NotificationOutcome {
+        attempted += notification
         if (outcome == NotificationOutcome.POSTED) log += Event.Posted(notification)
         return outcome
     }

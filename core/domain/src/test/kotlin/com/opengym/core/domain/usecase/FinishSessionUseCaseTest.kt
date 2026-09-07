@@ -4,6 +4,7 @@ import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.gamification.DropRates
 import com.opengym.core.domain.gamification.DropTableEvaluator
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.SessionProgressionStep
@@ -13,6 +14,7 @@ import com.opengym.core.domain.model.StreakResult
 import com.opengym.core.domain.notification.ProgressionAnnouncer
 import com.opengym.core.domain.random.RandomSource
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -107,6 +109,33 @@ class FinishSessionUseCaseTest {
         }
 
     @Test
+    fun `the announcer is told how the finish was asked for`() =
+        runTest {
+            // The whole of what the announcer needs to know: this one has no recap behind it,
+            // so it is the announcement or nothing. Passing it is the caller's job — see
+            // `FinishOrigin` — and this use case only carries it through.
+            startWithSets()
+
+            finishWithAnnouncer(FinishOrigin.NOTIFICATION_ACTION).getOrThrow()
+
+            assertEquals(listOf(FinishOrigin.NOTIFICATION_ACTION), announcer.origins)
+        }
+
+    @Test
+    fun `a finish that says nothing about its origin is the workout screen's`() =
+        runTest {
+            // The default, and the ordinary case: END was pressed and the recap that opens next
+            // is about to celebrate this. A caller with no recap has to say so, so the default
+            // is the one whose mistake is a notification not posted rather than one posted over
+            // a screen already saying the same thing.
+            startWithSets()
+
+            finishWithAnnouncer().getOrThrow()
+
+            assertEquals(listOf(FinishOrigin.WORKOUT_SCREEN), announcer.origins)
+        }
+
+    @Test
     fun `a finish with no progression announces nothing`() =
         runTest {
             // Nothing was priced, so there is nothing to say. The announcer is not called with
@@ -147,17 +176,40 @@ class FinishSessionUseCaseTest {
             assertEquals(false, sessions.stored(sessionId)?.isInProgress)
         }
 
+    @Test
+    fun `a cancellation while announcing is rethrown rather than swallowed`() =
+        runTest {
+            // Best-effort covers a store or a notification manager that refused; a caller whose
+            // scope went away is neither, and `runCatching` cannot tell the two apart. Since the
+            // announcement is the last thing the finish does, swallowing it would hand a
+            // cancelled coroutine a finish that came back normally — which is the answer
+            // `ActiveSessionViewModel` rethrows around this very call to avoid.
+            startWithSets()
+            announcer.failure = CancellationException("the screen went away")
+
+            val thrown = runCatching { finishWithAnnouncer() }.exceptionOrNull()
+
+            assertTrue("expected the cancellation to propagate, got $thrown", thrown is CancellationException)
+        }
+
     /** [ProgressionAnnouncer] as a list of what it was handed. */
     private class RecordingProgressionAnnouncer : ProgressionAnnouncer {
 
         val announced = mutableListOf<SessionProgression>()
 
+        /** The origin each of [announced] came with, in the same order. */
+        val origins = mutableListOf<FinishOrigin>()
+
         /** Thrown instead of recording, when set. */
         var failure: Throwable? = null
 
-        override suspend fun announce(progression: SessionProgression) {
+        override suspend fun announce(
+            progression: SessionProgression,
+            origin: FinishOrigin,
+        ) {
             failure?.let { throw it }
             announced += progression
+            origins += origin
         }
     }
 

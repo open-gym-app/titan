@@ -1,5 +1,6 @@
 package com.opengym.core.domain.notification
 
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.SessionProgression
 
 /**
@@ -14,17 +15,19 @@ import com.opengym.core.domain.model.SessionProgression
  * could disagree with what the session actually paid. A fact that is not on the result is not
  * announced; that is a gap in the cascade and belongs where the cascade is.
  *
- * ### Only when the user is not looking
+ * ### Only when nothing else is going to say it
  *
  * The session summary already celebrates both of these — the loot drop with a card of its own,
  * the streak save with a banner — so posting a notification about something somebody is
- * watching happen is the fastest way to get a channel muted. The gate is the *process*
- * lifecycle, the same one `BackgroundRestTimer` uses to decide whether an expiring rest is
- * announced or left to the in-app alert; the implementation shares that reading rather than
- * taking its own.
+ * watching happen is the fastest way to get a channel muted. The gate is [FinishOrigin]: one of
+ * the two ways out of a workout opens that recap and the other cannot, and the caller is the
+ * only thing that knows which one this was. It is deliberately *not* the process lifecycle
+ * `BackgroundRestTimer` reads — see [FinishOrigin] for why that reading gets both of the cases
+ * that matter wrong.
  *
  * The case this exists for is the one where there is no summary screen at all: a workout closed
- * out from the idle nudge's "Finish now" with the app dead, which is #178's whole point.
+ * out from the idle nudge's "Finish now", whether the app was dead — #178's whole point — or
+ * merely somewhere else at the time.
  *
  * ### One notification, not two
  *
@@ -40,8 +43,14 @@ interface ProgressionAnnouncer {
      * Says whatever [progression] is worth saying, or nothing at all.
      *
      * Nothing is the ordinary answer, and by a wide margin: most sessions neither spend a
-     * protection nor pay out a drop, and every session finished with the app on screen is
-     * silent whatever it earned.
+     * protection nor pay out a drop, and every session finished from the workout screen is
+     * silent whatever it earned, because its recap is about to say the same thing better.
+     *
+     * @param origin how the finish was asked for, which decides whether a recap is going to
+     *   celebrate this instead. See [FinishOrigin].
      */
-    suspend fun announce(progression: SessionProgression)
+    suspend fun announce(
+        progression: SessionProgression,
+        origin: FinishOrigin,
+    )
 }

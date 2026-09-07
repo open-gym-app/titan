@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.gamification.Collectibles
 import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.DropSource
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.Rarity
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.StreakProtection
@@ -26,8 +27,13 @@ import org.robolectric.annotation.Config
  *
  * The two rules under test are the two the issue leads with. Every fact in the body comes off
  * the [SessionProgression] and nothing is recomputed, which is why there is not a repository in
- * this file to fake; and nothing is posted while the user is looking at the summary screen that
- * is already celebrating the same thing.
+ * this file to fake; and nothing is posted for a finish whose recap is already celebrating the
+ * same thing.
+ *
+ * That second rule is asked of the [FinishOrigin] the finish came with and of nothing else —
+ * there is no process-lifecycle reading here to drive, because a finish from the shade is
+ * announced whether or not the app happens to be on screen at the time. It is the only report
+ * that one gets.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
@@ -35,16 +41,15 @@ class AndroidProgressionAnnouncerTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val notifier = RecordingNotifier()
-    private val foreground = FakeForegroundState(isInForeground = false)
 
-    private val announcer = AndroidProgressionAnnouncer(context, notifier, foreground)
+    private val announcer = AndroidProgressionAnnouncer(context, notifier)
 
     // --- the streak save ----------------------------------------------------
 
     @Test
     fun `a streak save names the streak it saved and what is left to spend`() =
         runTest {
-            announcer.announce(progression(streak = protectionSpent(days = 12, remaining = 2)))
+            announcer.announce(progression(streak = protectionSpent(days = 12, remaining = 2)), FROM_THE_SHADE)
 
             val note = notifier.showing
             assertEquals(NotificationKind.PROGRESSION, note?.kind)
@@ -57,7 +62,7 @@ class AndroidProgressionAnnouncerTest {
         runTest {
             // "1 protections left" is the failure a concatenated count always eventually
             // ships, and #41's languages have more categories than English does.
-            announcer.announce(progression(streak = protectionSpent(days = 1, remaining = 1)))
+            announcer.announce(progression(streak = protectionSpent(days = 1, remaining = 1)), FROM_THE_SHADE)
 
             assertEquals("Saved your 1-day streak. 1 protection left this month.", notifier.showing?.body)
         }
@@ -73,7 +78,7 @@ class AndroidProgressionAnnouncerTest {
                 state = StreakState(currentStreak = 3, protection = StreakProtection(remaining = 2)),
             )
 
-            announcer.announce(progression(streak = advanced))
+            announcer.announce(progression(streak = advanced), FROM_THE_SHADE)
 
             assertTrue(notifier.log.isEmpty())
         }
@@ -83,7 +88,7 @@ class AndroidProgressionAnnouncerTest {
     @Test
     fun `a drop names the item and its rarity`() =
         runTest {
-            announcer.announce(progression(loot = Collectibles.PET_EGG))
+            announcer.announce(progression(loot = Collectibles.PET_EGG), FROM_THE_SHADE)
 
             val note = notifier.showing
             assertEquals("New loot unlocked", note?.title)
@@ -99,7 +104,7 @@ class AndroidProgressionAnnouncerTest {
             // generically rather than left out of the sentence.
             val unknown = Collectible(id = "mystery_box", rarity = Rarity.EPIC, source = DropSource.SESSION_FINISHED)
 
-            announcer.announce(progression(loot = unknown))
+            announcer.announce(progression(loot = unknown), FROM_THE_SHADE)
 
             assertEquals("You found a new collectible · Epic.", notifier.showing?.body)
         }
@@ -114,6 +119,7 @@ class AndroidProgressionAnnouncerTest {
                     streak = protectionSpent(days = 12, remaining = 2),
                     loot = Collectibles.PET_EGG,
                 ),
+                FROM_THE_SHADE,
             )
 
             // One, not two. Two posts for one finished workout reads as an app talking to
@@ -132,29 +138,30 @@ class AndroidProgressionAnnouncerTest {
     @Test
     fun `nothing is said about a session that moved neither`() =
         runTest {
-            announcer.announce(progression())
+            announcer.announce(progression(), FROM_THE_SHADE)
 
             assertTrue(notifier.log.isEmpty())
         }
 
     @Test
-    fun `nothing is said about a streak save the user is watching`() =
+    fun `nothing is said about a streak save a recap is about to celebrate`() =
         runTest {
-            // The summary screen's own banner is celebrating it on the frame this returns.
-            foreground.isInForeground = true
-
-            announcer.announce(progression(streak = protectionSpent(days = 12, remaining = 2)))
+            // END on the workout screen: the summary's own banner is celebrating this on the
+            // frame the finish returns, and a notification beside it is the app talking over
+            // itself.
+            announcer.announce(
+                progression(streak = protectionSpent(days = 12, remaining = 2)),
+                FinishOrigin.WORKOUT_SCREEN,
+            )
 
             assertTrue(notifier.log.isEmpty())
         }
 
     @Test
-    fun `nothing is said about a drop the user is watching`() =
+    fun `nothing is said about a drop a recap is about to celebrate`() =
         runTest {
             // Same rule, and the case that actually happens: the recap's loot card.
-            foreground.isInForeground = true
-
-            announcer.announce(progression(loot = Collectibles.PET_EGG))
+            announcer.announce(progression(loot = Collectibles.PET_EGG), FinishOrigin.WORKOUT_SCREEN)
 
             assertTrue(notifier.log.isEmpty())
         }
@@ -166,8 +173,11 @@ class AndroidProgressionAnnouncerTest {
             // through it rather than around it.
             notifier.outcome = NotificationOutcome.SUPPRESSED_BY_PREFERENCE
 
-            announcer.announce(progression(loot = Collectibles.PET_EGG))
+            announcer.announce(progression(loot = Collectibles.PET_EGG), FROM_THE_SHADE)
 
+            // Both halves, because `posted` alone would be empty for an announcer that composed
+            // nothing at all — which is the bug this test would otherwise sit through.
+            assertEquals(1, notifier.attempted.size)
             assertTrue(notifier.posted.isEmpty())
         }
 
@@ -176,7 +186,7 @@ class AndroidProgressionAnnouncerTest {
     @Test
     fun `tapping lands on the quest log`() =
         runTest {
-            announcer.announce(progression(loot = Collectibles.PET_EGG))
+            announcer.announce(progression(loot = Collectibles.PET_EGG), FROM_THE_SHADE)
 
             // The one screen that draws both of the things this announces: the recent loot, and
             // what is left of the month's allowance.
@@ -200,12 +210,15 @@ class AndroidProgressionAnnouncerTest {
         ),
     )
 
-    /** The process lifecycle, under the test's control. */
-    private class FakeForegroundState(var isInForeground: Boolean) : AppForegroundState {
-        override suspend fun isInForeground(): Boolean = isInForeground
-    }
-
     private companion object {
         const val SESSION_ID = 7L
+
+        /**
+         * The origin every case above uses: "Finish now", pressed in the shade.
+         *
+         * It is the only one that announces anything at all, so it is what a case about
+         * *wording* has to be given. The two that assert silence name their own.
+         */
+        val FROM_THE_SHADE = FinishOrigin.NOTIFICATION_ACTION
     }
 }

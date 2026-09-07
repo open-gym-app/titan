@@ -1,5 +1,6 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.FinishedSession
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionProgression
@@ -13,6 +14,7 @@ import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.time.Clock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 
@@ -63,8 +65,9 @@ import java.time.Instant
  * A workout can be closed out with nothing of the app on screen — the idle nudge's "Finish
  * now", with the process started from cold to serve it (#178) — and that is exactly the finish
  * whose payoff nobody sees. [announce] is handed the same [SessionProgression] the recap would
- * have drawn; whether it says anything is its own decision, and it never says anything the
- * user is watching happen. See [ProgressionAnnouncer].
+ * have drawn, along with the [FinishOrigin] the caller passed; whether it says anything is its
+ * own decision, and it never says anything a recap is about to say instead. See
+ * [ProgressionAnnouncer].
  *
  * It runs **outside** the lock, unlike the cascade. The cascade has to hold it — another
  * session landing between this row closing out and the lifetime counters being read would pay
@@ -91,14 +94,29 @@ class FinishSessionUseCase(
     private val announce: ProgressionAnnouncer? = null,
 ) {
 
-    suspend operator fun invoke(): Result<FinishedSession> {
+    /**
+     * @param origin how this finish was asked for. Defaults to [FinishOrigin.WORKOUT_SCREEN],
+     *   the ordinary one: END was pressed on the workout screen and the recap that opens next
+     *   is going to celebrate whatever came back. A caller that closes a session out with no
+     *   recap to follow has to say so, because the payoff is then announced by the notification
+     *   or by nothing at all — see [FinishOrigin]. Nothing else about the close-out reads it.
+     */
+    suspend operator fun invoke(origin: FinishOrigin = FinishOrigin.WORKOUT_SCREEN): Result<FinishedSession> {
         val outcome = closeOutUnderLock()
 
         // Best-effort, and outside everything above: by here the workout is saved and its
         // payoff is banked, so a notification that could not be posted must not come back as a
         // finish that did not happen.
+        //
+        // Best-effort covers a *failure*, and a cancellation is not one — the distinction
+        // `runCatching` cannot make on its own, and the one `SessionCompletionPipeline`'s own
+        // step runner spells out. It matters more here than anywhere above: this is the last
+        // thing `invoke` does, so a swallowed cancellation is a caller whose scope has already
+        // gone being told the finish came back normally. `ActiveSessionViewModel` goes to the
+        // trouble of rethrowing it around this very call for exactly that reason.
         outcome.getOrNull()?.progression?.let { progression ->
-            runCatching { announce?.announce(progression) }
+            val failure = runCatching { announce?.announce(progression, origin) }.exceptionOrNull()
+            if (failure is CancellationException) throw failure
         }
 
         return outcome

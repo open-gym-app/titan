@@ -3,6 +3,7 @@ package com.opengym.core.data.notification
 import android.content.Context
 import com.opengym.core.data.R
 import com.opengym.core.domain.model.Collectible
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.Rarity
 import com.opengym.core.domain.model.SessionProgression
 import com.opengym.core.domain.model.StreakUpdate
@@ -44,10 +45,12 @@ import javax.inject.Singleton
 class AndroidProgressionAnnouncer @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val notifier: Notifier,
-    private val foreground: AppForegroundState,
 ) : ProgressionAnnouncer {
 
-    override suspend fun announce(progression: SessionProgression) {
+    override suspend fun announce(
+        progression: SessionProgression,
+        origin: FinishOrigin,
+    ) {
         // Only a protection actually spent is news. `streak` is non-null on nearly every
         // session — it carries the standing allowance whether or not this one moved it — so
         // asking for the update is not the same as asking whether anything happened.
@@ -55,11 +58,21 @@ class AndroidProgressionAnnouncer @Inject constructor(
         val dropped = progression.lootDropped
         if (saved == null && dropped == null) return
 
-        // The summary screen is celebrating both of these on the frame this returns. A
-        // notification beside it is an app talking over itself, and the fastest way to get the
-        // channel muted — which would cost the announcements that *are* worth having, the ones
-        // for a workout closed out with nothing on screen.
-        if (foreground.isInForeground()) return
+        // A finish from the workout screen has a summary screen celebrating both of these on
+        // the frame it returns. A notification beside it is an app talking over itself, and the
+        // fastest way to get the channel muted — which would cost the announcements that *are*
+        // worth having, the ones for a workout closed out from the shade.
+        //
+        // Exhaustive with no `else`, like the rarity band below: an origin added to the domain
+        // has to answer this question rather than inherit an answer. And it is the origin
+        // rather than the process lifecycle for the reason `FinishOrigin` gives — a finish from
+        // the shade with the app on some other tab is foreground and has no recap coming, so
+        // reading the process would silence the one announcement nothing else would make.
+        val celebratedOnScreen = when (origin) {
+            FinishOrigin.WORKOUT_SCREEN -> true
+            FinishOrigin.NOTIFICATION_ACTION -> false
+        }
+        if (celebratedOnScreen) return
 
         notifier.post(
             AppNotification(
