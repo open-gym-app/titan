@@ -42,6 +42,16 @@ sealed interface BackupEvent {
     data object RestoreConfirmed : BackupEvent
 
     /**
+     * The weekly automatic backup was switched on or off.
+     *
+     * Carries the value the switch moved *to* rather than being a "toggle" with no argument:
+     * the switch is drawn from the stored flag, so an event meaning "flip whatever is there"
+     * would invert a value that has already changed underneath it — a second tap landing while
+     * the first write is still in flight.
+     */
+    data class AutoBackupToggled(val enabled: Boolean) : BackupEvent
+
+    /**
      * The user picked where a copy of the last export should go.
      *
      * The counterpart of [RestoreFileChosen], and it arrives the same way — from a system

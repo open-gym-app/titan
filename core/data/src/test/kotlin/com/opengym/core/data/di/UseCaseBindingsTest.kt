@@ -4,6 +4,7 @@ import com.opengym.core.domain.usecase.ApplyTemplateUseCase
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
+import com.opengym.core.domain.usecase.SetAutoBackupEnabledUseCase
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -59,6 +60,9 @@ class UseCaseBindingsTest {
     @Inject
     lateinit var importBackup: Provider<ImportUseCase>
 
+    @Inject
+    lateinit var setAutoBackupEnabled: Provider<SetAutoBackupEnabledUseCase>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -86,5 +90,16 @@ class UseCaseBindingsTest {
     fun `the backup use cases resolve`() {
         assertNotNull(exportBackup.get())
         assertNotNull(importBackup.get())
+    }
+
+    /**
+     * The auto-backup toggle, which reaches across two of `:core:data`'s own edges: the
+     * schedule store and the WorkManager-backed scheduler. Neither is touched until somebody
+     * flips the switch, so without this the first proof that the graph can build it would be a
+     * tap on a device.
+     */
+    @Test
+    fun `the auto-backup toggle resolves`() {
+        assertNotNull(setAutoBackupEnabled.get())
     }
 }

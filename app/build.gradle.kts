@@ -147,6 +147,13 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    // `:app` is where WorkManager is configured, because it is the module that owns the
+    // `Application`: the auto-backup worker (#181) is constructed by `HiltWorkerFactory`,
+    // which only reaches the graph from the composition root. The worker itself is in
+    // `:core:data`.
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     testImplementation(libs.junit)

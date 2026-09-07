@@ -25,6 +25,11 @@ room = "2.8.4"
 # Preferences DataStore, for the user settings store. 1.3.x is alpha-only; the
 # `androidx.datastore.preferences.core` API this uses has not moved since 1.1.
 datastore = "1.2.1"
+# WorkManager, for the weekly auto-backup (#181). Deferrable, constraint-gated background
+# work only: a backup does not care whether it runs at 03:00 or at 09:00 on Sunday, it cares
+# that it eventually runs and survives a reboot. The reminders of #39 are the opposite call
+# for the opposite reason and use an exact alarm — see `WorkManagerAutoBackupScheduler`.
+work = "2.11.2"
 paging = "3.3.6"
 coroutines = "1.11.0"
 serialization = "1.11.0"
@@ -74,6 +79,16 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 room-paging = { group = "androidx.room", name = "room-paging", version.ref = "room" }
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+# `WorkManagerTestInitHelper` and `TestListenableWorkerBuilder`, which is how the backup
+# worker is driven on the JVM without an emulator — see `BackupWorkerTest`.
+androidx-work-testing = { group = "androidx.work", name = "work-testing", version.ref = "work" }
+# `@HiltWorker`: `hilt-work` carries the annotation and `HiltWorkerFactory`, and the
+# processor below is what generates the factory entry for each worker. Both are versioned
+# by `androidxHilt`, not by the Dagger `hilt` version above — they are different artifacts
+# from different groups that happen to share a name.
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "androidxHilt" }
+androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "androidxHilt" }
 # `paging-compose` brings `collectAsLazyPagingItems()` and pulls `paging-runtime` with it. It is
 # a feature-module dependency only: `:core:domain` deliberately does not see it, so the records
 # list builds its own `PagingSource` over a windowed read rather than over Room's — see

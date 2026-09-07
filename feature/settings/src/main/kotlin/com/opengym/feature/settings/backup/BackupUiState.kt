@@ -1,6 +1,7 @@
 package com.opengym.feature.settings.backup
 
 import androidx.compose.runtime.Immutable
+import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.model.DataFootprint
 
@@ -24,6 +25,13 @@ import com.opengym.core.domain.model.DataFootprint
  * @param lastRestore the outcome of the most recent restore. Persistent for a stronger
  *   reason — a failed restore has to leave a sentence on the screen saying *which* failure it
  *   was and that the data is untouched, and four seconds of snackbar is not that.
+ * @param autoBackup the weekly automatic backup: whether it is on, when it last wrote a file
+ *   and whether the last run gave up. Read from its own store rather than held here, so the
+ *   row still says "last: 26 Apr" on a launch where nothing has run — a background job's
+ *   record of itself has to survive the process that was not there for it.
+ * @param autoBackupSaveFailed whether the last flip of that toggle could not be stored. The
+ *   switch already snaps back on its own, since it is drawn from [autoBackup] rather than
+ *   from a local copy; this is what says *why* it did.
  * @param lastSave how the last "save a copy" ended, or null if the user has not asked for one.
  *   Separate from [lastExport] rather than folded into it because the two are separate facts
  *   about separate files — the export succeeded and its card must keep saying so, and offering
@@ -33,6 +41,8 @@ import com.opengym.core.domain.model.DataFootprint
 data class BackupUiState(
     val footprint: DataFootprint = DataFootprint(),
     val phase: BackupPhase = BackupPhase.Idle,
+    val autoBackup: AutoBackupSchedule = AutoBackupSchedule(),
+    val autoBackupSaveFailed: Boolean = false,
     val pendingRestoreUri: String? = null,
     val lastExport: ExportOutcome? = null,
     val lastRestore: RestoreOutcome? = null,

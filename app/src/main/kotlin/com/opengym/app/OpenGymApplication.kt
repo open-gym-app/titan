@@ -1,13 +1,15 @@
 package com.opengym.app
 
 import android.app.Application
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.opengym.core.data.notification.NotificationChannels
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
 /**
- * The application object, which exists to hold the Hilt graph and to do the one piece of setup
- * that has to happen before any screen does.
+ * The composition root's `Application`: it holds the Hilt graph, does the one piece of setup that
+ * has to happen before any screen does, and hands WorkManager its configuration.
  *
  * ### Why the channels are registered here
  *
@@ -22,12 +24,40 @@ import javax.inject.Inject
  * Field injection rather than a constructor: `Application` is instantiated by the platform,
  * and Hilt populates the field during `super.onCreate()`. Reading it before that call is the
  * one way to get this wrong.
+ *
+ * ### Why WorkManager is configured here at all
+ *
+ * The auto-backup worker (#181) is a `@HiltWorker`: it is constructed with the export use case
+ * and the repositories behind it, which WorkManager's default factory knows nothing about and
+ * would fail to instantiate at 3am with no screen open to report it. [HiltWorkerFactory] is
+ * what builds it from the graph, and a factory can only be supplied through a `Configuration` —
+ * which is why this class implements [Configuration.Provider] even though `:app` owns no
+ * background work of its own.
+ *
+ * ### On demand, not at launch
+ *
+ * The manifest removes WorkManager's own `androidx.startup` initializer (see
+ * `AndroidManifest.xml`), so nothing is initialised until the first `WorkManager.getInstance`
+ * call — which happens when the backup toggle is flipped, or when the OS runs the job. On a
+ * launch where neither happens, WorkManager costs nothing. The two halves go together: leaving
+ * the default initializer in place would initialise WorkManager with the default factory before
+ * this configuration was ever read.
  */
 @HiltAndroidApp
-class OpenGymApplication : Application() {
+class OpenGymApplication :
+    Application(),
+    Configuration.Provider {
 
     @Inject
     lateinit var notificationChannels: NotificationChannels
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     override fun onCreate() {
         super.onCreate()

@@ -1,5 +1,7 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.data.backup.WorkManagerAutoBackupScheduler
+import com.opengym.core.data.repository.AutoBackupRepositoryImpl
 import com.opengym.core.data.repository.BackupRepositoryImpl
 import com.opengym.core.data.repository.ExerciseRepositoryImpl
 import com.opengym.core.data.repository.GamificationRepositoryImpl
@@ -10,6 +12,8 @@ import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.data.repository.TemplateRepositoryImpl
 import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
+import com.opengym.core.domain.backup.AutoBackupScheduler
+import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.GamificationRepository
@@ -90,6 +94,15 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var backupRepository: Provider<BackupRepository>
 
+    @Inject
+    lateinit var autoBackupRepository: Provider<AutoBackupRepository>
+
+    // Not a repository, but bound the same way and resolvable for the same reason: nothing
+    // reaches it until a toggle is flipped, so a missing binding would first be seen on a
+    // device. Resolving it touches no WorkManager — see `WorkManagerAutoBackupScheduler`.
+    @Inject
+    lateinit var autoBackupScheduler: Provider<AutoBackupScheduler>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -107,6 +120,8 @@ class RepositoryBindingsTest {
         assertTrue(personalRecordRepository.get() is PersonalRecordRepositoryImpl)
         assertTrue(gamificationRepository.get() is GamificationRepositoryImpl)
         assertTrue(backupRepository.get() is BackupRepositoryImpl)
+        assertTrue(autoBackupRepository.get() is AutoBackupRepositoryImpl)
+        assertTrue(autoBackupScheduler.get() is WorkManagerAutoBackupScheduler)
     }
 
     @Test
@@ -126,5 +141,13 @@ class RepositoryBindingsTest {
         // DataStore refuses two live instances over one file, so an unscoped binding here
         // would not merely be wasteful — the second injection site would throw.
         assertSame(userPreferencesRepository.get(), userPreferencesRepository.get())
+    }
+
+    @Test
+    fun `the auto-backup store is one shared instance, on a file of its own`() {
+        // Scoped for the settings store's reason — DataStore refuses two live instances over
+        // one file — and a *second* store at all because the schedule is not a user setting:
+        // it is device-local, and it must not travel in an export. See `AutoBackupSchedule`.
+        assertSame(autoBackupRepository.get(), autoBackupRepository.get())
     }
 }

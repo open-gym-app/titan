@@ -62,6 +62,32 @@
             </intent-filter>
         </activity>
 
+        <!--
+          WorkManager, initialised on demand rather than at launch.
+
+          `androidx.startup` runs `WorkManagerInitializer` from the library's own manifest,
+          which initialises WorkManager with the *default* worker factory — before
+          `OpenGymApplication`'s `Configuration.Provider` is ever consulted. The auto-backup
+          worker (#181) is built by Hilt, so that factory could not construct it, and the
+          failure would land in a background job at three in the morning.
+
+          Removing the meta-data leaves the `InitializationProvider` in place for any other
+          `androidx.startup` component and defers WorkManager to the first
+          `WorkManager.getInstance` call — the backup toggle being flipped, or the OS running
+          the job. `tools:node="merge"` so this edits the merged provider rather than
+          declaring a second one.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
     </application>
 
 </manifest>

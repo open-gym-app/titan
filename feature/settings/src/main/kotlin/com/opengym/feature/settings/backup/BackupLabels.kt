@@ -3,8 +3,10 @@ package com.opengym.feature.settings.backup
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.intl.Locale
+import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.format.formatMonthAndYear
 import com.opengym.feature.settings.R
 import java.text.NumberFormat
@@ -72,6 +74,28 @@ internal fun DataFootprint.trainingSince(): String {
     val startedAt = firstSessionAt ?: return stringResource(R.string.backup_footprint_since_never)
     val month = YearMonth.from(Instant.ofEpochMilli(startedAt).atZone(ZoneId.systemDefault()))
     return stringResource(R.string.backup_footprint_since, formatMonthAndYear(month))
+}
+
+/**
+ * The line under the auto-backup switch: off, waiting for its first run, or `Last backup 26 Apr`.
+ *
+ * The day and month rather than the month alone that [trainingSince] uses, and the difference is
+ * what each is answering. That one asks how long the device has been in use, where this one is
+ * the *only* report a job the user never sees ever makes — and at three kept backups the whole
+ * span it can name is three weeks, inside which "April" identifies nothing.
+ *
+ * The failure has no case here. It is drawn as its own line, in the error role, *beside* this
+ * one — see `AutoBackupSection`: a run that failed does not un-write the backup before it, and
+ * folding the two into one sentence would make the user choose which of the two facts to lose.
+ */
+@Composable
+internal fun AutoBackupSchedule.statusLine(): String {
+    val lastSuccess = lastSuccessAt
+    return when {
+        !enabled -> stringResource(R.string.backup_auto_off)
+        lastSuccess != null -> stringResource(R.string.backup_auto_last, formatDayAndMonth(lastSuccess))
+        else -> stringResource(R.string.backup_auto_never)
+    }
 }
 
 /** Rounded down, so a bar that has not finished never announces 100%. */
