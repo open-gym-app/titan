@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -97,13 +98,16 @@ class LocalDataRepositoryImpl @Inject constructor(
      */
     override fun observeFootprint(): Flow<DataFootprint> =
         combine(
-            localDataDao.countSessions(),
-            localDataDao.countSets(),
-            localDataDao.countTemplates(),
-            localDataDao.countPersonalRecords(),
-            localDataDao.countCustomExercises(),
-            localDataDao.countBodyMeasurements(),
-        ) { counts ->
+            combine(
+                localDataDao.countSessions(),
+                localDataDao.countSets(),
+                localDataDao.countTemplates(),
+                localDataDao.countPersonalRecords(),
+                localDataDao.countCustomExercises(),
+                localDataDao.countBodyMeasurements(),
+            ) { it },
+            localDataDao.firstSessionAt(),
+        ) { counts, firstSessionAt ->
             DataFootprint(
                 sessions = counts[SESSIONS],
                 sets = counts[SETS],
@@ -111,6 +115,12 @@ class LocalDataRepositoryImpl @Inject constructor(
                 personalRecords = counts[PERSONAL_RECORDS],
                 customExercises = counts[CUSTOM_EXERCISES],
                 bodyMeasurements = counts[BODY_MEASUREMENTS],
+                firstSessionAt = firstSessionAt,
+                // Read here rather than observed, because a file's length is not something
+                // SQLite can notify on: it changes on a checkpoint and a vacuum as much as on
+                // a write. Recomputing it whenever a count changes is the closest honest
+                // approximation, and it is one `stat` against six queries that have just run.
+                databaseBytes = databaseBytes(),
             )
         }
             .retryWhen { cause, attempt ->
@@ -157,12 +167,47 @@ class LocalDataRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * How much space the database occupies, in bytes, or **0** if it cannot be measured.
+     *
+     * The three files SQLite keeps in WAL mode, not just the main one: the write-ahead log is
+     * routinely tens of megabytes between checkpoints and a figure that ignored it would read
+     * as a fraction of what `du` says. `Context.getDatabasePath` resolves a bare name to the
+     * app's own database directory, so the WAL and the shared-memory file are its siblings.
+     *
+     * Zero rather than a failure. This exists to put an order of magnitude on a backup
+     * screen, and a device where the file cannot be stat'd is not a device that should be
+     * unable to draw one — the same call [observeFootprint] makes about the counts.
+     */
+    private fun databaseBytes(): Long {
+        val main = context.getDatabasePath(DATABASE_NAME)
+        return runCatching {
+            listOf(main, File(main.path + WAL_SUFFIX), File(main.path + SHM_SUFFIX))
+                .filter { it.exists() }
+                .sumOf { it.length() }
+        }.getOrDefault(0)
+    }
+
     /*
      * `combine`'s six-flow form hands the values over as an array, so the positions are named
      * once here rather than as bare indices in the middle of the constructor call. Getting one
      * wrong swaps two plausible numbers in a dialog nobody reads twice.
      */
     private companion object {
+
+        /**
+         * The database file's name, as `DatabaseModule` builds it.
+         *
+         * A second copy of a string, and the alternative is worse: `OpenGymDatabase` is
+         * constructed by Hilt from a name that lives in the module, and reaching the open
+         * file's path off the instance (`openHelper.databaseName`) is null for the in-memory
+         * database every test builds. `LocalDataRepositoryImplTest` pins the two together.
+         */
+        const val DATABASE_NAME = "open-gym.db"
+
+        /** SQLite's write-ahead log and shared-memory siblings, both next to the main file. */
+        const val WAL_SUFFIX = "-wal"
+        const val SHM_SUFFIX = "-shm"
 
         /**
          * How long [observeFootprint] waits before re-reading a database that failed. The same

@@ -8,6 +8,7 @@ package com.opengym.feature.settings.navigation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.opengym.feature.settings.SettingsRoute
+import com.opengym.feature.settings.backup.BackupRoute
 import kotlinx.serialization.Serializable
 
 /**
@@ -22,17 +23,36 @@ import kotlinx.serialization.Serializable
 data object SettingsDestination
 
 /**
+ * Backup and restore, reached from the Data & privacy row of the same name.
+ *
+ * A second flat destination in this graph rather than a module of its own — #38 records the
+ * decision: backup is reachable only from a settings row, shares the delete-all confirmation
+ * vocabulary this module already owns, and a `:feature:backup` whose sole entry point is
+ * another module's row would buy a `checkArchitecture` entry and a build file and nothing else.
+ */
+@Serializable
+data object BackupDestination
+
+/**
  * @param appVersion the running build's version name, from `:app`. A feature module's own
  *   `BuildConfig` carries the library's version, which is not the number a user is being asked
- *   to quote in a bug report.
- * @param onBack leave settings. Hoisted like every other navigation action: the `NavController`
- *   belongs to `:app`.
+ *   to quote in a bug report — nor the one an export should stamp into its envelope.
+ * @param onBack leave the current screen. Hoisted like every other navigation action: the
+ *   `NavController` belongs to `:app`. It serves both destinations, since both of them are one
+ *   pop from where the user came from.
+ * @param onOpenBackup open [BackupDestination]. Hoisted even though it stays inside this
+ *   module, for the reason `progressionDetailGraph` hoists its own intra-slice push: the
+ *   controller is `:app`'s, and a feature that navigated itself would need one of its own.
  */
 fun NavGraphBuilder.settingsGraph(
     appVersion: String,
     onBack: () -> Unit,
+    onOpenBackup: () -> Unit,
 ) {
     composable<SettingsDestination> {
-        SettingsRoute(appVersion = appVersion, onBack = onBack)
+        SettingsRoute(appVersion = appVersion, onBack = onBack, onOpenBackup = onOpenBackup)
+    }
+    composable<BackupDestination> {
+        BackupRoute(appVersion = appVersion, onBack = onBack)
     }
 }

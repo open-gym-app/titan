@@ -42,6 +42,7 @@ import com.opengym.feature.session.navigation.SessionGraphDestination
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import com.opengym.feature.session.navigation.sessionGraph
 import com.opengym.feature.session.navigation.sessionSummaryGraph
+import com.opengym.feature.settings.navigation.BackupDestination
 import com.opengym.feature.settings.navigation.settingsGraph
 
 /**
@@ -405,6 +406,12 @@ fun OpenGymNavHost(
             // be quoting in a bug report.
             appVersion = BuildConfig.VERSION_NAME,
             onBack = { navController.popBackStack() },
+            // Inside the settings slice, but pushed from here for the reason every other
+            // destination is: the controller is `:app`'s. `launchSingleTop` as everywhere
+            // else — two taps on the row before recomposition are two pushes of one screen.
+            onOpenBackup = {
+                navController.navigate(BackupDestination) { launchSingleTop = true }
+            },
         )
     }
 }

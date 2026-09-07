@@ -83,6 +83,7 @@ private val REST_DURATIONS: List<Duration> =
 fun SettingsRoute(
     appVersion: String,
     onBack: () -> Unit,
+    onOpenBackup: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -94,6 +95,7 @@ fun SettingsRoute(
         appVersion = appVersion,
         onEvent = viewModel::onEvent,
         onBack = onBack,
+        onOpenBackup = onOpenBackup,
         // Not hoisted to `:app`: opening a URL is not navigation, it leaves the app entirely,
         // and `LocalUriHandler` is already the platform seam a test can replace.
         onOpenLink = uriHandler::openUri,
@@ -119,6 +121,7 @@ fun SettingsScreen(
     appVersion: String,
     onEvent: (SettingsEvent) -> Unit,
     onBack: () -> Unit,
+    onOpenBackup: () -> Unit,
     onOpenLink: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -159,7 +162,7 @@ fun SettingsScreen(
         ) {
             AppearanceGroup(state.preferences, onEvent)
             WorkoutGroup(state.preferences, onEvent)
-            DataGroup(onEvent)
+            DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
             NotificationsGroup()
             AboutGroup(appVersion = appVersion, onOpenLink = onOpenLink)
             Footer()
@@ -234,14 +237,19 @@ private fun WorkoutGroup(
 }
 
 @Composable
-private fun DataGroup(onEvent: (SettingsEvent) -> Unit) {
+private fun DataGroup(
+    onEvent: (SettingsEvent) -> Unit,
+    onOpenBackup: () -> Unit,
+) {
     PreferenceGroup(title = stringResource(R.string.settings_group_data)) {
-        PreferenceSoonRow(
+        // Was two disabled rows — "Backup & restore" and "Export JSON" — until #38. They are
+        // one row now rather than two, because they were always one screen: an export is how
+        // you take a backup, and a row promising it separately would open the same place.
+        PreferenceRow(
             label = stringResource(R.string.settings_backup),
-            supporting = stringResource(R.string.settings_soon_detail),
+            supporting = stringResource(R.string.settings_backup_detail),
+            onClick = onOpenBackup,
         )
-        HairlineDivider()
-        PreferenceSoonRow(label = stringResource(R.string.settings_export))
         HairlineDivider()
         PreferenceSoonRow(label = stringResource(R.string.settings_health_connect))
         HairlineDivider()
@@ -445,6 +453,7 @@ fun SettingsScreenPreview() {
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
+            onOpenBackup = {},
             onOpenLink = {},
         )
     }
@@ -467,6 +476,7 @@ fun SettingsScreenDarkPreview() {
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
+            onOpenBackup = {},
             onOpenLink = {},
         )
     }
@@ -491,6 +501,7 @@ fun SettingsScreenDeleteDialogPreview() {
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
+            onOpenBackup = {},
             onOpenLink = {},
         )
     }
@@ -505,6 +516,7 @@ fun SettingsScreenThemeDialogPreview() {
             appVersion = "1.0",
             onEvent = {},
             onBack = {},
+            onOpenBackup = {},
             onOpenLink = {},
         )
     }

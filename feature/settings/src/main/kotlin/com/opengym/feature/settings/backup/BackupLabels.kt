@@ -1,0 +1,83 @@
+package com.opengym.feature.settings.backup
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.intl.Locale
+import com.opengym.core.domain.backup.model.ImportError
+import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.ui.format.formatMonthAndYear
+import com.opengym.feature.settings.R
+import java.text.NumberFormat
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
+
+/*
+ * How the backup screen's values read: the four refusals, the two figures and the date.
+ *
+ * Together in one file because they are one job — turning a domain value into words — and
+ * because `BackupScreen.kt` is a screen rather than a phrasebook.
+ */
+
+/**
+ * What each way a restore can be refused says to the user.
+ *
+ * A `when` over the sealed [ImportError] rather than a mapping table, so a fifth failure added
+ * to the domain does not compile until somebody has decided what it reads as. That is the
+ * whole reason `RestoreOutcome.Failed` carries the domain's own type instead of a message
+ * enum: "import failed" for four different causes is not an error state, and two of the four
+ * carry numbers the user needs to see.
+ *
+ * None of them quotes the technical detail the error also carries — a parser offset, a column
+ * name, a SQLite message. That belongs in a bug report, not in a sentence somebody reads while
+ * their backup has just been refused; the reasons are still on the error object for whoever
+ * logs it.
+ *
+ * Every message ends by saying the device was **not** changed, except the one where that may
+ * be untrue. `ImportError.IoFailure` is the only failure that can leave work done — the rows
+ * restored and the settings not — so it is the only one that does not promise otherwise.
+ */
+@Composable
+internal fun ImportError.message(): String =
+    when (this) {
+        is ImportError.MalformedJson -> stringResource(R.string.backup_error_malformed)
+
+        is ImportError.UnsupportedSchemaVersion ->
+            stringResource(R.string.backup_error_version, found, supported)
+
+        is ImportError.ConstraintViolation -> stringResource(R.string.backup_error_constraint)
+
+        is ImportError.IoFailure -> stringResource(R.string.backup_error_io)
+    }
+
+/**
+ * `2,140` rather than `2140`.
+ *
+ * The composition's locale rather than the process default, so the grouping separator follows
+ * a locale change without the screen having to be rebuilt — the rule `FootprintList` already
+ * follows for the same numbers in the confirmation dialog.
+ */
+@Composable
+internal fun Int.grouped(): String = NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(this)
+
+/**
+ * `Training since April 2026`, or the sentence for a device that has logged nothing.
+ *
+ * The month rather than the day: a backup screen is asking *how long this device has been in
+ * use*, and "since April 2024" answers it where "since 1 April 2024" invites a reader to work
+ * out whether that was a Monday.
+ */
+@Composable
+internal fun DataFootprint.trainingSince(): String {
+    val startedAt = firstSessionAt ?: return stringResource(R.string.backup_footprint_since_never)
+    val month = YearMonth.from(Instant.ofEpochMilli(startedAt).atZone(ZoneId.systemDefault()))
+    return stringResource(R.string.backup_footprint_since, formatMonthAndYear(month))
+}
+
+/** Rounded down, so a bar that has not finished never announces 100%. */
+internal fun percentOf(
+    completed: Long,
+    total: Long,
+): Int = ((completed * PERCENT) / total).toInt()
+
+private const val PERCENT = 100

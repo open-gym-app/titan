@@ -34,6 +34,30 @@
             </intent-filter>
         </activity>
 
+        <!--
+          How a backup file reaches the share sheet.
+
+          A `file://` URI passed to another app has thrown `FileUriExposedException` since
+          Android 7, so the export is handed over as a `content://` URI this provider grants
+          read access to for one intent. `${applicationId}` rather than a literal: the debug
+          and staging builds add an `applicationIdSuffix`, and a hard-coded authority would be
+          wrong on two of the three variants — and would collide if two of them were installed
+          side by side, which is exactly how this repo is developed.
+
+          `android:exported="false"` with `grantUriPermissions`: nothing may query this
+          provider, and the only access anybody gets is the one-shot grant attached to the
+          share intent. See `res/xml/file_paths.xml` for what it is scoped to.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
     </application>
 
 </manifest>

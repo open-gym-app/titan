@@ -32,7 +32,7 @@
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>
-    <string name="settings_export">Export JSON</string>
+    <string name="settings_backup_detail">Export everything to a file, or replace this device from one</string>
     <string name="settings_health_connect">Health Connect</string>
     <string name="settings_delete_all">Delete all data</string>
     <string name="settings_delete_all_detail">Erases everything on this device. No undo.</string>
@@ -97,5 +97,48 @@
         <item quantity="one">body measurement</item>
         <item quantity="other">body measurements</item>
     </plurals>
+
+    <!-- Backup & restore (#38). The screen behind the Data & privacy row of the same name. -->
+    <string name="backup_footprint_title">On this device</string>
+    <string name="backup_stat_sessions">Sessions</string>
+    <string name="backup_stat_sets">Sets</string>
+    <string name="backup_footprint_since">Training since %1$s</string>
+    <string name="backup_footprint_since_never">Nothing logged yet</string>
+    <string name="backup_footprint_size">%1$s of data</string>
+
+    <string name="backup_export_title">Export</string>
+    <string name="backup_export_detail">Writes every workout, template, record and setting to one JSON file, then offers it to share. Nothing leaves the phone unless you send it somewhere.</string>
+    <string name="backup_export_action">Export a backup</string>
+    <string name="backup_exporting">Exporting…</string>
+    <string name="backup_export_done">Saved %1$s — %2$d rows.</string>
+    <string name="backup_export_failed">The backup could not be written. Check there is space on the device and try again.</string>
+    <string name="backup_share_title">Share backup</string>
+
+    <string name="backup_restore_title">Restore</string>
+    <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
+    <string name="backup_restore_action">Choose a backup file</string>
+    <string name="backup_validating">Checking the file…</string>
+    <string name="backup_importing">Restoring…</string>
+    <string name="backup_restore_done">Restored %1$d rows. Everything on this device now comes from the file.</string>
+
+    <!--
+      One message per ImportError. Each says what went wrong and, for the three that guarantee
+      it, that nothing on the device was touched — see BackupLabels.kt.
+    -->
+    <string name="backup_error_malformed">That file is not an Open Gym backup, or it is damaged. Nothing on this device was changed.</string>
+    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Open Gym and try again. Nothing on this device was changed.</string>
+    <string name="backup_error_constraint">That backup is incomplete — it refers to workouts it does not contain. Nothing on this device was changed.</string>
+    <string name="backup_error_io">The backup could not be read. If the restore had already started, your workouts are back but your settings may not be.</string>
+
+    <string name="backup_dismiss">Dismiss</string>
+
+    <string name="backup_restore_dialog_title">Replace everything?</string>
+    <string name="backup_restore_dialog_body">Restoring does not merge. Everything below is deleted and replaced by whatever the file holds.</string>
+    <string name="backup_restore_dialog_body_empty">There is nothing logged on this device yet, so there is nothing to lose — the file\'s contents simply replace it.</string>
+    <!-- The wipe resets settings; a restore replaces them with the file's. Not the same sentence. -->
+    <string name="backup_restore_dialog_settings_line">every setting, replaced by the file\'s</string>
+    <string name="backup_restore_dialog_word">RESTORE</string>
+    <string name="backup_restore_dialog_confirm">Replace</string>
+    <string name="backup_restore_in_progress">Restoring…</string>
 
 </resources>
