@@ -6,6 +6,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.opengym.core.data.db.dao.AchievementDao
+import com.opengym.core.data.db.dao.BackupDao
 import com.opengym.core.data.db.dao.BodyMeasurementDao
 import com.opengym.core.data.db.dao.CollectedItemDao
 import com.opengym.core.data.db.dao.ExerciseDao
@@ -84,6 +85,12 @@ abstract class OpenGymDatabase : RoomDatabase() {
     abstract fun sessionLootClaimDao(): SessionLootClaimDao
     abstract fun questCompletionDao(): QuestCompletionDao
     abstract fun collectedItemDao(): CollectedItemDao
+
+    /**
+     * Every table, whole, for export and import — see [BackupDao] for why backup gets a DAO of
+     * its own rather than reaching through the ones the screens use.
+     */
+    abstract fun backupDao(): BackupDao
 
     companion object {
         val foreignKeysCallback = object : Callback() {

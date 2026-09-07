@@ -1,5 +1,6 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.data.repository.BackupRepositoryImpl
 import com.opengym.core.data.repository.ExerciseRepositoryImpl
 import com.opengym.core.data.repository.GamificationRepositoryImpl
 import com.opengym.core.data.repository.InProgressSessionRepositoryImpl
@@ -9,6 +10,7 @@ import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
 import com.opengym.core.data.repository.TemplateRepositoryImpl
 import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
+import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.GamificationRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
@@ -85,6 +87,9 @@ class RepositoryBindingsTest {
     @Inject
     lateinit var gamificationRepository: Provider<GamificationRepository>
 
+    @Inject
+    lateinit var backupRepository: Provider<BackupRepository>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -101,6 +106,7 @@ class RepositoryBindingsTest {
         assertTrue(localDataRepository.get() is LocalDataRepositoryImpl)
         assertTrue(personalRecordRepository.get() is PersonalRecordRepositoryImpl)
         assertTrue(gamificationRepository.get() is GamificationRepositoryImpl)
+        assertTrue(backupRepository.get() is BackupRepositoryImpl)
     }
 
     @Test

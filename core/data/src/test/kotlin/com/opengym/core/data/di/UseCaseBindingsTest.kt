@@ -1,7 +1,9 @@
 package com.opengym.core.data.di
 
 import com.opengym.core.domain.usecase.ApplyTemplateUseCase
+import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
+import com.opengym.core.domain.usecase.ImportUseCase
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -50,6 +52,13 @@ class UseCaseBindingsTest {
     @Inject
     lateinit var templateSummaries: Provider<GetTemplateSummariesUseCase>
 
+    @Inject
+    lateinit var exportBackup: Provider<ExportUseCase>
+
+    // Not `import`: Hilt generates Java for field injection, where it is a keyword.
+    @Inject
+    lateinit var importBackup: Provider<ImportUseCase>
+
     @Before
     fun inject() {
         hilt.inject()
@@ -65,5 +74,17 @@ class UseCaseBindingsTest {
     fun `the template read use cases resolve`() {
         assertNotNull(applyTemplate.get())
         assertNotNull(templateSummaries.get())
+    }
+
+    /**
+     * Backup reaches further into the graph than any other use case — the row-level repository,
+     * the settings store, the draft file and the in-memory session state — and #38's screen is
+     * the only thing that will ever ask for it. A missing binding here would surface as a crash
+     * the first time somebody tried to back their phone up.
+     */
+    @Test
+    fun `the backup use cases resolve`() {
+        assertNotNull(exportBackup.get())
+        assertNotNull(importBackup.get())
     }
 }
