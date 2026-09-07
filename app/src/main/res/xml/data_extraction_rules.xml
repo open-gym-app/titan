@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  What Android's own backup is allowed to take, on Android 12 and above.
+
+  `backup_rules.xml` says the same thing for Android 11 and below. The platform picks one
+  file by version and ignores the other, so the two are one decision written twice: an
+  exclusion added here and forgotten there is a hole that only opens on old phones.
+
+  The list is an exclusion list rather than `android:allowBackup="false"`, on purpose.
+  Turning auto-backup off wholesale is the safe-looking option and it is the worse one: it
+  throws away device-transfer for anything that *should* travel — nothing today, but
+  `no_backup/` is where non-durable state goes and this boundary is what makes that
+  meaningful — and an app that opts out entirely reads, in a store listing, as one with
+  something to hide. Excluding the data files gets the actual guarantee instead: the user's
+  training history leaves this phone only in an export file they chose to create.
+
+  That guarantee is a claim the app already makes in words. Settings reads "No account. No
+  cloud. Everything stays on this phone", and the export screen "nothing leaves the phone
+  until you do". Under the platform default both were false — the whole database and every
+  preference file were being uploaded to the user's Drive, unasked. This file is what makes
+  them true.
+
+  Restoring is the other half, and the worse half. A restore lands **before first launch**,
+  with no prompt and no way to decline, so without these rules a reinstall would silently
+  replace whatever the user has with a months-old snapshot. Worse for the database
+  specifically: the `-wal` and `-shm` sidecars are backed up as separate files with no
+  guarantee they are consistent with the `.db` they came from, and a `.db` restored beside a
+  mismatched `-wal` comes back corrupt rather than merely stale. Hence all three, by name.
+
+  `no_backup/` is exempt from all of this by the platform and needs no entry — which is why
+  the auto-backup schedule store lives there (see AutoBackupModule), alongside WorkManager's
+  own database.
+
+  Anything new the app persists under `files/`, `databases/` or its external files directory
+  belongs in both files. See docs/PERSISTENCE.md, "Android's own backup".
+-->
+<data-extraction-rules>
+
+    <!-- Google Drive. -->
+    <cloud-backup>
+        <exclude domain="database" path="open-gym.db" />
+        <exclude domain="database" path="open-gym.db-wal" />
+        <exclude domain="database" path="open-gym.db-shm" />
+        <exclude domain="file" path="datastore" />
+        <exclude domain="file" path="in-progress-session.json" />
+        <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="external" path="backups" />
+    </cloud-backup>
+
+    <!--
+      Device-to-device transfer, configured separately and excluded identically. A transfer
+      that restores a database onto a phone whose owner is also restoring an export file is
+      the same collision as the cloud case, arriving by a different road.
+    -->
+    <device-transfer>
+        <exclude domain="database" path="open-gym.db" />
+        <exclude domain="database" path="open-gym.db-wal" />
+        <exclude domain="database" path="open-gym.db-shm" />
+        <exclude domain="file" path="datastore" />
+        <exclude domain="file" path="in-progress-session.json" />
+        <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="external" path="backups" />
+    </device-transfer>
+
+</data-extraction-rules>
