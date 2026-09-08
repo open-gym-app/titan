@@ -4,6 +4,7 @@ import com.opengym.core.data.backup.AutoBackupFiles
 import com.opengym.core.data.di.DATABASE_NAME
 import com.opengym.core.data.di.DATASTORE_DIRECTORY
 import com.opengym.core.data.repository.InProgressSessionRepositoryImpl
+import com.opengym.core.data.repository.TemplateDraftRepositoryImpl
 import com.opengym.feature.settings.backup.BackupViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -63,6 +64,10 @@ class BackupRulesTest {
         // The in-progress workout draft and its scratch file.
         "file" to InProgressSessionRepositoryImpl.DOCUMENT_NAME,
         "file" to InProgressSessionRepositoryImpl.SCRATCH_NAME,
+        // The half-built template draft and its scratch file, on the same terms: a plan
+        // somebody was writing on another phone is not something to restore over this one.
+        "file" to TemplateDraftRepositoryImpl.DOCUMENT_NAME,
+        "file" to TemplateDraftRepositoryImpl.SCRATCH_NAME,
         // Exported and automatic backups, in both domains the directory can land in: under the
         // app's external files directory normally, and under `files/` on a device where
         // `getExternalFilesDir` is null and the writers fall back. "Deleted on uninstall" is

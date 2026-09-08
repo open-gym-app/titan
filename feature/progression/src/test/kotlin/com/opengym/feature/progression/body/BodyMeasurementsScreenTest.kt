@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
@@ -281,6 +282,27 @@ class BodyMeasurementsScreenTest {
                 MeasurementForm(entry = entry, onSave = { saved += it }, onCancel = {})
             }
         }
+    }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the figures typed into the form survive the state being restored`() {
+        val restoration = StateRestorationTester(composeTestRule)
+        restoration.setContent {
+            OpenGymTheme(unitSystem = UnitSystem.METRIC) {
+                MeasurementForm(entry = blankEntry(), onSave = { saved += it }, onCancel = {})
+            }
+        }
+        composeTestRule.onNodeWithText("Weight (kg)").performTextReplacement("77.9")
+        composeTestRule.onNodeWithText("Chest (cm)").performTextReplacement("102")
+
+        // The activity is recreated with only its saved state: the fields are `rememberSaveable`
+        // and this is what proves it, rather than the comment above them saying so.
+        restoration.emulateSavedInstanceStateRestore()
+
+        composeTestRule.onNodeWithText("77.9").assertIsDisplayed()
+        composeTestRule.onNodeWithText("102").assertIsDisplayed()
     }
 
     /**

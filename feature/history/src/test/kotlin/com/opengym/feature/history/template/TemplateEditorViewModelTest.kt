@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.UpdateTemplateUseCase
+import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.library.FakeExerciseRepository
 import com.opengym.feature.history.navigation.NEW_TEMPLATE
 import com.opengym.feature.history.plate.FakeUserPreferencesRepository
@@ -27,6 +28,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -51,6 +53,7 @@ import kotlin.time.Duration.Companion.seconds
 class TemplateEditorViewModelTest {
 
     private val exercises = FakeExerciseRepository(exercises = listOf(BENCH, FLY, PUSHDOWN))
+    private val drafts = FakeTemplateDraftRepository()
     private val preferences = FakeUserPreferencesRepository(
         UserPreferences(unitSystem = UnitSystem.METRIC, defaultRestDuration = 90.seconds),
     )
@@ -454,10 +457,9 @@ class TemplateEditorViewModelTest {
         runTest {
             val viewModel = viewModel()
 
-            // What a process killed under the picker leaves behind: `:app` holds the ids in
-            // `rememberSaveable` and hands them to the editor it comes back to, which is a new one
-            // over a draft re-read from the store. Appending here would return a plan that had lost
-            // every edit and gained these lines — see TemplateEditorViewModel.pickWasRequested.
+            // An answer with no request behind it — a redelivery of one already consumed, or one
+            // belonging to a screen this is not. Appending would put exercises into a plan nobody
+            // asked to put them in. See TemplateEditorViewModel.pickRequest.
             viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(FLY.id)))
 
             val state = viewModel.uiState.value
@@ -564,8 +566,8 @@ class TemplateEditorViewModelTest {
         runTest {
             val viewModel = viewModel()
 
-            // The same process-death case `pickWasRequested` guards for an add, reached through the
-            // other control: the flag is read before the slot is, so there is no slot to rewrite.
+            // The same unrequested answer reached through the other control: the request is read
+            // before the slot is, so there is no slot to rewrite.
             viewModel.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
 
             val state = viewModel.uiState.value
@@ -861,6 +863,186 @@ class TemplateEditorViewModelTest {
         set: Int,
     ): Long = uiState.value.exercises[exercise].sets[set].key
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a half-built new template comes back after the task itself is gone`() =
+        runTest {
+            val before = viewModel(templateId = NEW_TEMPLATE)
+            before.name("Leg day")
+            before.pick(listOf(BENCH.id, FLY.id))
+            val setKey = before.setKeyAt(0, 0)
+            before.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    exerciseKey = before.uiState.value.exercises.first().key,
+                    setKey = setKey,
+                    field = TemplateSetField.REPS,
+                    text = "12",
+                ),
+            )
+
+            // Not `afterProcessDeath`: the saved state goes too, which is the case a `Bundle`
+            // cannot cover and the whole reason the plan is a file.
+            val state = viewModel(templateId = NEW_TEMPLATE, savedState = newTemplateArguments()).uiState.value
+
+            assertEquals("Leg day", state.name)
+            assertEquals(listOf("Bench press", "Cable fly"), state.exercises.map { it.exercise?.name })
+            assertEquals("12", state.exercises.first().sets.first().reps)
+            assertTrue(state.canSave)
+        }
+
+    @Test
+    fun `an edit to a stored template comes back, and is still measured against what is stored`() =
+        runTest {
+            val store = templateStore()
+            val before = viewModel(templates = store)
+            before.onEvent(TemplateEditorEvent.ExerciseRemoved(KEY_PUSHDOWN))
+
+            val restored = viewModel(templates = store, savedState = SavedStateHandle(mapOf("templateId" to 1L)))
+
+            val state = restored.uiState.value
+            assertEquals(listOf("Bench press", "Cable fly"), state.exercises.map { it.exercise?.name })
+            // The seed is the stored template, not the draft, so backing out still asks.
+            assertTrue(state.isDirty)
+        }
+
+    @Test
+    fun `a restored draft goes on numbering new lines where it left off`() =
+        runTest {
+            val before = viewModel(templateId = NEW_TEMPLATE)
+            before.pick(listOf(BENCH.id, FLY.id))
+
+            val restored = viewModel(templateId = NEW_TEMPLATE, savedState = newTemplateArguments())
+            restored.pick(listOf(PUSHDOWN.id))
+
+            val keys = restored.uiState.value.exercises.map { it.key }
+            assertEquals("two lines must never share a key: $keys", keys.size, keys.toSet().size)
+            val setKeys = restored.uiState.value.exercises.flatMap { row -> row.sets.map { it.key } }
+            assertEquals("two sets must never share a key: $setKeys", setKeys.size, setKeys.toSet().size)
+        }
+
+    @Test
+    fun `a draft written in another unit system keeps the unit its figures were typed in`() =
+        runTest {
+            val before = viewModel(templateId = NEW_TEMPLATE)
+            before.name("Leg day")
+            before.pick(listOf(BENCH.id))
+            before.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    exerciseKey = before.uiState.value.exercises.first().key,
+                    setKey = before.setKeyAt(0, 0),
+                    field = TemplateSetField.WEIGHT,
+                    text = "100",
+                ),
+            )
+
+            // The setting changes while the app is dead. Reformatting the column would turn a
+            // hundred kilos into a hundred pounds without anybody touching the field.
+            preferences.setUnitSystem(UnitSystem.IMPERIAL)
+            val state = viewModel(templateId = NEW_TEMPLATE, savedState = newTemplateArguments()).uiState.value
+
+            assertEquals(UnitSystem.METRIC, state.unitSystem)
+            assertEquals("100", state.exercises.first().sets.first().weight)
+        }
+
+    @Test
+    fun `the naming dialog comes back with what was typed into it`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("templateId" to NEW_TEMPLATE))
+            val before = viewModel(templateId = NEW_TEMPLATE, savedState = handle)
+            before.onEvent(TemplateEditorEvent.NameChanged("Leg d"))
+            before.onEvent(TemplateEditorEvent.CategoryChanged(TemplateCategory.HYPERTROPHY))
+
+            val naming = viewModel(templateId = NEW_TEMPLATE, savedState = handle.afterProcessDeath())
+                .uiState.value.naming
+
+            assertEquals("Leg d", naming?.name)
+            assertEquals(TemplateCategory.HYPERTROPHY, naming?.category)
+        }
+
+    @Test
+    fun `a picker sent for before the process died still gets its answer`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("templateId" to 1L))
+            val before = viewModel(savedState = handle)
+            before.onEvent(TemplateEditorEvent.ExercisesPickRequested)
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            restored.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+            val state = restored.uiState.value
+            assertEquals(4, state.exercises.size)
+            assertNull(state.message)
+        }
+
+    @Test
+    fun `a swap sent for before the process died still lands in the slot it was asked for`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("templateId" to 1L))
+            val before = viewModel(savedState = handle)
+            before.onEvent(TemplateEditorEvent.ExerciseSwapRequested(KEY_BENCH))
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            restored.onEvent(TemplateEditorEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+            val rows = restored.uiState.value.exercises
+            assertEquals(3, rows.size)
+            assertEquals("Tricep pushdown", rows.first().exercise?.name)
+        }
+
+    @Test
+    fun `a template that has been saved leaves no draft behind`() =
+        runTest {
+            val viewModel = viewModel(templateId = NEW_TEMPLATE)
+            viewModel.name("Leg day")
+            viewModel.pick(listOf(BENCH.id))
+            assertNotNull("the draft should have been written as it was built", drafts.saved)
+
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+            assertNull(drafts.saved)
+        }
+
+    @Test
+    fun `a discard the user confirmed leaves no draft behind`() =
+        runTest {
+            val viewModel = viewModel(templateId = NEW_TEMPLATE)
+            viewModel.name("Leg day")
+            viewModel.pick(listOf(BENCH.id))
+
+            viewModel.onEvent(TemplateEditorEvent.BackRequested)
+            viewModel.onEvent(TemplateEditorEvent.DiscardConfirmed)
+
+            assertNull(drafts.saved)
+        }
+
+    @Test
+    fun `a draft belonging to another template is not restored over this one`() =
+        runTest {
+            val before = viewModel(templateId = NEW_TEMPLATE)
+            before.name("Leg day")
+
+            val state = viewModel(templateId = 1, savedState = SavedStateHandle(mapOf("templateId" to 1L)))
+                .uiState.value
+
+            assertEquals("Push Day", state.name)
+            assertFalse(state.isDirty)
+        }
+
+    @Test
+    fun `a draft store that cannot be written does not take the editor down`() =
+        runTest {
+            drafts.savesFail = true
+            val viewModel = viewModel(templateId = NEW_TEMPLATE)
+
+            viewModel.name("Leg day")
+            viewModel.pick(listOf(BENCH.id))
+
+            // The plan is still on screen and still saveable; only the safety net is gone.
+            assertEquals("Leg day", viewModel.uiState.value.name)
+            assertTrue(viewModel.uiState.value.canSave)
+        }
+
     /**
      * The ViewModel for one template, with its state already flowing.
      *
@@ -872,15 +1054,18 @@ class TemplateEditorViewModelTest {
         templateId: Long = 1,
         templates: FakeTemplateStore = templateStore(),
         exercises: List<TemplateExercise>? = null,
+        savedState: SavedStateHandle = SavedStateHandle(mapOf("templateId" to templateId)),
+        drafts: FakeTemplateDraftRepository = this@TemplateEditorViewModelTest.drafts,
     ): TemplateEditorViewModel {
         val store = exercises?.let { templateStore(it) } ?: templates
         val viewModel = TemplateEditorViewModel(
-            savedStateHandle = SavedStateHandle(mapOf("templateId" to templateId)),
+            savedStateHandle = savedState,
             templateRepository = store,
             exerciseRepository = this@TemplateEditorViewModelTest.exercises,
             userPreferencesRepository = preferences,
             createTemplate = CreateTemplateUseCase(store),
             updateTemplate = UpdateTemplateUseCase(store),
+            templateDrafts = drafts,
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
@@ -905,6 +1090,21 @@ class TemplateEditorViewModelTest {
     ) {
         onEvent(TemplateEditorEvent.ExerciseSwapRequested(key))
         onEvent(TemplateEditorEvent.ExercisesPicked(listOf(exerciseId)))
+    }
+
+    /**
+     * The arguments a *new* editor is recreated with after the task record has gone.
+     *
+     * The route arguments come back because navigation rebuilds the destination from the back
+     * stack; nothing else does, which is the difference this exercises.
+     */
+    private fun newTemplateArguments() = SavedStateHandle(mapOf("templateId" to NEW_TEMPLATE))
+
+    /** Names the template the way the dialog does: type it, then confirm. */
+    private fun TemplateEditorViewModel.name(name: String) {
+        onEvent(TemplateEditorEvent.NameEditRequested)
+        onEvent(TemplateEditorEvent.NameChanged(name))
+        onEvent(TemplateEditorEvent.NameConfirmed)
     }
 
     private companion object {

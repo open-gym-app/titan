@@ -4,6 +4,9 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.ui.component.TrainingDay
+import com.opengym.core.ui.state.LocalDateSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.time.LocalDate
 import java.time.YearMonth
 import kotlin.time.Duration
@@ -72,7 +75,11 @@ data class SessionsUiState(
  *
  * Nothing here is written until it is confirmed. Backing out of any of them costs nothing,
  * which is why none of the three needs an undo.
+ *
+ * `@Serializable` because a dialog the user has typed into is state the process must not take
+ * with it — the action rides in `SessionsViewModel`'s saved screen state.
  */
+@Serializable
 sealed interface TemplateAction {
 
     /** The template being acted on. Held so a confirm does not have to be told again. */
@@ -88,11 +95,17 @@ sealed interface TemplateAction {
      *   what they wrote in it.
      */
     @Immutable
+    @Serializable
     data class Naming(
         override val templateId: Long,
         val kind: TemplateNaming,
         val name: String,
         val category: TemplateCategory? = null,
+        /**
+         * Not saved across a process death. The write went with the process that started it, so
+         * a dialog restored mid-save would be one whose confirm button never comes back.
+         */
+        @Transient
         val isSaving: Boolean = false,
         val nameTaken: Boolean = false,
     ) : TemplateAction
@@ -104,9 +117,12 @@ sealed interface TemplateAction {
      *   different question when the answer is a plan the user built up over a month.
      */
     @Immutable
+    @Serializable
     data class Deleting(
         override val templateId: Long,
         val name: String,
+        /** Not saved across a process death, for the reason [Naming.isSaving] is not. */
+        @Transient
         val isDeleting: Boolean = false,
     ) : TemplateAction
 }
@@ -168,9 +184,11 @@ enum class SessionsTab {
  * roll over, which a pair resolved once could not. The dates are computed against today
  * whenever the state is built — see [SessionsViewModel].
  */
+@Serializable
 sealed interface DateFilter {
 
     /** No window. Every session the user has logged. */
+    @Serializable
     data object All : DateFilter
 
     /**
@@ -179,6 +197,7 @@ sealed interface DateFilter {
      * `LastDays(7)` is today and the six before it, which is what a lifter means by "this
      * week" and what makes the two ends of a rolling window move together.
      */
+    @Serializable
     data class LastDays(val days: Int) : DateFilter
 
     /**
@@ -188,8 +207,11 @@ sealed interface DateFilter {
      * for one day, since a single day *is* a window whose ends match and the sheet renders it
      * as one either way.
      */
+    @Serializable
     data class Between(
+        @Serializable(with = LocalDateSerializer::class)
         val start: LocalDate,
+        @Serializable(with = LocalDateSerializer::class)
         val end: LocalDate,
     ) : DateFilter
 }

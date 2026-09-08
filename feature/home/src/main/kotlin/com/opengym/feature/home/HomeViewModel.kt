@@ -1,5 +1,6 @@
 package com.opengym.feature.home
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.gamification.StreakCalculator
@@ -27,11 +28,11 @@ import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import com.opengym.core.ui.component.WeekDay
 import com.opengym.core.ui.format.firstDayOfWeek
 import com.opengym.core.ui.format.localDateOf
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -45,6 +46,8 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -110,6 +113,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Suppress("LongParameterList")
 class HomeViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val sessionRepository: SessionRepository,
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val exerciseRepository: ExerciseRepository,
@@ -123,8 +127,15 @@ class HomeViewModel @Inject constructor(
     private val clock: Clock,
 ) : ViewModel() {
 
-    /** What the screen owns, as opposed to what the stores do. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the screen owns, as opposed to what the stores do.
+     *
+     * Saved for one field (#183): the confirmation in front of discarding a workout in progress.
+     * A dialog asking "throw this session away?" that vanished while the user checked something
+     * else is a question they then have to find their way back to — and the answer to it is
+     * irreversible, which is why it is asked at all.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * The workout the app is holding open, resolved into everything the banner needs, or null
@@ -241,7 +252,9 @@ class HomeViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = HomeUiState(),
+            // Carrying the restored confirmation, so a question about throwing a workout away
+            // is not one the user watches disappear and have to find again.
+            initialValue = HomeUiState(confirmingDiscard = screenState.value.confirmingDiscard),
         )
 
     /** One reading, or one a second for as long as this state is the current one. */
@@ -521,10 +534,19 @@ class HomeViewModel @Inject constructor(
         val volume: VolumeTrend,
     )
 
-    /** What the screen owns and what the stores do not know about. */
+    /**
+     * What the screen shows and what the stores do not know about.
+     *
+     * The other two do not come back. A discard cannot still be running when the process that
+     * started it is gone, and a message is about something the user was told before they put the
+     * phone down.
+     */
+    @Serializable
     private data class ScreenState(
         val confirmingDiscard: Boolean = false,
+        @Transient
         val isDiscarding: Boolean = false,
+        @Transient
         val message: HomeMessage? = null,
     )
 

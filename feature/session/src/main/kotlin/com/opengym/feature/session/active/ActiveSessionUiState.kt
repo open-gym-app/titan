@@ -13,6 +13,7 @@ import com.opengym.core.domain.validation.SetDimension
 import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.SessionProgress
+import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
 /**
@@ -380,8 +381,13 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
  *   against `SetValidator`, so the refusal is visible before the tick rather than after it. A
  *   type rather than a string because two of its three cases are the screen's own words and
  *   belong in its resources — see [SetEntryError].
+ *
+ * `@Serializable` because a set being typed over an already-logged one is the one piece of this
+ * screen's typed input the workout draft does not carry — it rides in saved state instead. See
+ * `ActiveSessionViewModel.typedInput`.
  */
 @Immutable
+@Serializable
 data class SetEntry(
     val weight: String = "",
     val reps: String = "",
@@ -597,14 +603,18 @@ enum class ActiveSessionMessage {
  * stands — a message this screen paraphrased would be a second copy of a rule that lives in the
  * domain.
  */
+@Serializable
 sealed interface SetEntryError {
 
     /** The weight field holds something that is not a number. */
+    @Serializable
     data object WeightNotANumber : SetEntryError
 
     /** The rep field holds something that is not a number. */
+    @Serializable
     data object RepsNotANumber : SetEntryError
 
     /** The values parsed and the domain refused them. [reason] is the validator's wording. */
+    @Serializable
     data class Refused(val reason: String) : SetEntryError
 }

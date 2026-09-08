@@ -1,9 +1,11 @@
 package com.opengym.feature.progression.stats
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.stats.TrainingWeek
 import com.opengym.core.domain.usecase.ConsistencyUseCase
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
+import com.opengym.feature.progression.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -38,7 +40,12 @@ class StatsViewModelTest {
 
     private val progression = FakeProgressionStore()
     private val records = FakeRecordStore()
-    private val timeframe = ProgressionTimeframe()
+
+    /**
+     * The shared holder. A `var` because one test replaces it: a process death gives the app a
+     * new singleton on its default, and that is the state the restore has to speak into.
+     */
+    private var timeframe = ProgressionTimeframe()
     private val clock = FixedClock(middayOn(TODAY))
 
     @Before
@@ -262,10 +269,36 @@ class StatsViewModelTest {
             assertFalse(state().isLoading)
         }
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the selected timeframe comes back after process death`() =
+        runTest {
+            seedAQuarter()
+            val handle = SavedStateHandle()
+            collect(savedState = handle).viewModel.onEvent(StatsEvent.TimeframeSelected(StatsTimeframe.YEAR))
+
+            // A new process: the shared holder is a fresh singleton on its default, and the
+            // handle is the only thing that crossed.
+            timeframe = ProgressionTimeframe()
+            val state = collect(savedState = handle.afterProcessDeath())()
+
+            assertEquals(StatsTimeframe.YEAR, state.timeframe)
+        }
+
+    @Test
+    fun `a launch with nothing saved opens on the default window`() =
+        runTest {
+            seedAQuarter()
+
+            assertEquals(StatsTimeframe.DEFAULT, collect()().timeframe)
+        }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
-    private fun TestScope.collect(): StateHandle {
+    private fun TestScope.collect(savedState: SavedStateHandle = SavedStateHandle()): StateHandle {
         val viewModel = StatsViewModel(
+            savedStateHandle = savedState,
             timeframe = timeframe,
             volumeTrend = VolumeTrendUseCase(progression),
             consistency = ConsistencyUseCase(progression),

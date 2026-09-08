@@ -1,5 +1,6 @@
 package com.opengym.feature.settings.reminder
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.notification.NotificationKind
@@ -9,15 +10,17 @@ import com.opengym.core.domain.notification.ReminderScheduler
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.ZoneId
@@ -49,6 +52,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @HiltViewModel
 class ReminderViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val reminderScheduler: ReminderScheduler,
     private val notificationPermission: NotificationPermission,
@@ -56,14 +60,14 @@ class ReminderViewModel @Inject constructor(
     private val clock: Clock,
 ) : ViewModel() {
 
-    private val screenState = MutableStateFlow(
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) {
         // Read at construction and again on every resume: there is no callback for either of
         // these changing, and both change in places the app cannot see.
         ScreenState(
             notificationsAllowed = notificationPermission.areNotificationsAllowed(),
             isExact = reminderScheduler.isExact(),
-        ),
-    )
+        )
+    }
 
     val uiState: StateFlow<ReminderUiState> = combine(
         userPreferencesRepository.observe(),
@@ -93,7 +97,10 @@ class ReminderViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = ReminderUiState(),
+        // Carrying the restored time picker, for the reason the settings screen carries its
+        // dialog: the store read is a DataStore one, and a picker that flashes shut has been lost
+        // as far as anyone looking at it is concerned.
+        initialValue = ReminderUiState(timePickerOpen = screenState.value.timePickerOpen),
     )
 
     fun onEvent(event: ReminderEvent) {
@@ -199,12 +206,25 @@ class ReminderViewModel @Inject constructor(
         }
     }
 
-    /** The half of the state that belongs to the screen rather than to a store. */
+    /**
+     * What the screen shows and what the store does not know about.
+     *
+     * Only the open time picker survives a process death, and that is the point of saving this
+     * at all (#183): the other four are answers Android gives, and Android is asked again on the
+     * resume that follows a restore. A permission prompt in particular must not come back — it
+     * was a request made by an activity that no longer exists, and raising it again unasked is
+     * the second prompt the platform answers with the refusal from the first.
+     */
+    @Serializable
     private data class ScreenState(
+        @Transient
         val notificationsAllowed: Boolean = false,
+        @Transient
         val isExact: Boolean = true,
+        @Transient
         val permissionRequest: Boolean = false,
         val timePickerOpen: Boolean = false,
+        @Transient
         val saveFailed: Boolean = false,
     )
 

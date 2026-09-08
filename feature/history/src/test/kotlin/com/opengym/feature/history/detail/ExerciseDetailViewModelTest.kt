@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.library.CHEST
 import com.opengym.feature.history.library.FakeExerciseRepository
@@ -80,9 +81,10 @@ class ExerciseDetailViewModelTest {
     private fun TestScope.viewModel(
         exerciseId: Long,
         records: FakePersonalRecordRepository = personalRecords,
+        savedState: SavedStateHandle =
+            SavedStateHandle(mapOf("exerciseId" to exerciseId, "addToSession" to false)),
     ): ExerciseDetailViewModel {
-        val handle = SavedStateHandle(mapOf("exerciseId" to exerciseId, "addToSession" to false))
-        val viewModel = ExerciseDetailViewModel(handle, repository, records)
+        val viewModel = ExerciseDetailViewModel(savedState, repository, records)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
         }
@@ -467,4 +469,32 @@ class ExerciseDetailViewModelTest {
         /** Above every fixture's id, so it resolves to nothing. */
         const val NO_SUCH_ID = 9_999L
     }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a note being typed comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("exerciseId" to DETAIL_BENCH.id, "addToSession" to false))
+            val before = viewModel(DETAIL_BENCH.id, savedState = handle)
+            before.onEvent(ExerciseDetailEvent.NoteEditRequested)
+            before.onEvent(ExerciseDetailEvent.NoteChanged("Elbows tucked, pause on"))
+
+            val state = viewModel(DETAIL_BENCH.id, savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals("Elbows tucked, pause on", state.notesDraft)
+        }
+
+    @Test
+    fun `the edit form comes back with what was typed into it`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("exerciseId" to DETAIL_CUSTOM.id, "addToSession" to false))
+            val before = viewModel(DETAIL_CUSTOM.id, savedState = handle)
+            before.onEvent(ExerciseDetailEvent.EditRequested)
+            before.onEvent(ExerciseDetailEvent.EditChanged(before.uiState.value.editDraft!!.copy(name = "Hammer pres")))
+
+            val draft = viewModel(DETAIL_CUSTOM.id, savedState = handle.afterProcessDeath()).uiState.value.editDraft
+
+            assertEquals("Hammer pres", draft?.name)
+        }
 }

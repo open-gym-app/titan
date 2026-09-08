@@ -1,5 +1,6 @@
 package com.opengym.feature.history.sessions
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.PersonalRecord
@@ -18,10 +19,10 @@ import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.ui.component.TrainingDay
 import com.opengym.core.ui.component.TrainingLoad
 import com.opengym.core.ui.format.localDateOf
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.template.toDrafts
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -29,6 +30,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
@@ -85,6 +88,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Suppress("LongParameterList")
 class SessionsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     sessionRepository: SessionRepository,
     personalRecordRepository: PersonalRecordRepository,
     getTemplateSummaries: GetTemplateSummariesUseCase,
@@ -95,8 +99,15 @@ class SessionsViewModel @Inject constructor(
     private val clock: Clock,
 ) : ViewModel() {
 
-    /** What the screen owns, as opposed to what the stores do. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the screen owns, as opposed to what the stores do.
+     *
+     * Saved, so the tab, the search, the date filter and the month the calendar is scrolled to
+     * come back after the process is killed. None of it is derivable from the reads underneath:
+     * a user who narrowed four hundred sessions to a week in March and then answered a phone
+     * call would otherwise return to an unfiltered list on the wrong tab.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * The three session reads, as one value, so the outer combine takes three arguments.
@@ -133,7 +144,11 @@ class SessionsViewModel @Inject constructor(
         // Long enough to survive a rotation without re-reading four queries, short enough
         // that a backgrounded screen is not holding database observers open.
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = SessionsUiState(),
+        // Built from the restored screen state rather than from nothing: `combine` holds its
+        // first emission until all four reads have answered, and an empty initial value would
+        // draw the wrong tab and an unfiltered header for that whole window before putting the
+        // user's own choices back.
+        initialValue = buildState(history = History(), templates = null, screen = screenState.value),
     )
 
     fun onEvent(event: SessionsEvent) {
@@ -509,7 +524,16 @@ class SessionsViewModel @Inject constructor(
         )
     }
 
-    /** What the screen shows and what the stores do not know about. */
+    /**
+     * What the screen shows and what the stores do not know about.
+     *
+     * `@Serializable` so it survives the process being killed with the tab open — see
+     * [savedScreenState]. The sessions, totals and records the list is drawn from are not here
+     * and deliberately not saved: they are four queries that re-run in milliseconds, and a
+     * history of a thousand sessions stuffed into saved state is the `TransactionTooLargeException`
+     * this screen would otherwise be the first to hit.
+     */
+    @Serializable
     private data class ScreenState(
         val tab: SessionsTab = SessionsTab.HISTORY,
         val query: String = "",
@@ -517,6 +541,11 @@ class SessionsViewModel @Inject constructor(
         /** Months from the current one. Zero is this month; negative is the past. */
         val monthOffset: Long = 0,
         val templateAction: TemplateAction? = null,
+        /**
+         * Not saved. A one-shot the screen shows and reports back; replayed after twenty minutes
+         * it would announce a copy the user watched appear before they put the phone down.
+         */
+        @Transient
         val message: SessionsMessage? = null,
     )
 

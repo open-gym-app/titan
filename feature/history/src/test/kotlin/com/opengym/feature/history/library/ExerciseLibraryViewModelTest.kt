@@ -1,6 +1,8 @@
 package com.opengym.feature.history.library
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.EquipmentType
+import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.exercise.ExerciseDraft
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -44,10 +46,11 @@ class ExerciseLibraryViewModelTest {
     fun tearDownMainDispatcher() = Dispatchers.resetMain()
 
     private fun TestScope.viewModel(
+        savedState: SavedStateHandle = SavedStateHandle(),
         exerciseRepository: FakeExerciseRepository = exercises,
         personalRecordRepository: FakePersonalRecordRepository = records,
     ): ExerciseLibraryViewModel {
-        val viewModel = ExerciseLibraryViewModel(exerciseRepository, personalRecordRepository)
+        val viewModel = ExerciseLibraryViewModel(savedState, exerciseRepository, personalRecordRepository)
         // Unconfined *on the test scheduler*, so the flow is started and has emitted by the
         // time this returns — `backgroundScope`'s own dispatcher would queue the collection
         // behind the assertions.
@@ -526,5 +529,70 @@ class ExerciseLibraryViewModelTest {
             viewModel.onEvent(ExerciseLibraryEvent.MessageShown)
 
             assertNull(viewModel.uiState.value.message)
+        }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the search, the filters and the selection come back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(ExerciseLibraryEvent.QueryChanged("fly"))
+            before.onEvent(ExerciseLibraryEvent.MuscleFilterSelected(CHEST.id))
+            before.onEvent(ExerciseLibraryEvent.EquipmentFilterToggled(EquipmentType.CABLE))
+            before.onEvent(ExerciseLibraryEvent.ExerciseToggled(FLY.id, exclusive = false))
+
+            val state = viewModel(savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals("fly", state.query)
+            assertEquals(CHEST.id, state.selectedMuscleGroupId)
+            assertEquals(setOf(EquipmentType.CABLE), state.selectedEquipment)
+            assertEquals(listOf(FLY.id), state.selection)
+        }
+
+    @Test
+    fun `a half-typed new exercise comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
+            before.onEvent(
+                ExerciseLibraryEvent.NewExerciseChanged(
+                    ExerciseDraft(name = "Zercher squ", primaryMuscleGroupId = CHEST.id),
+                ),
+            )
+
+            val draft = viewModel(savedState = handle.afterProcessDeath()).uiState.value.draft
+
+            assertNotNull(draft)
+            assertEquals("Zercher squ", draft!!.name)
+            assertEquals(CHEST.id, draft.primaryMuscleGroupId)
+        }
+
+    @Test
+    fun `a write that was in flight when the process died does not come back inert`() =
+        runTest {
+            val gate = CompletableDeferred<Unit>()
+            val handle = SavedStateHandle()
+            exercises.insertGate = gate
+            val before = viewModel(savedState = handle)
+            before.onEvent(ExerciseLibraryEvent.NewExerciseRequested)
+            before.onEvent(
+                ExerciseLibraryEvent.NewExerciseChanged(
+                    ExerciseDraft(name = "Zercher squat", primaryMuscleGroupId = CHEST.id),
+                ),
+            )
+            before.onEvent(ExerciseLibraryEvent.NewExerciseSubmitted)
+            assertTrue(before.uiState.value.draft!!.isSaving)
+
+            val draft = viewModel(savedState = handle.afterProcessDeath()).uiState.value.draft!!
+
+            // The insert died with the process it was running in, so the form has to be usable
+            // again — a sheet restored mid-save is one no amount of tapping brings back.
+            assertFalse(draft.isSaving)
+            assertTrue(draft.canSave)
+
+            gate.complete(Unit)
         }
 }

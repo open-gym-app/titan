@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateSolution
 import com.opengym.core.domain.plate.PlateStock
+import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -293,8 +294,9 @@ class PlateCalculatorViewModelTest {
     private fun viewModel(
         target: Long = NO_SUGGESTED_TARGET,
         preferences: FakeUserPreferencesRepository = this.preferences,
+        savedState: SavedStateHandle = SavedStateHandle(mapOf("target" to target)),
     ) = PlateCalculatorViewModel(
-        savedStateHandle = SavedStateHandle(mapOf("target" to target)),
+        savedStateHandle = savedState,
         preferencesRepository = preferences,
     )
 
@@ -304,4 +306,34 @@ class PlateCalculatorViewModelTest {
             viewModel.uiState.collect { }
         }
     }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the target the user stepped to comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("target" to NO_SUGGESTED_TARGET))
+            val before = viewModel(savedState = handle)
+            collectState(before)
+            before.onEvent(PlateCalculatorEvent.TargetEntered(102_500_000))
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            collectState(restored)
+
+            assertEquals(102_500_000, restored.uiState.value.target)
+        }
+
+    @Test
+    fun `an open equipment sheet comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("target" to NO_SUGGESTED_TARGET))
+            val before = viewModel(savedState = handle)
+            collectState(before)
+            before.onEvent(PlateCalculatorEvent.SheetRequested(PlateCalculatorSheet.EQUIPMENT))
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            collectState(restored)
+
+            assertEquals(PlateCalculatorSheet.EQUIPMENT, restored.uiState.value.sheet)
+        }
 }

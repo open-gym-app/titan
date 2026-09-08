@@ -1,11 +1,13 @@
 package com.opengym.feature.progression.records
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.paging.testing.asSnapshot
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.feature.progression.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -61,7 +63,7 @@ class PersonalRecordsViewModelTest {
     @Test
     fun `the list serves the records the store holds`() =
         runTest {
-            val viewModel = PersonalRecordsViewModel(FakeRecordStore(entries(4)))
+            val viewModel = PersonalRecordsViewModel(SavedStateHandle(), FakeRecordStore(entries(4)))
             collectStateInBackground(viewModel)
 
             val snapshot = viewModel.records.asSnapshot()
@@ -73,7 +75,7 @@ class PersonalRecordsViewModelTest {
     fun `the header counts what the store holds, whatever is listed`() =
         runTest {
             val store = FakeRecordStore(entries(4))
-            val viewModel = PersonalRecordsViewModel(store)
+            val viewModel = PersonalRecordsViewModel(SavedStateHandle(), store)
             collectStateInBackground(viewModel)
 
             assertEquals(4, viewModel.uiState.value.totalRecords)
@@ -84,7 +86,7 @@ class PersonalRecordsViewModelTest {
     fun `choosing a filter asks the store for that kind`() =
         runTest {
             val store = FakeRecordStore(entries(4))
-            val viewModel = PersonalRecordsViewModel(store)
+            val viewModel = PersonalRecordsViewModel(SavedStateHandle(), store)
             collectStateInBackground(viewModel)
 
             viewModel.onEvent(PersonalRecordsEvent.FilterSelected(PrType.MAX_REPS))
@@ -98,7 +100,7 @@ class PersonalRecordsViewModelTest {
     @Test
     fun `a store with nothing in it reports no records rather than still loading`() =
         runTest {
-            val viewModel = PersonalRecordsViewModel(FakeRecordStore(emptyList()))
+            val viewModel = PersonalRecordsViewModel(SavedStateHandle(), FakeRecordStore(emptyList()))
             collectStateInBackground(viewModel)
 
             assertEquals(true, viewModel.uiState.value.hasNoRecords)
@@ -116,6 +118,22 @@ class PersonalRecordsViewModelTest {
             viewModel.uiState.collect { }
         }
     }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the kind the list is filtered to comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = PersonalRecordsViewModel(handle, FakeRecordStore(entries(4)))
+            collectStateInBackground(before)
+            before.onEvent(PersonalRecordsEvent.FilterSelected(PrType.MAX_WEIGHT))
+
+            val restored = PersonalRecordsViewModel(handle.afterProcessDeath(), FakeRecordStore(entries(4)))
+            collectStateInBackground(restored)
+
+            assertEquals(PrType.MAX_WEIGHT, restored.uiState.value.filter)
+        }
 
     private fun entries(count: Int) =
         List(count) { index ->

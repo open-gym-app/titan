@@ -1,5 +1,6 @@
 package com.opengym.feature.progression.records
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -9,10 +10,10 @@ import androidx.paging.cachedIn
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,9 +21,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import javax.inject.Inject
 
 /**
@@ -53,10 +56,22 @@ import javax.inject.Inject
 @HiltViewModel
 class PersonalRecordsViewModel
 @Inject
-constructor(private val personalRecordRepository: PersonalRecordRepository) :
-    ViewModel() {
+constructor(
+    savedStateHandle: SavedStateHandle,
+    private val personalRecordRepository: PersonalRecordRepository,
+) : ViewModel() {
 
-    private val filter = MutableStateFlow<PrType?>(null)
+    /**
+     * What the screen owns: which kind of record the list is narrowed to, or null for all of them.
+     *
+     * Saved, so a filter set on a list of four hundred records survives the process being killed
+     * (#183). The records themselves are not and must not be: they are a paged read, and a page
+     * of them in saved state is exactly the `TransactionTooLargeException` paging exists to avoid.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
+
+    /** The filter alone, deduplicated, because it is what the pager is rebuilt on. */
+    private val filter: Flow<PrType?> = screenState.map { it.filter }.distinctUntilChanged()
 
     /** The live source, held so a change in the store can invalidate it. */
     private var currentSource: PersonalRecordsPagingSource? = null
@@ -97,7 +112,9 @@ constructor(private val personalRecordRepository: PersonalRecordRepository) :
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = PersonalRecordsUiState(),
+            // Carrying the restored filter, so the chip the user chose is lit on the first frame
+            // rather than after the count read answers — see `ExerciseLibraryViewModel`.
+            initialValue = PersonalRecordsUiState(filter = screenState.value.filter),
         )
 
     val records: Flow<PagingData<PersonalRecordEntry>> =
@@ -122,9 +139,19 @@ constructor(private val personalRecordRepository: PersonalRecordRepository) :
 
     fun onEvent(event: PersonalRecordsEvent) {
         when (event) {
-            is PersonalRecordsEvent.FilterSelected -> filter.update { event.type }
+            is PersonalRecordsEvent.FilterSelected -> screenState.update { it.copy(filter = event.type) }
         }
     }
+
+    /**
+     * What the screen shows and what the store does not know about.
+     *
+     * A one-field class rather than the enum on its own, so that the encoding this goes through
+     * is the same one every other screen's state goes through — see [savedScreenState]. A second
+     * field added here later needs no new mechanism.
+     */
+    @Serializable
+    private data class ScreenState(val filter: PrType? = null)
 
     private companion object {
 

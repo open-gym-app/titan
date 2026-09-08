@@ -33,6 +33,7 @@ import com.opengym.core.domain.validation.SetValidator
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.feature.session.SessionProgressionHandoff
+import com.opengym.feature.session.afterProcessDeath
 import com.opengym.feature.session.newsession.FakeExerciseCatalogue
 import com.opengym.feature.session.newsession.FakeSessionStateStore
 import com.opengym.feature.session.newsession.FakeSettings
@@ -2938,6 +2939,37 @@ class ActiveSessionViewModelTest {
             restTimer = RestTimerSnapshot.Running(deadline = deadline, total = 90.seconds),
         )
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a rename being typed comes back after process death`() =
+        runTest {
+            val store = pushDayStore()
+            val handle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID))
+            val before = viewModel(store = store, savedState = handle)
+            before.onEvent(ActiveSessionEvent.NameEditRequested)
+            before.onEvent(ActiveSessionEvent.NameChanged("Push day, hea"))
+
+            val state = viewModel(store = store, savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals("Push day, hea", state.nameDraft)
+        }
+
+    @Test
+    fun `a correction typed over a logged set comes back after process death`() =
+        runTest {
+            val store = benchStore()
+            val handle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID))
+            val before = viewModel(store = store, savedState = handle)
+            before.onEvent(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 1L, text = "97.5"))
+
+            val restored = viewModel(store = store, savedState = handle.afterProcessDeath())
+
+            // The set itself is a row in the database; what would have gone is the correction
+            // typed over it, which the workout draft has no place for. See `typedInput`.
+            assertEquals("97.5", restored.uiState.value.rowOf(BENCH_ROW).sets[0].entry.weight)
+        }
+
     /**
      * The ViewModel for one workout, with its state already flowing.
      *
@@ -2962,10 +2994,11 @@ class ActiveSessionViewModelTest {
         backgroundRest: FakeBackgroundRestTimer = this@ActiveSessionViewModelTest.backgroundRest,
         idleSession: FakeIdleSessionMonitor = this@ActiveSessionViewModelTest.idleSession,
         skipRequests: FakeRestSkipRequests = this@ActiveSessionViewModelTest.skipRequests,
+        savedState: SavedStateHandle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID)),
     ): ActiveSessionViewModel {
         val lock = SessionLifecycleLock()
         val viewModel = ActiveSessionViewModel(
-            savedStateHandle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID)),
+            savedStateHandle = savedState,
             sessionRepository = store,
             sessionStateRepository = state,
             inProgressSessionRepository = drafts,

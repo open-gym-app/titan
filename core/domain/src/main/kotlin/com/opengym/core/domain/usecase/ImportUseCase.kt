@@ -13,6 +13,7 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
@@ -41,8 +42,9 @@ import java.io.IOException
  *    in the file, checked while the database is still untouched — possible only because import
  *    replaces, so the file is the whole database and every reference in it must resolve inside
  *    it. This is what makes [ImportError.ConstraintViolation] mean "and nothing happened".
- * 3. **Forget the live session and its draft.** Both name row ids from before the wipe. The
- *    session state goes first because screens are collecting it, then the draft file, exactly
+ * 3. **Forget the live session and the two drafts.** All three name row ids from before the
+ *    wipe — the workout in progress, and the template somebody was halfway through writing. The
+ *    session state goes first because screens are collecting it, then the draft files, exactly
  *    as `LocalDataRepositoryImpl.deleteAll` orders them and for the same reason. Before the
  *    transaction rather than after it, which costs something in one case: a constraint the
  *    validator did not model would roll the rows back and leave the draft cleared anyway. That
@@ -66,20 +68,23 @@ import java.io.IOException
  *
  * ### What is not restored
  *
- * The in-progress session draft — it is not in the document, and step 3 clears whatever the
- * target device held. An interrupted workout is device state rather than history: importing one
- * would drop the user into a live session that never happened on this phone. The rows it
- * overlapped are restored like any others, so nothing logged is lost.
+ * Neither draft — neither is in the document, and step 3 clears whatever the target device
+ * held. An interrupted workout and a half-written template are device state rather than
+ * history: importing one would drop the user into a live session that never happened on this
+ * phone, or into an editor for a template id the file has given a different name to. The rows
+ * they overlapped are restored like any others, so nothing logged or saved is lost.
  *
  * @property backupRepository the transaction: the wipe and every insert.
  * @property userPreferencesRepository the settings, restored last.
- * @property inProgressSessionRepository the draft, cleared before the wipe.
+ * @property inProgressSessionRepository the workout draft, cleared before the wipe.
+ * @property templateDraftRepository the template draft, cleared with it.
  * @property sessionStateRepository the live session state, set to [SessionState.Idle] first.
  */
 class ImportUseCase(
     private val backupRepository: BackupRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val inProgressSessionRepository: InProgressSessionRepository,
+    private val templateDraftRepository: TemplateDraftRepository,
     private val sessionStateRepository: SessionStateRepository,
 ) {
 
@@ -133,6 +138,7 @@ class ImportUseCase(
         return try {
             sessionStateRepository.update(SessionState.Idle)
             inProgressSessionRepository.clear()
+            templateDraftRepository.clear()
             backupRepository.replaceAll(document) { table, rowsWritten ->
                 // `send` rather than `emit`: this runs inside the database transaction, on the
                 // dispatcher that owns it, and a plain flow would refuse a value produced there.

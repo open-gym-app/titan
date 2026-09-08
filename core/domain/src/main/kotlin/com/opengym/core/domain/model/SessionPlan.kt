@@ -1,5 +1,7 @@
 package com.opengym.core.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * A workout that has been decided on but not started.
  *
@@ -21,7 +23,11 @@ package com.opengym.core.domain.model
  *   can say where it came from, or null for one built by hand.
  * @property name what to call the session, or null to leave it genuinely unnamed and
  *   let the UI fall back to the date. See [WorkoutSession.name].
+ *
+ * `@Serializable` because a plan the user has assembled but not yet started is state the new-session
+ * screen keeps across a process death (#183) — see `NewSessionViewModel`.
  */
+@Serializable
 data class SessionPlan(
     val exercises: List<SessionExerciseDraft>,
     val templateId: Long? = null,

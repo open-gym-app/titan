@@ -1,5 +1,6 @@
 package com.opengym.feature.home
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
@@ -21,6 +22,7 @@ import com.opengym.core.domain.usecase.QuestProgressUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
+import com.opengym.feature.home.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -723,11 +725,13 @@ class HomeViewModelTest {
         // about what it is named for. The board's own reads are never touched with no
         // catalogue to read them for — see `QuestProgressUseCase.at`.
         questCatalogue: List<Quest> = emptyList(),
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): HomeViewModel {
         // A lock of this test's own rather than the shared one, so two tests running in the
         // same JVM cannot wait on each other's transitions.
         val lock = SessionLifecycleLock()
         val viewModel = HomeViewModel(
+            savedStateHandle = savedState,
             sessionRepository = sessions,
             inProgressSessionRepository = drafts,
             exerciseRepository = catalogue,
@@ -753,6 +757,20 @@ class HomeViewModelTest {
         }
         return viewModel
     }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the discard confirmation comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(HomeEvent.DiscardRequested)
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+
+            assertTrue(restored.uiState.value.confirmingDiscard)
+        }
 
     /** A workout that is over: the rows the week is counted from. */
     private fun loggedSession(

@@ -1,5 +1,6 @@
 package com.opengym.feature.settings
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
@@ -10,6 +11,7 @@ import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
+import com.opengym.feature.settings.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -400,13 +402,31 @@ class SettingsViewModelTest {
             assertEquals(NotificationPermissionState.DENIED, viewModel.uiState.value.notificationPermission)
         }
 
+    // --- process death (#183) ---------------------------------------------
+
+    @Test
+    fun `an open dialog comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            collectState(before)
+            before.onEvent(SettingsEvent.DialogRequested(SettingsDialog.REST_DURATION))
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            collectState(restored)
+
+            assertEquals(SettingsDialog.REST_DURATION, restored.uiState.value.dialog)
+        }
+
     // --- helpers ----------------------------------------------------------
 
     private fun viewModel(
         preferences: FakeUserPreferencesRepository = this.preferences,
         localData: FakeLocalDataRepository = this.localData,
         notificationPermission: FakeNotificationPermission = this.notificationPermission,
+        savedState: SavedStateHandle = SavedStateHandle(),
     ) = SettingsViewModel(
+        savedState,
         preferences,
         localData,
         notificationPermission,

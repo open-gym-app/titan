@@ -5,6 +5,7 @@ import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
@@ -40,9 +41,9 @@ object BackupUseCaseModule {
         )
 
     /**
-     * Takes the two stores an import has to *forget* as well as the two it writes. The live
-     * session state and the in-progress draft both name row ids from before the wipe, so
-     * leaving them would point a screen at a session that no longer exists — see
+     * Takes the three stores an import has to *forget* as well as the two it writes. The live
+     * session state and the two drafts all name row ids from before the wipe, so leaving them
+     * would point a screen at a session or a template that no longer exists — see
      * [ImportUseCase] for the order and why it is that order.
      */
     @Provides
@@ -50,12 +51,14 @@ object BackupUseCaseModule {
         backupRepository: BackupRepository,
         userPreferencesRepository: UserPreferencesRepository,
         inProgressSessionRepository: InProgressSessionRepository,
+        templateDraftRepository: TemplateDraftRepository,
         sessionStateRepository: SessionStateRepository,
     ): ImportUseCase =
         ImportUseCase(
             backupRepository = backupRepository,
             userPreferencesRepository = userPreferencesRepository,
             inProgressSessionRepository = inProgressSessionRepository,
+            templateDraftRepository = templateDraftRepository,
             sessionStateRepository = sessionStateRepository,
         )
 
