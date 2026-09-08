@@ -19,6 +19,10 @@ class NotificationPreferencesTest {
         // Everything is off except the one notification the user has already asked for by
         // starting a rest. A default-on notification is a decision they did not make.
         assertEquals(setOf(NotificationKind.REST_TIMER), NotificationPreferences().enabled)
+
+        // And the constructor default is that list itself, not a second copy of it that a
+        // fifth kind could be added to only one of.
+        assertEquals(NotificationPreferences.DEFAULT_ENABLED, NotificationPreferences().enabled)
     }
 
     @Test
