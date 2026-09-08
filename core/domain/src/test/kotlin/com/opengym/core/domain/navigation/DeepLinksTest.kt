@@ -29,9 +29,17 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the quest log link is the whole URI, not a base path`() {
+        // The destination takes no arguments, so there is nothing for `navDeepLink` to append
+        // — which is why this is a constant rather than a function.
+        assertEquals("opengym://progression/quests", DeepLinks.QUEST_LOG)
+    }
+
+    @Test
     fun `the manifest filter's scheme and host are the ones the links are built from`() {
         // `:app`'s intent filter matches on these two and nothing else, so a link that did not
         // start with them would resolve to no activity at all.
         assertTrue(DeepLinks.activeSession(1).startsWith("${DeepLinks.SCHEME}://${DeepLinks.SESSION_HOST}/"))
+        assertTrue(DeepLinks.QUEST_LOG.startsWith("${DeepLinks.SCHEME}://${DeepLinks.PROGRESSION_HOST}/"))
     }
 }

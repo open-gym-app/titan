@@ -4,11 +4,13 @@ import com.opengym.core.data.notification.AndroidBackgroundRestTimer
 import com.opengym.core.data.notification.AndroidIdleSessionMonitor
 import com.opengym.core.data.notification.AndroidNotificationPermission
 import com.opengym.core.data.notification.AndroidNotifier
+import com.opengym.core.data.notification.AndroidProgressionAnnouncer
 import com.opengym.core.data.notification.AppForegroundState
 import com.opengym.core.data.notification.ProcessForegroundState
 import com.opengym.core.data.notification.RestSkipRequestsImpl
 import com.opengym.core.domain.notification.NotificationPermission
 import com.opengym.core.domain.notification.Notifier
+import com.opengym.core.domain.notification.ProgressionAnnouncer
 import com.opengym.core.domain.session.IdleSessionMonitor
 import com.opengym.core.domain.timer.BackgroundRestTimer
 import com.opengym.core.domain.timer.RestSkipRequests
@@ -48,6 +50,10 @@ abstract class NotificationModule {
     @Binds
     @Singleton
     abstract fun bindIdleSessionMonitor(impl: AndroidIdleSessionMonitor): IdleSessionMonitor
+
+    @Binds
+    @Singleton
+    abstract fun bindProgressionAnnouncer(impl: AndroidProgressionAnnouncer): ProgressionAnnouncer
 
     /**
      * `@Singleton` and load-bearing: the skip channel is a rendezvous between a broadcast

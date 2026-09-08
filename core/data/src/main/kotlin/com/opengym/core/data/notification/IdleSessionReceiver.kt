@@ -3,6 +3,7 @@ package com.opengym.core.data.notification
 import android.content.Context
 import android.content.Intent
 import com.opengym.core.data.R
+import com.opengym.core.domain.model.FinishOrigin
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.navigation.DeepLinks
 import com.opengym.core.domain.notification.AppNotification
@@ -93,7 +94,11 @@ class IdleSessionBroadcasts @Inject constructor(
         }
 
         when (val command = NotificationCommands.of(intent)) {
-            is NotificationCommand.FinishSession -> close(command.sessionId) { finishSession() }
+            // Said explicitly, because this is the one caller for which it is not the default:
+            // nothing here navigates to a recap, so what the session earned is announced by the
+            // notification this origin permits or by nothing at all. See `FinishOrigin`.
+            is NotificationCommand.FinishSession ->
+                close(command.sessionId) { finishSession(FinishOrigin.NOTIFICATION_ACTION) }
 
             is NotificationCommand.DiscardSession -> close(command.sessionId) { discardSession() }
 

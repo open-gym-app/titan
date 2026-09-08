@@ -3,6 +3,8 @@ package com.opengym.feature.progression.navigation
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
+import androidx.navigation.navDeepLink
+import com.opengym.core.domain.navigation.DeepLinks
 import com.opengym.feature.progression.achievements.AchievementsRoute
 import com.opengym.feature.progression.body.BodyMeasurementsRoute
 import com.opengym.feature.progression.exercise.ExerciseProgressionRoute
@@ -53,8 +55,11 @@ const val NO_EXERCISE: Long = 0L
 /**
  * The quest log (#104): level, XP, the streak and the quest board.
  *
- * Reached from the hub's explore section and from nowhere else — the bottom bar is four tabs
- * on purpose. See `TopLevelDestination`.
+ * Reached from the hub's explore section, and from outside the app entirely:
+ * `opengym://progression/quests` is where a progression notification lands, because this is the
+ * one screen that draws both of the things it announces — the recent loot, and what is left of
+ * the month's streak allowance. See [DeepLinks], which is where that URI is written down for
+ * both ends of it.
  */
 @Serializable
 data object QuestLogDestination
@@ -123,7 +128,11 @@ fun NavGraphBuilder.progressionDetailGraph(
     composable<ExerciseProgressionDestination> {
         ExerciseProgressionRoute(onBack = onBack)
     }
-    composable<QuestLogDestination> {
+    composable<QuestLogDestination>(
+        // The whole URI rather than a base path with arguments appended: the destination takes
+        // none, so there is nothing for Navigation to append.
+        deepLinks = listOf(navDeepLink<QuestLogDestination>(basePath = DeepLinks.QUEST_LOG)),
+    ) {
         QuestLogRoute(onBack = onBack, onOpenAchievements = onOpenAchievements)
     }
     composable<AchievementsDestination> {
