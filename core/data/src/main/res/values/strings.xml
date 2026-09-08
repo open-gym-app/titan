@@ -51,6 +51,24 @@
         <item quantity="other">%1$d sets logged, nothing since</item>
     </plurals>
 
+    <!-- The scheduled reminder. Short, and it does not shout: the user asked for this at a
+         time they chose, so it is a nudge rather than an alarm. The streak line is the one
+         thing worth saying on top of the invitation, and it is only ever said while the
+         streak is actually live. -->
+    <string name="reminder_title">Time to train</string>
+    <string name="reminder_body">Get it logged. It only counts if you write it down.</string>
+    <plurals name="reminder_body_streak">
+        <item quantity="one">%1$d day streak on the line. Keep it.</item>
+        <item quantity="other">%1$d day streak on the line. Keep it.</item>
+    </plurals>
+    <string name="reminder_action_start">Start</string>
+
+    <!-- The same reminder arriving while a workout is already open. Nobody needs telling to
+         train when they are mid-session; what they may need is the way back into it. -->
+    <string name="reminder_title_in_progress">Finish what you started</string>
+    <string name="reminder_body_in_progress">Your workout is still open.</string>
+    <string name="reminder_action_resume">Resume</string>
+
     <!-- What a finished workout earned, for a user who was not looking at the recap that
          would otherwise have celebrated it. Three headlines, because a session can save a
          streak, drop loot, or do both — and the two joined would be longer than a notification

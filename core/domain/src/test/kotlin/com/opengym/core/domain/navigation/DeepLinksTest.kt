@@ -29,6 +29,22 @@ class DeepLinksTest {
     }
 
     @Test
+    fun `the new session link is the whole URI, not a base path`() {
+        // `NewSessionDestination` has two arguments and both are defaulted, so Navigation
+        // appends nothing and the base path *is* the pattern. A reminder opens the flow at the
+        // top rather than at somebody's template.
+        assertEquals("opengym://session/new", DeepLinks.NEW_SESSION)
+    }
+
+    @Test
+    fun `the two session links are different screens`() {
+        // The reminder chooses between them at post time: setting a workout up, or the one
+        // already running. Two URIs that collapsed to one would make that choice moot.
+        assertTrue(DeepLinks.NEW_SESSION != DeepLinks.ACTIVE_SESSION)
+        assertTrue(DeepLinks.NEW_SESSION.startsWith("${DeepLinks.SCHEME}://${DeepLinks.SESSION_HOST}/"))
+    }
+
+    @Test
     fun `the quest log link is the whole URI, not a base path`() {
         // The destination takes no arguments, so there is nothing for `navDeepLink` to append
         // — which is why this is a constant rather than a function.

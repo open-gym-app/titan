@@ -9,6 +9,7 @@ import com.opengym.core.data.di.DATABASE_NAME
 import com.opengym.core.data.di.IoDispatcher
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.notification.ReminderScheduler
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.SessionStateRepository
@@ -39,6 +40,10 @@ import kotlin.time.Duration.Companion.seconds
  * knowledge of *what "all of it" consists of* lives in exactly one place, so a store added
  * later is a line here rather than a thing the delete-all dialog quietly stops covering.
  *
+ * The workout reminder's **alarms** are the one thing here that is not a store, and they are
+ * here for the same reason: they are state this device is holding on the user's behalf, they
+ * outlive the process, and the settings wipe is what makes them wrong.
+ *
  * ### Order matters, and it is the order of consequences
  *
  * [deleteAll] works from the most visible thing to the least:
@@ -50,9 +55,9 @@ import kotlin.time.Duration.Companion.seconds
  * 2. **The draft file next**, so a process death in the middle of this cannot leave a
  *    resumable workout referring to rows that are about to go.
  * 3. **Then the rows**, which is the part that actually takes time.
- * 4. **Settings last.** They are the cheapest thing to lose and the least alarming to keep:
- *    a wipe that dies before this leaves a user with the right units and no history, which
- *    is strictly better than the reverse.
+ * 4. **Settings last**, and the alarms behind them with the same step. They are the cheapest
+ *    thing to lose and the least alarming to keep: a wipe that dies before this leaves a user
+ *    with the right units and no history, which is strictly better than the reverse.
  *
  * ### The catalogue is put back, not spared
  *
@@ -77,6 +82,7 @@ class LocalDataRepositoryImpl @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val reminderScheduler: ReminderScheduler,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : LocalDataRepository {
@@ -170,6 +176,12 @@ class LocalDataRepositoryImpl @Inject constructor(
                 DatabaseSeed.insertInto(database.openHelper.writableDatabase, context.assets)
             }
             userPreferencesRepository.clear()
+            // And the alarms the settings had pointed at. `clear()` puts the reminder
+            // preferences back to their defaults — which include the switch being *off* — so
+            // without this a wiped phone goes on buzzing at 18:00 on Mondays for a reminder
+            // its own settings screen reports as turned off. `sync` re-reads the store it has
+            // just been emptied and takes down everything it does not want.
+            reminderScheduler.sync()
         }
     }
 

@@ -489,4 +489,26 @@
     <!-- Said before the tap rather than after it: leaving the app is worth announcing. -->
     <string name="preference_opens_externally">Opens in your browser</string>
 
+    <!-- ── Reminder schedule ────────────────────────────────────────────────────── -->
+
+    <!-- A set of weekdays, summarised. The three named cases exist because the initials fail
+         exactly where the schedule is most ordinary: MTWTFSS is a smear, and nobody parses
+         MTWTF as "weekdays". Everything else is drawn as its initials, which carry more than
+         a phrase would. -->
+    <string name="reminder_days_every">Every day</string>
+    <string name="reminder_days_weekdays">Weekdays</string>
+    <string name="reminder_days_weekend">Weekends</string>
+    <!-- The user has cleared every day out of the schedule. It says so rather than rendering
+         nothing, because an empty value column reads as a setting that failed to load. -->
+    <string name="reminder_days_none">No days</string>
+    <!-- The days and the time on one line: "MWF · 18:00". The same middle dot every other
+         two-part value in the app is joined with. -->
+    <string name="reminder_schedule">%1$s · %2$s</string>
+
+    <!-- ── Time picker ──────────────────────────────────────────────────────────── -->
+
+    <!-- The clock face is committed rather than written on every drag — see TimePickerDialog. -->
+    <string name="time_picker_confirm">Save</string>
+    <string name="time_picker_cancel">Cancel</string>
+
 </resources>

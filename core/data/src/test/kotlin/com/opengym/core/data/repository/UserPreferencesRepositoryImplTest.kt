@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -46,6 +47,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import java.io.IOException
+import java.time.DayOfWeek
+import java.time.LocalTime
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -590,6 +593,97 @@ class UserPreferencesRepositoryImplTest {
             assertThrows(IllegalStateException::class.java) {
                 runBlocking { repository.observe().first() }
             }
+        }
+
+    // --- the reminder schedule ---------------------------------------------
+
+    @Test
+    fun `a fresh install carries the wireframe's own schedule`() =
+        withStore { repository ->
+            val reminders = repository.observe().first().reminders
+
+            // A schedule rather than an empty one, because these are only read once the user
+            // has turned reminders on — at which point they have said they want a nudge, and
+            // an empty picker is a question they came here having already answered.
+            assertEquals(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY), reminders.days)
+            assertEquals(LocalTime.of(18, 0), reminders.timeOfDay)
+        }
+
+    @Test
+    fun `a day is added and removed without disturbing the others`() =
+        withStore { repository ->
+            repository.setReminderDay(DayOfWeek.SATURDAY, enabled = true)
+            repository.setReminderDay(DayOfWeek.WEDNESDAY, enabled = false)
+
+            assertEquals(
+                setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY, DayOfWeek.SATURDAY),
+                repository.observe().first().reminders.days,
+            )
+        }
+
+    @Test
+    fun `clearing every day survives, rather than reading back as the default`() =
+        withStore { repository ->
+            // The load-bearing difference between an absent key and an empty one: a missing
+            // key means "never set" and takes the default, where an empty entry means the user
+            // cleared them all. Reverting to Monday-Wednesday-Friday here would put back a
+            // schedule they deliberately emptied.
+            DayOfWeek.entries.forEach { repository.setReminderDay(it, enabled = false) }
+
+            assertEquals(emptySet<DayOfWeek>(), repository.observe().first().reminders.days)
+        }
+
+    @Test
+    fun `the time round-trips to the minute`() =
+        withStore { repository ->
+            repository.setReminderTime(LocalTime.of(6, 45))
+
+            assertEquals(LocalTime.of(6, 45), repository.observe().first().reminders.timeOfDay)
+        }
+
+    @Test
+    fun `a time finer than a minute is refused rather than truncated`() =
+        withStore { repository ->
+            // Truncating would store a schedule the user did not ask for. The picker cannot
+            // produce one of these; a caller reaching past it can.
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setReminderTime(LocalTime.of(18, 0, 30)) }
+            }
+        }
+
+    @Test
+    fun `a stored day line this build cannot read keeps whatever survived it`() =
+        withRawStore { repository, store ->
+            store.edit { it[stringPreferencesKey("reminder_days_iso")] = "1,banana,5,99" }
+
+            // The same "keep what survived" rule the plate inventory follows: a hand-edited
+            // file or a build that allowed something this one does not should not cost the
+            // whole schedule.
+            assertEquals(
+                setOf(DayOfWeek.MONDAY, DayOfWeek.FRIDAY),
+                repository.observe().first().reminders.days,
+            )
+        }
+
+    @Test
+    fun `a stored time outside the day falls back to the default`() =
+        withRawStore { repository, store ->
+            store.edit { it[intPreferencesKey("reminder_time_minutes")] = 5_000 }
+
+            assertEquals(LocalTime.of(18, 0), repository.observe().first().reminders.timeOfDay)
+        }
+
+    @Test
+    fun `the two halves of the schedule degrade one at a time`() =
+        withRawStore { repository, store ->
+            store.edit { it[intPreferencesKey("reminder_time_minutes")] = 7 * 60 }
+
+            // A store with a time and no days — a write interrupted between the two, or a
+            // build that only ever wrote one of them. The half that is there is kept.
+            val reminders = repository.observe().first().reminders
+
+            assertEquals(LocalTime.of(7, 0), reminders.timeOfDay)
+            assertEquals(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY), reminders.days)
         }
 
     // --- notifications ----------------------------------------------------

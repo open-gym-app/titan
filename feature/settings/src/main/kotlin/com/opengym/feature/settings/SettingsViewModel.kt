@@ -11,13 +11,13 @@ import com.opengym.core.domain.notification.NotificationPermission
 import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -57,16 +57,20 @@ import kotlin.time.Duration.Companion.seconds
  * Nothing here requests `POST_NOTIFICATIONS` at startup. The prompt goes up the first time the
  * user turns a notification on — a prompt with no context attached is the one most reliably
  * denied, and a denial cannot be taken back — and it can only go up once, because Android
- * shows it once. [maybeRequestNotificationPermission] holds both halves of that: it reads the
- * *store* rather than the last-published state for whether the prompt has been raised before,
- * so the decision does not depend on a collector having caught up, and it records the raising
- * before the answer arrives, because a user who dismisses the prompt has still been asked.
+ * shows it once. Both halves of that are [RequestNotificationPermissionUseCase], which the
+ * reminder screen asks the same question of: it reads the *store* rather than the last-published
+ * state for whether the prompt has been raised before, so the decision does not depend on a
+ * collector having caught up, and it records the raising before the answer arrives, because a
+ * user who dismisses the prompt has still been asked. Two screens deciding this separately is
+ * two chances to ask twice, and the second prompt is the one Android answers with the refusal
+ * the user gave the first.
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val localDataRepository: LocalDataRepository,
     private val notificationPermission: NotificationPermission,
+    private val requestNotificationPermission: RequestNotificationPermissionUseCase,
 ) : ViewModel() {
 
     /** What the screen owns, as opposed to what the stores do. */
@@ -174,16 +178,15 @@ class SettingsViewModel @Inject constructor(
     /**
      * Asks the screen to raise the system prompt, if raising it would show the user anything.
      *
-     * It would not on Android 12 and below (there is no runtime permission), nor once the
-     * prompt has been raised before (Android shows it once and then answers for the user), nor
-     * when notifications are already allowed. The first two leave the state
-     * [NotificationPermissionState.DENIED], where the settings group offers the row into the
-     * system settings instead — the only thing that can still change the answer; the third is
-     * a state with nothing to say.
+     * Whether it would is [RequestNotificationPermissionUseCase]'s to answer, and it is asked
+     * rather than re-implemented here: the reminder screen turns the same permission on from
+     * its own switch, and two copies of this rule are two chances for one of them to prompt a
+     * user Android has already answered for.
      *
-     * The "we have asked" flag is written *here*, before the answer, because the prompt going
-     * up is the event it records — a user who swipes it away has been asked, and asking again
-     * on their next tap is how an app teaches somebody to refuse.
+     * The two things around the call are this screen's own. The guard is a prompt already
+     * waiting to be raised, which the store cannot report yet; the publish is the group
+     * rendering "Blocked" over a permission that may have been granted elsewhere since the last
+     * resume.
      */
     private suspend fun maybeRequestNotificationPermission() {
         // A prompt already waiting for the screen to raise it is the answer to this question,
@@ -192,22 +195,17 @@ class SettingsViewModel @Inject constructor(
         // discards while the first is still up.
         if (screenState.value.notificationPermissionRequest) return
 
-        val alreadyRequested = userPreferencesRepository.observe().first().notifications.permissionRequested
         // Published rather than only consulted: this is a fresh read of a value that changes
         // outside the app, and dropping it would leave the group rendering "Blocked" over a
-        // permission the user has just granted somewhere else until the next resume.
+        // permission the user has just granted somewhere else until the next resume. The use
+        // case reads it again for its own decision, which is a `NotificationManagerCompat`
+        // lookup and cheaper than a second return value would be to thread through it.
         val allowed = notificationPermission.areNotificationsAllowed()
         screenState.update { it.copy(notificationsAllowed = allowed) }
 
-        val state = NotificationPermissionState.of(
-            allowed = allowed,
-            runtimePermissionRequired = notificationPermission.isRuntimePermissionRequired,
-            alreadyRequested = alreadyRequested,
-        )
-        if (state != NotificationPermissionState.NOT_REQUESTED) return
-
-        userPreferencesRepository.setNotificationPermissionRequested()
-        screenState.update { it.copy(notificationPermissionRequest = true) }
+        if (requestNotificationPermission()) {
+            screenState.update { it.copy(notificationPermissionRequest = true) }
+        }
     }
 
     /** Re-reads the system's answer. See [SettingsEvent.Notification.PermissionRechecked]. */

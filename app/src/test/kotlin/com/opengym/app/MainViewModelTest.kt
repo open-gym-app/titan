@@ -25,6 +25,8 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.DayOfWeek
+import java.time.LocalTime
 import kotlin.time.Duration
 
 /**
@@ -169,6 +171,20 @@ class MainViewModelTest {
 
         override suspend fun setNotificationPermissionRequested() {
             preferences.update { it.copy(notifications = it.notifications.copy(permissionRequested = true)) }
+        }
+
+        override suspend fun setReminderDay(
+            day: DayOfWeek,
+            enabled: Boolean,
+        ) {
+            preferences.update {
+                val days = it.reminders.days
+                it.copy(reminders = it.reminders.copy(days = if (enabled) days + day else days - day))
+            }
+        }
+
+        override suspend fun setReminderTime(time: LocalTime) {
+            preferences.update { it.copy(reminders = it.reminders.copy(timeOfDay = time)) }
         }
 
         override suspend fun clear() {

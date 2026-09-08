@@ -43,8 +43,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import kotlin.time.Duration
 
 /**
@@ -651,6 +653,13 @@ private object DefaultPreferences : UserPreferencesRepository {
     ) = readOnly()
 
     override suspend fun setNotificationPermissionRequested() = readOnly()
+
+    override suspend fun setReminderDay(
+        day: DayOfWeek,
+        enabled: Boolean,
+    ) = readOnly()
+
+    override suspend fun setReminderTime(time: LocalTime) = readOnly()
 
     private fun readOnly(): Nothing = throw UnsupportedOperationException("the cascade writes no preferences")
 }

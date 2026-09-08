@@ -50,6 +50,10 @@
     <string name="settings_streak_protection">Streaks and rewards</string>
     <string name="settings_streak_protection_detail">New levels, completed quests and loot</string>
     <string name="settings_marketplace">Marketplace deals</string>
+    <!-- The reminders row's value column when the reminder is switched off. The schedule is
+         still stored, and still shown on the screen behind the row; what this row reports is
+         whether anything is going to arrive. -->
+    <string name="settings_reminders_off">Off</string>
 
     <!-- Shown in place of nothing when the system is not carrying notifications. "Blocked" is
          the badge on a switch that is on and not working; the two rows are the ways out. -->
@@ -174,5 +178,36 @@
     <string name="backup_restore_dialog_word">RESTORE</string>
     <string name="backup_restore_dialog_confirm">Replace</string>
     <string name="backup_restore_in_progress">Restoring…</string>
+
+    <!-- ── Workout reminders ────────────────────────────────────────────────────── -->
+
+    <!-- Group headers, uppercased by the eyebrow style — sentence case here for the reason
+         the ones at the top of this file are. -->
+    <string name="reminder_group_reminder">Reminder</string>
+    <string name="reminder_group_days">Days</string>
+    <string name="reminder_group_time">Time</string>
+
+    <!-- The master switch, named for what it does rather than for the screen it is on: the
+         bar above already reads "Workout reminders". -->
+    <string name="reminder_enabled">Remind me to train</string>
+    <string name="reminder_enabled_detail">On the days and at the time below</string>
+
+    <string name="reminder_time">Reminder time</string>
+
+    <!-- The one line under the big time, in the order the reasons block each other: the
+         switch, then the days, then the permission. Naming the first thing in the way is what
+         makes the line worth reading. -->
+    <string name="reminder_status_off">Reminders are off. Turn them on below.</string>
+    <string name="reminder_status_no_days">Pick at least one day for this to fire.</string>
+    <string name="reminder_status_blocked">Android is not delivering notifications.</string>
+    <string name="reminder_status_next">Next: %1$s</string>
+
+    <!-- Under the day picker, when every day has been cleared. -->
+    <string name="reminder_days_empty_detail">No days chosen, so nothing is scheduled.</string>
+
+    <!-- Said rather than offered as a fix: the exact-alarm permission lives on a full-screen
+         system page most people will not want, and the cost of not having it is minutes. -->
+    <string name="reminder_inexact">May arrive late</string>
+    <string name="reminder_inexact_detail">Exact alarms are off for OpenGym, so Android may hold the reminder back a few minutes.</string>
 
 </resources>

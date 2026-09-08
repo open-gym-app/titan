@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
+import com.opengym.core.domain.notification.NotificationPermission
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -77,6 +79,23 @@ abstract class UserPreferencesModule {
          * settings, silently — it is as much a persisted format as the keys inside.
          */
         private const val STORE_NAME = "user-preferences"
+
+        /**
+         * The decision to raise the notification permission prompt, shared by the two screens
+         * that turn a notification on — see [RequestNotificationPermissionUseCase] for why it
+         * is one decision rather than two copies of it.
+         *
+         * `@Provides` rather than an `@Inject constructor` for the reason every other use case
+         * here is provided: `:core:domain` is a plain JVM library with no Hilt on its
+         * classpath. Unscoped, per ARCHITECTURE.md's table — it is a stateless composition of
+         * two singletons.
+         */
+        @Provides
+        fun provideRequestNotificationPermissionUseCase(
+            userPreferencesRepository: UserPreferencesRepository,
+            permission: NotificationPermission,
+        ): RequestNotificationPermissionUseCase =
+            RequestNotificationPermissionUseCase(userPreferencesRepository, permission)
 
         /**
          * The store, built through the factory rather than the `preferencesDataStore`

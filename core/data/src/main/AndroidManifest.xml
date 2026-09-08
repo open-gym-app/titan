@@ -34,6 +34,16 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
+    <!--
+      The reboot broadcast, for the alarms behind the workout reminder.
+
+      `AlarmManager` keeps nothing across a restart, so without this a phone rebooted on Sunday
+      night has no Monday reminder and says nothing about it — the setting is still on. The
+      permission is install-time and covers only `BOOT_COMPLETED`; the app-update case
+      (`MY_PACKAGE_REPLACED`) needs no permission and is handled by the same receiver.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application>
 
         <!--
@@ -56,6 +66,42 @@
         <receiver
             android:name=".notification.IdleSessionReceiver"
             android:exported="false" />
+
+        <!--
+          A scheduled reminder falling due. `exported="false"` like the two above: the intent is
+          explicit and comes from this app's own pending intent.
+        -->
+        <receiver
+            android:name=".notification.ReminderReceiver"
+            android:exported="false" />
+
+        <!--
+          The one receiver that is exported, because everything it listens for is a *system*
+          broadcast and an un-exported receiver would never hear one.
+          `android:exported="true"` is therefore required rather than incidental, and the
+          receiver checks the action itself rather than trusting the filter — see BootReceiver.
+
+          `MY_PACKAGE_REPLACED` sits in the same filter and is delivered only to this app. The
+          two clock actions are there because an alarm holds an absolute instant while the
+          schedule is a wall-clock time: a flight or a corrected clock leaves the seven standing
+          alarms pointed at the wrong local time, and only a re-sync fixes it. Both are exempt
+          from the background limits on implicit broadcasts, so a manifest receiver still hears
+          them.
+
+          Deliberately not `directBootAware`: the preferences the schedule is read from live in
+          credential-encrypted storage, so there is nothing to read before the first unlock, and
+          `BOOT_COMPLETED` already arrives after it.
+        -->
+        <receiver
+            android:name=".notification.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

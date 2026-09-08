@@ -9,6 +9,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -405,7 +406,12 @@ class SettingsViewModelTest {
         preferences: FakeUserPreferencesRepository = this.preferences,
         localData: FakeLocalDataRepository = this.localData,
         notificationPermission: FakeNotificationPermission = this.notificationPermission,
-    ) = SettingsViewModel(preferences, localData, notificationPermission)
+    ) = SettingsViewModel(
+        preferences,
+        localData,
+        notificationPermission,
+        RequestNotificationPermissionUseCase(preferences, notificationPermission),
+    )
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */
     private fun TestScope.collectState(viewModel: SettingsViewModel) {

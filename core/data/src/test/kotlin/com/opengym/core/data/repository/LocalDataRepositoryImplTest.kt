@@ -24,6 +24,8 @@ import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.ReminderScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,6 +74,9 @@ class LocalDataRepositoryImplTest {
     private lateinit var userPreferencesRepository: UserPreferencesRepositoryImpl
     private lateinit var inProgressSessionRepository: InProgressSessionRepositoryImpl
     private lateinit var sessionStateRepository: SessionStateRepositoryImpl
+
+    /** The reminder alarms, which a wipe has to take down with the settings that armed them. */
+    private lateinit var reminderScheduler: RecordingReminderScheduler
     private lateinit var repository: LocalDataRepositoryImpl
 
     @Before
@@ -91,11 +96,13 @@ class LocalDataRepositoryImplTest {
         userPreferencesRepository = UserPreferencesRepositoryImpl(dataStore)
         inProgressSessionRepository = InProgressSessionRepositoryImpl(context, Dispatchers.IO)
         sessionStateRepository = SessionStateRepositoryImpl()
+        reminderScheduler = RecordingReminderScheduler()
         repository = LocalDataRepositoryImpl(
             database = db,
             userPreferencesRepository = userPreferencesRepository,
             inProgressSessionRepository = inProgressSessionRepository,
             sessionStateRepository = sessionStateRepository,
+            reminderScheduler = reminderScheduler,
             context = context,
             ioDispatcher = Dispatchers.IO,
         )
@@ -231,6 +238,19 @@ class LocalDataRepositoryImplTest {
         }
 
     @Test
+    fun `deleteAll takes the reminder's alarms down with the settings that armed them`() =
+        runBlocking {
+            userPreferencesRepository.setNotificationEnabled(NotificationKind.REMINDERS, enabled = true)
+
+            repository.deleteAll()
+
+            // The switch goes back to off with everything else, so an alarm left standing would
+            // buzz at 18:00 on a Monday for a reminder the settings screen reports as off. The
+            // scheduler re-reads the store it has just been emptied and cancels what it finds.
+            assertEquals(1, reminderScheduler.syncs)
+        }
+
+    @Test
     fun `deleteAll discards the in-progress draft and returns the session state to Idle`() =
         runBlocking {
             inProgressSessionRepository.save(draft())
@@ -305,4 +325,15 @@ class LocalDataRepositoryImplTest {
                 ),
             ),
         )
+}
+
+/** A [ReminderScheduler] that counts syncs instead of touching an `AlarmManager`. */
+private class RecordingReminderScheduler : ReminderScheduler {
+    var syncs = 0
+
+    override suspend fun sync() {
+        syncs++
+    }
+
+    override fun isExact(): Boolean = true
 }
