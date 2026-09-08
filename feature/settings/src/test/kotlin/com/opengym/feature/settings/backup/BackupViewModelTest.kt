@@ -8,6 +8,7 @@ import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
+import com.opengym.core.domain.usecase.SetAutoBackupEnabledUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -364,6 +365,91 @@ class BackupViewModelTest {
             assertNull(viewModel.uiState.value.lastRestore)
         }
 
+    // --- the weekly automatic backup --------------------------------------
+
+    /** The two halves the use case exists to keep together, seen from the screen's side. */
+    @Test
+    fun `turning the schedule on stores the flag and enqueues the work`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
+
+            assertTrue(viewModel.uiState.first { it.autoBackup.enabled }.autoBackup.enabled)
+            assertEquals(1, backend.scheduler.scheduleCount)
+        }
+
+    @Test
+    fun `turning it off cancels the work`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
+            viewModel.uiState.first { it.autoBackup.enabled }
+
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(false))
+
+            assertEquals(false, viewModel.uiState.first { !it.autoBackup.enabled }.autoBackup.enabled)
+            assertEquals(1, backend.scheduler.cancelCount)
+        }
+
+    /**
+     * The row draws what the *store* holds, not what this composition last set.
+     *
+     * A worker records its run with no screen alive, so the timestamp on the row has to come
+     * off the store on the next launch. Mirroring it into the ViewModel's own state would draw
+     * a blank row on exactly the launch where it matters.
+     */
+    @Test
+    fun `a run recorded by the worker reaches the state`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            backend.autoBackup.recordSuccess(LAST_BACKUP_AT)
+
+            assertEquals(LAST_BACKUP_AT, viewModel.uiState.first { it.autoBackup.hasRun }.autoBackup.lastSuccessAt)
+        }
+
+    /** A switch that snaps back has to say why, and the explanation goes when a retry works. */
+    @Test
+    fun `a toggle that cannot be stored is reported and the schedule is left alone`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+            backend.autoBackup.writesFail = true
+
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
+            val failed = viewModel.uiState.first { it.autoBackupSaveFailed }
+
+            assertEquals(false, failed.autoBackup.enabled)
+            assertEquals(0, backend.scheduler.scheduleCount)
+
+            backend.autoBackup.writesFail = false
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
+
+            assertEquals(false, viewModel.uiState.first { it.autoBackup.enabled }.autoBackupSaveFailed)
+        }
+
+    /**
+     * The one control on the screen that is not blocked by a running export.
+     *
+     * It writes one flag and enqueues a job — it reads no rows and touches no file — so making
+     * somebody wait out a 30 MB export before they may change a setting would buy nothing.
+     */
+    @Test
+    fun `the schedule can be changed while an export is running`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+
+            viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
+
+            assertTrue(viewModel.uiState.first { it.autoBackup.enabled }.autoBackup.enabled)
+        }
+
     // --- the footprint ----------------------------------------------------
 
     @Test
@@ -404,8 +490,13 @@ class BackupViewModelTest {
                 inProgressSessionRepository = backend.draft,
                 sessionStateRepository = backend.sessionState,
             ),
+            setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
+                autoBackupRepository = backend.autoBackup,
+                scheduler = backend.scheduler,
+            ),
             clock = { EXPORTED_AT },
             localDataRepository = backend.localDataRepository,
+            autoBackupRepository = backend.autoBackup,
         )
 
     /**
@@ -445,6 +536,9 @@ class BackupViewModelTest {
         const val EXPORTED_AT = 1_788_697_774_000L
 
         const val SOME_URI = "content://downloads/opengym-backup.json"
+
+        /** 2026-04-26, a day the auto-backup row can name. */
+        const val LAST_BACKUP_AT = 1_777_161_600_000L
 
         /** Bigger than the document a seeded backend exports, so a truncation is visible. */
         const val LONGER_THAN_ANY_BACKUP = 100_000

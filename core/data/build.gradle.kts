@@ -53,6 +53,14 @@ dependencies {
     // from one firing while the user is looking at the app — see `AppForegroundState`.
     implementation(libs.androidx.lifecycle.process)
 
+    // The weekly auto-backup (#181). The worker lives here rather than in `:feature:settings`
+    // because it is I/O with no screen behind it — it runs while the app is not open — and
+    // `androidx.hilt:hilt-compiler` is the KSP processor that teaches `HiltWorkerFactory` to
+    // build it. `:app` supplies that factory to WorkManager; see `OpenGymApplication`.
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
+
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     // The backup round trip asserts on the *document*, not only on the rows it restores: which
@@ -65,6 +73,9 @@ dependencies {
     testImplementation(libs.hilt.android.testing)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.androidx.paging.testing)
+    // `WorkManagerTestInitHelper` and `TestListenableWorkerBuilder`, so the backup worker and
+    // the periodic request behind it are driven on the JVM rather than on an emulator.
+    testImplementation(libs.androidx.work.testing)
     // The progress row is observed as a Flow; asserting an emission arrives is Turbine's job
     // rather than a timeout's — see `UserProgressDaoTest`.
     testImplementation(libs.turbine)

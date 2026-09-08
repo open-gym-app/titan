@@ -1,11 +1,14 @@
 package com.opengym.core.data.di
 
+import com.opengym.core.domain.backup.AutoBackupScheduler
+import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
+import com.opengym.core.domain.usecase.SetAutoBackupEnabledUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -54,5 +57,21 @@ object BackupUseCaseModule {
             userPreferencesRepository = userPreferencesRepository,
             inProgressSessionRepository = inProgressSessionRepository,
             sessionStateRepository = sessionStateRepository,
+        )
+
+    /**
+     * The auto-backup toggle (#181): the stored flag and the scheduled work, written together.
+     *
+     * The scheduler resolves to the WorkManager-backed implementation in this module's
+     * `AutoBackupModule` sibling; nothing outside `:core:data` names WorkManager.
+     */
+    @Provides
+    fun provideSetAutoBackupEnabledUseCase(
+        autoBackupRepository: AutoBackupRepository,
+        scheduler: AutoBackupScheduler,
+    ): SetAutoBackupEnabledUseCase =
+        SetAutoBackupEnabledUseCase(
+            autoBackupRepository = autoBackupRepository,
+            scheduler = scheduler,
         )
 }

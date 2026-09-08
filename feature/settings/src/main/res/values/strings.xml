@@ -136,6 +136,18 @@
     <string name="backup_save_done">A copy is saved where you chose.</string>
     <string name="backup_save_failed">The copy could not be written there. Choose another location and try again.</string>
 
+    <!-- Automatic backup (#181). The toggle under the export section. -->
+    <string name="backup_auto_title">Automatic backup</string>
+    <string name="backup_auto_detail">Writes a copy of everything once a week, while the phone is charging and no one is using it. The three most recent are kept; older ones are deleted.</string>
+    <string name="backup_auto_action">Weekly auto-backup</string>
+    <string name="backup_auto_off">Off. Nothing is written on a schedule.</string>
+    <string name="backup_auto_never">On. The first one runs the next time the phone is charging overnight.</string>
+    <string name="backup_auto_last">Last backup %1$s</string>
+    <string name="backup_auto_failed">The last automatic backup did not finish, after several attempts. It will try again on the next run.</string>
+    <string name="backup_auto_save_failed">That switch could not be saved. Try again.</string>
+    <!-- The one sentence in this section a user must not miss; see AutoBackupSection. -->
+    <string name="backup_auto_uninstall">Automatic backups are kept in Open Gym\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
+
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
     <string name="backup_restore_action">Choose a backup file</string>

@@ -46,6 +46,7 @@ import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.StatTile
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
+import com.opengym.feature.settings.backup.component.AutoBackupSection
 import com.opengym.feature.settings.backup.component.RestoreConfirmationDialog
 
 /**
@@ -101,10 +102,11 @@ fun BackupRoute(
 /**
  * The whole screen, stateless: it renders [state] and reports [BackupEvent]s.
  *
- * Three parts, top to bottom, in the order the wireframe puts them and the order a user needs
- * them: what is on the device, how to take a copy of it, and how to put one back. The
- * footprint card is above both actions because it is the sentence both of them are about —
- * "184 sessions, 2,140 sets" is what is being exported and what a restore would replace.
+ * Four parts, top to bottom, in the order the wireframe puts them and the order a user needs
+ * them: what is on the device, how to take a copy of it, how to have copies taken for you, and
+ * how to put one back. The footprint card is above the actions because it is the sentence they
+ * are all about — "184 sessions, 2,140 sets" is what is being exported and what a restore would
+ * replace — and the restore is last because it is the only control here that destroys anything.
  *
  * @param onPickFile opens the system document picker. Hoisted out of the screen because
  *   launching an `ActivityResultContract` needs a launcher remembered in a composition that
@@ -147,6 +149,11 @@ fun BackupScreen(
                 onEvent = onEvent,
                 onSaveCopy = onSaveCopy,
                 onShare = onShare,
+            )
+            AutoBackupSection(
+                schedule = state.autoBackup,
+                saveFailed = state.autoBackupSaveFailed,
+                onToggle = { enabled -> onEvent(BackupEvent.AutoBackupToggled(enabled)) },
             )
             RestoreSection(state = state, onEvent = onEvent, onPickFile = onPickFile)
         }

@@ -3,6 +3,8 @@ package com.opengym.feature.settings.backup
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -11,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -331,6 +334,109 @@ class BackupScreenTest {
         assertTrue("the parser's own message should stay in the log", leaked.isEmpty())
     }
 
+    // --- the weekly automatic backup --------------------------------------
+
+    /** Off is what a device that has never been asked reads, and the row has to say so. */
+    @Test
+    fun `the auto-backup row is off and says nothing is scheduled`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Weekly auto-backup").performScrollTo().assertIsOff()
+        composeTestRule.onNodeWithText("Off. Nothing is written on a schedule.").assertIsDisplayed()
+    }
+
+    /** The whole row is the control, so the event carries the value the switch moved *to*. */
+    @Test
+    fun `tapping the row asks for it to be turned on`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Weekly auto-backup").performScrollTo().performClick()
+
+        assertEquals(listOf(BackupEvent.AutoBackupToggled(true)), events)
+    }
+
+    @Test
+    fun `tapping a row that is on asks for it to be turned off`() {
+        setContent(autoBackup = AutoBackupSchedule(enabled = true))
+
+        composeTestRule.onNodeWithText("Weekly auto-backup").performScrollTo().performClick()
+
+        assertEquals(listOf(BackupEvent.AutoBackupToggled(false)), events)
+    }
+
+    /** The report a job the user never sees makes: the day it last wrote a file. */
+    @Test
+    fun `a schedule that has run names the day it last did`() {
+        setContent(autoBackup = AutoBackupSchedule(enabled = true, lastSuccessAt = LAST_BACKUP_AT))
+
+        composeTestRule.onNodeWithText("Weekly auto-backup").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Last backup 26 Apr").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a schedule that has never run says when the first one will be`() {
+        setContent(autoBackup = AutoBackupSchedule(enabled = true))
+
+        composeTestRule.onNodeWithText("On. The first one runs", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    /**
+     * Both facts at once: the failure, and the backup that is still there behind it.
+     *
+     * A design that let one overwrite the other would tell the user something is wrong while
+     * hiding how much it has cost, or the reverse.
+     */
+    @Test
+    fun `a run that gave up is reported beside the last good backup`() {
+        setContent(
+            autoBackup = AutoBackupSchedule(
+                enabled = true,
+                lastSuccessAt = LAST_BACKUP_AT,
+                lastFailureAt = LAST_FAILURE_AT,
+            ),
+        )
+
+        composeTestRule.onNodeWithText("The last automatic backup did not finish", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Last backup 26 Apr").assertIsDisplayed()
+    }
+
+    /** A schedule that is off has no next run, so there is nothing to promise about one. */
+    @Test
+    fun `a failure is not reported once the schedule is off`() {
+        setContent(autoBackup = AutoBackupSchedule(enabled = false, lastFailureAt = LAST_FAILURE_AT))
+
+        val reported = composeTestRule
+            .onAllNodesWithText("The last automatic backup did not finish", substring = true)
+            .fetchSemanticsNodes()
+        assertTrue("a schedule that is off should not report on runs it will not make", reported.isEmpty())
+    }
+
+    /**
+     * The most important sentence in the section, and it is on the screen whichever way the
+     * switch is set: somebody who believes an automatic backup survives a reinstall has been
+     * actively misled.
+     */
+    @Test
+    fun `the screen says automatic backups go with the app`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("deleted if you uninstall the app", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    /** A switch that moved back on its own needs to say why. */
+    @Test
+    fun `a toggle that could not be stored explains itself`() {
+        setContent(autoBackupSaveFailed = true)
+
+        composeTestRule.onNodeWithText("That switch could not be saved", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
     private fun assertSaysNothingChanged() {
         composeTestRule.onNodeWithText("Nothing on this device was changed", substring = true).assertIsDisplayed()
     }
@@ -342,6 +448,8 @@ class BackupScreenTest {
         lastExport: ExportOutcome? = null,
         lastRestore: RestoreOutcome? = null,
         lastSave: SaveOutcome? = null,
+        autoBackup: AutoBackupSchedule = AutoBackupSchedule(),
+        autoBackupSaveFailed: Boolean = false,
         appVersion: String = "1.0",
     ) {
         composeTestRule.setContent {
@@ -354,6 +462,8 @@ class BackupScreenTest {
                         lastExport = lastExport,
                         lastRestore = lastRestore,
                         lastSave = lastSave,
+                        autoBackup = autoBackup,
+                        autoBackupSaveFailed = autoBackupSaveFailed,
                     ),
                     appVersion = appVersion,
                     onEvent = events::add,
@@ -372,6 +482,12 @@ class BackupScreenTest {
         const val FIRST_SESSION_AT = 1_711_929_600_000L
 
         const val SOME_URI = "content://downloads/opengym-backup.json"
+
+        /** 2026-04-26, the Sunday the wireframe's "last: APR 26" names. */
+        const val LAST_BACKUP_AT = 1_777_161_600_000L
+
+        /** A week after it, so a failure is the newer of the two facts the row carries. */
+        const val LAST_FAILURE_AT = 1_777_766_400_000L
 
         /** A finished export, which is what both card actions are about. */
         val EXPORTED = ExportOutcome.Succeeded(

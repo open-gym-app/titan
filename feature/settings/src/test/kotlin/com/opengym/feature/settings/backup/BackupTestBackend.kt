@@ -1,5 +1,7 @@
 package com.opengym.feature.settings.backup
 
+import com.opengym.core.domain.backup.AutoBackupSchedule
+import com.opengym.core.domain.backup.AutoBackupScheduler
 import com.opengym.core.domain.backup.model.BackupRow
 import com.opengym.core.domain.backup.model.BackupTable
 import com.opengym.core.domain.backup.model.ExportDocument
@@ -16,6 +18,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.LocalDataRepository
@@ -26,6 +29,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
+import java.io.IOException
 import kotlin.time.Duration
 
 /**
@@ -53,6 +57,8 @@ class BackupTestBackend {
     val preferences = InMemoryUserPreferences()
     val draft = RecordingDraftStore()
     val sessionState = InMemorySessionState()
+    val autoBackup = InMemoryAutoBackupSchedule()
+    val scheduler = RecordingAutoBackupScheduler()
 
     /** The document currently "in the database". */
     val document: ExportDocument get() = stored.value
@@ -193,6 +199,55 @@ class InMemoryUserPreferences : UserPreferencesRepository {
     fun payload(): PreferencesPayload = preferences.value.toPayload()
 
     private fun write(transform: (UserPreferences) -> UserPreferences) = preferences.update(transform)
+}
+
+/**
+ * The auto-backup store, in memory, with a switch for the write failure the screen has to
+ * explain — an unwritable settings file is not something a temporary folder can be made to
+ * produce, and it is the one path where the toggle has to say something rather than move.
+ */
+class InMemoryAutoBackupSchedule : AutoBackupRepository {
+
+    private val schedule = MutableStateFlow(AutoBackupSchedule())
+
+    /** When true, every write throws the way a full or read-only store does. */
+    var writesFail = false
+
+    override fun observe(): Flow<AutoBackupSchedule> = schedule.asStateFlow()
+
+    override suspend fun read(): AutoBackupSchedule = schedule.value
+
+    override suspend fun setEnabled(enabled: Boolean) = write { it.copy(enabled = enabled) }
+
+    override suspend fun recordSuccess(at: Long) = write { it.copy(lastSuccessAt = at, lastFailureAt = null) }
+
+    override suspend fun recordFailure(at: Long) = write { it.copy(lastFailureAt = at) }
+
+    /** What the store holds, for a test asserting on it without collecting the flow. */
+    val current: AutoBackupSchedule get() = schedule.value
+
+    private fun write(transform: (AutoBackupSchedule) -> AutoBackupSchedule) {
+        if (writesFail) throw IOException("the auto-backup store is not writable")
+        schedule.update(transform)
+    }
+}
+
+/** The platform half of the toggle, counted rather than performed. */
+class RecordingAutoBackupScheduler : AutoBackupScheduler {
+
+    var scheduleCount = 0
+        private set
+
+    var cancelCount = 0
+        private set
+
+    override fun schedule() {
+        scheduleCount++
+    }
+
+    override fun cancel() {
+        cancelCount++
+    }
 }
 
 /** The in-progress draft, counting the clears an import is supposed to perform. */

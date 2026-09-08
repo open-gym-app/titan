@@ -8,10 +8,12 @@ import com.opengym.core.domain.backup.ExportSink
 import com.opengym.core.domain.backup.ImportSource
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.backup.model.ImportProgress
+import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
+import com.opengym.core.domain.usecase.SetAutoBackupEnabledUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
@@ -33,7 +37,7 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The backup screen's state, and the three operations behind it.
+ * The backup screen's state, and the four operations behind it.
  *
  * ### Where the file goes, and why this class knows
  *
@@ -65,31 +69,54 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### One operation at a time
  *
- * All three are guarded on [BackupUiState.isBusy]. Two exports racing would fight over one
- * scratch path; an export racing a restore would read rows out of a database being wiped; an
- * export racing a copy would rewrite the file the copy is reading. None is reachable through
- * the UI — the buttons go inert — and the guard is what makes that a property of the ViewModel
- * rather than of the screen drawing it.
+ * The three that move bytes — export, copy, restore — are guarded on [BackupUiState.isBusy].
+ * Two exports racing would fight over one scratch path; an export racing a restore would read
+ * rows out of a database being wiped; an export racing a copy would rewrite the file the copy
+ * is reading. None is reachable through the UI — the buttons go inert — and the guard is what
+ * makes that a property of the ViewModel rather than of the screen drawing it.
+ *
+ * The fourth, the auto-backup toggle, is deliberately outside that: it writes one flag and
+ * enqueues a job, so it reads no rows and touches no file. See [setAutoBackup].
  */
 @HiltViewModel
 class BackupViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val exportBackup: ExportUseCase,
     private val importBackup: ImportUseCase,
+    private val setAutoBackupEnabled: SetAutoBackupEnabledUseCase,
     private val clock: Clock,
     localDataRepository: LocalDataRepository,
+    autoBackupRepository: AutoBackupRepository,
 ) : ViewModel() {
 
     /** What the screen owns, as opposed to what the store does. */
     private val screenState = MutableStateFlow(ScreenState())
 
+    /**
+     * One toggle write at a time, in the order the taps arrived.
+     *
+     * Not the [BackupUiState.isBusy] guard — this is the one control that stays live during an
+     * export — but a lock over itself. Two taps land as two coroutines, and unserialized their
+     * two halves interleave: "on" storing the flag, "off" storing it back, "on" enqueueing and
+     * "off" cancelling leaves the store reading on with the work cancelled, which is exactly
+     * the state [SetAutoBackupEnabledUseCase] exists to make unreachable. A fair mutex makes
+     * the second tap wait for the first and win, which is what a user tapping twice means.
+     */
+    private val autoBackupWrites = Mutex()
+
     val uiState: StateFlow<BackupUiState> = combine(
         localDataRepository.observeFootprint(),
+        autoBackupRepository.observe(),
         screenState,
-    ) { footprint, screen ->
+    ) { footprint, autoBackup, screen ->
         BackupUiState(
             footprint = footprint,
             phase = screen.phase,
+            // Straight from the store, never mirrored into `ScreenState`: the switch has to
+            // read what a worker running with no screen alive wrote, and a local copy would
+            // draw the value this composition last set instead.
+            autoBackup = autoBackup,
+            autoBackupSaveFailed = screen.autoBackupSaveFailed,
             pendingRestoreUri = screen.pendingRestoreUri,
             lastExport = screen.lastExport,
             lastRestore = screen.lastRestore,
@@ -110,6 +137,8 @@ class BackupViewModel @Inject constructor(
             BackupEvent.RestoreDismissed -> screenState.update { it.copy(pendingRestoreUri = null) }
 
             BackupEvent.RestoreConfirmed -> restore()
+
+            is BackupEvent.AutoBackupToggled -> setAutoBackup(event.enabled)
 
             is BackupEvent.SaveDestinationChosen -> saveCopy(event.uri)
 
@@ -182,6 +211,43 @@ class BackupViewModel @Inject constructor(
                 // nothing offers to share and no picker filtered to JSON will show.
                 scratch.delete()
             }.getOrThrow()
+        }
+    }
+
+    /**
+     * Turns the weekly automatic backup on or off.
+     *
+     * Not guarded on [BackupUiState.isBusy], unlike the other three: this writes one flag and
+     * enqueues a job, so it neither reads the rows an export is reading nor touches the file a
+     * copy is writing, and there is no reason to make somebody wait out a 30 MB export before
+     * they may change a setting.
+     *
+     * A store that cannot be written throws, and the switch snaps back on its own because it is
+     * drawn from the stored flag. The flag on the state is what turns that into an explanation
+     * rather than a control that appears to ignore a tap; it is cleared by the next attempt, so
+     * a retry that works takes the sentence away with it.
+     */
+    private fun setAutoBackup(enabled: Boolean) {
+        screenState.update { it.copy(autoBackupSaveFailed = false) }
+
+        viewModelScope.launch {
+            // Broad for the reason the export's is: `IOException` is what the store documents,
+            // but a scheduler that refuses the work is a platform failure of a shape this build
+            // cannot enumerate, and both leave the user looking at the same unchanged switch.
+            //
+            // On IO, not on the main thread: the first `schedule()` of a process is what
+            // initialises WorkManager, which opens its own database — a control that is
+            // reachable mid-export has no business blocking the frame that draws it.
+            val failed = runCatching {
+                autoBackupWrites.withLock { withContext(Dispatchers.IO) { setAutoBackupEnabled(enabled) } }
+            }.fold(
+                onSuccess = { false },
+                onFailure = { failure ->
+                    if (failure is CancellationException) throw failure
+                    true
+                },
+            )
+            screenState.update { it.copy(autoBackupSaveFailed = failed) }
         }
     }
 
@@ -359,6 +425,7 @@ class BackupViewModel @Inject constructor(
     /** The half of the state that belongs to the screen rather than to a store. */
     private data class ScreenState(
         val phase: BackupPhase = BackupPhase.Idle,
+        val autoBackupSaveFailed: Boolean = false,
         val pendingRestoreUri: String? = null,
         val lastExport: ExportOutcome? = null,
         val lastRestore: RestoreOutcome? = null,

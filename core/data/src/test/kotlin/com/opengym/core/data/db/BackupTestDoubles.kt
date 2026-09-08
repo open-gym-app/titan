@@ -1,5 +1,6 @@
 package com.opengym.core.data.db
 
+import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
@@ -8,11 +9,13 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
+import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
+import java.io.IOException
 import kotlin.time.Duration
 
 /*
@@ -65,6 +68,45 @@ class InMemoryUserPreferencesRepository : UserPreferencesRepository {
     override suspend fun clear() = write { UserPreferences() }
 
     private fun write(transform: (UserPreferences) -> UserPreferences) = preferences.update(transform)
+}
+
+/**
+ * The auto-backup schedule, in memory, for driving `BackupWorker` without a DataStore.
+ *
+ * Whether the *store* keeps its promises is `AutoBackupRepositoryImplTest`'s question, over a
+ * real file; what the worker's tests need from it is a flag to set and a record to read back.
+ * The one behaviour reproduced faithfully is that a success clears the failure before it,
+ * because the worker is the only thing that ever calls the two.
+ */
+class InMemoryAutoBackupRepository(enabled: Boolean = true) : AutoBackupRepository {
+
+    private val schedule = MutableStateFlow(AutoBackupSchedule(enabled = enabled))
+
+    /** When true, every write throws the way a store with no space does. */
+    var writesFail = false
+
+    /** When true, [read] throws the way a damaged or unreadable store does. */
+    var readsFail = false
+
+    val current: AutoBackupSchedule get() = schedule.value
+
+    override fun observe(): Flow<AutoBackupSchedule> = schedule
+
+    override suspend fun read(): AutoBackupSchedule {
+        if (readsFail) throw IOException("the auto-backup store is not readable")
+        return schedule.value
+    }
+
+    override suspend fun setEnabled(enabled: Boolean) = write { it.copy(enabled = enabled) }
+
+    override suspend fun recordSuccess(at: Long) = write { it.copy(lastSuccessAt = at, lastFailureAt = null) }
+
+    override suspend fun recordFailure(at: Long) = write { it.copy(lastFailureAt = at) }
+
+    private fun write(transform: (AutoBackupSchedule) -> AutoBackupSchedule) {
+        if (writesFail) throw IOException("the auto-backup store is not writable")
+        schedule.update(transform)
+    }
 }
 
 /** The in-progress draft, in memory, counting the clears an import is supposed to perform. */
