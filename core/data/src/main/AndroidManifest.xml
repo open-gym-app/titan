@@ -1,2 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Declared here rather than in `:app` because this is the module that posts: `AndroidNotifier`
+      is the only thing in the app that calls `NotificationManagerCompat.notify`, and a module
+      that needs a permission to do its job should say so itself rather than depend on the
+      composition root remembering on its behalf. The manifest merger carries it up into the APK.
+
+      Requesting it is a separate matter and happens somewhere else entirely — the settings
+      screen, at the moment the user turns their first notification on. A prompt with no context
+      attached is the one most reliably denied, and a denial cannot be taken back.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+</manifest>

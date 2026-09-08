@@ -37,10 +37,27 @@
     <string name="settings_delete_all">Delete all data</string>
     <string name="settings_delete_all_detail">Erases everything on this device. No undo.</string>
 
-    <!-- Notifications -->
+    <!-- Notifications. One switch per channel, plus whatever the system permission has to
+         say about them. The supporting lines describe what the user would stop hearing, not
+         what the feature is called: a switch is turned off by somebody deciding they do not
+         want the thing it delivers. -->
     <string name="settings_reminders">Workout reminders</string>
-    <string name="settings_streak_protection">Streak protection</string>
+    <string name="settings_reminders_detail">A nudge on the days you plan to train</string>
+    <string name="settings_rest_timer_alerts">Rest timer alerts</string>
+    <string name="settings_rest_timer_alerts_detail">Says the rest is over with the screen off</string>
+    <string name="settings_unfinished_session">Unfinished sessions</string>
+    <string name="settings_unfinished_session_detail">A quiet note while a session is still running</string>
+    <string name="settings_streak_protection">Streaks and rewards</string>
+    <string name="settings_streak_protection_detail">New levels, completed quests and loot</string>
     <string name="settings_marketplace">Marketplace deals</string>
+
+    <!-- Shown in place of nothing when the system is not carrying notifications. "Blocked" is
+         the badge on a switch that is on and not working; the two rows are the ways out. -->
+    <string name="settings_notifications_badge_blocked">Blocked</string>
+    <string name="settings_notifications_blocked">Notifications are blocked</string>
+    <string name="settings_notifications_blocked_detail">Android is not delivering them. Turn them back on in system settings.</string>
+    <string name="settings_notifications_allow">Allow notifications</string>
+    <string name="settings_notifications_allow_detail">OpenGym has not asked for permission yet</string>
 
     <!-- About -->
     <string name="settings_version">Version</string>

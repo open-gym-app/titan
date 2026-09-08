@@ -1,10 +1,14 @@
 package com.opengym.feature.settings
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -16,6 +20,9 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.notification.NotificationKind
+import com.opengym.core.domain.notification.NotificationPermissionState
+import com.opengym.core.domain.notification.NotificationPreferences
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -42,6 +49,7 @@ class SettingsScreenTest {
 
     private val events = mutableListOf<SettingsEvent>()
     private val openedLinks = mutableListOf<String>()
+    private var notificationSettingsOpened = 0
 
     /** How many times the Backup & restore row asked to navigate. */
     private var backupOpened = 0
@@ -216,8 +224,8 @@ class SettingsScreenTest {
         // that was only dimmed would pass a screenshot test and fail a blind user.
         listOf(
             "Health Connect",
-            "Workout reminders",
-            "Streak protection",
+            // "Marketplace deals" is the last row left in the notifications group that has
+            // nothing behind it — it is M8 (#52). Every other row there is a live switch.
             "Marketplace deals",
             "Donate",
         ).forEach { label ->
@@ -247,6 +255,100 @@ class SettingsScreenTest {
 
         assertEquals(1, backupOpened)
         assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    // --- notifications ----------------------------------------------------
+
+    @Test
+    fun `every notification kind gets a switch that reads the stored value`() {
+        setContent(
+            UserPreferences(
+                notifications = NotificationPreferences(
+                    enabled = setOf(NotificationKind.REST_TIMER, NotificationKind.PROGRESSION),
+                ),
+            ),
+        )
+
+        // `assertIsOn`/`assertIsOff` read the toggleable state out of the semantics tree,
+        // which is what TalkBack reads. A switch drawn in the right position with no state on
+        // it would pass a screenshot test and tell a blind user nothing.
+        composeTestRule.onNodeWithText("Rest timer alerts").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Streaks and rewards").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Workout reminders").performScrollTo().assertIsOff()
+        composeTestRule.onNodeWithText("Unfinished sessions").performScrollTo().assertIsOff()
+    }
+
+    @Test
+    fun `flipping a switch reports the kind and the direction`() {
+        setContent(UserPreferences(notifications = NotificationPreferences(enabled = emptySet())))
+
+        composeTestRule.onNodeWithText("Workout reminders").performScrollTo().performClick()
+
+        assertEquals(
+            listOf(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true)),
+            events,
+        )
+    }
+
+    @Test
+    fun `the whole row is the switch, not just the switch`() {
+        // The row is a 360dp target rather than a 52dp one, and it is one node rather than a
+        // label beside an unlabelled control.
+        setContent(
+            UserPreferences(notifications = NotificationPreferences(enabled = setOf(NotificationKind.REST_TIMER))),
+        )
+
+        composeTestRule.onNodeWithText("Rest timer alerts").performScrollTo().performClick()
+
+        assertEquals(
+            listOf(SettingsEvent.Notification.Toggled(NotificationKind.REST_TIMER, false)),
+            events,
+        )
+    }
+
+    @Test
+    fun `a blocked permission is said out loud, and only over the switches it affects`() {
+        setContent(
+            UserPreferences(notifications = NotificationPreferences(enabled = setOf(NotificationKind.REST_TIMER))),
+            notificationPermission = NotificationPermissionState.DENIED,
+        )
+
+        composeTestRule.onNodeWithText("Notifications are blocked").performScrollTo().assertIsDisplayed()
+        // One badge, on the one switch that is on: flagging an off one would be telling the
+        // user that something they turned off is not being delivered. Upper case because
+        // `OpenGymBadge` treats capitals as typography rather than as content.
+        composeTestRule.onAllNodesWithText("BLOCKED").assertCountEquals(1)
+    }
+
+    @Test
+    fun `the blocked row leads into the system settings`() {
+        setContent(notificationPermission = NotificationPermissionState.DENIED)
+
+        composeTestRule.onNodeWithText("Notifications are blocked").performScrollTo().performClick()
+
+        assertEquals(1, notificationSettingsOpened)
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    @Test
+    fun `a permission nobody has asked for offers to ask`() {
+        setContent(notificationPermission = NotificationPermissionState.NOT_REQUESTED)
+
+        // Not the blocked wording: nothing has been refused, and telling somebody they are
+        // blocked when they have never been asked is how a settings screen loses their trust.
+        composeTestRule.onNodeWithText("Notifications are blocked").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Allow notifications").performScrollTo().performClick()
+
+        assertEquals(listOf(SettingsEvent.Notification.PermissionRequested), events)
+    }
+
+    @Test
+    fun `a granted permission says nothing at all`() {
+        setContent(notificationPermission = NotificationPermissionState.GRANTED)
+
+        composeTestRule.onNodeWithText("Notifications are blocked").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Allow notifications").assertDoesNotExist()
+        composeTestRule.onAllNodesWithText("BLOCKED").assertCountEquals(0)
     }
 
     // --- the destructive path ---------------------------------------------
@@ -374,6 +476,7 @@ class SettingsScreenTest {
         footprint: DataFootprint = DataFootprint(),
         isDeleting: Boolean = false,
         appVersion: String = "1.0",
+        notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -383,12 +486,14 @@ class SettingsScreenTest {
                         footprint = footprint,
                         dialog = dialog,
                         isDeleting = isDeleting,
+                        notificationPermission = notificationPermission,
                     ),
                     appVersion = appVersion,
                     onEvent = events::add,
                     onBack = {},
                     onOpenBackup = { backupOpened++ },
                     onOpenLink = openedLinks::add,
+                    onOpenNotificationSettings = { notificationSettingsOpened++ },
                 )
             }
         }
