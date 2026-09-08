@@ -2,7 +2,7 @@ PYTHON ?= python3
 SEED := tools/seed/generate_seed.py
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean test screenshots screenshots-verify lint
+.PHONY: help seed seed-update seed-check seed-clean test journeys screenshots screenshots-verify lint
 
 help: ## List the available targets
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -22,6 +22,9 @@ seed-clean: ## Drop the cached upstream tarballs
 
 test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug
+
+journeys: ## Run only the end-to-end journey suite (#29)
+	./gradlew :app:testDebugUnitTest --tests "com.opengym.app.ui.EndToEndJourneyTest"
 
 screenshots: ## Re-record the screenshot references after an intended visual change
 	./gradlew recordRoborazziDebug -Proborazzi.cleanupOldScreenshots=true
