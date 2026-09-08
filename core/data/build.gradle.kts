@@ -49,6 +49,9 @@ dependencies {
     // `NotificationManagerCompat` and `NotificationCompat`, which this module is the only one
     // allowed to import — see `AndroidNotifier`.
     implementation(libs.androidx.core.ktx)
+    // `ProcessLifecycleOwner`, the one thing that can tell an alarm firing in the background
+    // from one firing while the user is looking at the app — see `AppForegroundState`.
+    implementation(libs.androidx.lifecycle.process)
 
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

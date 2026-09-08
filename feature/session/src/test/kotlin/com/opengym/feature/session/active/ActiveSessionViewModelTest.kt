@@ -101,6 +101,8 @@ class ActiveSessionViewModelTest {
     private val personalRecords = FakeRecordStore()
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
+    private val backgroundRest = FakeBackgroundRestTimer()
+    private val skipRequests = FakeRestSkipRequests()
 
     /**
      * The clock `viewModelScope` runs on, held so a test can move it.
@@ -2004,6 +2006,183 @@ class ActiveSessionViewModelTest {
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
         }
 
+    // --- the rest with the phone in a pocket --------------------------------
+
+    @Test
+    fun `starting a rest hands the operating system the same deadline the draft gets`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            // The same value, not two computed from the same clock a moment apart: the alarm
+            // and the draft must not disagree about when the rest ends.
+            assertEquals(drafts.stored?.restTimer, backgroundRest.current?.rest)
+            assertEquals(
+                RestTimerSnapshot.Running(deadline = STARTED_AT + 90_000, total = 90.seconds),
+                backgroundRest.current?.rest,
+            )
+        }
+
+    @Test
+    fun `the note says which set the lifter comes back to`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            // What makes the glance worth taking: the exercise, and the number of the set that
+            // has not been done yet.
+            assertEquals("Bench press", backgroundRest.current?.exerciseName)
+            assertEquals(2, backgroundRest.current?.setNumber)
+            assertEquals(ACTIVE_SESSION_ID, backgroundRest.current?.sessionId)
+        }
+
+    @Test
+    fun `the ticks do not republish the rest`() =
+        runTest {
+            // The same property the draft has, and for the same reason: the platform ticks the
+            // notification's chronometer from the deadline, so a republication a second would
+            // be ninety wake-ups for a picture that has not changed.
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            val publications = backgroundRest.published.size
+
+            testScheduler.advanceTimeBy(30.seconds)
+
+            assertEquals(publications, backgroundRest.published.size)
+        }
+
+    @Test
+    fun `adjusting the rest republishes it, because the deadline moved`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.RestAdjusted(15.seconds))
+
+            assertEquals(
+                RestTimerSnapshot.Running(deadline = STARTED_AT + 105_000, total = 105.seconds),
+                backgroundRest.current?.rest,
+            )
+        }
+
+    @Test
+    fun `pausing publishes a rest with nothing counting down to`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            advanceRestTo(30.seconds)
+
+            viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
+
+            // A remainder rather than a deadline, which is what tells the scheduler to take the
+            // alarm back: an alarm left standing over a paused rest announces the end of a
+            // countdown the user stopped.
+            assertEquals(RestTimerSnapshot.Paused(60.seconds, 90.seconds), backgroundRest.current?.rest)
+        }
+
+    @Test
+    fun `skipping takes the note and the alarm down`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.RestSkipped)
+
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
+    fun `a rest that runs out is published as finished, for the expiry to be settled once`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            testScheduler.advanceTimeBy(91.seconds)
+
+            // Both this and the alarm land on the same call, and the scheduler decides against
+            // the process lifecycle whether it is announced or quietly cleared — so the two
+            // cannot double-alert whichever of them gets there first.
+            assertEquals(RestTimerSnapshot.Finished, backgroundRest.current?.rest)
+        }
+
+    @Test
+    fun `no rest is published where no rest is started`() =
+        runTest {
+            // The first member of a superset: what follows is a set on the other exercise, not
+            // a pause. Nothing should appear on the lock screen.
+            val viewModel = viewModel(store = supersetStore())
+
+            viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
+
+            assertEquals(emptyList<Any?>(), backgroundRest.published)
+        }
+
+    @Test
+    fun `finishing the workout takes the note down with it`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+            // The note and the alarm outlive this process, so they have to be taken down by
+            // name — a scope going away does not clear a notification.
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
+    fun `discarding the workout takes the note down with it`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.DiscardConfirmed)
+
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
+    fun `skip pressed on the notification stops the countdown this screen is running`() =
+        runTest {
+            // The live half of a press that arrives as a broadcast. The durable half — the
+            // draft — is written by whoever handled it, because it has to work with this screen
+            // destroyed; this is what stops the countdown when it is not.
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            skipRequests.skip(ACTIVE_SESSION_ID)
+
+            assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
+    fun `a skip for another session leaves this one's rest alone`() =
+        runTest {
+            // A notification can outlive the workout it was posted for.
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            skipRequests.skip(ACTIVE_SESSION_ID + 1)
+
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+        }
+
     @Test
     fun `the draft carries the rest as a deadline rather than as a remainder`() =
         runTest {
@@ -2707,6 +2886,8 @@ class ActiveSessionViewModelTest {
         drafts: FakeDraftStore = this@ActiveSessionViewModelTest.drafts,
         catalogue: FakeExerciseCatalogue = this@ActiveSessionViewModelTest.catalogue,
         settings: FakeSettings = this@ActiveSessionViewModelTest.settings,
+        backgroundRest: FakeBackgroundRestTimer = this@ActiveSessionViewModelTest.backgroundRest,
+        skipRequests: FakeRestSkipRequests = this@ActiveSessionViewModelTest.skipRequests,
     ): ActiveSessionViewModel {
         val lock = SessionLifecycleLock()
         val viewModel = ActiveSessionViewModel(
@@ -2734,6 +2915,8 @@ class ActiveSessionViewModelTest {
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
+            backgroundRestTimer = backgroundRest,
+            restSkipRequests = skipRequests,
             clock = clock,
             // Virtual time, so a ninety-second rest costs the suite nothing and the countdown
             // and the scheduler cannot run ahead of each other. The rig `RestTimerTestSupport`

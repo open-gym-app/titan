@@ -23,14 +23,39 @@
           and nothing else — exactly the scope we mean. Revisit with the tablet layouts, not
           before.
         -->
+        <!--
+          `singleTop` because of the deep links below. Without it, a notification tapped while
+          the app is already running builds a *second* MainActivity over the first — two copies
+          of the shell, two navigation graphs, and a back gesture that walks out of one into the
+          other. With it the intent is delivered to the running instance through `onNewIntent`,
+          which `OpenGymNavHost` hands to the NavController.
+        -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="portrait"
             tools:ignore="LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              The app's own address space — `DeepLinks` in `:core:domain` is where the URIs are
+              built, and this is the filter that resolves them. Matched on the scheme and host
+              rather than on each path, so a new screen under `opengym://session/…` is one
+              `navDeepLink` in the feature that owns it and no manifest change here.
+
+              A private scheme rather than an https App Link: these links are posted by this app
+              to itself, on notifications, and an App Link would mean owning a domain and
+              serving an assetlinks file to make a rest timer open.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="opengym" android:host="session" />
             </intent-filter>
         </activity>
 

@@ -1,11 +1,15 @@
 package com.opengym.core.data.notification
 
 import android.app.Notification
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.net.toUri
 import com.opengym.core.data.R
 import com.opengym.core.domain.notification.AppNotification
+import com.opengym.core.domain.notification.NotificationAction
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
 import com.opengym.core.domain.notification.NotificationPermission
@@ -90,11 +94,85 @@ class AndroidNotifier @Inject constructor(
             .setStyle(NotificationCompat.BigTextStyle().bigText(notification.body))
             .setCategory(notification.kind.category)
             .setOngoing(notification.ongoing)
+            // Silence is per-notification and the channel's loudness is per-kind, which is what
+            // lets one countdown be re-posted quietly on a channel whose whole job is to be
+            // heard across a gym. `setOnlyAlertOnce` would not do: it silences everything after
+            // the *first* post on an id, which is the wrong one — the first post is the quiet
+            // update and the last is the announcement.
+            .setSilent(notification.silent)
+            .apply {
+                notification.deepLink?.let { setContentIntent(context.open(it)) }
+                notification.countdownTo?.let { deadline ->
+                    // Ticked by the system, from `when` down to zero. The platform redraws it
+                    // in place; nothing here wakes up to do it. See `AppNotification`.
+                    setWhen(deadline)
+                    setShowWhen(true)
+                    setUsesChronometer(true)
+                    setChronometerCountDown(true)
+                }
+                notification.actions.forEach { addAction(NO_ACTION_ICON, it.label, context.press(it)) }
+            }
             // An ongoing note is cleared by the app when the thing it describes is over, so
             // dismissing it on a tap would leave the session running with nothing showing.
             .setAutoCancel(!notification.ongoing)
             .build()
 }
+
+/**
+ * A tap on the notification: the deep link, as an intent the launcher activity answers.
+ *
+ * Implicit — an `ACTION_VIEW` on the URI, restricted to this app's own package — rather than
+ * naming `MainActivity`, which lives in `:app` and is a class this module may not see. The
+ * manifest's `opengym://` filter is what resolves it, which is the same filter that makes the
+ * link work from anywhere else, so there is one route in rather than two.
+ *
+ * `FLAG_UPDATE_CURRENT` because the extras are what differ between two links to the same
+ * screen, and extras are not part of the equality `PendingIntent` matches on: without it, the
+ * second session's notification would quietly reuse the first's target.
+ */
+private fun Context.open(deepLink: String): PendingIntent =
+    PendingIntent.getActivity(
+        this,
+        DEEP_LINK_REQUEST_CODE,
+        Intent(Intent.ACTION_VIEW, deepLink.toUri()).setPackage(packageName),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+/**
+ * A press on one of the notification's buttons, as a broadcast this module receives.
+ *
+ * A broadcast rather than an activity, because the whole point of a notification button is that
+ * it works without the app being opened — "skip rest" from a lock screen must not drag the user
+ * into a screen they did not ask for.
+ *
+ * `FLAG_IMMUTABLE`, as everything here is: nothing outside this app has any business editing
+ * the intent, and on Android 12 and up a mutable one without a declared reason is refused
+ * outright.
+ */
+private fun Context.press(action: NotificationAction): PendingIntent =
+    PendingIntent.getBroadcast(
+        this,
+        NotificationCommands.requestCode(action.command),
+        NotificationCommands.intent(this, action.command),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+/**
+ * The one request code every deep link shares.
+ *
+ * Safe because of `FLAG_UPDATE_CURRENT` above: the codes only have to keep *simultaneously
+ * live* pending intents apart, and this app posts one notification per kind with one link on
+ * it. A code per kind would be four constants standing for a distinction nothing makes.
+ */
+private const val DEEP_LINK_REQUEST_CODE = 0
+
+/**
+ * `addAction`'s icon slot, left empty.
+ *
+ * Android has not drawn action icons since API 24 — the buttons are text — and passing a real
+ * drawable would ship an asset nothing renders. Zero is the documented "no icon".
+ */
+private const val NO_ACTION_ICON = 0
 
 /**
  * The system id this kind's notification occupies — one slot each, so a re-post replaces.

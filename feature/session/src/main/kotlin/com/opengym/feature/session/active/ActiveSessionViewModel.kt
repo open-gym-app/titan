@@ -28,6 +28,9 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.timer.BackgroundRest
+import com.opengym.core.domain.timer.BackgroundRestTimer
+import com.opengym.core.domain.timer.RestSkipRequests
 import com.opengym.core.domain.timer.RestTimerController
 import com.opengym.core.domain.timer.RestTimerSnapshot
 import com.opengym.core.domain.timer.RestTimerState
@@ -163,6 +166,8 @@ class ActiveSessionViewModel @Inject constructor(
     private val discardSession: DiscardSessionUseCase,
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
+    private val backgroundRestTimer: BackgroundRestTimer,
+    restSkipRequests: RestSkipRequests,
     private val clock: Clock,
     timeSource: TimeSource,
 ) : ViewModel() {
@@ -378,6 +383,19 @@ class ActiveSessionViewModel @Inject constructor(
                 // The one transition nothing commanded: a rest that simply ran out. Everything
                 // else that lands here is captured by the command that caused it.
                 if (rest is RestTimerState.Finished) captureRest()
+            }
+        }
+        // "Skip rest", pressed on the notification rather than on the sheet. The durable half
+        // of that press — the draft forgetting its countdown — is done by whoever handled the
+        // broadcast, because it has to work with this screen destroyed; this is the live half,
+        // and only this object can do it, since it owns the running countdown.
+        //
+        // Filtered on the id: at most one session runs at a time, but a notification can outlive
+        // the workout it was posted for, and a press on a stale one must not cancel a rest in
+        // the workout that replaced it.
+        viewModelScope.launch {
+            restSkipRequests.skipped.collect { skipped ->
+                if (skipped == sessionId) skipRest()
             }
         }
         // One coroutine, in this order, because each step depends on the one before it. The
@@ -601,7 +619,7 @@ class ActiveSessionViewModel @Inject constructor(
             )
 
             logSet(exercise.id, draft, exerciseType)
-                .onSuccess {
+                .onSuccess { logged ->
                     screenState.update { state ->
                         state.copy(
                             loggingExerciseIds = state.loggingExerciseIds - sessionExerciseId,
@@ -616,7 +634,13 @@ class ActiveSessionViewModel @Inject constructor(
                     }
                     // Before the save, which it makes redundant: [startRest] writes the draft
                     // itself, and it is the same draft with the countdown in it.
-                    startRest(sessionExerciseId)
+                    //
+                    // The number of the set that was just written, plus one. Taken from the
+                    // *write* rather than counted off the read flow: Room re-emits a query in
+                    // its own time, so the table this screen can see is still one set short at
+                    // this point — and the notification would say the lifter was coming back to
+                    // the set they had just done.
+                    startRest(sessionExerciseId, nextSetNumber = logged.setNumber + 1)
                 }
                 .onFailure { failure ->
                     // A refusal about the *set* is shown under the row, where the value that
@@ -1066,7 +1090,14 @@ class ActiveSessionViewModel @Inject constructor(
                         // not the opposite — it is a correction to a row logged some time ago,
                         // and cancelling a rest the user is in the middle of because of it would
                         // be the screen reading a typo as a decision.
-                        startRest(sessionExerciseId)
+                        //
+                        // The ticked row is already on disk, so its number is readable without
+                        // waiting for anything — unlike [log], where the set has only just been
+                        // written.
+                        startRest(
+                            sessionExerciseId,
+                            nextSetNumber = loaded.value?.setById(setId)?.setNumber?.plus(1),
+                        )
                     } else {
                         // Rewritten the way it is after every other write to the workout: the
                         // draft carries the sets as they stand alongside what is being typed,
@@ -1177,7 +1208,10 @@ class ActiveSessionViewModel @Inject constructor(
      * opinion rather than as an instant rest: the column is the user's to fill in and a zero in
      * it is far likelier to be an empty answer than a request for no rest at all.
      */
-    private fun startRest(sessionExerciseId: Long) {
+    private fun startRest(
+        sessionExerciseId: Long,
+        nextSetNumber: Int?,
+    ) {
         val duration = restAfter(sessionExerciseId)
         if (duration == null) {
             // No rest here, but a set was still logged: the draft is written either way, since
@@ -1188,7 +1222,13 @@ class ActiveSessionViewModel @Inject constructor(
         }
 
         restTimer.start(duration)
-        screenState.update { it.copy(isRestSheetOpen = true, restExerciseId = sessionExerciseId) }
+        screenState.update {
+            it.copy(
+                isRestSheetOpen = true,
+                restExerciseId = sessionExerciseId,
+                restNextSetNumber = nextSetNumber,
+            )
+        }
         captureRest()
     }
 
@@ -1222,7 +1262,9 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun skipRest() {
         restTimer.cancel()
-        screenState.update { it.copy(isRestSheetOpen = false, restExerciseId = null) }
+        screenState.update {
+            it.copy(isRestSheetOpen = false, restExerciseId = null, restNextSetNumber = null)
+        }
         captureRest()
     }
 
@@ -1245,6 +1287,83 @@ class ActiveSessionViewModel @Inject constructor(
         val snapshot = RestTimerSnapshot.of(restTimer.state.value, clock.nowMillis())
         screenState.update { it.copy(restSnapshot = snapshot) }
         saveDraft()
+        publishRest(snapshot)
+    }
+
+    /**
+     * Publishes the rest to the operating system: the note in the shade, and the alarm.
+     *
+     * Called from [captureRest] and therefore from exactly the same places — every command the
+     * user gives the timer, and the one transition no command causes. That is deliberate rather
+     * than convenient: the *deadline* handed to the alarm is the very [RestTimerSnapshot] the
+     * draft is written from, so the two cannot disagree about when the rest ends, and a tick
+     * does not reach here at all. See `BackgroundRestTimer`, which is posted once and ticked by
+     * the platform.
+     *
+     * Failures are swallowed. The alarm and the note are a convenience over a countdown that is
+     * running correctly either way, and a workout is not worth losing to a notification manager
+     * that refused.
+     *
+     * Serialised through [backgroundRestJob] the way [saveDraft] is through `draftSave`:
+     * `backgroundRestTimer.set` suspends inside `Notifier.post` on a store read, so two calls
+     * launched close together — three taps of "+15s", or a set logged and then FINISH — can
+     * otherwise resume out of order and leave the OS holding a deadline the timer has moved
+     * past, or re-post a countdown for a workout that is already over. Cancelling the one in
+     * flight makes the later call the winner every time.
+     */
+    private fun publishRest(snapshot: RestTimerSnapshot) {
+        val rest = backgroundRest(snapshot)
+        backgroundRestJob?.cancel()
+        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(rest) } }
+    }
+
+    /** The rest publication in flight, so the next one supersedes it. See [publishRest]. */
+    private var backgroundRestJob: Job? = null
+
+    /**
+     * The rest as something outside this app can hold, or **null** when there is nothing to
+     * hold.
+     *
+     * Null for a rest that is over or was never started, and also for one whose exercise this
+     * screen cannot name at all — a set logged against a slot cut out from under it, which is
+     * the same race [restAfter] returns null for. Both mean "take the note down", which is the
+     * honest answer: a notification about a rest in an exercise that is not in the workout is
+     * worse than none.
+     *
+     * The set number is read off the store rather than counted here, so it is the number the
+     * next row will actually carry — a table with a set deleted out of the middle of it is
+     * renumbered, and `size + 1` would name a set that already exists.
+     */
+    private fun backgroundRest(snapshot: RestTimerSnapshot): BackgroundRest? {
+        if (snapshot == RestTimerSnapshot.Idle) return null
+        val exerciseId = screenState.value.restExerciseId ?: return null
+        val loaded = loaded.value ?: return null
+        val exercise = loaded.ordered.firstOrNull { it.id == exerciseId } ?: return null
+
+        return BackgroundRest(
+            sessionId = sessionId,
+            // Null for an exercise deleted from the library since the session started. The
+            // workout carries on past that everywhere else on this screen, and so does this.
+            exerciseName = catalogue.value?.exercises?.get(exercise.exerciseId)?.name,
+            // What the set that started this rest said, and otherwise the table as it stands.
+            // The fallback is for a rest restored after a process death, where nothing recorded
+            // the number and the read flow has long since caught up.
+            setNumber = screenState.value.restNextSetNumber
+                ?: ((loaded.setsOf(exerciseId).maxOfOrNull(WorkoutSet::setNumber) ?: 0) + 1),
+            rest = snapshot,
+        )
+    }
+
+    /**
+     * Takes the note and the alarm down, without writing a draft.
+     *
+     * For the two ways out of a workout. Both cancel the countdown, which lands on
+     * [RestTimerState.Idle] and reaches no capture — the draft is being cleared by the use case
+     * they just ran, and writing one here would put back the thing it deleted.
+     */
+    private fun clearBackgroundRest() {
+        backgroundRestJob?.cancel()
+        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(null) } }
     }
 
     // ─── The layout of the workout ──────────────────────────────────────────────────────
@@ -1652,7 +1771,10 @@ class ActiveSessionViewModel @Inject constructor(
                     // take the countdown with it either way — but so that the sheet is not still
                     // over the screen for the frame or two it takes the recap to open, and so
                     // that nothing rings for a rest between two sets of a session that is over.
+                    // The note and the alarm outlive this process entirely, so they have to be
+                    // taken down by name rather than left to the scope.
                     restTimer.cancel()
+                    clearBackgroundRest()
                     screenState.update {
                         it.copy(finishedSessionId = finished.summary.sessionId, isRestSheetOpen = false)
                     }
@@ -1699,6 +1821,7 @@ class ActiveSessionViewModel @Inject constructor(
                     // As on the way out through the recap: no rest outlives the workout it was
                     // in the middle of. See [finish].
                     restTimer.cancel()
+                    clearBackgroundRest()
                     screenState.update {
                         it.copy(isDiscarded = true, confirmingDiscard = false, isRestSheetOpen = false)
                     }
@@ -2103,6 +2226,14 @@ private data class ScreenState(
     val rest: RestTimerState = RestTimerState.Idle,
     val restSnapshot: RestTimerSnapshot = RestTimerSnapshot.Idle,
     val restExerciseId: Long? = null,
+    /**
+     * The number of the set the current rest leads back to, or null where nothing recorded it —
+     * a rest restored from a draft, which carries the countdown but not this.
+     *
+     * Held rather than counted, because the count is a read of a table the set that started the
+     * rest may not have reached yet. See [ActiveSessionViewModel.startRest].
+     */
+    val restNextSetNumber: Int? = null,
     val isRestSheetOpen: Boolean = false,
     val isRestoringSet: Boolean = false,
     val nameDraft: String? = null,

@@ -2,9 +2,12 @@ package com.opengym.core.data.notification
 
 import android.app.NotificationManager
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.AppNotification
+import com.opengym.core.domain.notification.NotificationAction
+import com.opengym.core.domain.notification.NotificationCommand
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationOutcome
 import com.opengym.core.domain.notification.NotificationPermission
@@ -15,6 +18,9 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -145,6 +151,80 @@ class AndroidNotifierTest {
             assertEquals(0, manager.activeNotifications.size)
         }
 
+    // --- what a notification can carry --------------------------------------
+
+    @Test
+    fun `a deep link becomes somewhere for a tap to land`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(REST_OVER.copy(deepLink = "opengym://session/active/7"))
+
+            // Without one the tap brings the app forward and lands wherever the user last was,
+            // which for a notification about a specific workout is the wrong screen.
+            assertNotNull(manager.activeNotifications.single().notification.contentIntent)
+        }
+
+    @Test
+    fun `a notification with no deep link has nothing to open`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(REST_OVER)
+
+            assertNull(manager.activeNotifications.single().notification.contentIntent)
+        }
+
+    @Test
+    fun `an action becomes a button that needs no screen behind it`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(
+                REST_OVER.copy(
+                    actions = listOf(
+                        NotificationAction("Skip rest", NotificationCommand.SkipRest(sessionId = 7)),
+                    ),
+                ),
+            )
+
+            val actions = manager.activeNotifications.single().notification.actions
+            assertEquals(1, actions.size)
+            assertEquals("Skip rest", actions.single().title)
+            // A broadcast rather than an activity: pressing it must not drag the user into a
+            // screen they did not ask for.
+            assertNotNull(actions.single().actionIntent)
+        }
+
+    @Test
+    fun `a countdown is handed to the platform rather than redrawn`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(REST_OVER.copy(countdownTo = DEADLINE))
+
+            // The reason a rest is posted once and not re-posted every second: the shade ticks
+            // it, and nothing wakes up to help.
+            val posted = manager.activeNotifications.single().notification
+            assertEquals(DEADLINE, posted.`when`)
+            assertTrue(posted.extras.getBoolean(NotificationCompat.EXTRA_SHOW_CHRONOMETER))
+            assertTrue(posted.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
+        }
+
+    @Test
+    fun `an ongoing notification cannot be swiped away`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(REST_OVER.copy(ongoing = true))
+
+            val posted = manager.activeNotifications.single().notification
+            assertTrue(posted.flags and android.app.Notification.FLAG_ONGOING_EVENT != 0)
+            // And a tap does not clear it either: the app takes it down when the thing it
+            // describes is over.
+            assertEquals(0, posted.flags and android.app.Notification.FLAG_AUTO_CANCEL)
+        }
+
     private fun notifier(
         enabled: Set<NotificationKind>,
         allowed: Boolean,
@@ -165,6 +245,8 @@ class AndroidNotifierTest {
     }
 
     private companion object {
+        const val DEADLINE = 1_700_000_090_000L
+
         val REST_OVER = AppNotification(
             kind = NotificationKind.REST_TIMER,
             title = "Rest over",

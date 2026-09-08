@@ -11,8 +11,12 @@ import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.timer.BackgroundRest
+import com.opengym.core.domain.timer.BackgroundRestTimer
+import com.opengym.core.domain.timer.RestSkipRequests
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -431,3 +435,42 @@ fun loggedSet(
     createdAt = STARTED_AT,
     updatedAt = STARTED_AT,
 )
+
+/**
+ * The rest as the operating system would keep it, recorded rather than posted.
+ *
+ * Every publication in order, because what these tests assert is *when* the screen tells the OS
+ * about a rest and what it told it — a fake that only kept the latest could not tell a rest that
+ * was published once from one republished on every tick, which is the property the chronometer
+ * design depends on.
+ */
+class FakeBackgroundRestTimer : BackgroundRestTimer {
+
+    /** Every call, oldest first. Null is "there is no rest". */
+    val published = mutableListOf<BackgroundRest?>()
+
+    /** The last thing published: a rest, or null for "there is no rest" and for nothing yet. */
+    val current: BackgroundRest? get() = published.lastOrNull()
+
+    override suspend fun set(rest: BackgroundRest?) {
+        published += rest
+    }
+}
+
+/**
+ * "Skip rest" presses, driven by the test rather than by a notification.
+ *
+ * The real one is a `MutableSharedFlow` with no buffer, and this is the same thing: a press
+ * emitted with nobody collecting is dropped, which is the behaviour the ViewModel's subscription
+ * has to be tested against.
+ */
+class FakeRestSkipRequests : RestSkipRequests {
+
+    private val requests = MutableSharedFlow<Long>()
+
+    override val skipped: Flow<Long> = requests
+
+    override suspend fun skip(sessionId: Long) {
+        requests.emit(sessionId)
+    }
+}

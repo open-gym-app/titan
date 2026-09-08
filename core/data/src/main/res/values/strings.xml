@@ -21,4 +21,17 @@
     <string name="notification_channel_progression">Streaks and rewards</string>
     <string name="notification_channel_progression_description">New levels, completed quests and loot.</string>
 
+    <!-- The rest countdown, as it reads from a lock screen. Two words and a number, because
+         what it is for is a glance from across a bench: the countdown itself is drawn by the
+         platform from the deadline, so none of this repeats it. -->
+    <string name="rest_notification_resting">Resting</string>
+    <string name="rest_notification_paused">Rest paused</string>
+    <string name="rest_notification_over">Rest over</string>
+    <!-- What the lifter goes back to: the exercise, and which set of it is next. -->
+    <string name="rest_notification_next_up">%1$s · set %2$d</string>
+    <!-- The same line for an exercise deleted from the library mid-session: the set number is
+         still true, and the workout carries on. -->
+    <string name="rest_notification_next_set">Set %1$d</string>
+    <string name="rest_notification_skip">Skip rest</string>
+
 </resources>

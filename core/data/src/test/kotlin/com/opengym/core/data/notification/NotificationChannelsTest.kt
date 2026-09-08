@@ -2,6 +2,7 @@ package com.opengym.core.data.notification
 
 import android.app.NotificationManager
 import android.content.Context
+import android.media.AudioAttributes
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.notification.NotificationKind
 import org.junit.Assert.assertEquals
@@ -64,6 +65,19 @@ class NotificationChannelsTest {
         val session = manager.getNotificationChannel("session")
         assertFalse(session.shouldVibrate())
         assertNull(session.sound)
+    }
+
+    @Test
+    fun `the rest timer's sound is a notification rather than an alarm`() {
+        NotificationChannels(context).register()
+
+        // The one place the ringer distinction can be honoured. The alarm stream is not muted
+        // by the ringer switch, so `USAGE_ALARM` would have this half of the alert playing a
+        // tone on a phone set to vibrate — the one mode `RestAlertStyle` says is silent.
+        assertEquals(
+            AudioAttributes.USAGE_NOTIFICATION,
+            manager.getNotificationChannel("rest_timer").audioAttributes?.usage,
+        )
     }
 
     @Test
