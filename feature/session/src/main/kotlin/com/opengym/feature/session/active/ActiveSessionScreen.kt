@@ -38,6 +38,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
@@ -102,6 +104,17 @@ fun ActiveSessionRoute(
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Whether anybody is looking at the workout, which is the one thing the idle nudge depends
+    // on: a session with its screen in front of the user is not an abandoned session, and one
+    // that has just gone off screen is the only kind that can become one. `ON_START`/`ON_STOP`
+    // rather than resume/pause, so the notification is not taken down and put back by every
+    // dialog and system sheet that steals the window.
+    //
+    // Here rather than inside `ActiveSessionScreen` because it is a property of the
+    // destination, not of the screen — the same reason the back handler is on the destination.
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.onEvent(ActiveSessionEvent.ScreenShown) }
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { viewModel.onEvent(ActiveSessionEvent.ScreenHidden) }
 
     // The slot a swap is waiting on, or null when the picker was opened to add to the workout.
     // Set by whichever control asked, so a picker backed out of and reopened from the other one

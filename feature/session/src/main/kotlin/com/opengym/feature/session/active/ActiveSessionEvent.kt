@@ -292,6 +292,26 @@ sealed interface ActiveSessionEvent {
     /** No, keep it. */
     data object DiscardDismissed : ActiveSessionEvent
 
+    /**
+     * The workout came on screen — the activity started, or the user navigated back to it.
+     *
+     * Not a user action, which is why it reads as a fact rather than a request. It exists
+     * because one thing about a workout depends on whether anybody is looking at it: the idle
+     * nudge, which has nothing to say to somebody who has the session in front of them. See
+     * `IdleSessionMonitor`.
+     */
+    data object ScreenShown : ActiveSessionEvent
+
+    /**
+     * The workout went off screen: backgrounded, or the phone locked.
+     *
+     * The moment the idle nudge becomes worth arming, and the reason it is armed *here* rather
+     * than when a set is logged — this is the last thing that happens before a session can be
+     * abandoned, and it is also the moment the deadline is finally knowable, since nothing else
+     * can happen to the session until the user comes back.
+     */
+    data object ScreenHidden : ActiveSessionEvent
+
     /** The transient message has been shown. */
     data object MessageShown : ActiveSessionEvent
 }

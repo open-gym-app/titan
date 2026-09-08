@@ -82,20 +82,41 @@ class AppNotificationTest {
     }
 
     @Test
-    fun `a button carries a command rather than a callback`() {
+    fun `a button carries a target rather than a callback`() {
         // The press can arrive at a process started from cold to receive it, with nothing left
         // of the moment the notification was posted — so what the button does has to be a
         // value that survives the round trip out to the system and back.
-        val skip = NotificationAction(label = "Skip rest", command = NotificationCommand.SkipRest(sessionId = 7))
+        val skip = NotificationAction(
+            label = "Skip rest",
+            target = NotificationTarget.Command(NotificationCommand.SkipRest(sessionId = 7)),
+        )
 
         assertEquals("Skip rest", skip.label)
-        assertEquals(NotificationCommand.SkipRest(7), skip.command)
+        assertEquals(NotificationTarget.Command(NotificationCommand.SkipRest(7)), skip.target)
     }
 
     @Test
-    fun `a skip names the session it ends, so a second workout's rest is not the one stopped`() {
+    fun `a button that opens a screen and one that does not are different targets`() {
+        // The platform's own split: only one of the two may bring the app to the front from
+        // the background, and a button meaning "do this and stay out of my way" must be the
+        // other one.
+        val open = NotificationTarget.Screen(deepLink = "opengym://session/7")
+        val finish = NotificationTarget.Command(NotificationCommand.FinishSession(7))
+
+        assertEquals("opengym://session/7", open.deepLink)
+        assertEquals(NotificationCommand.FinishSession(7), finish.command)
+        assertNotEquals(NotificationAction("Finish", open), NotificationAction("Finish", finish))
+    }
+
+    @Test
+    fun `every command names the session it acts on`() {
+        // Two workouts can never be in progress at once, but a notification outlives the one
+        // it was posted for: a press arriving after the session it named has been finished
+        // elsewhere must be refused rather than applied to whatever is running now.
         assertNotEquals(NotificationCommand.SkipRest(7), NotificationCommand.SkipRest(8))
         assertEquals(7L, NotificationCommand.SkipRest(7).sessionId)
+        assertEquals(7L, NotificationCommand.FinishSession(7).sessionId)
+        assertEquals(7L, NotificationCommand.DiscardSession(7).sessionId)
     }
 
     @Test
@@ -108,7 +129,7 @@ class AppNotificationTest {
             silent = true,
             deepLink = "opengym://session/7",
             countdownTo = 1_700_000_090_000,
-            actions = listOf(NotificationAction("Skip rest", NotificationCommand.SkipRest(7))),
+            actions = listOf(SKIP_REST),
         )
 
         // Silent because it is re-posted on every adjustment the user makes, and a channel
@@ -117,6 +138,13 @@ class AppNotificationTest {
         assertTrue(rest.silent)
         assertEquals(1_700_000_090_000, rest.countdownTo)
         assertEquals("opengym://session/7", rest.deepLink)
-        assertEquals(listOf(NotificationAction("Skip rest", NotificationCommand.SkipRest(7))), rest.actions)
+        assertEquals(listOf(SKIP_REST), rest.actions)
+    }
+
+    private companion object {
+        val SKIP_REST = NotificationAction(
+            label = "Skip rest",
+            target = NotificationTarget.Command(NotificationCommand.SkipRest(7)),
+        )
     }
 }

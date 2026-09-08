@@ -25,6 +25,7 @@ import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.domain.session.IdleSessionMonitor
 import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.superset.Supersets
 import com.opengym.core.domain.time.Clock
@@ -167,6 +168,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
+    private val idleSessionMonitor: IdleSessionMonitor,
     restSkipRequests: RestSkipRequests,
     private val clock: Clock,
     timeSource: TimeSource,
@@ -199,6 +201,19 @@ class ActiveSessionViewModel @Inject constructor(
 
     /** What the user is in the middle of, which no store has an opinion about. */
     private val screenState = MutableStateFlow(ScreenState())
+
+    /**
+     * Orders [IdleSessionMonitor.arm] and [IdleSessionMonitor.disarm] against each other.
+     *
+     * `ScreenShown` and `ScreenHidden` each launch their call independently, and `arm` — unlike
+     * `disarm` — suspends on two store reads before it touches the alarm. A quick hide-then-show
+     * (a recents-app flick, a system dialog stealing focus) can therefore have the *later* call
+     * finish *first*: `disarm` returns immediately while `arm` is still reading, so the alarm
+     * `disarm` just cancelled comes back a moment later. Serializing the two calls behind one
+     * lock, taken before either does anything, keeps them finishing in the order the events
+     * arrived in rather than the order their work happened to complete in.
+     */
+    private val idleSessionMutex = Mutex()
 
     /**
      * The correction being written for each row, so the next one can queue behind it.
@@ -449,6 +464,20 @@ class ActiveSessionViewModel @Inject constructor(
             ActiveSessionEvent.DiscardConfirmed -> discard()
 
             ActiveSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
+
+            // Nobody needs telling their workout is open while they are looking at it, and
+            // leaving is the moment it becomes worth saying — see `IdleSessionMonitor`. Both
+            // are wrapped: an alarm that could not be set is not worth taking a workout down
+            // for, and neither is one that could not be cancelled.
+            ActiveSessionEvent.ScreenShown ->
+                viewModelScope.launch {
+                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.disarm() } }
+                }
+
+            ActiveSessionEvent.ScreenHidden ->
+                viewModelScope.launch {
+                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.arm() } }
+                }
 
             else -> Unit
         }
@@ -1775,6 +1804,11 @@ class ActiveSessionViewModel @Inject constructor(
                     // taken down by name rather than left to the scope.
                     restTimer.cancel()
                     clearBackgroundRest()
+                    // Awaited rather than launched, unlike everything else on the way out: the
+                    // state update below is what navigates away, and the pop takes
+                    // `viewModelScope` with it — a coroutine started here and not yet run would
+                    // be cancelled, leaving an alarm pending over a workout that is over.
+                    runCatching { idleSessionMonitor.disarm() }
                     screenState.update {
                         it.copy(finishedSessionId = finished.summary.sessionId, isRestSheetOpen = false)
                     }
@@ -1822,6 +1856,8 @@ class ActiveSessionViewModel @Inject constructor(
                     // in the middle of. See [finish].
                     restTimer.cancel()
                     clearBackgroundRest()
+                    // Awaited, as on the way out through the recap. See [finish].
+                    runCatching { idleSessionMonitor.disarm() }
                     screenState.update {
                         it.copy(isDiscarded = true, confirmingDiscard = false, isRestSheetOpen = false)
                     }

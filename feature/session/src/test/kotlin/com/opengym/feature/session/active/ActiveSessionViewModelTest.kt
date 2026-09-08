@@ -102,6 +102,7 @@ class ActiveSessionViewModelTest {
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
     private val backgroundRest = FakeBackgroundRestTimer()
+    private val idleSession = FakeIdleSessionMonitor()
     private val skipRequests = FakeRestSkipRequests()
 
     /**
@@ -2006,6 +2007,78 @@ class ActiveSessionViewModelTest {
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
         }
 
+    // --- the workout nobody is working out ----------------------------------
+
+    @Test
+    fun `leaving the screen arms the idle nudge`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
+
+            // The last thing that happens before a session can be abandoned, and the only
+            // moment its deadline is finally knowable — nothing else can happen to the workout
+            // until the user comes back.
+            assertTrue(idleSession.isArmed)
+        }
+
+    @Test
+    fun `coming back to the screen takes it down`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
+
+            viewModel.onEvent(ActiveSessionEvent.ScreenShown)
+
+            // Nobody needs telling their workout is open while they are looking at it — and
+            // this is also what clears the notification a "Resume" tap arrived from.
+            assertFalse(idleSession.isArmed)
+            assertEquals(
+                listOf(FakeIdleSessionMonitor.Call.ARMED, FakeIdleSessionMonitor.Call.DISARMED),
+                idleSession.calls,
+            )
+        }
+
+    @Test
+    fun `finishing the workout takes the idle nudge down`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+            // Awaited inside the finish rather than launched beside it: the state update that
+            // follows is what navigates away, and the pop takes `viewModelScope` with it.
+            assertFalse(idleSession.isArmed)
+        }
+
+    @Test
+    fun `discarding the workout takes the idle nudge down`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
+
+            viewModel.onEvent(ActiveSessionEvent.DiscardConfirmed)
+
+            assertFalse(idleSession.isArmed)
+        }
+
+    @Test
+    fun `a finish that is refused leaves the nudge alone`() =
+        runTest {
+            // Nothing logged, so `FinishSessionUseCase` refuses and the workout stays open —
+            // which means it is still a workout that can be abandoned.
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+            assertEquals(ActiveSessionMessage.NO_SETS_LOGGED, viewModel.uiState.value.message)
+            assertTrue(idleSession.isArmed)
+        }
+
     // --- the rest with the phone in a pocket --------------------------------
 
     @Test
@@ -2887,6 +2960,7 @@ class ActiveSessionViewModelTest {
         catalogue: FakeExerciseCatalogue = this@ActiveSessionViewModelTest.catalogue,
         settings: FakeSettings = this@ActiveSessionViewModelTest.settings,
         backgroundRest: FakeBackgroundRestTimer = this@ActiveSessionViewModelTest.backgroundRest,
+        idleSession: FakeIdleSessionMonitor = this@ActiveSessionViewModelTest.idleSession,
         skipRequests: FakeRestSkipRequests = this@ActiveSessionViewModelTest.skipRequests,
     ): ActiveSessionViewModel {
         val lock = SessionLifecycleLock()
@@ -2916,6 +2990,7 @@ class ActiveSessionViewModelTest {
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
             backgroundRestTimer = backgroundRest,
+            idleSessionMonitor = idleSession,
             restSkipRequests = skipRequests,
             clock = clock,
             // Virtual time, so a ninety-second rest costs the suite nothing and the countdown

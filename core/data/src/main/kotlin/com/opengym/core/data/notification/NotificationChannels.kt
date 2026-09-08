@@ -27,7 +27,7 @@ import javax.inject.Singleton
  * | --- | --- | --- |
  * | [NotificationKind.REMINDERS] | Default | A nudge. Worth a sound, not worth interrupting. |
  * | [NotificationKind.REST_TIMER] | High, with sound and vibration | The phone is in a pocket. |
- * | [NotificationKind.SESSION] | Low, silent | A standing note, not an event. |
+ * | [NotificationKind.SESSION] | Low, silent | A reminder about an open workout, not an event. |
  * | [NotificationKind.PROGRESSION] | Default | Good news; it can wait for the phone to be picked up. |
  *
  * ### Registered at every start, not once
@@ -89,9 +89,9 @@ class NotificationChannels @Inject constructor(@param:ApplicationContext private
                             .build(),
                     )
 
-                    // A standing note about a session that is still open. It is on screen for
-                    // as long as the session runs, and a sound would be an interruption
-                    // announcing that nothing has happened.
+                    // The nudge about a workout left open — and what it is nudging about is
+                    // that *nothing has happened*. A sound would be an interruption announcing
+                    // an absence, and the user is not waiting on it.
                     NotificationKind.SESSION -> setSound(null, null)
 
                     NotificationKind.REMINDERS, NotificationKind.PROGRESSION -> Unit

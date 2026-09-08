@@ -1,6 +1,5 @@
 package com.opengym.core.data.notification
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.opengym.core.domain.notification.NotificationCommand
@@ -12,10 +11,6 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,36 +34,16 @@ import javax.inject.Singleton
  * the one shape a test cannot construct with its own doubles. Everything worth testing is on
  * the other side of the entry point.
  */
-class RestTimerReceiver : BroadcastReceiver() {
+class RestTimerReceiver : SuspendingBroadcastReceiver() {
 
-    /**
-     * Hands the work to a coroutine and keeps the process alive for it with [goAsync].
-     *
-     * Without `goAsync` the system is free to kill the process the instant `onReceive` returns,
-     * which for a launch-from-cold is well before a suspend function reading a store has come
-     * back. The `finish()` is in a `finally` for the reason it always is: a receiver that never
-     * finishes its result is a process the system holds open until it decides to complain.
-     *
-     * `Dispatchers.Main.immediate` because the first thing the expiry path does is read the
-     * process lifecycle, which is main-thread only, and every store below suspends onto its own
-     * dispatcher anyway.
-     */
-    override fun onReceive(
+    override suspend fun handle(
         context: Context,
         intent: Intent,
     ) {
-        val broadcasts = EntryPointAccessors
+        EntryPointAccessors
             .fromApplication(context.applicationContext, RestTimerEntryPoint::class.java)
             .restTimerBroadcasts()
-
-        val pending = goAsync()
-        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-            try {
-                broadcasts.handle(intent)
-            } finally {
-                pending.finish()
-            }
-        }
+            .handle(intent)
     }
 }
 
@@ -109,10 +84,13 @@ class RestTimerBroadcasts @Inject constructor(
         when (val command = NotificationCommands.of(intent)) {
             is NotificationCommand.SkipRest -> skip(command.sessionId)
 
-            // A broadcast this build does not understand — a notification posted by a newer
-            // version and left in the shade across an upgrade, say. Nothing to do, and nothing
-            // worth failing over.
-            null -> Unit
+            // Not this receiver's — the session commands go to `IdleSessionReceiver` — or from
+            // a build that knew something this one does not, as a notification left in the
+            // shade across an upgrade would be. Neither is worth failing over.
+            is NotificationCommand.FinishSession,
+            is NotificationCommand.DiscardSession,
+            null,
+            -> Unit
         }
     }
 

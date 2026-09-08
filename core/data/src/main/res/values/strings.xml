@@ -15,8 +15,8 @@
     <string name="notification_channel_rest_timer">Rest timer</string>
     <string name="notification_channel_rest_timer_description">Says the rest is over when the screen is off. Turning this off means hearing nothing between sets.</string>
 
-    <string name="notification_channel_session">Unfinished sessions</string>
-    <string name="notification_channel_session_description">A silent note while a session is still running.</string>
+    <string name="notification_channel_session">Unfinished workouts</string>
+    <string name="notification_channel_session_description">A silent reminder when a workout has been left open with nothing logged.</string>
 
     <string name="notification_channel_progression">Streaks and rewards</string>
     <string name="notification_channel_progression_description">New levels, completed quests and loot.</string>
@@ -33,5 +33,22 @@
          still true, and the workout carries on. -->
     <string name="rest_notification_next_set">Set %1$d</string>
     <string name="rest_notification_skip">Skip rest</string>
+
+    <!-- The nudge about a workout nobody is working out. Ambient rather than urgent: it goes
+         out on a silent, low-importance channel, so the words carry all of it. The two buttons
+         are the only two honest outcomes — come back to it, or close it out. -->
+    <string name="idle_session_title">Workout still open</string>
+    <string name="idle_session_body">%1$s · %2$s</string>
+    <string name="idle_session_resume">Resume</string>
+    <string name="idle_session_finish">Finish now</string>
+    <string name="idle_session_discard">Discard</string>
+    <!-- A session with nothing in it gets its own line rather than the plural's zero case.
+         English has no `zero` plural category, so a count of none would come out of `other` as
+         "0 sets logged", which reads as a fault where the sentence below reads as a state. -->
+    <string name="idle_session_nothing_logged">Nothing logged yet</string>
+    <plurals name="idle_session_sets">
+        <item quantity="one">%1$d set logged, nothing since</item>
+        <item quantity="other">%1$d sets logged, nothing since</item>
+    </plurals>
 
 </resources>
