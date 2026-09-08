@@ -33,6 +33,13 @@ class AppNotificationTest {
         // second one under it; not ongoing, so the user can swipe it away.
         assertNull(notification.tag)
         assertFalse(notification.ongoing)
+        // The rest are the announcement's defaults, and every one of them is the loud option:
+        // a notification nobody has said anything about is heard, is not a countdown, opens
+        // the app wherever it was, and carries no buttons. Each has to be asked for.
+        assertFalse(notification.silent)
+        assertNull(notification.deepLink)
+        assertNull(notification.countdownTo)
+        assertEquals(emptyList<NotificationAction>(), notification.actions)
     }
 
     @Test
@@ -72,5 +79,44 @@ class AppNotificationTest {
         // than telling the user twice.
         assertEquals(first, second)
         assertEquals(first.hashCode(), second.hashCode())
+    }
+
+    @Test
+    fun `a button carries a command rather than a callback`() {
+        // The press can arrive at a process started from cold to receive it, with nothing left
+        // of the moment the notification was posted — so what the button does has to be a
+        // value that survives the round trip out to the system and back.
+        val skip = NotificationAction(label = "Skip rest", command = NotificationCommand.SkipRest(sessionId = 7))
+
+        assertEquals("Skip rest", skip.label)
+        assertEquals(NotificationCommand.SkipRest(7), skip.command)
+    }
+
+    @Test
+    fun `a skip names the session it ends, so a second workout's rest is not the one stopped`() {
+        assertNotEquals(NotificationCommand.SkipRest(7), NotificationCommand.SkipRest(8))
+        assertEquals(7L, NotificationCommand.SkipRest(7).sessionId)
+    }
+
+    @Test
+    fun `a countdown notification is posted once and ticked by the platform`() {
+        val rest = AppNotification(
+            kind = NotificationKind.REST_TIMER,
+            title = "Resting",
+            body = "Bench press, set 3 next",
+            ongoing = true,
+            silent = true,
+            deepLink = "opengym://session/7",
+            countdownTo = 1_700_000_090_000,
+            actions = listOf(NotificationAction("Skip rest", NotificationCommand.SkipRest(7))),
+        )
+
+        // Silent because it is re-posted on every adjustment the user makes, and a channel
+        // loud enough to be heard across a gym would announce each of those; the expiry that
+        // follows is a separate post with the sound back on.
+        assertTrue(rest.silent)
+        assertEquals(1_700_000_090_000, rest.countdownTo)
+        assertEquals("opengym://session/7", rest.deepLink)
+        assertEquals(listOf(NotificationAction("Skip rest", NotificationCommand.SkipRest(7))), rest.actions)
     }
 }
