@@ -396,13 +396,21 @@ class ActiveSessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // What this collector has seen, rather than what [unitSystem] holds. The field opens
+            // on the shipped default, so comparing against it would make the *first* read of a
+            // lifter who trains in pounds look like a switch to pounds — and the clear below
+            // would take the corrections restored from saved state with it. A first value is
+            // not a change; only a second, different one is. See [typedInput].
+            var seen: UnitSystem? = null
             userPreferencesRepository.observe().collect { preferences ->
                 // Read before the return below, which is about the *unit system* changing: the
                 // rest a set gets is a second setting off the same document, and a lifter who
                 // lengthens their rests without also switching to pounds must still get them.
                 defaultRest = preferences.defaultRestDuration
-                if (preferences.unitSystem == unitSystem.value) return@collect
+                val previous = seen
+                seen = preferences.unitSystem
                 unitSystem.value = preferences.unitSystem
+                if (previous == null || previous == preferences.unitSystem) return@collect
                 // Every correction half-typed into a logged row was seeded from the store in the
                 // unit that has just stopped being the unit. Left alone, a row the user touched
                 // would keep showing `70` next to rows that had become `154`. They all go, and

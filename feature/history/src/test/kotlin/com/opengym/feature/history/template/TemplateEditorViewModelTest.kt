@@ -863,6 +863,20 @@ class TemplateEditorViewModelTest {
         set: Int,
     ): Long = uiState.value.exercises[exercise].sets[set].key
 
+    /** Types into one set's rep box, addressed the way the screen addresses it: by both keys. */
+    private fun TemplateEditorViewModel.setReps(
+        exercise: Int,
+        set: Int,
+        text: String,
+    ) = onEvent(
+        TemplateEditorEvent.SetFieldChanged(
+            exerciseKey = uiState.value.exercises[exercise].key,
+            setKey = setKeyAt(exercise, set),
+            field = TemplateSetField.REPS,
+            text = text,
+        ),
+    )
+
     // ─── Process death (#183) ───────────────────────────────────────────────────────────
 
     @Test
@@ -1027,6 +1041,38 @@ class TemplateEditorViewModelTest {
 
             assertEquals("Push Day", state.name)
             assertFalse(state.isDirty)
+        }
+
+    @Test
+    fun `a restored draft typed back to the stored plan is clean again`() =
+        runTest {
+            val store = templateStore()
+            val before = viewModel(templates = store)
+            before.setReps(exercise = 0, set = 0, text = "10")
+
+            val restored = viewModel(templates = store, savedState = SavedStateHandle(mapOf("templateId" to 1L)))
+            restored.setReps(exercise = 0, set = 0, text = "8")
+
+            // The seed a restored editor measures against has to be numbered exactly as the
+            // first open numbered it, or every key in it differs from the draft's and the
+            // comparison says "changed" whatever the user does. Put back, the plan *is* what is
+            // stored: SAVE goes inert, backing out asks nothing, and the file goes.
+            assertFalse(restored.uiState.value.isDirty)
+            assertNull(drafts.saved)
+        }
+
+    @Test
+    fun `an editor opened on another template leaves the draft where it is`() =
+        runTest {
+            val before = viewModel(templateId = NEW_TEMPLATE)
+            before.name("Leg day")
+
+            viewModel(savedState = SavedStateHandle(mapOf("templateId" to 1L)))
+
+            // The slot holds one plan and the next save overwrites it — but a half-written
+            // template is minutes of work that a later visit to *that* editor still restores,
+            // and opening a second one to look at it is not the user throwing the first away.
+            assertEquals("Leg day", drafts.saved?.name)
         }
 
     @Test

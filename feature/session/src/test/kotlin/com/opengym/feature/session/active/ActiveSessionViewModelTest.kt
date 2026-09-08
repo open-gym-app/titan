@@ -2970,6 +2970,25 @@ class ActiveSessionViewModelTest {
             assertEquals("97.5", restored.uiState.value.rowOf(BENCH_ROW).sets[0].entry.weight)
         }
 
+    @Test
+    fun `a correction comes back on a phone set to pounds too`() =
+        runTest {
+            val store = benchStore()
+            val settings = FakeSettings(UserPreferences(unitSystem = UnitSystem.IMPERIAL))
+            val handle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID))
+            val before = viewModel(store = store, settings = settings, savedState = handle)
+            before.onEvent(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 1L, text = "215"))
+
+            val restored =
+                viewModel(store = store, settings = settings, savedState = handle.afterProcessDeath())
+
+            // The unit watcher clears every correction when the setting *changes*, and the first
+            // value it reads is not a change — it only looks like one because the field it lands
+            // in opens on the shipped default. A lifter who trains in pounds must not lose what
+            // they typed on the way into their own screen.
+            assertEquals("215", restored.uiState.value.rowOf(BENCH_ROW).sets[0].entry.weight)
+        }
+
     /**
      * The ViewModel for one workout, with its state already flowing.
      *

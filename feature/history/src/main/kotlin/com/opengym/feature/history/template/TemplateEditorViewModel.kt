@@ -173,6 +173,18 @@ class TemplateEditorViewModel @Inject constructor(
     private var nextSetKey: Long = 1
 
     /**
+     * Whether the draft in the slot is this editor's.
+     *
+     * The store holds one draft (see [TemplateDraftRepository]), and this is what says whether
+     * it is this screen's to take away. A clean editor clears *its own* draft and leaves
+     * anybody else's alone: a plan half-written for another template is minutes of work that a
+     * later visit to that template still restores — a file rather than a `Bundle` is precisely
+     * what makes it survive the task record — so merely opening a second editor is not the user
+     * throwing the first one away.
+     */
+    private var ownsStoredDraft: Boolean = false
+
+    /**
      * The picker request this screen is still waiting on, or null when it is not waiting on one.
      *
      * Held rather than inferred, and consumed when the answer lands, because the answer comes
@@ -272,6 +284,8 @@ class TemplateEditorViewModel @Inject constructor(
             },
         )
 
+        windSetKeysPast(restored)
+
         editorState.update {
             it.copy(
                 // The saved draft when there is one, and the stored template otherwise. The two
@@ -289,7 +303,7 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     /**
-     * The saved draft, when there is one for *this* template, with the key counters wound past it.
+     * The saved draft, when there is one for *this* template, with [nextKey] wound past it.
      *
      * Null covers every way there is nothing to restore: no draft was saved, one was saved and
      * this build cannot read it, or the one on disk belongs to a template the user is not
@@ -302,20 +316,41 @@ class TemplateEditorViewModel @Inject constructor(
      * somebody who left the app mid-edit is the thing this whole screen reads the setting once
      * to avoid. See [TemplateDraft.unitSystem].
      *
-     * The counters are wound on for the reason they exist. [nextKey] hands out identities for
-     * lines added since the last save, counting down from -1 over the stored ids; [nextSetKey]
-     * counts up. A restored draft already holds keys from both, and a counter that started over
-     * would hand out one the plan is already using — two rows with one identity, and a keystroke
-     * that lands in both.
+     * [nextKey] is wound on here for the reason it exists: it hands out identities for lines
+     * added since the last save, counting down from -1 over the stored ids, and a counter that
+     * started over would hand out one the plan is already using — two rows with one identity,
+     * and a keystroke that lands in both. [nextSetKey] is wound too, but *after* the seed has
+     * been numbered; see [windSetKeysPast].
      */
     private suspend fun restoredDraft(): TemplateDraft? {
         val restored = templateDrafts.load()?.takeIf { it.templateId == templateId } ?: return null
 
         unitSystem = restored.unitSystem
         nextKey = minOf(NEW_ROW_FIRST_KEY, (restored.exercises.minOfOrNull { it.key } ?: 0L) - 1)
-        nextSetKey = maxOf(nextSetKey, (restored.exercises.flatMap { it.sets }.maxOfOrNull { it.key } ?: 0L) + 1)
+        // The slot on disk is this editor's, which is what says whether it is this editor's to
+        // take away again — see [mirrorDraft].
+        ownsStoredDraft = true
 
         return restored
+    }
+
+    /**
+     * Wind [nextSetKey] past every set key in play, once the seed has been numbered.
+     *
+     * After the seed rather than beside [nextKey], and that ordering is the whole of it. The
+     * seed numbers its sets from wherever this counter stands, so winding first would number a
+     * *restored* editor's seed differently from the one the very same template got on its first
+     * open — and `isDirty` is a comparison of the draft against the seed. An untouched restored
+     * draft would then read as changed for ever: SAVE live over nothing, a discard question on
+     * the way out, and [mirrorDraft] never clearing the file after the user had put every
+     * figure back.
+     *
+     * Past *both* lists, because the two share one key space: a restored draft holds keys the
+     * seed has just handed out again, plus whatever was added on top of them.
+     */
+    private fun windSetKeysPast(restored: TemplateDraft?) {
+        val highest = restored?.exercises?.flatMap(TemplateDraftExercise::sets)?.maxOfOrNull { it.key } ?: 0L
+        nextSetKey = maxOf(nextSetKey, highest + 1)
     }
 
     /**
@@ -334,6 +369,8 @@ class TemplateEditorViewModel @Inject constructor(
     private suspend fun loadNew(restored: TemplateDraft?) {
         val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
         val seed = TemplateDraft(templateId = templateId, unitSystem = unitSystem)
+
+        windSetKeysPast(restored)
 
         editorState.update {
             it.copy(
@@ -374,11 +411,11 @@ class TemplateEditorViewModel @Inject constructor(
      * the two ways this screen ends: a save that landed and a discard the user confirmed both
      * set [EditorState.isSaved], and both mean the draft has served its purpose.
      *
-     * **The slot is taken, not shared.** A clean editor clears whatever is stored, including a
-     * draft left by an editor for a *different* template. That cannot cost anybody anything they
-     * could have got back: the editor is one destination, so reaching a second one means leaving
-     * the first — which saves or discards its draft on the way out — and a draft that outlived
-     * its task record is one no navigation can return to. See [TemplateDraftRepository].
+     * **The slot is one deep, and only its owner empties it.** A clean editor clears the draft
+     * *it* put there and leaves one belonging to another template alone — see [ownsStoredDraft].
+     * The slot still holds one plan, so the next save overwrites whatever is in it; what this
+     * refuses to do is throw away a half-written template because the user opened a different
+     * one to look at it. See [TemplateDraftRepository].
      *
      * `distinctUntilChanged` because [editorState] moves for reasons the draft does not — a
      * dialog opening, a catalogue re-read. Without it every one of those would be a file write.
@@ -393,7 +430,17 @@ class TemplateEditorViewModel @Inject constructor(
             .distinctUntilChanged()
             .collect { draft ->
                 try {
-                    if (draft == null) templateDrafts.clear() else templateDrafts.save(draft)
+                    when {
+                        draft != null -> {
+                            templateDrafts.save(draft)
+                            ownsStoredDraft = true
+                        }
+
+                        ownsStoredDraft -> {
+                            templateDrafts.clear()
+                            ownsStoredDraft = false
+                        }
+                    }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (_: Throwable) {

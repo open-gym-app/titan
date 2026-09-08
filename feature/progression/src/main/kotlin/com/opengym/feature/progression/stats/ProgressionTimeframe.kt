@@ -43,30 +43,43 @@ import javax.inject.Singleton
  * Saved instance state is exactly the lifetime wanted here — it outlives the process and dies
  * with the task — so each screen writes the shared selection into its own handle and pushes back
  * whatever it finds there when it is rebuilt. Whichever screen is recreated first restores the
- * selection for all of them; a launch with no saved state finds nothing and opens on the default,
- * which is the behaviour above, unchanged.
+ * selection for all of them, and only that one does — a screen rebuilt after somebody has since
+ * moved the segments would be pushing back an answer that is out of date. A launch with no saved
+ * state finds nothing and opens on the default, which is the behaviour above, unchanged.
  */
 @Singleton
 class ProgressionTimeframe @Inject constructor() {
 
     private val state = MutableStateFlow(StatsTimeframe.DEFAULT)
 
+    /**
+     * Whether this holds a selection rather than the opening default.
+     *
+     * Set by the first [select] of the process, whoever makes it — a restore or a thumb. It is
+     * what stops a screen rebuilt *later* from overwriting a choice made *since*; see
+     * [restoreThrough].
+     */
+    private var isSelected = false
+
     /** What every progression screen is currently reading over. */
     val selected: StateFlow<StatsTimeframe> = state.asStateFlow()
 
     /** Change it, for every screen at once. */
     fun select(timeframe: StatsTimeframe) {
+        isSelected = true
         state.value = timeframe
     }
 
     /**
      * Seed this from [savedState] if it holds a selection, and keep writing back to it.
      *
-     * Called by every progression ViewModel with its own handle. Restoring is unconditional
-     * rather than "only if nothing has been selected yet": a handle that holds a value was
-     * written by *this same destination* before the process died, and reading it back is the
-     * screen picking up where it left off. On a fresh launch there is nothing there and nothing
-     * happens.
+     * Called by every progression ViewModel with its own handle. **The first restore of the
+     * process wins**, and every later one only mirrors. Each handle holds what the selection was
+     * when *that destination* was last torn down, which is not the same as what it is now: a
+     * process death restores onto whichever screen was on top, and a user who moves the segments
+     * there and then presses back would otherwise be handed the stale answer the screen behind
+     * had filed away — the shared selection walked backwards by the screen that was supposed to
+     * be reading it.
      *
      * A name rather than an ordinal, so that reordering [StatsTimeframe] cannot silently change
      * what a saved selection means, and an unknown name — a build that dropped a case — reads as
@@ -78,9 +91,11 @@ class ProgressionTimeframe @Inject constructor() {
         savedState: SavedStateHandle,
         scope: CoroutineScope,
     ) {
-        savedState.get<String>(SAVED_STATE_KEY)
-            ?.let { name -> StatsTimeframe.entries.firstOrNull { it.name == name } }
-            ?.let(::select)
+        if (!isSelected) {
+            savedState.get<String>(SAVED_STATE_KEY)
+                ?.let { name -> StatsTimeframe.entries.firstOrNull { it.name == name } }
+                ?.let(::select)
+        }
 
         scope.launch { selected.collect { savedState[SAVED_STATE_KEY] = it.name } }
     }
