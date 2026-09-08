@@ -2,9 +2,32 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!--
+      Auto-backup stays on, and takes none of the user's data with it.
+
+      `allowBackup="true"` with no rules is the platform default, and for an app whose entire
+      value is one local SQLite file it is wrong in a way that loses data quietly: Android
+      uploads the database and every DataStore file to the user's Drive, then restores that
+      snapshot on reinstall *before first launch*, with no prompt and no way to decline — a
+      months-old training history written over whatever the user has, and a `.db` restored
+      beside a `-wal` sidecar it may not match, which is how a database comes back corrupt
+      rather than merely stale.
+
+      Off wholesale is the obvious fix and the worse one; the argument for excluding the files
+      instead is in `res/xml/data_extraction_rules.xml`, along with the list itself. Both
+      files say the same thing — `dataExtractionRules` for Android 12 and above,
+      `fullBackupContent` for Android 11 and below — because the platform reads one and
+      ignores the other, so an exclusion in only one is a hole that opens on old phones.
+
+      This is also what makes the app's own copy true. "No account. No cloud. Everything stays
+      on this phone" was a claim the manifest was contradicting. Data leaves the device only
+      through an export the user asked for (#37, #38).
+    -->
     <application
         android:name=".OpenGymApplication"
         android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenGym">

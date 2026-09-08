@@ -31,8 +31,13 @@ import javax.inject.Singleton
  * Named once and shared rather than written twice: `LocalDataRepositoryImpl` has to stat the
  * file *by name* to put a size on the backup screen, and a rename here that it did not follow
  * would turn that figure into a permanent zero — a wrong number nobody would notice.
+ *
+ * Public rather than `internal` for a second reader outside this module: `:app`'s
+ * `BackupRulesTest` builds the paths it expects Android's backup rules to exclude out of this
+ * constant and the others like it, so a rename here fails that test instead of silently
+ * putting the user's training history back on Google's servers.
  */
-internal const val DATABASE_NAME = "open-gym.db"
+const val DATABASE_NAME = "open-gym.db"
 
 @Module
 @InstallIn(SingletonComponent::class)

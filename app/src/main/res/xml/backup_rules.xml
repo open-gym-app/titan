@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The same boundary as `data_extraction_rules.xml`, for Android 11 and below.
+
+  `android:fullBackupContent` is what those versions read; `android:dataExtractionRules` is
+  what Android 12 and above read. The platform picks by version and ignores the other file,
+  so both are needed for as long as `minSdk` is 26, and an exclusion belongs in both or in
+  neither. The reasoning for every line is written out once, in `data_extraction_rules.xml`.
+
+  There is no cloud/device split here: this format predates device-transfer, and the one list
+  covers the only channel these versions have.
+-->
+<full-backup-content>
+    <exclude domain="database" path="open-gym.db" />
+    <exclude domain="database" path="open-gym.db-wal" />
+    <exclude domain="database" path="open-gym.db-shm" />
+    <exclude domain="database" path="open-gym.db-journal" />
+    <exclude domain="file" path="datastore" />
+    <exclude domain="file" path="in-progress-session.json" />
+    <exclude domain="file" path="in-progress-session.json.tmp" />
+    <exclude domain="file" path="backups" />
+    <exclude domain="external" path="backups" />
+</full-backup-content>

@@ -100,17 +100,27 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
      */
     fun prune(keep: Int): Int = existing().drop(keep.coerceAtLeast(0)).count { it.delete() }
 
-    private companion object {
+    companion object {
 
+        /**
+         * `backups/`, the directory name alone — [directory] is what resolves it against a root.
+         *
+         * Public where the rest of this companion is not, because it is read outside this
+         * module: `:app`'s `BackupRulesTest` builds the paths it expects Android's backup rules
+         * to exclude out of this constant, in both domains the directory can land in. That is
+         * the difference between "deleted on uninstall" being true and being a sentence on a
+         * settings screen, so a rename here fails a test rather than quietly putting every
+         * export on Google's servers.
+         */
         const val BACKUP_DIRECTORY = "backups"
 
         /** What makes a file *this* feature's. Retention never looks past it. */
-        const val PREFIX = "opengym-auto-"
-        const val SUFFIX = ".json"
+        private const val PREFIX = "opengym-auto-"
+        private const val SUFFIX = ".json"
 
         /** Not `.json.tmp`: nothing offers a file under this name and no picker filtered to JSON shows it. */
-        const val SCRATCH_SUFFIX = ".tmp"
+        private const val SCRATCH_SUFFIX = ".tmp"
 
-        val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        private val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
 }
