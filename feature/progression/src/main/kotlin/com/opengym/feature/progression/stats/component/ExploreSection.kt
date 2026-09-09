@@ -20,12 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.ui.component.IconTile
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
 
@@ -71,6 +73,9 @@ fun ExploreSection(
             title = stringResource(R.string.explore_exercise_title),
             caption = stringResource(R.string.explore_exercise_caption),
             onClick = actions.onOpenExerciseProgression,
+            // The only row `:benchmark` presses: the chart behind it is one of the two renders
+            // #42 puts a budget on. See `OpenGymTestTags`.
+            modifier = Modifier.testTag(OpenGymTestTags.STATS_EXPLORE_EXERCISE),
         )
         ExploreRow(
             icon = Icons.Outlined.Shield,

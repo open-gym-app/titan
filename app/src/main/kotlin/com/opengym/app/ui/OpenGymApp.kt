@@ -20,8 +20,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.core.util.Consumer
 import com.opengym.app.R
 import com.opengym.app.navigation.OpenGymAppState
@@ -48,6 +51,7 @@ import com.opengym.feature.settings.navigation.SettingsDestination
  *   the live preference would rebuild the graph the moment onboarding recorded its own
  *   completion.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun OpenGymApp(
     startsOnOnboarding: Boolean,
@@ -59,7 +63,17 @@ fun OpenGymApp(
     NewIntentDeepLinks(appState)
 
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier
+            .fillMaxSize()
+            // Publishes every `Modifier.testTag` in the tree as an accessibility *resource id*,
+            // which is the only handle UiAutomator has on a Compose node. Set once, at the
+            // root, because it is inherited by everything below — see `OpenGymTestTags` for
+            // the short list of nodes that carry a tag and why matching on visible text was
+            // not an option for an app that ships in four languages.
+            //
+            // It changes nothing a user can see and nothing TalkBack reads: the resource id is
+            // a field on the node, not its description.
+            .semantics { testTagsAsResourceId = true },
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             chrome.currentTopLevelDestination

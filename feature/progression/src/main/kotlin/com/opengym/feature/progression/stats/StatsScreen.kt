@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -16,6 +17,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
 import com.opengym.feature.progression.stats.component.ExploreSection
@@ -88,7 +90,10 @@ fun StatsScreen(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(OpenGymTheme.spacing.screen),
+            .padding(OpenGymTheme.spacing.screen)
+            // What `:benchmark` waits for to know the hub is on screen. The hero below carries
+            // the tag that says it has finished — see `OpenGymTestTags`.
+            .testTag(OpenGymTestTags.STATS_OVERVIEW),
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
         TimeframeSelector(
@@ -122,7 +127,12 @@ private fun Readings(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
-        state.volume?.let { volume -> VolumeHeroCard(state = volume) }
+        state.volume?.let { volume ->
+            VolumeHeroCard(
+                state = volume,
+                modifier = Modifier.testTag(OpenGymTestTags.STATS_VOLUME_HERO),
+            )
+        }
         state.summary?.let { summary -> StatsSummaryGrid(state = summary) }
 
         if (state.muscles.isNotEmpty()) {

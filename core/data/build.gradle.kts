@@ -12,14 +12,44 @@ plugins {
 android {
     namespace = "com.opengym.core.data"
 
+    buildTypes {
+        // The variant `:app`'s own `benchmark` build type resolves to, and the only one that
+        // compiles `src/benchmark` — the seeding entry point #42's device benchmarks call to
+        // put a real history on the phone. Naming it the same as `:app`'s is what makes
+        // variant matching pick it: with only `debug` and `release` here, `:app:benchmark`
+        // would fall back to `release` and the seeder would not be in the APK at all.
+        //
+        // Nothing under `src/benchmark` is reachable from `debug` or `release`, which is the
+        // point: the fixture writes 50,000 rows through the DAO layer and has no business
+        // being in a build a user could install.
+        create("benchmark") {
+            initWith(getByName("release"))
+        }
+    }
+
     sourceSets {
         // Exported Room schemas, so MigrationTestHelper can build historical
         // versions of the database from their on-disk JSON spec.
+        //
+        // `src/fixtures` is the other half: one directory read by two source sets, which is
+        // the whole of what #42 means by "the device benchmark and `LargeHistoryBenchmarkTest`
+        // seed from the same fixture code". `HistoryScales`, `WorkoutHistoryFixture` and the
+        // entity factories under them are compiled once into the JVM unit tests and once into
+        // the `benchmark` variant, so the guard in CI and the benchmark on the phone describe
+        // one scale rather than two.
+        //
+        // A shared source directory rather than an `api`-exposed artifact or an AGP
+        // `testFixtures` component: neither of those reaches a build-type source set, and the
+        // fixture must not be visible to `debug` or `release` at all.
         getByName("test") {
-            assets.srcDirs("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
+            kotlin.directories.add("src/fixtures/kotlin")
         }
         getByName("androidTest") {
-            assets.srcDirs("$projectDir/schemas")
+            assets.directories.add("$projectDir/schemas")
+        }
+        getByName("benchmark") {
+            kotlin.directories.add("src/fixtures/kotlin")
         }
     }
 

@@ -31,6 +31,17 @@ datastore = "1.2.1"
 # for the opposite reason and use an exact alarm — see `WorkManagerAutoBackupScheduler`.
 work = "2.11.2"
 paging = "3.3.6"
+# Macrobenchmark: the on-device measurements of #42, and the Baseline Profile generator that
+# writes `app/src/main/baselineProfiles/baseline-prof.txt`. Deliberately the runtime only, not
+# the `androidx.baselineprofile` Gradle plugin — see `benchmark/build.gradle.kts` for why the
+# variants it would create are wired by hand instead.
+benchmark = "1.4.1"
+# UiAutomator drives the app from outside its process, which is the only way a benchmark can
+# touch a release build - there is no Compose test rule on the other side of the APK boundary.
+uiautomator = "2.4.0"
+# Installs the committed Baseline Profile on first run for the platform versions that do not
+# do it themselves. Without it in `:app`, a profile in the APK is dead weight below API 31.
+profileinstaller = "1.4.1"
 coroutines = "1.11.0"
 serialization = "1.11.0"
 junit = "4.13.2"
@@ -95,6 +106,9 @@ androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", vers
 # `PersonalRecordRepository.getRecordsPage` for that decision and what it costs.
 androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "paging" }
 androidx-paging-testing = { group = "androidx.paging", name = "paging-testing", version.ref = "paging" }
+androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
@@ -130,6 +144,9 @@ roborazzi-gradle-plugin = { group = "io.github.takahirom.roborazzi", name = "rob
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+# `:benchmark` only. A test module has no `main` source set and produces an APK that
+# instruments another one - see `AndroidBenchmarkConventionPlugin`.
+android-test = { id = "com.android.test", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

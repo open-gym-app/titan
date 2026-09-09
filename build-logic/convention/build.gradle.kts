@@ -69,6 +69,10 @@ gradlePlugin {
             id = "opengym.android.feature"
             implementationClass = "AndroidFeatureConventionPlugin"
         }
+        register("androidBenchmark") {
+            id = "opengym.android.benchmark"
+            implementationClass = "AndroidBenchmarkConventionPlugin"
+        }
         register("androidJacoco") {
             id = "opengym.android.jacoco"
             implementationClass = "AndroidJacocoConventionPlugin"

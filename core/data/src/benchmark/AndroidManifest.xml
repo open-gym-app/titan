@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+          The seeding entry point for `:benchmark` (#42). See `BenchmarkSeedProvider` for why
+          the benchmark has to reach into the app process at all, and why it is a provider
+          rather than a receiver.
+
+          `android:exported="true"` because the caller is a different app: the benchmark runs
+          as `com.opengym.benchmark`, self-instrumenting, so that the app it measures can be
+          killed and cold-started underneath it. Lint is right that an exported provider with
+          no permission on it is a way in, which is why this declaration lives in
+          `src/benchmark` and not in `src/main` — no build a user can install merges it.
+
+          `${applicationId}` resolves against the *app's* id at merge time, so the authority
+          follows the build type's package the way every other component's does.
+        -->
+        <provider
+            android:name="com.opengym.core.data.benchmark.BenchmarkSeedProvider"
+            android:authorities="${applicationId}.benchmark.seed"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
+    </application>
+
+</manifest>

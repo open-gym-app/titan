@@ -10,12 +10,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.SessionRow
 import com.opengym.core.ui.format.formatMonthAndYear
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.sessions.SessionMonth
@@ -48,7 +50,13 @@ internal fun HistoryList(
     onClearFilters: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    LazyColumn(state = listState, modifier = modifier.fillMaxSize()) {
+    // The tag is what `:benchmark` flings; see `OpenGymTestTags`.
+    LazyColumn(
+        state = listState,
+        modifier = modifier
+            .fillMaxSize()
+            .testTag(OpenGymTestTags.SESSIONS_HISTORY_LIST),
+    ) {
         if (state.months.isEmpty()) {
             // Nothing is drawn while the first read is in flight: the query is one indexed
             // read of a local table, so a spinner would be a flash and an empty state under

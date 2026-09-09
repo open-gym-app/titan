@@ -20,12 +20,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.opengym.app.navigation.TopLevelDestination
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -89,6 +91,10 @@ private fun RowScope.BottomBarItem(
     Column(
         modifier = Modifier
             .weight(1f)
+            // The one handle `:benchmark` has on a tab: it drives a release-like build from
+            // another process, where the label is whatever language the phone is in and the
+            // tag is not. See `OpenGymTestTags`.
+            .testTag(OpenGymTestTags.bottomBarItem(destination.name))
             // `selectable` and not `clickable`: the selected state is part of what a screen
             // reader must announce, and only this modifier carries it into the semantics
             // tree. `Role.Tab` is what makes it read as a tab rather than a button.

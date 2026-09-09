@@ -6,6 +6,7 @@
 open-gym/
 ├── build-logic/            # Included build - the `opengym.android.*` convention plugins
 ├── app/                    # Composition root - wires DI graph, declares Application/Activity
+├── benchmark/              # On-device Macrobenchmarks and the Baseline Profile generator
 ├── core/
 │   ├── domain/             # Business logic - pure Kotlin JVM, zero Android deps
 │   ├── data/               # Data access - Room, repositories, Hilt bindings
@@ -19,9 +20,15 @@ open-gym/
     └── settings/           # Settings (reached from the top app bar, not a tab)
 ```
 
-Gradle module names: `:app`, `:core:domain`, `:core:data`, `:core:ui`,
+Gradle module names: `:app`, `:benchmark`, `:core:domain`, `:core:data`, `:core:ui`,
 `:feature:onboarding`, `:feature:home`, `:feature:session`, `:feature:history`,
 `:feature:progression`, `:feature:settings`.
+
+`:benchmark` is the only one that is neither a layer nor a slice. It is a
+`com.android.test` module: it ships nothing, it produces an APK that instruments `:app`'s
+`benchmark` build type from a second process, and it holds the on-device measurements and
+the Baseline Profile generator (#42). See [benchmark/README.md](../benchmark/README.md) for
+what it measures and how to run it.
 
 ## Build logic
 
@@ -36,6 +43,7 @@ modules use.
 | `opengym.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
 | `opengym.android.hilt` | Hilt and the KSP processor that generates its components |
 | `opengym.android.feature` | The three above, plus `:core:domain`, `:core:ui` and the ViewModel-to-Compose bridge — everything a vertical slice needs |
+| `opengym.android.benchmark` | `:benchmark` only. `com.android.test`, the Macrobenchmark runner, the API 29 floor those metrics need, and the `benchmark` build type — see below |
 | `opengym.architecture` | Root project only. Registers `checkArchitecture`, which asserts the module dependency graph against this document |
 
 `opengym.android.compose` and `opengym.android.hilt` apply `opengym.android.library`
@@ -58,6 +66,12 @@ signing config and build variants that is not worth generalising for one consume
 `:core:domain` is a plain Kotlin JVM library carrying a JaCoCo coverage floor no other
 module shares. Both therefore keep their own copy of the SDK levels and toolchain, and a
 bump has to be made in all three places — `:app` in particular is the module that ships.
+
+`opengym.android.benchmark` *is* a convention plugin for a single module, which the others
+avoid being. It exists anyway because what it configures is not a preference: a
+`com.android.test` module that runs against a debuggable build, or below API 29, or in the
+app's own process, produces numbers that look fine and mean nothing. Those three decisions
+belong somewhere a reader will find them rather than in a build file nobody opens twice.
 
 For everything else, `compileSdk`, `minSdk` and the JVM toolchain are constants in
 `build-logic/.../AndroidSdk.kt` rather than catalog entries — the catalog addresses
@@ -119,12 +133,14 @@ Composition root only. Declares `Application`, the single `Activity`, and the to
 
 ```mermaid
 graph TD
+    benchmark[:benchmark]
     app[:app]
     data[:core:data]
     domain[:core:domain]
     ui[:core:ui]
     feature[":feature:*"]
 
+    benchmark -.->|targetProjectPath| app
     app --> domain
     app --> data
     app --> ui
@@ -142,6 +158,7 @@ graph TD
 | `:core:ui` → `:core:domain` | Shared components take domain types directly — `RestTimerBar(state: RestTimerState)`, `StatChip(stat: SessionStats)` — rather than each feature translating into a private mirror of the same model. `:core:domain` is pure Kotlin with zero Android dependencies, so the edge carries nothing upward |
 | `:feature:*` → `:core:domain` | ViewModels call use cases directly |
 | `:feature:*` → `:core:ui` | The design system and shared widgets |
+| `:benchmark` → `:app` | Not a dependency anybody wrote. `targetProjectPath = ":app"` is what AGP turns into this edge, and it means "install these two APKs together" — the benchmark drives a release-like build through UiAutomator and never links against it |
 
 `:core:ui` → `:core:domain` is a dependency on *types*, not on behaviour. A shared
 component may accept and render a domain model; it may not call a use case or a
@@ -155,6 +172,7 @@ repository. That work belongs to the feature's ViewModel.
 | `:core:ui` | `:core:data` | Presentation must not bypass the domain layer |
 | `:core:data` | `:core:ui`, `:app`, `:feature:*` | Data layer is unaware of how results are displayed |
 | `:feature:*` | other `:feature:*` | Features are independent vertical slices; cross-feature navigation goes through `:app` |
+| `:benchmark` | everything except `:app` | A benchmark that compiles against the code it measures reaches for a `@Composable` within a week, and is then a slow instrumentation test rather than a measurement of the shipping build. Its handles on the app are the resource ids in `OpenGymTestTags`, restated as strings |
 
 Any dependency that violates these rules must be refactored: extract the shared concern into
 `:core:domain` (if it is a contract) or `:core:ui` (if it is a visual primitive).
