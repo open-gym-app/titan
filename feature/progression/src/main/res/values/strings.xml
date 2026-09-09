@@ -332,8 +332,14 @@
          sentence whose other half is the line beside them. %1$d is what is left, %2$d the
          month's allowance — a reader who cannot see three marks with one greyed out needs both
          counts and the word for what they are. -->
-    <string name="quest_log_protection_description">%1$d of %2$d streak protections left this month</string>
-    <string name="quest_log_protection_none_description">None of your %1$d streak protections are left this month</string>
+    <plurals name="quest_log_protection_description">
+        <item quantity="one">%1$d of %2$d streak protection left this month</item>
+        <item quantity="other">%1$d of %2$d streak protections left this month</item>
+    </plurals>
+    <plurals name="quest_log_protection_none_description">
+        <item quantity="one">Your %1$d streak protection is gone for this month</item>
+        <item quantity="other">None of your %1$d streak protections are left this month</item>
+    </plurals>
 
     <!-- ─── Recent loot (#170) ────────────────────────────────────────────────────────────
          The latest drops. The section is absent rather than empty for a user with none — see

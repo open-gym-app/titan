@@ -2,6 +2,7 @@ package com.opengym.core.ui.chart
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -83,6 +84,15 @@ enum class ChartScale {
  * @param size the canvas, in pixels.
  * @param inset [ChartScale.inset] in pixels. Taken rather than converted because the two
  *   callers hold a `Density` in different ways — a `DrawScope` is one, a `MeasureScope` has one.
+ * @param layoutDirection which way the series runs. A chart's horizontal axis is time, and time
+ *   is read in the direction the language is — so under a mirrored layout the newest mark is on
+ *   the left. Taken as a parameter rather than read from a composition local because three of
+ *   the four callers are not composable: a `DrawScope` carries one, a `MeasureScope` carries
+ *   one, and the tap detector has to be handed the value its composable read.
+ *
+ *   It is **not** defaulted. The month labels under the plot are an ordinary `Row` and mirror
+ *   themselves; a geometry that quietly stayed left-to-right would leave `APR` over the oldest
+ *   mark and every tap one bar out, which is worse than a chart that does not mirror at all.
  */
 internal class ChartGeometry(
     private val scale: ChartScale,
@@ -90,6 +100,7 @@ internal class ChartGeometry(
     private val count: Int,
     val size: Size,
     private val inset: Float,
+    private val layoutDirection: LayoutDirection,
 ) {
 
     /** The canvas less its insets — the rectangle the series is actually drawn in. */
@@ -112,10 +123,22 @@ internal class ChartGeometry(
 
     /** Where mark [index] sits horizontally: a point on the line, the centre of a bar. */
     fun x(index: Int): Float =
-        when (scale) {
-            ChartScale.LINE -> inset + step * index
-            ChartScale.BAR -> slot * index + slot / 2f
-        }
+        readingOrder(
+            when (scale) {
+                ChartScale.LINE -> inset + step * index
+                ChartScale.BAR -> slot * index + slot / 2f
+            },
+        )
+
+    /**
+     * [x] flipped about the canvas' middle under a mirrored layout, and left alone otherwise.
+     *
+     * Its own involution, which is why the same call converts both ways: it turns the index
+     * arithmetic above into a pixel, and turns a thumb's pixel back into something that
+     * arithmetic can be inverted from. `Canvas` and `pointerInput` both work in raw
+     * coordinates and mirror nothing on their own.
+     */
+    private fun readingOrder(x: Float): Float = if (layoutDirection == LayoutDirection.Rtl) size.width - x else x
 
     /** Where [value] sits vertically. Fractions run from the bottom, canvases from the top. */
     fun y(value: Float): Float = yAt(scale.fraction(stats, value))
@@ -131,9 +154,11 @@ internal class ChartGeometry(
      * real index: a chart that can be touched at all has at least two marks to offer.
      */
     fun nearestIndex(x: Float): Int =
-        when (scale) {
-            ChartScale.LINE -> ((x - inset) / step).roundToInt()
-            ChartScale.BAR -> (x / slot).toInt()
+        readingOrder(x).let { mark ->
+            when (scale) {
+                ChartScale.LINE -> ((mark - inset) / step).roundToInt()
+                ChartScale.BAR -> (mark / slot).toInt()
+            }
         }.coerceIn(0, count - 1)
 }
 

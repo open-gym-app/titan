@@ -307,15 +307,22 @@ Text(
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsTotal` (a period's worth, `32h`), `formatAsEstimate` (`~55m`) | — |
-  | Date and time | epoch millis UTC | `formatSessionDate` (`Mon 28 Apr 2026`), `formatDayAndMonth` (`28 Apr`, a table's date column), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
+  | Date and time | epoch millis UTC | `formatSessionDate` (`Tue, Apr 28, 2026`), `formatDayAndMonth` (`Apr 28`, a table's date column), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
+  | A bare count | an `Int` or a `Long` | `formatCount` (`12`, `2,140`) | — |
   | A whole set | milligrams and a count | `formatSet` (`80 kg × 5`, `12 reps`, or **null** where there is neither), and `formatSetCompact` (`80×5`) for the one cell too narrow to hold the long form | — (typed field by field) |
   | A change | a ratio or a difference | `formatPercentChange` (`18%`, unsigned — the arrow beside it is the sign), `formatMagnitude` (`3.2`, `0.4`) | — (computed, never typed) |
 
   The unit system is ambient (`LocalUnitSystem`), so it is a value to read, not a parameter to
   thread through five composables: call the overload that takes the canonical value alone and
   a change to the setting repaints every number on screen without the screen being revisited.
-  Everything goes through `NumberFormat`, so decimal and thousands separators are the device's
-  — `"$value kg"` is wrong in half of Europe before it is anything else.
+
+  Everything goes through ICU, on the far side of two seams: `NumberFormats.kt` for the digits
+  and `MeasureFormats.kt` for the unit beside them. `"$value kg"` is wrong three ways over —
+  the separator is the device's, the symbol is translated (`in` is `po` in French and `pol.`
+  in Brazilian Portuguese), and what sits between them is a narrow no-break space in some
+  locales and nothing at all in others. The same goes for a date: `formatSessionDate` asks
+  CLDR for a *skeleton* — the fields it wants — and lets the locale decide their order, so the
+  weekday lands where that language puts it rather than always in front.
 - **A parser answers "is this a number", not "is this allowed".** `parseWeightMilligrams`
   returns null only for malformed input; range is `SetValidator`'s, because it is the one that
   can say *which* bound was missed. A form does `parse ?: "not a number"`, then validates.
@@ -333,6 +340,63 @@ open its previews rather than guessing what a weight or a rest looks like.
 
 `core/ui/src/test/.../theme/ThemeCatalog.kt` renders every token in both schemes; open its
 previews rather than guessing what a token looks like.
+
+### Strings
+
+**Every word a user reads is a resource.** Nothing about this is optional: `HardcodedText` is
+an error in the shared `lint {}` block, and `./gradlew lint` fails on a violation rather than
+warning about one. Lint only reaches XML layouts, and this app has none — so the rules below
+are what stands between a Compose screen and a string a translator cannot reach.
+
+- **Where a string lives.** In the module that draws it, except for anything a *shared*
+  component says: a `contentDescription` written at the call site would be written once per
+  screen and drift four ways, so it belongs to the component, in `:core:ui`. A label for a
+  domain enum that two screens both show — a `SetType`, a `TemplateCategory`, a
+  `ThemePreference` — goes in `:core:ui`'s `DomainLabels.kt` or `PreferenceLabels.kt` for the
+  same reason, so two screens cannot describe one stored value differently. `SettingsLabels.kt`
+  in `:feature:settings` records where the line falls and why.
+- **Naming.** `<screen-or-component>_<what-it-is>`, lowercase with underscores:
+  `set_log_column_reps`, `backup_export_failed`, `quest_log_streak_personal_best`. A
+  description a screen reader gets ends in `_description`. Labels are written in sentence case
+  even where the design draws them uppercase — `Eyebrow` and `OpenGymBadge` uppercase for the
+  caller, so a translator is never asked to reproduce a typographic treatment.
+- **A count takes a `<plurals>`, always.** Not `"$n sets"`, and not a `<string>` with a `%1$d`
+  in front of a noun: `1 sets` is the first set of every workout reading wrong in English, and
+  English is the language with the *fewest* forms to get wrong. Reach for `pluralStringResource`
+  and pass the count twice — once to choose the form, once to fill the placeholder.
+
+  The count that chooses the form is the one the noun belongs to, which is not always the
+  first placeholder. `%1$d of %2$d exercises done` agrees with the total, not with what is
+  done.
+
+  A chip that draws the figure and its word in two different colours still needs the plural:
+  see `stat_sets_short`, a plural with no placeholder in it at all.
+- **A translatable string is never concatenated.** If a sentence is assembled from pieces, the
+  assembly is a resource too, with positional arguments — `%1$s` and `%2$s` — because word
+  order is not universal and neither is what goes between the pieces. `:core:ui` carries the
+  joins everything shares: `figure_with_unit`, `spoken_separator`, `badge_with_qualifier`,
+  `title_and_body_description`. Use one rather than a `+ " "`.
+
+  The same rule covers the punctuation: a separator that reaches the screen is a resource
+  (`exercise_meta_separator`, `plate_list_separator`), not a `private const val " · "`.
+- **Right-to-left is a claim the manifest already makes.** `supportsRtl="true"`, so use
+  `start`/`end` and never `left`/`right`, `placeRelative` and never `place`, and check any
+  `Canvas`: raw pixels mirror nothing on their own. `LevelProgressBar` reads `layoutDirection`
+  to decide which end it fills from, and `ChartGeometry` takes one so a chart's marks, its
+  month labels and its taps agree about which way time runs.
+- **Check the work before a translator does.** The debug build carries the two pseudolocales
+  (`isPseudoLocalesEnabled`), which is the cheapest way to find a truncated label and a
+  left-anchored row:
+
+  ```bash
+  adb shell settings put global debug.force_rtl 1   # mirror every screen
+  adb shell settings put global debug.force_rtl 0   # and back
+  ```
+
+  The pseudolocales are picked in Developer options → *Languages*, which lists `en-XA`
+  (accented, about 30% longer) and `ar-XB` (bidi) once a debug build is installed. Walk every
+  screen under both: a label that fits in English and nowhere else is a defect a translator
+  should not be the one to find.
 
 ### Files and packages
 

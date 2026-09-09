@@ -1,6 +1,7 @@
 package com.opengym.core.ui.format
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -32,7 +33,7 @@ fun formatSet(
         weightMilligrams != null && reps != null ->
             stringResource(R.string.set_log_weight_and_reps, formatWeight(weightMilligrams), reps)
 
-        reps != null -> stringResource(R.string.set_log_reps_only, reps)
+        reps != null -> pluralStringResource(R.plurals.set_log_reps_only, reps, reps)
 
         weightMilligrams != null -> formatWeight(weightMilligrams)
 

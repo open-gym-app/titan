@@ -1,6 +1,7 @@
 package com.opengym.core.ui.chart
 
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.LayoutDirection
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -238,6 +239,9 @@ class ChartSeriesTest {
         count = entries.size,
         size = Size(width = width, height = height),
         inset = inset,
+        // The arithmetic below is about where marks fall in a band, which is the same question
+        // in every language. The mirroring is `ChartGeometryTest`'s.
+        layoutDirection = LayoutDirection.Ltr,
     )
 
     private fun series(vararg values: Float): List<ChartEntry> =

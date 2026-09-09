@@ -5,6 +5,8 @@ import com.opengym.core.domain.validation.BodyMeasurementValidator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /**
@@ -14,6 +16,7 @@ import java.util.Locale
  * by design and a test asserting on `40.2` would otherwise fail under a CI machine set to
  * `fr-FR`, for the one reason that is not a bug.
  */
+@RunWith(RobolectricTestRunner::class)
 class LengthFormatTest {
 
     @Test

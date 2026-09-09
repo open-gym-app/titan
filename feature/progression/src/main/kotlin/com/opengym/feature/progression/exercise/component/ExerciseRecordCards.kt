@@ -11,6 +11,7 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.ui.component.StatTile
 import com.opengym.core.ui.component.formattedFigure
 import com.opengym.core.ui.component.recordUnit
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -83,7 +84,7 @@ fun ExerciseRecordCards(
             )
             StatTile(
                 label = stringResource(R.string.exercise_card_sets),
-                value = progression.totalSets.toString(),
+                value = formatCount(progression.totalSets),
                 unit = stringResource(R.string.exercise_card_sets_unit),
                 modifier = Modifier.weight(1f),
             )

@@ -370,7 +370,7 @@ class BackupScreenTest {
         setContent(autoBackup = AutoBackupSchedule(enabled = true, lastSuccessAt = LAST_BACKUP_AT))
 
         composeTestRule.onNodeWithText("Weekly auto-backup").performScrollTo().assertIsOn()
-        composeTestRule.onNodeWithText("Last backup 26 Apr").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Last backup Apr 26").assertIsDisplayed()
     }
 
     @Test
@@ -399,7 +399,7 @@ class BackupScreenTest {
         composeTestRule.onNodeWithText("The last automatic backup did not finish", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
-        composeTestRule.onNodeWithText("Last backup 26 Apr").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Last backup Apr 26").assertIsDisplayed()
     }
 
     /** A schedule that is off has no next run, so there is nothing to promise about one. */

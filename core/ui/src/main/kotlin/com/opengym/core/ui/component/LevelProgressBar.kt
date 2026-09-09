@@ -12,6 +12,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -67,15 +68,22 @@ fun LevelProgressBar(
         // been made, and the rounded cap makes even a hairline read as a few points.
         if (filled <= 0f) return@Canvas
 
+        // Never narrower than its own cap, so the first points into a level are visible as a
+        // dot rather than as nothing at all.
+        val width = (size.width * filled).coerceAtLeast(size.height)
+
         drawRoundRect(
             color = color,
-            topLeft = Offset.Zero,
-            // Never narrower than its own cap, so the first points into a level are visible as a
-            // dot rather than as nothing at all.
-            size = Size(
-                width = (size.width * filled).coerceAtLeast(size.height),
-                height = size.height,
-            ),
+            // A bar fills from the side the language starts on. `Canvas` draws in raw
+            // coordinates and mirrors nothing on its own, so the direction is read off the
+            // layout and applied here — without it an Arabic or Hebrew reader watches their
+            // level drain from the end they finish at.
+            topLeft = if (layoutDirection == LayoutDirection.Rtl) {
+                Offset(x = size.width - width, y = 0f)
+            } else {
+                Offset.Zero
+            },
+            size = Size(width = width, height = size.height),
             cornerRadius = radius,
         )
     }

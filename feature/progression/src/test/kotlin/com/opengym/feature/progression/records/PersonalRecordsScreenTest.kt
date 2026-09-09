@@ -51,7 +51,7 @@ class PersonalRecordsScreenTest {
         // in it: clearing the row's semantics would otherwise leave it visible only to people who
         // can see it.
         composeTestRule
-            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, 21 Apr, New, +12 kg")
+            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, Apr 21, New, +12 kg")
             .assertIsDisplayed()
     }
 
@@ -62,7 +62,7 @@ class PersonalRecordsScreenTest {
         // The most-reps row beat nothing, so its sentence carries no improvement at all. `+0 reps`
         // would be the screen crediting a record the user never held.
         composeTestRule
-            .onNodeWithContentDescription("Bench press, Most reps, 12 reps, 21 Apr, New")
+            .onNodeWithContentDescription("Bench press, Most reps, 12 reps, Apr 21, New")
             .assertIsDisplayed()
     }
 
@@ -190,7 +190,7 @@ class PersonalRecordsScreenTest {
 
         composeTestRule.onNodeWithText("Could not load more records.").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, 21 Apr, New, +12 kg")
+            .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, Apr 21, New, +12 kg")
             .assertIsDisplayed()
     }
 

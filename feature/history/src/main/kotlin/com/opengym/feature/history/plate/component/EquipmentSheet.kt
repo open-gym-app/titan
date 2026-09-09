@@ -41,10 +41,9 @@ import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatWeight
-import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.plateIncrement
-import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.format.weightToMilligrams
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -215,7 +214,7 @@ private fun BarWeightRow(
                 onClick = { onChange(milligrams) },
                 label = {
                     Text(
-                        text = "${formatWeightValue(milligrams)} ${unitSystem.weightSuffix}",
+                        text = formatWeight(milligrams, unitSystem),
                         style = OpenGymTheme.typography.numericSmall,
                     )
                 },
@@ -256,7 +255,7 @@ private fun PlateRow(
             modifier = Modifier.weight(1f),
         )
         Stepper(
-            value = plate.pairs.toString(),
+            value = formatCount(plate.pairs),
             onDecrease = { onChange((plate.pairs - 1).coerceAtLeast(0)) },
             onIncrease = { onChange((plate.pairs + 1).coerceAtMost(PlateStock.MAX_PAIRS)) },
             decreaseDescription = stringResource(R.string.plate_pairs_fewer, weight),

@@ -78,13 +78,18 @@ fun PrValue(
  *
  * The join of [formattedFigure] and [recordUnit], rather than a third rendering: a record
  * quoted in a sentence and a record set as a figure over its unit have to agree to the digit.
+ *
+ * Joined through a resource rather than with a space, because the two halves are separately
+ * translated and the space between them is a third piece of the same sentence — see
+ * `figure_with_unit`. The weight cases could go through `formatWeight` instead, but the rep
+ * and pace ones could not, and one join for all six is what keeps them looking alike.
  */
 @Composable
 @ReadOnlyComposable
 fun PersonalRecord.formattedValue(): String? {
     val figure = formattedFigure() ?: return null
     val unit = recordUnit() ?: return figure
-    return "$figure $unit"
+    return stringResource(R.string.figure_with_unit, figure, unit)
 }
 
 /**

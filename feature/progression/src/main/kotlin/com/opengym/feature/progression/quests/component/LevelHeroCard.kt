@@ -15,9 +15,9 @@ import com.opengym.core.domain.model.UserProgress
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.LaurelWreath
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
-import com.opengym.feature.progression.quests.formatCount
 import com.opengym.feature.progression.quests.label
 
 /**
@@ -72,7 +72,7 @@ internal fun LevelHeroCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Eyebrow(text = stringResource(R.string.quest_log_level_short))
                     Text(
-                        text = "${progress.level}",
+                        text = formatCount(progress.level),
                         style = OpenGymTheme.typography.numericDisplay,
                         color = MaterialTheme.colorScheme.primary,
                     )

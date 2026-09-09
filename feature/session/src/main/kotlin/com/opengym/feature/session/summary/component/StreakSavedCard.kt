@@ -119,10 +119,18 @@ internal fun StreakSavedCard(
                     // The whole sentence, marks included, for the reader the marks are silent
                     // for. See the note above.
                     contentDescription = if (exhausted) {
-                        stringResource(R.string.summary_streak_protections_none_description, save.allowance)
+                        pluralStringResource(
+                            R.plurals.summary_streak_protections_none_description,
+                            save.allowance,
+                            save.allowance,
+                        )
                     } else {
-                        stringResource(
-                            R.string.summary_streak_protections_left_description,
+                        // The noun agrees with the allowance rather than with what is left of
+                        // it: the phrase is "of N protections", and "1 of 1 protections" is the
+                        // shape that reads wrong.
+                        pluralStringResource(
+                            R.plurals.summary_streak_protections_left_description,
+                            save.allowance,
                             save.protectionsRemaining,
                             save.allowance,
                         )

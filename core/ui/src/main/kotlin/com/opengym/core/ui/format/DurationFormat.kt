@@ -1,6 +1,7 @@
 package com.opengym.core.ui.format
 
-import java.util.Locale
+import android.icu.util.Measure
+import android.icu.util.MeasureUnit
 import kotlin.math.absoluteValue
 import kotlin.time.Duration
 
@@ -23,8 +24,10 @@ import kotlin.time.Duration
  *   see its own note.
  *
  * Unlike the other formatters here there is no unit system to read: a minute is a minute in
- * both. [Locale] still comes into it, because in a dozen locales the digits themselves are
- * not the ASCII ones.
+ * both. The locale still comes into it twice over — in a dozen locales the digits themselves
+ * are not the ASCII ones, and `h`/`m` are translated text wherever a duration is written out
+ * rather than punched onto a clock face. The first three shapes are clock faces and carry no
+ * unit at all; the last two go through `MeasureFormats.kt`.
  */
 
 private const val SECONDS_PER_MINUTE = 60
@@ -42,9 +45,9 @@ private const val SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR
 fun Duration.formatAsClock(): String =
     with(ClockFields(this)) {
         if (hours > 0) {
-            String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
+            String.format(formattingLocale(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
         } else {
-            String.format(Locale.getDefault(), "%s%d:%02d", sign, minutes, seconds)
+            String.format(formattingLocale(), "%s%d:%02d", sign, minutes, seconds)
         }
     }
 
@@ -58,11 +61,11 @@ fun Duration.formatAsClock(): String =
  */
 fun Duration.formatAsElapsed(): String =
     with(ClockFields(this)) {
-        String.format(Locale.getDefault(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
+        String.format(formattingLocale(), "%s%d:%02d:%02d", sign, hours, minutes, seconds)
     }
 
 /**
- * How long something is expected to take: `~55m`, `~1h 05m`, `~5m`.
+ * How long something is expected to take: `~55m`, `~1h 5m`, `~5m`.
  *
  * The one duration here that is **not** a clock reading, and it is deliberately drawn to
  * look nothing like one. A template's estimate
@@ -78,30 +81,19 @@ fun Duration.formatAsElapsed(): String =
  * exercises all plan no sets — reads `~0m`, and a caller with nothing to pace should
  * usually draw no estimate at all rather than that.
  *
- * The unit letters are not translated, matching
- * [com.opengym.core.ui.format.weightSuffix]'s `kg`/`lb`: they are symbols on a figure in a
- * mono column, and the localization pass (#40) sweeps both together.
+ * The unit letters come from CLDR at narrow width, so `~55m` is `~55 min` to a French reader
+ * and the two fields of `~1h 5m` are joined the way that locale joins them. The zero-padding
+ * on the minutes field went with the hand-built string: the padding lined a column up, and a
+ * locale that writes `1 h 5 min` has already decided the column is not that shape.
+ *
+ * The tilde stays a literal. It is a mathematical symbol rather than a word — the same
+ * character in every locale this app can render, and the one thing on the line that is not
+ * CLDR's to translate.
  */
-fun Duration.formatAsEstimate(): String {
-    val minutes = roundedEstimateMinutes()
-    val locale = Locale.getDefault()
-
-    return if (minutes >= MINUTES_PER_HOUR) {
-        String.format(
-            locale,
-            "~%d%s %02d%s",
-            minutes / MINUTES_PER_HOUR,
-            HOUR_SUFFIX,
-            minutes % MINUTES_PER_HOUR,
-            MINUTE_SUFFIX,
-        )
-    } else {
-        String.format(locale, "~%d%s", minutes, MINUTE_SUFFIX)
-    }
-}
+fun Duration.formatAsEstimate(): String = APPROXIMATELY + formatWholeMinutes(roundedEstimateMinutes())
 
 /**
- * How long something *took*: `52m`, `1h 05m`, `0m`.
+ * How long something *took*: `52m`, `1h 5m`, `0m`.
  *
  * The third duration role, and the one a list row wears. [formatAsElapsed] is a running
  * clock — it keeps its seconds because it is watched while it moves — and reading a
@@ -114,27 +106,10 @@ fun Duration.formatAsEstimate(): String {
  * come out a minute apart in opposite directions. A session shorter than a minute reads
  * `0m`, which is the honest rendering of one somebody opened and closed.
  *
- * The unit letters are not translated, matching [formatAsEstimate] and
- * [com.opengym.core.ui.format.weightSuffix]: the localization pass (#40) sweeps them
- * together.
+ * The unit letters are CLDR's, at narrow width — see [formatDurationMeasures], which says
+ * why a duration is the one quantity here rendered narrow.
  */
-fun Duration.formatAsLength(): String {
-    val minutes = inWholeMinutes.coerceAtLeast(0)
-    val locale = Locale.getDefault()
-
-    return if (minutes >= MINUTES_PER_HOUR) {
-        String.format(
-            locale,
-            "%d%s %02d%s",
-            minutes / MINUTES_PER_HOUR,
-            HOUR_SUFFIX,
-            minutes % MINUTES_PER_HOUR,
-            MINUTE_SUFFIX,
-        )
-    } else {
-        String.format(locale, "%d%s", minutes, MINUTE_SUFFIX)
-    }
-}
+fun Duration.formatAsLength(): String = formatWholeMinutes(inWholeMinutes.coerceAtLeast(0))
 
 /**
  * How long something took in **total**, over a period: `32h`, `48m`, `0m`.
@@ -149,17 +124,15 @@ fun Duration.formatAsLength(): String {
  * back to whole minutes, because `0h` would be the one rendering that says nothing happened
  * when something did.
  *
- * The unit letters are not translated, matching the other three: the localization pass (#40)
- * sweeps them together.
+ * The unit letters are CLDR's, as in the two above.
  */
 fun Duration.formatAsTotal(): String {
     val minutes = inWholeMinutes.coerceAtLeast(0)
-    val locale = Locale.getDefault()
 
     return if (minutes >= MINUTES_PER_HOUR) {
-        String.format(locale, "%d%s", minutes / MINUTES_PER_HOUR, HOUR_SUFFIX)
+        formatDurationMeasures(Measure(minutes / MINUTES_PER_HOUR, MeasureUnit.HOUR))
     } else {
-        String.format(locale, "%d%s", minutes, MINUTE_SUFFIX)
+        formatDurationMeasures(Measure(minutes, MeasureUnit.MINUTE))
     }
 }
 
@@ -180,8 +153,27 @@ private fun Duration.roundedEstimateMinutes(): Long {
 /** The granularity an estimate is honest to. See [formatAsEstimate]. */
 private const val ESTIMATE_STEP_MINUTES = 5
 
-private const val HOUR_SUFFIX = "h"
-private const val MINUTE_SUFFIX = "m"
+/**
+ * [minutes] as hours and minutes, or as minutes alone when there is not an hour in it.
+ *
+ * The shared body of [formatAsEstimate] and [formatAsLength], which differ only in where
+ * their minute count came from and in the tilde one of them wears. The hours field is
+ * dropped rather than shown as zero — unlike [formatAsElapsed], which keeps it — because
+ * neither of these is watched while it moves, so there is no column for a growing field to
+ * shove sideways.
+ */
+private fun formatWholeMinutes(minutes: Long): String =
+    if (minutes >= MINUTES_PER_HOUR) {
+        formatDurationMeasures(
+            Measure(minutes / MINUTES_PER_HOUR, MeasureUnit.HOUR),
+            Measure(minutes % MINUTES_PER_HOUR, MeasureUnit.MINUTE),
+        )
+    } else {
+        formatDurationMeasures(Measure(minutes, MeasureUnit.MINUTE))
+    }
+
+/** The one glyph on an estimate that is not CLDR's. See [formatAsEstimate]. */
+private const val APPROXIMATELY = "~"
 
 /**
  * A duration split into the fields a clock shows, magnitude and sign kept apart.

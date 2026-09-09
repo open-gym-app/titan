@@ -55,7 +55,12 @@
     <string name="set_log_mark_done">Mark set %1$d done</string>
     <string name="set_log_mark_not_done">Set %1$d is done. Un-tick it</string>
     <string name="set_log_weight_and_reps">%1$s × %2$d</string>
-    <string name="set_log_reps_only">%1$d reps</string>
+    <!-- A bodyweight set, where the count is the whole of what was done. A plural because a
+         set of one is a rep: "1 reps" is the first set of every workout reading wrong. -->
+    <plurals name="set_log_reps_only">
+        <item quantity="one">%1$d rep</item>
+        <item quantity="other">%1$d reps</item>
+    </plurals>
     <!-- The same set squeezed into the previous column: "60×10", no unit and no spaces. The
          column is 52dp wide between two fields, and the row's own header says which unit the
          numbers are in. -->
@@ -95,7 +100,10 @@
     <string name="session_elapsed_paused">Paused at %1$s</string>
     <!-- The progress rail, which is drawn as one sliver per exercise and announced as one
          sentence — see SessionProgressRail. -->
-    <string name="session_progress">%1$d of %2$d exercises done</string>
+    <plurals name="session_progress">
+        <item quantity="one">%1$d of %2$d exercise done</item>
+        <item quantity="other">%1$d of %2$d exercises done</item>
+    </plurals>
     <string name="session_header_pause">Pause the session</string>
     <string name="session_header_resume">Resume the session</string>
     <string name="session_header_discard">Discard the session</string>
@@ -219,7 +227,10 @@
         <item quantity="one">%1$d exercise</item>
         <item quantity="other">%1$d exercises</item>
     </plurals>
-    <string name="template_description_duration">%1$s, about %2$d minutes</string>
+    <plurals name="template_description_duration">
+        <item quantity="one">%1$s, about %2$d minute</item>
+        <item quantity="other">%1$s, about %2$d minutes</item>
+    </plurals>
     <string name="template_description">%1$s, %2$s</string>
     <string name="template_description_category">%1$s, %2$s, %3$s</string>
 
@@ -504,6 +515,29 @@
     <!-- The days and the time on one line: "MWF · 18:00". The same middle dot every other
          two-part value in the app is joined with. -->
     <string name="reminder_schedule">%1$s · %2$s</string>
+
+    <!-- ── Assembled phrases ────────────────────────────────────────────────────── -->
+
+    <!--
+      The joins. Every one of these exists because the pieces either side of it are already
+      translated and the thing between them is not: a space, a comma and a middle dot all
+      belong to a locale, and word order belongs to it too. A translator who needs the unit
+      in front of the figure, or a full-width comma, changes these; nothing in Kotlin can be
+      changed to give them that.
+    -->
+
+    <!-- A figure and what it is measured in, where the two are formatted apart: "4,820 kg",
+         "45 reps". A quantity with its unit inside one string comes from the format package
+         instead, which asks CLDR for the pattern - see MeasureFormats.kt. -->
+    <string name="figure_with_unit">%1$s %2$s</string>
+    <!-- What joins the clauses of a description a screen reader reads as one node. The
+         trailing space is inside the quotes on purpose: XML would otherwise trim it. -->
+    <string name="spoken_separator">", "</string>
+    <!-- A badge and the thing it qualifies: "PR · 1RM". -->
+    <string name="badge_with_qualifier">%1$s · %2$s</string>
+    <!-- A card with a heading and a body, announced as one node: "Nothing yet. Log a
+         workout." The full stop is part of the join, not of either half. -->
+    <string name="title_and_body_description">%1$s. %2$s</string>
 
     <!-- ── Time picker ──────────────────────────────────────────────────────────── -->
 

@@ -105,9 +105,11 @@ internal fun ChartValueRail(
                     height = railHeight.toFloat(),
                     inset = 0f,
                 ) - label.height / 2f
-                label.place(
-                    // Right-aligned: the figures sit against the plot they belong to, and the
-                    // decimal points of a mono face line up without a decimal-aligned layout.
+                label.placeRelative(
+                    // Flush against the plot the figures belong to, and the decimal points of a
+                    // mono face then line up without a decimal-aligned layout. `placeRelative`
+                    // rather than `place` so "against the plot" survives a mirrored layout,
+                    // which `place` would leave meaning "on the right" in both.
                     x = railWidth - label.width,
                     y = y.roundToInt().coerceIn(0, (railHeight - label.height).coerceAtLeast(0)),
                 )

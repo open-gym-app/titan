@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -62,7 +63,7 @@ internal fun SetMarker(
 ) {
     if (setType == SetType.NORMAL) {
         Text(
-            text = setNumber.toString(),
+            text = formatCount(setNumber),
             style = OpenGymTheme.typography.numeric,
             color = if (isActive) {
                 MaterialTheme.colorScheme.onPrimaryContainer

@@ -48,6 +48,7 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
 import com.opengym.feature.settings.backup.component.AutoBackupSection
 import com.opengym.feature.settings.backup.component.RestoreConfirmationDialog
+import com.opengym.core.ui.R as CoreR
 
 /**
  * Backup and restore, wired to its ViewModel and to the two system pickers it needs.
@@ -361,7 +362,11 @@ private fun ProgressRow(
     completed: Long = 0,
     total: Long = 0,
 ) {
-    val spoken = if (total > 0) "$label ${percentOf(completed, total)}%" else label
+    val spoken = if (total > 0) {
+        stringResource(CoreR.string.figure_with_unit, label, progressPercent(completed, total))
+    } else {
+        label
+    }
 
     Column(
         modifier = Modifier

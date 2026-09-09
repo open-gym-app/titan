@@ -1,5 +1,6 @@
 package com.opengym.core.ui.format
 
+import android.icu.util.MeasureUnit
 import com.opengym.core.domain.model.UnitSystem
 
 /**
@@ -15,8 +16,8 @@ enum class DistanceUnit(
     /** How many centimetres make one of this unit. */
     val centimetres: Double,
 
-    /** What the unit is called next to a number. */
-    val suffix: String,
+    /** The CLDR unit this is, which is where its name and its number-and-unit pattern come from. */
+    internal val measureUnit: MeasureUnit,
 
     /**
      * How many decimals a distance in this unit is shown to.
@@ -27,10 +28,22 @@ enum class DistanceUnit(
      */
     internal val fractionDigits: Int,
 ) {
-    METRE(centimetres = 100.0, suffix = "m", fractionDigits = 0),
-    KILOMETRE(centimetres = 100_000.0, suffix = "km", fractionDigits = 2),
-    YARD(centimetres = 91.44, suffix = "yd", fractionDigits = 0),
-    MILE(centimetres = 160_934.4, suffix = "mi", fractionDigits = 2),
+    METRE(centimetres = 100.0, measureUnit = MeasureUnit.METER, fractionDigits = 0),
+    KILOMETRE(centimetres = 100_000.0, measureUnit = MeasureUnit.KILOMETER, fractionDigits = 2),
+    YARD(centimetres = 91.44, measureUnit = MeasureUnit.YARD, fractionDigits = 0),
+    MILE(centimetres = 160_934.4, measureUnit = MeasureUnit.MILE, fractionDigits = 2),
+    ;
+
+    /**
+     * What the unit is called next to a number: `m`, `km`, `yd`, `mi` — and `jardas` or
+     * `milhas` where a locale spells them out.
+     *
+     * A property rather than a constructor argument because the answer is a function of the
+     * formatting locale, which an enum constant is initialised long before anything knows.
+     * The counterpart of [com.opengym.core.ui.format.weightSuffix]; see `MeasureFormats.kt`
+     * for why a unit symbol is never a literal.
+     */
+    val suffix: String get() = unitSymbol(measureUnit)
 }
 
 /**

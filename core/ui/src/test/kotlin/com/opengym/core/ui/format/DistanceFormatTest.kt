@@ -6,9 +6,12 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /** The distance formatter, in a pinned locale. See `withLocale`. */
+@RunWith(RobolectricTestRunner::class)
 class DistanceFormatTest {
 
     @Test
@@ -89,7 +92,9 @@ class DistanceFormatTest {
     @Test
     fun `the decimal separator follows the device locale`() =
         withLocale(Locale.FRANCE) {
-            assertEquals("5,2 km", formatDistance(520_000, UnitSystem.METRIC))
+            // `\u202F`: French sets a narrow no-break space between a figure and its unit,
+            // which is CLDR's answer and not a space this package chose. See LocalizedFormatTest.
+            assertEquals("5,2\u202Fkm", formatDistance(520_000, UnitSystem.METRIC))
         }
 
     @Test

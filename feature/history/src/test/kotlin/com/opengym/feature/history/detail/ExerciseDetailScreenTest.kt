@@ -56,8 +56,8 @@ class ExerciseDetailScreenTest {
 
         composeTestRule.onNodeWithText("PERSONAL RECORDS").assertExists()
         // Read as one sentence each, which is the treatment every record row in the app gets.
-        composeTestRule.onNodeWithContentDescription("Heaviest, 92 kg, 21 Apr").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Most reps, 12 reps, 21 Apr").assertExists()
+        composeTestRule.onNodeWithContentDescription("Heaviest, 92 kg, Apr 21").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Most reps, 12 reps, Apr 21").assertExists()
     }
 
     @Test

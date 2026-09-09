@@ -10,6 +10,7 @@ import androidx.compose.ui.res.stringResource
 import com.opengym.core.ui.component.StatTile
 import com.opengym.core.ui.format.formatAsLength
 import com.opengym.core.ui.format.formatAsTotal
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatMagnitude
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
@@ -49,7 +50,7 @@ fun StatsSummaryGrid(
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
             StatTile(
                 label = stringResource(R.string.stats_sessions_label),
-                value = state.sessions.toString(),
+                value = formatCount(state.sessions),
                 unit = stringResource(R.string.stats_sessions_caption),
                 modifier = Modifier.weight(1f),
             )
@@ -63,7 +64,7 @@ fun StatsSummaryGrid(
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
             StatTile(
                 label = stringResource(R.string.stats_records_label),
-                value = state.records.records.toString(),
+                value = formatCount(state.records.records),
                 unit = pluralStringResource(
                     R.plurals.stats_records_caption,
                     state.records.exercises,

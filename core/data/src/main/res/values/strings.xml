@@ -93,6 +93,10 @@
          decoration: a screen reader says nothing about it, and a colour is no use to somebody
          who cannot tell two of them apart. -->
     <string name="progression_notification_loot_found">You found a %1$s · %2$s.</string>
+    <!-- Two sentences of one notification body, run together. A join rather than a space in
+         Kotlin: the sentence order is the translator's to change, and so is what goes between
+         them - some scripts do not separate sentences with a plain space. -->
+    <string name="progression_notification_body_join">%1$s %2$s</string>
 
     <!--
       The collectible names and the rarity bands, a second copy of `:feature:progression`'s.

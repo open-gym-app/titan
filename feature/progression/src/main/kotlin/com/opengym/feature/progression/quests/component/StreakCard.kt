@@ -25,6 +25,7 @@ import com.opengym.core.ui.component.StreakFlame
 import com.opengym.core.ui.component.StreakShields
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The streak: how many days running, and whether that is the best it has been.
@@ -118,19 +119,28 @@ private fun Protection(protection: StreakProtection) {
         pluralStringResource(R.plurals.quest_log_protection_left, remaining, remaining)
     }
     val spoken = if (remaining == 0) {
-        stringResource(R.string.quest_log_protection_none_description, StreakProtection.MONTHLY_ALLOWANCE)
+        pluralStringResource(
+            R.plurals.quest_log_protection_none_description,
+            StreakProtection.MONTHLY_ALLOWANCE,
+            StreakProtection.MONTHLY_ALLOWANCE,
+        )
     } else {
-        stringResource(
-            R.string.quest_log_protection_description,
+        // The noun belongs to the allowance, not to what is left of it: "1 of 3 protections",
+        // "0 of 1 protection".
+        pluralStringResource(
+            R.plurals.quest_log_protection_description,
+            StreakProtection.MONTHLY_ALLOWANCE,
             remaining,
             StreakProtection.MONTHLY_ALLOWANCE,
         )
     }
 
+    val clauses = listOf(label, spoken).joinToString(stringResource(CoreR.string.spoken_separator))
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = "$label, $spoken" },
+            .clearAndSetSemantics { contentDescription = clauses },
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -170,14 +180,14 @@ private fun Streak(
         progress.longestStreak,
     )
     val personalBest = stringResource(R.string.quest_log_streak_personal_best)
+    val clauses = listOf(days, if (isOnBest) personalBest else best)
+        .joinToString(stringResource(CoreR.string.spoken_separator))
 
     Row(
         // One node: "12 days, best 30" is one fact, and two nodes for it is two swipes.
         modifier = Modifier
             .fillMaxWidth()
-            .clearAndSetSemantics {
-                contentDescription = if (isOnBest) "$days, $personalBest" else "$days, $best"
-            },
+            .clearAndSetSemantics { contentDescription = clauses },
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {

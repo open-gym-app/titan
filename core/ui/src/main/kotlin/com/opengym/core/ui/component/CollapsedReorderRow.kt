@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.R
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
@@ -130,7 +131,7 @@ fun CollapsedReorderRow(
                 },
             )
             Text(
-                text = (position + 1).toString(),
+                text = formatCount(position + 1),
                 style = OpenGymTheme.typography.numericSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

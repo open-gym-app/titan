@@ -6,6 +6,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.chrono.IsoChronology
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeFormatterBuilder
@@ -13,8 +14,11 @@ import java.time.format.DecimalStyle
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import android.icu.text.DateFormat as IcuDateFormat
+import android.icu.util.TimeZone as IcuTimeZone
 
 /*
  * Dates and clock times, from the epoch milliseconds every `*_at` column stores to what a
@@ -34,6 +38,22 @@ import java.util.concurrent.ConcurrentHashMap
  * arguments, so `DateTimeFormatTest` can pin a zone and a locale and assert the string.
  * `minSdk` is 26, so `java.time` is on the platform and needs no desugaring.
  *
+ * ### Where `java.time` stops, and ICU starts
+ *
+ * `java.time` offers four localized date *styles* — full, long, medium, short — and nothing
+ * in between. Three of the shapes below are in between: a weekday with a medium date, a month
+ * with a year and no day, a day with a month and no year. Assembling those from parts is what
+ * this file used to do, and it is what put the weekday in front in every locale, including the
+ * ones that write it behind.
+ *
+ * A **skeleton** is the request CLDR actually answers: `EEEdMMMy` asks for those four fields
+ * and lets the locale decide their order, their separators and how each is abbreviated —
+ * `Tue, Apr 28, 2026`, `mar. 28 avr. 2026`, `ter., 28 de abr. de 2026`. Only
+ * [android.icu.text.DateFormat.getInstanceForSkeleton] can do that lookup; `java.time` has no
+ * equivalent. So the three joins go through ICU and everything else stays on `java.time`,
+ * which already answers per locale for the fields it does have. Both draw their digits in the
+ * locale's own numbering system, so the two halves of a screen cannot disagree about numerals.
+ *
  * ### The zone is the device's, and the instant is UTC
  *
  * A session is stamped in epoch millis UTC and read back in whatever zone the phone is in.
@@ -41,27 +61,20 @@ import java.util.concurrent.ConcurrentHashMap
  * logged at 18:00 in Paris should not read as 18:00 in New York — and it is why [ZoneId] is a
  * parameter rather than a constant: a test that could not pin it would be asserting the
  * machine it runs on.
- *
- * ### What is not localised, and why it is left that way
- *
- * [formatSessionDate] puts the weekday in front of the date, which is the order most western
- * locales write it in and not the order CJK ones do. Splitting it correctly means a localised
- * skeleton per locale, which is the localisation pass's job (#40) — the same call it makes
- * for [formatAsEstimate]'s `h`/`m` and [weightSuffix]'s `kg`/`lb`. The date *itself* is
- * localised here; only the join is provisional.
  */
 
 /**
- * The day a session happened, with the weekday in front of it: `Mon 28 Apr 2026`,
- * `Mon, 28. Apr. 2026`, `月 2026/04/28`.
+ * The day a session happened, with its weekday: `Tue, Apr 28, 2026`, `mar. 28 avr. 2026`,
+ * `ter., 28 de abr. de 2026`.
  *
- * The weekday is there because it is the half a lifter actually reads. "Was that the Monday
- * session or the Thursday one" is a question a training week is organised around, and
- * `28 Apr` alone does not answer it without counting.
+ * Where the weekday goes is the locale's answer rather than this file's — see the note above
+ * on skeletons. The weekday is *there* because it is the half a lifter actually reads: "was
+ * that the Monday session or the Thursday one" is a question a training week is organised
+ * around, and `Apr 28` alone does not answer it without counting.
  *
  * The year is always shown, even for a session logged this morning. Dropping it would mean a
- * second localised pattern with the year fields cut out of it, and the pattern surgery that
- * takes is a worse trade than four extra glyphs on a line that is already mono and quiet.
+ * second skeleton and a second shape to keep in step, which is a worse trade than four extra
+ * glyphs on a line that is already mono and quiet.
  *
  * @param zone the zone to read the instant in. The device's, except in a test.
  * @param locale the locale to render in. [formattingLocale] by default, so the date follows
@@ -78,17 +91,13 @@ fun formatSessionDate(
  * calendar cell, which is a day and never a moment.
  *
  * The overload exists so both spell the day the same way: a calendar announcing
- * `28 April 2026` beside a list saying `Mon 28 Apr 2026` would be two renderings of one fact.
+ * `April 28, 2026` beside a list saying `Tue, Apr 28, 2026` would be two renderings of one
+ * fact.
  */
 fun formatSessionDate(
     date: LocalDate,
     locale: Locale = formattingLocale(),
-): String {
-    val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-    val rest = localizedDateFormatter(locale).format(date)
-
-    return "$weekday $rest"
-}
+): String = date.formatWithSkeleton(WEEKDAY_DATE_SKELETON, locale)
 
 /**
  * The time of day something happened, as the device's clock writes it: `10:14`, `10:14 AM`.
@@ -106,11 +115,11 @@ fun formatTimeOfDay(
 
 /*
  * The three below are the calendar's vocabulary: a month to head it with, a number for each
- * cell, and the seven letters across the top. The two that draw digits go through a formatter
- * carrying [DecimalStyle.of], which is what keeps a Persian or a Bengali phone drawing its own
- * numerals — `28.toString()` is ASCII whatever the locale, and so is a `DateTimeFormatter`
- * built without the decimal style, since `ofPattern(pattern, locale)` uses the locale to pick
- * *text* and leaves [DecimalStyle.STANDARD] in place.
+ * cell, and the seven letters across the top. Both of the ones that draw digits draw them in
+ * the locale's own numerals — ICU does it for the heading, and [numberFormatter]'s explicit
+ * [DecimalStyle.of] does it for the cell. `28.toString()` is ASCII whatever the locale, and so
+ * is a `DateTimeFormatter` built without the decimal style, since `ofPattern(pattern, locale)`
+ * uses the locale to pick *text* and leaves [DecimalStyle.STANDARD] in place.
  *
  * That matters beside the counts, not on its own: `pluralStringResource` formats its argument
  * through `DecimalFormatSymbols`, so a row whose set count is in Bengali digits and whose date
@@ -124,19 +133,15 @@ fun formatTimeOfDay(
  * which is what `LLLL` asks for and what a heading needs — Russian's `апрель` here rather
  * than the `апреля` of "the 28th of April".
  *
- * The join is `month year` in every locale, which is the same provisional simplification
- * [formatSessionDate] makes about the weekday and is left for the localization pass (#40)
- * for the same reason.
+ * The order and the separator are the locale's: `April 2026`, `avril 2026`, `abril de 2026`.
+ * Portuguese is the one that shows why this is a skeleton lookup rather than a join — the
+ * `de` between the two fields is not a space, and nothing about the two fields on their own
+ * predicts it.
  */
 fun formatMonthAndYear(
     month: YearMonth,
     locale: Locale = formattingLocale(),
-): String {
-    val name = month.month.getDisplayName(TextStyle.FULL_STANDALONE, locale)
-    val year = numberFormatter(YEAR_PATTERN, locale).format(month)
-
-    return "$name $year"
-}
+): String = month.atDay(1).formatWithSkeleton(MONTH_YEAR_SKELETON, locale)
 
 /**
  * The month a chart's axis marks a stretch with: `Apr`, `avr.`, `4月`.
@@ -162,14 +167,14 @@ fun formatMonthAbbreviation(
  * same month under one label. The year is dropped because the table is bounded by a timeframe
  * the screen states above it.
  *
- * Built from the two parts rather than from a localized skeleton with its year cut out: that
- * surgery is what [formatSessionDate] declines to do, and the join here is the same
- * provisional simplification it makes, left for the localization pass (#40).
+ * A skeleton without a year field rather than a full date with the year cut back out of it:
+ * asking CLDR for the two fields is what gets `Apr 28` in the United States and `28 avr.` in
+ * France, where a string built day-first would have been wrong in one of them.
  */
 fun formatDayAndMonth(
     date: LocalDate,
     locale: Locale = formattingLocale(),
-): String = "${formatDayOfMonth(date, locale)} ${formatMonthAbbreviation(date, locale)}"
+): String = date.formatWithSkeleton(DAY_MONTH_SKELETON, locale)
 
 /** The same day, for a caller holding the instant a session was closed out at. */
 fun formatDayAndMonth(
@@ -280,6 +285,56 @@ fun localDateOf(
 private const val DAYS_PER_WEEK = 7
 
 /**
+ * [this] through the localized pattern CLDR picks for [skeleton] — the fields asked for, in
+ * the order and with the separators [locale] writes them in.
+ *
+ * The day is handed over as an instant at UTC midnight with the formatter pinned to the same
+ * zone, which is the whole of the conversion: ICU dates are moments and a [LocalDate] is not,
+ * so a zone has to be chosen, and the only one that cannot shift the day is the one both
+ * sides agree on.
+ */
+private fun LocalDate.formatWithSkeleton(
+    skeleton: String,
+    locale: Locale,
+): String = skeletonFormatter(skeleton, locale).format(Date.from(atStartOfDay(ZoneOffset.UTC).toInstant()))
+
+/**
+ * One ICU formatter per skeleton per locale per thread.
+ *
+ * `getInstanceForSkeleton` resolves the skeleton against the locale's pattern generator and
+ * builds a `SimpleDateFormat` from the result on every call, and [formatSessionDate] is the
+ * first thing a history row draws — the same per-row cost [numberFormatter] is cached against
+ * (#42). Per thread rather than shared because, unlike a [DateTimeFormatter], an ICU
+ * [IcuDateFormat] is mutable and not safe to format through from two threads at once.
+ */
+private val skeletonFormatters = ThreadLocal<MutableMap<Pair<String, Locale>, IcuDateFormat>>()
+
+private fun skeletonFormatter(
+    skeleton: String,
+    locale: Locale,
+): IcuDateFormat {
+    val perThread = skeletonFormatters.get()
+        ?: mutableMapOf<Pair<String, Locale>, IcuDateFormat>().also(skeletonFormatters::set)
+    return perThread.getOrPut(skeleton to locale) {
+        IcuDateFormat.getInstanceForSkeleton(skeleton, locale).apply { timeZone = IcuTimeZone.GMT_ZONE }
+    }
+}
+
+/*
+ * The fields each shape asks CLDR for. A skeleton names fields and widths and says nothing
+ * about order or punctuation, which is the point — see the note at the top of the file.
+ */
+
+/** Abbreviated weekday, day, abbreviated month, year. [formatSessionDate]. */
+private const val WEEKDAY_DATE_SKELETON = "EEEdMMMy"
+
+/** Standalone full month and year, no day. [formatMonthAndYear]. */
+private const val MONTH_YEAR_SKELETON = "LLLLy"
+
+/** Day and abbreviated month, no year. [formatDayAndMonth]. */
+private const val DAY_MONTH_SKELETON = "dMMM"
+
+/**
  * A formatter for a bare number, in the locale's own numerals.
  *
  * [DateTimeFormatter.ofPattern] takes a locale but installs [DecimalStyle.STANDARD] regardless
@@ -295,30 +350,23 @@ private fun numberFormatter(
         DateTimeFormatter.ofPattern(pattern, locale).withDecimalStyle(DecimalStyle.of(locale))
     }
 
-private fun localizedDateFormatter(locale: Locale): DateTimeFormatter =
-    localizedDateFormatters.getOrPut(locale) {
-        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
-    }
-
 private fun localizedTimeFormatter(locale: Locale): DateTimeFormatter =
     localizedTimeFormatters.getOrPut(locale) {
         DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
     }
 
 /*
- * Built once per locale. `ofPattern` parses its pattern and `ofLocalizedDate`/`ofLocalizedTime`
- * run a `DateTimeFormatterBuilder` on every call, and a history row goes through three of
- * them to draw its rail and describe itself — the kind of per-row cost a `LazyColumn` pays
- * on the frame a row scrolls in (#42). A `DateTimeFormatter` is immutable, so one instance
- * serves every thread.
+ * Built once per locale. `ofPattern` parses its pattern and `ofLocalizedTime` runs a
+ * `DateTimeFormatterBuilder` on every call, and a history row goes through several of these
+ * to draw its rail and describe itself — the kind of per-row cost a `LazyColumn` pays on the
+ * frame a row scrolls in (#42). A `DateTimeFormatter` is immutable, so one instance serves
+ * every thread; the ICU ones in [skeletonFormatters] are not, and so are held per thread.
  */
 private val numberFormatters = ConcurrentHashMap<Pair<String, Locale>, DateTimeFormatter>()
-private val localizedDateFormatters = ConcurrentHashMap<Locale, DateTimeFormatter>()
 private val localizedTimeFormatters = ConcurrentHashMap<Locale, DateTimeFormatter>()
 
 /*
- * Single-field patterns, so there is no field order to get wrong in another locale — the
+ * A single-field pattern, so there is no field order to get wrong in another locale — the
  * only thing the locale decides here is which digits are drawn.
  */
-private const val YEAR_PATTERN = "y"
 private const val DAY_PATTERN = "d"
