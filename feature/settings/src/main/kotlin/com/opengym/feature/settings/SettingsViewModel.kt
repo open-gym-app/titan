@@ -1,5 +1,6 @@
 package com.opengym.feature.settings
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -12,15 +13,17 @@ import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -67,18 +70,26 @@ import kotlin.time.Duration.Companion.seconds
  */
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val localDataRepository: LocalDataRepository,
     private val notificationPermission: NotificationPermission,
     private val requestNotificationPermission: RequestNotificationPermissionUseCase,
 ) : ViewModel() {
 
-    /** What the screen owns, as opposed to what the stores do. */
-    private val screenState = MutableStateFlow(
+    /**
+     * What the screen owns, as opposed to what the stores do.
+     *
+     * Saved, so an open dialog — a rest-duration picker, a plate weight, the typed confirmation
+     * in front of the wipe — is still there when the user comes back (#183). The permission
+     * state is the one field that must not be: it is read from Android, and Android may have
+     * been told something different in the settings app the user just left for.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) {
         // Read once at construction and again on every resume. There is no callback for this
         // changing, and it changes in a place the app cannot see.
-        ScreenState(notificationsAllowed = notificationPermission.areNotificationsAllowed()),
-    )
+        ScreenState(notificationsAllowed = notificationPermission.areNotificationsAllowed())
+    }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         userPreferencesRepository.observe(),
@@ -103,7 +114,9 @@ class SettingsViewModel @Inject constructor(
         // Long enough to survive a rotation without re-reading two stores, short enough that
         // a screen left in the background is not holding a database observer open.
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = SettingsUiState(),
+        // Carrying the restored dialog, so one the process died with open is drawn on the first
+        // frame rather than flashing shut while the settings store answers.
+        initialValue = SettingsUiState(dialog = screenState.value.dialog),
     )
 
     fun onEvent(event: SettingsEvent) {
@@ -271,12 +284,28 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** The half of the state that belongs to the screen rather than to a store. */
+    /**
+     * What the screen shows and what the stores do not know about.
+     *
+     * Three of the five deliberately do not come back. The wipe cannot still be running when the
+     * process that was running it is gone; the message is about something the user was told
+     * before they put the phone down; and the permission prompt is a request to Android that
+     * went with the activity that raised it — re-raising it unasked on the way back in is the
+     * one thing this screen is careful never to do (see [RequestNotificationPermissionUseCase]).
+     *
+     * [notificationsAllowed] is saved and immediately overwritten by the resume that follows a
+     * restore, which is what makes it correct: the initial value is only what the screen draws
+     * for the frame before Android is asked again.
+     */
+    @Serializable
     private data class ScreenState(
         val dialog: SettingsDialog? = null,
+        @Transient
         val isDeleting: Boolean = false,
+        @Transient
         val message: SettingsMessage? = null,
         val notificationsAllowed: Boolean = false,
+        @Transient
         val notificationPermissionRequest: Boolean = false,
     )
 

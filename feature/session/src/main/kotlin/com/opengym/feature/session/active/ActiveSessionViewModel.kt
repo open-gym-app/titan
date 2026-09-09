@@ -58,6 +58,7 @@ import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -77,6 +78,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -199,8 +201,36 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private var defaultRest: Duration = UserPreferences.DEFAULT_REST_DURATION
 
+    /**
+     * The typed input this screen holds that the workout draft does not (#183).
+     *
+     * The draft carries almost all of it — the half-typed entry row under every exercise, the
+     * rest countdown, how long the session has spent paused — because that is what it is for;
+     * see `InProgressSessionRepository` and PERSISTENCE.md. Two things fall outside it, and both
+     * are text somebody is in the middle of writing: the rename dialog's field, and the figures
+     * typed over a set that is *already logged*, which the draft has no place for because the
+     * set it is about is a row rather than an entry.
+     *
+     * Saved state is the right home for exactly those two and the wrong home for the rest. What
+     * must not go in here is [ScreenState.entries]: a workout's worth of typed sets in a
+     * `Bundle` is how a long session earns a `TransactionTooLargeException`, and the draft
+     * already carries them somewhere with no such limit.
+     */
+    private val typedInput = savedStateHandle.savedScreenState(viewModelScope) { TypedInput() }
+
     /** What the user is in the middle of, which no store has an opinion about. */
-    private val screenState = MutableStateFlow(ScreenState())
+    private val screenState = MutableStateFlow(
+        ScreenState(nameDraft = typedInput.value.nameDraft, setEdits = typedInput.value.setEdits),
+    )
+
+    init {
+        // One-way, and this is the only writer: [screenState] is the truth while the process
+        // lives, and this is what is left of it when the process does not. A `MutableStateFlow`
+        // conflates, so a burst of keystrokes costs one encode rather than one per character.
+        viewModelScope.launch {
+            screenState.collect { typedInput.value = TypedInput(it.nameDraft, it.setEdits) }
+        }
+    }
 
     /**
      * Orders [IdleSessionMonitor.arm] and [IdleSessionMonitor.disarm] against each other.
@@ -366,13 +396,21 @@ class ActiveSessionViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // What this collector has seen, rather than what [unitSystem] holds. The field opens
+            // on the shipped default, so comparing against it would make the *first* read of a
+            // lifter who trains in pounds look like a switch to pounds — and the clear below
+            // would take the corrections restored from saved state with it. A first value is
+            // not a change; only a second, different one is. See [typedInput].
+            var seen: UnitSystem? = null
             userPreferencesRepository.observe().collect { preferences ->
                 // Read before the return below, which is about the *unit system* changing: the
                 // rest a set gets is a second setting off the same document, and a lifter who
                 // lengthens their rests without also switching to pounds must still get them.
                 defaultRest = preferences.defaultRestDuration
-                if (preferences.unitSystem == unitSystem.value) return@collect
+                val previous = seen
+                seen = preferences.unitSystem
                 unitSystem.value = preferences.unitSystem
+                if (previous == null || previous == preferences.unitSystem) return@collect
                 // Every correction half-typed into a logged row was seeded from the store in the
                 // unit that has just stopped being the unit. Left alone, a row the user touched
                 // would keep showing `70` next to rows that had become `154`. They all go, and
@@ -2225,6 +2263,20 @@ class ActiveSessionViewModel @Inject constructor(
         val DRAFT_QUIET = 300.milliseconds
     }
 }
+
+/**
+ * The part of [ScreenState] that outlives the process in saved instance state.
+ *
+ * Deliberately two fields. Everything else the workout screen holds is either restored from the
+ * draft (the entries, the rest, the pause) or is a flag about something that was happening when
+ * the process died and therefore is not happening any more (a write in flight, a sheet, a
+ * message). See [ActiveSessionViewModel.typedInput] for what must not be added here and why.
+ */
+@Serializable
+private data class TypedInput(
+    val nameDraft: String? = null,
+    val setEdits: Map<Long, SetEntry> = emptyMap(),
+)
 
 /**
  * What the user is in the middle of.

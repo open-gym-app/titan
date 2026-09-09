@@ -12,6 +12,7 @@ import com.opengym.core.domain.backup.samplePreferences
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.TemplateDraft
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -19,6 +20,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.FakeInProgressSessionRepository
+import com.opengym.core.domain.repository.FakeTemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -53,6 +55,7 @@ class ImportUseCaseTest {
     private val backup = FakeBackupRepository(emptyDocument()).also { it.timeline = timeline }
     private val preferences = RecordingUserPreferencesRepository(timeline)
     private val draft = FakeInProgressSessionRepository(ActiveSession(sessionId = 7, startedAt = 1_000))
+    private val templateDraft = FakeTemplateDraftRepository(TemplateDraft(templateId = 3, name = "Push"))
     private val sessionState = FakeSessionStateRepository(SessionState.Active(sessionId = 7, startedAt = 1_000))
 
     @Test
@@ -288,6 +291,7 @@ class ImportUseCaseTest {
             backupRepository = backup,
             userPreferencesRepository = preferences,
             inProgressSessionRepository = draft,
+            templateDraftRepository = templateDraft,
             sessionStateRepository = sessionState,
         )
 
@@ -303,6 +307,7 @@ class ImportUseCaseTest {
     private fun assertUntouched() {
         assertNull("the database should not have been touched", backup.replaced)
         assertEquals("the draft should not have been cleared", 0, draft.clearCount)
+        assertEquals("the template draft should not have been cleared", 0, templateDraft.clearCount)
         assertEquals(
             "the session should not have been ended",
             SessionState.Active(sessionId = 7, startedAt = 1_000),

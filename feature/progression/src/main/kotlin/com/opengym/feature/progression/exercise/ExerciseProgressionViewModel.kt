@@ -84,12 +84,25 @@ class ExerciseProgressionViewModel @Inject constructor(
      * Seeded from the route and moved by [ExerciseProgressionEvent.ExerciseSelected]. The
      * sentinel is translated once, here, so nothing below this line has to know that zero
      * means "nobody named one" — see [ExerciseProgressionDestination].
+     *
+     * Held in the [SavedStateHandle] rather than in a plain flow, so a lift chosen from the
+     * chooser survives the process being killed (#183). The route argument is only the *opening*
+     * value: once the user has picked something, that is what the screen was showing, and
+     * re-seeding from the argument would walk them back to the exercise whoever pushed this
+     * screen named. A `Long?` needs no encoding — it is what a `Bundle` already holds.
      */
-    private val selected = MutableStateFlow(
+    private val selected: MutableStateFlow<Long?> = savedStateHandle.getMutableStateFlow(
+        SELECTED_EXERCISE_KEY,
         savedStateHandle.toRoute<ExerciseProgressionDestination>()
             .exerciseId
             .takeIf { it != NO_EXERCISE },
     )
+
+    init {
+        // The timeframe is shared with the hub and outlives the process through this handle —
+        // see `ProgressionTimeframe.restoreThrough`.
+        timeframe.restoreThrough(savedStateHandle, viewModelScope)
+    }
 
     /**
      * The window every series is read over, and the timeframe it came from.
@@ -216,5 +229,14 @@ class ExerciseProgressionViewModel @Inject constructor(
 
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
+
+        /**
+         * Where the chosen lift is saved.
+         *
+         * Prefixed so it cannot collide with `exerciseId`, which is the *route's* name for a
+         * different thing in the same handle: the argument this screen was opened with, which
+         * navigation owns and which must not be rewritten under it.
+         */
+        const val SELECTED_EXERCISE_KEY = "com.opengym.selectedExercise"
     }
 }

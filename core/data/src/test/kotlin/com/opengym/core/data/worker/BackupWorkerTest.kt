@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
 import com.opengym.core.data.backup.AutoBackupFiles
 import com.opengym.core.data.db.CountingInProgressSessionRepository
+import com.opengym.core.data.db.CountingTemplateDraftRepository
 import com.opengym.core.data.db.InMemoryAutoBackupRepository
 import com.opengym.core.data.db.InMemoryUserPreferencesRepository
 import com.opengym.core.data.db.RoomTestBase
@@ -76,6 +77,7 @@ class BackupWorkerTest : RoomTestBase() {
             backupRepository = backup,
             userPreferencesRepository = preferences,
             inProgressSessionRepository = CountingInProgressSessionRepository(),
+            templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
         )
     }

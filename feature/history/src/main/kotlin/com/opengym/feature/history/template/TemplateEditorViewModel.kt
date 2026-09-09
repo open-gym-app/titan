@@ -6,13 +6,15 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.PlannedSet
-import com.opengym.core.domain.model.SetType
-import com.opengym.core.domain.model.TemplateCategory
+import com.opengym.core.domain.model.TemplateDraft
+import com.opengym.core.domain.model.TemplateDraftExercise
+import com.opengym.core.domain.model.TemplateDraftSet
 import com.opengym.core.domain.model.TemplateError
 import com.opengym.core.domain.model.TemplateExerciseDraft
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.WorkoutTemplate
 import com.opengym.core.domain.repository.ExerciseRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.superset.Supersets
@@ -24,6 +26,7 @@ import com.opengym.core.ui.component.supersetGroupNames
 import com.opengym.core.ui.component.supersetLabels
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.navigation.NEW_TEMPLATE
 import com.opengym.feature.history.navigation.TemplateEditorDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,11 +34,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -67,7 +74,23 @@ import kotlin.time.Duration.Companion.seconds
  *
  * The unit system is read the same way and for a stronger reason: every weight here is *text the
  * user is editing*, and reformatting the column under them mid-edit would rewrite what they had
- * typed. Changing the setting means leaving this screen.
+ * typed. Changing the setting means leaving this screen — and a restored draft keeps the unit it
+ * was typed in rather than the one the setting now holds, which is the same promise across a
+ * process death instead of across a minute.
+ *
+ * ### The draft is written down, and the rest of the screen is not (#183)
+ *
+ * A half-built template is minutes of work that exists in no table, so it goes to
+ * [TemplateDraftRepository] — a file, atomically replaced, outside the schema for the reasons
+ * PERSISTENCE.md gives for the workout draft beside it. That is deliberately *more* than saved
+ * instance state: a `Bundle` goes with the task record, and the task record goes when the user
+ * swipes the app out of Recents or the system runs short a day later.
+ *
+ * Everything else on the screen — the naming dialog and what is typed into it, the discard
+ * confirmation, the picker request still out — is [ScreenState] in the [SavedStateHandle]. None
+ * of it is work; all of it is *where the user was*, which is exactly the lifetime saved instance
+ * state has. Two mechanisms because there are two questions, not because one of them was
+ * insufficient.
  *
  * ### What SAVE actually writes
  *
@@ -93,6 +116,7 @@ class TemplateEditorViewModel @Inject constructor(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val createTemplate: CreateTemplateUseCase,
     private val updateTemplate: UpdateTemplateUseCase,
+    private val templateDrafts: TemplateDraftRepository,
 ) : ViewModel() {
 
     private val templateId: Long = savedStateHandle.toRoute<TemplateEditorDestination>().templateId
@@ -103,6 +127,26 @@ class TemplateEditorViewModel @Inject constructor(
     private val editorState = MutableStateFlow(EditorState())
 
     /**
+     * The part of the screen that is not the plan: the naming dialog, the discard confirmation,
+     * and the picker request still waiting on an answer.
+     *
+     * Saved state rather than the draft file, and the split is the whole point of this screen's
+     * answer to #183. What the user would call *their work* is the plan, and it goes somewhere
+     * that outlives the task; a dialog that happens to be up is not work, it is where they were,
+     * and where they were is exactly what saved instance state is for. Writing a file every time
+     * a confirmation opens would be the wrong tool used out of enthusiasm.
+     *
+     * The initial value is where a *new* editor's naming dialog comes from, and putting it here
+     * rather than in [loadNew] is what makes it correct: the lambda runs only when there is
+     * nothing saved to restore, which is precisely when the screen really is starting on its
+     * opening question. Raising it from the load instead would reopen it over an editor that had
+     * already been asked and answered.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) {
+        ScreenState(naming = TemplateNamingDraft(name = "", category = null).takeIf { isNew })
+    }
+
+    /**
      * The unit every weight on this screen is read and typed in, and the rest the estimate
      * prices every exercise at.
      *
@@ -110,7 +154,7 @@ class TemplateEditorViewModel @Inject constructor(
      * display value: it is what [TemplateDuration] charges an exercise with no rest of its own,
      * so an estimate computed without it would be the shipped default's estimate on the phone of
      * a user who has changed theirs. This screen plans no rest, so it is what almost every
-     * exercise is charged — see [DraftRow.restDuration] for the ones that are not.
+     * exercise is charged — see [TemplateDraftExercise.restDuration] for the ones that are not.
      */
     private var unitSystem: UnitSystem = UnitSystem.METRIC
     private var defaultRest: Duration = Duration.ZERO
@@ -129,48 +173,49 @@ class TemplateEditorViewModel @Inject constructor(
     private var nextSetKey: Long = 1
 
     /**
-     * Whether the picker now answering is one *this* screen opened.
+     * Whether the draft in the slot is this editor's.
      *
-     * The ids come back through `:app`, which holds them in `rememberSaveable` — so they survive
-     * the process being killed while the user is in the picker, and a ViewModel does not. The
-     * editor that comes back is therefore a new one, and it has re-read the stored template:
-     * appending to that draft hands back a plan that quietly lost every edit the user had made
-     * and gained the picked lines on top of the old one, with `isDirty` claiming there is
-     * something worth saving. An answer with no request behind it is an answer from a previous
-     * life of this screen, and is refused and said out loud instead.
-     *
-     * A plain field rather than state: it has to survive a rotation, which the ViewModel does,
-     * and *not* survive the process, which it also does. [isPickingExercises] cannot stand in —
-     * it is cleared on every resume, including the one that brings the answer back.
+     * The store holds one draft (see [TemplateDraftRepository]), and this is what says whether
+     * it is this screen's to take away. A clean editor clears *its own* draft and leaves
+     * anybody else's alone: a plan half-written for another template is minutes of work that a
+     * later visit to that template still restores — a file rather than a `Bundle` is precisely
+     * what makes it survive the task record — so merely opening a second editor is not the user
+     * throwing the first one away.
      */
-    private var pickWasRequested = false
+    private var ownsStoredDraft: Boolean = false
 
     /**
-     * The slot a swap is waiting on, or null when the picker was opened to add to the plan.
+     * The picker request this screen is still waiting on, or null when it is not waiting on one.
      *
-     * Set by whichever of the two controls asked — [TemplateEditorEvent.ExerciseSwapRequested]
-     * sets it and [TemplateEditorEvent.ExercisesPickRequested] clears it — so a picker backed out
-     * of and reopened from the other control cannot answer the wrong question. The workout screen
-     * keeps the same flag for the same reason; here it lives in the ViewModel rather than the
-     * screen because this screen's request flag already does.
+     * Held rather than inferred, and consumed when the answer lands, because the answer comes
+     * back through `:app` rather than from the picker directly: the ids sit in a `rememberSaveable`
+     * on the nav host while the picker pops. So an answer can arrive that this editor never asked
+     * for, and one that has already been applied can be redelivered by a recomposition. Both are
+     * refused by the same check.
      *
-     * A plain field beside [pickWasRequested] and with the same lifetime, which is the point: an
-     * answer that outlived the process is refused by that flag before this one is read, so this
-     * never has to describe a slot from a previous life of the screen.
+     * It is [ScreenState]'s rather than a field for the reason the draft is a file's: the request
+     * has to outlive the process, or a user who left the app while choosing exercises would come
+     * back to an editor that no longer knows what it asked. [ScreenState.isPickingExercises]
+     * cannot stand in — it is cleared on every resume, including the one that brings the answer
+     * back.
      */
-    private var swappingKey: Long? = null
+    private val pickRequest: PickRequest? get() = screenState.value.pick
 
-    val uiState: StateFlow<TemplateEditorUiState> = editorState
-        .map(::build)
+    val uiState: StateFlow<TemplateEditorUiState> = combine(editorState, screenState, ::build)
         .stateIn(
             scope = viewModelScope,
             // The other screens' number, for the same reasons.
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-            initialValue = TemplateEditorUiState(isNew = isNew),
+            // Seeded from the restored screen state, so a naming dialog the process died with
+            // open is on the first frame rather than appearing once the reads land.
+            initialValue = build(EditorState(), screenState.value),
         )
 
     init {
-        viewModelScope.launch { load() }
+        viewModelScope.launch {
+            load()
+            mirrorDraft()
+        }
     }
 
     /**
@@ -186,8 +231,13 @@ class TemplateEditorViewModel @Inject constructor(
         unitSystem = preferences.unitSystem
         defaultRest = preferences.defaultRestDuration
 
+        // Read before anything is built from [unitSystem], because a restored draft is what
+        // decides it — see [restoredDraft]. A seed formatted in one unit beside a draft typed in
+        // another is two columns of numbers that cannot be compared, which is what `isDirty` is.
+        val restored = restoredDraft()
+
         if (isNew) {
-            loadNew()
+            loadNew(restored)
             return
         }
 
@@ -202,19 +252,21 @@ class TemplateEditorViewModel @Inject constructor(
         val exercises = templateRepository.getExercises(templateId).first().sortedBy { it.position }
         val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
 
-        val seed = Draft(
+        val seed = TemplateDraft(
+            templateId = templateId,
             name = template.name,
             category = template.category,
             // Carried untouched rather than dropped: `UpdateTemplateUseCase` rewrites every
             // field it is given, so a save that omitted this would clear it — and this screen
             // does not draw it, which is exactly why it has to hand it back.
             icon = template.icon,
-            rows = exercises.map { exercise ->
-                DraftRow(
+            unitSystem = unitSystem,
+            exercises = exercises.map { exercise ->
+                TemplateDraftExercise(
                     key = exercise.id,
                     exerciseId = exercise.exerciseId,
                     sets = exercise.sets.map { planned ->
-                        DraftSet(
+                        TemplateDraftSet(
                             key = nextSetKey++,
                             setType = planned.setType,
                             weight = planned.weight
@@ -232,16 +284,73 @@ class TemplateEditorViewModel @Inject constructor(
             },
         )
 
+        windSetKeysPast(restored)
+
         editorState.update {
             it.copy(
-                draft = seed,
-                // The same value, and that is the point: `isDirty` is this comparison, so a
-                // screen nobody has touched cannot be saved.
+                // The saved draft when there is one, and the stored template otherwise. The two
+                // are the same value on the common path, which is what makes an editor nobody
+                // has touched read as clean.
+                draft = restored ?: seed,
+                // The stored template either way, and that is the point: `isDirty` is this
+                // comparison, so a restored draft is dirty exactly where it differs from what
+                // the database holds — which is what SAVE is about to be gated on.
                 seed = seed,
                 catalogue = catalogue,
                 isLoading = false,
             )
         }
+    }
+
+    /**
+     * The saved draft, when there is one for *this* template, with [nextKey] wound past it.
+     *
+     * Null covers every way there is nothing to restore: no draft was saved, one was saved and
+     * this build cannot read it, or the one on disk belongs to a template the user is not
+     * editing. The last is the one worth naming — the draft is a slot rather than a collection
+     * (see [TemplateDraftRepository]) and an editor opened on a different template must not be
+     * handed somebody else's plan.
+     *
+     * The unit system comes off the draft rather than off the store, and that is deliberate: the
+     * figures in it are *text typed in one unit*, and reformatting a column of numbers under
+     * somebody who left the app mid-edit is the thing this whole screen reads the setting once
+     * to avoid. See [TemplateDraft.unitSystem].
+     *
+     * [nextKey] is wound on here for the reason it exists: it hands out identities for lines
+     * added since the last save, counting down from -1 over the stored ids, and a counter that
+     * started over would hand out one the plan is already using — two rows with one identity,
+     * and a keystroke that lands in both. [nextSetKey] is wound too, but *after* the seed has
+     * been numbered; see [windSetKeysPast].
+     */
+    private suspend fun restoredDraft(): TemplateDraft? {
+        val restored = templateDrafts.load()?.takeIf { it.templateId == templateId } ?: return null
+
+        unitSystem = restored.unitSystem
+        nextKey = minOf(NEW_ROW_FIRST_KEY, (restored.exercises.minOfOrNull { it.key } ?: 0L) - 1)
+        // The slot on disk is this editor's, which is what says whether it is this editor's to
+        // take away again — see [mirrorDraft].
+        ownsStoredDraft = true
+
+        return restored
+    }
+
+    /**
+     * Wind [nextSetKey] past every set key in play, once the seed has been numbered.
+     *
+     * After the seed rather than beside [nextKey], and that ordering is the whole of it. The
+     * seed numbers its sets from wherever this counter stands, so winding first would number a
+     * *restored* editor's seed differently from the one the very same template got on its first
+     * open — and `isDirty` is a comparison of the draft against the seed. An untouched restored
+     * draft would then read as changed for ever: SAVE live over nothing, a discard question on
+     * the way out, and [mirrorDraft] never clearing the file after the user had put every
+     * figure back.
+     *
+     * Past *both* lists, because the two share one key space: a restored draft holds keys the
+     * seed has just handed out again, plus whatever was added on top of them.
+     */
+    private fun windSetKeysPast(restored: TemplateDraft?) {
+        val highest = restored?.exercises?.flatMap(TemplateDraftExercise::sets)?.maxOfOrNull { it.key } ?: 0L
+        nextSetKey = maxOf(nextSetKey, highest + 1)
     }
 
     /**
@@ -257,19 +366,87 @@ class TemplateEditorViewModel @Inject constructor(
      * new editor the user immediately backs out of has nothing to ask about, and cancelling the
      * dialog without typing has to be free.
      */
-    private suspend fun loadNew() {
+    private suspend fun loadNew(restored: TemplateDraft?) {
         val catalogue = exerciseRepository.getAll().first().associateBy(Exercise::id)
-        val seed = Draft(name = "", category = null, icon = null, rows = emptyList())
+        val seed = TemplateDraft(templateId = templateId, unitSystem = unitSystem)
+
+        windSetKeysPast(restored)
 
         editorState.update {
             it.copy(
-                draft = seed,
+                draft = restored ?: seed,
                 seed = seed,
                 catalogue = catalogue,
                 isLoading = false,
-                naming = TemplateNamingDraft(name = "", category = null),
             )
         }
+
+        // The one case the opening state cannot know about: the task record went and the draft
+        // file did not, so the dialog is up on its first question over a template that already
+        // has a name. Put that name in the field rather than asking as though nothing had been
+        // written. A dialog the user was actually typing into came back through saved state with
+        // their text in it, and is left exactly as it is.
+        if (restored != null) {
+            screenState.update { state ->
+                val naming = state.naming ?: return@update state
+                if (naming.name.isEmpty() && naming.category == null) {
+                    state.copy(naming = naming.copy(name = restored.name, category = restored.category))
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    /**
+     * Write the draft down as it changes, and take it away once there is nothing to keep.
+     *
+     * Started after [load] rather than beside it, and the order is load-bearing: the first thing
+     * this sees has to be the seeded state, or a clean editor would clear the very draft [load]
+     * is about to restore from.
+     *
+     * **Dirty is the condition**, not "has been edited". A draft equal to the stored template is
+     * one the user would lose nothing by losing, and keeping it would mean every template merely
+     * *opened* leaves a file behind for the next editor to reason about. The same clause covers
+     * the two ways this screen ends: a save that landed and a discard the user confirmed both
+     * set [EditorState.isSaved], and both mean the draft has served its purpose.
+     *
+     * **The slot is one deep, and only its owner empties it.** A clean editor clears the draft
+     * *it* put there and leaves one belonging to another template alone — see [ownsStoredDraft].
+     * The slot still holds one plan, so the next save overwrites whatever is in it; what this
+     * refuses to do is throw away a half-written template because the user opened a different
+     * one to look at it. See [TemplateDraftRepository].
+     *
+     * `distinctUntilChanged` because [editorState] moves for reasons the draft does not — a
+     * dialog opening, a catalogue re-read. Without it every one of those would be a file write.
+     *
+     * A failure here is swallowed. The draft is a convenience, the editor is still holding
+     * everything in memory, and a disk error on a screen somebody is typing into must not be
+     * what takes the process down — the argument every write in this app makes.
+     */
+    private suspend fun mirrorDraft() {
+        editorState
+            .map { state -> state.draft?.takeUnless { state.isSaved || it == state.seed } }
+            .distinctUntilChanged()
+            .collect { draft ->
+                try {
+                    when {
+                        draft != null -> {
+                            templateDrafts.save(draft)
+                            ownsStoredDraft = true
+                        }
+
+                        ownsStoredDraft -> {
+                            templateDrafts.clear()
+                            ownsStoredDraft = false
+                        }
+                    }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (_: Throwable) {
+                    // Nothing to say and nothing to do: see the note above.
+                }
+            }
     }
 
     fun onEvent(event: TemplateEditorEvent) {
@@ -283,17 +460,21 @@ class TemplateEditorViewModel @Inject constructor(
             // Nothing to confirm when nothing has changed: the screen leaves on its own, which
             // it can tell from the same flag SAVE is gated on.
             TemplateEditorEvent.BackRequested ->
-                if (build(editorState.value).isDirty && !editorState.value.isSaving) {
-                    editorState.update { it.copy(confirmingDiscard = true) }
+                if (build(editorState.value, screenState.value).isDirty && !editorState.value.isSaving) {
+                    screenState.update { it.copy(confirmingDiscard = true) }
                 }
 
-            TemplateEditorEvent.DiscardConfirmed ->
-                editorState.update { it.copy(confirmingDiscard = false, isSaved = true) }
+            TemplateEditorEvent.DiscardConfirmed -> {
+                screenState.update { it.copy(confirmingDiscard = false) }
+                // Which is also what takes the saved draft away — see [mirrorDraft]. A discard
+                // the user confirmed is the one case where losing the plan is the point.
+                editorState.update { it.copy(isSaved = true) }
+            }
 
             TemplateEditorEvent.DiscardDismissed ->
-                editorState.update { it.copy(confirmingDiscard = false) }
+                screenState.update { it.copy(confirmingDiscard = false) }
 
-            TemplateEditorEvent.MessageShown -> editorState.update { it.copy(message = null) }
+            TemplateEditorEvent.MessageShown -> screenState.update { it.copy(message = null) }
 
             else -> Unit
         }
@@ -351,7 +532,7 @@ class TemplateEditorViewModel @Inject constructor(
             is TemplateEditorEvent.ExerciseRemoved -> editDraft { draft ->
                 // Normalised rather than torn: a removal cannot split a group, it can only
                 // leave one with a single member, and that dissolves. See `Supersets.normalize`.
-                draft.copy(rows = draft.rows.filterNot { it.key == event.key }).normalized()
+                draft.copy(exercises = draft.exercises.filterNot { it.key == event.key }).normalized()
             }
 
             is TemplateEditorEvent.ExercisesReordered -> editDraft { draft -> draft.reorder(event.order) }
@@ -360,41 +541,39 @@ class TemplateEditorViewModel @Inject constructor(
 
             is TemplateEditorEvent.SupersetUnlinked -> editDraft { draft -> draft.regroup(event.key, link = false) }
 
-            is TemplateEditorEvent.ExerciseSwapRequested -> {
-                pickWasRequested = true
-                swappingKey = event.key
-                editorState.update { it.copy(isPickingExercises = true) }
-            }
+            is TemplateEditorEvent.ExerciseSwapRequested ->
+                screenState.update { it.copy(pick = PickRequest.Swap(event.key), isPickingExercises = true) }
 
-            TemplateEditorEvent.ExercisesPickRequested -> {
-                pickWasRequested = true
-                // Cleared, so the last control tapped is the one the answer belongs to.
-                swappingKey = null
-                editorState.update { it.copy(isPickingExercises = true) }
-            }
+            // The request replaces whatever was there, so a picker backed out of and reopened
+            // from the other control cannot answer the wrong question.
+            TemplateEditorEvent.ExercisesPickRequested ->
+                screenState.update { it.copy(pick = PickRequest.Add, isPickingExercises = true) }
 
+            // The picker is gone, which is not the same as it having answered: the request
+            // stands until the answer lands or another one replaces it.
             TemplateEditorEvent.ExercisesPickClosed ->
-                editorState.update { it.copy(isPickingExercises = false) }
+                screenState.update { it.copy(isPickingExercises = false) }
 
             // Consumed, so the same answer cannot be applied twice, and refused when this
-            // screen never asked — see [pickWasRequested].
+            // screen never asked — see [pickRequest].
             is TemplateEditorEvent.ExercisesPicked ->
-                if (pickWasRequested) {
-                    pickWasRequested = false
-                    val target = swappingKey
-                    swappingKey = null
-                    if (target == null) {
+                when (val request = pickRequest) {
+                    null -> screenState.update { it.copy(message = TemplateEditorMessage.EDITOR_RESTARTED) }
+
+                    PickRequest.Add -> {
+                        screenState.update { it.copy(pick = null) }
                         addExercises(event.exerciseIds)
-                    } else {
+                    }
+
+                    is PickRequest.Swap -> {
+                        screenState.update { it.copy(pick = null) }
                         // The first of the list rather than the whole of it: a slot holds one
                         // exercise, and a picker opened for a swap is drawn as a single choice —
                         // see `ExercisePickerDestination.replacing`. Read this way all the same,
                         // because this is the one place a second answer would otherwise turn a
                         // swap into an edit of the whole plan.
-                        swapExercise(target, event.exerciseIds.firstOrNull())
+                        swapExercise(request.key, event.exerciseIds.firstOrNull())
                     }
-                } else {
-                    editorState.update { it.copy(message = TemplateEditorMessage.EDITOR_RESTARTED) }
                 }
 
             else -> return false
@@ -415,12 +594,14 @@ class TemplateEditorViewModel @Inject constructor(
             // Refused while a write is out, on the same terms as every other edit — see
             // [editDraft]. The header that raises this is drawn inert then, but the dialog it
             // opens is a second way into the draft and it has to answer to the same rule.
-            TemplateEditorEvent.NameEditRequested -> editorState.update { state ->
-                val draft = state.draft ?: return@update state
-                if (state.isSaving) return@update state
-                state.copy(
-                    naming = TemplateNamingDraft(name = draft.name, category = draft.category),
-                )
+            TemplateEditorEvent.NameEditRequested -> {
+                val editor = editorState.value
+                val draft = editor.draft
+                if (draft != null && !editor.isSaving) {
+                    screenState.update {
+                        it.copy(naming = TemplateNamingDraft(name = draft.name, category = draft.category))
+                    }
+                }
             }
 
             // Typing clears the refusal: it was about the name that *was* in the field, and an
@@ -436,16 +617,14 @@ class TemplateEditorViewModel @Inject constructor(
             // the store would keep the old name, the page would show the new one, and the save
             // landing closes the screen over the difference.
             TemplateEditorEvent.NameConfirmed -> {
-                val naming = editorState.value.naming ?: return true
+                val naming = screenState.value.naming ?: return true
                 // The name is trimmed on the way into the store as well (`validateTemplate`),
                 // so what is kept here is what the user typed.
                 editDraft { it.copy(name = naming.name, category = naming.category) }
-                editorState.update { state ->
-                    if (state.isSaving) state else state.copy(naming = null)
-                }
+                if (!editorState.value.isSaving) screenState.update { it.copy(naming = null) }
             }
 
-            TemplateEditorEvent.NameEditCancelled -> editorState.update { it.copy(naming = null) }
+            TemplateEditorEvent.NameEditCancelled -> screenState.update { it.copy(naming = null) }
 
             else -> return false
         }
@@ -453,14 +632,14 @@ class TemplateEditorViewModel @Inject constructor(
     }
 
     private fun editNaming(change: (TemplateNamingDraft) -> TemplateNamingDraft) {
-        editorState.update { state ->
+        screenState.update { state ->
             val naming = state.naming ?: return@update state
             state.copy(naming = change(naming))
         }
     }
 
     /** Apply an edit to the plan, ignored while a write is out or before the read has landed. */
-    private fun editDraft(change: (Draft) -> Draft) {
+    private fun editDraft(change: (TemplateDraft) -> TemplateDraft) {
         editorState.update { state ->
             val draft = state.draft ?: return@update state
             if (state.isSaving) return@update state
@@ -498,10 +677,10 @@ class TemplateEditorViewModel @Inject constructor(
             // ViewModel's counter, and a side effect inside a compare-and-set loop is one that
             // cannot say how many times it happened.
             val added = known.map { exerciseId ->
-                DraftRow(
+                TemplateDraftExercise(
                     key = nextKey--,
                     exerciseId = exerciseId,
-                    sets = listOf(DraftSet(key = nextSetKey++)),
+                    sets = listOf(TemplateDraftSet(key = nextSetKey++)),
                 )
             }
 
@@ -510,14 +689,13 @@ class TemplateEditorViewModel @Inject constructor(
                 if (state.isSaving) return@update state
 
                 state.copy(
-                    draft = if (added.isEmpty()) draft else draft.copy(rows = draft.rows + added),
+                    draft = if (added.isEmpty()) draft else draft.copy(exercises = draft.exercises + added),
                     catalogue = catalogue,
-                    message = if (known.size < exerciseIds.size) {
-                        TemplateEditorMessage.EXERCISES_UNAVAILABLE
-                    } else {
-                        state.message
-                    },
                 )
+            }
+
+            if (known.size < exerciseIds.size) {
+                screenState.update { it.copy(message = TemplateEditorMessage.EXERCISES_UNAVAILABLE) }
             }
         }
     }
@@ -544,7 +722,7 @@ class TemplateEditorViewModel @Inject constructor(
      * The picker can create an exercise, so an id missing from the map this screen opened with is
      * far more likely to be one written a moment ago than one deleted.
      *
-     * @param key the slot, by [DraftRow.key].
+     * @param key the slot, by [TemplateDraftExercise.key].
      * @param exerciseId what to put in it, or null for a picker that came back with nothing —
      *   which is not a failure and says nothing: the user backed out.
      */
@@ -565,9 +743,10 @@ class TemplateEditorViewModel @Inject constructor(
                 state.copy(
                     draft = if (known) draft.mapRow(key) { it.copy(exerciseId = exerciseId) } else draft,
                     catalogue = catalogue,
-                    message = if (known) state.message else TemplateEditorMessage.EXERCISE_UNAVAILABLE,
                 )
             }
+
+            if (!known) screenState.update { it.copy(message = TemplateEditorMessage.EXERCISE_UNAVAILABLE) }
         }
     }
 
@@ -584,7 +763,7 @@ class TemplateEditorViewModel @Inject constructor(
         val draft = state.draft ?: return
         // Asked of a state built from what is held rather than of [uiState], which is a
         // `WhileSubscribed` flow and holds its initial value whenever nothing is collecting.
-        if (!build(state).canSave) return
+        if (!build(state, screenState.value).canSave) return
         editorState.update { it.copy(isSaving = true) }
 
         viewModelScope.launch {
@@ -593,9 +772,8 @@ class TemplateEditorViewModel @Inject constructor(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
-                editorState.update {
-                    it.copy(isSaving = false, message = TemplateEditorMessage.SAVE_FAILED)
-                }
+                editorState.update { it.copy(isSaving = false) }
+                screenState.update { it.copy(message = TemplateEditorMessage.SAVE_FAILED) }
                 return@launch
             }
 
@@ -613,7 +791,7 @@ class TemplateEditorViewModel @Inject constructor(
      * either one of them can do that the other cannot is [TemplateError.NotFound], which belongs
      * to the id an insert does not have.
      */
-    private suspend fun write(draft: Draft): Result<WorkoutTemplate> =
+    private suspend fun write(draft: TemplateDraft): Result<WorkoutTemplate> =
         if (isNew) {
             createTemplate(
                 name = draft.name,
@@ -642,12 +820,13 @@ class TemplateEditorViewModel @Inject constructor(
      */
     private fun reportSaveFailure(
         failure: Throwable,
-        draft: Draft,
+        draft: TemplateDraft,
     ) {
+        editorState.update { it.copy(isSaving = false, isMissing = failure is TemplateError.NotFound) }
+
         when (failure) {
-            is TemplateError.DuplicateName -> editorState.update {
+            is TemplateError.DuplicateName -> screenState.update {
                 it.copy(
-                    isSaving = false,
                     naming = TemplateNamingDraft(
                         name = draft.name,
                         category = draft.category,
@@ -656,28 +835,34 @@ class TemplateEditorViewModel @Inject constructor(
                 )
             }
 
-            is TemplateError.NotFound -> editorState.update {
-                it.copy(isSaving = false, isMissing = true)
-            }
+            // Nothing to say: the page is the dead end now, and it says it.
+            is TemplateError.NotFound -> Unit
 
-            else -> editorState.update {
-                it.copy(isSaving = false, message = TemplateEditorMessage.SAVE_FAILED)
-            }
+            else -> screenState.update { it.copy(message = TemplateEditorMessage.SAVE_FAILED) }
         }
     }
 
-    /** Assemble the screen from the draft, resolving names and re-deriving everything derived. */
-    private fun build(state: EditorState): TemplateEditorUiState {
+    /**
+     * Assemble the screen from the draft, resolving names and re-deriving everything derived.
+     *
+     * Two arguments because the screen is two things with different lifetimes — the plan, which
+     * outlives the process in a file, and where the user was in it, which outlives the process in
+     * saved state. See [screenState].
+     */
+    private fun build(
+        state: EditorState,
+        screen: ScreenState,
+    ): TemplateEditorUiState {
         val draft = state.draft
             ?: return TemplateEditorUiState(
                 isNew = isNew,
                 isLoading = state.isLoading,
                 isMissing = state.isMissing,
-                naming = state.naming,
-                message = state.message,
+                naming = screen.naming,
+                message = screen.message,
             )
 
-        val grouping = draft.rows.map(DraftRow::supersetGroup)
+        val grouping = draft.exercises.map(TemplateDraftExercise::supersetGroup)
         val labels = supersetLabels(grouping)
         // Beside the labels rather than parsed back out of them — see `supersetGroupNames`.
         val groupNames = supersetGroupNames(grouping)
@@ -685,7 +870,7 @@ class TemplateEditorViewModel @Inject constructor(
         return TemplateEditorUiState(
             name = draft.name,
             category = draft.category,
-            exercises = draft.rows.mapIndexed { index, row ->
+            exercises = draft.exercises.mapIndexed { index, row ->
                 TemplateExerciseRow(
                     key = row.key,
                     exerciseId = row.exerciseId,
@@ -711,16 +896,16 @@ class TemplateEditorViewModel @Inject constructor(
                 defaultRest = defaultRest,
             ),
             unitSystem = unitSystem,
-            naming = state.naming,
+            naming = screen.naming,
             isNew = isNew,
             isLoading = false,
             isMissing = state.isMissing,
             isSaving = state.isSaving,
             isDirty = draft != state.seed,
-            isPickingExercises = state.isPickingExercises,
-            confirmingDiscard = state.confirmingDiscard,
+            isPickingExercises = screen.isPickingExercises,
+            confirmingDiscard = screen.confirmingDiscard,
             isSaved = state.isSaved,
-            message = state.message,
+            message = screen.message,
         )
     }
 
@@ -751,60 +936,67 @@ class TemplateEditorViewModel @Inject constructor(
  *   an inert SAVE again.
  */
 private data class EditorState(
-    val draft: Draft? = null,
-    val seed: Draft? = null,
+    val draft: TemplateDraft? = null,
+    val seed: TemplateDraft? = null,
     val catalogue: Map<Long, Exercise> = emptyMap(),
     val isLoading: Boolean = true,
     val isMissing: Boolean = false,
-    val naming: TemplateNamingDraft? = null,
     val isSaving: Boolean = false,
-    val isPickingExercises: Boolean = false,
-    val confirmingDiscard: Boolean = false,
     val isSaved: Boolean = false,
+)
+
+/**
+ * Where the user is on the screen, as opposed to what they have built.
+ *
+ * Saved instance state, which is the right lifetime for every field here: a dialog that is up, a
+ * confirmation that is pending, a picker that has been sent for. None of it is work — losing it
+ * costs a tap — and none of it is worth a file. The plan is the other half and is a file; see
+ * [TemplateEditorViewModel.screenState] for the split and [TemplateDraftRepository] for why the
+ * plan needs more than this.
+ *
+ * @param naming the name-and-category dialog's contents, or null when it is closed. Typed text,
+ *   which is why the dialog being open is not enough to save on its own.
+ * @param isPickingExercises the picker is drawn over this screen. Cleared on every resume, which
+ *   is what makes it different from [pick] — see `TemplateEditorRoute`.
+ * @param pick the picker request still waiting on an answer.
+ * @param message a one-shot to show and forget. Not saved: it is about something that happened
+ *   before the user put the phone down, and replaying it twenty minutes later would be the
+ *   screen reporting an event they already watched.
+ */
+@Serializable
+private data class ScreenState(
+    val naming: TemplateNamingDraft? = null,
+    val isPickingExercises: Boolean = false,
+    val pick: PickRequest? = null,
+    @Transient
     val message: TemplateEditorMessage? = null,
+    val confirmingDiscard: Boolean = false,
 )
 
-/** The template as it is being edited. Compared whole against the seed to answer "is it dirty". */
-private data class Draft(
-    val name: String,
-    val category: TemplateCategory?,
-    /** Not edited on this screen, and carried so that saving does not clear it. */
-    val icon: String?,
-    val rows: List<DraftRow>,
-)
+/**
+ * What the exercise picker was opened to answer.
+ *
+ * Two questions rather than a nullable key, because "add these to the plan" and "put this one in
+ * that slot" are answered differently and by different amounts of the picker's reply — see
+ * `ExercisePickerDestination.replacing`.
+ */
+@Serializable
+private sealed interface PickRequest {
 
-/** One line of the plan, holding what was typed rather than what it parses to. */
-private data class DraftRow(
-    val key: Long,
-    val exerciseId: Long,
-    val sets: List<DraftSet> = emptyList(),
-    val supersetGroup: Int? = null,
-    /**
-     * Not edited on this screen, and carried so that saving does not clear it.
-     *
-     * The screen used to plan this and no longer does: the workout's timer runs on the user's
-     * default whatever the template says, so the field was setting a number nothing read. What a
-     * template already holds still prices its estimate, and an edit that silently zeroed it would
-     * change the figure on a card the user only opened to rename an exercise.
-     */
-    val restDuration: Long? = null,
-    /** Not edited on this screen, and carried so that saving does not clear it. */
-    val notes: String? = null,
-)
+    /** Append what comes back to the end of the plan. */
+    @Serializable
+    data object Add : PickRequest
 
-/** One planned set of that line, as it is being typed. */
-private data class DraftSet(
-    val key: Long,
-    val setType: SetType = SetType.NORMAL,
-    val weight: String = "",
-    val reps: String = "",
-)
+    /** Put the first thing that comes back into the slot [key] names, and change nothing else. */
+    @Serializable
+    data class Swap(val key: Long) : PickRequest
+}
 
 /** The set with one of its two figures replaced. */
-private fun DraftSet.withField(
+private fun TemplateDraftSet.withField(
     field: TemplateSetField,
     text: String,
-): DraftSet =
+): TemplateDraftSet =
     when (field) {
         TemplateSetField.WEIGHT -> copy(weight = text)
         TemplateSetField.REPS -> copy(reps = text)
@@ -821,9 +1013,9 @@ private fun DraftSet.withField(
  * nothing to report: the control is drawn inert at that point, so this only catches a tap that
  * was already in flight.
  */
-private fun DraftRow.withSetAdded(key: Long): DraftRow {
+private fun TemplateDraftExercise.withSetAdded(key: Long): TemplateDraftExercise {
     if (sets.size >= MAX_SETS_PER_EXERCISE) return this
-    val copied = sets.lastOrNull()?.copy(key = key) ?: DraftSet(key = key)
+    val copied = sets.lastOrNull()?.copy(key = key) ?: TemplateDraftSet(key = key)
     return copy(sets = sets + copied)
 }
 
@@ -835,7 +1027,7 @@ private fun DraftRow.withSetAdded(key: Long): DraftRow {
  * logged set to: a template whose sets a session could not log is a plan the user would meet a
  * refusal in the middle of.
  */
-private fun DraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> =
+private fun TemplateDraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> =
     buildSet {
         if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
 
@@ -854,8 +1046,8 @@ private fun String.isValidCount(range: LongRange): Boolean = isBlank() || toLong
 private val REP_COUNT_RANGE = SetValidator.REPS_MIN.toLong()..SetValidator.REPS_MAX.toLong()
 
 /** The plan as the drafts a write takes, with every figure parsed and the blanks left null. */
-private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> =
-    rows.map { row ->
+private fun TemplateDraft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> =
+    exercises.map { row ->
         TemplateExerciseDraft(
             exerciseId = row.exerciseId,
             sets = row.sets.map { set ->
@@ -873,10 +1065,10 @@ private fun Draft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> 
     }
 
 /** The draft with one row replaced. A key the plan no longer holds is a no-op. */
-private fun Draft.mapRow(
+private fun TemplateDraft.mapRow(
     key: Long,
-    change: (DraftRow) -> DraftRow,
-): Draft = copy(rows = rows.map { if (it.key == key) change(it) else it })
+    change: (TemplateDraftExercise) -> TemplateDraftExercise,
+): TemplateDraft = copy(exercises = exercises.map { if (it.key == key) change(it) else it })
 
 /**
  * The draft with one set of one row replaced. A key either list no longer holds is a no-op.
@@ -885,17 +1077,18 @@ private fun Draft.mapRow(
  * they are handed out by a counter that a caller has no contract with, and resolving a keystroke
  * against every exercise at once would make that an invariant the screen depends on.
  */
-private fun Draft.mapSet(
+private fun TemplateDraft.mapSet(
     exerciseKey: Long,
     setKey: Long,
-    change: (DraftSet) -> DraftSet,
-): Draft =
+    change: (TemplateDraftSet) -> TemplateDraftSet,
+): TemplateDraft =
     mapRow(exerciseKey) { row ->
         row.copy(sets = row.sets.map { if (it.key == setKey) change(it) else it })
     }
 
 /** The draft with its grouping in canonical form — groups of one dissolved, survivors renumbered. */
-private fun Draft.normalized(): Draft = withGrouping(Supersets.normalize(rows.map(DraftRow::supersetGroup)))
+private fun TemplateDraft.normalized(): TemplateDraft =
+    withGrouping(Supersets.normalize(exercises.map(TemplateDraftExercise::supersetGroup)))
 
 /**
  * The draft rearranged into [order], with the grouping torn at whatever the move pulled apart.
@@ -904,12 +1097,12 @@ private fun Draft.normalized(): Draft = withGrouping(Supersets.normalize(rows.ma
  * the order they already had, so a stale order — one computed against a list an exercise has
  * since been cut from — rearranges what it can rather than losing a line.
  */
-private fun Draft.reorder(order: List<Long>): Draft {
-    val byKey = rows.associateBy(DraftRow::key)
+private fun TemplateDraft.reorder(order: List<Long>): TemplateDraft {
+    val byKey = exercises.associateBy(TemplateDraftExercise::key)
     val moved = order.mapNotNull(byKey::get)
-    val untouched = rows.filterNot { it.key in order }
-    val rearranged = copy(rows = moved + untouched)
-    return rearranged.withGrouping(Supersets.tear(rearranged.rows.map(DraftRow::supersetGroup)))
+    val untouched = exercises.filterNot { it.key in order }
+    val rearranged = copy(exercises = moved + untouched)
+    return rearranged.withGrouping(Supersets.tear(rearranged.exercises.map(TemplateDraftExercise::supersetGroup)))
 }
 
 /**
@@ -924,14 +1117,14 @@ private fun Draft.reorder(order: List<Long>): Draft {
  * cannot make — the control is drawn between two neighbours, which is the one ask that is always
  * contiguous — so there is nothing to report, only nothing to do.
  */
-private fun Draft.regroup(
+private fun TemplateDraft.regroup(
     key: Long,
     link: Boolean,
-): Draft {
-    val index = rows.indexOfFirst { it.key == key }
-    if (index < 0 || index == rows.lastIndex) return this
+): TemplateDraft {
+    val index = exercises.indexOfFirst { it.key == key }
+    if (index < 0 || index == exercises.lastIndex) return this
 
-    val grouping = rows.map(DraftRow::supersetGroup)
+    val grouping = exercises.map(TemplateDraftExercise::supersetGroup)
     val regrouped = if (link) {
         Supersets.join(grouping, index).getOrNull() ?: return this
     } else {
@@ -941,5 +1134,5 @@ private fun Draft.regroup(
 }
 
 /** The draft carrying [grouping], which must be one entry per row and in the same order. */
-private fun Draft.withGrouping(grouping: List<Int?>): Draft =
-    copy(rows = rows.mapIndexed { index, row -> row.copy(supersetGroup = grouping[index]) })
+private fun TemplateDraft.withGrouping(grouping: List<Int?>): TemplateDraft =
+    copy(exercises = exercises.mapIndexed { index, row -> row.copy(supersetGroup = grouping[index]) })

@@ -11,6 +11,7 @@ import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.bestByType
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.exercise.applyTo
 import com.opengym.feature.history.exercise.exerciseDraftOf
@@ -19,7 +20,6 @@ import com.opengym.feature.history.exercise.resolveMuscleGroups
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -59,8 +61,14 @@ class ExerciseDetailViewModel @Inject constructor(
 
     private val exerciseId = savedStateHandle.toRoute<ExerciseDetailDestination>().exerciseId
 
-    /** What the screen owns, as opposed to what the store does. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the screen owns, as opposed to what the store does.
+     *
+     * Saved, and this is the screen where that matters most in the module after the editor: two
+     * of its five fields are text the user is in the middle of typing — a note on the exercise
+     * and the whole edit form — and neither has been written anywhere yet.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * The row, boxed, or **null** until the read comes back.
@@ -126,7 +134,16 @@ class ExerciseDetailViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = ExerciseDetailUiState(),
+        // Seeded from the restored screen state rather than from nothing, so the note editor and
+        // the edit sheet are already open on the first frame instead of appearing once four
+        // reads have answered — see the library's `initialValue` for the whole argument.
+        initialValue = buildState(
+            loaded = null,
+            links = emptyList(),
+            vocabulary = Vocabulary(),
+            records = emptyList(),
+            screen = screenState.value,
+        ),
     )
 
     fun onEvent(event: ExerciseDetailEvent) {
@@ -326,14 +343,31 @@ class ExerciseDetailViewModel @Inject constructor(
             message = screen.message,
         )
 
-    /** What the user is in the middle of, which the store has no opinion about. */
+    /**
+     * What the screen shows and what the store does not know about.
+     *
+     * `@Serializable` so it survives the process being killed with the page open — see
+     * [savedScreenState]. Three of the seven fields deliberately do not come back: the two
+     * in-flight writes, because the process that was making them is gone and a form restored
+     * inert would never take another tap, and the one-shot message, because it is about
+     * something the user was told before they put the phone down.
+     */
+    @Serializable
     private data class ScreenState(
         val noteDraft: String? = null,
+        @Transient
         val isSavingNotes: Boolean = false,
         val editDraft: ExerciseDraft? = null,
         val confirmingDelete: Boolean = false,
+        @Transient
         val isDeleting: Boolean = false,
+        /**
+         * Saved, unlike the two flags above. It is not a write in flight but its *outcome*: the
+         * row is gone, the screen is a dead end, and coming back to a detail page for an
+         * exercise that no longer exists is the one thing worse than coming back to the notice.
+         */
         val isDeleted: Boolean = false,
+        @Transient
         val message: ExerciseDetailMessage? = null,
     )
 

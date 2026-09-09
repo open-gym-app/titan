@@ -1,5 +1,7 @@
 package com.opengym.core.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * One set as a plan says it should be performed: what kind of set it is, and the two
  * figures a lifter reads off it.
@@ -43,7 +45,11 @@ package com.opengym.core.domain.model
  *   session opens it as an empty field rather than as a target.
  * @property weight in milligrams, matching [WorkoutSet.weight], or null for a set
  *   planned without one — bodyweight work, or a figure the lifter decides on the day.
+ *
+ * `@Serializable` because a planned set travels inside [SessionPlan] and [TemplateDraft], both
+ * of which are written down while the user is still deciding — see #183.
  */
+@Serializable
 data class PlannedSet(
     val setType: SetType = SetType.NORMAL,
     val reps: Int? = null,

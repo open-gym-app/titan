@@ -1,5 +1,6 @@
 package com.opengym.feature.history.library
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.EquipmentType
@@ -9,6 +10,7 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.exercise.isDuplicateIn
 import com.opengym.feature.history.exercise.resolveMuscleGroups
@@ -17,7 +19,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -61,12 +64,20 @@ import kotlin.time.Duration.Companion.seconds
  */
 @HiltViewModel
 class ExerciseLibraryViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val exerciseRepository: ExerciseRepository,
     personalRecordRepository: PersonalRecordRepository,
 ) : ViewModel() {
 
-    /** What the screen owns, as opposed to what the stores do. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the screen owns, as opposed to what the stores do.
+     *
+     * Saved, because every field of it is a narrowing the user performed and none of it is
+     * re-derivable: a search typed into the box, two filters set from the panel, the selection
+     * being assembled for a new session, and a custom exercise being written. The catalogue
+     * underneath is a query and is deliberately not saved — see [buildState].
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * The catalogue, or **null** until the read comes back.
@@ -131,7 +142,17 @@ class ExerciseLibraryViewModel @Inject constructor(
         // Long enough to survive a rotation without re-reading four queries, short enough
         // that a backgrounded screen is not holding database observers open.
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = ExerciseLibraryUiState(),
+        // Built from the restored screen state rather than from nothing, and this is what makes
+        // the restoration visible rather than merely correct. `combine` holds its first emission
+        // until all four catalogue reads have answered; an empty initial value would draw the
+        // search box blank and the new-exercise sheet closed for that whole window, and then
+        // put both back — a screen that loses what the user typed and returns it a moment later
+        // is indistinguishable, at the speed a thumb moves, from one that lost it.
+        initialValue = buildState(
+            catalogue = Catalogue(exercises = null, links = emptyMap(), taxonomy = emptyList(), records = emptyMap()),
+            matches = Matches(query = screenState.value.query.trim(), exercises = null),
+            screen = screenState.value,
+        ),
     )
 
     fun onEvent(event: ExerciseLibraryEvent) {
@@ -325,13 +346,22 @@ class ExerciseLibraryViewModel @Inject constructor(
         )
     }
 
-    /** What the screen shows and what the stores do not know about. */
+    /**
+     * What the screen shows and what the stores do not know about.
+     *
+     * `@Serializable` so it survives the process being killed with the library open — see
+     * [savedScreenState]. [message] is the one thing that must not: it is a one-shot the screen
+     * shows and reports back, and a snackbar replayed twenty minutes later would be announcing
+     * an exercise the user watched appear in the list before they put the phone down.
+     */
+    @Serializable
     private data class ScreenState(
         val query: String = "",
         val muscleGroupId: Long? = null,
         val equipment: Set<EquipmentType> = emptySet(),
         val selection: List<Long> = emptyList(),
         val draft: ExerciseDraft? = null,
+        @Transient
         val message: ExerciseLibraryMessage? = null,
     )
 

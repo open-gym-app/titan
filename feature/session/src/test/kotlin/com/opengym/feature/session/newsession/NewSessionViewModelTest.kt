@@ -1,5 +1,6 @@
 package com.opengym.feature.session.newsession
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionExercise
@@ -18,6 +19,7 @@ import com.opengym.core.domain.usecase.SessionLifecycleLock
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.domain.usecase.StartSessionUseCase
 import com.opengym.feature.session.active.FakeDraftStore
+import com.opengym.feature.session.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -680,6 +682,44 @@ class NewSessionViewModelTest {
 
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a plan assembled but not started comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(NewSessionEvent.ExerciseSelectionOpened)
+            before.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH, INCLINE, FLY)))
+            before.onEvent(NewSessionEvent.NameEditRequested)
+            before.onEvent(NewSessionEvent.NameChanged("Chest, heavy"))
+            before.onEvent(NewSessionEvent.NameConfirmed)
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+
+            val step = restored.readyToStart()
+            assertEquals("Chest, heavy", step.name)
+            assertEquals(3, step.exercises.size)
+        }
+
+    @Test
+    fun `an exercise deleted while the process was dead is cut from the restored plan`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(NewSessionEvent.ExerciseSelectionOpened)
+            before.onEvent(NewSessionEvent.ExercisesSelected(listOf(BENCH, INCLINE)))
+
+            // The catalogue the restored screen re-adopts against no longer holds the second.
+            val restored = viewModel(
+                catalogue = FakeExerciseCatalogue(CATALOGUE.filter { it.id != INCLINE }),
+                savedState = handle.afterProcessDeath(),
+            )
+
+            assertEquals(1, restored.readyToStart().exercises.size)
+            assertEquals(NewSessionMessage.EXERCISES_UNAVAILABLE, restored.uiState.value.message)
+        }
+
     /**
      * A ViewModel with its state being collected.
      *
@@ -690,8 +730,10 @@ class NewSessionViewModelTest {
      */
     private fun TestScope.viewModel(
         catalogue: ExerciseRepository = FakeExerciseCatalogue(CATALOGUE),
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): NewSessionViewModel {
         val viewModel = NewSessionViewModel(
+            savedStateHandle = savedState,
             getTemplateSummaries = GetTemplateSummariesUseCase(templates, settings),
             applyTemplate = ApplyTemplateUseCase(templates),
             startPlannedSession = StartPlannedSessionUseCase(

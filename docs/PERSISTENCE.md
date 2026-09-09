@@ -233,11 +233,41 @@ The database is not the only thing the app writes. A workout in progress also ha
 
 Restoring on relaunch is *not* alerting. Nothing reads a database while the process is dead, so a rest that ran out while the app was gone comes back `Finished` without ever having rung. Alerting at the deadline needs an OS-scheduled wake-up (`AlarmManager` plus a notification) and is not built yet.
 
+## The half-built template draft
+
+The second thing outside the schema, and the same kind of thing for the same reasons - `TemplateDraft` in `:core:domain`, encoded by `TemplateDraftFormat`, written by `TemplateDraftRepositoryImpl` to `template-draft.json` in the app's private `filesDir`. It is what stops a process kill costing somebody the template they were in the middle of building (#183).
+
+- **It replaces nothing, because there is nothing to replace.** This is where it differs from the session draft, which overlaps rows that exist either way. A template is written *whole* on SAVE - `UpdateTemplateUseCase` replaces the exercise list wholesale - so until the button is pressed, the plan is nowhere at all. That is what makes it the most expensive thing on any screen in the app to lose: several exercises, their sets and their figures, and no row anywhere carrying any of it.
+- **Saved instance state would not have been enough**, which is the point worth writing down. A `Bundle` survives the process; it does not survive the task record going with it - a swipe out of Recents, a reboot, a long enough absence. That is an acceptable lifetime for *where the user was* and not for *what they built*, so the editor uses both mechanisms deliberately: the plan here, and the naming dialog, the discard confirmation and the outstanding picker request in the `SavedStateHandle`.
+- **It is a slot, not a collection.** At most one template is being edited at a time, because the editor is one destination. `TemplateDraft.templateId` says which - `0` for one that does not exist yet - and an editor opened on a different template ignores what it finds and takes the slot for itself. A draft is cleared the moment its editor is clean, saved or discarded, so a stale one cannot be restored over the next template opened.
+- **The figures are text, and the unit travels with them.** Every weight in the editor is *what the user typed*, in the unit in force when they typed it, which is why `TemplateDraftSet.weight` is a `String` and `TemplateDraft.unitSystem` is on the document. A draft restored after the setting changed keeps its own unit rather than being reformatted under somebody mid-edit; the parse happens on SAVE, once.
+- **The keys are saved with it.** A line added since the last save has no stored `template_exercise.id`, so the editor hands out negative keys counting down from -1 and set keys counting up from 1. Restoring winds both counters past what the draft already holds; a counter that started over would hand out an identity the plan is already using, and a keystroke would land in two rows.
+- **The same file handling as the session draft**, and literally the same code: both go through `AtomicDocument` in `:core:data` - write to a `.tmp` sibling, `FileDescriptor.sync()`, `ATOMIC_MOVE` onto the live document, with concurrent writers serialised on a mutex because they share the one scratch path. The two drafts had the same thing to get right and now get it right once.
+- **It is cleared by a wipe and by an import**, alongside the session draft and for the same reason: it names a `templateId` that is about to stop existing, and a draft left behind would be restored over whatever takes that id next. See `LocalDataRepositoryImpl.deleteAll` and `ImportUseCase`.
+
+## Saved instance state, and where it stops
+
+Everything above outlives the process *and* the task. Saved instance state is the fourth lifetime the app uses and the shortest of the durable ones: it survives the process being killed under a backgrounded app, and it goes when the task record does - a swipe out of Recents, a reboot, a long enough absence. #183 is the pass that decided, screen by screen, which state belongs in it.
+
+The rule the audit settled on, and the one to apply to any screen added later:
+
+| The state is… | Where it goes | Why |
+| --- | --- | --- |
+| transient UI, owned by a composable - a scroll offset, an expanded section, a dialog's own text field | `rememberSaveable` | Compose already carries it into the same `Bundle`, and hoisting it into a ViewModel to save it would be moving state away from what draws it for no gain |
+| a ViewModel's own - a search box, a selected tab, a filter, an open dialog, a half-typed form | `SavedStateHandle`, through `savedScreenState` in `:core:ui` | it outlives the process, dies with the task, and none of it is worth a file |
+| something the user would call **their work** | a repository | a `Bundle` that a low-memory kill can still lose is not where minutes of somebody's effort belong - see the two drafts above |
+
+- **`savedScreenState` is the one mechanism.** A ViewModel's `MutableStateFlow(ScreenState())` becomes `savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }` and nothing else about the class changes. The state class is `@Serializable`; the fields that must *not* come back are `@Transient` beside the field they are about, which is where the reasoning for each one is written down.
+- **What is always `@Transient`:** a write in flight (the process that was making it is gone, and a form restored inert never takes another tap), a one-shot message (it is about something the user was told before they put the phone down), and a permission request (it belonged to an activity that no longer exists, and re-raising it is the second prompt Android answers with the refusal from the first).
+- **What must never be saved at all:** rows a query can re-read. A list of a thousand sessions or a workout's worth of typed sets in a `Bundle` is how a screen earns a `TransactionTooLargeException` - the limit is on the *whole* of a task's saved state, not on one screen's share of it. The active session screen is the sharpest case: its entries go to the workout draft, and only the rename field and the corrections typed over already-logged sets go to saved state.
+- **The encoding is a JSON string**, not a `Parcelable` or `androidx.savedstate`'s serialization. The state classes are already reachable by the `kotlinx.serialization` plugin every feature applies for its route types, and a `String` is something a `SavedStateHandle` holds with no Android framework behind it - so the same JVM test that drives a ViewModel can drive its restoration. `SavedScreenStateTest` covers the mechanism; each screen's own suite covers its state.
+- **A restored state has to reach the first frame.** Most screens assemble `uiState` with `combine(...).stateIn(...)`, which holds its first emission until every read has answered - so an `initialValue` built from nothing would draw an empty search box and a closed sheet for that whole window and then put them back. Where that was visible, `initialValue` is built from the restored screen state instead.
+
 ## The user preferences store
 
-The third thing the app writes, after the schema and the draft: the user's settings - `UserPreferences` in `:core:domain`, held in a **Preferences DataStore** at `user-preferences.preferences_pb` in the app's private storage, implemented by `UserPreferencesRepositoryImpl`.
+The fourth thing the app writes, after the schema and the two drafts: the user's settings - `UserPreferences` in `:core:domain`, held in a **Preferences DataStore** at `user-preferences.preferences_pb` in the app's private storage, implemented by `UserPreferencesRepositoryImpl`.
 
-Outside the schema for the same reason the draft is, from the other direction. A setting is not a record of anything that happened; it is a single-valued fact that is read on the way to the first frame of nearly every screen and written a handful of times in a device's life. A one-row table would buy a migration ladder for a document with six scalar fields and put a database read in front of the first render.
+Outside the schema for the same reason the drafts are, from the other direction. A setting is not a record of anything that happened; it is a single-valued fact that is read on the way to the first frame of nearly every screen and written a handful of times in a device's life. A one-row table would buy a migration ladder for a document with six scalar fields and put a database read in front of the first render.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -259,7 +289,7 @@ Outside the schema for the same reason the draft is, from the other direction. A
 
 ## The auto-backup schedule store
 
-The fourth thing the app writes, and the smallest: whether the weekly automatic backup (#181) is on, when it last wrote a file, and whether the last run gave up - `AutoBackupSchedule` in `:core:domain`, held in a **second Preferences DataStore** at `no_backup/datastore/auto-backup.preferences_pb`, implemented by `AutoBackupRepositoryImpl`.
+The fifth thing the app writes, and the smallest: whether the weekly automatic backup (#181) is on, when it last wrote a file, and whether the last run gave up - `AutoBackupSchedule` in `:core:domain`, held in a **second Preferences DataStore** at `no_backup/datastore/auto-backup.preferences_pb`, implemented by `AutoBackupRepositoryImpl`.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -292,6 +322,7 @@ What they exclude is the whole of the app's durable footprint:
 | The database and its journal sidecars | `databases/open-gym.db`, `-wal`, `-shm`, `-journal` | excluded by name |
 | The settings store | `files/datastore/user-preferences.preferences_pb` | the `datastore` directory is excluded |
 | The in-progress draft and its scratch file | `files/in-progress-session.json`, `.json.tmp` | excluded by name |
+| The half-built template draft and its scratch file | `files/template-draft.json`, `.json.tmp` | excluded by name |
 | Exported and automatic backups | `backups/` under the external files directory, or under `files/` when there is no external volume | the directory is excluded in both domains |
 | The auto-backup schedule | `no_backup/datastore/auto-backup.preferences_pb` | no rule needed - `no_backup/` is exempt by the platform |
 

@@ -73,6 +73,7 @@ class LocalDataRepositoryImplTest {
 
     private lateinit var userPreferencesRepository: UserPreferencesRepositoryImpl
     private lateinit var inProgressSessionRepository: InProgressSessionRepositoryImpl
+    private lateinit var templateDraftRepository: TemplateDraftRepositoryImpl
     private lateinit var sessionStateRepository: SessionStateRepositoryImpl
 
     /** The reminder alarms, which a wipe has to take down with the settings that armed them. */
@@ -95,12 +96,14 @@ class LocalDataRepositoryImplTest {
 
         userPreferencesRepository = UserPreferencesRepositoryImpl(dataStore)
         inProgressSessionRepository = InProgressSessionRepositoryImpl(context, Dispatchers.IO)
+        templateDraftRepository = TemplateDraftRepositoryImpl(context, Dispatchers.IO)
         sessionStateRepository = SessionStateRepositoryImpl()
         reminderScheduler = RecordingReminderScheduler()
         repository = LocalDataRepositoryImpl(
             database = db,
             userPreferencesRepository = userPreferencesRepository,
             inProgressSessionRepository = inProgressSessionRepository,
+            templateDraftRepository = templateDraftRepository,
             sessionStateRepository = sessionStateRepository,
             reminderScheduler = reminderScheduler,
             context = context,

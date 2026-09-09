@@ -1,20 +1,23 @@
 package com.opengym.feature.onboarding
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -55,11 +58,20 @@ import kotlin.time.Duration.Companion.seconds
  * is the screen going away rather than a write that failed.
  */
 @HiltViewModel
-class OnboardingViewModel @Inject constructor(private val userPreferencesRepository: UserPreferencesRepository) :
-    ViewModel() {
+class OnboardingViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    private val userPreferencesRepository: UserPreferencesRepository,
+) : ViewModel() {
 
-    /** What the flow owns, as opposed to what the store does. */
-    private val stepState = MutableStateFlow(StepState())
+    /**
+     * What the flow owns, as opposed to what the store does.
+     *
+     * Saved, so a process killed on the third question comes back to the third question (#183).
+     * The *answers* need no saving: each one is written to the settings store as it is given —
+     * which is what makes this flow resumable at all — so only the place in the sequence is
+     * this class's to keep.
+     */
+    private val stepState = savedStateHandle.savedScreenState(viewModelScope) { StepState() }
 
     val uiState: StateFlow<OnboardingUiState> = combine(
         userPreferencesRepository.observe(),
@@ -77,7 +89,10 @@ class OnboardingViewModel @Inject constructor(private val userPreferencesReposit
         // Long enough to survive a rotation without re-reading the store, short enough that a
         // flow left in the background is not holding a collector open.
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = OnboardingUiState(),
+        // Carrying the restored step, so a flow rebuilt on question three draws question three
+        // rather than the welcome card and then a jump — the store read behind this is a
+        // DataStore one, which is several frames rather than none.
+        initialValue = OnboardingUiState(step = stepState.value.step),
     )
 
     fun onEvent(event: OnboardingEvent) {
@@ -193,11 +208,21 @@ class OnboardingViewModel @Inject constructor(private val userPreferencesReposit
         }
     }
 
-    /** The half of the state that belongs to the flow rather than to the store. */
+    /**
+     * Where the flow is, and what it is doing about it.
+     *
+     * Only the step comes back. The write that finishes onboarding went with the process that
+     * started it, and a flow restored claiming to be finishing — or finished, which is the state
+     * that navigates the user out — would be reporting something that did not happen.
+     */
+    @Serializable
     private data class StepState(
         val step: OnboardingStep = OnboardingStep.FIRST,
+        @Transient
         val isFinishing: Boolean = false,
+        @Transient
         val isFinished: Boolean = false,
+        @Transient
         val message: OnboardingMessage? = null,
     )
 

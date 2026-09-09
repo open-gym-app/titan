@@ -56,6 +56,8 @@
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="file" path="template-draft.json" />
+        <exclude domain="file" path="template-draft.json.tmp" />
         <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
     </cloud-backup>
@@ -73,6 +75,8 @@
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />
+        <exclude domain="file" path="template-draft.json" />
+        <exclude domain="file" path="template-draft.json.tmp" />
         <exclude domain="file" path="backups" />
         <exclude domain="external" path="backups" />
     </device-transfer>

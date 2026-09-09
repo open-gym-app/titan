@@ -1,5 +1,7 @@
 package com.opengym.core.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * One exercise of a session as the caller supplies it, before the rows exist.
  *
@@ -26,7 +28,11 @@ package com.opengym.core.domain.model
  *   an exercise the user picked themselves. It is a provenance link and nothing more:
  *   editing or deleting the template afterwards does not change the session, and the
  *   column is `SET NULL` when the row it points at goes away.
+ *
+ * `@Serializable` because a plan the user has assembled but not yet started is state the new-session
+ * screen keeps across a process death (#183) — see `NewSessionViewModel`.
  */
+@Serializable
 data class SessionExerciseDraft(
     val exerciseId: Long,
     val supersetGroup: Int? = null,

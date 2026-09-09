@@ -2,6 +2,7 @@ package com.opengym.feature.settings.backup
 
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.backup.ExportSink
@@ -14,11 +15,11 @@ import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.ExportUseCase
 import com.opengym.core.domain.usecase.ImportUseCase
 import com.opengym.core.domain.usecase.SetAutoBackupEnabledUseCase
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -28,6 +29,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import java.io.File
 import java.io.IOException
 import java.time.Instant
@@ -80,6 +83,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @HiltViewModel
 class BackupViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     @param:ApplicationContext private val context: Context,
     private val exportBackup: ExportUseCase,
     private val importBackup: ImportUseCase,
@@ -89,8 +93,15 @@ class BackupViewModel @Inject constructor(
     autoBackupRepository: AutoBackupRepository,
 ) : ViewModel() {
 
-    /** What the screen owns, as opposed to what the store does. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the screen owns, as opposed to what the store does.
+     *
+     * Saved for one field's sake (#183): [ScreenState.pendingRestoreUri], the file the user has
+     * picked and not yet confirmed replacing their data with. It is a document the system picker
+     * handed over, and losing it means going back through the picker to find it again. Nothing
+     * else here survives — see the state class.
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * One toggle write at a time, in the order the taps arrived.
@@ -422,13 +433,32 @@ class BackupViewModel @Inject constructor(
         return "$FILE_NAME_PREFIX$stamp$FILE_NAME_SUFFIX"
     }
 
-    /** The half of the state that belongs to the screen rather than to a store. */
+    /**
+     * What the screen shows and what the store does not know about.
+     *
+     * Only [pendingRestoreUri] comes back. A [phase] is work in flight, and the process that was
+     * doing it is gone — a screen restored mid-export would show a progress bar over nothing.
+     * The three outcomes are reports of something that finished before the user put the phone
+     * down, and re-announcing "restored 4,182 rows" twenty minutes later is the app describing
+     * an event rather than reporting one.
+     *
+     * The permission the URI carries is the caller's to have taken: the picker grants it for the
+     * life of the process unless it was taken persistably, which is why what is saved is the URI
+     * and the *confirmation* rather than a promise the read will still work. A refused read is
+     * already a failure this screen reports.
+     */
+    @Serializable
     private data class ScreenState(
+        @Transient
         val phase: BackupPhase = BackupPhase.Idle,
+        @Transient
         val autoBackupSaveFailed: Boolean = false,
         val pendingRestoreUri: String? = null,
+        @Transient
         val lastExport: ExportOutcome? = null,
+        @Transient
         val lastRestore: RestoreOutcome? = null,
+        @Transient
         val lastSave: SaveOutcome? = null,
     )
 

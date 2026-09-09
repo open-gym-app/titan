@@ -1,5 +1,7 @@
 package com.opengym.core.domain.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * One dated entry of what the user measured about their body — weight, circumferences and
  * body fat, together in one row.
@@ -30,7 +32,12 @@ package com.opengym.core.domain.model
  * | [createdAt], [updatedAt] | epoch milliseconds, UTC |
  *
  * Converting to kilograms, pounds, centimetres or inches is the UI's job — see PERSISTENCE.md.
+ *
+ * `@Serializable` because an entry the user is *typing* is one of these before it is a row: the
+ * body screen keeps the open form in its saved screen state, so a process death does not take
+ * away six figures somebody has just measured.
  */
+@Serializable
 data class BodyMeasurement(
     val id: Long = 0,
 

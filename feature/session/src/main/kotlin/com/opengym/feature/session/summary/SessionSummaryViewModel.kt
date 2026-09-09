@@ -24,17 +24,19 @@ import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.ui.component.muscleContributions
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.session.SessionProgressionHandoff
 import com.opengym.feature.session.navigation.SessionSummaryDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -129,8 +131,15 @@ class SessionSummaryViewModel @Inject constructor(
      */
     private val streakSave: SummaryStreakSave? = progression?.let(SummaryStreakSave::from)
 
-    /** What the user is in the middle of, which the store has no opinion about. */
-    private val screenState = MutableStateFlow(ScreenState())
+    /**
+     * What the user is in the middle of, which the store has no opinion about.
+     *
+     * Saved, because three of its fields are text being typed and none of it is stored: the
+     * session's name, its notes, and the name-and-category dialog that turns a finished workout
+     * into a template. A recap left on screen while the user answers a message is one of the
+     * likelier places in the app for the process to be killed (#183).
+     */
+    private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
      * The session itself: the row, its exercises and every set logged against it.
@@ -201,8 +210,18 @@ class SessionSummaryViewModel @Inject constructor(
     val uiState: StateFlow<SessionSummaryUiState> = combine(
         content,
         screenState,
-    ) { content, screen ->
-        content.copy(
+    ) { content, screen -> content.withScreen(screen) }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        // The restored screen state laid over an empty read, so a name being edited or an open
+        // save-as-template dialog is on the first frame rather than appearing once three reads
+        // have answered — see `ExerciseLibraryViewModel` for the whole argument.
+        initialValue = SessionSummaryUiState(mode = mode).withScreen(screenState.value),
+    )
+
+    /** This state with what the user is in the middle of laid over it. */
+    private fun SessionSummaryUiState.withScreen(screen: ScreenState): SessionSummaryUiState =
+        copy(
             notesDraft = screen.noteDraft,
             isSavingNotes = screen.isSavingNotes,
             templateName = screen.templateName,
@@ -213,11 +232,6 @@ class SessionSummaryViewModel @Inject constructor(
             isSavingName = screen.isSavingName,
             message = screen.message,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = SessionSummaryUiState(mode = mode),
-    )
 
     fun onEvent(event: SessionSummaryEvent) {
         if (onNameEvent(event)) return
@@ -519,15 +533,29 @@ class SessionSummaryViewModel @Inject constructor(
 }
 
 /** What the user is in the middle of. */
+@Serializable
 private data class ScreenState(
     val nameDraft: String? = null,
+    /**
+     * Not saved, and neither are the two flags below it. A write cannot still be in flight when
+     * the process that started it is gone, and a field restored inert is one no amount of
+     * tapping brings back.
+     */
+    @Transient
     val isSavingName: Boolean = false,
     val noteDraft: String? = null,
+    @Transient
     val isSavingNotes: Boolean = false,
     val templateName: String? = null,
     val templateCategory: TemplateCategory? = null,
+    @Transient
     val isSavingTemplate: Boolean = false,
     val templateNameTaken: Boolean = false,
+    /**
+     * Not saved. A one-shot the screen shows and reports back; replayed on the way in it would
+     * announce something the user was already told before they put the phone down.
+     */
+    @Transient
     val message: SessionSummaryMessage? = null,
 ) {
 

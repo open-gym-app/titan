@@ -10,6 +10,7 @@ import com.opengym.core.data.repository.LocalDataRepositoryImpl
 import com.opengym.core.data.repository.PersonalRecordRepositoryImpl
 import com.opengym.core.data.repository.SessionRepositoryImpl
 import com.opengym.core.data.repository.SessionStateRepositoryImpl
+import com.opengym.core.data.repository.TemplateDraftRepositoryImpl
 import com.opengym.core.data.repository.TemplateRepositoryImpl
 import com.opengym.core.data.repository.UserPreferencesRepositoryImpl
 import com.opengym.core.domain.backup.AutoBackupScheduler
@@ -22,6 +23,7 @@ import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.TemplateRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -80,6 +82,9 @@ class RepositoryBindingsTest {
     lateinit var inProgressSessionRepository: Provider<InProgressSessionRepository>
 
     @Inject
+    lateinit var templateDraftRepository: Provider<TemplateDraftRepository>
+
+    @Inject
     lateinit var userPreferencesRepository: Provider<UserPreferencesRepository>
 
     @Inject
@@ -115,6 +120,7 @@ class RepositoryBindingsTest {
         assertTrue(templateRepository.get() is TemplateRepositoryImpl)
         assertTrue(sessionStateRepository.get() is SessionStateRepositoryImpl)
         assertTrue(inProgressSessionRepository.get() is InProgressSessionRepositoryImpl)
+        assertTrue(templateDraftRepository.get() is TemplateDraftRepositoryImpl)
         assertTrue(userPreferencesRepository.get() is UserPreferencesRepositoryImpl)
         assertTrue(localDataRepository.get() is LocalDataRepositoryImpl)
         assertTrue(personalRecordRepository.get() is PersonalRecordRepositoryImpl)

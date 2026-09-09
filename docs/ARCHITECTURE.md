@@ -90,6 +90,12 @@ stateless and hoisted, takes `:core:domain` types where a domain type is the nat
 and calls no repository or use case; see CONTRIBUTING.md § Using the design system for the
 table and the rule against reimplementing one in a feature.
 
+`core/ui/.../state/` holds the presentation-layer plumbing a ViewModel needs and a widget does
+not: `savedScreenState`, which is how every screen's own state survives a process death, and the
+`LocalDate` serializer it needs to do it. Still no business logic — it is a `SavedStateHandle`
+and an encoding, and what each screen decides to keep in it is the screen's. See
+docs/PERSISTENCE.md, "Saved instance state, and where it stops".
+
 The design system lives in `core/ui/.../theme/` and is four things: a Material 3
 `ColorScheme` per mode, a `Typography` on the wireframes' scale, `OpenGymSpacing` and
 `OpenGymShapes`. Material's own tokens are reached through `MaterialTheme`; the two roles it

@@ -1,5 +1,6 @@
 package com.opengym.feature.session.newsession
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.Exercise
@@ -19,6 +20,7 @@ import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.StartPlannedSessionUseCase
 import com.opengym.core.ui.component.supersetLabels
+import com.opengym.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,6 +30,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -67,6 +70,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Suppress("LongParameterList")
 class NewSessionViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     getTemplateSummaries: GetTemplateSummariesUseCase,
     private val applyTemplate: ApplyTemplateUseCase,
     private val startPlannedSession: StartPlannedSessionUseCase,
@@ -76,8 +80,50 @@ class NewSessionViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
 ) : ViewModel() {
 
+    /**
+     * The part of this screen that outlives the process (#183).
+     *
+     * The plan is the thing worth keeping: a workout assembled out of the picker, reordered and
+     * named, is several minutes of decisions and *nothing has been written* — a plan is not a
+     * session, which is the whole point of [SessionPlan] and the reason backing out of this flow
+     * costs nothing. Saved state is the right lifetime for it rather than a file, because a plan
+     * only means anything on the way to pressing START: the user who swipes the app away has
+     * abandoned it, and restoring it a day later would be the app pushing a workout at them.
+     *
+     * What is *not* here is the catalogue rows the review panel draws with. Those are a query,
+     * and [adopt] re-runs it on the way back in — which also re-checks that every exercise in
+     * the plan still exists, exactly as it does when the picker answers.
+     */
+    private val savedPlan = savedStateHandle.savedScreenState(viewModelScope) { SavedPlan() }
+
     /** What the screen owns, as opposed to what the stores do. */
-    private val screenState = MutableStateFlow(ScreenState())
+    private val screenState = MutableStateFlow(
+        ScreenState(
+            selectingExercises = savedPlan.value.selectingExercises,
+            nameDraft = savedPlan.value.nameDraft,
+        ),
+    )
+
+    init {
+        val restored = savedPlan.value
+        viewModelScope.launch {
+            // Re-adopted rather than restored whole, so the panel is drawn from the catalogue as
+            // it stands now — and an exercise deleted while the app was dead is cut with the
+            // same message the picker's own answer would earn.
+            restored.session?.let { adopt(it, restored.estimatedDuration) }
+
+            // Started after the restore, not beside it: the mirror's first write would otherwise
+            // be the empty state it is about to be seeded out of.
+            screenState.collect { state ->
+                savedPlan.value = SavedPlan(
+                    session = state.plan?.session,
+                    estimatedDuration = state.plan?.estimatedDuration,
+                    selectingExercises = state.selectingExercises,
+                    nameDraft = state.nameDraft,
+                )
+            }
+        }
+    }
 
     /**
      * The saved templates, or **null** until the read comes back.
@@ -488,6 +534,23 @@ class NewSessionViewModel @Inject constructor(
             )
         }
     }
+
+    /**
+     * The plan as saved instance state: the decisions, without the rows used to draw them.
+     *
+     * @param session the plan itself, or null when the user has not built one.
+     * @param estimatedDuration the template's pacing figure, which is not derivable from the
+     *   plan — see [ApplyTemplateUseCase] — so it travels with it.
+     * @param selectingExercises the picker was open over this screen.
+     * @param nameDraft what is in the naming dialog, or null when it is closed.
+     */
+    @Serializable
+    private data class SavedPlan(
+        val session: SessionPlan? = null,
+        val estimatedDuration: Duration? = null,
+        val selectingExercises: Boolean = false,
+        val nameDraft: String? = null,
+    )
 
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds

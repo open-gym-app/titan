@@ -1,5 +1,6 @@
 package com.opengym.feature.settings.reminder
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermissionState
@@ -10,6 +11,7 @@ import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.opengym.feature.settings.FakeNotificationPermission
 import com.opengym.feature.settings.FakeUserPreferencesRepository
+import com.opengym.feature.settings.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -304,11 +306,28 @@ class ReminderViewModelTest {
             assertTrue(viewModel.uiState.value.isExact)
         }
 
+    // --- process death (#183) -------------------------------------------------
+
+    @Test
+    fun `an open time picker comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(enabled = true, savedState = handle)
+            collect(before)
+            before.onEvent(ReminderEvent.TimeRequested)
+
+            val restored = viewModel(enabled = true, savedState = handle.afterProcessDeath())
+            collect(restored)
+
+            assertTrue(restored.uiState.value.timePickerOpen)
+        }
+
     // --- helpers ------------------------------------------------------------
 
     private fun viewModel(
         enabled: Boolean,
         reminders: ReminderPreferences = ReminderPreferences(),
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): ReminderViewModel {
         preferences = FakeUserPreferencesRepository(
             UserPreferences(
@@ -320,6 +339,7 @@ class ReminderViewModelTest {
         )
 
         return ReminderViewModel(
+            savedStateHandle = savedState,
             userPreferencesRepository = preferences,
             reminderScheduler = scheduler,
             notificationPermission = notificationPermission,

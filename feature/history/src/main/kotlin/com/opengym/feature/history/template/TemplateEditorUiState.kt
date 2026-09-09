@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateSummary
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.WorkoutTemplate
+import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
 /**
@@ -210,8 +211,12 @@ const val MAX_SETS_PER_EXERCISE = 99
  * written by SAVE. [nameTaken] is therefore set from the *save's* refusal rather than the
  * dialog's own: the collision cannot be known until the write is attempted, and the answer to it
  * is this dialog, reopened with the name still in it.
+ *
+ * `@Serializable` because it holds typed text: it rides in the editor's saved screen state, so a
+ * name half-entered when the process died is still in the field when the user comes back.
  */
 @Immutable
+@Serializable
 data class TemplateNamingDraft(
     val name: String,
     val category: TemplateCategory? = null,
@@ -257,12 +262,14 @@ enum class TemplateEditorMessage {
      */
 
     /**
-     * The exercises picked were not added, because the editor under the picker was rebuilt.
+     * The exercises picked were not added, because this editor never asked for them.
      *
-     * The process was killed while the user was choosing — see
-     * `TemplateEditorViewModel.pickWasRequested`. Everything they had changed went with it, and
-     * the honest answer is to say the pick did not land rather than to append it to a plan that
-     * is no longer the one they were adding to.
+     * An answer with no request behind it — see `TemplateEditorViewModel.pickRequest`. The
+     * request is saved state now and the plan is a file (#183), so the case this used to
+     * describe, a process killed while the user was in the picker, restores both and applies the
+     * pick like any other. What is left is an answer redelivered after it was already consumed,
+     * or one belonging to a screen this is not; appending either would put exercises in a plan
+     * nobody asked to put them in, so it is refused and said out loud.
      */
     EDITOR_RESTARTED,
 

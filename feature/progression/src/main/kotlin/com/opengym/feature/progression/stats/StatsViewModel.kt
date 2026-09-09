@@ -1,5 +1,6 @@
 package com.opengym.feature.progression.stats
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.ConsistencyTrend
@@ -77,6 +78,7 @@ import kotlin.time.Duration.Companion.seconds
 @HiltViewModel
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val timeframe: ProgressionTimeframe,
     private val volumeTrend: VolumeTrendUseCase,
     private val consistency: ConsistencyUseCase,
@@ -84,6 +86,13 @@ class StatsViewModel @Inject constructor(
     private val personalRecordRepository: PersonalRecordRepository,
     private val clock: Clock,
 ) : ViewModel() {
+
+    init {
+        // The selection is the singleton's, and outliving the process is this handle's — see
+        // `ProgressionTimeframe.restoreThrough`. Whichever progression screen is rebuilt first
+        // puts the shared selection back; a fresh launch finds nothing and opens on the default.
+        timeframe.restoreThrough(savedStateHandle, viewModelScope)
+    }
 
     /**
      * The window every read below is taken over, and the timeframe it came from.

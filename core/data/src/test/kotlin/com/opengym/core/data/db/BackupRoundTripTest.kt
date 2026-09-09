@@ -46,6 +46,7 @@ class BackupRoundTripTest : RoomTestBase() {
     private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
     private val preferences = InMemoryUserPreferencesRepository()
     private val draft = CountingInProgressSessionRepository()
+    private val templateDraft = CountingTemplateDraftRepository()
     private val sessionState = SessionStateRepositoryImpl()
 
     private val export by lazy {
@@ -61,6 +62,7 @@ class BackupRoundTripTest : RoomTestBase() {
             backupRepository = backup,
             userPreferencesRepository = preferences,
             inProgressSessionRepository = draft,
+            templateDraftRepository = templateDraft,
             sessionStateRepository = sessionState,
         )
     }

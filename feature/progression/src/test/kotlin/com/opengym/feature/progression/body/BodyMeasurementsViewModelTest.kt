@@ -1,6 +1,8 @@
 package com.opengym.feature.progression.body
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.BodyMeasurement
+import com.opengym.feature.progression.afterProcessDeath
 import com.opengym.feature.progression.stats.FixedClock
 import com.opengym.feature.progression.stats.ProgressionTimeframe
 import com.opengym.feature.progression.stats.StatsTimeframe
@@ -323,10 +325,41 @@ class BodyMeasurementsViewModelTest {
             assertEquals(1, state().history.size)
         }
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `an open form with typed figures in it comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            collect(savedState = handle)
+            viewModel.onEvent(BodyMeasurementsEvent.LogRequested)
+            val typed = viewModel.uiState.value.form!!.copy(weight = 82_400_000, waist = 810)
+            // What the sheet reports back on every keystroke, not just on save.
+            viewModel.onEvent(BodyMeasurementsEvent.EditRequested(typed))
+
+            val state = collect(savedState = handle.afterProcessDeath())()
+
+            assertEquals(typed, state.form)
+        }
+
+    @Test
+    fun `a form nobody opened is still closed after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            collect(savedState = handle)
+
+            assertNull(collect(savedState = handle.afterProcessDeath())().form)
+        }
+
     // ─── Fixtures ───────────────────────────────────────────────────────────────────────
 
-    private fun TestScope.collect(): () -> BodyMeasurementsUiState {
-        viewModel = BodyMeasurementsViewModel(timeframe = timeframe, repository = store, clock = clock)
+    private fun TestScope.collect(savedState: SavedStateHandle = SavedStateHandle()): () -> BodyMeasurementsUiState {
+        viewModel = BodyMeasurementsViewModel(
+            savedStateHandle = savedState,
+            timeframe = timeframe,
+            repository = store,
+            clock = clock,
+        )
         // Unconfined, so the first assembled value has arrived by the time the test reads it:
         // `stateIn(WhileSubscribed)` never starts without a collector, and a queued one would
         // leave every assertion below passing against the initial state.

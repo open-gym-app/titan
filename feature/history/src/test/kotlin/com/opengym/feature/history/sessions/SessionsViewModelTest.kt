@@ -1,5 +1,6 @@
 package com.opengym.feature.history.sessions
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.TemplateCategory
 import com.opengym.core.domain.model.TemplateExercise
@@ -9,6 +10,7 @@ import com.opengym.core.domain.usecase.DeleteTemplateUseCase
 import com.opengym.core.domain.usecase.GetTemplateSummariesUseCase
 import com.opengym.core.domain.usecase.UpdateTemplateUseCase
 import com.opengym.core.ui.component.TrainingLoad
+import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.plate.FakeUserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -670,8 +672,10 @@ class SessionsViewModelTest {
         sessions: FakeSessionStore = this@SessionsViewModelTest.sessions,
         records: FakePersonalRecordStore = this@SessionsViewModelTest.records,
         templates: FakeTemplateStore = this@SessionsViewModelTest.templates,
+        savedState: SavedStateHandle = SavedStateHandle(),
     ): SessionsViewModel {
         val viewModel = SessionsViewModel(
+            savedStateHandle = savedState,
             sessionRepository = sessions,
             personalRecordRepository = records,
             getTemplateSummaries = GetTemplateSummariesUseCase(
@@ -691,6 +695,53 @@ class SessionsViewModelTest {
         }
         return viewModel
     }
+
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the tab, the search and the date filter come back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(SessionsEvent.TabSelected(SessionsTab.TEMPLATES))
+            before.onEvent(SessionsEvent.QueryChanged("push"))
+            before.onEvent(SessionsEvent.DateFilterSelected(DateFilter.Between(APRIL_10, APRIL_28)))
+
+            val state = viewModel(savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals(SessionsTab.TEMPLATES, state.tab)
+            assertEquals("push", state.query)
+            assertEquals(DateFilter.Between(APRIL_10, APRIL_28), state.dateFilter)
+        }
+
+    @Test
+    fun `the month the calendar was scrolled to comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            before.onEvent(SessionsEvent.TabSelected(SessionsTab.CALENDAR))
+            before.onEvent(SessionsEvent.CalendarMonthChanged(forward = false))
+            before.onEvent(SessionsEvent.CalendarMonthChanged(forward = false))
+            val restored = viewModel(savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals(YearMonth.of(2026, 2), restored.calendar.month)
+            assertEquals(SessionsTab.CALENDAR, restored.tab)
+        }
+
+    @Test
+    fun `a rename dialog comes back with what was typed into it`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(templates = templateStore(), savedState = handle)
+            before.onEvent(SessionsEvent.TemplateRenameRequested(1))
+            before.onEvent(SessionsEvent.TemplateNameChanged("Push day v"))
+
+            val action = viewModel(templates = templateStore(), savedState = handle.afterProcessDeath())
+                .uiState.value.templateAction
+
+            assertTrue(action is TemplateAction.Naming)
+            assertEquals("Push day v", (action as TemplateAction.Naming).name)
+        }
 
     private companion object {
         /** A Tuesday, and "today" for every test here. */

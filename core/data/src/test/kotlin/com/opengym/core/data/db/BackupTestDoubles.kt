@@ -3,6 +3,7 @@ package com.opengym.core.data.db
 import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.TemplateDraft
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -11,6 +12,7 @@ import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.repository.AutoBackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -140,5 +142,26 @@ class CountingInProgressSessionRepository : InProgressSessionRepository {
     override suspend fun clear() {
         clearCount++
         session = null
+    }
+}
+
+/** The half-built template draft, in memory, counting the clears an import is supposed to perform. */
+class CountingTemplateDraftRepository : TemplateDraftRepository {
+
+    private var draft: TemplateDraft? = null
+
+    /** How many times [clear] has been called, including the ones that had nothing to clear. */
+    var clearCount = 0
+        private set
+
+    override suspend fun save(draft: TemplateDraft) {
+        this.draft = draft
+    }
+
+    override suspend fun load(): TemplateDraft? = draft
+
+    override suspend fun clear() {
+        clearCount++
+        draft = null
     }
 }

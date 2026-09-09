@@ -12,6 +12,7 @@ import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.SessionState
+import com.opengym.core.domain.model.TemplateDraft
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -23,6 +24,7 @@ import com.opengym.core.domain.repository.BackupRepository
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +60,7 @@ class BackupTestBackend {
 
     val preferences = InMemoryUserPreferences()
     val draft = RecordingDraftStore()
+    val templateDraft = RecordingTemplateDraftStore()
     val sessionState = InMemorySessionState()
     val autoBackup = InMemoryAutoBackupSchedule()
     val scheduler = RecordingAutoBackupScheduler()
@@ -280,6 +283,26 @@ class RecordingDraftStore : InProgressSessionRepository {
     override suspend fun clear() {
         clearCount++
         session = null
+    }
+}
+
+/** The half-built template draft, in memory, counting the clears an import performs. */
+class RecordingTemplateDraftStore : TemplateDraftRepository {
+
+    private var draft: TemplateDraft? = null
+
+    var clearCount = 0
+        private set
+
+    override suspend fun save(draft: TemplateDraft) {
+        this.draft = draft
+    }
+
+    override suspend fun load(): TemplateDraft? = draft
+
+    override suspend fun clear() {
+        clearCount++
+        draft = null
     }
 }
 

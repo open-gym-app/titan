@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.usecase.ExerciseProgressionUseCase
+import com.opengym.feature.progression.afterProcessDeath
 import com.opengym.feature.progression.navigation.NO_EXERCISE
 import com.opengym.feature.progression.stats.FixedClock
 import com.opengym.feature.progression.stats.ProgressionTimeframe
@@ -319,9 +320,27 @@ class ExerciseProgressionViewModelTest {
      * the `SavedStateHandle` — rather than as a constructor parameter, so a rename of the
      * route's field is a failure here rather than a blank screen at runtime.
      */
-    private fun TestScope.collect(exerciseId: Long): StateHandle {
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `the lift chosen from the chooser comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle(mapOf("exerciseId" to NO_EXERCISE))
+            collect(NO_EXERCISE, savedState = handle).viewModel
+                .onEvent(ExerciseProgressionEvent.ExerciseSelected(BENCH_ID))
+
+            val state = collect(NO_EXERCISE, savedState = handle.afterProcessDeath())()
+
+            assertTrue(state.isExerciseSelected)
+            assertEquals(BENCH_ID, state.exercise?.id)
+        }
+
+    private fun TestScope.collect(
+        exerciseId: Long,
+        savedState: SavedStateHandle = SavedStateHandle(mapOf("exerciseId" to exerciseId)),
+    ): StateHandle {
         val viewModel = ExerciseProgressionViewModel(
-            savedStateHandle = SavedStateHandle(mapOf("exerciseId" to exerciseId)),
+            savedStateHandle = savedState,
             timeframe = timeframe,
             progression = ExerciseProgressionUseCase(
                 progressionRepository = progression,

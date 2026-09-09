@@ -1,8 +1,10 @@
 package com.opengym.feature.onboarding
 
+import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.feature.onboarding.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -207,10 +209,31 @@ class OnboardingViewModelTest {
             assertNull(viewModel.uiState.value.message)
         }
 
+    // --- process death (#183) ---------------------------------------------
+
+    @Test
+    fun `the step the user had reached comes back after process death`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            collectState(before)
+            before.onEvent(OnboardingEvent.Continued)
+            before.onEvent(OnboardingEvent.Continued)
+            val reached = before.uiState.value.step
+
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            collectState(restored)
+
+            assertEquals(reached, restored.uiState.value.step)
+            assertFalse("a finished flow would navigate the user out", restored.uiState.value.isFinished)
+        }
+
     // --- helpers ----------------------------------------------------------
 
-    private fun viewModel(preferences: FakeUserPreferencesRepository = this.preferences) =
-        OnboardingViewModel(preferences)
+    private fun viewModel(
+        preferences: FakeUserPreferencesRepository = this.preferences,
+        savedState: SavedStateHandle = SavedStateHandle(),
+    ) = OnboardingViewModel(savedState, preferences)
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */
     private fun TestScope.collectState(viewModel: OnboardingViewModel) {

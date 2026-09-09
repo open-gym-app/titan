@@ -6,6 +6,8 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.MuscleGroup
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * A user-authored exercise being written, whether it exists yet or not.
@@ -35,8 +37,13 @@ import com.opengym.core.domain.model.MuscleGroup
  *   snackbar, because the sheet is drawn *over* the screen that hosts the snackbar: a message
  *   raised behind it would play out and be marked shown without the user ever seeing it. It
  *   clears on the next edit, and does not block retrying the same content unchanged.
+ *
+ * `@Serializable` because a form somebody is typing into is the first thing a process death
+ * must not cost them — the draft rides in its owner's saved screen state, so the sheet comes
+ * back with what was in it. See `com.opengym.core.ui.state.savedScreenState`.
  */
 @Immutable
+@Serializable
 data class ExerciseDraft(
     val id: Long? = null,
     val name: String = "",
@@ -45,6 +52,12 @@ data class ExerciseDraft(
     val primaryMuscleGroupId: Long? = null,
     val secondaryMuscleGroupIds: Set<Long> = emptySet(),
     val notes: String = "",
+    /**
+     * Not saved across a process death, unlike the rest of the draft. A write cannot still be
+     * in flight when the process that started it is gone, and a form restored inert is one no
+     * amount of tapping brings back.
+     */
+    @Transient
     val isSaving: Boolean = false,
     val isDuplicateName: Boolean = false,
     val saveFailed: Boolean = false,

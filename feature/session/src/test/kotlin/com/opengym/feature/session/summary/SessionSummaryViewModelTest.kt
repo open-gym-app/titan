@@ -24,6 +24,7 @@ import com.opengym.core.domain.stats.SessionStatsCalculator
 import com.opengym.core.domain.usecase.CreateTemplateUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.feature.session.SessionProgressionHandoff
+import com.opengym.feature.session.afterProcessDeath
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -795,6 +796,44 @@ class SessionSummaryViewModelTest {
         )
     }
 
+    // ─── Process death (#183) ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `a note being typed comes back after process death`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            )
+            val handle = SavedStateHandle(mapOf("sessionId" to SESSION_ID, "historical" to false))
+            val before = viewModel(store = store, savedState = handle)
+            before.onEvent(SessionSummaryEvent.NoteEditRequested)
+            before.onEvent(SessionSummaryEvent.NoteChanged("Felt strong, next time"))
+
+            val state = viewModel(store = store, savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals("Felt strong, next time", state.notesDraft)
+        }
+
+    @Test
+    fun `the save-as-template dialog comes back with what was typed into it`() =
+        runTest {
+            val store = FakeSummarySessionStore(
+                session = finishedSession(),
+                exercises = pushDayExercises(),
+                sets = pushDaySets(),
+            )
+            val handle = SavedStateHandle(mapOf("sessionId" to SESSION_ID, "historical" to false))
+            val before = viewModel(store = store, savedState = handle)
+            before.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            before.onEvent(SessionSummaryEvent.TemplateNameChanged("Push da"))
+
+            val state = viewModel(store = store, savedState = handle.afterProcessDeath()).uiState.value
+
+            assertEquals("Push da", state.templateName)
+        }
+
     private fun TestScope.viewModel(
         session: WorkoutSession = finishedSession(),
         exercises: List<SessionExercise> = pushDayExercises(),
@@ -804,10 +843,11 @@ class SessionSummaryViewModelTest {
         catalogue: FakeSummaryCatalogue = this@SessionSummaryViewModelTest.catalogue,
         records: Map<Long, PersonalRecord> = emptyMap(),
         historical: Boolean = false,
+        savedState: SavedStateHandle =
+            SavedStateHandle(mapOf("sessionId" to SESSION_ID, "historical" to historical)),
     ): SessionSummaryViewModel {
-        val handle = SavedStateHandle(mapOf("sessionId" to SESSION_ID, "historical" to historical))
         val viewModel = SessionSummaryViewModel(
-            savedStateHandle = handle,
+            savedStateHandle = savedState,
             sessionRepository = store,
             exerciseRepository = catalogue,
             personalRecordRepository = FakeRecordStore(records),

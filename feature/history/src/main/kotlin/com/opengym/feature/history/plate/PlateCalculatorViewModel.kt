@@ -6,17 +6,19 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.repository.UserPreferencesRepository
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.navigation.NO_SUGGESTED_TARGET
 import com.opengym.feature.history.navigation.PlateCalculatorDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
 
@@ -50,7 +52,16 @@ class PlateCalculatorViewModel @Inject constructor(
         .target
         .takeIf { it != NO_SUGGESTED_TARGET }
 
-    private val screenState = MutableStateFlow(ScreenState(target = suggestedTarget))
+    /**
+     * What the screen owns, as opposed to what the store does.
+     *
+     * Saved, so a target the user has stepped up to and an open equipment sheet come back after
+     * the process is killed. The route's suggestion is only the *opening* value: once anything
+     * has been saved, that is what the screen was showing, and re-seeding from the argument
+     * would walk the number back to what the caller asked for a quarter of an hour ago.
+     */
+    private val screenState =
+        savedStateHandle.savedScreenState(viewModelScope) { ScreenState(target = suggestedTarget) }
 
     val uiState: StateFlow<PlateCalculatorUiState> = combine(
         preferencesRepository.observe(),
@@ -69,7 +80,13 @@ class PlateCalculatorViewModel @Inject constructor(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = PlateCalculatorUiState(),
+        // Seeded from the restored screen state rather than from nothing: the preferences read
+        // is a store observer that answers a frame or two later, and an empty initial value
+        // would show the opening weight over a target the user had already set.
+        initialValue = PlateCalculatorUiState(
+            target = screenState.value.target ?: openingTarget(UserPreferences()),
+            sheet = screenState.value.sheet,
+        ),
     )
 
     fun onEvent(event: PlateCalculatorEvent) {
@@ -159,10 +176,18 @@ class PlateCalculatorViewModel @Inject constructor(
         return preferences.barWeight + heaviest * PLATES_IN_A_PAIR
     }
 
-    /** What the screen owns, as opposed to what the store does. */
+    /**
+     * What the screen shows and what the store does not know about.
+     *
+     * `@Serializable` so it survives the process being killed with the calculator open — see
+     * [savedScreenState]. [message] is a one-shot the screen shows and reports back, and is the
+     * one field that must not come back.
+     */
+    @Serializable
     private data class ScreenState(
         val target: Long? = null,
         val sheet: PlateCalculatorSheet? = null,
+        @Transient
         val message: PlateCalculatorMessage? = null,
     )
 

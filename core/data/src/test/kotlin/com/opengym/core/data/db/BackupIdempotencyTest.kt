@@ -77,6 +77,7 @@ class BackupIdempotencyTest : RoomTestBase() {
             backupRepository = backup,
             userPreferencesRepository = preferences,
             inProgressSessionRepository = CountingInProgressSessionRepository(),
+            templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
         )
     }

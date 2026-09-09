@@ -1,5 +1,6 @@
 package com.opengym.feature.progression.body
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.BodyMeasurement
@@ -7,6 +8,7 @@ import com.opengym.core.domain.repository.BodyMeasurementRepository
 import com.opengym.core.domain.time.Clock
 import com.opengym.core.domain.validation.BodyMeasurementValidator
 import com.opengym.core.ui.format.localDateOf
+import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.progression.stats.ProgressionTimeframe
 import com.opengym.feature.progression.stats.StatsTimeframe
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.seconds
@@ -52,29 +55,46 @@ import kotlin.time.Duration.Companion.seconds
  */
 @HiltViewModel
 class BodyMeasurementsViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
     private val timeframe: ProgressionTimeframe,
     private val repository: BodyMeasurementRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
-    /** The entry being logged or corrected, or null when the sheet is closed. */
-    private val form = MutableStateFlow<BodyMeasurement?>(null)
+    /**
+     * The entry being logged or corrected, or null when the sheet is closed.
+     *
+     * Saved, and it is the field that made #183 name this screen second: the form's own boxes
+     * are `rememberSaveable` and come back on their own — but only if the sheet is *there* to
+     * come back to, and whether it is open is this. Without it a user who left the app with six
+     * figures typed would return to a closed sheet and an untouched history.
+     *
+     * The entry itself rather than a flag, because the sheet is keyed on it: the same value has
+     * to come back, or `MeasurementFormSheet` re-seeds its fields from a different one.
+     */
+    private val form = savedStateHandle.savedScreenState(viewModelScope) { OpenForm() }
 
     /** Whether [save]'s write is still in flight. See [BodyMeasurementsUiState.isSaving]. */
     private val saving = MutableStateFlow(false)
+
+    init {
+        // The timeframe is shared with the hub and the drill-down, and outlives the process
+        // through this handle — see `ProgressionTimeframe.restoreThrough`.
+        timeframe.restoreThrough(savedStateHandle, viewModelScope)
+    }
 
     val uiState: StateFlow<BodyMeasurementsUiState> = combine(
         timeframe.selected,
         repository.getAll(),
         form,
         saving,
-    ) { selected, history, editing, isSaving ->
+    ) { selected, history, open, isSaving ->
         BodyMeasurementsUiState(
             timeframe = selected,
             isLoading = false,
             history = history,
             window = history.inside(selected),
-            form = editing,
+            form = open.entry,
             isSaving = isSaving,
         )
     }.stateIn(
@@ -84,8 +104,14 @@ class BodyMeasurementsViewModel @Inject constructor(
         // database observer open.
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
         // The shared selection rather than the enum's default: arriving from a hub set to `1Y`,
-        // the selector would otherwise spend its first frame claiming ninety days.
-        initialValue = BodyMeasurementsUiState(timeframe = timeframe.selected.value),
+        // the selector would otherwise spend its first frame claiming ninety days. The open form
+        // comes with it, so a restored sheet is drawn on the first frame rather than appearing
+        // once the history read lands — a sheet that flickers shut is a sheet whose fields have
+        // been thrown away, as far as `rememberSaveable` is concerned.
+        initialValue = BodyMeasurementsUiState(
+            timeframe = timeframe.selected.value,
+            form = form.value.entry,
+        ),
     )
 
     fun onEvent(event: BodyMeasurementsEvent) {
@@ -94,11 +120,11 @@ class BodyMeasurementsViewModel @Inject constructor(
             // same value, and a copy here is the copy that goes stale.
             is BodyMeasurementsEvent.TimeframeSelected -> timeframe.select(event.timeframe)
 
-            BodyMeasurementsEvent.LogRequested -> form.value = prefilledEntry()
+            BodyMeasurementsEvent.LogRequested -> form.value = OpenForm(prefilledEntry())
 
-            is BodyMeasurementsEvent.EditRequested -> form.value = event.measurement
+            is BodyMeasurementsEvent.EditRequested -> form.value = OpenForm(event.measurement)
 
-            BodyMeasurementsEvent.FormDismissed -> form.value = null
+            BodyMeasurementsEvent.FormDismissed -> form.value = OpenForm()
 
             is BodyMeasurementsEvent.Saved -> save(event.measurement)
 
@@ -182,7 +208,7 @@ class BodyMeasurementsViewModel @Inject constructor(
                 write { if (stamped.id == NEW_ENTRY) repository.insert(stamped) else repository.update(stamped) }
 
             saving.value = false
-            if (written != null) form.value = null
+            if (written != null) form.value = OpenForm()
         }
     }
 
@@ -237,6 +263,17 @@ class BodyMeasurementsViewModel @Inject constructor(
      * timer — `StatsViewModel` spells out both halves, and they apply unchanged here.
      */
     private fun today(): LocalDate = localDateOf(clock.nowMillis())
+
+    /**
+     * The open form, as one saveable value.
+     *
+     * A wrapper around the nullable entry rather than the entry itself, because what is saved is
+     * a screen's state and the screen's state is "the sheet is open on this" — which includes
+     * being closed. It also keeps the encoding the same one every other screen uses; see
+     * [savedScreenState].
+     */
+    @Serializable
+    private data class OpenForm(val entry: BodyMeasurement? = null)
 
     private companion object {
         val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds

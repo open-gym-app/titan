@@ -13,6 +13,7 @@ import com.opengym.core.domain.notification.ReminderScheduler
 import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.LocalDataRepository
 import com.opengym.core.domain.repository.SessionStateRepository
+import com.opengym.core.domain.repository.TemplateDraftRepository
 import com.opengym.core.domain.repository.UserPreferencesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -81,6 +82,7 @@ class LocalDataRepositoryImpl @Inject constructor(
     private val database: OpenGymDatabase,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val inProgressSessionRepository: InProgressSessionRepository,
+    private val templateDraftRepository: TemplateDraftRepository,
     private val sessionStateRepository: SessionStateRepository,
     private val reminderScheduler: ReminderScheduler,
     @param:ApplicationContext private val context: Context,
@@ -165,6 +167,10 @@ class LocalDataRepositoryImpl @Inject constructor(
         withContext(ioDispatcher + NonCancellable) {
             sessionStateRepository.update(SessionState.Idle)
             inProgressSessionRepository.clear()
+            // And the half-built template, for the same reason: it names a template id that is
+            // about to stop existing, and a draft left behind would be restored over the next
+            // template the user opens.
+            templateDraftRepository.clear()
             database.clearAllTables()
             // Through Room's transaction rather than straight at the writable database:
             // `clearAllTables` notifies the invalidation tracker that the catalogue emptied,

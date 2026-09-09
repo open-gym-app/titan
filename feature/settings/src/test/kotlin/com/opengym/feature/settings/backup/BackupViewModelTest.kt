@@ -2,6 +2,7 @@ package com.opengym.feature.settings.backup
 
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
 import com.opengym.core.domain.backup.ExportFormat
 import com.opengym.core.domain.backup.ImportSource
@@ -477,8 +478,9 @@ class BackupViewModelTest {
         viewModel.onEvent(BackupEvent.RestoreConfirmed)
     }
 
-    private fun viewModel() =
+    private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()) =
         BackupViewModel(
+            savedStateHandle = savedState,
             context = context,
             exportBackup = ExportUseCase(
                 backupRepository = backend.backupRepository,
@@ -488,6 +490,7 @@ class BackupViewModelTest {
                 backupRepository = backend.backupRepository,
                 userPreferencesRepository = backend.preferences,
                 inProgressSessionRepository = backend.draft,
+                templateDraftRepository = backend.templateDraft,
                 sessionStateRepository = backend.sessionState,
             ),
             setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
