@@ -40,7 +40,11 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
                 defaultConfig {
                     minSdk = AndroidSdk.BENCHMARK_MIN
                     targetSdk = AndroidSdk.TARGET
-                    testInstrumentationRunner = "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+                    // `androidx.benchmark` ships no runner of its own — `MacrobenchmarkRule`
+                    // is a plain JUnit4 `@Rule`, so the app under test still gets launched by
+                    // the standard AndroidX Test runner (pulled in transitively through
+                    // `androidx-junit`).
+                    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
                 }
 
                 // The app is a second process, driven through UiAutomator. Without this the
@@ -53,6 +57,21 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
                     // this module that is built against it.
                     create("benchmark") {
                         isDebuggable = false
+
+                        // A custom build type does not inherit the implicit debug signing
+                        // config the way `debug` itself does — left unset, this test APK
+                        // builds unsigned and `adb install` rejects it with
+                        // `INSTALL_PARSE_FAILED_NO_CERTIFICATES`.
+                        signingConfig = signingConfigs.getByName("debug")
+
+                        // `:core:*` and `:feature:*` are plain library modules with only
+                        // `debug`/`release` build types. `benchmarkTestedApks` resolves the
+                        // whole graph — `:benchmark` -> `:app` -> those libraries — under
+                        // `BuildTypeAttr = benchmark`, and it is *this* build type's fallback
+                        // list Gradle consults, not `:app`'s: without it, resolution has no
+                        // variant to fall back to for a library that never heard of
+                        // `benchmark`.
+                        matchingFallbacks += listOf("release")
                     }
                 }
 

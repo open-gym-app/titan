@@ -30,6 +30,17 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
  * A launch with the first-run flow still pending opens on onboarding, so every benchmark past
  * the first would be measuring four questions instead of the screen it named. This is the one
  * piece of app state the seeder touches that is not history.
+ *
+ * ### It rebases the history onto "now"
+ *
+ * [WorkoutHistoryFixture]'s timestamps are a pure function of a row's position — deliberately,
+ * so a JVM test can assert what it reads back without a copy of everything the fixture wrote —
+ * which anchors the whole history at the Unix epoch rather than near the wall clock. That is
+ * invisible to a JVM test, which only ever queries relative to [WorkoutHistoryFixture]'s own
+ * day numbering, but not to a screen: the Stats hub's default window is the trailing quarter,
+ * and a history that ends in 1972 draws that window empty. Shifting every seeded timestamp by
+ * one constant, after the fixture has written them, keeps the fixture itself oblivious to the
+ * wall clock while landing the most recent session on it.
  */
 class BenchmarkHistorySeeder(
     private val database: OpenGymDatabase,
@@ -53,7 +64,35 @@ class BenchmarkHistorySeeder(
 
         database.clearAllTables()
         WorkoutHistoryFixture(database).seed(spec)
+        rebaseHistoryOntoNow(spec)
         return countRows(WORKOUT_SET_TABLE)
+    }
+
+    /**
+     * Slides every seeded timestamp forward by the same offset, so the most recent seeded
+     * session — [WorkoutHistoryFixture.sessionCreatedAt] of [HistorySpec.sessionCount], the
+     * active session `seedActiveSession` adds — lands on the current wall-clock time. Every
+     * gap the fixture wrote stays exactly as it was; only the calendar it sits on moves.
+     */
+    private fun rebaseHistoryOntoNow(spec: HistorySpec) {
+        val offsetMillis = System.currentTimeMillis() - WorkoutHistoryFixture.sessionCreatedAt(spec.sessionCount)
+        val db = database.openHelper.writableDatabase
+        db.execSQL(
+            "UPDATE workout_session SET created_at = created_at + ?, updated_at = updated_at + ?, " +
+                "last_active_at = last_active_at + ?, " +
+                "completed_at = CASE WHEN completed_at IS NULL THEN NULL ELSE completed_at + ? END",
+            arrayOf(offsetMillis, offsetMillis, offsetMillis, offsetMillis),
+        )
+        db.execSQL(
+            "UPDATE workout_set SET completed_at = completed_at + ?, created_at = created_at + ?, " +
+                "updated_at = updated_at + ?",
+            arrayOf(offsetMillis, offsetMillis, offsetMillis),
+        )
+        db.execSQL(
+            "UPDATE session_exercise SET created_at = created_at + ?, updated_at = updated_at + ?",
+            arrayOf(offsetMillis, offsetMillis),
+        )
+        db.execSQL("UPDATE personal_record SET achieved_at = achieved_at + ?", arrayOf(offsetMillis))
     }
 
     /** Rows in [table], through raw SQL: no DAO exposes a count over a whole table. */

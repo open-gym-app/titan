@@ -116,11 +116,13 @@ internal fun UiDevice.flingThrough(
 private const val GESTURE_MARGIN_DIVISOR = 12
 
 /**
- * How many rows one fling covers, near enough.
+ * How many rows one fling is *counted* as covering, which is fewer than it does.
  *
- * A session row is about a sixth of a phone screen and a fling carries a little over a
- * screenful, so ten is the honest round number. It only has to be roughly right: the
- * acceptance criterion is "no janky frames over a 30-item fling", and three flings that
- * covered twenty-eight rows or thirty-four would say the same thing about the list.
+ * On the reference device (SM-A536B, 1080×2400 at 120 Hz) a session row is a fifteenth of the
+ * screen, not a sixth, and a UiAutomator fling carries several screenfuls: the Perfetto traces
+ * show the three flings this yields composing ~140 rows, not 30. Left at ten on purpose. The
+ * acceptance criterion's 30 is a floor, and shortening the gesture would change the number
+ * every recorded baseline was measured with; a fling that covers more rows says the same thing
+ * about the list, only more of it.
  */
 private const val ITEMS_PER_FLING = 10

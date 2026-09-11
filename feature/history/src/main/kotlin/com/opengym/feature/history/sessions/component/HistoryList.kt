@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -86,7 +87,7 @@ internal fun HistoryList(
                     totalVolume = session.totalVolume,
                     hasRecord = session.hasRecord,
                     isToday = session.isToday,
-                    onClick = { onSessionClick(session.id) },
+                    onClick = remember(session.id) { { onSessionClick(session.id) } },
                 )
                 HairlineDivider()
             }

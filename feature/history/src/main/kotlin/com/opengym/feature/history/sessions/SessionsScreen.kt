@@ -1,10 +1,12 @@
 package com.opengym.feature.history.sessions
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
@@ -96,6 +98,7 @@ fun SessionsRoute(
  * only on that tab — see [SessionsHeader]. The calendar deliberately ignores them: it is a way
  * of reading a month, not a view of the current search.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun SessionsScreen(
     state: SessionsUiState,
@@ -129,7 +132,17 @@ fun SessionsScreen(
     // See `ExerciseLibraryScreen`, where the same pair is documented at length.
     var searchFocusRequested by remember { mutableStateOf(false) }
 
-    val historyListState = rememberLazyListState()
+    // A viewport of rows composed ahead in idle time, not the default one item. Traced on a
+    // 120 Hz mid-range phone (#42), more than half the rows a fling brought in were composed
+    // *inside* the frame that first placed them, because one-ahead cannot keep up with a
+    // list moving two rows a frame — and those synchronous compositions were the frames that
+    // missed. Half a viewport behind keeps a reversal from paying it all again.
+    val historyListState = rememberLazyListState(
+        cacheWindow = LazyLayoutCacheWindow(
+            aheadFraction = HISTORY_CACHE_AHEAD,
+            behindFraction = HISTORY_CACHE_BEHIND,
+        ),
+    )
     val templateListState = rememberLazyListState()
     val calendarScrollState = rememberScrollState()
 
@@ -286,6 +299,10 @@ private fun TemplateActionDialogs(
         )
     }
 }
+
+/** See the cache window on the history list's state, in [SessionsScreen]. */
+private const val HISTORY_CACHE_AHEAD = 1f
+private const val HISTORY_CACHE_BEHIND = 0.5f
 
 /** The sentence a message is shown as. */
 private fun SessionsMessage.labelRes(): Int =

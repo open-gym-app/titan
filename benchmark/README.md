@@ -27,6 +27,13 @@ a thing a human reads them against, and one encoded as an assertion would fail o
 for a reason that is not a regression. `baselines/` is where a run is written down so the next
 one is a diff.
 
+The `scroll` budget needs the trace beside it on a 120 Hz phone. `frameOverrunMs` counts a frame
+as late whether the app was slow or merely a buffer ahead of SurfaceFlinger, and at 8.3 ms a
+frame the second state follows the first for the rest of the fling. Read the
+`actual_frame_timeline_slice` jank types in the Perfetto trace: `App Deadline Missed` is the
+app, `Buffer Stuffing` is the consequence. `baselines/samsung-sm-a536b-api36.md` works through
+one such run.
+
 ### Why frame timings answer "renders in under 100 ms"
 
 Each measure block is exactly one interaction — press the tab, wait for the rows — so every
