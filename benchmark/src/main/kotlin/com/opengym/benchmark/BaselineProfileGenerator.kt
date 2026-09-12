@@ -58,15 +58,12 @@ class BaselineProfileGenerator {
             pressHome()
             startActivityAndWait()
 
-            device.selectTab(
+            val history = device.selectTab(
                 tabTag = TargetApp.SESSIONS_TAB,
                 contentTag = TargetApp.SESSIONS_HISTORY_LIST,
                 description = "the sessions history",
             )
-            device.flingThrough(
-                device.awaitTag(TargetApp.SESSIONS_HISTORY_LIST, "the sessions history"),
-                items = PROFILED_SCROLL_ITEMS,
-            )
+            device.flingThrough(history, items = PROFILED_SCROLL_ITEMS)
 
             device.selectTab(
                 tabTag = TargetApp.STATS_TAB,

@@ -49,10 +49,16 @@ class ExerciseProgressionBenchmark {
             // A lift by the name the fixture gave it. The one text match in this module, and the
             // safe kind: it is a row the fixture wrote, not a string resource that changes with
             // the phone's language. See `TargetApp.SEEDED_EXERCISE_PREFIX`.
-            device.awaitObject(
-                By.textStartsWith(TargetApp.SEEDED_EXERCISE_PREFIX),
-                "a seeded exercise in the chooser",
-            ).click()
+            //
+            // Searched *inside the chooser*, not the window: on an English phone the screen's
+            // own bar title, "Exercise progression", starts with the same prefix and sits above
+            // the list, and a window-wide search would tap it instead of a row.
+            device.awaitTag(TargetApp.EXERCISE_CHOOSER, "the exercise chooser")
+                .awaitDescendant(
+                    By.textStartsWith(TargetApp.SEEDED_EXERCISE_PREFIX),
+                    "a seeded exercise in the chooser",
+                )
+                .click()
 
             device.awaitTag(TargetApp.EXERCISE_PROGRESSION_CHART, "the progression chart")
         }

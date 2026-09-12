@@ -66,6 +66,21 @@ internal fun UiDevice.awaitTag(
 ): UiObject2 = awaitObject(By.res(tag), description)
 
 /**
+ * Waits for [selector] *inside this node*, failing with a message that names what was missing.
+ *
+ * For a match that is only safe within a subtree. A device-wide `findObject` walks the whole
+ * window top-down and returns the first hit, so a text selector aimed at a list row can land
+ * on a bar title above the list that happens to start the same way.
+ */
+internal fun UiObject2.awaitDescendant(
+    selector: BySelector,
+    description: String,
+): UiObject2 =
+    checkNotNull(wait(Until.findObject(selector), TargetApp.UI_TIMEOUT_MS)) {
+        "$description did not appear within ${TargetApp.UI_TIMEOUT_MS}ms ($selector)"
+    }
+
+/**
  * Presses a bottom-bar tab and waits for the pane behind it.
  *
  * The bar is only drawn on the four tab destinations, so this is also the assertion that the
