@@ -30,6 +30,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.validation.BodyMeasurementValidator
 import com.opengym.core.ui.component.Eyebrow
+import com.opengym.core.ui.component.SheetDragHandle
 import com.opengym.core.ui.format.formatLengthValue
 import com.opengym.core.ui.format.formatPercentTenthsValue
 import com.opengym.core.ui.format.formatSessionDate
@@ -71,6 +72,7 @@ fun MeasurementFormSheet(
         // no half-expanded state worth stopping at on the way.
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { SheetDragHandle() },
     ) {
         MeasurementForm(entry = entry, onSave = onSave, onCancel = onDismiss, isSaving = isSaving)
     }

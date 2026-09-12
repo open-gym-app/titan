@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -90,9 +91,11 @@ class ReminderScreenTest {
             ReminderUiState(enabled = false, reminders = ReminderPreferences(timeOfDay = LocalTime.of(6, 30))),
         )
 
-        // Twice: the header states the outcome and the row below is the control that
-        // changes it.
-        composeTestRule.onAllNodesWithText("6:30 AM").assertCountEquals(2)
+        // Twice: the header states the outcome as text, and the row below is the control that
+        // changes it — which announces the time as its state, not as more text. See
+        // `PreferenceRow`.
+        composeTestRule.onAllNodesWithText("6:30 AM").assertCountEquals(1)
+        composeTestRule.onNode(hasStateDescription("6:30 AM")).assertExists()
     }
 
     // --- the controls -------------------------------------------------------

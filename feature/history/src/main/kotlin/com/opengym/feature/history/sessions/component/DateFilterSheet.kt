@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.OpenGymFilterChip
+import com.opengym.core.ui.component.SheetDragHandle
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
@@ -68,6 +69,7 @@ internal fun DateFilterSheet(
         // A half-expanded stop would cut the presets in half, which is the whole content.
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { SheetDragHandle() },
     ) {
         DateFilterPanel(
             filter = filter,

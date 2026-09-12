@@ -1,12 +1,15 @@
 package com.opengym.feature.settings
 
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -74,9 +77,11 @@ class SettingsScreenTest {
         )
 
         // `performScrollTo` on each: the screen is longer than a phone, and a row that is
-        // merely composed is not a row the user can read.
+        // merely composed is not a row the user can read. By state, not by text: a picker row
+        // announces its value as its `stateDescription` — "Dark, Theme, button" — and clears
+        // the drawn value from the tree so it is not said twice. See `PreferenceRow`.
         listOf("Dark", "Metric", "2:30", "15 kg", "Endurance", "Brzycki").forEach { value ->
-            composeTestRule.onNodeWithText(value).performScrollTo().assertIsDisplayed()
+            composeTestRule.onNode(hasStateDescription(value)).performScrollTo().assertIsDisplayed()
         }
     }
 
@@ -86,13 +91,26 @@ class SettingsScreenTest {
         // displays one: nothing about the stored value changes, only how it reads.
         setContent(UserPreferences(unitSystem = UnitSystem.IMPERIAL, barWeight = 20_411_657))
 
-        composeTestRule.onNodeWithText("45 lb").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNode(hasStateDescription("45 lb")).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `the font scale row is information, not a control`() {
+        setContent()
+
+        // It reports the system's text size and cannot change it, so it must not announce as a
+        // button: a row that offers a tap and does nothing is a control that lied. Its value is
+        // read as text, since an info row has no state to be in — compare the pickers above.
+        composeTestRule.onNodeWithText("Font scale").performScrollTo().assert(hasClickAction().not())
+        composeTestRule.onNodeWithText("System").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Follows your device text size").assertIsDisplayed()
     }
 
     @Test
     fun `the version row shows the running build`() {
         setContent(appVersion = "1.4.2")
 
+        // Text, not state: an info row is not a control and its value is what it says.
         composeTestRule.onNodeWithText("1.4.2").performScrollTo().assertIsDisplayed()
     }
 
@@ -310,7 +328,7 @@ class SettingsScreenTest {
             // localized pattern every other time in the app is: on an American phone the same
             // schedule reads `MWF · 6:00 PM`, and asserting one of the two would be asserting the
             // machine the test runs on.
-            composeTestRule.onNodeWithText("MWF · 18:00").performScrollTo().assertIsDisplayed()
+            composeTestRule.onNode(hasStateDescription("MWF · 18:00")).performScrollTo().assertIsDisplayed()
         }
 
     @Test
@@ -325,8 +343,8 @@ class SettingsScreenTest {
                 ),
             )
 
-            composeTestRule.onNodeWithText("Off").performScrollTo().assertIsDisplayed()
-            composeTestRule.onNodeWithText("MWF · 18:00").assertDoesNotExist()
+            composeTestRule.onNode(hasStateDescription("Off")).performScrollTo().assertIsDisplayed()
+            composeTestRule.onNode(hasStateDescription("MWF · 18:00")).assertDoesNotExist()
         }
 
     @Test

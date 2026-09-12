@@ -15,7 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
 import com.opengym.core.ui.theme.OpenGymTheme
 
@@ -51,9 +55,14 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *
  * The *whole card* is the [selectable], with [Role.RadioButton] and a radio that has no
  * handler of its own. That is both the larger target and what makes a screen reader announce
- * "Hypertrophy, volume and time under tension, radio button, selected" rather than reading a
+ * "Selected, Hypertrophy, volume and time under tension, radio button" rather than reading a
  * control and some unrelated text that happens to sit next to it. Callers should wrap the
  * list in `Modifier.selectableGroup()` so the set is announced as one.
+ *
+ * The state is said in the app's own words — `stateDescription`, "Selected" or "Not selected"
+ * — rather than left to what a screen reader infers from the `selected` flag, which varies by
+ * reader and version and is sometimes nothing at all for a radio that is off. Stated, it is
+ * the same two words on every card, and a test can assert them.
  *
  * @param detail the line under the name — what the option actually means. Optional, and worth
  *   writing wherever the name alone is a guess. Set in prose rather than in the mono numeric
@@ -78,10 +87,13 @@ fun SelectableOption(
         MaterialTheme.colorScheme.onSurface
     }
 
+    val state = stringResource(if (selected) R.string.option_selected else R.string.option_not_selected)
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .semantics { stateDescription = state },
         shape = MaterialTheme.shapes.small,
         color = if (selected) {
             MaterialTheme.colorScheme.primaryContainer

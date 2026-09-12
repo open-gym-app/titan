@@ -1,8 +1,12 @@
 package com.opengym.core.ui.component
 
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -133,6 +137,69 @@ class RestTimerSheetTest {
         composeTestRule.onNodeWithContentDescription("Pause the rest").assertDoesNotExist()
     }
 
+    // ─── The live region ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the status line is a polite live region that rounds the remainder up to the quarter-minute`() {
+        setSheet(RestTimerState.Running(remaining = 83.seconds, total = 120.seconds))
+
+        // "1:30", not "1:23": the region speaks every time its text changes, so the text changes
+        // four times a minute rather than sixty. The exact figure is still on the digits below.
+        composeTestRule
+            .onNodeWithContentDescription("Resting, 1:30 left")
+            .assertIsDisplayed()
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        composeTestRule.onNodeWithContentDescription("1:23 left").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a remainder on the quarter-minute is announced as it is, and the last one is fifteen seconds`() {
+        setSheet(RestTimerState.Running(remaining = 60.seconds, total = 120.seconds))
+        composeTestRule.onNodeWithContentDescription("Resting, 1:00 left").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the final seconds announce as a quarter-minute rather than as nothing left`() {
+        // Rounded up: "0:00 left" with three seconds to go would be a lie the alert then
+        // contradicts. The next thing said after this is "Rest complete".
+        setSheet(RestTimerState.Running(remaining = 3.seconds, total = 120.seconds))
+        composeTestRule.onNodeWithContentDescription("Resting, 0:15 left").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a paused rest is announced exactly, since nothing about it is going to change`() {
+        setSheet(RestTimerState.Paused(remaining = 83.seconds, total = 120.seconds))
+        composeTestRule
+            .onNodeWithContentDescription("Rest paused, 1:23 left")
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+    }
+
+    @Test
+    fun `a finished rest announces that it is over`() {
+        setSheet(RestTimerState.Finished)
+        composeTestRule
+            .onNodeWithContentDescription("Rest complete")
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+    }
+
+    @Test
+    fun `the header pill is the live region only when told it is the one readout on screen`() {
+        composeTestRule.setContent {
+            OpenGymTheme {
+                RestTimerIndicator(
+                    state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+                    announces = true,
+                )
+            }
+        }
+
+        // Announcing, the pill says the quarter-minute — the description is what the region
+        // speaks each time it changes — rather than the exact second it says when it is not.
+        composeTestRule
+            .onNodeWithContentDescription("Resting, 1:30 left")
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+    }
+
     @Test
     fun `the header indicator announces the remainder rather than reading the digits out`() {
         composeTestRule.setContent {
@@ -143,7 +210,12 @@ class RestTimerSheetTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("1:23 left").assertIsDisplayed()
+        // And not live: with the sheet up, the sheet's own status line is the region, and two
+        // windows announcing the same quarter-minute would say it twice.
+        composeTestRule
+            .onNodeWithContentDescription("1:23 left")
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher("has no live region") { SemanticsProperties.LiveRegion !in it.config })
     }
 
     @Test

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -32,6 +33,7 @@ import com.opengym.core.ui.format.firstDayOfWeek
 import com.opengym.core.ui.format.formatDayOfMonth
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.weekdayInitials
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -208,7 +210,12 @@ private fun RowScope.DayCell(
                     Modifier
                 },
             )
-            .semantics(mergeDescendants = true) { contentDescription = spoken },
+            .semantics(mergeDescendants = true) { contentDescription = spoken }
+            // Seven columns in a card come to about 40dp each on a phone, under the 48dp a tap
+            // target is owed and not fixable without seven fewer columns. The one accepted
+            // deviation in the accessibility pass; the tag is what scopes it to exactly these
+            // cells — see [OpenGymTestTags.CALENDAR_DAY] and docs/ACCESSIBILITY.md.
+            .testTag(OpenGymTestTags.CALENDAR_DAY),
         contentAlignment = Alignment.Center,
     ) {
         Text(

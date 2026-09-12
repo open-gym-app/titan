@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
@@ -24,12 +25,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.R
+import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /*
@@ -81,6 +85,12 @@ fun PreferenceGroup(
  * @param value the current setting, drawn in the mono numeric role on the right. Everything
  *   the user reads as a *value* is mono here — `Auto`, `2:00`, `20 kg` — which is what makes
  *   the right-hand column scan as a column rather than as more prose.
+ *
+ *   To a screen reader it is the row's **state**, not more of its text: the row announces as
+ *   "Auto, Theme, button" — the value first, the way a switch announces "on" — rather than as
+ *   one run of words in which the setting and its value are indistinguishable. The value is
+ *   therefore `stateDescription` on the row and cleared from the text it is drawn as, so it is
+ *   said once. A test asserts it with `hasStateDescription`, not `onNodeWithText`.
  * @param external draws the outbound-link glyph instead of the chevron, and says so to a
  *   screen reader. Leaving the app is worth announcing before the tap, not after.
  * @param destructive paints the label in the error role. Reserved for the one row that
@@ -111,7 +121,10 @@ fun PreferenceRow(
             Icons.AutoMirrored.Filled.KeyboardArrowRight
         },
         trailingIconDescription = if (external) stringResource(R.string.preference_opens_externally) else null,
-        modifier = modifier.clickable(onClick = onClick),
+        valueIsState = true,
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .semantics { if (value != null) stateDescription = value },
     )
 }
 
@@ -239,6 +252,9 @@ fun PreferenceSoonRow(
  * One layout rather than three, so the rows line up down the card whatever they are made of —
  * the thing that goes wrong when three composables each pick their own padding is a column of
  * values that is a pixel out per row.
+ *
+ * @param valueIsState the caller has put [value] in the semantics tree as the row's state, so
+ *   the drawn value must not also be read as text.
  */
 @Composable
 private fun PreferenceRowLayout(
@@ -253,10 +269,15 @@ private fun PreferenceRowLayout(
     badgeTone: BadgeTone = BadgeTone.NEUTRAL,
     leading: ImageVector? = null,
     trailing: (@Composable () -> Unit)? = null,
+    valueIsState: Boolean = false,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // A single-line row is 43dp on its padding alone, and Accessibility Scanner flags a
+            // 43dp tap as an error. The floor is on every kind of row, not only the tappable
+            // ones, so an info row between two pickers sits at the same pitch as its neighbours.
+            .heightIn(min = MIN_TOUCH_TARGET)
             .padding(horizontal = OpenGymTheme.spacing.xl, vertical = OpenGymTheme.spacing.lg),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -294,6 +315,9 @@ private fun PreferenceRowLayout(
                 text = value,
                 style = OpenGymTheme.typography.numeric,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Silent where the row already speaks it as its state — see [PreferenceRow] —
+                // and read as text on an info row, where it is the whole of what is said.
+                modifier = if (valueIsState) Modifier.clearAndSetSemantics { } else Modifier,
             )
         }
 
@@ -324,7 +348,7 @@ private val CHEVRON_SIZE = 18.dp
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Preference rows", widthDp = 360)
+@Preview(name = "Preference rows", widthDp = 360, heightDp = CATALOGUE_HEIGHT_DP)
 @Composable
 fun PreferenceRowPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
@@ -332,7 +356,7 @@ fun PreferenceRowPreview() {
     }
 }
 
-@Preview(name = "Preference rows, dark", widthDp = 360)
+@Preview(name = "Preference rows, dark", widthDp = 360, heightDp = CATALOGUE_HEIGHT_DP)
 @Composable
 fun PreferenceRowDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
@@ -376,3 +400,10 @@ private fun PreferenceRowCatalogue() {
         }
     }
 }
+
+/**
+ * Tall enough for the whole catalogue. The default preview height cuts the last group off, and
+ * a row clipped to a sliver is one the accessibility check reads as a 13dp tap target with no
+ * label — a finding about the preview, not the row.
+ */
+private const val CATALOGUE_HEIGHT_DP = 640

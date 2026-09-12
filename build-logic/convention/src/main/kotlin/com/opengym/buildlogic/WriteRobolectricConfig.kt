@@ -46,7 +46,7 @@ internal abstract class WriteRobolectricConfig : DefaultTask() {
          * volume all move with it.
          *
          * `en-rUS` because that is what the committed references were recorded in, not
-         * because it is the app's only locale. The localization pass (#40) is where other
+         * because it is the app's only locale. The localization pass (#41) is where other
          * locales get screenshots of their own; the point here is that there is exactly one
          * answer and it does not depend on who runs the build.
          */

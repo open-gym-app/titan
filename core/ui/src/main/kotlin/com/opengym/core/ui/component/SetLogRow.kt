@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,6 +42,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,6 +59,7 @@ import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.format.formatSetCompact
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
+import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /*
@@ -78,7 +81,7 @@ import com.opengym.core.ui.theme.OpenGymTheme
  */
 
 /**
- * The entry row: `1 | 80×5 | [80] × [5] | 8 | ✓`.
+ * The entry row: `1 | 80×5 | [80] [5] | 8 | ✓`.
  *
  * ## Why weight and reps are `String`
  *
@@ -188,7 +191,6 @@ fun SetLogRow(
             onDone = onDone,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        MultiplicationSign()
         OpenGymValueField(
             value = reps,
             onValueChange = onRepsChange,
@@ -278,11 +280,11 @@ fun LoggedSetRow(
 }
 
 /**
- * The column labels: `SET`, `PREV`, `KG × REPS`, `RPE`.
+ * The column labels: `SET`, `PREV`, `KG`, `REPS`, `RPE`.
  *
  * Drawn as an eyebrow rather than as a table header, because there is no table — the rows
  * are a `Column` and the columns line up because both use these widths. Reading the header
- * out to a screen reader would then announce four words with nothing under them, so it is
+ * out to a screen reader would then announce five words with nothing under them, so it is
  * hidden from semantics; each field carries its own label instead.
  *
  * ### One label per cell, on the cell's own grid
@@ -292,14 +294,12 @@ fun LoggedSetRow(
  * what it holds — sat in the middle of it. The header read as though it had slipped a column.
  *
  * So the header is built from the same cells the rows are, in the same order and at the same
- * widths, each label centred the way the value under it is. That is also why the `×` is
- * [MultiplicationSign] rather than a glyph of this header's own: it is the one thing between the
- * two proportional columns that is not proportional, so the grid holds only while both draw it
- * the same way.
+ * widths, each label centred the way the value under it is. The `×` that used to sit between
+ * the two fields is gone from both — see the note on the columns for what its 18dp bought.
  *
  * @param showPrevious must match what the rows under it were given, since nothing here can
  *   check: a header that keeps a column the rows dropped is labels sitting over the wrong
- *   cells.
+ *   cells. [setTableFitsPrevious] is the one answer both should take.
  */
 @Composable
 fun SetLogHeader(
@@ -312,14 +312,16 @@ fun SetLogHeader(
         modifier = modifier
             .fillMaxWidth()
             .clearAndSetSemantics { }
-            .padding(horizontal = OpenGymTheme.spacing.md, vertical = OpenGymTheme.spacing.md),
+            .padding(horizontal = OpenGymTheme.spacing.xs, vertical = OpenGymTheme.spacing.md),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Eyebrow(
             text = stringResource(R.string.set_log_column_set),
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(INDEX_COLUMN_WIDTH),
+            modifier = Modifier
+                .padding(end = INDEX_CLEARANCE)
+                .width(INDEX_COLUMN_WIDTH),
         )
         if (showPrevious) {
             Eyebrow(
@@ -333,7 +335,6 @@ fun SetLogHeader(
             textAlign = TextAlign.Center,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        MultiplicationSign()
         Eyebrow(
             text = stringResource(R.string.set_log_column_reps),
             textAlign = TextAlign.Center,
@@ -342,7 +343,9 @@ fun SetLogHeader(
         Eyebrow(
             text = stringResource(R.string.set_log_column_rpe),
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(RPE_COLUMN_WIDTH),
+            modifier = Modifier
+                .padding(end = TOGGLE_CLEARANCE)
+                .width(RPE_COLUMN_WIDTH),
         )
         Box(modifier = Modifier.width(TOGGLE_SIZE))
     }
@@ -378,10 +381,18 @@ internal fun SetRowFrame(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
-            .padding(horizontal = OpenGymTheme.spacing.md, vertical = OpenGymTheme.spacing.sm),
+            // `xs` at the sides, not the `md` the header used to share: the row's width is spent
+            // on the controls' tap targets instead — see the note on the columns below — and
+            // the card's own padding is what keeps the table off the card's edge.
+            .padding(horizontal = OpenGymTheme.spacing.xs, vertical = OpenGymTheme.spacing.sm),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                // A row of fields is 40dp of field and needs no floor; a read-only row is 20dp
+                // of text, and the tick on it is owed 48 — the padding above and below provides
+                // the rest. Without this the tick on a logged set is announced 45dp tall.
+                .heightIn(min = MIN_TOUCH_TARGET - OpenGymTheme.spacing.sm * 2),
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
             verticalAlignment = Alignment.CenterVertically,
             content = content,
@@ -416,7 +427,10 @@ internal fun SetIndexCell(
         setNumber = setNumber,
         setType = setType,
         isActive = isActive,
+        // The clearance even though nothing here can be tapped: the read-only cell has to land
+        // on the picker's column, or a paused workout shifts every figure in the table.
         modifier = Modifier
+            .padding(end = INDEX_CLEARANCE)
             .width(INDEX_COLUMN_WIDTH)
             .clearAndSetSemantics { contentDescription = spoken },
     )
@@ -448,6 +462,7 @@ internal fun SetTypeCell(
         onSelect = onSetTypeChange,
         isActive = isActive,
         enabled = enabled,
+        modifier = Modifier.padding(end = INDEX_CLEARANCE),
     )
 }
 
@@ -474,6 +489,7 @@ internal fun RpeValueCell(
         rpe = rpe,
         onRpeChange = onRpeChange,
         enabled = enabled,
+        modifier = Modifier.padding(end = TOGGLE_CLEARANCE),
     )
 }
 
@@ -557,6 +573,7 @@ internal fun RpeCell(
         textAlign = TextAlign.Center,
         maxLines = 1,
         modifier = Modifier
+            .padding(end = TOGGLE_CLEARANCE)
             .width(RPE_COLUMN_WIDTH)
             .semantics { contentDescription = spoken },
     )
@@ -567,7 +584,14 @@ internal fun RpeCell(
  *
  * A real toggle rather than a tinted glyph: it is the control the whole row exists to reach,
  * it has to announce its checked state, and `IconToggleButton` is what gives it a 48dp touch
- * target regardless of the 36dp it is drawn at.
+ * target regardless of the 32dp it is drawn at — given the room, which the grid's clearances
+ * are; see the note on the columns.
+ *
+ * What it announces is a **label and a state**, separately: "Completed, Set 3, checkbox" — the
+ * state in the app's own words as a `stateDescription`, rather than a description that changes
+ * with the state ("Mark set 3 done" / "Set 3 is done") and leaves the reader to work out which
+ * of the two the checkbox is currently in. The same two words on every tick, and a test can
+ * assert the state without knowing the phrasing.
  *
  * Shared with [LoggedSetRow], where the same control takes the tick back *off* a set — the same
  * glyph, the same place in the row, and the same two states, because it is the same question asked
@@ -580,11 +604,8 @@ internal fun CompletionToggle(
     onCompletedChange: (Boolean) -> Unit,
     enabled: Boolean,
 ) {
-    val spoken = if (isCompleted) {
-        stringResource(R.string.set_log_mark_not_done, setNumber)
-    } else {
-        stringResource(R.string.set_log_mark_done, setNumber)
-    }
+    val spoken = stringResource(R.string.set_log_completion, setNumber)
+    val state = stringResource(if (isCompleted) R.string.set_log_completed else R.string.set_log_not_completed)
 
     IconToggleButton(
         checked = isCompleted,
@@ -600,7 +621,10 @@ internal fun CompletionToggle(
         ),
         modifier = Modifier
             .size(TOGGLE_SIZE)
-            .semantics { contentDescription = spoken },
+            .semantics {
+                contentDescription = spoken
+                stateDescription = state
+            },
     ) {
         Icon(imageVector = Icons.Filled.Check, contentDescription = null)
     }
@@ -733,15 +757,35 @@ data class PreviousSet(
  *
  * **The fixed widths are sized against a 320dp screen**, which is the narrowest Android still
  * runs on, and they are tight there on purpose: the cell that has to survive is the value one,
- * because a logged set reading `60 kg ×` with the reps clipped off is a row that has lost the
- * only thing it was recording. Every dp taken off a fixed column goes there. The touch targets
- * are unaffected — [TOGGLE_SIZE] is what the tick is *drawn* at, and `IconToggleButton` keeps
- * its 48dp target regardless.
+ * because a logged set reading `60 kg` with the reps clipped off is a row that has lost the
+ * only thing it was recording. Every dp taken off a fixed column goes there.
  *
- * Two of the four are wider than the figures in them need, and deliberately: the leading cell and
- * the rating cell are *controls* on a row being typed — the set type's menu and the rating's — so
- * they are sized to be hit rather than to fit their contents. Eight dp between them is what that
- * costs the value columns, which is a character of a rep count nobody logs.
+ * ### The tap targets, and where their room comes from
+ *
+ * Five of the cells are *controls* on a row being typed — the set type's menu, the two fields,
+ * the rating's menu and the tick — and each is owed 48dp (`MIN_TOUCH_TARGET`), which the build
+ * checks: `AccessibleComposePreviewTester` fails on a control announced under it. Compose grows
+ * a small target into the room around it, but only into room no neighbour holds, and the
+ * neighbours here are a value that speaks and a field that can be typed in. So the room is made
+ * explicitly, and it is paid for three ways:
+ *
+ * - **Two clearances** alongside the grid's 4dp gap. [INDEX_CLEARANCE] after the leading cell,
+ *   which grows 10dp each way and would otherwise stop at the previous-set column;
+ *   [TOGGLE_CLEARANCE] between the rating and the tick, because two controls in a row are
+ *   settled right to left, so the tick takes its 8dp of the gap first and the rating needs 8dp
+ *   of its own after that. Clearances rather than wider cells because they cost less: a 40dp
+ *   cell with 4dp gaps and a 28dp cell with a 10dp gap are announced the same, and the second
+ *   leaves 6dp to the fields.
+ * - **The `×` between the fields is gone.** It was 18dp with its gaps, on a 360dp phone the
+ *   difference between a reps field announced at 46dp and one at 50, and the header already
+ *   says what each column is.
+ * - **The previous-set column gives way** where even that is not enough: [setTableFitsPrevious]
+ *   says whether a table of a given width can carry it and still hand both fields a tap target,
+ *   and every table asks it once and passes the answer to its header and every row. On a 320dp
+ *   phone the column goes; on 360dp and up it stays.
+ *
+ * The header, [PlannedSetRow] and the read-only row all carry the same clearances on the same
+ * cells, which is what keeps their columns on one grid.
  *
  * [PREVIOUS_COLUMN_WIDTH] is the one that grew rather than shrank, and it is the exception that
  * proves the rule above: it held a dash until the previous session was actually read (#101), and
@@ -759,33 +803,46 @@ internal val INDEX_COLUMN_WIDTH: Dp = 28.dp
 internal val PREVIOUS_COLUMN_WIDTH: Dp = 52.dp
 internal val RPE_COLUMN_WIDTH: Dp = 32.dp
 internal val TOGGLE_SIZE: Dp = 32.dp
-internal const val WEIGHT_COLUMN_WEIGHT = 1.3f
-internal const val REPS_COLUMN_WEIGHT = 1f
 
-/** The `×` between the two fields. U+00D7, not the letter x, which is narrower and lower. */
-internal const val MULTIPLICATION_SIGN = "×"
+/** Room after the leading cell, on top of the grid's gap — see the note on the columns above. */
+internal val INDEX_CLEARANCE: Dp = 6.dp
+
+/** Room between the rating cell and the tick, on top of the grid's gap. */
+internal val TOGGLE_CLEARANCE: Dp = 12.dp
 
 /**
- * The `×` between the weight and the reps, drawn identically on a row and in the header over it.
+ * The two fields' shares of what the fixed columns leave. The weight gets the larger because
+ * `102.5` is five characters and a rep count is rarely more than two — and no more than this,
+ * because the reps field has to reach 48dp on a 360dp phone with the previous column still up,
+ * where the two of them have 106dp between them: 1.1 asks 101 of it and leaves the column a
+ * margin, 1.3 would ask 110 and lose it.
+ */
+internal const val WEIGHT_COLUMN_WEIGHT = 1.1f
+internal const val REPS_COLUMN_WEIGHT = 1f
+
+/**
+ * Whether a set table [tableWidth] wide can carry the previous-set column and still give both
+ * fields a 48dp tap target — the one answer a table passes to its header and every row as
+ * `showPrevious`, so the columns of all of them move together.
  *
- * One composable rather than the same three lines in four places, and that is load-bearing rather
- * than tidy: the two figure columns are proportional and the separator between them is not, so the
- * header's cells land on the row's cells only while the thing separating them is exactly as wide.
- * A header that styled its own `×` would drift off the grid by whatever the two styles differ by,
- * which is the bug this fixed.
- *
- * Decoration, so it carries no semantics: left in the tree it is a stop of its own, and swiping
- * through a five-set exercise hits "multiplication sign" five times between the values it is
- * punctuating.
+ * Arithmetic over the grid's own constants rather than a screen-width threshold, so it stays
+ * right when a column, a clearance or the card's padding changes. [tableWidth] is the width
+ * the table is given, frame padding included — `BoxWithConstraints.maxWidth` at the call site.
  */
 @Composable
-internal fun MultiplicationSign() {
-    Text(
-        text = MULTIPLICATION_SIGN,
-        style = OpenGymTheme.typography.numericSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.clearAndSetSemantics { },
-    )
+fun setTableFitsPrevious(tableWidth: Dp): Boolean {
+    val gap = OpenGymTheme.spacing.xs
+    // Everything in a row of fields except the two fields: the frame's side padding, the five
+    // fixed cells with their clearances, and the six gaps between seven children.
+    val fixed = OpenGymTheme.spacing.xs * 2 +
+        INDEX_COLUMN_WIDTH + INDEX_CLEARANCE +
+        PREVIOUS_COLUMN_WIDTH +
+        RPE_COLUMN_WIDTH + TOGGLE_CLEARANCE +
+        TOGGLE_SIZE +
+        gap * 6
+    // The reps field is the smaller share, so it is the one that has to clear 48dp.
+    val fieldsNeeded = MIN_TOUCH_TARGET * ((WEIGHT_COLUMN_WEIGHT + REPS_COLUMN_WEIGHT) / REPS_COLUMN_WEIGHT)
+    return tableWidth - fixed >= fieldsNeeded
 }
 
 /**

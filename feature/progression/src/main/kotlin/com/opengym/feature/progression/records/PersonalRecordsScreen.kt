@@ -365,6 +365,22 @@ fun PersonalRecordsScreenPreview() {
     }
 }
 
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(name = "Personal records - twice the font", showBackground = true, heightDp = 1200, fontScale = 2f)
+@Composable
+fun PersonalRecordsScreenLargeFontPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        PreviewScreen(state = PersonalRecordsUiState(totalRecords = 4, isLoading = false))
+    }
+}
+
 @Preview(name = "Personal records - dark", showBackground = true, heightDp = 700)
 @Composable
 fun PersonalRecordsScreenDarkPreview() {

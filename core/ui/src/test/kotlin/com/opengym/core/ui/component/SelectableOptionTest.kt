@@ -5,11 +5,13 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -54,6 +56,17 @@ class SelectableOptionTest {
 
         composeTestRule.onNodeWithText(HYPERTROPHY).assertIsSelected()
         composeTestRule.onNodeWithText(STRENGTH).assertIsNotSelected()
+    }
+
+    @Test
+    fun `each card says its state in words, before its name`() {
+        setContent(selected = HYPERTROPHY)
+
+        // The `stateDescription`, not the `selected` flag: what a screen reader makes of the flag
+        // varies by reader and version, and for an unselected radio is sometimes nothing. Two
+        // words, the same on every card, are what TalkBack reads first.
+        composeTestRule.onNodeWithText(HYPERTROPHY).assert(hasStateDescription("Selected"))
+        composeTestRule.onNodeWithText(STRENGTH).assert(hasStateDescription("Not selected"))
     }
 
     @Test

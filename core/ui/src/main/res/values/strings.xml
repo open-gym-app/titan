@@ -49,11 +49,13 @@
          still line up. Hidden from screen readers: it is a spacer, not a value. -->
     <string name="set_log_previous_none">–</string>
     <string name="set_log_previous_value">Previously %1$s</string>
-    <!-- The tick, both ways round. It is the same control on the row being typed and on a set
-         already written: the first logs the set, and on a logged row it takes the tick back off
-         one that was pressed by accident. -->
-    <string name="set_log_mark_done">Mark set %1$d done</string>
-    <string name="set_log_mark_not_done">Set %1$d is done. Un-tick it</string>
+    <!-- The tick: its label, and its two states as a screen reader says them before the
+         label — "Completed, Set 3, checkbox". It is the same control on the row being typed
+         and on a set already written: the first logs the set, and on a logged row it takes the
+         tick back off one that was pressed by accident. -->
+    <string name="set_log_completion">Set %1$d</string>
+    <string name="set_log_completed">Completed</string>
+    <string name="set_log_not_completed">Not completed</string>
     <string name="set_log_weight_and_reps">%1$s × %2$d</string>
     <!-- A bodyweight set, where the count is the whole of what was done. A plural because a
          set of one is a rep: "1 reps" is the first set of every workout reading wrong. -->
@@ -112,6 +114,9 @@
     <string name="session_header_finish_label">End</string>
     <!-- The header's name doubles as the way to change it. -->
     <string name="session_header_rename">Rename this workout</string>
+    <!-- The name and the clock as one announcement, where the title block is the rename
+         control — see SessionTitle. %1$s the name, %2$s the spoken clock. -->
+    <string name="session_header_title">%1$s, %2$s</string>
 
     <!-- ── Naming a session ──────────────────────────────────────────────────────── -->
 
@@ -268,6 +273,10 @@
     <string name="rest_timer_idle">No rest running</string>
     <string name="rest_timer_of_total">of %1$s</string>
     <string name="rest_timer_remaining">%1$s left</string>
+    <!-- What the live region says while the rest runs, four times a minute: the time left to
+         the quarter-minute above it — see RestTimerState.announcement(). -->
+    <string name="rest_timer_live_running">Resting, %1$s left</string>
+    <string name="rest_timer_live_paused">Rest paused, %1$s left</string>
     <string name="rest_timer_up_next">Next %1$s</string>
     <string name="rest_timer_shorter_label">−%1$ds</string>
     <string name="rest_timer_shorter">Shorten the rest by %1$d seconds</string>
@@ -530,6 +539,10 @@
          "45 reps". A quantity with its unit inside one string comes from the format package
          instead, which asks CLDR for the pattern - see MeasureFormats.kt. -->
     <string name="figure_with_unit">%1$s %2$s</string>
+    <!-- The state of a selectable card, said before its label: "Selected, Hypertrophy, radio
+         button". See SelectableOption. -->
+    <string name="option_selected">Selected</string>
+    <string name="option_not_selected">Not selected</string>
     <!-- What joins the clauses of a description a screen reader reads as one node. The
          trailing space is inside the quotes on purpose: XML would otherwise trim it. -->
     <string name="spoken_separator">", "</string>

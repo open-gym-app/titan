@@ -88,7 +88,14 @@ internal fun AutoBackupSchedule.statusLine(): String {
 }
 
 /**
- * How far along a run is, as the user reads it: `40%`, `40 %`, `٤٠٪`.
+ * How far along a run is, as a screen reader says it: `40%`, `40 %`, `٤٠٪`.
+ *
+ * *Says*, not reads: nothing draws this figure. The bar is the drawn progress, and this is the
+ * description of the row it is in — a **live region**, which speaks every time its text
+ * changes. The export emits a progress value per page of rows, and a run over a 50,000-set
+ * history would have TalkBack announce a percentage a hundred times in the few seconds it
+ * takes. So the figure moves in **tens**: at most ten announcements per run, and then the
+ * outcome card says what came of it.
  *
  * **Rounded down**, so a bar that has not finished never announces 100%. Floored here rather
  * than left to the formatter, which rounds to nearest and would call 99.6% done.
@@ -99,9 +106,15 @@ internal fun AutoBackupSchedule.statusLine(): String {
 internal fun progressPercent(
     completed: Long,
     total: Long,
-): String = formatPercentTenths((((completed * PERCENT) / total) * TENTHS_PER_PERCENT).toInt())
+): String {
+    val tens = (completed * PERCENT / total) / ANNOUNCEMENT_STEP_PERCENT * ANNOUNCEMENT_STEP_PERCENT
+    return formatPercentTenths((tens * TENTHS_PER_PERCENT).toInt())
+}
 
 private const val PERCENT = 100
+
+/** The step the spoken percentage moves in. See [progressPercent]. */
+private const val ANNOUNCEMENT_STEP_PERCENT = 10
 
 /** [formatPercentTenths] counts in tenths of a percent; these figures are whole ones. */
 private const val TENTHS_PER_PERCENT = 10

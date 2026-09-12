@@ -569,6 +569,36 @@ fun SettingsScreenPreview() {
     }
 }
 
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(
+    name = "Settings - twice the font",
+    showBackground = true,
+    heightDp = FULL_SCREEN_HEIGHT_DP * 2,
+    fontScale = 2f,
+)
+@Composable
+fun SettingsScreenLargeFontPreview() {
+    OpenGymTheme {
+        SettingsScreen(
+            state = SettingsUiState(),
+            appVersion = "1.0",
+            onEvent = {},
+            onBack = {},
+            onOpenBackup = {},
+            onOpenLink = {},
+            onOpenNotificationSettings = {},
+            onOpenReminders = {},
+        )
+    }
+}
+
 @Preview(name = "Settings - dark, imperial", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SettingsScreenDarkPreview() {

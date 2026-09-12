@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -19,8 +20,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The picker behind most settings rows: a title, a list of options, pick one and it is saved.
@@ -33,8 +38,10 @@ import com.opengym.feature.settings.R
  *
  * The rows are a [selectableGroup] of [Role.RadioButton] items with the whole row selectable
  * rather than just the button, which is both the larger touch target and the thing that makes
- * a screen reader announce "Auto, radio button, selected" instead of reading a label and an
- * unrelated control next to it.
+ * a screen reader announce "Selected, Auto, radio button" instead of reading a label and an
+ * unrelated control next to it. The state is said in words — the same two `SelectableOption`
+ * uses — and every row is at least 48dp tall: a radio with no handler of its own reserves no
+ * tap target, so the row has to.
  */
 @Composable
 fun <T> ChoiceDialog(
@@ -80,10 +87,14 @@ private fun <T> ChoiceRow(
     isSelected: Boolean,
     onSelect: () -> Unit,
 ) {
+    val state = stringResource(if (isSelected) CoreR.string.option_selected else CoreR.string.option_not_selected)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = MIN_TOUCH_TARGET)
             .selectable(selected = isSelected, role = Role.RadioButton, onClick = onSelect)
+            .semantics { stateDescription = state }
             .padding(vertical = OpenGymTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),

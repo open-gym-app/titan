@@ -33,8 +33,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -356,6 +358,10 @@ private fun RestoreSection(
  *
  * The whole row speaks as one node: a progress bar and a pair of numbers read separately are
  * three announcements for one fact.
+ *
+ * And it speaks *as the run goes*: the row is a polite live region, which is the only way a
+ * value that changes without a tap reaches a screen reader at all. Ten times a run, not once a
+ * page — see [progressPercent] for the cadence and why.
  */
 @Composable
 private fun ProgressRow(
@@ -372,7 +378,10 @@ private fun ProgressRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = spoken },
+            .clearAndSetSemantics {
+                contentDescription = spoken
+                liveRegion = LiveRegionMode.Polite
+            },
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
     ) {
         Text(
@@ -552,6 +561,30 @@ private val SAMPLE_FOOTPRINT = DataFootprint(
 @Preview(name = "Backup - idle", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun BackupScreenPreview() {
+    OpenGymTheme {
+        BackupScreen(
+            appVersion = PREVIEW_APP_VERSION,
+            state = BackupUiState(footprint = SAMPLE_FOOTPRINT),
+            onEvent = {},
+            onBack = {},
+            onPickFile = {},
+            onSaveCopy = {},
+            onShare = {},
+        )
+    }
+}
+
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(name = "Backup - twice the font", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP * 2, fontScale = 2f)
+@Composable
+fun BackupScreenLargeFontPreview() {
     OpenGymTheme {
         BackupScreen(
             appVersion = PREVIEW_APP_VERSION,

@@ -29,6 +29,12 @@ include(":core:domain")
 include(":core:data")
 include(":core:ui")
 
+// Shared test support (#40): the Roborazzi preview tester that runs the Accessibility Test
+// Framework over every `@Preview`, and the helpers a screen's own accessibility test calls.
+// A module rather than a `testFixtures` source set because it has to be visible to seven
+// modules' unit tests, and only to those.
+include(":core:testing")
+
 // One module per vertical slice. A feature is reachable only from `:app`, which owns the
 // `NavHost` and supplies every cross-feature navigation action — see docs/ARCHITECTURE.md.
 // `checkArchitecture` fails the build if one of them ever depends on another.

@@ -37,7 +37,9 @@ fun ChipSection(
         Eyebrow(text = label)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
+            // No vertical gap of its own: each chip is already 48dp tall around a 30dp pill
+            // (see [OpenGymFilterChip]), so the lines are 18dp apart as they are, and a gap on
+            // top of that would be the reservation counted twice.
             content = content,
         )
     }

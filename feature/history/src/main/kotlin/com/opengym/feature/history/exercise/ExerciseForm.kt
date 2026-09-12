@@ -28,6 +28,7 @@ import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.ChipSection
 import com.opengym.core.ui.component.OpenGymFilterChip
+import com.opengym.core.ui.component.SheetDragHandle
 import com.opengym.core.ui.component.displayName
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.component.labelOrNull
@@ -63,6 +64,7 @@ fun ExerciseFormSheet(
         // half-expanded state worth stopping at on the way.
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surface,
+        dragHandle = { SheetDragHandle() },
     ) {
         ExerciseForm(
             draft = draft,

@@ -60,6 +60,7 @@ import com.opengym.core.ui.component.SessionHeaderBar
 import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionProgress
 import com.opengym.core.ui.component.SessionStatChips
+import com.opengym.core.ui.component.SheetDragHandle
 import com.opengym.core.ui.component.SupersetLink
 import com.opengym.core.ui.component.rememberReorderState
 import com.opengym.core.ui.component.reorderable
@@ -378,6 +379,10 @@ fun ActiveSessionScreen(
                 // one surface that is never scrolled off.
                 restTimer = state.rest,
                 onRestTimerClick = { onEvent(ActiveSessionEvent.RestSheetRequested) },
+                // The pill reads the rest out only while it is the only readout: with the
+                // sheet up, the sheet's own eyebrow is the live region, and two windows
+                // announcing the same quarter-minute would say it twice.
+                restTimerAnnounces = !state.isRestSheetOpen,
                 // The pause is *not* gated on `isEditable`: coming back from a pause is what
                 // that control is for. What takes the three of them out is a workout already
                 // closing out — a pause landing behind a finish is refused and reported over a
@@ -506,6 +511,7 @@ private fun RestSheet(
         // A step up from the page rather than the scheme's default `surfaceContainerLow`, so
         // the sheet reads as a card lifted off the workout instead of as a lighter patch of it.
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { SheetDragHandle() },
     ) {
         RestTimerSheet(
             state = state.rest,
@@ -583,6 +589,9 @@ private fun SessionBody(
                     SessionStatChips(
                         stats = stats,
                         showDuration = false,
+                        // The set counter moves when a tick lands three cards down; announced,
+                        // or a screen reader never hears the workout add up.
+                        announces = true,
                         modifier = Modifier.animateItem(),
                     )
                 }
@@ -808,6 +817,22 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
 @Preview(name = "Active session", showBackground = true, heightDp = 1800)
 @Composable
 fun ActiveSessionScreenPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        ActiveSessionScreen(state = previewState(), onEvent = {})
+    }
+}
+
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * The set table is the case worth looking at: five fixed columns and two fields on a 320dp
+ * grid, and the previous-set cell is the one that ellipsises first. Recorded rather than argued
+ * about: a change that starts clipping something at 2x fails the build. Robolectric's font
+ * metrics are not a phone's, so the device walk in docs/ACCESSIBILITY.md is still the result.
+ */
+@Preview(name = "Active session - twice the font", showBackground = true, heightDp = 3000, fontScale = 2f)
+@Composable
+fun ActiveSessionScreenLargeFontPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
         ActiveSessionScreen(state = previewState(), onEvent = {})
     }

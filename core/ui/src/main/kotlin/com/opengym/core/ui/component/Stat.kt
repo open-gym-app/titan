@@ -15,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -226,19 +228,46 @@ fun PrBadge(
  *   same number twice on one screen is one of them being ignored. A parameter rather than two
  *   components for the same reason [SessionStatGrid] takes `musclesWorked`: the decision is
  *   about what the *surrounding* screen already says, which is not a fact a row of chips has.
+ * @param announces whether the row is a **live region** — the active session's set counter,
+ *   which moves every time a set is ticked off somewhere else on the screen, and which TalkBack
+ *   would otherwise never mention. Announcing, the row is one node saying "5 sets, 2,800 kg" —
+ *   one sentence per set logged, rather than two chips changing at once and being read as two
+ *   interruptions. A finished session's row in a list is not live: nothing about it changes.
  */
 @Composable
 fun SessionStatChips(
     stats: SessionStats,
     modifier: Modifier = Modifier,
     showDuration: Boolean = true,
+    announces: Boolean = false,
 ) {
+    val duration = stats.durationSeconds.seconds.formatAsElapsed()
+    val sets = stringResource(
+        R.string.stat_description,
+        pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
+        formatCount(stats.totalSets),
+    )
+    val volume = stringResource(
+        R.string.stat_description,
+        LocalUnitSystem.current.weightSuffix,
+        formatVolumeValue(stats.totalVolume),
+    )
+    val spoken = listOfNotNull(duration.takeIf { showDuration }, sets, volume)
+        .joinToString(stringResource(R.string.exercise_meta_separator))
+
     Row(
-        modifier = modifier,
+        modifier = if (announces) {
+            modifier.clearAndSetSemantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = spoken
+            }
+        } else {
+            modifier
+        },
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
     ) {
         if (showDuration) {
-            StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
+            StatChip(value = duration)
         }
         StatChip(
             value = formatCount(stats.totalSets),
