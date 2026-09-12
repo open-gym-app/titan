@@ -3,6 +3,7 @@ package com.opengym.core.ui.example
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -12,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /** The state [ExampleScreen] renders. Hand-built by the tests; no ViewModel produces it. */
@@ -63,6 +65,9 @@ fun ExampleScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
+                            // A tappable row is at least 48dp — the floor the accessibility
+                            // check every preview runs through holds the app to.
+                            .heightIn(min = MIN_TOUCH_TARGET)
                             .clickable { onEvent(ExampleEvent.ItemClicked(item)) }
                             .padding(vertical = 8.dp),
                     )

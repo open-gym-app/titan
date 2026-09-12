@@ -49,7 +49,7 @@ fun ChangeChip(
     val spoken = when (direction) {
         ChangeDirection.UP -> stringResource(R.string.chart_change_up_description, value)
         ChangeDirection.DOWN -> stringResource(R.string.chart_change_down_description, value)
-        ChangeDirection.NONE -> stringResource(R.string.chart_change_none_description)
+        ChangeDirection.NONE -> stringResource(R.string.chart_change_none_description, value)
     }
 
     StatChip(

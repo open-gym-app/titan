@@ -26,11 +26,15 @@ class ArchitectureRulesTest {
         ),
         ":core:domain" to emptySet(),
         ":core:data" to setOf(":core:domain"),
-        ":core:ui" to setOf(":core:domain"),
-        ":feature:home" to setOf(":core:domain", ":core:ui"),
-        ":feature:session" to setOf(":core:domain", ":core:ui"),
-        ":feature:history" to setOf(":core:domain", ":core:ui"),
-        ":feature:progression" to setOf(":core:domain", ":core:ui"),
+        // The `:core:testing` edges are `testImplementation`, written by the Compose
+        // convention plugin; the graph the check reads does not know a configuration from
+        // another, so they are part of the legal graph as much as `:core:domain` is.
+        ":core:ui" to setOf(":core:domain", ":core:testing"),
+        ":core:testing" to emptySet(),
+        ":feature:home" to setOf(":core:domain", ":core:ui", ":core:testing"),
+        ":feature:session" to setOf(":core:domain", ":core:ui", ":core:testing"),
+        ":feature:history" to setOf(":core:domain", ":core:ui", ":core:testing"),
+        ":feature:progression" to setOf(":core:domain", ":core:ui", ":core:testing"),
         // The one edge AGP writes rather than a contributor: `targetProjectPath = ":app"`.
         ":benchmark" to setOf(":app"),
     )
@@ -78,6 +82,18 @@ class ArchitectureRulesTest {
         )
 
         assertEquals(1, violations.size)
+        assertTrue(violations.single().reason.contains("must depend on nothing at all"))
+    }
+
+    @Test
+    fun `test support reaching into the code it tests is rejected`() {
+        // The tester drives whatever preview it is handed; the day it imports `:core:ui` it is
+        // composing screens of its own, and those belong in the test that wants them.
+        val violations = ArchitectureRules.violationsIn(
+            legalGraph + (":core:testing" to setOf(":core:ui")),
+        )
+
+        assertEquals(listOf(":core:testing" to ":core:ui"), violations.map { it.from to it.to })
         assertTrue(violations.single().reason.contains("must depend on nothing at all"))
     }
 

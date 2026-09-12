@@ -100,8 +100,13 @@ internal fun Double.withoutNegativeZero(maxFractionDigits: Int): Double =
  */
 fun formatCount(value: Long): String = integerFormat().format(value)
 
-/** The same, for the [Int] most counts actually are. */
-fun formatCount(value: Int): String = integerFormat().format(value)
+/**
+ * The same, for the [Int] most counts actually are.
+ *
+ * Widened first: [NumberFormat] has no `format(int)`, and an `Int` handed to it lands on the
+ * `format(Object)` overload, which boxes it and formats it as a `double`.
+ */
+fun formatCount(value: Int): String = formatCount(value.toLong())
 
 /**
  * One integer [NumberFormat] per locale per thread, for the same reason as

@@ -499,7 +499,7 @@ class EndToEndJourneyTest {
         const val HOME = "QUICK START"
         const val TAB_HOME = "Home"
         const val TAB_SESSIONS = "Sessions"
-        const val ACTIVE_SESSION = "Finish the session"
+        const val ACTIVE_SESSION = "End the session"
         const val DONE = "Done"
 
         // Home's two ways into the flow: onto the template list, and straight onto the picker.

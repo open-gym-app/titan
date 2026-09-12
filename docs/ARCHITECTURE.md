@@ -10,7 +10,8 @@ open-gym/
 ├── core/
 │   ├── domain/             # Business logic - pure Kotlin JVM, zero Android deps
 │   ├── data/               # Data access - Room, repositories, Hilt bindings
-│   └── ui/                 # Shared Compose components, design system, theming
+│   ├── ui/                 # Shared Compose components, design system, theming
+│   └── testing/            # Test support shared by every Compose module's unit tests (#40)
 └── feature/                # One sub-module per vertical slice
     ├── onboarding/         # The first-run flow (not a tab; where a fresh install opens)
     ├── home/               # The dashboard (Home tab)
@@ -21,8 +22,14 @@ open-gym/
 ```
 
 Gradle module names: `:app`, `:benchmark`, `:core:domain`, `:core:data`, `:core:ui`,
-`:feature:onboarding`, `:feature:home`, `:feature:session`, `:feature:history`,
-`:feature:progression`, `:feature:settings`.
+`:core:testing`, `:feature:onboarding`, `:feature:home`, `:feature:session`,
+`:feature:history`, `:feature:progression`, `:feature:settings`.
+
+`:core:testing` ships nothing and is on no main classpath. It holds the Roborazzi preview
+tester that runs the Accessibility Test Framework over every `@Preview`, and the
+`assertAccessible()` a screen test calls — see [ACCESSIBILITY.md](ACCESSIBILITY.md). The
+`opengym.android.compose` plugin adds it as `testImplementation` to `:core:ui` and every
+feature; it depends on no module of this project, and `checkArchitecture` holds it to that.
 
 `:benchmark` is the only one that is neither a layer nor a slice. It is a
 `com.android.test` module: it ships nothing, it produces an APK that instruments `:app`'s

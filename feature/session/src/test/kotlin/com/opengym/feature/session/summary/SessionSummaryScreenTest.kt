@@ -533,7 +533,7 @@ class SessionSummaryScreenTest {
 
         /** The first breakdown row, as a screen reader hears it. */
         const val BENCH_ROW =
-            "1. Barbell bench press, 4 sets, 5 to 10 reps, 80 kg max, Personal record: 1RM"
+            "1. Barbell bench press, 4 sets, 5 to 10 reps, 80 kg max, PR 1RM, personal record"
     }
 
     /** The recap is one long scroll, so anything below the fold has to be brought into view. */

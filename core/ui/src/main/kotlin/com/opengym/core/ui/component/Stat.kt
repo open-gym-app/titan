@@ -15,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -125,7 +127,10 @@ fun StatTile(
  *
  * The label follows the figure rather than preceding it, which is the opposite of
  * [StatTile], because a chip is read left to right in a sentence of other chips and the
- * figures are what the eye is scanning for.
+ * figures are what the eye is scanning for. What a screen reader hears keeps that order —
+ * "12 sets", not "sets, 12" — so the spoken chip is the drawn one: Accessibility Scanner
+ * holds a node's label to the text it can see on it, and a Voice Access user says what they
+ * read.
  *
  * Not [OpenGymBadge]: a badge is a *tag* — a fixed word, uppercased, carrying no data — and
  * this carries a number in a numeric role. They look similar on purpose and are not the same
@@ -164,7 +169,7 @@ fun StatChip(
         MaterialTheme.colorScheme.onSurfaceVariant
     }
     val spoken = description
-        ?: label?.let { stringResource(R.string.stat_description, it, value) }
+        ?: label?.let { stringResource(R.string.figure_with_unit, value, it) }
         ?: value
 
     Row(
@@ -199,8 +204,10 @@ fun PrBadge(
 ) {
     val badge = stringResource(R.string.pr_badge)
     val text = if (type == null) badge else stringResource(R.string.badge_with_qualifier, badge, type.label())
-    // "P R dot one R M" is what TalkBack makes of the drawn text. The description says the
-    // words the abbreviation stands for, which is the whole reason a badge may abbreviate.
+    // "P R dot one R M" is what TalkBack makes of the drawn text. The description opens with
+    // the letters — "PR" is what a lifter says, and a label that starts with the drawn text is
+    // one Voice Access matches and Accessibility Scanner accepts — and then says the words the
+    // abbreviation stands for, which is the whole reason a badge may abbreviate.
     val spoken = if (type == null) {
         stringResource(R.string.pr_description_short)
     } else {
@@ -226,19 +233,47 @@ fun PrBadge(
  *   same number twice on one screen is one of them being ignored. A parameter rather than two
  *   components for the same reason [SessionStatGrid] takes `musclesWorked`: the decision is
  *   about what the *surrounding* screen already says, which is not a fact a row of chips has.
+ * @param announces whether the row is a **live region** — the active session's set counter,
+ *   which moves every time a set is ticked off somewhere else on the screen, and which TalkBack
+ *   would otherwise never mention. Announcing, the row is one node saying "5 sets · 2,800 kg" —
+ *   the chips' own words in the chips' own order, one sentence per set logged, rather than two
+ *   chips changing at once and being read as two interruptions. A finished session's row in a
+ *   list is not live: nothing about it changes.
  */
 @Composable
 fun SessionStatChips(
     stats: SessionStats,
     modifier: Modifier = Modifier,
     showDuration: Boolean = true,
+    announces: Boolean = false,
 ) {
+    val duration = stats.durationSeconds.seconds.formatAsElapsed()
+    val sets = stringResource(
+        R.string.figure_with_unit,
+        formatCount(stats.totalSets),
+        pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
+    )
+    val volume = stringResource(
+        R.string.figure_with_unit,
+        formatVolumeValue(stats.totalVolume),
+        LocalUnitSystem.current.weightSuffix,
+    )
+    val spoken = listOfNotNull(duration.takeIf { showDuration }, sets, volume)
+        .joinToString(stringResource(R.string.exercise_meta_separator))
+
     Row(
-        modifier = modifier,
+        modifier = if (announces) {
+            modifier.clearAndSetSemantics {
+                liveRegion = LiveRegionMode.Polite
+                contentDescription = spoken
+            }
+        } else {
+            modifier
+        },
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
     ) {
         if (showDuration) {
-            StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
+            StatChip(value = duration)
         }
         StatChip(
             value = formatCount(stats.totalSets),

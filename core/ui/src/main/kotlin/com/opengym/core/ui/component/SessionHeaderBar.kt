@@ -27,8 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -85,6 +87,9 @@ import kotlin.time.Duration.Companion.seconds
  * @param onRestTimerClick brings the rest sheet back up. The sheet is swiped away to get at
  *   the workout underneath — see the active session screen — so the pill is the way back into
  *   it, and a bar with no sheet to reopen passes null and gets an inert readout.
+ * @param restTimerAnnounces whether the pill is the live region that reads the rest out as it
+ *   runs — true once the sheet is away and the pill is the only countdown on screen. See
+ *   [RestTimerIndicator].
  * @param enabled false makes the three controls inert, for the one situation that needs it: a
  *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
  *   the write takes, and a pause landing behind it either mutates a session being closed out or
@@ -107,6 +112,7 @@ fun SessionHeaderBar(
     isPaused: Boolean = false,
     restTimer: RestTimerState = RestTimerState.Idle,
     onRestTimerClick: (() -> Unit)? = null,
+    restTimerAnnounces: Boolean = false,
     enabled: Boolean = true,
     canFinish: Boolean = true,
     onPauseToggle: () -> Unit = {},
@@ -125,40 +131,22 @@ fun SessionHeaderBar(
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
+            // `lg`, not the `sm` the rest of the bar uses, and the width is the reason. The
+            // controls are drawn at 36dp and announced at 48dp — Compose grows a tap target into
+            // the room around it — but only into room nothing else holds, and a control settled
+            // before its left-hand neighbour keeps the 6dp it grew into. With 8dp between them
+            // the middle one is announced 42dp wide and Accessibility Scanner flags it; with 12dp
+            // each of the three gets its 48.
+            horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                val clock = elapsed.formatAsElapsed()
-                // The clock is announced with what it is a clock *of*; read as bare text it is
-                // four digits with no noun anywhere near them.
-                val spoken = stringResource(
-                    if (isPaused) R.string.session_elapsed_paused else R.string.session_elapsed,
-                    clock,
-                )
-
-                val rename = stringResource(R.string.session_header_rename)
-                Eyebrow(
-                    text = name,
-                    color = chrome.onSurfaceVariant,
-                    modifier = if (onNameClick != null) {
-                        Modifier
-                            .clickable(onClick = onNameClick)
-                            .semantics { onClick(label = rename, action = null) }
-                    } else {
-                        Modifier
-                    },
-                )
-                Text(
-                    text = clock,
-                    style = OpenGymTheme.typography.numericLarge,
-                    color = chrome.onSurface,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .padding(top = OpenGymTheme.spacing.xs)
-                        .semantics { contentDescription = spoken },
-                )
-            }
+            SessionTitle(
+                name = name,
+                elapsed = elapsed,
+                isPaused = isPaused,
+                onNameClick = onNameClick,
+                modifier = Modifier.weight(1f),
+            )
 
             if (onDiscard != null) {
                 ChromeButton(
@@ -198,8 +186,9 @@ fun SessionHeaderBar(
                 Eyebrow(
                     text = stringResource(R.string.session_header_finish_label),
                     color = chrome.onAccent,
-                    // The button says what it does — "Finish the session" — and an eyebrow
-                    // describing itself inside it would have TalkBack read both.
+                    // The button says what it does — "End the session", opening with the word
+                    // drawn on it, so a Voice Access user can say what they read — and an
+                    // eyebrow describing itself inside it would have TalkBack read both.
                     modifier = Modifier.clearAndSetSemantics { },
                 )
             }
@@ -216,7 +205,10 @@ fun SessionHeaderBar(
         if (resting || progress.total > 0) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
+                // Room for the pill: drawn 30dp tall and announced at 48dp, it grows 9dp each
+                // way, and the rail under it — which speaks, so it holds its ground — would
+                // otherwise stop it at 8. See `MIN_TOUCH_TARGET`.
+                verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
             ) {
                 if (resting) {
                     Row(
@@ -228,6 +220,7 @@ fun SessionHeaderBar(
                             state = restTimer,
                             onClick = onRestTimerClick,
                             colors = RestTimerDefaults.sessionChromeIndicatorColors(),
+                            announces = restTimerAnnounces,
                         )
                         RestProgressBar(
                             state = restTimer,
@@ -254,6 +247,73 @@ fun SessionHeaderBar(
                 }
             }
         }
+    }
+}
+
+/**
+ * The name over the clock, and — where the caller allows it — the way to rename the workout.
+ *
+ * ### One node when it can be tapped
+ *
+ * The name is the affordance (see [SessionHeaderBar]'s `onNameClick`), and an eyebrow is 13dp
+ * tall. A tap target that small is announced as whatever room it can grow into, and the clock
+ * directly under it takes that room first — so the name came out 33dp tall to Accessibility
+ * Scanner, an error. The rename target is therefore the *whole* title block, name and clock
+ * together, which is 45dp on its own and grows the rest of the way into the bar's padding.
+ *
+ * Merged rather than clickable-with-children because a content description on a parent
+ * *replaces* its children's text for a screen reader rather than adding to it: a plain
+ * `semantics(mergeDescendants)` here would announce the clock's description and drop the name.
+ * `clearAndSetSemantics` says both, in order, and re-supplies the action the clear threw away —
+ * the same trap [RestTimerIndicator] documents.
+ *
+ * Inert, the two stay separate nodes: a name that does nothing has no business merging with a
+ * clock a reader may want to find on its own.
+ */
+@Composable
+private fun SessionTitle(
+    name: String,
+    elapsed: Duration,
+    isPaused: Boolean,
+    onNameClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val chrome = OpenGymTheme.sessionChrome
+    val clock = elapsed.formatAsElapsed()
+    // The clock is announced with what it is a clock *of*; read as bare text it is four digits
+    // with no noun anywhere near them.
+    val spoken = stringResource(
+        if (isPaused) R.string.session_elapsed_paused else R.string.session_elapsed,
+        clock,
+    )
+    val rename = stringResource(R.string.session_header_rename)
+    val merged = stringResource(R.string.session_header_title, name, spoken)
+
+    Column(
+        modifier = if (onNameClick != null) {
+            modifier
+                .clearAndSetSemantics {
+                    contentDescription = merged
+                    onClick(label = rename) {
+                        onNameClick()
+                        true
+                    }
+                }
+                .clickable(onClick = onNameClick)
+        } else {
+            modifier
+        },
+    ) {
+        Eyebrow(text = name, color = chrome.onSurfaceVariant)
+        Text(
+            text = clock,
+            style = OpenGymTheme.typography.numericLarge,
+            color = chrome.onSurface,
+            maxLines = 1,
+            modifier = Modifier
+                .padding(top = OpenGymTheme.spacing.xs)
+                .semantics { contentDescription = spoken },
+        )
     }
 }
 
@@ -291,7 +351,13 @@ fun SessionProgressRail(
     Row(
         modifier = modifier
             .height(RAIL_HEIGHT)
-            .clearAndSetSemantics { contentDescription = description },
+            .clearAndSetSemantics {
+                contentDescription = description
+                // The rail fills a sliver when an exercise's last set is ticked — somewhere
+                // else on the screen, without a tap on the rail. A polite live region says
+                // "3 of 8 exercises done" when it happens, and is otherwise silent.
+                liveRegion = LiveRegionMode.Polite
+            },
         horizontalArrangement = Arrangement.spacedBy(RAIL_GAP),
     ) {
         progress.exercises.forEachIndexed { index, isDone ->
@@ -424,7 +490,7 @@ private const val DISABLED_ALPHA = 0.38f
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Session header", widthDp = 360)
+@Preview(name = "Session header", widthDp = 360, heightDp = CATALOGUE_HEIGHT_DP)
 @Composable
 fun SessionHeaderBarPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
@@ -432,7 +498,7 @@ fun SessionHeaderBarPreview() {
     }
 }
 
-@Preview(name = "Session header, dark", widthDp = 360)
+@Preview(name = "Session header, dark", widthDp = 360, heightDp = CATALOGUE_HEIGHT_DP)
 @Composable
 fun SessionHeaderBarDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
@@ -487,3 +553,6 @@ private fun SessionHeaderCatalogue() {
         )
     }
 }
+
+/** Five bars, uncut: see the note on `PreferenceRow`'s catalogue for why a clipped one is a red test. */
+private const val CATALOGUE_HEIGHT_DP = 760

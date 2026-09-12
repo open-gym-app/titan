@@ -123,7 +123,7 @@ class TemplateEditorScreenTest {
         setContent(populated())
 
         composeTestRule.onNodeWithContentDescription(
-            "Perform Bench press and Cable fly back to back",
+            "Superset. Perform Bench press and Cable fly back to back",
         ).performClick()
 
         assertEquals(listOf(TemplateEditorEvent.SupersetLinked(1L)), events)
@@ -134,7 +134,7 @@ class TemplateEditorScreenTest {
         setContent(populated())
 
         scrollTo(
-            hasContentDescription("Stop performing Cable fly and Tricep pushdown back to back"),
+            hasContentDescription("Superset A. Stop performing Cable fly and Tricep pushdown back to back"),
         ).performClick()
 
         assertEquals(listOf(TemplateEditorEvent.SupersetUnlinked(2L)), events)

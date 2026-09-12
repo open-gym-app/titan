@@ -4,9 +4,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -15,6 +18,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -109,8 +113,9 @@ class ActiveSessionScreenTest {
     fun `the header carries the elapsed clock and the workout's name`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("PUSH DAY · UPPER").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Elapsed 0:23:14").assertIsDisplayed()
+        // One node, name and clock together: the title block is the rename control, and a
+        // merged control speaks once — see `SessionTitle` in `:core:ui`.
+        composeTestRule.onNodeWithContentDescription("Push day · Upper, Elapsed 0:23:14").assertIsDisplayed()
     }
 
     @Test
@@ -299,7 +304,7 @@ class ActiveSessionScreenTest {
     fun `the row's own tick logs the same set`() {
         setScreen(state(entry = SetEntry(weight = "80", reps = "5")))
 
-        composeTestRule.onNodeWithContentDescription("Mark set 3 done").performClick()
+        composeTestRule.onNode(tick(setNumber = 3, completed = false)).performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SetLogged(BENCH_ROW)), events)
     }
@@ -343,7 +348,7 @@ class ActiveSessionScreenTest {
 
         scrollTo(hasText("Timed exercise", substring = true)).assertIsDisplayed()
         scrollToText("Complete set 1").assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription("Mark set 1 done").assertIsNotEnabled()
+        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsNotEnabled()
     }
 
     @Test
@@ -353,7 +358,7 @@ class ActiveSessionScreenTest {
         setScreen(state(entry = SetEntry(weight = "80")))
 
         scrollToText("Complete set 3").assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNode(tick(setNumber = 3, completed = false)).assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription("Weight, set 3").assertIsEnabled()
     }
 
@@ -629,7 +634,7 @@ class ActiveSessionScreenTest {
     fun `the tick on a logged row takes the set back out of the count`() {
         setScreen(state())
 
-        scrollToDescription("Set 2 is done. Un-tick it").performClick()
+        scrollTo(tick(setNumber = 2, completed = true)).performClick()
 
         assertEquals(
             listOf(
@@ -656,7 +661,7 @@ class ActiveSessionScreenTest {
 
         // The values are still there — this is not a deletion — and the tick is the way back.
         scrollToDescription("Weight, set 2").assert(hasText("70"))
-        scrollToDescription("Mark set 2 done").performClick()
+        scrollTo(tick(setNumber = 2, completed = false)).performClick()
 
         assertEquals(
             listOf(
@@ -685,7 +690,7 @@ class ActiveSessionScreenTest {
         // about the row can be written: `EditSetUseCase` refuses a session that is not running,
         // so a field that still took keystrokes would be collecting them for a refusal.
         scrollToDescription("Weight, set 2").assert(hasText("70")).assertIsNotEnabled()
-        scrollToDescription("Set 2 is done. Un-tick it").assertIsNotEnabled()
+        scrollTo(tick(setNumber = 2, completed = true)).assertIsNotEnabled()
         assertTrue(events.isEmpty())
     }
 
@@ -734,7 +739,7 @@ class ActiveSessionScreenTest {
     fun `the gap between two exercises offers to pair them up`() {
         setScreen(state())
 
-        scrollToDescription("Perform Bench press and Incline dumbbell press back to back")
+        scrollToDescription("Superset. Perform Bench press and Incline dumbbell press back to back")
             .performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SupersetLinked(BENCH_ROW)), events)
@@ -744,7 +749,7 @@ class ActiveSessionScreenTest {
     fun `a pair already performed back to back offers to break the join`() {
         setScreen(state(exercises = supersetExercises()))
 
-        scrollToDescription("Stop performing Incline dumbbell press and Cable fly back to back")
+        scrollToDescription("Superset A. Stop performing Incline dumbbell press and Cable fly back to back")
             .performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SupersetUnlinked(INCLINE_ROW)), events)
@@ -1042,7 +1047,7 @@ class ActiveSessionScreenTest {
     fun `the header's name is the way to change it`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("PUSH DAY · UPPER").performClick()
+        composeTestRule.onNodeWithContentDescription("Push day · Upper, Elapsed 0:23:14").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.NameEditRequested), events)
     }
@@ -1059,9 +1064,10 @@ class ActiveSessionScreenTest {
     fun `a session with no name falls back to the day it happened`() {
         setScreen(state().copy(header = state().header?.copy(name = null)))
 
-        // The date the fixture's session started, uppercased by the eyebrow.
+        // The date the fixture's session started, as the merged title block announces it — the
+        // eyebrow's uppercase is typography, and the description carries the name as written.
         composeTestRule
-            .onNodeWithText(formatSessionDate(STARTED_AT).uppercase(), substring = true)
+            .onNodeWithContentDescription(formatSessionDate(STARTED_AT), substring = true)
             .assertIsDisplayed()
     }
 
@@ -1137,7 +1143,8 @@ class ActiveSessionScreenTest {
     fun `a paused clock is announced as paused`() {
         setScreen(state().copy(isPaused = true))
 
-        composeTestRule.onNodeWithContentDescription("Paused at 0:23:14").assertIsDisplayed()
+        // Inside the merged title block — see `SessionTitle` — so by substring.
+        composeTestRule.onNodeWithContentDescription("Paused at 0:23:14", substring = true).assertIsDisplayed()
     }
 
     // ─── Finishing ──────────────────────────────────────────────────────────────────────
@@ -1146,7 +1153,7 @@ class ActiveSessionScreenTest {
     fun `END reports the finish`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithContentDescription("Finish the session").performClick()
+        composeTestRule.onNodeWithContentDescription("End the session").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
     }
@@ -1160,7 +1167,7 @@ class ActiveSessionScreenTest {
 
         composeTestRule.onNodeWithContentDescription("Pause the session").assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription("Discard the session").assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription("Finish the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("End the session").assertIsNotEnabled()
     }
 
     @Test
@@ -1339,8 +1346,14 @@ class ActiveSessionScreenTest {
     fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
         setScreen(resting().copy(isRestSheetOpen = false))
 
-        composeTestRule.onNodeWithContentDescription("1:23 left").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("1:23 left").performClick()
+        // With the sheet away the pill is the live region, and a live region says the
+        // quarter-minute — "1:30", not "1:23" — because what it says is what it announces every
+        // time the text changes. See `RestTimerIndicator`'s `announces`.
+        composeTestRule
+            .onNodeWithContentDescription("Resting, 1:30 left")
+            .assertIsDisplayed()
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+            .performClick()
 
         assertEquals(listOf(ActiveSessionEvent.RestSheetRequested), events)
     }
@@ -1443,6 +1456,18 @@ class ActiveSessionScreenTest {
 
     private fun scrollToDescription(description: String): SemanticsNodeInteraction =
         scrollTo(hasContentDescription(description))
+
+    /**
+     * A set's tick, by its number and its state — "Completed, Set 2, checkbox". The label alone
+     * is not unique on a screen of three exercises; the label and the state together name the
+     * one row the test means, exactly as the old state-bearing labels did.
+     */
+    private fun tick(
+        setNumber: Int,
+        completed: Boolean,
+    ): SemanticsMatcher =
+        hasContentDescription("Set $setNumber") and
+            hasStateDescription(if (completed) "Completed" else "Not completed")
 
     /**
      * The field called [description] that currently holds [value].

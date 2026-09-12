@@ -60,6 +60,8 @@ Reference documentation lives in [`docs/`](docs/):
   navigation and dependency injection.
 - [PERSISTENCE.md](docs/PERSISTENCE.md) — the database schema, its migration strategy and
   the storage assumptions built on it.
+- [ACCESSIBILITY.md](docs/ACCESSIBILITY.md) — what the app promises TalkBack, large fonts and
+  a thumb, how every build checks it, and the record of the last pass on a device.
 
 ## Contributing
 

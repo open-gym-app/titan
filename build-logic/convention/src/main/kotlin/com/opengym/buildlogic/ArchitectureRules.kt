@@ -37,11 +37,22 @@ internal object ArchitectureRules {
 
         // Shared components take domain types directly. The ban on `:core:ui -> :core:data`
         // is the point of this entry: presentation must not bypass the domain layer.
-        { path: String -> path == ":core:ui" } to setOf(":core:domain"),
+        { path: String -> path == ":core:ui" } to setOf(":core:domain", ":core:testing"),
+
+        // Test support shared by every Compose module's unit tests (#40): the preview tester
+        // that runs the Accessibility Test Framework, and nothing that ships. It knows no
+        // module of this project — it drives whatever preview it is handed through Roborazzi's
+        // API — and a dependency on one would be the first step towards it composing screens
+        // of its own, which belong in the test that wants them.
+        //
+        // The edge *into* it is `testImplementation`, from `opengym.android.compose`. The check
+        // cannot see configurations, so `:core:ui` and the features list it as permitted; the
+        // convention plugin is what keeps it off their main classpaths.
+        { path: String -> path == ":core:testing" } to emptySet(),
 
         // A vertical slice: use cases from the domain, the design system from `:core:ui`,
         // and nothing else — least of all another feature.
-        { path: String -> path.startsWith(":feature:") } to setOf(":core:domain", ":core:ui"),
+        { path: String -> path.startsWith(":feature:") } to setOf(":core:domain", ":core:ui", ":core:testing"),
 
         // The on-device benchmarks (#42). `:app` and nothing else — not even `:core:ui`,
         // whose test tags it addresses by restating them as strings.

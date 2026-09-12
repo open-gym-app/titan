@@ -86,6 +86,19 @@ class DateTimeFormatTest {
     }
 
     @Test
+    fun `a time of day draws the same digits as the date beside it`() {
+        // Egyptian Arabic counts in Eastern Arabic numerals. The date goes through ICU and gets
+        // them for free; `java.time` keeps ASCII digits unless told otherwise, and a session
+        // header reading `٢٨ أبريل` over `9:14` is two numbering systems for one moment.
+        val egypt = Locale.forLanguageTag("ar-EG")
+        val date = formatSessionDate(instant, zone = utc, locale = egypt)
+        val time = formatTimeOfDay(instant, zone = utc, locale = egypt)
+
+        assertTrue(date, date.contains("٢٨"))
+        assertTrue(time, time.contains("٩:١٤"))
+    }
+
+    @Test
     fun `a month heading is the standalone month name and the year`() {
         assertEquals("April 2026", formatMonthAndYear(YearMonth.of(2026, 4), locale = uk))
     }

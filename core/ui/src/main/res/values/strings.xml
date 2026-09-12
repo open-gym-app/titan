@@ -49,11 +49,13 @@
          still line up. Hidden from screen readers: it is a spacer, not a value. -->
     <string name="set_log_previous_none">–</string>
     <string name="set_log_previous_value">Previously %1$s</string>
-    <!-- The tick, both ways round. It is the same control on the row being typed and on a set
-         already written: the first logs the set, and on a logged row it takes the tick back off
-         one that was pressed by accident. -->
-    <string name="set_log_mark_done">Mark set %1$d done</string>
-    <string name="set_log_mark_not_done">Set %1$d is done. Un-tick it</string>
+    <!-- The tick: its label, and its two states as a screen reader says them before the
+         label — "Completed, Set 3, checkbox". It is the same control on the row being typed
+         and on a set already written: the first logs the set, and on a logged row it takes the
+         tick back off one that was pressed by accident. -->
+    <string name="set_log_completion">Set %1$d</string>
+    <string name="set_log_completed">Completed</string>
+    <string name="set_log_not_completed">Not completed</string>
     <string name="set_log_weight_and_reps">%1$s × %2$d</string>
     <!-- A bodyweight set, where the count is the whole of what was done. A plural because a
          set of one is a rep: "1 reps" is the first set of every workout reading wrong. -->
@@ -107,11 +109,16 @@
     <string name="session_header_pause">Pause the session</string>
     <string name="session_header_resume">Resume the session</string>
     <string name="session_header_discard">Discard the session</string>
-    <string name="session_header_finish">Finish the session</string>
+    <!-- Says the word drawn on the button: a Voice Access user says what they see, and a
+         button that reads "End" but answers to "Finish" is one they cannot press. -->
+    <string name="session_header_finish">End the session</string>
     <!-- Drawn on the button. Short because the bar holds three controls and a clock. -->
     <string name="session_header_finish_label">End</string>
     <!-- The header's name doubles as the way to change it. -->
     <string name="session_header_rename">Rename this workout</string>
+    <!-- The name and the clock as one announcement, where the title block is the rename
+         control — see SessionTitle. %1$s the name, %2$s the spoken clock. -->
+    <string name="session_header_title">%1$s, %2$s</string>
 
     <!-- ── Naming a session ──────────────────────────────────────────────────────── -->
 
@@ -259,6 +266,10 @@
     <string name="superset_linked_label">Superset %1$s</string>
     <string name="superset_link">Perform %1$s and %2$s back to back</string>
     <string name="superset_break">Stop performing %1$s and %2$s back to back</string>
+    <!-- What the join announces: the label drawn on the pill, then what a press does.
+         "Superset A. Stop performing Bench press and Cable fly back to back." The drawn word
+         leads so the control answers to the name a user can read off it. -->
+    <string name="superset_description">%1$s. %2$s</string>
 
     <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
 
@@ -268,6 +279,10 @@
     <string name="rest_timer_idle">No rest running</string>
     <string name="rest_timer_of_total">of %1$s</string>
     <string name="rest_timer_remaining">%1$s left</string>
+    <!-- What the live region says while the rest runs, four times a minute: the time left to
+         the quarter-minute above it — see RestTimerState.announcement(). -->
+    <string name="rest_timer_live_running">Resting, %1$s left</string>
+    <string name="rest_timer_live_paused">Rest paused, %1$s left</string>
     <string name="rest_timer_up_next">Next %1$s</string>
     <string name="rest_timer_shorter_label">−%1$ds</string>
     <string name="rest_timer_shorter">Shorten the rest by %1$d seconds</string>
@@ -300,7 +315,8 @@
     <string name="stat_muscles">Muscles</string>
     <string name="stat_muscles_unit">worked</string>
     <!-- Announced as one phrase so TalkBack says "Volume, 4,820 kg" rather than reading a
-         label and a number as two unrelated nodes. -->
+         label and a number as two unrelated nodes. A tile's label leads, as its eyebrow does;
+         a chip's figure leads, as the pill reads - see `figure_with_unit`. -->
     <string name="stat_description">%1$s, %2$s</string>
 
     <!-- Personal records. PrType's own names, as a lifter would say them. -->
@@ -311,8 +327,11 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Furthest</string>
     <string name="pr_best_pace">Best pace</string>
-    <string name="pr_description">Personal record: %1$s</string>
-    <string name="pr_description_short">Personal record</string>
+    <!-- Opens with the badge's own letters. "PR" is what a lifter says and what is drawn,
+         and a label that starts with the drawn text is one Voice Access matches; the words
+         the abbreviation stands for follow it. -->
+    <string name="pr_description">PR %1$s, personal record</string>
+    <string name="pr_description_short">PR, personal record</string>
     <!-- A record's figure where the kind has no unit of its own to carry it. -->
     <!-- A rep record's unit. The figure beside it comes from `formattedFigure`, which goes
          through the package's own number formatter so the digits follow the device locale. -->
@@ -443,7 +462,7 @@
     <string name="chart_description_flat">%1$s, %2$s to %3$s. %4$s throughout, unchanged.</string>
     <!-- Fewer than two marks: there is no trend, and saying so beats saying nothing about a
          card the user can see is empty. -->
-    <string name="chart_description_empty">%1$s. Not enough logged yet to chart.</string>
+    <string name="chart_description_empty">%1$s. Not enough to chart yet.</string>
     <!-- Drawn in the middle of a chart that has nothing to plot. -->
     <string name="chart_placeholder">Not enough to chart yet</string>
 
@@ -453,7 +472,8 @@
     <string name="chart_change_down">\u2193 %1$s</string>
     <string name="chart_change_up_description">Up %1$s on the previous period</string>
     <string name="chart_change_down_description">Down %1$s on the previous period</string>
-    <string name="chart_change_none_description">Unchanged on the previous period</string>
+    <!-- The figure leads because it is what the chip draws: "0 kg, unchanged". -->
+    <string name="chart_change_none_description">%1$s, unchanged on the previous period</string>
 
     <!-- The XP ring, announced as its label, its fraction and how far round it has gone. -->
     <string name="progress_ring_description">%1$s, %2$s, %3$d%% complete</string>
@@ -530,6 +550,10 @@
          "45 reps". A quantity with its unit inside one string comes from the format package
          instead, which asks CLDR for the pattern - see MeasureFormats.kt. -->
     <string name="figure_with_unit">%1$s %2$s</string>
+    <!-- The state of a selectable card, said before its label: "Selected, Hypertrophy, radio
+         button". See SelectableOption. -->
+    <string name="option_selected">Selected</string>
+    <string name="option_not_selected">Not selected</string>
     <!-- What joins the clauses of a description a screen reader reads as one node. The
          trailing space is inside the quotes on purpose: XML would otherwise trim it. -->
     <string name="spoken_separator">", "</string>

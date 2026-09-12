@@ -421,6 +421,27 @@ fun PlateCalculatorScreenPreview() {
     }
 }
 
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(
+    name = "Plate calculator - twice the font",
+    showBackground = true,
+    heightDp = FULL_SCREEN_HEIGHT_DP,
+    fontScale = 2f,
+)
+@Composable
+fun PlateCalculatorScreenLargeFontPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        PlateCalculatorScreen(state = previewState(PREVIEW_HUNDRED_KILOS), onEvent = {}, onBack = {})
+    }
+}
+
 @Preview(name = "Plate calculator - dark", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun PlateCalculatorScreenDarkPreview() {

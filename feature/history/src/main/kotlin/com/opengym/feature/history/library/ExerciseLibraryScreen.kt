@@ -657,6 +657,37 @@ fun ExerciseLibraryScreenPreview() {
     }
 }
 
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(name = "Exercise library - twice the font", showBackground = true, heightDp = 900, fontScale = 2f)
+@Composable
+fun ExerciseLibraryScreenLargeFontPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        ExerciseLibraryScreen(state = PREVIEW_STATE, onEvent = {}, onExerciseClick = {})
+    }
+}
+
+/** The picker at 2x: the row that carries a checkbox *and* an info button is the one to watch. */
+@Preview(name = "Exercise picker - twice the font", showBackground = true, heightDp = 900, fontScale = 2f)
+@Composable
+fun ExercisePickerLargeFontPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        ExerciseLibraryScreen(
+            state = PREVIEW_STATE.copy(selection = listOf(PREVIEW_BENCH_ID, PREVIEW_PULL_UP_ID)),
+            onEvent = {},
+            onBack = {},
+            selecting = true,
+            onExerciseClick = {},
+        )
+    }
+}
+
 @Preview(name = "Exercise library - dark", showBackground = true)
 @Composable
 fun ExerciseLibraryScreenDarkPreview() {

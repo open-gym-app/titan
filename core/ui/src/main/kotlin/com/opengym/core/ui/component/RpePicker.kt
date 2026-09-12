@@ -117,8 +117,12 @@ fun RpePicker(
         Text(
             text = rpe?.let(::formatRpe) ?: stringResource(R.string.set_log_rpe_unset),
             style = OpenGymTheme.typography.numericSmall,
+            // The dash is quieter than a rating, one step down and no further: `outline` is a
+            // control's edge, held to 3:1, and as text on this cell's deeper fill it reads at
+            // 3.98:1 — under the 4.5:1 a glyph is owed, which is what Accessibility Scanner
+            // reported on every unrated set on the device.
             color = if (rpe == null) {
-                MaterialTheme.colorScheme.outline
+                MaterialTheme.colorScheme.onSurfaceVariant
             } else {
                 MaterialTheme.colorScheme.onSurface
             },
@@ -251,7 +255,10 @@ private fun RpePickerCatalogue() {
         modifier = Modifier
             .background(MaterialTheme.colorScheme.background)
             .padding(OpenGymTheme.spacing.screen),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg),
+        // Room for each 32dp cell to be announced at 48: settled right to left, a cell takes
+        // 8dp of the gap before it, and the one to its left then needs 8dp of its own. In the
+        // table this is `TOGGLE_CLEARANCE`'s job — see the note on the columns in SetLogRow.
+        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.section),
     ) {
         RpePicker(setNumber = 1, rpe = 85, onRpeChange = {})
         RpePicker(setNumber = 2, rpe = null, onRpeChange = {})

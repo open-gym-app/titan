@@ -92,17 +92,18 @@ class PersonalRecordsScreenTest {
 
         // Six kinds plus ALL. A record with no chip to find it under is a record the user cannot
         // reach, which is why the wireframe's four are not enough.
+        // Case-insensitively: the chip uppercases what it is given, as an eyebrow does.
         listOf("Heaviest", "Most reps", "Most volume", "1RM", "Furthest", "Best pace").forEach { label ->
-            composeTestRule.onNodeWithText(label).assertIsDisplayed()
+            composeTestRule.onNodeWithText(label, ignoreCase = true).assertIsDisplayed()
         }
-        composeTestRule.onNodeWithText("All").assertIsDisplayed()
+        composeTestRule.onNodeWithText("All", ignoreCase = true).assertIsDisplayed()
     }
 
     @Test
     fun `choosing a chip reports the kind it stands for`() {
         setContent(PersonalRecordsUiState(totalRecords = 4, isLoading = false))
 
-        composeTestRule.onNodeWithText("Most reps").performClick()
+        composeTestRule.onNodeWithText("Most reps", ignoreCase = true).performClick()
 
         assertEquals(listOf(PersonalRecordsEvent.FilterSelected(PrType.MAX_REPS)), events)
     }
@@ -111,7 +112,7 @@ class PersonalRecordsScreenTest {
     fun `the all chip clears the filter`() {
         setContent(PersonalRecordsUiState(filter = PrType.MAX_REPS, totalRecords = 4, isLoading = false))
 
-        composeTestRule.onNodeWithText("All").performClick()
+        composeTestRule.onNodeWithText("All", ignoreCase = true).performClick()
 
         assertEquals(listOf(PersonalRecordsEvent.FilterSelected(null)), events)
     }

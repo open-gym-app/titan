@@ -572,7 +572,18 @@ private const val ADD_KEY = "add"
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
-@Preview(name = "Template editor", showBackground = true, heightDp = 900)
+/**
+ * Tall enough for the whole plan, with the save bar under it rather than over it.
+ *
+ * The bar is a `Scaffold` bottom bar and the list runs on behind it, so at a phone's height the
+ * preview cuts a set row in half under the bar — and the accessibility check every preview runs
+ * through reads that half-row as a 26dp field. Which is what Accessibility Scanner reads on a
+ * device too, at that scroll position; the preview simply should not document one. Same
+ * reasoning as the active session's 1800dp.
+ */
+private const val WHOLE_PLAN_HEIGHT_DP = 2400
+
+@Preview(name = "Template editor", showBackground = true, heightDp = WHOLE_PLAN_HEIGHT_DP)
 @Composable
 fun TemplateEditorScreenPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {
@@ -580,7 +591,28 @@ fun TemplateEditorScreenPreview() {
     }
 }
 
-@Preview(name = "Template editor - dark", showBackground = true, heightDp = 900)
+/**
+ * Every label at twice its size — the bar #40 holds every screen to, on the pattern Home set.
+ *
+ * Recorded rather than argued about: the reference image is the evidence, it is a screenshot
+ * test like any other, and a change that starts clipping or overlapping something at 2x fails
+ * the build. Robolectric's font metrics are not a phone's, so the device walk in
+ * docs/ACCESSIBILITY.md is still the result; this is what keeps it from rotting.
+ */
+@Preview(
+    name = "Template editor - twice the font",
+    showBackground = true,
+    heightDp = WHOLE_PLAN_HEIGHT_DP * 2,
+    fontScale = 2f,
+)
+@Composable
+fun TemplateEditorScreenLargeFontPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        TemplateEditorScreen(state = previewState(), onEvent = {}, onExit = {})
+    }
+}
+
+@Preview(name = "Template editor - dark", showBackground = true, heightDp = WHOLE_PLAN_HEIGHT_DP)
 @Composable
 fun TemplateEditorScreenDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
@@ -588,7 +620,7 @@ fun TemplateEditorScreenDarkPreview() {
     }
 }
 
-@Preview(name = "Template editor - edited", showBackground = true, heightDp = 900)
+@Preview(name = "Template editor - edited", showBackground = true, heightDp = WHOLE_PLAN_HEIGHT_DP)
 @Composable
 fun TemplateEditorScreenEditedPreview() {
     OpenGymTheme(theme = ThemePreference.LIGHT) {

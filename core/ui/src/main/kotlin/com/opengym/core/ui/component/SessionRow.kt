@@ -218,13 +218,16 @@ private fun sessionDescription(
     totalVolume: Long,
     hasRecord: Boolean,
 ): String {
+    // The record straight after the name, where the badge is drawn: the row's first line reads
+    // "2:38 PM · PR", and a spoken row that keeps those words together is one Accessibility
+    // Scanner matches to the pixels and a Voice Access user can say as they see it.
     val parts = listOfNotNull(
         title,
+        stringResource(R.string.pr_description_short).takeIf { hasRecord },
         formatSessionDate(startedAt),
         duration.formatAsLength(),
         pluralStringResource(R.plurals.session_set_count_description, totalSets, totalSets),
         formatVolume(totalVolume),
-        stringResource(R.string.pr_description_short).takeIf { hasRecord },
     )
 
     return parts.joinToString(stringResource(R.string.plate_list_separator))

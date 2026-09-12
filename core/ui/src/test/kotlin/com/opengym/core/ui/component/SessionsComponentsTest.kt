@@ -71,7 +71,10 @@ class SessionsComponentsTest {
     fun `a record puts the badge on the row and says so out loud`() {
         setRow(name = "Legs · Heavy", hasRecord = true)
 
-        composeTestRule.onNodeWithContentDescription("Personal record", substring = true)
+        // Straight after the name, the way the badge sits beside it, and opening with the
+        // letters drawn on the badge: the spoken row keeps the pixels' words in the pixels'
+        // order, which is what Accessibility Scanner holds a label to.
+        composeTestRule.onNodeWithContentDescription("Legs · Heavy, PR, personal record, ", substring = true)
             .assertIsDisplayed()
     }
 

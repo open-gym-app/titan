@@ -24,8 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -62,6 +64,18 @@ import kotlin.time.Duration.Companion.seconds
  * [com.opengym.core.domain.timer.RestTimerController], which is the thing that owns a clock;
  * these draw whatever they are handed, including a `Running` that has stopped changing,
  * which is exactly what a paused screen should look like.
+ *
+ * ### What a screen reader hears while the rest runs
+ *
+ * A countdown is the one thing on the screen that changes without a tap, and a value that
+ * changes silently does not exist to TalkBack. So the readout carries a **polite live region**
+ * — the status eyebrow in [RestCountdown], or the pill in [RestTimerIndicator] where the sheet
+ * has been swiped away — and what it says is [announcement]: the status and the time left *to
+ * the nearest quarter minute*. Not the exact second, and not on the exact figure: a live
+ * region speaks every time its text changes, and a region that changed sixty times a minute
+ * would talk over everything else on the screen, including the set the user is trying to log.
+ * Four times a minute is a cadence a lifter can rest to; the exact figure is still one swipe
+ * away on the digits themselves.
  */
 
 /**
@@ -188,7 +202,15 @@ fun RestCountdown(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
     ) {
-        Eyebrow(text = state.statusLabel(), color = state.accentOrMuted())
+        // The live region — see the note at the top of the file. On the eyebrow, whose drawn
+        // text is the status, rather than on the figure, which has to keep saying the exact
+        // second to whoever lands on it.
+        Eyebrow(
+            text = state.statusLabel(),
+            color = state.accentOrMuted(),
+            contentDescription = state.announcement(),
+            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+        )
         Text(
             text = remaining.formatAsClock(),
             style = valueStyle,
@@ -269,6 +291,11 @@ fun RestProgressBar(
  *   by the one caller that is not on it — the active workout's header, which is a near-black
  *   band in both schemes and would swallow a `primaryContainer` pill. See
  *   [RestTimerDefaults.sessionChromeIndicatorColors].
+ * @param announces whether this pill is the live region for the rest — true when it is the only
+ *   readout on screen, which is the sheet swiped away. False while the sheet is up, or the same
+ *   quarter-minute would be spoken twice, once from each window. Announcing, the pill says
+ *   [announcement] rather than the exact remainder, since the description *is* what the region
+ *   speaks each time it changes; see the note at the top of the file.
  */
 @Composable
 fun RestTimerIndicator(
@@ -276,10 +303,11 @@ fun RestTimerIndicator(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     colors: RestTimerIndicatorColors = RestTimerDefaults.indicatorColors(),
+    announces: Boolean = false,
 ) {
     val remaining = state.remaining()
     val running = state is RestTimerState.Running
-    val spoken = spokenRemaining(remaining)
+    val spoken = if (announces) state.announcement() else spokenRemaining(remaining)
     val reopen = stringResource(R.string.rest_timer_reopen)
 
     Row(
@@ -296,6 +324,7 @@ fun RestTimerIndicator(
             // there and wrong here.)
             .clearAndSetSemantics {
                 contentDescription = spoken
+                if (announces) liveRegion = LiveRegionMode.Polite
                 if (onClick != null) {
                     onClick(label = reopen) {
                         onClick()
@@ -441,6 +470,39 @@ private fun RestTimerState.accentOrMuted(): Color =
 @Composable
 private fun spokenRemaining(remaining: Duration): String =
     stringResource(R.string.rest_timer_remaining, remaining.formatAsClock())
+
+/**
+ * What the live region says — see the note at the top of the file.
+ *
+ * A running rest is announced to the nearest [ANNOUNCEMENT_STEP] *above* the remainder, so `1:23`
+ * is "1:30 left" and the sentence changes exactly when the countdown crosses a quarter-minute:
+ * four announcements a minute, never more. Rounded up rather than down because "0:00 left" with
+ * fourteen seconds still to go is a lie the alert then contradicts; the last thing said before
+ * the rest ends is "0:15 left", and the next is "Rest complete". A paused rest is frozen, so it
+ * is announced exactly — the figure is not going to change under the sentence.
+ */
+@Composable
+private fun RestTimerState.announcement(): String =
+    when (this) {
+        is RestTimerState.Running ->
+            stringResource(R.string.rest_timer_live_running, remaining.roundedUpTo(ANNOUNCEMENT_STEP).formatAsClock())
+
+        is RestTimerState.Paused -> stringResource(R.string.rest_timer_live_paused, remaining.formatAsClock())
+
+        RestTimerState.Finished -> stringResource(R.string.rest_timer_finished)
+
+        RestTimerState.Idle -> stringResource(R.string.rest_timer_idle)
+    }
+
+/** The smallest multiple of [step] that is not below this duration. Zero stays zero. */
+private fun Duration.roundedUpTo(step: Duration): Duration {
+    val steps = inWholeMilliseconds / step.inWholeMilliseconds
+    val remainder = inWholeMilliseconds % step.inWholeMilliseconds
+    return step * (steps + if (remainder > 0) 1 else 0).toInt()
+}
+
+/** How often a running rest is announced. See [announcement]. */
+private val ANNOUNCEMENT_STEP: Duration = 15.seconds
 
 @Composable
 private fun PauseResumeButton(

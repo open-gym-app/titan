@@ -10,6 +10,7 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
+import org.gradle.kotlin.dsl.project
 import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
@@ -116,6 +117,12 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
                 add("testImplementation", library("roborazzi-junit-rule"))
                 add("testImplementation", library("roborazzi-compose-preview-scanner-support"))
                 add("testImplementation", library("composable-preview-scanner"))
+
+                // The tester the generated preview tests instantiate — see `configureRoborazzi`
+                // — and the `assertAccessible()` a hand-written screen test calls. Shared code,
+                // so it is a module and not a copy per test source set; `:core:testing` is on
+                // no main classpath anywhere.
+                add("testImplementation", project(":core:testing"))
             }
         }
 }
@@ -218,6 +225,12 @@ private fun Project.configureRoborazzi() =
                 provider { listOfNotNull(extensions.getByType<LibraryExtension>().namespace) },
             )
             robolectricConfig.set(mapOf("sdk" to "[${AndroidSdk.ROBOLECTRIC}]"))
+
+            // Every preview is also run through the Accessibility Test Framework — the checks
+            // Accessibility Scanner runs on a device — before it is captured (#40). The
+            // tester lives in `:core:testing`; what it checks and why is documented there and
+            // in docs/ACCESSIBILITY.md.
+            testerQualifiedClassName.set("com.opengym.core.testing.AccessibleComposePreviewTester")
         }
     }
 

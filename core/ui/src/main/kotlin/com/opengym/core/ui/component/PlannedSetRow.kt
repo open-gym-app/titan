@@ -17,14 +17,14 @@ import com.opengym.core.ui.R
 import com.opengym.core.ui.theme.OpenGymTheme
 
 /**
- * One set of a *plan*: `W | [40] × [12]`.
+ * One set of a *plan*: `W | [40] [12]`.
  *
  * The template editor's row, and the third member of [SetLogRow]'s family — the row being
  * typed, the row that is a record, and this one, the row that has not happened yet. It lives
  * beside them and draws their cells, because the whole point of it is that a template looks
  * like the workout it plans: the leading marker is the same [SetTypePicker], the two figures
- * are the same [OpenGymValueField]s in the same order with the same `×` between them, so a
- * lifter reading a template reads it the way they will read the session.
+ * are the same [OpenGymValueField]s in the same order under the same headings, so a lifter
+ * reading a template reads it the way they will read the session.
  *
  * ### What it drops, and why
  *
@@ -98,9 +98,6 @@ fun PlannedSetRow(
             error = error,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        // The same separator the workout's row draws, which is what keeps the header over this
-        // one on the same grid — see [MultiplicationSign].
-        MultiplicationSign()
         OpenGymValueField(
             value = reps,
             onValueChange = onRepsChange,
@@ -140,21 +137,23 @@ fun PlannedSetHeader(
         modifier = modifier
             .fillMaxWidth()
             .clearAndSetSemantics { }
-            .padding(horizontal = OpenGymTheme.spacing.md, vertical = OpenGymTheme.spacing.sm),
+            .padding(horizontal = OpenGymTheme.spacing.xs, vertical = OpenGymTheme.spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Eyebrow(
             text = stringResource(R.string.set_log_column_set),
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(INDEX_COLUMN_WIDTH),
+            // The leading cell's clearance, so the label sits over the picker — see SetLogRow.
+            modifier = Modifier
+                .padding(end = INDEX_CLEARANCE)
+                .width(INDEX_COLUMN_WIDTH),
         )
         Eyebrow(
             text = weightUnit,
             textAlign = TextAlign.Center,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
-        MultiplicationSign()
         Eyebrow(
             text = stringResource(R.string.set_log_column_reps),
             textAlign = TextAlign.Center,

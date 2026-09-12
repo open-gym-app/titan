@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.EquipmentType
@@ -71,8 +72,10 @@ class ExerciseFormTest {
     fun `picking a primary muscle reports it`() {
         setContent(ExerciseDraft(name = "Zercher squat"))
 
+        // To the chip itself, not the heading over it: a chip is a 48dp tap target now, and the
+        // first row of them can sit below the fold the heading was scrolled to.
         scrollTo("PRIMARY MUSCLE")
-        composeTestRule.onAllNodesWithText("CHEST").onFirst().performClick()
+        composeTestRule.onAllNodesWithText("CHEST").onFirst().performScrollTo().performClick()
 
         assertEquals(listOf(CHEST.id), drafts.map { it.primaryMuscleGroupId })
     }
@@ -84,7 +87,7 @@ class ExerciseFormTest {
         )
 
         scrollTo("PRIMARY MUSCLE")
-        composeTestRule.onAllNodesWithText("CHEST").onFirst().performClick()
+        composeTestRule.onAllNodesWithText("CHEST").onFirst().performScrollTo().performClick()
 
         // A group cannot be both, and a link table with a duplicate key would reject the
         // write for a reason the user could not see.

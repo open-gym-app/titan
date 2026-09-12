@@ -14,6 +14,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -30,8 +31,16 @@ import com.opengym.core.ui.theme.PillShape
  *
  * The interactive twin of [OpenGymBadge], which is a *tag* — same shape, same type role, no
  * click. Keeping them as two components rather than one with an optional `onClick` is what
- * stops a static label acquiring a 32dp touch target and a role that tells a screen reader it
- * can be pressed.
+ * stops a static label acquiring a touch target and a role that tells a screen reader it can
+ * be pressed.
+ *
+ * **Drawn at 30dp, announced at 48.** The pill is the eyebrow role plus its padding, and a pill
+ * that tall would be a button. What Material does with the same problem — its own chip is 32dp
+ * — is reserve the tap target *around* the drawing, which is `minimumInteractiveComponentSize`
+ * here: the chip's layout is 48dp in whichever dimension the pill falls short, the pill sits
+ * centred in it, and Accessibility Scanner sees a target it does not flag. The rows this lands
+ * in ([ChipSection], [OpenGymFilterChipRow]) get 18dp of air between pills out of it, which is
+ * the reservation made visible and not a gap to close.
  *
  * Not Material's `FilterChip`, for the reason [OpenGymCard] is not Material's `Card`:
  * `FilterChip` is a 32dp container with a leading-icon slot, its own elevation and eight
@@ -64,12 +73,14 @@ fun OpenGymFilterChip(
     enabled: Boolean = true,
 ) {
     Surface(
-        modifier = modifier.selectable(
-            selected = selected,
-            enabled = enabled,
-            role = if (multiple) Role.Checkbox else Role.RadioButton,
-            onClick = onClick,
-        ),
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                role = if (multiple) Role.Checkbox else Role.RadioButton,
+                onClick = onClick,
+            ),
         shape = PillShape,
         // The selected chip is the accent's ordinary, un-shouted use: it marks the one thing
         // on this row that is currently doing something. An unselected chip is the page's own

@@ -92,7 +92,11 @@ internal fun DialogNameField(
                     Text(
                         text = placeholder,
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.outline,
+                        // A placeholder is text, and text on this field's deeper fill needs
+                        // 4.5:1, which `outline` — a control's edge, held to 3:1 — does not
+                        // give it in either scheme. One step quieter than what is typed, and
+                        // no quieter.
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 field()

@@ -151,7 +151,7 @@ class QuestLogScreenTest {
         // Three of the six, on a link rather than a grid: an achievement is a permanent unlock
         // with nothing to act on today, so it is a screen away. See `AchievementsScreen`.
         composeTestRule
-            .onNodeWithContentDescription("Achievements, 3 of 6 unlocked")
+            .onNodeWithContentDescription("Achievements, everything you have unlocked: 3 of 6")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -161,7 +161,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Achievements, 3 of 6 unlocked")
+            .onNodeWithContentDescription("Achievements, everything you have unlocked: 3 of 6")
             .performScrollTo()
             .performClick()
 
@@ -231,7 +231,7 @@ class QuestLogScreenTest {
         setContent(emptyQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Achievements, 0 of 6 unlocked")
+            .onNodeWithContentDescription("Achievements, everything you have unlocked: 0 of 6")
             .performScrollTo()
             .assertIsDisplayed()
     }

@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -98,11 +99,15 @@ class SetLogRowTest {
     }
 
     @Test
-    fun `the tick reports the state it is being moved to`() {
+    fun `the tick announces its state in words, and reports the state it is being moved to`() {
         setRow(weight = "80", reps = "5")
 
-        composeTestRule.onNodeWithContentDescription("Mark set 3 done")
+        // `stateDescription` is what TalkBack says first — "Not completed, Set 3, checkbox" —
+        // and it is asserted as its own property rather than folded into the label, which is
+        // the whole point of it being one: the label does not change with the state.
+        composeTestRule.onNodeWithContentDescription("Set 3")
             .assertIsOff()
+            .assert(hasStateDescription("Not completed"))
             .performClick()
 
         assertEquals(listOf(true), completions)
@@ -112,8 +117,9 @@ class SetLogRowTest {
     fun `a completed row offers to reopen the set rather than to complete it`() {
         setRow(weight = "80", reps = "5", isCompleted = true)
 
-        composeTestRule.onNodeWithContentDescription("Set 3 is done. Un-tick it")
+        composeTestRule.onNodeWithContentDescription("Set 3")
             .assertIsOn()
+            .assert(hasStateDescription("Completed"))
             .performClick()
 
         assertEquals(listOf(false), completions)
@@ -304,7 +310,7 @@ class SetLogRowTest {
     fun `a disabled row cannot be ticked`() {
         setRow(weight = "80", reps = "5", enabled = false)
 
-        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Set 3").assertIsNotEnabled()
         assertEquals(emptyList<Boolean>(), completions)
     }
 
@@ -365,7 +371,7 @@ class SetLogRowTest {
         // that was live for it would be pressed for a set the write path refuses.
         setRow(weight = "80", reps = "", canComplete = false)
 
-        composeTestRule.onNodeWithContentDescription("Mark set 3 done").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("Set 3").assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription("Weight, set 3").performTextReplacement("82.5")
 
         assertEquals(listOf("82.5"), weightEdits)
@@ -439,7 +445,7 @@ class SetLogRowTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it")
+        composeTestRule.onNodeWithContentDescription("Set 2")
             .assertIsOn()
             .performClick()
 
@@ -461,7 +467,7 @@ class SetLogRowTest {
 
         // The values are still there — this is not a deletion — and the tick is the way back.
         composeTestRule.onNodeWithText("70 kg × 8").assertIsDisplayed()
-        composeTestRule.onNodeWithContentDescription("Mark set 2 done")
+        composeTestRule.onNodeWithContentDescription("Set 2")
             .assertIsOff()
             .performClick()
 
@@ -476,7 +482,7 @@ class SetLogRowTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Set 2 is done. Un-tick it").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Set 2").assertDoesNotExist()
     }
 
     // ─── Leaving a row, which is what writes a logged one ───────────────────────────────

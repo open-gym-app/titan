@@ -272,7 +272,7 @@ class DeepLinkNavigationTest {
          * `OpenGymAppNavigationTest` uses, and for the reason it records there: the bar is
          * drawn before the session's own Room reads come back.
          */
-        const val ACTIVE_SESSION_MARKER = "Finish the session"
+        const val ACTIVE_SESSION_MARKER = "End the session"
 
         /** Each screen's own eyebrow or title — the marker that does not move with the copy. */
         const val NEW_SESSION_MARKER = "New session"

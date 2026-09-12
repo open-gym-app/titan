@@ -723,7 +723,7 @@ class OpenGymAppNavigationTest {
          * draws *while* they are outstanding is the only thing it can rely on. Whether the
          * workout renders a session is `ActiveSessionScreenTest`'s question.
          */
-        const val ACTIVE_SESSION = "Finish the session"
+        const val ACTIVE_SESSION = "End the session"
 
         /*
          * The recap, by the chrome each of its two modes draws.

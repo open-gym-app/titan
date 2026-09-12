@@ -100,12 +100,17 @@ fun formatSessionDate(
 ): String = date.formatWithSkeleton(WEEKDAY_DATE_SKELETON, locale)
 
 /**
- * The time of day something happened, as the device's clock writes it: `10:14`, `10:14 AM`.
+ * The time of day something happened, as the device's clock writes it: `10:14`, `10:14 AM`,
+ * `٩:١٤ ص`.
  *
  * [FormatStyle.SHORT], so a 24-hour locale gets no seconds and a 12-hour one gets its
  * meridiem. Seconds are deliberately absent: this labels *when* a session started, and the
  * length of it is a duration, which [formatAsClock] renders and is the only thing on the
  * screen precise to the second.
+ *
+ * The digits are the locale's own, like the date this sits beside: [formatSessionDate] draws
+ * `٢٨ أبريل` through ICU, and a `٩:١٤` next to it has to come from the same numbering system
+ * — see [localizedTimeFormatter] for why `java.time` does not do that on its own.
  */
 fun formatTimeOfDay(
     epochMillis: Long,
@@ -347,9 +352,19 @@ private fun numberFormatter(
         DateTimeFormatter.ofPattern(pattern, locale).withDecimalStyle(DecimalStyle.of(locale))
     }
 
+/**
+ * The localized SHORT time, in the locale's own numerals.
+ *
+ * `ofLocalizedTime(...).withLocale(locale)` has the same gap [numberFormatter] closes: the
+ * locale picks the pattern and the meridiem text, and [DecimalStyle.STANDARD] stays in place
+ * for the digits. Without the explicit [DecimalStyle.of] a session header on an Egyptian or a
+ * Persian phone reads its date in the locale's digits and its start time in ASCII ones.
+ */
 private fun localizedTimeFormatter(locale: Locale): DateTimeFormatter =
     localizedTimeFormatters.getOrPut(locale) {
-        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+            .withLocale(locale)
+            .withDecimalStyle(DecimalStyle.of(locale))
     }
 
 /*

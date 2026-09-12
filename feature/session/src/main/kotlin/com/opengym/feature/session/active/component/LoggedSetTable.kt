@@ -83,6 +83,8 @@ import com.opengym.feature.session.active.LoggedSet
  *   writes, so fields that still accepted typing would be collecting keystrokes for a write that
  *   is refused, and a drag that still deleted would be a deletion the domain throws out. The
  *   values stay on screen, because they are still the user's copy of them.
+ * @param showPrevious whether the previous-set column is drawn — the caller's answer from
+ *   `setTableFitsPrevious`, shared with the entry row under this table so the grid holds.
  */
 @Composable
 fun LoggedSetTable(
@@ -92,9 +94,10 @@ fun LoggedSetTable(
     modifier: Modifier = Modifier,
     togglingSetIds: Set<Long> = emptySet(),
     enabled: Boolean = true,
+    showPrevious: Boolean = true,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SetLogHeader()
+        SetLogHeader(showPrevious = showPrevious)
 
         sets.forEachIndexed { index, set ->
             HairlineDivider()
@@ -143,6 +146,7 @@ fun LoggedSetTable(
                         // commit would write the same correction twice.
                         enabled = enabled && !set.isSaving,
                         canComplete = enabled && set.id !in togglingSetIds && set.canComplete,
+                        showPrevious = showPrevious,
                     )
                 }
             }
@@ -164,6 +168,7 @@ private fun LoggedSetRow(
     onEvent: (ActiveSessionEvent) -> Unit,
     enabled: Boolean,
     canComplete: Boolean,
+    showPrevious: Boolean,
 ) {
     SetLogRow(
         setNumber = setNumber,
@@ -196,6 +201,7 @@ private fun LoggedSetRow(
         // table: which reference a row gets depends on the *types* of the rows above it, which
         // is a fact about the exercise and not about the row. See [SessionExerciseRow].
         previous = set.previous,
+        showPrevious = showPrevious,
         isCompleted = set.isCompleted,
         // The accent stays on the entry row. A logged set being typed into is not "where the next
         // number goes", which is the one thing the tint is for, and a table that lit up under

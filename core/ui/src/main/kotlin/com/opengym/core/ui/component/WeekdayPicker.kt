@@ -4,9 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -22,13 +24,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.format.firstDayOfWeek
 import com.opengym.core.ui.format.formattingLocale
 import com.opengym.core.ui.format.weekdayInitial
 import com.opengym.core.ui.theme.HAIRLINE_WIDTH
+import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
 import com.opengym.core.ui.theme.OpenGymTheme
 import java.time.DayOfWeek
 import java.time.format.TextStyle
@@ -48,6 +49,16 @@ import java.util.Locale
  * The cells therefore share the width equally and stay put when they are deselected, which is
  * also what makes the row a stable tap target: the day under your thumb does not move because
  * the day beside it changed.
+ *
+ * ### Two lines where seven squares do not fit
+ *
+ * A cell is a tap target, so it is 48dp both ways — not tall and narrow. Seven of those with
+ * their gaps need 372dp, and a phone's card gives the row about 300: on every phone the week
+ * would come out as seven 40dp cells, which Accessibility Scanner reports as an error on each.
+ * So the row measures itself first and, where seven do not fit, wraps at four — `M T W T` over
+ * `F S S`, every cell the same width, the second line left-aligned so the fourth column stays
+ * where it was. The week is still read in order and the pattern is still a pattern; what it is
+ * not is seven cells too small to hit. A tablet, or a phone in landscape, gets the single line.
  *
  * ### It starts on the locale's own first day
  *
@@ -77,19 +88,32 @@ fun WeekdayPicker(
 ) {
     val locale = formattingLocale()
     val week = remember(locale) { weekFrom(firstDayOfWeek(locale)) }
+    val gap = OpenGymTheme.spacing.sm
 
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
-    ) {
-        week.forEach { day ->
-            WeekdayCell(
-                day = day,
-                locale = locale,
-                isSelected = day in selected,
-                enabled = enabled,
-                onToggle = { onToggle(day, it) },
-            )
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val singleLine = maxWidth >= MIN_TOUCH_TARGET * DAYS_PER_WEEK + gap * (DAYS_PER_WEEK - 1)
+        val perLine = if (singleLine) DAYS_PER_WEEK else WRAPPED_DAYS_PER_LINE
+
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            week.chunked(perLine).forEach { line ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(gap),
+                ) {
+                    line.forEach { day ->
+                        WeekdayCell(
+                            day = day,
+                            locale = locale,
+                            isSelected = day in selected,
+                            enabled = enabled,
+                            onToggle = { onToggle(day, it) },
+                        )
+                    }
+                    // The short line keeps the long line's columns: the cells share the width
+                    // with as many empties as there are days missing, so `F` sits under `M`.
+                    repeat(perLine - line.size) { Spacer(modifier = Modifier.weight(1f)) }
+                }
+            }
         }
     }
 }
@@ -97,11 +121,9 @@ fun WeekdayPicker(
 /**
  * One day.
  *
- * `weight(1f)` rather than a fixed size, so the row fills whatever it is given and the seven
- * cells stay identical at every screen width and font scale. The height floor is the tap
- * target: on a 360dp phone inside a card the cells come out around 40dp wide, which is under
- * Material's 48dp minimum in one dimension, so the other dimension is what makes the target
- * large enough to hit with a thumb.
+ * `weight(1f)` rather than a fixed size, so the line fills whatever it is given and its cells
+ * stay identical at every screen width and font scale. The height floor is the tap target's
+ * other dimension; the width is what [WeekdayPicker] wraps to guarantee.
  */
 @Composable
 private fun RowScope.WeekdayCell(
@@ -116,7 +138,7 @@ private fun RowScope.WeekdayCell(
     Surface(
         modifier = Modifier
             .weight(1f)
-            .heightIn(min = CELL_MIN_HEIGHT)
+            .heightIn(min = MIN_TOUCH_TARGET)
             .toggleable(
                 value = isSelected,
                 enabled = enabled,
@@ -164,16 +186,14 @@ private fun RowScope.WeekdayCell(
 private fun weekFrom(start: DayOfWeek): List<DayOfWeek> =
     (0 until DAYS_PER_WEEK).map { offset -> start.plus(offset.toLong()) }
 
-/**
- * The floor under a cell's height, which is what makes it a 48dp tap target.
- *
- * Seven cells across a 360dp phone, inside a card, come to roughly 40dp wide each — under
- * Material's minimum in that dimension and not fixable there without letting the row scroll,
- * which would cost the whole point of seeing the week at once.
- */
-private val CELL_MIN_HEIGHT: Dp = 48.dp
-
 private const val DAYS_PER_WEEK = 7
+
+/**
+ * How the week breaks when it has to: four and three. Four is the most that fit at 48dp in the
+ * ~300dp a phone's card gives the row, and it puts the break after Thursday in a Monday-first
+ * week, which is where a working week already pauses.
+ */
+private const val WRAPPED_DAYS_PER_LINE = 4
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
@@ -190,6 +210,24 @@ fun WeekdayPickerPreview() {
 fun WeekdayPickerDarkPreview() {
     OpenGymTheme(theme = ThemePreference.DARK) {
         WeekdayPickerCatalogue()
+    }
+}
+
+/** The one line the row keeps where it has the room — a tablet, or a phone on its side. */
+@Preview(name = "Weekday picker, wide", widthDp = 480)
+@Composable
+fun WeekdayPickerWidePreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(OpenGymTheme.spacing.screen),
+        ) {
+            WeekdayPicker(
+                selected = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY),
+                onToggle = { _, _ -> },
+            )
+        }
     }
 }
 

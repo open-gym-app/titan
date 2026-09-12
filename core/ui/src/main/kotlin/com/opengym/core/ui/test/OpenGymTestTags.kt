@@ -48,4 +48,16 @@ object OpenGymTestTags {
 
     /** The progression chart itself — the node whose arrival ends the render measurement. */
     const val EXERCISE_PROGRESSION_CHART = "exercise:progressionChart"
+
+    /**
+     * One day of the training calendar's month grid.
+     *
+     * The other external driver: the Accessibility Test Framework, which reads the same node
+     * tree the benchmark does and is run over every preview by `:core:testing`. Seven columns
+     * inside a card cannot each be 48dp wide on a phone, so a trained day's tap is the one
+     * touch target the app accepts under Material's minimum — see docs/ACCESSIBILITY.md — and
+     * this tag is how the check is told which finding that decision covers, and no other.
+     * `:core:testing` restates the string, as `:benchmark` does with the tags above.
+     */
+    const val CALENDAR_DAY = "calendar:day"
 }

@@ -586,13 +586,29 @@ git add -A '*/src/test/screenshots'
   `*_compare.png` under `<module>/build/outputs/roborazzi`, which is a reference / diff /
   actual triptych of what changed.
 
+### Accessibility checks, for free
+
+Every generated preview test also runs the Accessibility Test Framework — the checks behind
+Google's Accessibility Scanner — over the composed preview before capturing it, and fails on
+what the Scanner would report as an error: a tap target under 48dp, a control with nothing to
+say, two controls that say the same thing. Nothing to add for a new screen beyond the preview it
+already needs. A test that drives a screen somewhere no preview goes calls
+`assertAccessible()` (or `assertAllRootsAccessible()` with a dialog up) from `:core:testing`.
+Every screen also carries a `fontScale = 2f` preview, so text that clips at twice the size is
+an image diff. docs/ACCESSIBILITY.md has the promises, the one accepted deviation, and how to
+read a `TouchTargetSizeCheck` finding — the short version is that the fix is layout, never a
+modifier.
+
 ### What these tests do not cover
 
 Robolectric runs real composition, measure and layout, so it catches render crashes,
 infinite-constraint errors, missing `CompositionLocal`s, recomposition loops and semantics
-failures. It does **not** faithfully reproduce window insets, real font metrics at large
-font scales, TalkBack behaviour or IME behaviour. Those belong to the accessibility pass on
-a real device (#40), not here — a green screenshot suite is not an accessibility result.
+failures, and the accessibility checks above read the real semantics tree. It does **not**
+faithfully reproduce window insets, real font metrics at large font scales, TalkBack behaviour
+or IME behaviour. Those belong to the accessibility pass on a real device — `make a11y-scan`,
+`make a11y-talkback`, `make a11y-font-scale`, recorded in docs/ACCESSIBILITY.md by
+`make a11y-record` — not here. A
+green screenshot suite is a floor under an accessibility result, not the result.
 
 ## Pull requests
 

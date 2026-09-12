@@ -41,6 +41,7 @@ import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.SheetDragHandle
 import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatWeight
 import com.opengym.core.ui.format.plateIncrement
@@ -100,6 +101,7 @@ fun EquipmentSheet(
         // exists not to do.
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        dragHandle = { SheetDragHandle() },
     ) {
         EquipmentPanel(
             barWeight = barWeight,

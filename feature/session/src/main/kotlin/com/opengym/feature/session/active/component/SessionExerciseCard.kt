@@ -1,6 +1,7 @@
 package com.opengym.feature.session.active.component
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +38,7 @@ import com.opengym.core.ui.component.SetLogRow
 import com.opengym.core.ui.component.SupersetBadge
 import com.opengym.core.ui.component.formattedValue
 import com.opengym.core.ui.component.label
+import com.opengym.core.ui.component.setTableFitsPrevious
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.ActiveSessionEvent
@@ -314,53 +316,62 @@ private fun SetTable(
     val entry = row.entry
     val error = entry.error?.message()
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        LoggedSetTable(
-            sets = row.sets,
-            sessionExerciseId = row.sessionExerciseId,
-            onEvent = onEvent,
-            togglingSetIds = togglingSetIds,
-            enabled = enabled,
-        )
-        HairlineDivider()
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        // One answer for the header and every row — a 320dp phone cannot carry the previous
+        // column and hand both fields a 48dp tap target, and the grid says so itself. See
+        // `setTableFitsPrevious`.
+        val showPrevious = setTableFitsPrevious(maxWidth)
 
-        SetLogRow(
-            setNumber = row.nextSetNumber,
-            weight = entry.weight,
-            reps = entry.reps,
-            onWeightChange = {
-                onEvent(ActiveSessionEvent.WeightChanged(row.sessionExerciseId, it))
-            },
-            onRepsChange = { onEvent(ActiveSessionEvent.RepsChanged(row.sessionExerciseId, it)) },
-            // The row's own tick and the button under the table are the same action. Both are
-            // here because they answer different reaches: the tick is where a lifter's thumb
-            // already is after typing the reps, and the button is what the eye finds.
-            onCompletedChange = {
-                if (it) onEvent(ActiveSessionEvent.SetLogged(row.sessionExerciseId))
-            },
-            setType = entry.setType,
-            onSetTypeChange = {
-                onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
-            },
-            rpe = entry.rpe,
-            onRpeChange = { onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it)) },
-            // What the next set was last time, which is the one row where that is a
-            // prediction rather than a comparison — and the reason the column is worth its
-            // width: it is the number a lifter is deciding against with a bar in their hands.
-            previous = row.entryPrevious,
-            // The one accented row on the card, always. Every row above it is live too — a
-            // logged set is corrected where it sits, see [LoggedSetTable] — so what the tint is
-            // left to mean is the only thing worth marking from arm's length: this is where the
-            // next number goes.
-            isActive = true,
-            error = error,
-            enabled = enabled,
-            // The fields stay live while the tick does not: a row with a weight in it and no
-            // reps yet is a set half typed, not a refused one, and an exercise logged by time
-            // is one this screen cannot write at all. Either way the tick would be pressed for
-            // a set `LogSetUseCase` refuses.
-            canComplete = row.canLogEntry,
-        )
+        Column(modifier = Modifier.fillMaxWidth()) {
+            LoggedSetTable(
+                sets = row.sets,
+                sessionExerciseId = row.sessionExerciseId,
+                onEvent = onEvent,
+                togglingSetIds = togglingSetIds,
+                enabled = enabled,
+                showPrevious = showPrevious,
+            )
+            HairlineDivider()
+
+            SetLogRow(
+                setNumber = row.nextSetNumber,
+                weight = entry.weight,
+                reps = entry.reps,
+                onWeightChange = {
+                    onEvent(ActiveSessionEvent.WeightChanged(row.sessionExerciseId, it))
+                },
+                onRepsChange = { onEvent(ActiveSessionEvent.RepsChanged(row.sessionExerciseId, it)) },
+                // The row's own tick and the button under the table are the same action. Both are
+                // here because they answer different reaches: the tick is where a lifter's thumb
+                // already is after typing the reps, and the button is what the eye finds.
+                onCompletedChange = {
+                    if (it) onEvent(ActiveSessionEvent.SetLogged(row.sessionExerciseId))
+                },
+                setType = entry.setType,
+                onSetTypeChange = {
+                    onEvent(ActiveSessionEvent.SetTypeChanged(row.sessionExerciseId, it))
+                },
+                rpe = entry.rpe,
+                onRpeChange = { onEvent(ActiveSessionEvent.RpeChanged(row.sessionExerciseId, it)) },
+                // What the next set was last time, which is the one row where that is a
+                // prediction rather than a comparison — and the reason the column is worth its
+                // width: it is the number a lifter is deciding against with a bar in their hands.
+                previous = row.entryPrevious,
+                // The one accented row on the card, always. Every row above it is live too — a
+                // logged set is corrected where it sits, see [LoggedSetTable] — so what the tint is
+                // left to mean is the only thing worth marking from arm's length: this is where the
+                // next number goes.
+                isActive = true,
+                error = error,
+                enabled = enabled,
+                // The fields stay live while the tick does not: a row with a weight in it and no
+                // reps yet is a set half typed, not a refused one, and an exercise logged by time
+                // is one this screen cannot write at all. Either way the tick would be pressed for
+                // a set `LogSetUseCase` refuses.
+                canComplete = row.canLogEntry,
+                showPrevious = showPrevious,
+            )
+        }
     }
 }
 

@@ -2,6 +2,11 @@ package com.opengym.core.ui.component
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -58,21 +63,23 @@ class StatTest {
     fun `a chip announces its label after the figure it qualifies`() {
         setContent { StatChip(value = "12", label = "sets") }
 
-        composeTestRule.onNodeWithContentDescription("sets, 12").assertIsDisplayed()
+        // The drawn order, so the spoken chip is the one on the screen: a Voice Access user
+        // says "12 sets", and Accessibility Scanner holds the label to the visible text.
+        composeTestRule.onNodeWithContentDescription("12 sets").assertIsDisplayed()
     }
 
     @Test
     fun `a PR badge spells out what the abbreviation stands for`() {
         setContent { PrBadge(type = PrType.ESTIMATED_1RM) }
 
-        composeTestRule.onNodeWithContentDescription("Personal record: 1RM").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("PR 1RM, personal record").assertIsDisplayed()
     }
 
     @Test
     fun `a PR badge with no kind still announces what it is`() {
         setContent { PrBadge() }
 
-        composeTestRule.onNodeWithContentDescription("Personal record").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("PR, personal record").assertIsDisplayed()
     }
 
     @Test
@@ -103,8 +110,36 @@ class StatTest {
         setContent { SessionStatChips(stats = stats) }
 
         composeTestRule.onNodeWithContentDescription("Sets, 12 total").assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription("sets, 12").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("12 sets").assertIsDisplayed()
     }
+
+    @Test
+    fun `an announcing chip row is one live region saying the counter and the volume`() {
+        setContent { SessionStatChips(stats = stats, showDuration = false, announces = true) }
+
+        // One node, not two chips: a set logged elsewhere on the screen moves both figures at
+        // once, and a polite live region says the sentence once when they do. TalkBack hears
+        // nothing of a value that changes without a tap unless something says it is live.
+        composeTestRule
+            .onNodeWithContentDescription("12 sets · 4,820 kg")
+            .assertIsDisplayed()
+            .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
+        composeTestRule.onNodeWithContentDescription("12 sets").assertDoesNotExist()
+    }
+
+    @Test
+    fun `negative - a chip row in a list is not live`() {
+        setContent { SessionStatChips(stats = stats) }
+
+        // Two separate chips, and neither announces changes: a finished session's figures do
+        // not change, and a list of forty rows each declaring a live region is forty regions.
+        composeTestRule
+            .onNodeWithContentDescription("12 sets")
+            .assert(isNotLive())
+    }
+
+    private fun isNotLive() =
+        SemanticsMatcher("has no live region") { node -> SemanticsProperties.LiveRegion !in node.config }
 
     private fun setContent(content: @Composable () -> Unit) {
         composeTestRule.setContent { OpenGymTheme(content = content) }
