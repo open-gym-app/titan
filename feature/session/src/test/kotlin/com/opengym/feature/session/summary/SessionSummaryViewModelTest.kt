@@ -407,6 +407,36 @@ class SessionSummaryViewModelTest {
             assertEquals("Push Day · Upper", viewModel.uiState.value.templateName)
         }
 
+    /**
+     * Opening the dialog settles: it does not leave `uiState` re-emitting on its own.
+     *
+     * Written for #187, whose first hypothesis was a `combine` arm producing a new instance on
+     * every pass so the recap's state never stopped moving once the dialog opened. It turned out
+     * not to be that — the state settling here is exactly why the hunt moved to the dialog's own
+     * layout, and `OpenGymDialog`'s doc has the rest of that story — but the hypothesis was
+     * plausible enough to guard against on purpose rather than leave unverified.
+     */
+    @Test
+    fun `opening the dialog does not leave the state re-emitting on its own`() =
+        runTest {
+            val viewModel = viewModel(sets = pushDaySets())
+            val emissions = mutableListOf<SessionSummaryUiState>()
+            val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.uiState.collect(emissions::add)
+            }
+
+            viewModel.onEvent(SessionSummaryEvent.SaveAsTemplateRequested)
+            val afterOpening = emissions.size
+
+            // Nothing else touches the screen from here. A `combine` arm re-emitting on every
+            // pass would keep this list growing long after the event that opened the dialog;
+            // a settled state stops the moment nothing changed it.
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(afterOpening, emissions.size)
+            collector.cancel()
+        }
+
     @Test
     fun `a name already in use is reported and the dialog stays up to fix it`() =
         runTest {

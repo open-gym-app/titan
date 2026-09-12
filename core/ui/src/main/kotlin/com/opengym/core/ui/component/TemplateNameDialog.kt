@@ -2,7 +2,6 @@ package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,13 +78,12 @@ fun TemplateNameDialog(
 
     val canSave = name.isNotBlank() && !isSaving
 
-    AlertDialog(
+    OpenGymDialog(
         // Gated, unlike the buttons, which say what they are by being disabled. A back press or
         // a tap outside reaches this whatever the buttons look like, and a dialog that closed
         // mid-write would re-arm the action behind it for a second, racing save.
         onDismissRequest = { if (!isSaving) onDismiss() },
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
         title = { Text(text = title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xxl)) {

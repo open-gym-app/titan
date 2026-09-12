@@ -147,13 +147,15 @@ class EndToEndJourneyTest {
              * as the theme's own parameter, not as an outer `CompositionLocalProvider`, which
              * the theme would shadow.
              *
-             * And an unfocused `WindowInfo`, because `TemplateNameDialog` requests focus the
-             * moment it opens — deliberately, so a dialog whose whole purpose is typing does
-             * not need a second tap to type in — and a focused field blinks its caret
-             * forever. That is the same problem from a different source, and one
-             * `reducedMotion` does not reach: the caret belongs to the text field, not to the
-             * design system's celebrations. Freezing the clock does not help either; the
-             * idling strategy waits for Compose to call itself idle, not for frames.
+             * And an unfocused `WindowInfo`, because every text field these journeys drive
+             * takes real keyboard focus, and a focused field's caret blinks for as long as its
+             * window stays focused. Left alone that is one more source of the same "idle never
+             * arrives" failure `reducedMotion` exists for — a real, harmless, endless animation
+             * that Robolectric's idling has no exemption for. It does not reach `TemplateNameDialog`
+             * or `SessionNameDialog`: both open their own platform window, which shadows this
+             * provision with its own real, focused `WindowInfo` — see #187, which turned out to
+             * be a different bug entirely (`OpenGymDialog`'s doc has the story) rather than the
+             * caret this override was written for.
              *
              * Nothing under test reads either flag. Whether the ceremony plays is
              * `SessionSummaryScreenTest`'s subject; these journeys are about what the screens
@@ -262,9 +264,6 @@ class EndToEndJourneyTest {
      * `:feature:history` (which lists the template) before landing back in the flow, and the
      * claim is that the exercise makes the whole trip — the template a workout produced is a
      * template that produces the same workout.
-     *
-     * One step of it is not driven through the UI; see the comment on the write below, and
-     * #187.
      */
     @Test
     fun `a session saved as a template starts the next session with the same exercise`() {
@@ -281,26 +280,18 @@ class EndToEndJourneyTest {
         awaitText(SAVE_AS_TEMPLATE)
         composeTestRule.onNodeWithText(SAVE_AS_TEMPLATE).assertIsDisplayed()
 
-        // The write itself goes through the repository rather than through the dialog the
-        // button opens, and this is the one seam in this file that is not driven as a user
-        // would drive it. See #187: inside the assembled app, that dialog never lets Compose
-        // report itself idle, and under Robolectric every node query waits for idle first, so
-        // the first read after it opens never returns. The dialog is not untested — twelve
-        // cases in `TemplateNameDialogTest` and three in `SessionSummaryScreenTest` drive it
-        // directly, and pass — and it is not what this journey is for. The claim here is that
-        // the exercises a session recorded reach the flow a template starts, which is why the
-        // draft below is built from what the *session* holds rather than from a fixture: the
-        // same rows the ViewModel would read, written the same way, and then read back
-        // through four screens in two other modules.
-        runBlocking {
-            val finished = sessions.getAll().first().single { !it.isInProgress }
-            val performed = sessions.getExercises(finished.id).first()
-                .map { TemplateExerciseDraft(exerciseId = it.exerciseId) }
-            templates.insert(
-                template = WorkoutTemplate(name = SAVED_TEMPLATE),
-                exercises = performed,
-            )
-        }
+        // Through the dialog the button opens, not around it — see #187, now closed: what
+        // hung here was never this journey's own state, it was `AlertDialog` and a text field
+        // never settling on a width at the size this suite drives the shell at. `OpenGymDialog`
+        // is the fix; see its own doc. The name is replaced rather than kept, so the row this
+        // produces (`SAVED_TEMPLATE`) is distinguishable from the seeded one (`TEMPLATE`) in
+        // the list four screens from here.
+        composeTestRule.onNodeWithText(SAVE_AS_TEMPLATE).performClick()
+        awaitContentDescription(TEMPLATE_NAME_FIELD)
+        composeTestRule.onNodeWithContentDescription(TEMPLATE_NAME_FIELD)
+            .performTextReplacement(SAVED_TEMPLATE)
+        composeTestRule.onNodeWithText(SAVE_TEMPLATE_CONFIRM).performClick()
+        awaitText(SAVED_AS_TEMPLATE_MESSAGE)
 
         leaveTheRecap()
 
@@ -523,6 +514,9 @@ class EndToEndJourneyTest {
         // The template the recap makes, and the dialog that names it.
         const val SAVE_AS_TEMPLATE = "Save as template"
         const val SAVED_TEMPLATE = "Bench day"
+        const val TEMPLATE_NAME_FIELD = "Template name"
+        const val SAVE_TEMPLATE_CONFIRM = "Save"
+        const val SAVED_AS_TEMPLATE_MESSAGE = "Saved as a template"
 
         // The set entry rows, by the description a screen reader reads.
         const val SET_WEIGHT = "Weight, set %d"
