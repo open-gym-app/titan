@@ -4,6 +4,7 @@ import com.opengym.core.domain.gamification.Achievements
 import com.opengym.core.domain.model.UnlockedAchievement
 import com.opengym.feature.progression.quests.FakeGamificationReads
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -29,6 +30,7 @@ import java.time.Instant
  * Collected in a launched job rather than read off `.value`, because `WhileSubscribed` produces
  * nothing at all without a subscriber.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class AchievementsViewModelTest {
 
     @Before

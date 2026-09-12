@@ -11,6 +11,7 @@ import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.register
+import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 /**
  * `opengym.android.compose` — Compose for a library module: the compiler plugin, the
@@ -73,6 +74,8 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
             }
 
             configureRoborazzi()
+            configureComposeStability()
+            configureComposeReports()
 
             dependencies {
                 val bom = platform(library("androidx-compose-bom"))
@@ -116,6 +119,66 @@ class AndroidComposeConventionPlugin : Plugin<Project> {
             }
         }
 }
+
+/**
+ * Points the Compose compiler at `config/compose/stability.conf`.
+ *
+ * That file is where this project tells the compiler which types it may treat as values —
+ * Kotlin's read-only collection interfaces, and every model in `:core:domain`, which cannot
+ * carry `@Immutable` because it is a plain Kotlin library with no Compose dependency. See the
+ * file itself for what each entry promises and why it is safe.
+ *
+ * `:app` sets the same thing in its own build script: it applies no convention plugin, and a
+ * stability rule that held in the features but not in the composition root would be the worst
+ * of both.
+ */
+private fun Project.configureComposeStability() =
+    extensions.configure<ComposeCompilerGradlePluginExtension> {
+        stabilityConfigurationFiles.add(
+            rootProject.layout.projectDirectory.file("config/compose/stability.conf"),
+        )
+    }
+
+/**
+ * The Compose compiler's own stability report, behind `-Popengym.composeReports`.
+ *
+ * ### What it is for
+ *
+ * "Does this list item recompose more than once per data change" is a question about
+ * *skippability*, and the compiler already knows the answer for every composable in the
+ * module: which ones it could make skippable, which parameters it considers unstable, and why.
+ * Layout Inspector answers the same question one screen at a time, by hand, on a device, and
+ * leaves nothing behind that a later change can be checked against.
+ *
+ * So this is the sweep #42 asks for, in a form anyone can re-run:
+ *
+ * ```
+ * ./gradlew :feature:history:compileBenchmarkKotlin -Popengym.composeReports
+ * less feature/history/build/compose-reports/history-composables.txt
+ * ```
+ *
+ * A `restartable skippable fun SessionRow` is a row that will not recompose when its
+ * neighbours' data changes. An `unstable parameter` line names the type to annotate or the
+ * lambda to hoist.
+ *
+ * ### Why it is behind a property
+ *
+ * The reports are compiler output, not build output: turning them on unconditionally would
+ * add a directory of generated text to every module on every build, and — because the
+ * destination is a task input — would invalidate the Kotlin compile task for everyone who does
+ * not want them.
+ */
+private fun Project.configureComposeReports() {
+    if (!providers.gradleProperty(COMPOSE_REPORTS_PROPERTY).isPresent) return
+
+    val destination = layout.buildDirectory.dir("compose-reports")
+    extensions.configure<ComposeCompilerGradlePluginExtension> {
+        reportsDestination.set(destination)
+        metricsDestination.set(destination)
+    }
+}
+
+private const val COMPOSE_REPORTS_PROPERTY = "opengym.composeReports"
 
 /**
  * Screenshot tests, as reference images committed under `src/test/screenshots` and compared

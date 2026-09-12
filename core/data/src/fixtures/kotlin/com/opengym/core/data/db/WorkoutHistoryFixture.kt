@@ -121,7 +121,10 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
                 completedAt = finishedAt,
             ),
         )
-        (0 until spec.exercisesPerSession).forEach { exerciseSlot ->
+        // Plain `for` loops here and in [seedSets], not `forEach`: this is the inner loop of a
+        // fixture that writes 50,000 rows, and it now runs on a phone as well as on a JVM - see
+        // `BenchmarkHistorySeeder`.
+        for (exerciseSlot in 0 until spec.exercisesPerSession) {
             val exerciseId = exerciseIds[exerciseSlotOf(sessionIndex, exerciseSlot, exerciseIds.size)]
             val sessionExerciseId = db.sessionExerciseDao().insert(
                 sessionExercise(sessionId, exerciseId, position = exerciseSlot),
@@ -138,7 +141,7 @@ class WorkoutHistoryFixture(private val db: OpenGymDatabase) {
         exerciseId: Long,
         sessionExerciseId: Long,
     ) {
-        (1..spec.setsPerExercise).forEach { setNumber ->
+        for (setNumber in 1..spec.setsPerExercise) {
             val setId = db.workoutSetDao().insert(
                 workoutSet(
                     sessionExerciseId = sessionExerciseId,

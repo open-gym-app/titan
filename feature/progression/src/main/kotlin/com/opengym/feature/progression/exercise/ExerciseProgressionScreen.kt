@@ -22,6 +22,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -35,6 +36,7 @@ import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.component.labelOrNull
+import com.opengym.core.ui.test.OpenGymTestTags
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
 import com.opengym.feature.progression.exercise.component.ExerciseChooser
@@ -205,7 +207,9 @@ private fun ChooserBody(
     ExerciseChooser(
         choices = state.choices,
         onSelect = { onEvent(ExerciseProgressionEvent.ExerciseSelected(it)) },
-        modifier = modifier,
+        // Tagged so `:benchmark` can pick a lift without reading its name — see
+        // `OpenGymTestTags`.
+        modifier = modifier.testTag(OpenGymTestTags.EXERCISE_CHOOSER),
         // The margin the drill-down spends on its column, spent inside the scroll instead:
         // the same inset, on a list that has to be able to scroll its last row past it.
         contentPadding = PaddingValues(OpenGymTheme.spacing.screen),
@@ -286,7 +290,11 @@ private fun Readings(
                 glyph = stringResource(R.string.exercise_empty_glyph),
             )
 
-            else -> ExerciseTrendCards(progression = progression)
+            // The chart pair #42 puts a 200ms budget on. The tag is what says it is drawn.
+            else -> ExerciseTrendCards(
+                progression = progression,
+                modifier = Modifier.testTag(OpenGymTestTags.EXERCISE_PROGRESSION_CHART),
+            )
         }
 
         if (state.recentAttempts.isNotEmpty()) {

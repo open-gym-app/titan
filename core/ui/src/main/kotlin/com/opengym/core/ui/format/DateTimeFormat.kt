@@ -14,6 +14,7 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /*
  * Dates and clock times, from the epoch milliseconds every `*_at` column stores to what a
@@ -84,7 +85,7 @@ fun formatSessionDate(
     locale: Locale = formattingLocale(),
 ): String {
     val weekday = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
-    val rest = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(date)
+    val rest = localizedDateFormatter(locale).format(date)
 
     return "$weekday $rest"
 }
@@ -101,10 +102,7 @@ fun formatTimeOfDay(
     epochMillis: Long,
     zone: ZoneId = ZoneId.systemDefault(),
     locale: Locale = formattingLocale(),
-): String =
-    DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-        .withLocale(locale)
-        .format(Instant.ofEpochMilli(epochMillis).atZone(zone))
+): String = localizedTimeFormatter(locale).format(Instant.ofEpochMilli(epochMillis).atZone(zone))
 
 /*
  * The three below are the calendar's vocabulary: a month to head it with, a number for each
@@ -238,10 +236,7 @@ fun weekdayInitial(
 fun formatTimeOfDay(
     time: LocalTime,
     locale: Locale = formattingLocale(),
-): String =
-    DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-        .withLocale(locale)
-        .format(time)
+): String = localizedTimeFormatter(locale).format(time)
 
 /**
  * Whether [locale] writes the time on a 24-hour clock.
@@ -295,7 +290,31 @@ private const val DAYS_PER_WEEK = 7
 private fun numberFormatter(
     pattern: String,
     locale: Locale,
-): DateTimeFormatter = DateTimeFormatter.ofPattern(pattern, locale).withDecimalStyle(DecimalStyle.of(locale))
+): DateTimeFormatter =
+    numberFormatters.getOrPut(pattern to locale) {
+        DateTimeFormatter.ofPattern(pattern, locale).withDecimalStyle(DecimalStyle.of(locale))
+    }
+
+private fun localizedDateFormatter(locale: Locale): DateTimeFormatter =
+    localizedDateFormatters.getOrPut(locale) {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+    }
+
+private fun localizedTimeFormatter(locale: Locale): DateTimeFormatter =
+    localizedTimeFormatters.getOrPut(locale) {
+        DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale)
+    }
+
+/*
+ * Built once per locale. `ofPattern` parses its pattern and `ofLocalizedDate`/`ofLocalizedTime`
+ * run a `DateTimeFormatterBuilder` on every call, and a history row goes through three of
+ * them to draw its rail and describe itself — the kind of per-row cost a `LazyColumn` pays
+ * on the frame a row scrolls in (#42). A `DateTimeFormatter` is immutable, so one instance
+ * serves every thread.
+ */
+private val numberFormatters = ConcurrentHashMap<Pair<String, Locale>, DateTimeFormatter>()
+private val localizedDateFormatters = ConcurrentHashMap<Locale, DateTimeFormatter>()
+private val localizedTimeFormatters = ConcurrentHashMap<Locale, DateTimeFormatter>()
 
 /*
  * Single-field patterns, so there is no field order to get wrong in another locale — the

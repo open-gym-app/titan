@@ -103,8 +103,8 @@ class FakeRecordReads : PersonalRecordRepository {
 
     override suspend fun getRecordsPage(
         type: PrType?,
-        limit: Int,
         offset: Int,
+        limit: Int,
     ) = emptyList<com.opengym.core.domain.model.PersonalRecordEntry>()
 
     override suspend fun insertIfBetter(

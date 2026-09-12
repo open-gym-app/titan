@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <!--
+          What lets `:benchmark` read this process's traces.
+
+          Macrobenchmark takes its numbers out of Perfetto, and Perfetto will only attach to a
+          process the platform considers debuggable or profileable. This build type is
+          deliberately not debuggable — a debuggable app runs interpreted and would make every
+          figure a benchmark reports meaningless — so it says the other thing instead.
+
+          `android:shell="true"` means "the shell user may profile me", which is the shell the
+          instrumentation runs as. It has no effect below API 29, which is why `:benchmark`
+          sets its `minSdk` there.
+
+          It lives in this build type's manifest and nowhere else: the shipping app must not
+          carry it.
+        -->
+        <profileable
+            android:shell="true"
+            tools:targetApi="q" />
+    </application>
+
+</manifest>

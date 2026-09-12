@@ -74,6 +74,35 @@ android {
             versionNameSuffix = "-staging"
             matchingFallbacks += listOf("release")
         }
+
+        // What `:benchmark` measures (#42). Release-like, because a benchmark against a
+        // debuggable build measures the interpreter and answers a question nobody asked.
+        //
+        // ### No `applicationIdSuffix`
+        //
+        // Unlike `staging`. The benchmarks and the profile generator address the app by
+        // package name from a second process, and a suffix here would make every one of them
+        // carry a name that is `com.opengym.app` in the build that ships and something else in
+        // the build that was measured.
+        //
+        // ### Minification is off, and that is the trade
+        //
+        // A Baseline Profile is generated as a list of *original* class and method names;
+        // AGP rewrites it through R8's mapping when it packages the minified APK, so the file
+        // this build type produces is exactly what `src/main/baselineProfiles` should hold.
+        // Generated from a minified build it would be a list of `a.b.c` that means nothing to
+        // the next R8 run. The cost is that startup here is measured over more code than
+        // `release` ships, so the absolute figure is a ceiling and the profile's *improvement*
+        // — which is what the acceptance criterion asks for — is the number that transfers.
+        //
+        // Signed with the debug key so a benchmark run needs no `keystore.properties`.
+        create("benchmark") {
+            initWith(getByName("release"))
+            isMinifyEnabled = false
+            isShrinkResources = false
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
     }
 
     buildFeatures {
@@ -105,6 +134,15 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// The same stability configuration every Compose module gets from `opengym.android.compose`,
+// which `:app` does not apply. See `config/compose/stability.conf`; a rule that held in the
+// features and not in the composition root would be the worst of both.
+composeCompiler {
+    stabilityConfigurationFiles.add(
+        rootProject.layout.projectDirectory.file("config/compose/stability.conf"),
+    )
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -153,6 +191,13 @@ dependencies {
     // `:core:data`.
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
+
+    // Installs `src/main/baselineProfiles/baseline-prof.txt` on first run. Android 9 to 11
+    // have no ART profile installer of their own, and on 12+ this is what asks the platform
+    // to compile the profile immediately rather than whenever it next feels like it. Without
+    // it the committed profile is bytes in the APK that never reach ART — see
+    // `benchmark/README.md` for the two figures that say what it buys.
+    implementation(libs.androidx.profileinstaller)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 

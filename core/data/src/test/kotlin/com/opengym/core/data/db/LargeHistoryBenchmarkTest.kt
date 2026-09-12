@@ -9,9 +9,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Query-time regression guards at two scales: [TARGET_SCALE], the 1,000-session
- * / 50,000-set history the app is designed to stay responsive at, and
- * [STRESS_SCALE], a multi-year power user well beyond it.
+ * Query-time regression guards at the two scales [HistoryScales] names: the
+ * 1,000-session / 50,000-set history the app is designed to stay responsive at,
+ * and a multi-year power user well beyond it.
  *
  * These are *not* device benchmarks - they run on the Robolectric JVM runner
  * against in-memory SQLite, so the absolute numbers mean nothing next to a
@@ -23,19 +23,13 @@ import org.junit.Test
 class LargeHistoryBenchmarkTest : RoomTestBase() {
 
     private companion object {
-        /** The scale target the app commits to: 1,000 sessions, 50,000 sets. */
-        val TARGET_SCALE = HistorySpec(
-            sessionCount = 1_000,
-            exercisesPerSession = 5,
-            setsPerExercise = 10,
-        )
-
-        /** Ten times the sessions, so a query that scales badly is obvious. */
-        val STRESS_SCALE = HistorySpec(
-            sessionCount = 10_000,
-            exercisesPerSession = 3,
-            setsPerExercise = 4,
-        )
+        /**
+         * The two scales, from [HistoryScales] in the shared `src/fixtures` source
+         * directory that `:benchmark` also compiles - so the device benchmark measures
+         * the same history this test guards, rather than one that merely resembles it.
+         */
+        val TARGET_SCALE = HistoryScales.TARGET
+        val STRESS_SCALE = HistoryScales.STRESS
 
         /**
          * The bound from #14. At [TARGET_SCALE] the queries held to it measure

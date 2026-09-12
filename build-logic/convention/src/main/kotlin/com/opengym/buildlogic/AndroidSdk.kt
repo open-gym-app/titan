@@ -18,6 +18,24 @@ internal object AndroidSdk {
     const val MIN = 26
 
     /**
+     * The level the app declares it was written against, and the third copy of a number
+     * `:app` also states in `app/build.gradle.kts`. `:benchmark` needs it because a test
+     * module whose `targetSdk` trails the app's gets a different set of platform runtime
+     * behaviours than the app it is measuring.
+     */
+    const val TARGET = 36
+
+    /**
+     * The floor for `:benchmark`.
+     *
+     * Macrobenchmark reads its numbers out of the platform's own Perfetto traces, which
+     * only carry the frame and startup sections it needs from API 29 onwards. It is above
+     * [MIN] on purpose: the app supports Android 8, and the benchmarks measuring it do not
+     * have to run there — a phone that old is not the phone this budget is set for.
+     */
+    const val BENCHMARK_MIN = 29
+
+    /**
      * The SDK level JVM unit tests run against under Robolectric.
      *
      * Not [COMPILE]: Robolectric only runs on levels it ships a runtime for, and it fails

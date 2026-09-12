@@ -42,6 +42,17 @@ internal object ArchitectureRules {
         // A vertical slice: use cases from the domain, the design system from `:core:ui`,
         // and nothing else — least of all another feature.
         { path: String -> path.startsWith(":feature:") } to setOf(":core:domain", ":core:ui"),
+
+        // The on-device benchmarks (#42). `:app` and nothing else — not even `:core:ui`,
+        // whose test tags it addresses by restating them as strings.
+        //
+        // The one edge it has is not a `project(...)` anybody wrote: `targetProjectPath =
+        // ":app"` is what AGP turns into this dependency, and it means "install these two
+        // APKs together", not "compile against". A hand-written `implementation(project(...))`
+        // would be the thing to refuse — a benchmark that links against the code it measures
+        // reaches for a `@Composable` within a week, at which point it is a slow
+        // instrumentation test rather than a measurement of the shipping build.
+        { path: String -> path == ":benchmark" } to setOf(":app"),
     )
 
     /** A dependency the architecture does not allow, with the reason it does not. */

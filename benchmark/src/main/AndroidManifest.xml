@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Package visibility for the app under test.
+
+      From API 30 an app sees only the packages it declares an interest in, and this module is
+      a separate app: without this, `ContentResolver.call` on the seeding provider fails to
+      resolve the authority and the benchmark reports an empty history rather than a missing
+      permission. The instrumentation's own launches go through the shell and are unaffected,
+      which is what makes this the one failure that would only show up in the numbers.
+    -->
+    <queries>
+        <package android:name="com.opengym.app" />
+    </queries>
+
+</manifest>

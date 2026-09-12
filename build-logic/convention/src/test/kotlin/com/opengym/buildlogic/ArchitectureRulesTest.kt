@@ -31,6 +31,8 @@ class ArchitectureRulesTest {
         ":feature:session" to setOf(":core:domain", ":core:ui"),
         ":feature:history" to setOf(":core:domain", ":core:ui"),
         ":feature:progression" to setOf(":core:domain", ":core:ui"),
+        // The one edge AGP writes rather than a contributor: `targetProjectPath = ":app"`.
+        ":benchmark" to setOf(":app"),
     )
 
     @Test
@@ -96,6 +98,16 @@ class ArchitectureRulesTest {
         )
 
         assertEquals(emptyList<ArchitectureRules.Violation>(), violations)
+    }
+
+    @Test
+    fun `the benchmark module linking against what it measures is rejected`() {
+        val violations = ArchitectureRules.violationsIn(
+            legalGraph + (":benchmark" to setOf(":app", ":core:ui")),
+        )
+
+        assertEquals(1, violations.size)
+        assertEquals(":core:ui", violations.single().to)
     }
 
     @Test

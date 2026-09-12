@@ -36,7 +36,7 @@ internal fun formatNumber(
     maxFractionDigits: Int,
     grouping: Boolean = false,
 ): String {
-    val format = NumberFormat.getInstance(formattingLocale()).apply {
+    val format = displayNumberFormat(formattingLocale()).apply {
         maximumFractionDigits = maxFractionDigits
         minimumFractionDigits = 0
         isGroupingUsed = grouping
@@ -49,6 +49,23 @@ internal fun formatNumber(
     // rounding step. So does -0.0 itself, which `value < 0` does not catch. Both are a
     // minus sign on a quantity the user reads as nothing, so both become the plain zero.
     return if (value <= ZERO && formatted == format.format(NEGATIVE_ZERO)) format.format(ZERO) else formatted
+}
+
+/**
+ * One [NumberFormat] per locale per thread, configured afresh by each [formatNumber] call.
+ *
+ * `NumberFormat.getInstance` builds an ICU `DecimalFormat` from locale data on every call,
+ * and a history row formats two volumes on its way onto the screen — at 1,000 sessions that
+ * was a measurable share of what a `LazyColumn` spent composing each row during a fling
+ * (#42). The instance is mutable and not thread-safe, hence per thread; [parseNumber] keeps
+ * its own because parsing needs the locale's default grouping, which this one is told to drop.
+ */
+private val displayNumberFormats = ThreadLocal<MutableMap<Locale, NumberFormat>>()
+
+private fun displayNumberFormat(locale: Locale): NumberFormat {
+    val perThread = displayNumberFormats.get()
+        ?: mutableMapOf<Locale, NumberFormat>().also(displayNumberFormats::set)
+    return perThread.getOrPut(locale) { NumberFormat.getInstance(locale) }
 }
 
 /**
