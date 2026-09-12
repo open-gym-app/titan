@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── The header ────────────────────────────────────────────────────────────── -->
+
+    <string name="home_level">NIV %1$d</string>
+    <string name="home_level_progress">%1$d / %2$d XP</string>
+    <plurals name="home_level_description">
+        <item quantity="one">Niveau %1$d, %2$d point avant le niveau suivant</item>
+        <item quantity="many">Niveau %1$d, %2$d points avant le niveau suivant</item>
+        <item quantity="other">Niveau %1$d, %2$d points avant le niveau suivant</item>
+    </plurals>
+
+    <!-- ── The resume banner ─────────────────────────────────────────────────────── -->
+
+    <string name="home_resume_eyebrow">%1$s · %2$s</string>
+    <string name="home_resume_running">En cours</string>
+    <string name="home_resume_paused">En pause</string>
+    <string name="home_resume_description">%1$s, %2$s</string>
+    <string name="home_resume_position">%1$s · série %2$d</string>
+    <string name="home_resume_action">Reprendre</string>
+    <string name="home_resume_discard">Abandonner</string>
+
+    <string name="home_discard_failed">Cette séance n’a pas pu être abandonnée. Elle est toujours ouverte.</string>
+
+    <!-- ── This week ─────────────────────────────────────────────────────────────── -->
+
+    <string name="home_week_heading">Cette semaine</string>
+    <string name="home_week_open">Afficher toutes les séances</string>
+    <plurals name="home_week_sessions">
+        <item quantity="one">%1$d séance</item>
+        <item quantity="many">%1$d séances</item>
+        <item quantity="other">%1$d séances</item>
+    </plurals>
+    <plurals name="home_week_streak">
+        <item quantity="one">%1$d jour d’affilée</item>
+        <item quantity="many">%1$d jours d’affilée</item>
+        <item quantity="other">%1$d jours d’affilée</item>
+    </plurals>
+
+    <!-- ── Quick start ───────────────────────────────────────────────────────────── -->
+
+    <string name="home_quick_start_heading">Démarrage rapide</string>
+    <string name="home_first_launch">Rien d’enregistré pour l’instant. Démarrez une séance et votre semaine se remplira ici.</string>
+    <string name="home_quick_start_blocked">Terminez ou abandonnez la séance ci-dessus avant d’en démarrer une autre.</string>
+    <string name="home_start_empty">Démarrer une séance vide</string>
+    <string name="home_start_from_template">Démarrer depuis un modèle</string>
+
+    <!-- ── The recent personal record ────────────────────────────────────────────── -->
+
+    <string name="home_record_heading">Record récent</string>
+    <string name="home_record_open">Afficher tous les records personnels</string>
+    <string name="home_record_new_badge">Nouveau</string>
+    <string name="home_record_improvement">+%1$s</string>
+    <string name="home_record_unknown_exercise">Exercice supprimé</string>
+    <string name="home_record_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <!-- ── The volume chart ──────────────────────────────────────────────────────── -->
+
+    <plurals name="home_volume_heading">
+        <item quantity="one">Volume · dernière semaine</item>
+        <item quantity="many">Volume · %1$d dernières semaines</item>
+        <item quantity="other">Volume · %1$d dernières semaines</item>
+    </plurals>
+    <string name="home_volume_label">Volume</string>
+    <string name="home_volume_open">Afficher les statistiques d’entraînement</string>
+
+    <!-- ── The quest card (#104) ─────────────────────────────────────────────────── -->
+
+    <string name="home_quests_heading">Quêtes</string>
+    <string name="home_quests_score">%1$d / %2$d</string>
+    <string name="home_quests_progress">%1$s / %2$s</string>
+    <string name="home_quests_open_board">Ouvrir le tableau des quêtes</string>
+    <string name="home_quests_open_board_description">Ouvrir le tableau des quêtes, %1$d sur %2$d terminées</string>
+    <string name="home_quests_description">%1$s, %2$s</string>
+    <string name="home_quests_all_clear_weekly">Toutes les quêtes de la semaine sont terminées. Belle semaine.</string>
+    <string name="home_quests_all_clear_monthly">Toutes les quêtes du mois sont terminées. Beau mois.</string>
+
+    <!-- The quest names, a copy of `:feature:progression`'s and `:feature:session`'s. -->
+    <string name="quest_weekly_sessions">S’entraîner trois fois</string>
+    <string name="quest_weekly_sessions_plus">S’entraîner cinq fois</string>
+    <string name="quest_weekly_record">Battre un record personnel</string>
+    <string name="quest_weekly_volume">Soulever 20 tonnes</string>
+    <string name="quest_monthly_sessions">S’entraîner douze fois</string>
+    <string name="quest_monthly_records">Battre cinq records personnels</string>
+    <string name="quest_monthly_volume">Soulever 80 tonnes</string>
+    <string name="quest_unknown">Quête</string>
+
+</resources>

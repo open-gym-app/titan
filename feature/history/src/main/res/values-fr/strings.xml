@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── Exercise library ───────────────────────────────────────────────────────── -->
+
+    <string name="library_title_select">Ajouter des exercices</string>
+    <string name="library_title_replace">Remplacer l’exercice</string>
+    <string name="library_back">Retour</string>
+    <string name="library_new">+ Nouveau</string>
+    <string name="library_new_description">Nouvel exercice</string>
+    <string name="library_search_placeholder">Rechercher un exercice…</string>
+
+    <string name="library_search">Rechercher</string>
+    <string name="library_filters">Filtres</string>
+
+    <string name="library_details">Détails de %1$s</string>
+
+    <string name="library_filter_muscle">Muscle</string>
+    <string name="library_filter_equipment">Matériel</string>
+    <string name="library_filters_clear">Effacer</string>
+    <plurals name="library_filters_done">
+        <item quantity="one">Afficher %1$d exercice</item>
+        <item quantity="many">Afficher %1$d exercices</item>
+        <item quantity="other">Afficher %1$d exercices</item>
+    </plurals>
+
+    <plurals name="library_count">
+        <item quantity="one">%1$d exercice</item>
+        <item quantity="many">%1$d exercices</item>
+        <item quantity="other">%1$d exercices</item>
+    </plurals>
+    <string name="library_count_filtered">%1$d sur %2$d</string>
+    <plurals name="library_selected">
+        <item quantity="one">%1$d sélectionné</item>
+        <item quantity="many">%1$d sélectionnés</item>
+        <item quantity="other">%1$d sélectionnés</item>
+    </plurals>
+
+    <string name="library_filter_all">Tous</string>
+
+    <string name="library_section_header">%1$s · %2$d</string>
+    <string name="library_section_unlinked">Autres</string>
+
+    <string name="library_no_results_title">Aucun résultat</string>
+    <string name="library_no_results_description">Aucun exercice ne correspond à votre recherche et à vos filtres.</string>
+    <string name="library_clear_filters">Effacer les filtres</string>
+    <string name="library_empty_title">La bibliothèque est vide</string>
+    <string name="library_empty_description">Le catalogue d’exercices intégré n’a pas pu être chargé. Réinstaller l’application le restaure.</string>
+
+    <string name="library_confirm_none">Sélectionnez des exercices</string>
+    <plurals name="library_confirm">
+        <item quantity="one">Ajouter %1$d exercice</item>
+        <item quantity="many">Ajouter %1$d exercices</item>
+        <item quantity="other">Ajouter %1$d exercices</item>
+    </plurals>
+    <string name="library_confirm_replace_none">Sélectionnez un remplaçant</string>
+    <string name="library_confirm_replace">Remplacer</string>
+
+    <string name="library_exercise_created">Exercice créé</string>
+    <string name="library_save_failed">Impossible d’enregistrer l’exercice</string>
+
+    <!-- ── Exercise form ──────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_form_title_new">Nouvel exercice</string>
+    <string name="exercise_form_title_edit">Modifier l’exercice</string>
+    <string name="exercise_form_name">Nom</string>
+    <string name="exercise_form_name_duplicate">Vous avez déjà cet exercice avec ce matériel</string>
+    <string name="exercise_form_type">Mesuré en</string>
+    <string name="exercise_form_equipment">Matériel</string>
+    <string name="exercise_form_primary_muscle">Muscle principal</string>
+    <string name="exercise_form_secondary_muscles">Sollicite aussi</string>
+    <string name="exercise_form_notes">Notes (facultatif)</string>
+    <string name="exercise_form_cancel">Annuler</string>
+    <string name="exercise_form_create">Créer</string>
+    <string name="exercise_form_save">Enregistrer</string>
+    <string name="exercise_form_save_failed">Impossible d’enregistrer l’exercice. Réessayez.</string>
+
+    <!-- ── Exercise detail ────────────────────────────────────────────────────────── -->
+
+    <string name="detail_back">Retour</string>
+    <string name="detail_edit">Modifier l’exercice</string>
+    <string name="detail_delete">Supprimer l’exercice</string>
+
+    <string name="detail_section_muscles">Muscles travaillés</string>
+    <string name="detail_section_instructions">Exécution</string>
+    <string name="detail_section_notes">Vos notes</string>
+
+    <string name="detail_muscles_primary">Principaux</string>
+    <string name="detail_muscles_secondary">Secondaires</string>
+    <string name="detail_muscles_description">%1$s, %2$s</string>
+    <string name="detail_muscle_separator">", "</string>
+
+    <string name="detail_meta_discipline">Type</string>
+    <string name="detail_meta_equipment">Matériel</string>
+    <string name="detail_meta_mechanic">Mécanique</string>
+    <string name="detail_meta_difficulty">Difficulté</string>
+    <string name="detail_meta_tracked">Suivi</string>
+
+    <string name="detail_plate_calculator">Calculateur de disques</string>
+    <string name="detail_progression">Progression</string>
+
+    <string name="detail_add_to_session">Ajouter à la séance</string>
+
+    <string name="detail_notes_label">Vos notes</string>
+    <string name="detail_notes_empty">Ajoutez une note sur cet exercice — un réglage de siège, un repère, quelle machine dans votre salle.</string>
+    <string name="detail_notes_save_failed">Impossible d’enregistrer la note</string>
+
+    <string name="detail_exercise_updated">Exercice mis à jour</string>
+    <string name="detail_exercise_save_failed">Impossible d’enregistrer l’exercice</string>
+
+    <string name="detail_delete_title">Supprimer cet exercice ?</string>
+    <string name="detail_delete_body">%1$s sera retiré de votre bibliothèque. Un exercice ne peut être supprimé que si aucune séance enregistrée ni aucun modèle ne l’utilise encore.</string>
+    <string name="detail_delete_confirm">Supprimer</string>
+    <string name="detail_delete_cancel">Annuler</string>
+    <string name="detail_delete_failed">Impossible de supprimer l’exercice</string>
+
+    <string name="detail_missing_title">Exercice introuvable</string>
+    <string name="detail_missing_description">Cet exercice n’est plus dans votre bibliothèque.</string>
+
+    <!-- ── Plate calculator ───────────────────────────────────────────────────────── -->
+
+    <string name="plate_title">Calculateur de disques</string>
+    <string name="plate_back">Retour</string>
+
+    <string name="plate_target">Poids visé</string>
+    <string name="plate_target_edit">Poids visé, %1$s. Touchez pour en saisir un</string>
+    <string name="plate_target_field_label">Poids (%1$s)</string>
+    <string name="plate_target_invalid">Saisissez un poids supérieur à zéro</string>
+
+    <string name="plate_per_side_bar">Par côté · barre %1$s</string>
+
+    <string name="plate_shortfall">Charge %1$s · %2$s de moins que votre cible</string>
+    <string name="plate_below_bar">Plus léger que la barre %1$s à vide</string>
+
+    <string name="plate_equipment">Barre &amp; disques</string>
+    <string name="plate_equipment_bar">Barre</string>
+    <string name="plate_equipment_plates">Disques · paires sur le rack</string>
+    <string name="plate_equipment_reset">Utiliser le jeu standard</string>
+    <string name="plate_step_up">+%1$s</string>
+    <string name="plate_step_down">−%1$s</string>
+    <string name="plate_bar_lighter">Barre plus légère</string>
+    <string name="plate_bar_heavier">Barre plus lourde</string>
+    <string name="plate_pairs_fewer">Une paire de %1$s en moins</string>
+    <string name="plate_pairs_more">Une paire de %1$s en plus</string>
+
+    <string name="plate_dialog_save">Valider</string>
+    <string name="plate_dialog_cancel">Annuler</string>
+    <string name="plate_save_failed">Impossible d’enregistrer votre matériel</string>
+
+    <!-- ── Sessions tab ───────────────────────────────────────────────────────────── -->
+
+    <string name="sessions_tab_history">Historique</string>
+    <string name="sessions_tab_templates">Modèles</string>
+    <string name="sessions_tab_calendar">Calendrier</string>
+
+    <plurals name="sessions_count">
+        <item quantity="one">%1$d séance</item>
+        <item quantity="many">%1$d séances</item>
+        <item quantity="other">%1$d séances</item>
+    </plurals>
+    <string name="sessions_count_filtered">%1$d sur %2$d</string>
+    <plurals name="sessions_templates_count">
+        <item quantity="one">%1$d modèle</item>
+        <item quantity="many">%1$d modèles</item>
+        <item quantity="other">%1$d modèles</item>
+    </plurals>
+    <string name="sessions_calendar_heading">%1$s · %2$s</string>
+
+    <string name="sessions_new">+ Créer</string>
+    <string name="sessions_new_description">Nouvelle séance</string>
+    <string name="sessions_new_template_description">Nouveau modèle</string>
+    <string name="sessions_search">Rechercher</string>
+    <string name="sessions_search_placeholder">Rechercher dans les noms et les notes…</string>
+
+    <string name="sessions_month_heading">%1$s · %2$d</string>
+
+    <string name="sessions_empty_title">Aucune séance pour l’instant</string>
+    <string name="sessions_empty_description">Chaque séance que vous enregistrez arrive ici, avec ce que vous avez soulevé et le temps que ça a pris.</string>
+    <string name="sessions_empty_action">Démarrer une séance</string>
+    <string name="sessions_no_results_title">Rien sur cette période</string>
+    <string name="sessions_no_results_description">Aucune séance ne correspond à votre recherche et aux dates choisies.</string>
+    <string name="sessions_clear_filters">Effacer les filtres</string>
+
+    <string name="sessions_templates_empty_title">Aucun modèle pour l’instant</string>
+    <string name="sessions_templates_empty_description">Créez-en un ici, ou terminez une séance et enregistrez-la comme modèle pour la relancer en un geste.</string>
+    <string name="sessions_templates_empty_action">Créer un modèle</string>
+
+    <string name="sessions_template_actions">Plus d’options pour %1$s</string>
+    <string name="sessions_template_rename">Renommer</string>
+    <string name="sessions_template_duplicate">Dupliquer</string>
+    <string name="sessions_template_delete">Supprimer</string>
+    <string name="sessions_template_copy_name">%1$s (copie)</string>
+    <string name="sessions_template_rename_title">Renommer le modèle</string>
+    <string name="sessions_template_rename_confirm">Renommer</string>
+    <string name="sessions_template_duplicate_title">Dupliquer le modèle</string>
+    <string name="sessions_template_duplicate_body">Les mêmes exercices, dans le même ordre, avec les mêmes séries. Donnez un nom à la copie.</string>
+    <string name="sessions_template_duplicate_confirm">Dupliquer</string>
+    <string name="sessions_template_name_taken">Vous avez déjà un modèle de ce nom</string>
+
+    <string name="sessions_template_delete_title">Supprimer « %1$s » ?</string>
+    <string name="sessions_template_delete_body">Les séances déjà enregistrées à partir de ce modèle restent exactement là où elles sont.</string>
+    <string name="sessions_template_delete_confirm">Supprimer</string>
+    <string name="sessions_template_delete_cancel">Annuler</string>
+
+    <string name="sessions_template_duplicated">Modèle dupliqué</string>
+    <string name="sessions_template_deleted">Modèle supprimé</string>
+    <string name="sessions_template_gone">Ce modèle n’existe plus</string>
+    <string name="sessions_template_failed">Impossible de modifier le modèle</string>
+
+    <string name="sessions_dates">Dates</string>
+    <string name="sessions_dates_all">Depuis le début</string>
+    <plurals name="sessions_dates_last_days">
+        <item quantity="one">Depuis %1$d jour</item>
+        <item quantity="many">%1$d derniers jours</item>
+        <item quantity="other">%1$d derniers jours</item>
+    </plurals>
+    <string name="sessions_dates_custom">Choisir des dates…</string>
+    <string name="sessions_dates_range">%1$s – %2$s</string>
+    <string name="sessions_dates_done">Terminé</string>
+    <string name="sessions_dates_confirm">Appliquer</string>
+    <string name="sessions_dates_cancel">Annuler</string>
+
+    <string name="sessions_calendar_previous">Mois précédent</string>
+    <string name="sessions_calendar_next">Mois suivant</string>
+    <string name="sessions_calendar_legend">La teinte compare le volume du jour au plus gros volume du mois</string>
+    <string name="sessions_calendar_empty">Rien d’enregistré ce mois-ci</string>
+    <string name="sessions_calendar_stat_sessions">Séances</string>
+    <string name="sessions_calendar_stat_time">Temps</string>
+
+    <!-- ── Template editor ────────────────────────────────────────────────────────── -->
+
+    <string name="template_editor_title">Modifier le modèle</string>
+    <string name="template_editor_new_title">Nouveau modèle</string>
+    <string name="template_editor_untitled">Modèle sans nom</string>
+    <string name="template_editor_back">Retour</string>
+    <string name="template_editor_save">Enregistrer</string>
+    <string name="template_editor_exercises">Exercices</string>
+    <string name="template_editor_add_exercises">Ajouter des exercices</string>
+
+    <string name="template_editor_name_title">Nom et catégorie</string>
+    <string name="template_editor_name_confirm">Appliquer</string>
+    <string name="template_editor_name_taken">Vous avez déjà un modèle de ce nom</string>
+
+    <string name="template_exercise_position">Exercice %1$d</string>
+    <string name="template_exercise_removed">Retiré de votre bibliothèque</string>
+    <string name="template_remove_exercise">Retirer %1$s de ce modèle</string>
+    <string name="template_swap_exercise">Remplacer %1$s par un autre exercice</string>
+
+    <string name="template_add_set">Ajouter une série</string>
+    <string name="template_remove_set">Retirer la série %1$d de %2$s</string>
+    <string name="template_field_invalid">Ce n’est pas un nombre utilisable ici</string>
+
+    <string name="template_editor_empty_title">Ce modèle est vide</string>
+    <string name="template_editor_empty_body">Ajoutez au moins un exercice avant d’enregistrer.</string>
+
+    <string name="template_editor_missing_title">Modèle introuvable</string>
+    <string name="template_editor_missing_body">Il a été supprimé. Les séances que vous avez enregistrées à partir de lui sont toujours dans votre historique.</string>
+    <string name="template_editor_missing_action">Retour aux modèles</string>
+
+    <string name="template_editor_discard_title">Quitter sans enregistrer ?</string>
+    <string name="template_editor_discard_body">Le modèle reste tel qu’il était. Les modifications que vous venez de faire sont perdues.</string>
+    <string name="template_editor_discard_new_body">Rien n’a encore été enregistré, donc le modèle que vous construisiez est perdu.</string>
+    <string name="template_editor_discard_confirm">Abandonner</string>
+    <string name="template_editor_discard_cancel">Continuer la modification</string>
+
+    <string name="template_editor_exercises_unavailable">Certains de ces exercices ne sont plus dans votre bibliothèque et ont été laissés de côté</string>
+    <string name="template_editor_exercise_unavailable">Cet exercice n’est plus dans votre bibliothèque, donc rien n’a été modifié</string>
+    <string name="template_editor_restarted">L’éditeur a été rouvert, donc ces exercices n’ont pas été ajoutés. Sélectionnez-les à nouveau.</string>
+    <string name="template_editor_save_failed">Impossible d’enregistrer le modèle</string>
+
+    <!-- ─── This exercise's bests, on its detail screen ────────────────────────────────── -->
+
+    <string name="detail_section_records">Records personnels</string>
+    <string name="detail_record_description">%1$s, %2$s, %3$s</string>
+
+</resources>

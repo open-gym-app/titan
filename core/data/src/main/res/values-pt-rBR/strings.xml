@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brazilian Portuguese. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <string name="notification_channel_reminders">Lembretes de treino</string>
+    <string name="notification_channel_reminders_description">O empurrão nos dias em que você escolheu treinar.</string>
+
+    <string name="notification_channel_rest_timer">Cronômetro de descanso</string>
+    <string name="notification_channel_rest_timer_description">Avisa que o descanso acabou com a tela apagada. Sem isso, você não ouve nada entre as séries.</string>
+
+    <string name="notification_channel_session">Treinos não finalizados</string>
+    <string name="notification_channel_session_description">Um lembrete silencioso quando um treino ficou aberto sem nada registrado.</string>
+
+    <string name="notification_channel_progression">Sequências e recompensas</string>
+    <string name="notification_channel_progression_description">Novos níveis, missões concluídas e itens.</string>
+
+    <!-- The rest countdown, as it reads from a lock screen. -->
+    <string name="rest_notification_resting">Descansando</string>
+    <string name="rest_notification_paused">Descanso pausado</string>
+    <string name="rest_notification_over">Descanso encerrado</string>
+    <string name="rest_notification_next_up">%1$s · série %2$d</string>
+    <string name="rest_notification_next_set">Série %1$d</string>
+    <string name="rest_notification_skip">Pular descanso</string>
+
+    <!-- The nudge about a workout nobody is working out. -->
+    <string name="idle_session_title">Treino ainda aberto</string>
+    <string name="idle_session_body">%1$s · %2$s</string>
+    <string name="idle_session_resume">Retomar</string>
+    <string name="idle_session_finish">Finalizar agora</string>
+    <string name="idle_session_discard">Descartar</string>
+    <string name="idle_session_nothing_logged">Nada registrado ainda</string>
+    <plurals name="idle_session_sets">
+        <item quantity="one">%1$d série registrada, nada desde então</item>
+        <item quantity="many">%1$d séries registradas, nada desde então</item>
+        <item quantity="other">%1$d séries registradas, nada desde então</item>
+    </plurals>
+
+    <!-- The scheduled reminder. -->
+    <string name="reminder_title">Hora de treinar</string>
+    <string name="reminder_body">Registre o treino. Só conta se você anotar.</string>
+    <plurals name="reminder_body_streak">
+        <item quantity="one">Sequência de %1$d dia em jogo. Mantenha.</item>
+        <item quantity="many">Sequência de %1$d dias em jogo. Mantenha.</item>
+        <item quantity="other">Sequência de %1$d dias em jogo. Mantenha.</item>
+    </plurals>
+    <string name="reminder_action_start">Começar</string>
+
+    <!-- The same reminder arriving while a workout is already open. -->
+    <string name="reminder_title_in_progress">Termine o que você começou</string>
+    <string name="reminder_body_in_progress">Seu treino ainda está aberto.</string>
+    <string name="reminder_action_resume">Retomar</string>
+
+    <!-- What a finished workout earned. -->
+    <string name="progression_notification_streak">Proteção de sequência usada</string>
+    <string name="progression_notification_loot">Novo item desbloqueado</string>
+    <string name="progression_notification_both">Sequência salva, e item encontrado</string>
+
+    <plurals name="progression_notification_streak_saved">
+        <item quantity="one">Sua sequência de %1$d dia foi salva.</item>
+        <item quantity="many">Sua sequência de %1$d dias foi salva.</item>
+        <item quantity="other">Sua sequência de %1$d dias foi salva.</item>
+    </plurals>
+    <plurals name="progression_notification_protections_left">
+        <item quantity="one">%1$d proteção restante este mês.</item>
+        <item quantity="many">%1$d proteções restantes este mês.</item>
+        <item quantity="other">%1$d proteções restantes este mês.</item>
+    </plurals>
+
+    <!-- No article before the collectible: its gender is unknowable here (see TRANSLATION.md). -->
+    <string name="progression_notification_loot_found">Você encontrou: %1$s · %2$s.</string>
+    <string name="progression_notification_body_join">%1$s %2$s</string>
+
+    <!-- The collectible names and the rarity bands, a second copy of `:feature:progression`'s. -->
+    <string name="progression_collectible_chalk_block">Bloco de magnésio</string>
+    <string name="progression_collectible_spare_collar">Presilha reserva</string>
+    <string name="progression_collectible_worn_wristband">Munhequeira gasta</string>
+    <string name="progression_collectible_lifting_strap">Strap de levantamento</string>
+    <string name="progression_collectible_steel_shaker">Coqueteleira de aço</string>
+    <string name="progression_collectible_pet_egg">Ovo de mascote</string>
+    <string name="progression_collectible_golden_dumbbell">Halter dourado</string>
+    <string name="progression_collectible_iron_crown">Coroa de ferro</string>
+    <string name="progression_collectible_unknown">novo item colecionável</string>
+
+    <string name="progression_rarity_common">Comum</string>
+    <string name="progression_rarity_uncommon">Incomum</string>
+    <string name="progression_rarity_rare">Raro</string>
+    <string name="progression_rarity_epic">Épico</string>
+    <string name="progression_rarity_legendary">Lendário</string>
+
+</resources>

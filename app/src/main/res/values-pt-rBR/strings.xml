@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brazilian Portuguese. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- Bottom navigation. -->
+    <string name="nav_home">Início</string>
+    <string name="nav_sessions">Treinos</string>
+    <string name="nav_library">Exercícios</string>
+    <string name="nav_stats">Progresso</string>
+
+    <string name="action_settings">Configurações</string>
+</resources>

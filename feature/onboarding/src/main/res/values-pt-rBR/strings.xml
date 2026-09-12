@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brazilian Portuguese. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── Chrome ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_step_counter">Etapa %1$d de %2$d</string>
+    <string name="onboarding_skip">Pular</string>
+    <string name="onboarding_back">Voltar</string>
+    <string name="onboarding_continue">Continuar</string>
+    <string name="onboarding_start">Começar a treinar</string>
+
+    <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_welcome_title">Registre o trabalho. Veja a soma crescer.</string>
+    <string name="onboarding_welcome_body">O Open Gym é um diário de treino que roda inteiramente neste celular. Sem conta, sem nuvem, sem anúncios.</string>
+    <string name="onboarding_welcome_logging">Registre séries</string>
+    <string name="onboarding_welcome_logging_detail">Carga, repetições e RPE, um toque por série</string>
+    <string name="onboarding_welcome_progress">Veja o progresso</string>
+    <string name="onboarding_welcome_progress_detail">Volume, recordes e um calendário de treino</string>
+    <string name="onboarding_welcome_privacy">Tudo é seu</string>
+    <string name="onboarding_welcome_privacy_detail">Tudo fica neste aparelho</string>
+    <string name="onboarding_welcome_length">Duas perguntas e você está dentro</string>
+
+    <!-- ── Training goal ─────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_goal_title">Para que você treina?</string>
+    <string name="onboarding_goal_body">Fica salvo nas suas configurações e pode ser alterado a qualquer momento. Não muda como você registra.</string>
+
+    <!-- ── Units ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_units_title">Quilos ou libras?</string>
+    <string name="onboarding_units_body">Como cargas e distâncias são mostradas. Cada série é armazenada do mesmo jeito nos dois casos, então trocar depois não altera nada do que você registrou.</string>
+
+    <!-- ── Ready ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_ready_title">Tudo pronto.</string>
+    <string name="onboarding_ready_body">É isso. Seu primeiro treino está a um toque da tela inicial.</string>
+    <string name="onboarding_ready_goal">Objetivo de treino</string>
+    <string name="onboarding_ready_units">Unidades</string>
+    <string name="onboarding_ready_footnote">Os dois ficam em Configurações, junto com todo o resto.</string>
+    <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
+
+    <!-- ── Failures ──────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_save_failed">Não foi possível salvar essa resposta</string>
+    <string name="onboarding_finish_failed">Não foi possível concluir a configuração. Verifique o armazenamento deste celular e tente de novo.</string>
+
+</resources>

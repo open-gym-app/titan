@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── The timeframe selector ────────────────────────────────────────────────── -->
+
+    <string name="timeframe_week">7D</string>
+    <string name="timeframe_week_description">Últimos 7 días</string>
+    <string name="timeframe_month">30D</string>
+    <string name="timeframe_month_description">Últimos 30 días</string>
+    <string name="timeframe_quarter">90D</string>
+    <string name="timeframe_quarter_description">Últimos 90 días</string>
+    <string name="timeframe_year">1A</string>
+    <string name="timeframe_year_description">Último año</string>
+    <string name="timeframe_all">TODO</string>
+    <string name="timeframe_all_description">Desde el principio</string>
+
+    <!-- ── The hero and the grid ─────────────────────────────────────────────────── -->
+
+    <string name="stats_volume_label">Volumen acumulado</string>
+
+    <string name="stats_sessions_label">Sesiones</string>
+    <string name="stats_frequency_label">Media / semana</string>
+    <string name="stats_records_label">Récords batidos</string>
+    <string name="stats_time_label">Tiempo entrenado</string>
+
+    <string name="stats_caption_this_period">este periodo</string>
+    <string name="stats_sessions_caption">este periodo</string>
+    <string name="stats_frequency_caption_up">+%1$s vs ant.</string>
+    <string name="stats_frequency_caption_down">−%1$s vs ant.</string>
+    <plurals name="stats_records_caption">
+        <item quantity="one">en %1$d ejercicio</item>
+        <item quantity="many">en %1$d ejercicios</item>
+        <item quantity="other">en %1$d ejercicios</item>
+    </plurals>
+    <string name="stats_time_caption">%1$s / sesión</string>
+
+    <!-- ── The muscle map ────────────────────────────────────────────────────────── -->
+
+    <string name="stats_muscles_heading">Músculos entrenados</string>
+    <plurals name="stats_muscle_sets">
+        <item quantity="one">%1$d serie</item>
+        <item quantity="many">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+    <plurals name="stats_muscles_more">
+        <item quantity="one">+%1$d más</item>
+        <item quantity="many">+%1$d más</item>
+        <item quantity="other">+%1$d más</item>
+    </plurals>
+    <string name="stats_muscle_description_primary">%1$s, trabajado directamente, %2$s</string>
+    <string name="stats_muscle_description_secondary">%1$s, de apoyo, %2$s</string>
+
+    <!-- ── The empty windows ─────────────────────────────────────────────────────── -->
+
+    <string name="stats_empty_first_run_title">Aún no hay entrenamientos registrados</string>
+    <string name="stats_empty_first_run_body">Termina tu primer entrenamiento y esto se llena: volumen, récords y lo que has estado entrenando.</string>
+    <string name="stats_empty_quiet_title">Nada en este periodo</string>
+    <string name="stats_empty_quiet_body">Has entrenado antes, pero no en el periodo que estás viendo. Prueba con uno más amplio.</string>
+    <string name="stats_empty_quiet_action">Mostrar desde el principio</string>
+
+    <!-- ── Explore ───────────────────────────────────────────────────────────────── -->
+
+    <string name="stats_explore_heading">Explorar</string>
+    <string name="explore_records_title">Récords personales</string>
+    <string name="explore_records_caption">Cada mejor marca, por ejercicio</string>
+    <string name="explore_exercise_title">Progresión por ejercicio</string>
+    <string name="explore_exercise_caption">Profundiza en cualquier ejercicio</string>
+    <string name="explore_quests_title">Registro de misiones</string>
+    <string name="explore_quests_caption">Nivel, misiones y logros</string>
+    <string name="explore_measurements_title">Medidas corporales</string>
+    <string name="explore_measurements_caption">Peso, grasa corporal, perímetros</string>
+    <string name="explore_calendar_title">Calendario de entrenamiento</string>
+    <string name="explore_calendar_caption">Frecuencia y días de descanso</string>
+
+    <!-- ── Shared by the drill-downs ─────────────────────────────────────────────── -->
+
+    <string name="progression_detail_back">Atrás</string>
+
+    <!-- ── The per-exercise drill-down (#102) ────────────────────────────────────── -->
+
+    <string name="exercise_progression_title">Progresión por ejercicio</string>
+    <string name="exercise_switch">Cambiar de ejercicio</string>
+
+    <string name="exercise_card_estimate">1RM (est.)</string>
+    <string name="exercise_card_top_set">Serie máx.</string>
+    <string name="exercise_card_volume">Mejor vol.</string>
+    <string name="exercise_card_volume_unit">%1$s / sesión</string>
+    <string name="exercise_card_sets">Series totales</string>
+    <string name="exercise_card_sets_unit">histórico</string>
+    <string name="exercise_card_badge_new">Nuevo</string>
+
+    <string name="exercise_chart_estimate">Estimación de 1RM</string>
+    <string name="exercise_chart_volume">Volumen por sesión</string>
+
+    <!-- ── The recent-attempts table ─────────────────────────────────────────────── -->
+
+    <string name="exercise_attempts_heading">Intentos recientes</string>
+    <string name="exercise_attempts_date">Fecha</string>
+    <string name="exercise_attempts_sets">Series</string>
+    <string name="exercise_attempts_top">Máx.</string>
+    <string name="exercise_attempts_volume">Vol.</string>
+    <plurals name="exercise_attempts_set_count">
+        <item quantity="one">%1$d serie</item>
+        <item quantity="many">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+    <string name="exercise_attempt_description">%1$s, %2$s, mejor serie %3$s, volumen %4$s</string>
+    <string name="exercise_attempt_record_description">%1$s, %2$s, mejor serie %3$s, récord personal, volumen %4$s</string>
+
+    <!-- ── The chooser ───────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_chooser_heading">Tus ejercicios</string>
+    <string name="exercise_chooser_caption">%1$s · el %2$s</string>
+    <plurals name="exercise_chooser_sets">
+        <item quantity="one">%1$d serie</item>
+        <item quantity="many">%1$d series</item>
+        <item quantity="other">%1$d series</item>
+    </plurals>
+
+    <!-- ── The empty states ──────────────────────────────────────────────────────── -->
+
+    <string name="exercise_empty_nothing_title">Aún no hay ejercicios registrados</string>
+    <string name="exercise_empty_nothing_body">Termina un entrenamiento y cada ejercicio que contenga aparecerá aquí, con sus récords y su evolución.</string>
+    <string name="exercise_empty_never_title">Sin registrar todavía</string>
+    <string name="exercise_empty_never_body">Aún no has hecho este ejercicio en una sesión. Regístralo una vez y sus récords empiezan aquí.</string>
+    <string name="exercise_empty_quiet_title">Nada en este periodo</string>
+    <string name="exercise_empty_quiet_body">Has entrenado este ejercicio antes, pero no en el periodo que estás viendo. Prueba con uno más amplio.</string>
+    <string name="exercise_empty_quiet_action">Mostrar desde el principio</string>
+    <string name="exercise_empty_single_title">Una sesión por ahora</string>
+    <string name="exercise_empty_single_body">Regístralo otra vez y los gráficos se llenan. Una sola sesión es un punto, no una tendencia.</string>
+
+    <!-- ─── The personal records list (#103) ───────────────────────────────────────────── -->
+
+    <string name="records_title">Récords personales</string>
+    <plurals name="records_count">
+        <item quantity="one">%1$d récord</item>
+        <item quantity="many">%1$d récords</item>
+        <item quantity="other">%1$d récords</item>
+    </plurals>
+
+    <string name="records_filter_all">Todos</string>
+
+    <string name="records_new_badge">Nuevo</string>
+    <string name="records_improvement">+%1$s</string>
+    <string name="records_unknown_exercise">Ejercicio eliminado</string>
+
+    <string name="records_row_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <string name="records_empty_title">Aún no hay récords</string>
+    <string name="records_empty_body">Termina un entrenamiento y las mejores marcas que consigas aparecen aquí, las más recientes primero.</string>
+
+    <string name="records_filtered_empty_title">Nada de ese tipo todavía</string>
+    <string name="records_filtered_empty_body">Tienes récords, pero ninguno de este tipo. Prueba otro filtro.</string>
+
+    <string name="records_error_title">No se pudieron cargar tus récords</string>
+    <string name="records_error_body">Algo falló al leerlos. No se ha perdido nada; inténtalo de nuevo.</string>
+    <string name="records_error_action">Reintentar</string>
+
+    <string name="records_error_more">No se pudieron cargar más récords.</string>
+
+    <!-- ── The body measurements screen (#109) ──────────────────────────────────── -->
+
+    <string name="body_title">Cuerpo</string>
+    <string name="body_log_action">Registrar medidas</string>
+
+    <string name="body_weight_label">Peso corporal</string>
+
+    <string name="body_part_chest">Pecho</string>
+    <string name="body_part_waist">Cintura</string>
+    <string name="body_part_arm">Brazo</string>
+    <string name="body_part_thigh">Muslo</string>
+    <string name="body_measurement_description">%1$s, %2$s</string>
+
+    <string name="body_fat_label">Grasa corporal</string>
+    <string name="body_lean_mass_label">Masa magra</string>
+
+    <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
+
+    <string name="body_health_connect_heading">Health Connect</string>
+    <string name="body_health_connect_label">Sincronizar con Health Connect</string>
+    <string name="body_health_connect_detail">Peso y grasa corporal, en ambos sentidos</string>
+
+    <!-- ── The history ──────────────────────────────────────────────────────────── -->
+
+    <string name="body_history_heading">Historial</string>
+    <string name="body_history_separator">" · "</string>
+    <string name="body_history_part">%1$s %2$s</string>
+    <string name="body_history_edit">Editar la entrada del %1$s</string>
+    <string name="body_history_delete">Eliminar la entrada del %1$s</string>
+    <string name="body_history_empty_entry">Sin medidas</string>
+
+    <!-- ── The form ─────────────────────────────────────────────────────────────── -->
+
+    <string name="body_form_title_new">Registrar medidas</string>
+    <string name="body_form_title_edit">Editar entrada</string>
+    <string name="body_form_save">Guardar</string>
+    <string name="body_form_cancel">Cancelar</string>
+    <string name="body_field_weight">Peso (%1$s)</string>
+    <string name="body_field_chest">Pecho (%1$s)</string>
+    <string name="body_field_waist">Cintura (%1$s)</string>
+    <string name="body_field_arm">Brazo (%1$s)</string>
+    <string name="body_field_thigh">Muslo (%1$s)</string>
+    <string name="body_field_body_fat">Grasa corporal (%1$s)</string>
+    <string name="body_field_notes">Notas</string>
+
+    <!-- ── The empty state ──────────────────────────────────────────────────────── -->
+
+    <string name="body_empty_title">Aún no hay medidas</string>
+    <string name="body_empty_body">Registra tu peso, tu grasa corporal o un perímetro con cinta métrica y esto se llena; cada campo es opcional, así que con un número basta para empezar.</string>
+    <string name="body_empty_action">Registrar una medida</string>
+
+    <!-- ─── The quest log (#104) ──────────────────────────────────────────────────────── -->
+
+    <string name="quest_log_title">Registro de misiones</string>
+
+    <string name="quest_log_level">Nivel %1$d</string>
+    <string name="quest_log_level_short">NIV</string>
+    <string name="quest_log_level_xp">%1$s / %2$s XP</string>
+    <string name="quest_log_total_xp">%1$s XP ganados en total</string>
+
+    <string name="level_title_newcomer">Novato</string>
+    <string name="level_title_regular">Habitual</string>
+    <string name="level_title_iron_disciple">Discípulo de hierro</string>
+    <string name="level_title_steel_forged">Forjado en acero</string>
+    <string name="level_title_relentless">Implacable</string>
+    <string name="level_title_unbreakable">Inquebrantable</string>
+    <string name="level_title_legend">Leyenda</string>
+    <string name="level_title_unknown">Atleta</string>
+
+    <string name="quest_log_streak_heading">Racha</string>
+    <plurals name="quest_log_streak_days">
+        <item quantity="one">%1$d día</item>
+        <item quantity="many">%1$d días</item>
+        <item quantity="other">%1$d días</item>
+    </plurals>
+    <plurals name="quest_log_streak_best">
+        <item quantity="one">Mejor: %1$d día</item>
+        <item quantity="many">Mejor: %1$d días</item>
+        <item quantity="other">Mejor: %1$d días</item>
+    </plurals>
+    <string name="quest_log_streak_personal_best">Tu mejor marca hasta ahora</string>
+    <string name="quest_log_streak_none">Aún no hay racha</string>
+    <string name="quest_log_streak_none_body">Entrena hoy para empezar una.</string>
+
+    <!-- ─── Streak protection (#106) ────────────────────────────────────────────────────── -->
+
+    <string name="quest_log_protection_label">Protección de racha</string>
+    <plurals name="quest_log_protection_left">
+        <item quantity="one">Queda %1$d este mes</item>
+        <item quantity="many">Quedan %1$d este mes</item>
+        <item quantity="other">Quedan %1$d este mes</item>
+    </plurals>
+    <string name="quest_log_protection_none">No queda ninguna este mes</string>
+    <plurals name="quest_log_protection_description">
+        <item quantity="one">Queda %1$d de %2$d protecciones de racha este mes</item>
+        <item quantity="many">Quedan %1$d de %2$d protecciones de racha este mes</item>
+        <item quantity="other">Quedan %1$d de %2$d protecciones de racha este mes</item>
+    </plurals>
+    <plurals name="quest_log_protection_none_description">
+        <item quantity="one">Tu %1$d protección de racha se ha agotado este mes</item>
+        <item quantity="many">No queda ninguna de tus %1$d protecciones de racha este mes</item>
+        <item quantity="other">No queda ninguna de tus %1$d protecciones de racha este mes</item>
+    </plurals>
+
+    <!-- ─── Recent loot (#170) ────────────────────────────────────────────────────────── -->
+
+    <string name="quest_log_loot_heading">Botín reciente</string>
+    <string name="quest_log_loot_meta">%1$s · %2$s</string>
+    <string name="quest_log_loot_description">%1$s, %2$s, %3$s, %4$s</string>
+
+    <string name="collectible_chalk_block">Bloque de magnesio</string>
+    <string name="collectible_spare_collar">Cierre de repuesto</string>
+    <string name="collectible_worn_wristband">Muñequera gastada</string>
+    <string name="collectible_lifting_strap">Correa de agarre</string>
+    <string name="collectible_steel_shaker">Shaker de acero</string>
+    <string name="collectible_pet_egg">Huevo de mascota</string>
+    <string name="collectible_golden_dumbbell">Mancuerna dorada</string>
+    <string name="collectible_iron_crown">Corona de hierro</string>
+    <string name="collectible_unknown">Hallazgo desconocido</string>
+
+    <string name="rarity_common">Común</string>
+    <string name="rarity_uncommon">Poco común</string>
+    <string name="rarity_rare">Raro</string>
+    <string name="rarity_epic">Épico</string>
+    <string name="rarity_legendary">Legendario</string>
+    <string name="rarity_unknown">Desconocida</string>
+
+    <string name="drop_source_session_finished">Entrenamiento terminado</string>
+    <string name="drop_source_unknown">Hallazgo anterior</string>
+
+    <string name="quest_log_quests_heading">Misiones</string>
+    <string name="quest_log_quests_weekly">Esta semana</string>
+    <string name="quest_log_quests_monthly">Este mes</string>
+    <string name="quest_log_quest_progress">%1$s / %2$s</string>
+    <string name="quest_log_quest_reward">+%1$d XP</string>
+    <string name="quest_log_quest_done">Hecha</string>
+    <string name="quest_log_quest_description">%1$s, %2$s, vale %3$d XP</string>
+    <string name="quest_log_quest_description_done">%1$s, completada, %2$d XP ganados</string>
+    <string name="quest_log_quests_empty">No hay misiones en esta versión</string>
+    <string name="quest_log_period_score">%1$d/%2$d</string>
+    <string name="quest_log_period_remaining">%1$d XP aún por ganar</string>
+    <string name="quest_log_period_all_clear">Todas las misiones completadas. Buen periodo.</string>
+    <plurals name="quest_log_period_description">
+        <item quantity="one">%1$s, %2$d de %3$d completada, %4$d XP aún por ganar</item>
+        <item quantity="many">%1$s, %2$d de %3$d completadas, %4$d XP aún por ganar</item>
+        <item quantity="other">%1$s, %2$d de %3$d completadas, %4$d XP aún por ganar</item>
+    </plurals>
+    <string name="quest_log_period_description_cleared">%1$s, %2$d de %3$d completadas. Todas las misiones completadas.</string>
+    <string name="quest_log_quests_cleared">Completadas · %1$d</string>
+
+    <string name="quest_weekly_sessions">Entrena tres veces</string>
+    <string name="quest_weekly_sessions_plus">Entrena cinco veces</string>
+    <string name="quest_weekly_record">Bate un récord personal</string>
+    <string name="quest_weekly_volume">Mueve 20 toneladas</string>
+    <string name="quest_monthly_sessions">Entrena doce veces</string>
+    <string name="quest_monthly_records">Bate cinco récords personales</string>
+    <string name="quest_monthly_volume">Mueve 80 toneladas</string>
+    <string name="quest_unknown">Misión</string>
+
+    <string name="quest_log_achievements_heading">Logros</string>
+    <string name="quest_log_achievements_count">%1$d / %2$d</string>
+    <string name="quest_log_achievements_link_caption">Todo lo que has desbloqueado</string>
+    <string name="quest_log_achievements_link_description">Logros, todo lo que has desbloqueado: %1$d de %2$d</string>
+
+    <string name="achievements_title">Logros</string>
+    <string name="achievements_heading">Hitos</string>
+    <string name="achievements_caption">Desbloqueos permanentes. A diferencia de las misiones, nunca se reinician.</string>
+    <string name="achievements_count">%1$d / %2$d</string>
+    <string name="achievements_locked">Bloqueado</string>
+    <string name="achievements_locked_description">%1$s, bloqueado</string>
+    <string name="achievements_unlocked_description">%1$s, desbloqueado, medalla: %2$s</string>
+    <string name="achievements_unlocked_dated_description">%1$s, desbloqueado, %2$s, conseguido el %3$s</string>
+    <string name="achievements_replay_action">Acuñarla de nuevo</string>
+
+    <string name="achievements_latest_eyebrow">Última medalla</string>
+    <string name="achievements_latest_meta">%1$s · Conseguida el %2$s</string>
+    <string name="achievements_none_title">Aún no hay medallas</string>
+    <string name="achievements_none_body">Termina un entrenamiento y se acuña la primera.</string>
+
+    <string name="achievements_tier_gold">Oro</string>
+    <string name="achievements_tier_silver">Plata</string>
+    <string name="achievements_tier_bronze">Bronce</string>
+
+    <string name="achievement_first_session">Primer entrenamiento registrado</string>
+    <string name="achievement_ten_sessions">Diez entrenamientos</string>
+    <string name="achievement_hundred_sessions">Cien entrenamientos</string>
+    <string name="achievement_seven_day_streak">Una semana de racha</string>
+    <string name="achievement_thirty_day_streak">Un mes de racha</string>
+    <string name="achievement_first_record">Primer récord personal</string>
+    <string name="achievement_unknown">Logro</string>
+
+</resources>

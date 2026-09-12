@@ -1,5 +1,6 @@
 PYTHON ?= python3
 SEED := tools/seed/generate_seed.py
+TRANSLATIONS := tools/translations/check.py
 
 # Where Macrobenchmark leaves what it pulled off the device, and where a Baseline Profile has
 # to land for AGP to package it — `src/main/baselineProfiles` is the source directory AGP reads
@@ -24,8 +25,8 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean test journeys screenshots screenshots-verify lint benchmark baseline-profile \
-	a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
+.PHONY: help seed seed-update seed-check seed-clean translations-check test journeys screenshots screenshots-verify lint \
+	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
 help: ## List the available targets
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -42,6 +43,11 @@ seed-check: ## Fail if the committed seed assets are stale (run in CI)
 
 seed-clean: ## Drop the cached upstream tarballs
 	rm -rf tools/seed/.cache
+
+# Reports rather than fails, so a base string added in a PR does not block that PR on its
+# translation (CI runs it the same way). `STRICT=1` is for claiming a locale is complete.
+translations-check: ## Report every key missing from, or stray in, each module's translations
+	$(PYTHON) $(TRANSLATIONS) $(if $(STRICT),--strict) $(if $(LOCALE),--locale $(LOCALE))
 
 test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug

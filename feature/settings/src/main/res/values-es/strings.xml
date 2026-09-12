@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- Chrome -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_back">Atrás</string>
+
+    <!-- Group headers. -->
+    <string name="settings_group_appearance">Apariencia</string>
+    <string name="settings_group_workout">Entrenamiento</string>
+    <string name="settings_group_data">Datos y privacidad</string>
+    <string name="settings_group_notifications">Notificaciones</string>
+    <string name="settings_group_about">Acerca de</string>
+
+    <!-- Appearance -->
+    <string name="settings_theme">Tema</string>
+    <string name="settings_units">Unidades</string>
+    <string name="settings_font_scale">Tamaño del texto</string>
+    <string name="settings_font_scale_value">Sistema</string>
+    <string name="settings_font_scale_detail">Sigue el tamaño de texto del dispositivo</string>
+
+    <!-- Workout -->
+    <string name="settings_rest_timer">Descanso por defecto</string>
+    <string name="settings_rest_timer_detail">Cuando el ejercicio no tiene uno propio</string>
+    <string name="settings_bar_weight">Barra de la calculadora de discos</string>
+    <string name="settings_bar_weight_detail">La barra vacía, antes de los discos</string>
+    <string name="settings_bar_weight_custom">Personalizada</string>
+    <string name="settings_training_goal">Objetivo de entrenamiento</string>
+    <string name="settings_one_rep_max_formula">Fórmula de 1RM</string>
+    <string name="settings_one_rep_max_formula_detail">Cómo se calcula el máximo estimado a una repetición</string>
+
+    <!-- Data &amp; privacy -->
+    <string name="settings_backup">Copia de seguridad y restauración</string>
+    <string name="settings_backup_detail">Exporta todo a un archivo, o sustituye lo de este dispositivo desde uno</string>
+    <string name="settings_health_connect">Health Connect</string>
+    <string name="settings_delete_all">Eliminar todos los datos</string>
+    <string name="settings_delete_all_detail">Borra todo lo de este dispositivo. Sin vuelta atrás.</string>
+
+    <!-- Notifications. -->
+    <string name="settings_reminders">Recordatorios de entrenamiento</string>
+    <string name="settings_reminders_detail">Un aviso los días que planeas entrenar</string>
+    <string name="settings_rest_timer_alerts">Avisos del temporizador de descanso</string>
+    <string name="settings_rest_timer_alerts_detail">Avisa de que el descanso terminó con la pantalla apagada</string>
+    <string name="settings_unfinished_session">Sesiones sin terminar</string>
+    <string name="settings_unfinished_session_detail">Un aviso discreto mientras una sesión sigue en curso</string>
+    <string name="settings_streak_protection">Rachas y recompensas</string>
+    <string name="settings_streak_protection_detail">Niveles nuevos, misiones completadas y botín</string>
+    <string name="settings_marketplace">Ofertas</string>
+    <string name="settings_reminders_off">Desactivados</string>
+
+    <string name="settings_notifications_badge_blocked">Bloqueadas</string>
+    <string name="settings_notifications_blocked">Las notificaciones están bloqueadas</string>
+    <string name="settings_notifications_blocked_detail">Android no las está entregando. Actívalas de nuevo en los ajustes del sistema.</string>
+    <string name="settings_notifications_allow">Permitir notificaciones</string>
+    <string name="settings_notifications_allow_detail">OpenGym aún no ha pedido permiso</string>
+
+    <!-- About -->
+    <string name="settings_version">Versión</string>
+    <string name="settings_github">Código abierto · GitHub</string>
+    <string name="settings_github_detail">Lee el código, informa de un problema</string>
+    <string name="settings_donate">Donar</string>
+    <string name="settings_footer">Sin cuenta. Sin nube. Todo se queda en este teléfono.</string>
+
+    <!-- Row affordances -->
+    <string name="settings_soon_detail">En una versión posterior</string>
+
+    <!-- Pickers -->
+    <string name="settings_dialog_cancel">Cancelar</string>
+    <string name="settings_dialog_save">Guardar</string>
+    <string name="settings_bar_weight_field_label">Peso de la barra (%1$s)</string>
+    <string name="settings_bar_weight_invalid">Introduce un peso mayor que cero</string>
+
+    <!-- Delete all data -->
+    <string name="settings_delete_dialog_title">Eliminar todos los datos</string>
+    <string name="settings_delete_dialog_body">Esto borra lo siguiente de este teléfono, de forma permanente. No hay copia de seguridad ni vuelta atrás.</string>
+    <string name="settings_delete_dialog_body_empty">Aún no hay nada registrado en este teléfono. Eliminar devuelve igualmente cada ajuste a su valor por defecto.</string>
+    <string name="settings_delete_dialog_settings_line">cada ajuste, a su valor por defecto</string>
+    <string name="settings_delete_dialog_prompt">Escribe %1$s para confirmar</string>
+    <string name="settings_delete_dialog_word">ELIMINAR</string>
+    <string name="settings_delete_dialog_confirm">Eliminar todo</string>
+    <string name="settings_delete_in_progress">Eliminando…</string>
+    <string name="settings_delete_done">Todos los datos eliminados</string>
+    <string name="settings_delete_failed">No se pudo eliminar todo. Puede que queden datos; inténtalo de nuevo.</string>
+    <string name="settings_save_failed">No se pudo guardar ese ajuste</string>
+
+    <!-- Counts in the delete dialog. -->
+    <plurals name="settings_count_sessions">
+        <item quantity="one">sesión</item>
+        <item quantity="many">sesiones</item>
+        <item quantity="other">sesiones</item>
+    </plurals>
+    <plurals name="settings_count_sets">
+        <item quantity="one">serie</item>
+        <item quantity="many">series</item>
+        <item quantity="other">series</item>
+    </plurals>
+    <plurals name="settings_count_templates">
+        <item quantity="one">plantilla</item>
+        <item quantity="many">plantillas</item>
+        <item quantity="other">plantillas</item>
+    </plurals>
+    <plurals name="settings_count_personal_records">
+        <item quantity="one">récord personal</item>
+        <item quantity="many">récords personales</item>
+        <item quantity="other">récords personales</item>
+    </plurals>
+    <plurals name="settings_count_custom_exercises">
+        <item quantity="one">ejercicio que añadiste</item>
+        <item quantity="many">ejercicios que añadiste</item>
+        <item quantity="other">ejercicios que añadiste</item>
+    </plurals>
+    <plurals name="settings_count_body_measurements">
+        <item quantity="one">medida corporal</item>
+        <item quantity="many">medidas corporales</item>
+        <item quantity="other">medidas corporales</item>
+    </plurals>
+
+    <!-- Backup & restore (#38). -->
+    <string name="backup_footprint_title">En este dispositivo</string>
+    <string name="backup_stat_sessions">Sesiones</string>
+    <string name="backup_stat_sets">Series</string>
+    <string name="backup_footprint_since">Entrenando desde el %1$s</string>
+    <string name="backup_footprint_since_never">Nada registrado todavía</string>
+    <string name="backup_footprint_size">%1$s de datos</string>
+
+    <string name="backup_export_title">Exportar</string>
+    <string name="backup_export_detail">Escribe cada entrenamiento, plantilla, récord y ajuste en un solo archivo JSON. Guarda una copia donde puedas encontrarla, o envíala a algún sitio: nada sale del teléfono hasta que tú lo hagas.</string>
+    <string name="backup_export_action">Exportar una copia de seguridad</string>
+    <string name="backup_exporting">Exportando…</string>
+    <string name="backup_export_done">Guardado %1$s: %2$d filas.</string>
+    <string name="backup_export_failed">No se pudo escribir la copia de seguridad. Comprueba que hay espacio en el dispositivo e inténtalo de nuevo.</string>
+    <string name="backup_share_title">Compartir copia de seguridad</string>
+    <string name="backup_save_copy_action">Guardar una copia…</string>
+    <string name="backup_share_action">Compartir</string>
+    <string name="backup_saving">Guardando una copia…</string>
+    <string name="backup_save_done">Hay una copia guardada donde elegiste.</string>
+    <string name="backup_save_failed">No se pudo escribir la copia ahí. Elige otra ubicación e inténtalo de nuevo.</string>
+
+    <!-- Automatic backup (#181). -->
+    <string name="backup_auto_title">Copia de seguridad automática</string>
+    <string name="backup_auto_detail">Escribe una copia de todo una vez a la semana, mientras el teléfono se carga y nadie lo usa. Se conservan las tres más recientes; las anteriores se eliminan.</string>
+    <string name="backup_auto_action">Copia automática semanal</string>
+    <string name="backup_auto_off">Desactivada. No se escribe nada de forma programada.</string>
+    <string name="backup_auto_never">Activada. La primera se hará la próxima vez que el teléfono se cargue durante la noche.</string>
+    <string name="backup_auto_last">Última copia %1$s</string>
+    <string name="backup_auto_failed">La última copia automática no terminó, tras varios intentos. Volverá a intentarlo en la próxima ejecución.</string>
+    <string name="backup_auto_save_failed">No se pudo guardar ese interruptor. Inténtalo de nuevo.</string>
+    <string name="backup_auto_uninstall">Las copias automáticas se guardan en el almacenamiento propio de Open Gym, así que se eliminan si desinstalas la aplicación. Exporta y guarda una copia para tener una que sobreviva.</string>
+
+    <string name="backup_restore_title">Restaurar</string>
+    <string name="backup_restore_detail">Sustituye todo lo de este dispositivo por el contenido de un archivo de copia de seguridad. No fusiona ambos.</string>
+    <string name="backup_restore_action">Elegir un archivo de copia de seguridad</string>
+    <string name="backup_validating">Comprobando el archivo…</string>
+    <string name="backup_importing">Restaurando…</string>
+    <string name="backup_restore_done">%1$d filas restauradas. Todo lo de este dispositivo viene ahora del archivo.</string>
+
+    <!-- One message per ImportError. -->
+    <string name="backup_error_malformed">Ese archivo no es una copia de seguridad de Open Gym, o está dañado. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_version">Esa copia se escribió con la versión %1$d del formato y esta versión lee la %2$d. Actualiza Open Gym e inténtalo de nuevo. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_constraint">Esa copia está incompleta: hace referencia a entrenamientos que no contiene. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_io">No se pudo leer la copia de seguridad. Si la restauración ya había empezado, tus entrenamientos han vuelto pero puede que tus ajustes no.</string>
+
+    <string name="backup_dismiss">Cerrar</string>
+
+    <string name="backup_restore_dialog_title">¿Sustituir todo?</string>
+    <string name="backup_restore_dialog_body">Restaurar no fusiona. Todo lo de abajo se elimina y se sustituye por lo que contenga el archivo.</string>
+    <string name="backup_restore_dialog_body_empty">Aún no hay nada registrado en este dispositivo, así que no hay nada que perder: el contenido del archivo simplemente ocupa su lugar.</string>
+    <string name="backup_restore_dialog_settings_line">cada ajuste, sustituido por el del archivo</string>
+    <string name="backup_restore_dialog_word">RESTAURAR</string>
+    <string name="backup_restore_dialog_confirm">Sustituir</string>
+    <string name="backup_restore_in_progress">Restaurando…</string>
+
+    <!-- ── Workout reminders ────────────────────────────────────────────────────── -->
+
+    <string name="reminder_group_reminder">Recordatorio</string>
+    <string name="reminder_group_days">Días</string>
+    <string name="reminder_group_time">Hora</string>
+
+    <string name="reminder_enabled">Recordarme entrenar</string>
+    <string name="reminder_enabled_detail">Los días y a la hora de abajo</string>
+
+    <string name="reminder_time">Hora del recordatorio</string>
+
+    <string name="reminder_status_off">Los recordatorios están desactivados. Actívalos abajo.</string>
+    <string name="reminder_status_no_days">Elige al menos un día para que se active.</string>
+    <string name="reminder_status_blocked">Android no está entregando las notificaciones.</string>
+    <string name="reminder_status_next">Siguiente: %1$s</string>
+
+    <string name="reminder_days_empty_detail">No hay días elegidos, así que no hay nada programado.</string>
+
+    <string name="reminder_inexact">Puede llegar tarde</string>
+    <string name="reminder_inexact_detail">Las alarmas exactas están desactivadas para OpenGym, así que Android puede retrasar el recordatorio unos minutos.</string>
+
+</resources>

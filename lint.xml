@@ -16,4 +16,25 @@
       individual module build files intentionally omit explicit version strings.
     -->
     <issue id="GradleDependency" severity="ignore" />
+
+    <!--
+      MissingTranslation: an error by default, which would fail `./gradlew lint` — and so CI —
+      on any PR that adds a base string without its three translations. A string added in a
+      PR must not block that PR on translation, but it must stay visible: this keeps lint
+      reporting it, and `make translations-check` (run in CI as a warning too) reports the
+      same key per module and per locale. ExtraTranslation stays fatal: a key with no base
+      string is a rename that missed a file, not a translation that is late.
+    -->
+    <issue id="MissingTranslation" severity="warning" />
+
+    <!--
+      ImpliedQuantity: an error on a `one` form with no placeholder in a language whose `one`
+      covers more than the number 1 — French and Portuguese select it for 0 as well. Eight of
+      the base plurals carry no placeholder on purpose (`stat_sets_short`, `pr_unit_reps`, the
+      six `settings_count_*`): the figure is drawn beside the word in another colour, and the
+      singular is the right word for both 0 and 1 in those languages. A translation that
+      *drops* a placeholder the base has is caught by `make translations-check` instead, which
+      holds each form to the base form of the same quantity.
+    -->
+    <issue id="ImpliedQuantity" severity="warning" />
 </lint>

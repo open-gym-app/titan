@@ -112,6 +112,21 @@ android {
         }
     }
 
+    // The languages the app ships in: English, and the three translations under
+    // `values-fr`, `values-es` and `values-pt-rBR` in every module (docs/TRANSLATION.md).
+    androidResources {
+        // Keeps only these locales' resources out of every library the app packages — the
+        // AndroidX and Material artifacts carry strings in some eighty languages, and an APK
+        // that ships German dialog buttons over an English app is not a German translation.
+        // AGP adds the two pseudolocales to this list on its own for the debug build.
+        localeFilters += listOf("en", "fr", "es", "pt-rBR")
+        // Writes the `<locale-config>` Android 13's per-app language setting reads from the
+        // locales the resources actually carry, so the list can never drift from the
+        // directories. The unqualified `values/` is named as `en-US` in
+        // `src/main/res/resources.properties`, which the generated config needs to know.
+        generateLocaleConfig = true
+    }
+
     buildFeatures {
         compose = true
         // `BuildConfig.VERSION_NAME`, which settings' About group shows. Off by default since

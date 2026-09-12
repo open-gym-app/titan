@@ -1,0 +1,388 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── Set logging ────────────────────────────────────────────────────────────── -->
+
+    <string name="set_log_column_set">Série</string>
+    <string name="set_log_column_previous">Préc.</string>
+    <string name="set_log_column_reps">Rép.</string>
+    <string name="set_log_column_rpe">RPE</string>
+
+    <!-- Set types. The marker is one glyph; the markers are the labels' initials, except the
+         failure set — "Échec" would share É with "Échauffement" — which draws X (TRANSLATION.md). -->
+    <string name="set_type_normal">Série normale</string>
+    <string name="set_type_warmup">Échauffement</string>
+    <string name="set_type_warmup_marker">É</string>
+    <string name="set_type_drop">Série dégressive</string>
+    <string name="set_type_drop_marker">D</string>
+    <string name="set_type_failure">À l’échec</string>
+    <string name="set_type_failure_marker">X</string>
+    <string name="set_type_interval">Intervalle</string>
+    <string name="set_type_interval_marker">I</string>
+
+    <string name="set_log_position">%1$s, série %2$d</string>
+    <string name="set_log_weight_field">Poids, série %1$d</string>
+    <string name="set_log_reps_field">Répétitions, série %1$d</string>
+    <string name="set_log_rpe_value">Effort perçu, série %1$d, %2$s</string>
+    <string name="set_log_rpe_none">Effort perçu, série %1$d, non renseigné</string>
+    <string name="set_log_previous_value">Précédemment %1$s</string>
+    <string name="set_log_completion">Série %1$d</string>
+    <string name="set_log_completed">Terminée</string>
+    <string name="set_log_not_completed">Non terminée</string>
+    <string name="set_log_weight_and_reps">%1$s × %2$d</string>
+    <plurals name="set_log_reps_only">
+        <item quantity="one">%1$d répétition</item>
+        <item quantity="many">%1$d répétitions</item>
+        <item quantity="other">%1$d répétitions</item>
+    </plurals>
+    <string name="set_log_weight_and_reps_compact">%1$s×%2$d</string>
+    <string name="set_log_reps_only_compact">×%1$d</string>
+
+    <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
+
+    <string name="set_delete_action">Supprimer la série %1$d</string>
+    <string name="set_type_field">Type de série, série %1$d, %2$s</string>
+    <string name="rpe_value">Effort perçu %1$s</string>
+    <string name="rpe_not_rated">Non noté</string>
+    <string name="rpe_scale_hint">10, plus rien dans le réservoir ; 8, encore deux répétitions possibles.</string>
+
+    <!-- ── The active session's header ────────────────────────────────────────────── -->
+
+    <string name="session_elapsed">Écoulé %1$s</string>
+    <string name="session_elapsed_paused">En pause à %1$s</string>
+    <plurals name="session_progress">
+        <item quantity="one">%1$d exercice sur %2$d terminé</item>
+        <item quantity="many">%1$d exercices sur %2$d terminés</item>
+        <item quantity="other">%1$d exercices sur %2$d terminés</item>
+    </plurals>
+    <string name="session_header_pause">Mettre la séance en pause</string>
+    <string name="session_header_resume">Reprendre la séance</string>
+    <string name="session_header_discard">Abandonner la séance</string>
+    <string name="session_header_finish">Terminer la séance</string>
+    <string name="session_header_finish_label">Fin</string>
+    <string name="session_header_rename">Renommer cette séance</string>
+    <string name="session_header_title">%1$s, %2$s</string>
+
+    <!-- ── Naming a session ──────────────────────────────────────────────────────── -->
+
+    <string name="session_name_title">Nommer cette séance</string>
+    <string name="session_name_label">Nom de la séance</string>
+    <string name="session_name_placeholder">Push · Haut du corps</string>
+    <string name="session_name_hint">Laissez vide pour la désigner par sa date.</string>
+    <string name="session_name_confirm">Enregistrer</string>
+    <string name="session_name_cancel">Annuler</string>
+
+    <!-- ── Exercises ──────────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_last_performed">Dernière fois : %1$s</string>
+    <string name="exercise_never_performed">Jamais enregistré</string>
+    <string name="exercise_meta_separator">" · "</string>
+
+    <string name="exercise_type_strength">Poids &amp; répétitions</string>
+    <string name="exercise_type_endurance">Distance &amp; temps</string>
+    <string name="exercise_type_isometric">Maintien</string>
+
+    <string name="exercise_tracked_strength">Poids, répétitions, RPE</string>
+    <string name="exercise_tracked_endurance">Distance, temps, RPE</string>
+    <string name="exercise_tracked_isometric">Temps, RPE</string>
+
+    <string name="mechanic_compound">Polyarticulaire</string>
+    <string name="mechanic_isolation">Isolation</string>
+
+    <string name="difficulty_beginner">Débutant</string>
+    <string name="difficulty_intermediate">Intermédiaire</string>
+    <string name="difficulty_expert">Expert</string>
+
+    <string name="discipline_strength">Force</string>
+    <string name="discipline_powerlifting">Force athlétique</string>
+    <string name="discipline_olympic_weightlifting">Haltérophilie</string>
+    <string name="discipline_strongman">Strongman</string>
+    <string name="discipline_plyometrics">Pliométrie</string>
+    <string name="discipline_stretching">Étirements</string>
+    <string name="discipline_cardio">Cardio</string>
+
+    <string name="equipment_barbell">Barre</string>
+    <string name="equipment_dumbbell">Haltère</string>
+    <string name="equipment_machine">Machine</string>
+    <string name="equipment_bodyweight">Poids du corps</string>
+    <string name="equipment_cable">Poulie</string>
+    <string name="equipment_kettlebell">Kettlebell</string>
+    <string name="equipment_band">Élastique</string>
+    <string name="equipment_ez_curl_bar">Barre EZ</string>
+    <string name="equipment_medicine_ball">Medecine-ball</string>
+    <string name="equipment_exercise_ball">Ballon de gym</string>
+    <string name="equipment_foam_roll">Rouleau de massage</string>
+
+    <string name="muscle_abdominals">Abdos</string>
+    <string name="muscle_abductors">Abducteurs</string>
+    <string name="muscle_adductors">Adducteurs</string>
+    <string name="muscle_biceps">Biceps</string>
+    <string name="muscle_calves">Mollets</string>
+    <string name="muscle_chest">Pectoraux</string>
+    <string name="muscle_forearms">Avant-bras</string>
+    <string name="muscle_glutes">Fessiers</string>
+    <string name="muscle_hamstrings">Ischios</string>
+    <string name="muscle_lats">Dorsaux</string>
+    <string name="muscle_lower_back">Lombaires</string>
+    <string name="muscle_middle_back">Milieu du dos</string>
+    <string name="muscle_neck">Cou</string>
+    <string name="muscle_quadriceps">Quadriceps</string>
+    <string name="muscle_shoulders">Épaules</string>
+    <string name="muscle_traps">Trapèzes</string>
+    <string name="muscle_triceps">Triceps</string>
+
+    <!-- ── Templates ──────────────────────────────────────────────────────────────── -->
+
+    <string name="template_category_strength">Force</string>
+    <string name="template_category_hypertrophy">Hypertrophie</string>
+    <string name="template_category_endurance">Endurance</string>
+    <string name="template_category_mobility">Mobilité</string>
+    <string name="template_category_general">Général</string>
+
+    <plurals name="template_exercise_count">
+        <item quantity="one">%1$d ex.</item>
+        <item quantity="many">%1$d ex.</item>
+        <item quantity="other">%1$d ex.</item>
+    </plurals>
+    <string name="template_meta">%1$s · %2$s</string>
+
+    <plurals name="template_exercise_count_description">
+        <item quantity="one">%1$d exercice</item>
+        <item quantity="many">%1$d exercices</item>
+        <item quantity="other">%1$d exercices</item>
+    </plurals>
+    <plurals name="template_description_duration">
+        <item quantity="one">%1$s, environ %2$d minute</item>
+        <item quantity="many">%1$s, environ %2$d minutes</item>
+        <item quantity="other">%1$s, environ %2$d minutes</item>
+    </plurals>
+    <string name="template_description">%1$s, %2$s</string>
+    <string name="template_description_category">%1$s, %2$s, %3$s</string>
+
+    <string name="template_start">Démarrer depuis ce modèle</string>
+
+    <string name="template_category_label">Catégorie</string>
+    <string name="template_category_none">Aucune</string>
+
+    <string name="template_name_label">Nom du modèle</string>
+    <string name="template_name_placeholder">Push · Haut du corps</string>
+    <string name="template_name_cancel">Annuler</string>
+
+    <!-- ── Supersets ──────────────────────────────────────────────────────────────── -->
+
+    <string name="superset_badge">SS %1$s</string>
+    <string name="superset_link_label">Superset</string>
+    <string name="superset_linked_label">Superset %1$s</string>
+    <string name="superset_link">Enchaîner %1$s et %2$s sans pause</string>
+    <string name="superset_break">Ne plus enchaîner %1$s et %2$s sans pause</string>
+    <string name="superset_description">%1$s. %2$s</string>
+
+    <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
+
+    <string name="rest_timer_running">Repos</string>
+    <string name="rest_timer_paused">Repos en pause</string>
+    <string name="rest_timer_finished">Repos terminé</string>
+    <string name="rest_timer_idle">Aucun repos en cours</string>
+    <string name="rest_timer_of_total">sur %1$s</string>
+    <string name="rest_timer_remaining">%1$s restant</string>
+    <string name="rest_timer_live_running">Repos, %1$s restant</string>
+    <string name="rest_timer_live_paused">Repos en pause, %1$s restant</string>
+    <string name="rest_timer_up_next">Ensuite %1$s</string>
+    <string name="rest_timer_shorter_label">−%1$d s</string>
+    <string name="rest_timer_shorter">Raccourcir le repos de %1$d secondes</string>
+    <string name="rest_timer_longer_label">+%1$d s</string>
+    <string name="rest_timer_longer">Prolonger le repos de %1$d secondes</string>
+    <string name="rest_timer_pause">Mettre le repos en pause</string>
+    <string name="rest_timer_resume">Reprendre le repos</string>
+    <string name="rest_timer_skip">Passer le repos</string>
+    <string name="rest_timer_next_set">Série suivante</string>
+    <string name="rest_timer_reopen">Afficher le minuteur de repos</string>
+
+    <!-- ── Stats ──────────────────────────────────────────────────────────────────── -->
+
+    <string name="stat_volume">Volume</string>
+    <string name="stat_sets">Séries</string>
+    <plurals name="stat_sets_short">
+        <item quantity="one">série</item>
+        <item quantity="many">séries</item>
+        <item quantity="other">séries</item>
+    </plurals>
+    <string name="stat_sets_unit">au total</string>
+    <string name="stat_duration">Durée</string>
+    <string name="stat_exercises">Exercices</string>
+    <string name="stat_exercises_unit">faits</string>
+    <string name="stat_muscles">Muscles</string>
+    <string name="stat_muscles_unit">travaillés</string>
+    <string name="stat_description">%1$s, %2$s</string>
+
+    <string name="pr_badge">PR</string>
+    <string name="pr_max_weight">Plus lourd</string>
+    <string name="pr_max_reps">Plus de répétitions</string>
+    <string name="pr_max_volume">Plus de volume</string>
+    <string name="pr_estimated_1rm">1RM</string>
+    <string name="pr_max_distance">Plus loin</string>
+    <string name="pr_best_pace">Meilleure allure</string>
+    <string name="pr_description">PR %1$s, record personnel</string>
+    <string name="pr_description_short">PR, record personnel</string>
+    <plurals name="pr_unit_reps">
+        <item quantity="one">rép.</item>
+        <item quantity="many">rép.</item>
+        <item quantity="other">rép.</item>
+    </plurals>
+    <string name="pr_value_description">Record personnel, %1$s, %2$s</string>
+
+    <!-- ── Notes ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="notes_add">Ajouter une note</string>
+    <string name="notes_edit">Modifier la note</string>
+    <string name="notes_save">Enregistrer</string>
+    <string name="notes_cancel">Annuler</string>
+
+    <!-- ── Reordering ─────────────────────────────────────────────────────────────── -->
+
+    <string name="reorder_move_up">Monter</string>
+    <string name="reorder_move_down">Descendre</string>
+    <string name="reorder_position">%1$d. %2$s</string>
+
+    <!-- ── Search ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="search_placeholder">Rechercher…</string>
+    <string name="search_clear">Effacer la recherche</string>
+
+    <!-- ── Plates ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="plate_diagram_loaded">Barre chargée avec %1$s de chaque côté</string>
+    <string name="plate_diagram_empty">Barre sans aucun disque</string>
+    <string name="plate_list_separator">", "</string>
+    <plurals name="plate_count_description">
+        <item quantity="one">%1$d disque de %2$s</item>
+        <item quantity="many">%1$d disques de %2$s</item>
+        <item quantity="other">%1$d disques de %2$s</item>
+    </plurals>
+
+    <string name="plate_legend_per_side">Par côté</string>
+    <string name="plate_legend_count">× %1$d</string>
+
+    <!-- ── Body diagram ───────────────────────────────────────────────────────────── -->
+
+    <string name="body_view_front">Face</string>
+    <string name="body_view_back">Dos</string>
+    <string name="body_muscles_worked">Muscles travaillés</string>
+    <string name="body_diagram_none">Schéma du corps. Aucun muscle mis en avant.</string>
+    <string name="body_diagram_primary">Schéma du corps. Travaillés directement : %1$s.</string>
+    <string name="body_diagram_primary_and_secondary">Schéma du corps. Travaillés directement : %1$s. Aussi sollicités : %2$s.</string>
+    <string name="body_diagram_secondary">Schéma du corps. Travaillés indirectement : %1$s.</string>
+    <string name="body_muscle_separator">", "</string>
+
+    <!-- ── Muscle contribution ────────────────────────────────────────────────────── -->
+
+    <string name="muscle_contribution_description_primary">%1$s, %2$s, travaillé directement</string>
+    <string name="muscle_contribution_description_secondary">%1$s, %2$s, aussi sollicité</string>
+
+    <!-- ── Sessions ──────────────────────────────────────────────────────────────── -->
+
+    <plurals name="session_set_count">
+        <item quantity="one">%1$d série</item>
+        <item quantity="many">%1$d séries</item>
+        <item quantity="other">%1$d séries</item>
+    </plurals>
+    <plurals name="session_set_count_description">
+        <item quantity="one">%1$d série</item>
+        <item quantity="many">%1$d séries</item>
+        <item quantity="other">%1$d séries</item>
+    </plurals>
+
+    <!-- ── Training calendar ─────────────────────────────────────────────────────── -->
+
+    <plurals name="calendar_day_sessions">
+        <item quantity="one">%1$s, %2$d séance</item>
+        <item quantity="many">%1$s, %2$d séances</item>
+        <item quantity="other">%1$s, %2$d séances</item>
+    </plurals>
+    <string name="calendar_day_rest">%1$s, jour de repos</string>
+    <string name="calendar_day_upcoming">%1$s, à venir</string>
+    <string name="calendar_day_open">Afficher ce jour</string>
+
+    <!-- ── Discarding a session ───────────────────────────────────────────────────── -->
+
+    <string name="discard_session_title">Abandonner cette séance ?</string>
+    <plurals name="discard_session_body">
+        <item quantity="one">%1$d série enregistrée sera supprimée. Cette action est irréversible.</item>
+        <item quantity="many">%1$d séries enregistrées seront supprimées. Cette action est irréversible.</item>
+        <item quantity="other">%1$d séries enregistrées seront supprimées. Cette action est irréversible.</item>
+    </plurals>
+    <string name="discard_session_body_empty">Rien n’a encore été enregistré, donc rien ne sera perdu.</string>
+    <string name="discard_session_confirm">Abandonner</string>
+    <string name="discard_session_cancel">Continuer la séance</string>
+
+    <!-- ── Charts ────────────────────────────────────────────────────────────────── -->
+
+    <string name="chart_description">%1$s, de %2$s à %3$s. Dernier %4$s. Maximum %5$s en %6$s, minimum %7$s en %8$s.</string>
+    <string name="chart_description_flat">%1$s, de %2$s à %3$s. %4$s sur toute la période, sans changement.</string>
+    <string name="chart_description_empty">%1$s. Pas encore assez de données pour un graphique.</string>
+    <string name="chart_placeholder">Pas encore assez de données</string>
+
+    <string name="chart_change_up">↑ %1$s</string>
+    <string name="chart_change_down">↓ %1$s</string>
+    <string name="chart_change_up_description">En hausse de %1$s par rapport à la période précédente</string>
+    <string name="chart_change_down_description">En baisse de %1$s par rapport à la période précédente</string>
+    <string name="chart_change_none_description">%1$s, sans changement par rapport à la période précédente</string>
+
+    <string name="progress_ring_description">%1$s, %2$s, %3$d %% atteints</string>
+    <string name="laurel_wreath_description">%1$s, %2$s, %3$d %% atteints</string>
+
+    <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
+
+    <string name="preference_theme_light">Clair</string>
+    <string name="preference_theme_dark">Sombre</string>
+    <string name="preference_theme_system">Auto</string>
+    <string name="preference_theme_system_detail">Suit votre appareil</string>
+
+    <string name="preference_units_metric">Métrique</string>
+    <string name="preference_units_metric_detail">Kilogrammes et kilomètres</string>
+    <string name="preference_units_imperial">Impérial</string>
+    <string name="preference_units_imperial_detail">Livres et miles</string>
+
+    <string name="preference_goal_strength">Force</string>
+    <string name="preference_goal_strength_detail">Lourd, peu de répétitions, longs repos</string>
+    <string name="preference_goal_hypertrophy">Hypertrophie</string>
+    <string name="preference_goal_hypertrophy_detail">Volume et temps sous tension</string>
+    <string name="preference_goal_endurance">Endurance</string>
+    <string name="preference_goal_endurance_detail">Beaucoup de répétitions, repos courts</string>
+    <string name="preference_goal_custom">Personnalisé</string>
+    <string name="preference_goal_custom_detail">Votre propre programme</string>
+
+    <string name="preference_one_rep_max_epley">Epley</string>
+    <string name="preference_one_rep_max_epley_detail">Simple ; surestime à haut nombre de répétitions</string>
+    <string name="preference_one_rep_max_brzycki">Brzycki</string>
+    <string name="preference_one_rep_max_brzycki_detail">Plus précis à faible nombre de répétitions</string>
+
+    <!-- ── Preference rows ──────────────────────────────────────────────────────── -->
+
+    <string name="preference_soon">Bientôt</string>
+    <string name="preference_opens_externally">S’ouvre dans votre navigateur</string>
+
+    <!-- ── Reminder schedule ────────────────────────────────────────────────────── -->
+
+    <string name="reminder_days_every">Tous les jours</string>
+    <string name="reminder_days_weekdays">En semaine</string>
+    <string name="reminder_days_weekend">Le week-end</string>
+    <string name="reminder_days_none">Aucun jour</string>
+    <string name="reminder_schedule">%1$s · %2$s</string>
+
+    <!-- ── Assembled phrases ────────────────────────────────────────────────────── -->
+
+    <string name="figure_with_unit">%1$s %2$s</string>
+    <string name="option_selected">Sélectionné</string>
+    <string name="option_not_selected">Non sélectionné</string>
+    <string name="spoken_separator">", "</string>
+    <string name="badge_with_qualifier">%1$s · %2$s</string>
+    <string name="title_and_body_description">%1$s. %2$s</string>
+
+    <!-- ── Time picker ──────────────────────────────────────────────────────────── -->
+
+    <string name="time_picker_confirm">Enregistrer</string>
+    <string name="time_picker_cancel">Annuler</string>
+
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- Bottom navigation. -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_sessions">Séances</string>
+    <string name="nav_library">Exercices</string>
+    <string name="nav_stats">Stats</string>
+
+    <string name="action_settings">Paramètres</string>
+</resources>

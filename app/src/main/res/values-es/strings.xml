@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- Bottom navigation. -->
+    <string name="nav_home">Inicio</string>
+    <string name="nav_sessions">Sesiones</string>
+    <string name="nav_library">Ejercicios</string>
+    <string name="nav_stats">Progreso</string>
+
+    <string name="action_settings">Ajustes</string>
+</resources>

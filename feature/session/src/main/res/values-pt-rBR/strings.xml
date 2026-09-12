@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brazilian Portuguese. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── New session (#25) ──────────────────────────────────────────────────────── -->
+
+    <string name="new_session_title">Novo treino</string>
+    <string name="new_session_leave">Sair sem começar</string>
+    <string name="new_session_back_to_list">Voltar à lista de modelos</string>
+
+    <string name="new_session_quick_start">Início rápido</string>
+    <string name="new_session_empty">Treino vazio</string>
+    <string name="new_session_empty_hint">Comece do zero e escolha no caminho</string>
+
+    <string name="new_session_templates">Modelos</string>
+    <plurals name="new_session_template_count">
+        <item quantity="one">%1$d salvo</item>
+        <item quantity="many">%1$d salvos</item>
+        <item quantity="other">%1$d salvos</item>
+    </plurals>
+
+    <string name="new_session_no_templates_title">Nenhum modelo ainda</string>
+    <string name="new_session_no_templates_body">Finalize um treino e salve-o como modelo: ele aparece aqui, pronto para repetir.</string>
+
+    <!-- ── Ready to start ─────────────────────────────────────────────────────────── -->
+
+    <string name="new_session_ready">Pronto</string>
+    <string name="new_session_unnamed">Treino vazio</string>
+    <plurals name="new_session_exercise_count">
+        <item quantity="one">%1$d exercício</item>
+        <item quantity="many">%1$d exercícios</item>
+        <item quantity="other">%1$d exercícios</item>
+    </plurals>
+    <string name="new_session_ready_meta">%1$s · %2$s</string>
+    <string name="new_session_superset">BS %1$s</string>
+    <string name="new_session_remove">Remover %1$s</string>
+    <string name="new_session_start">Começar treino</string>
+    <string name="new_session_rename">Dê um nome a este treino</string>
+
+    <string name="new_session_resume_eyebrow">Ainda em andamento</string>
+    <plurals name="new_session_resume_sets">
+        <item quantity="one">%1$d série registrada</item>
+        <item quantity="many">%1$d séries registradas</item>
+        <item quantity="other">%1$d séries registradas</item>
+    </plurals>
+    <string name="new_session_resume_nothing_logged">Nada registrado ainda</string>
+    <string name="new_session_resume_body">Só um treino por vez.</string>
+    <string name="new_session_resume_confirm">Retomá-lo</string>
+    <string name="new_session_resume_discard">Descartá-lo e começar</string>
+    <string name="new_session_resume_dismiss">Agora não</string>
+
+    <string name="new_session_error_start_failed">Não foi possível começar o treino. Nada foi salvo.</string>
+    <string name="new_session_error_discard">Não foi possível descartar o treino em andamento. Ele ainda está lá.</string>
+    <string name="new_session_error_template">Não foi possível abrir esse modelo.</string>
+    <string name="new_session_error_exercises_missing">Alguns exercícios não estão mais na sua biblioteca e ficaram de fora.</string>
+
+    <!-- ── Active session (#26) ───────────────────────────────────────────────────── -->
+
+    <string name="active_exercise_position">Exercício %1$d</string>
+    <string name="active_exercise_removed">Removido da sua biblioteca</string>
+    <string name="active_first_time">Primeira vez</string>
+
+    <string name="active_complete_set">Concluir a série %1$d</string>
+    <string name="active_add_note">Adicionar uma nota</string>
+    <string name="active_note_label">Nota</string>
+    <string name="active_note_clear">Limpar</string>
+
+    <string name="active_weight_not_a_number">Essa carga não é um número</string>
+    <string name="active_reps_not_a_number">Esse número de repetições não é um número</string>
+
+    <string name="active_logged_by_duration">Exercício por tempo. As séries são registradas por duração, o que esta tela ainda não consegue inserir: troque ou remova o exercício para continuar.</string>
+
+    <string name="active_add_exercises">Adicionar mais exercícios</string>
+    <string name="active_remove_exercise">Remover %1$s deste treino</string>
+    <string name="active_swap_exercise">Trocar %1$s por outro exercício</string>
+
+    <string name="active_no_exercises_title">Nenhum exercício ainda</string>
+    <string name="active_no_exercises_body">Este treino começou vazio. Adicione o primeiro exercício abaixo e comece a registrar.</string>
+
+    <string name="active_rpe_title">Foi pesado?</string>
+    <string name="active_rpe_body">Esforço percebido, para a série que você está registrando. Toque no valor de novo para limpar.</string>
+
+    <string name="active_missing_title">Este treino não existe mais</string>
+    <string name="active_missing_body">Foi excluído ou finalizado em outro lugar. Nada aqui pode mais ser registrado nele.</string>
+
+    <string name="active_error_no_sets">Registre pelo menos uma série antes de finalizar, ou descarte o treino.</string>
+    <string name="active_error_finish">Não foi possível finalizar o treino. Nada foi salvo e o treino continua em andamento.</string>
+    <string name="active_error_discard">Não foi possível descartar o treino. Ele continua em andamento.</string>
+    <string name="active_error_set">Não foi possível registrar essa série.</string>
+    <string name="active_error_pause">Não foi possível alterar o treino. Tente de novo.</string>
+    <string name="active_error_add">Não foi possível adicionar esses exercícios. O treino não mudou.</string>
+    <string name="active_error_exercise_has_sets">Esse exercício tem séries registradas. Exclua as séries primeiro, ou descarte o treino inteiro.</string>
+    <string name="active_error_remove">Não foi possível remover esse exercício. Ele continua no treino.</string>
+    <string name="active_error_rename">Não foi possível renomear o treino. Tente de novo.</string>
+    <string name="active_error_superset">Não foi possível alterar esse bi-set. O treino não mudou.</string>
+    <string name="active_error_reorder">Não foi possível salvar a nova ordem. O treino está na ordem em que estava.</string>
+    <string name="active_error_swap_has_sets">Esse exercício tem séries registradas. Exclua-as primeiro, ou adicione o novo exercício em vez disso.</string>
+    <string name="active_error_swap">Não foi possível trocar esse exercício. O treino não mudou.</string>
+    <string name="active_error_restore">Não foi possível retomar o treino de onde você parou. Suas séries registradas estão a salvo.</string>
+
+    <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
+
+    <string name="active_set_deleted">Série %1$d excluída</string>
+    <string name="active_undo">Desfazer</string>
+    <string name="active_error_set_edit">Não foi possível salvar essa alteração. A série está como estava.</string>
+    <string name="active_error_delete_set">Não foi possível excluir essa série. Ela continua no treino.</string>
+    <string name="active_error_restore_set">Não foi possível recuperar essa série. Registre de novo para mantê-la.</string>
+    <string name="active_error_restored_at_end">Série recuperada, no fim do exercício.</string>
+    <string name="active_error_set_completion">Não foi possível alterar a marcação dessa série.</string>
+
+    <!-- ── Session summary (#27) ──────────────────────────────────────────────────── -->
+
+    <string name="summary_complete">Treino concluído</string>
+    <string name="summary_logged">Treino registrado</string>
+    <string name="summary_back">Voltar à lista de treinos</string>
+    <string name="summary_unnamed">Treino sem nome</string>
+    <string name="summary_rename">Renomear este treino</string>
+    <string name="summary_meta">%1$s · %2$s</string>
+    <string name="summary_time_range">%1$s → %2$s</string>
+
+    <string name="summary_missing_title">Treino não encontrado</string>
+    <string name="summary_missing_body">Este treino não está mais no seu histórico. Pode ter sido excluído.</string>
+
+    <string name="summary_records">Novos recordes pessoais</string>
+    <string name="summary_records_historical">Recordes pessoais</string>
+    <string name="summary_record_unknown">Exercício fora da sua biblioteca</string>
+
+    <string name="summary_muscles">Músculos trabalhados</string>
+    <string name="summary_muscles_more">+%1$d</string>
+
+    <string name="summary_exercises">Exercícios</string>
+    <string name="summary_exercise_unknown">Removido da sua biblioteca</string>
+    <string name="summary_exercise_sets">%1$d × %2$s</string>
+    <string name="summary_exercise_rep_range">%1$d-%2$d</string>
+    <string name="summary_exercise_top_weight">%1$s máx.</string>
+    <string name="summary_exercise_meta">%1$s · %2$s</string>
+    <string name="summary_exercise_description_position">%1$d. %2$s</string>
+    <plurals name="summary_exercise_description_sets">
+        <item quantity="one">%1$d série</item>
+        <item quantity="many">%1$d séries</item>
+        <item quantity="other">%1$d séries</item>
+    </plurals>
+    <plurals name="summary_exercise_description_reps">
+        <item quantity="one">%1$d repetição</item>
+        <item quantity="many">%1$d repetições</item>
+        <item quantity="other">%1$d repetições</item>
+    </plurals>
+    <plurals name="summary_exercise_description_rep_range">
+        <item quantity="one">%1$d a %2$d repetição</item>
+        <item quantity="many">%1$d a %2$d repetições</item>
+        <item quantity="other">%1$d a %2$d repetições</item>
+    </plurals>
+
+    <string name="summary_notes">Notas do treino</string>
+    <string name="summary_notes_label">Notas do treino</string>
+    <string name="summary_notes_empty">Adicione uma nota sobre este treino: como foi, o que mudar da próxima vez.</string>
+
+    <string name="summary_save_template">Salvar como modelo</string>
+    <string name="summary_done">Concluído</string>
+
+    <string name="summary_template_title">Salvar como modelo</string>
+    <string name="summary_template_body">Os exercícios que você fez, em ordem, com as séries, repetições e cargas alcançadas como padrão.</string>
+    <string name="summary_template_save">Salvar</string>
+    <string name="summary_template_name_taken">Você já tem um modelo com esse nome</string>
+
+    <string name="summary_error_notes">Não foi possível salvar a nota</string>
+    <string name="summary_error_rename">Não foi possível renomear o treino</string>
+    <string name="summary_template_saved">Salvo como modelo</string>
+    <string name="summary_error_template">Não foi possível salvar o modelo</string>
+
+    <!-- ─── The post-workout payoff (#111) ───────────────────────────────────────────── -->
+
+    <string name="summary_xp_earned">XP ganhos</string>
+    <string name="summary_xp_unit">XP</string>
+    <plurals name="summary_xp_earned_description">
+        <item quantity="one">%1$d ponto de experiência ganho</item>
+        <item quantity="many">%1$d pontos de experiência ganhos</item>
+        <item quantity="other">%1$d pontos de experiência ganhos</item>
+    </plurals>
+    <string name="summary_xp_source_amount">+%1$d</string>
+    <string name="summary_xp_source_session">Finalizar o treino</string>
+
+    <plurals name="summary_xp_source_sets">
+        <item quantity="one">%1$d série</item>
+        <item quantity="many">%1$d séries</item>
+        <item quantity="other">%1$d séries</item>
+    </plurals>
+
+    <plurals name="summary_xp_source_records">
+        <item quantity="one">%1$d recorde pessoal</item>
+        <item quantity="many">%1$d recordes pessoais</item>
+        <item quantity="other">%1$d recordes pessoais</item>
+    </plurals>
+
+    <plurals name="summary_xp_source_achievements">
+        <item quantity="one">%1$d conquista</item>
+        <item quantity="many">%1$d conquistas</item>
+        <item quantity="other">%1$d conquistas</item>
+    </plurals>
+
+    <plurals name="summary_xp_source_quests">
+        <item quantity="one">%1$d missão</item>
+        <item quantity="many">%1$d missões</item>
+        <item quantity="other">%1$d missões</item>
+    </plurals>
+
+    <string name="summary_level_up">Subiu de nível</string>
+    <string name="summary_level_milestone">Marco alcançado</string>
+    <string name="summary_level_number">Nível %1$d</string>
+    <string name="summary_level_progress">%1$d / %2$d</string>
+
+    <plurals name="summary_level_progress_description">
+        <item quantity="one">Nível %1$d, %2$d ponto para o próximo nível</item>
+        <item quantity="many">Nível %1$d, %2$d pontos para o próximo nível</item>
+        <item quantity="other">Nível %1$d, %2$d pontos para o próximo nível</item>
+    </plurals>
+
+    <!-- ─── Streak protection (#106) ────────────────────────────────────────────────── -->
+
+    <string name="summary_streak_saved">Sequência salva</string>
+    <string name="summary_streak_saved_badge">Salva</string>
+    <plurals name="summary_streak_saved_headline">
+        <item quantity="one">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dia.</item>
+        <item quantity="many">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dias.</item>
+        <item quantity="other">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dias.</item>
+    </plurals>
+    <plurals name="summary_streak_protections_left">
+        <item quantity="one">%1$d restante este mês</item>
+        <item quantity="many">%1$d restantes este mês</item>
+        <item quantity="other">%1$d restantes este mês</item>
+    </plurals>
+    <string name="summary_streak_protections_none">Nenhuma restante este mês</string>
+    <plurals name="summary_streak_protections_left_description">
+        <item quantity="one">%1$d de %2$d proteções de sequência restante este mês</item>
+        <item quantity="many">%1$d de %2$d proteções de sequência restantes este mês</item>
+        <item quantity="other">%1$d de %2$d proteções de sequência restantes este mês</item>
+    </plurals>
+    <plurals name="summary_streak_protections_none_description">
+        <item quantity="one">Sua %1$d proteção de sequência acabou por este mês</item>
+        <item quantity="many">Nenhuma das suas %1$d proteções de sequência resta este mês</item>
+        <item quantity="other">Nenhuma das suas %1$d proteções de sequência resta este mês</item>
+    </plurals>
+    <string name="summary_quests">Missões concluídas</string>
+    <string name="summary_quest_weekly">Esta semana</string>
+    <string name="summary_quest_monthly">Este mês</string>
+
+    <string name="quest_weekly_sessions">Treinar três vezes</string>
+    <string name="quest_weekly_sessions_plus">Treinar cinco vezes</string>
+    <string name="quest_weekly_record">Bater um recorde pessoal</string>
+    <string name="quest_weekly_volume">Mover 20 toneladas</string>
+    <string name="quest_monthly_sessions">Treinar doze vezes</string>
+    <string name="quest_monthly_records">Bater cinco recordes pessoais</string>
+    <string name="quest_monthly_volume">Mover 80 toneladas</string>
+    <string name="quest_unknown">Missão</string>
+
+    <string name="summary_achievements">Conquistas desbloqueadas</string>
+
+    <string name="achievement_first_session">Primeiro treino registrado</string>
+    <string name="achievement_ten_sessions">Dez treinos feitos</string>
+    <string name="achievement_hundred_sessions">Cem treinos</string>
+    <string name="achievement_seven_day_streak">Uma semana de sequência</string>
+    <string name="achievement_thirty_day_streak">Um mês de sequência</string>
+    <string name="achievement_first_record">Primeiro recorde pessoal</string>
+    <string name="achievement_unknown">Conquista desbloqueada</string>
+
+    <string name="active_record_to_beat">%1$s · %2$s</string>
+
+</resources>
