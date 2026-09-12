@@ -1,7 +1,6 @@
 package com.opengym.feature.progression.records
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,11 +9,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +39,8 @@ import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
+import com.opengym.core.ui.component.OpenGymFilterChip
+import com.opengym.core.ui.component.OpenGymFilterChipRow
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
@@ -191,6 +191,12 @@ private fun RecordsHeader(
  * All six kinds, not the wireframe's four: #30 writes cardio records, and a distance or pace
  * record with no chip to find it under is a record the user cannot reach. Scrolled horizontally
  * rather than wrapped, so the row's height does not change with the translation.
+ *
+ * The design system's chip and row, not Material's `FilterChip` in a `horizontalScroll`: that
+ * pair drew the chips 32dp tall in a row with 6dp of padding, which is a 37dp target on the
+ * device — the one thing on this screen Accessibility Scanner failed. `OpenGymFilterChip` is
+ * drawn at 30dp inside a 48dp target of its own, and `OpenGymFilterChipRow` is the scroller
+ * that gives it the room; see the note on the chip.
  */
 @Composable
 private fun FilterChips(
@@ -198,30 +204,26 @@ private fun FilterChips(
     onSelect: (PrType?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(
-                horizontal = OpenGymTheme.spacing.screen,
-                vertical = OpenGymTheme.spacing.sm,
-            ),
-        horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
-    ) {
-        FilterChip(
-            selected = selected == null,
-            onClick = { onSelect(null) },
-            label = { Text(text = stringResource(R.string.records_filter_all)) },
-        )
-        PrType.entries.forEach { type ->
-            FilterChip(
+    OpenGymFilterChipRow(modifier = modifier.fillMaxWidth()) {
+        item(key = ALL_CHIP_KEY) {
+            OpenGymFilterChip(
+                label = stringResource(R.string.records_filter_all),
+                selected = selected == null,
+                onClick = { onSelect(null) },
+            )
+        }
+        items(PrType.entries, key = { it.name }) { type ->
+            OpenGymFilterChip(
+                label = type.label(),
                 selected = selected == type,
                 onClick = { onSelect(type) },
-                label = { Text(text = type.label()) },
             )
         }
     }
 }
+
+/** A string, so the `ALL` chip's key cannot collide with a kind's, which is always an enum name. */
+private const val ALL_CHIP_KEY = "all"
 
 @Composable
 private fun RecordsList(

@@ -85,7 +85,7 @@ class ChartSemanticsTest {
         // One node, and it is the placeholder's own sentence — the drawn "Not enough to chart
         // yet" is cleared along with everything else, so a reader is told once rather than twice.
         composeTestRule
-            .onNodeWithContentDescription("Volume per session. Not enough logged yet to chart.")
+            .onNodeWithContentDescription("Volume per session. Not enough to chart yet.")
             .assertIsDisplayed()
         composeTestRule.onNodeWithText("Not enough to chart yet").assertDoesNotExist()
     }
@@ -99,7 +99,7 @@ class ChartSemanticsTest {
         }
 
         composeTestRule
-            .onNodeWithContentDescription("Cumulative volume. Not enough logged yet to chart.")
+            .onNodeWithContentDescription("Cumulative volume. Not enough to chart yet.")
             .assertIsDisplayed()
     }
 

@@ -61,7 +61,7 @@ class AchievementsScreenTest {
         setContent(populatedAchievements())
 
         composeTestRule
-            .onNodeWithContentDescription("First workout logged, unlocked, Bronze medal, earned Feb 14")
+            .onNodeWithContentDescription("First workout logged, unlocked, Bronze, earned Feb 14")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -73,11 +73,11 @@ class AchievementsScreenTest {
         setContent(AchievementsUiState(entries = unlocked("ten_sessions", "hundred_sessions"), isLoading = false))
 
         composeTestRule
-            .onNodeWithContentDescription("Ten workouts in, unlocked, Silver medal, earned Feb 14")
+            .onNodeWithContentDescription("Ten workouts in, unlocked, Silver, earned Feb 14")
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("One hundred workouts, unlocked, Gold medal, earned Feb 15")
+            .onNodeWithContentDescription("One hundred workouts, unlocked, Gold, earned Feb 15")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -89,7 +89,7 @@ class AchievementsScreenTest {
         setContent(populatedAchievements())
 
         composeTestRule
-            .onNodeWithContentDescription("Latest medal, First personal record, unlocked, Bronze medal, earned Feb 16")
+            .onNodeWithContentDescription("Latest medal, First personal record, unlocked, Bronze, earned Feb 16")
             .assertIsDisplayed()
     }
 
@@ -100,7 +100,7 @@ class AchievementsScreenTest {
         setContent(populatedAchievements())
 
         composeTestRule
-            .onNodeWithContentDescription("First workout logged, unlocked, Bronze medal, earned Feb 14")
+            .onNodeWithContentDescription("First workout logged, unlocked, Bronze, earned Feb 14")
             .performScrollTo()
             .assertHasClickAction()
     }

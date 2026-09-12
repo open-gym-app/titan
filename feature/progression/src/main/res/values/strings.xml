@@ -427,7 +427,9 @@
     <!-- %1$d held, %2$d in the catalogue. -->
     <string name="quest_log_achievements_count">%1$d / %2$d</string>
     <string name="quest_log_achievements_link_caption">Everything you have unlocked</string>
-    <string name="quest_log_achievements_link_description">Achievements, %1$d of %2$d unlocked</string>
+    <!-- The row's two drawn lines, then the count: a link's spoken name carries the words
+         written on it, so a user who reads the caption can say it to Voice Access. -->
+    <string name="quest_log_achievements_link_description">Achievements, everything you have unlocked: %1$d of %2$d</string>
 
     <!-- The achievements screen (#104). Their own surface: an achievement is a permanent
          one-shot unlock, a quest resets — see `AchievementsUiState`. -->
@@ -443,8 +445,10 @@
     <!-- %1$s the milestone, %2$s its metal. The metal is spoken because the medal draws the
          rank in colour, and a rank carried by colour alone is a rank half the readers lose. -->
     <string name="achievements_unlocked_description">%1$s, unlocked, %2$s medal</string>
-    <!-- The same, once a date is known: %3$s is when it was earned. -->
-    <string name="achievements_unlocked_dated_description">%1$s, unlocked, %2$s medal, earned %3$s</string>
+    <!-- The same, once a date is known: %3$s is when it was earned. The metal and the date
+         run together as the hero card draws them - "Bronze · Earned Feb 16" - so the card's
+         spoken name holds the line written on it. -->
+    <string name="achievements_unlocked_dated_description">%1$s, unlocked, %2$s, earned %3$s</string>
     <!-- What tapping a held medal does. Spoken as the action, never drawn: the medal replays its
          strike, which is a flourish and not a state change worth labelling on screen. -->
     <string name="achievements_replay_action">Strike it again</string>

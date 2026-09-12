@@ -565,11 +565,10 @@ internal fun RpeCell(
     Text(
         text = rpe?.let(::formatRpe) ?: unset,
         style = OpenGymTheme.typography.numericSmall,
-        color = if (rpe == null) {
-            MaterialTheme.colorScheme.outline
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+        // The same ink whether the cell holds a figure or the dash for none. `outline` was
+        // the dash's colour, and on the tinted ground of a pending row it is under 4.5:1 —
+        // see `RpePicker` for the same finding on the cell that can be tapped.
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center,
         maxLines = 1,
         modifier = Modifier

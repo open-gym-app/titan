@@ -739,7 +739,7 @@ class ActiveSessionScreenTest {
     fun `the gap between two exercises offers to pair them up`() {
         setScreen(state())
 
-        scrollToDescription("Perform Bench press and Incline dumbbell press back to back")
+        scrollToDescription("Superset. Perform Bench press and Incline dumbbell press back to back")
             .performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SupersetLinked(BENCH_ROW)), events)
@@ -749,7 +749,7 @@ class ActiveSessionScreenTest {
     fun `a pair already performed back to back offers to break the join`() {
         setScreen(state(exercises = supersetExercises()))
 
-        scrollToDescription("Stop performing Incline dumbbell press and Cable fly back to back")
+        scrollToDescription("Superset A. Stop performing Incline dumbbell press and Cable fly back to back")
             .performClick()
 
         assertEquals(listOf(ActiveSessionEvent.SupersetUnlinked(INCLINE_ROW)), events)
@@ -1153,7 +1153,7 @@ class ActiveSessionScreenTest {
     fun `END reports the finish`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithContentDescription("Finish the session").performClick()
+        composeTestRule.onNodeWithContentDescription("End the session").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
     }
@@ -1167,7 +1167,7 @@ class ActiveSessionScreenTest {
 
         composeTestRule.onNodeWithContentDescription("Pause the session").assertIsNotEnabled()
         composeTestRule.onNodeWithContentDescription("Discard the session").assertIsNotEnabled()
-        composeTestRule.onNodeWithContentDescription("Finish the session").assertIsNotEnabled()
+        composeTestRule.onNodeWithContentDescription("End the session").assertIsNotEnabled()
     }
 
     @Test

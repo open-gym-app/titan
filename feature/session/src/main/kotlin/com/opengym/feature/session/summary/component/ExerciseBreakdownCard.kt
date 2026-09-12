@@ -169,8 +169,9 @@ private fun SummaryExerciseRow.repRange(): String? {
  * The row as a sentence, for the screen reader that gets no columns.
  *
  * The words the row abbreviates, spelled out: `4 × 8-10` is read as four sets of eight to ten
- * reps, and the `PR` badge names the kind of record rather than being spelled `P R`. That is
- * the whole reason a row may abbreviate at all.
+ * reps, and the `PR` badge names the kind of record after its letters — "PR 1RM, personal
+ * record" — rather than leaving the reader with `P R` alone. That is the whole reason a row may
+ * abbreviate at all.
  */
 @Composable
 @ReadOnlyComposable

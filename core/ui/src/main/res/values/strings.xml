@@ -109,7 +109,9 @@
     <string name="session_header_pause">Pause the session</string>
     <string name="session_header_resume">Resume the session</string>
     <string name="session_header_discard">Discard the session</string>
-    <string name="session_header_finish">Finish the session</string>
+    <!-- Says the word drawn on the button: a Voice Access user says what they see, and a
+         button that reads "End" but answers to "Finish" is one they cannot press. -->
+    <string name="session_header_finish">End the session</string>
     <!-- Drawn on the button. Short because the bar holds three controls and a clock. -->
     <string name="session_header_finish_label">End</string>
     <!-- The header's name doubles as the way to change it. -->
@@ -264,6 +266,10 @@
     <string name="superset_linked_label">Superset %1$s</string>
     <string name="superset_link">Perform %1$s and %2$s back to back</string>
     <string name="superset_break">Stop performing %1$s and %2$s back to back</string>
+    <!-- What the join announces: the label drawn on the pill, then what a press does.
+         "Superset A. Stop performing Bench press and Cable fly back to back." The drawn word
+         leads so the control answers to the name a user can read off it. -->
+    <string name="superset_description">%1$s. %2$s</string>
 
     <!-- ── Rest timer ─────────────────────────────────────────────────────────────── -->
 
@@ -309,7 +315,8 @@
     <string name="stat_muscles">Muscles</string>
     <string name="stat_muscles_unit">worked</string>
     <!-- Announced as one phrase so TalkBack says "Volume, 4,820 kg" rather than reading a
-         label and a number as two unrelated nodes. -->
+         label and a number as two unrelated nodes. A tile's label leads, as its eyebrow does;
+         a chip's figure leads, as the pill reads - see `figure_with_unit`. -->
     <string name="stat_description">%1$s, %2$s</string>
 
     <!-- Personal records. PrType's own names, as a lifter would say them. -->
@@ -320,8 +327,11 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Furthest</string>
     <string name="pr_best_pace">Best pace</string>
-    <string name="pr_description">Personal record: %1$s</string>
-    <string name="pr_description_short">Personal record</string>
+    <!-- Opens with the badge's own letters. "PR" is what a lifter says and what is drawn,
+         and a label that starts with the drawn text is one Voice Access matches; the words
+         the abbreviation stands for follow it. -->
+    <string name="pr_description">PR %1$s, personal record</string>
+    <string name="pr_description_short">PR, personal record</string>
     <!-- A record's figure where the kind has no unit of its own to carry it. -->
     <!-- A rep record's unit. The figure beside it comes from `formattedFigure`, which goes
          through the package's own number formatter so the digits follow the device locale. -->
@@ -452,7 +462,7 @@
     <string name="chart_description_flat">%1$s, %2$s to %3$s. %4$s throughout, unchanged.</string>
     <!-- Fewer than two marks: there is no trend, and saying so beats saying nothing about a
          card the user can see is empty. -->
-    <string name="chart_description_empty">%1$s. Not enough logged yet to chart.</string>
+    <string name="chart_description_empty">%1$s. Not enough to chart yet.</string>
     <!-- Drawn in the middle of a chart that has nothing to plot. -->
     <string name="chart_placeholder">Not enough to chart yet</string>
 
@@ -462,7 +472,8 @@
     <string name="chart_change_down">\u2193 %1$s</string>
     <string name="chart_change_up_description">Up %1$s on the previous period</string>
     <string name="chart_change_down_description">Down %1$s on the previous period</string>
-    <string name="chart_change_none_description">Unchanged on the previous period</string>
+    <!-- The figure leads because it is what the chip draws: "0 kg, unchanged". -->
+    <string name="chart_change_none_description">%1$s, unchanged on the previous period</string>
 
     <!-- The XP ring, announced as its label, its fraction and how far round it has gone. -->
     <string name="progress_ring_description">%1$s, %2$s, %3$d%% complete</string>

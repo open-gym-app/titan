@@ -21,8 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.ui.R
@@ -80,18 +84,43 @@ fun SupersetLink(
     groupLabel: String? = null,
     enabled: Boolean = true,
 ) {
-    val description = stringResource(
+    // Named when it is one — `SUPERSET A`, matching the `SS A1` and `SS A2` badges on the cards
+    // either side — and an offer when it is not.
+    val label = when {
+        isLinked && groupLabel != null -> stringResource(R.string.superset_linked_label, groupLabel)
+        else -> stringResource(R.string.superset_link_label)
+    }
+    val action = stringResource(
         if (isLinked) R.string.superset_break else R.string.superset_link,
         exerciseName,
         nextExerciseName,
     )
+    // The pill's own word first, then what a press does: "Superset A. Stop performing Bench
+    // press and Cable fly back to back." A description that only said the action would be a
+    // control whose spoken name has none of the text drawn on it — which Accessibility Scanner
+    // flags, and which leaves a Voice Access user with nothing to say to reach it.
+    val description = stringResource(R.string.superset_description, label, action)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             // One target for the whole thing, described once: the rules either side of the pill
             // are decoration, and a screen reader that announced them would announce nothing.
-            .clearAndSetSemantics { contentDescription = description },
+            //
+            // The press is re-supplied here, on purpose. `clearAndSetSemantics` throws away
+            // everything below it — the `Surface`'s click included — so a label alone would be
+            // a node TalkBack can reach and cannot activate: the way into a superset, gone for
+            // anyone driving the screen by screen reader. The same trap `RestTimerIndicator`
+            // documents; the hand-off is the same shape.
+            .clearAndSetSemantics {
+                contentDescription = description
+                role = Role.Button
+                if (!enabled) disabled()
+                onClick {
+                    if (enabled) onClick()
+                    enabled
+                }
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.xs),
     ) {
@@ -126,14 +155,7 @@ fun SupersetLink(
                     modifier = Modifier.width(ICON_SIZE).height(ICON_SIZE),
                 )
                 Text(
-                    // Named when it is one — `SUPERSET A`, matching the `SS A1` and `SS A2`
-                    // badges on the cards either side — and an offer when it is not.
-                    text = when {
-                        isLinked && groupLabel != null ->
-                            stringResource(R.string.superset_linked_label, groupLabel)
-
-                        else -> stringResource(R.string.superset_link_label)
-                    },
+                    text = label,
                     style = OpenGymTheme.typography.eyebrow,
                     maxLines = 1,
                 )

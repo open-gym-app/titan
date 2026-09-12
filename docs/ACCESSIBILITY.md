@@ -69,7 +69,7 @@ A value that updates silently is invisible to TalkBack. Three are announced, eac
 | What | Where | Says | How often | Test |
 | --- | --- | --- | --- | --- |
 | The rest countdown | the sheet's status eyebrow (`RestCountdown`); the header pill (`RestTimerIndicator`) once the sheet is swiped away | "Resting, 1:30 left" — the time left rounded **up** to the quarter-minute; "Rest paused, 1:23 left"; "Rest complete" | four times a minute, never on the exact second | `RestTimerSheetTest` |
-| The set counter | `SessionStatChips(announces = true)` on the active session | "sets, 5 · kg, 2,800", as one node | once per set logged | `StatTest` |
+| The set counter | `SessionStatChips(announces = true)` on the active session | "5 sets · 2,800 kg", as one node — the chips' own words in the chips' own order | once per set logged | `StatTest` |
 | Exercise progress | `SessionProgressRail` | "3 of 8 exercises done" | once per exercise finished | (rail description in `SessionHeaderBar`) |
 | Import / export progress | `BackupScreen`'s `ProgressRow` | "Exporting… 40%" | in tens of a percent — at most ten times a run, not once per page of rows | `BackupScreenTest` |
 
@@ -90,6 +90,27 @@ words on every instance rather than whatever a reader infers from a flag:
 
 `PreferenceInfoRow` — the Settings "Font scale" row, the version — is not a control: it reads
 as text and offers no tap, asserted by `SettingsScreenTest` and `PreferenceRowTest`.
+
+### A control answers to the words drawn on it
+
+Every node that can be pressed has a spoken name that contains the text visible on it (WCAG
+2.5.3, *Label in Name*): the `END` button is "End the session", not "Finish the session"; the
+join between two exercises is "Superset. Perform Bench press and Cable fly back to back", with
+the pill's own word first; a session row opens "2:38 PM, PR, personal record, …", the record
+straight after the name the way the badge sits beside it; the quest board's link is
+"Achievements, everything you have unlocked: 2 of 6". Two readers depend on it. A Voice Access
+user says what they can read, and a name that paraphrases the label is a control they cannot
+reach. Accessibility Scanner's `UnexposedTextCheck` holds every node to the same rule — the
+OCR'd text, case and punctuation stripped, must be a substring of the spoken text — so a control
+that fails it on a phone is a finding, not a style. `SupersetLinkTest`, `SessionsComponentsTest`,
+`StatTest` and the screen tests hold the names.
+
+A merged node that *replaces* its children's semantics (`clearAndSetSemantics`) replaces their
+click too. A control merged that way re-supplies the action inside the block — `SupersetLink`
+and `RestTimerIndicator` are the pattern — or puts the `clickable` *before* the merge in the
+modifier chain, as `SessionRow` does. A label with no action under it is a node TalkBack reaches
+and cannot activate; `SupersetLinkTest` drives the semantics action, not a tap, because a tap
+passes over exactly that.
 
 ### Touch targets
 
@@ -128,6 +149,19 @@ to this list.
 | Component | Finding | Why it is accepted |
 | --- | --- | --- |
 | `TrainingCalendar` day cells (`calendar:day`) | `TouchTargetSizeCheck`: ~40dp wide | A month is seven columns and a phone's card gives the row about 300dp; seven 48dp targets need 372. There is no layout that fixes it short of a calendar with fewer days in a week. A trained day's tap filters the session list to that day, which the date filter reaches at full size, so the cell keeps the shortcut at the size the grid allows. Every cell still announces its date and session count. |
+
+### Scanner warnings accepted on the device
+
+ATF's *errors* are the gate; these are its *warnings*, seen on the device pass and left as they
+are, each for a reason. Every one is on a node that cannot be pressed, or that a screen reader
+reaches through the context around it.
+
+| Finding | Where | Why it is accepted |
+| --- | --- | --- |
+| `UnexposedTextCheck`: the spoken sentence paraphrases the drawn text | `LevelHeader` ("Level 14, 60 points to the next level" for `LVL 14 · 40 / 100 XP`), the summary's `ExerciseBreakdownCard` rows ("2 sets of 8, 50 kg max" for `2 × 8 · 50 kg max`), `RecentAttemptsTable` rows | None of these can be pressed, so no Voice Access command targets them, and the sentence says what the abbreviations mean — "LVL" and "×" read aloud are letters and a symbol. WCAG 2.5.3 is a rule for controls, and every control follows it (above). |
+| `UnexposedTextCheck`: the rest pill shows `1:28` and says "Resting, 1:30 left" | `RestTimerIndicator` | The pill is a live region announced to the nearest quarter-minute above the remainder — four times a minute rather than sixty — and the description *is* what the region speaks. The exact figure is the sheet's digits, one tap away. See *Live regions*. |
+| `DuplicateSpeakableTextCheck`: "Weight, set 1" under exercise 1 and under exercise 2 | `SetLogRow`'s cells | The exercise heading is read immediately before its table in traversal order, so the context is never more than one swipe back; naming the exercise on five cells of every set would make each control a sentence. Voice Access disambiguates duplicates with its numbered overlays. |
+| `DuplicateSpeakableTextCheck`: two `FIRST TIME` badges, two `KG` unit tags | `SessionExerciseCard`, `ExerciseProgressionScreen` | Neither can be pressed, and each is the same fact about a different card it sits on. |
 
 ## What this does not cover
 

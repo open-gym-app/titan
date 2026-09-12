@@ -60,7 +60,7 @@ class LayoutPrimitivesTest {
             SectionHeading(text = "History", trailing = { StatChip(value = "24", label = "sessions") })
         }
 
-        composeTestRule.onNodeWithContentDescription("sessions, 24").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("24 sessions").assertIsDisplayed()
     }
 
     // ─── The fact grid ──────────────────────────────────────────────────────────────────
@@ -110,6 +110,6 @@ class LayoutPrimitivesTest {
     fun `negative - a heading with no trailing slot draws nothing after the rule`() {
         setContent { SectionHeading(text = "How to") }
 
-        composeTestRule.onNodeWithContentDescription("sessions, 24").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("24 sessions").assertDoesNotExist()
     }
 }

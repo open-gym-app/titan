@@ -186,8 +186,9 @@ fun SessionHeaderBar(
                 Eyebrow(
                     text = stringResource(R.string.session_header_finish_label),
                     color = chrome.onAccent,
-                    // The button says what it does — "Finish the session" — and an eyebrow
-                    // describing itself inside it would have TalkBack read both.
+                    // The button says what it does — "End the session", opening with the word
+                    // drawn on it, so a Voice Access user can say what they read — and an
+                    // eyebrow describing itself inside it would have TalkBack read both.
                     modifier = Modifier.clearAndSetSemantics { },
                 )
             }

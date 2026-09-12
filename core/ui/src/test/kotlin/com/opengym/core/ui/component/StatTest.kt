@@ -63,21 +63,23 @@ class StatTest {
     fun `a chip announces its label after the figure it qualifies`() {
         setContent { StatChip(value = "12", label = "sets") }
 
-        composeTestRule.onNodeWithContentDescription("sets, 12").assertIsDisplayed()
+        // The drawn order, so the spoken chip is the one on the screen: a Voice Access user
+        // says "12 sets", and Accessibility Scanner holds the label to the visible text.
+        composeTestRule.onNodeWithContentDescription("12 sets").assertIsDisplayed()
     }
 
     @Test
     fun `a PR badge spells out what the abbreviation stands for`() {
         setContent { PrBadge(type = PrType.ESTIMATED_1RM) }
 
-        composeTestRule.onNodeWithContentDescription("Personal record: 1RM").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("PR 1RM, personal record").assertIsDisplayed()
     }
 
     @Test
     fun `a PR badge with no kind still announces what it is`() {
         setContent { PrBadge() }
 
-        composeTestRule.onNodeWithContentDescription("Personal record").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("PR, personal record").assertIsDisplayed()
     }
 
     @Test
@@ -108,7 +110,7 @@ class StatTest {
         setContent { SessionStatChips(stats = stats) }
 
         composeTestRule.onNodeWithContentDescription("Sets, 12 total").assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription("sets, 12").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("12 sets").assertIsDisplayed()
     }
 
     @Test
@@ -119,10 +121,10 @@ class StatTest {
         // once, and a polite live region says the sentence once when they do. TalkBack hears
         // nothing of a value that changes without a tap unless something says it is live.
         composeTestRule
-            .onNodeWithContentDescription("sets, 12 · kg, 4,820")
+            .onNodeWithContentDescription("12 sets · 4,820 kg")
             .assertIsDisplayed()
             .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
-        composeTestRule.onNodeWithContentDescription("sets, 12").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("12 sets").assertDoesNotExist()
     }
 
     @Test
@@ -132,7 +134,7 @@ class StatTest {
         // Two separate chips, and neither announces changes: a finished session's figures do
         // not change, and a list of forty rows each declaring a live region is forty regions.
         composeTestRule
-            .onNodeWithContentDescription("sets, 12")
+            .onNodeWithContentDescription("12 sets")
             .assert(isNotLive())
     }
 

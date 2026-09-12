@@ -100,10 +100,13 @@ private fun TimeframeSegment(
     } else {
         Color.Transparent
     }
+    // The untaken segments are a step quieter than the taken one, and only a step: `outline`
+    // is a control's edge, held to 3:1, and as text on the track's fill it comes out at 4.36:1
+    // in light — under what a label is owed.
     val content: Color = if (isSelected) {
         MaterialTheme.colorScheme.onSurface
     } else {
-        MaterialTheme.colorScheme.outline
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
     val spoken = stringResource(timeframe.descriptionRes)
 
