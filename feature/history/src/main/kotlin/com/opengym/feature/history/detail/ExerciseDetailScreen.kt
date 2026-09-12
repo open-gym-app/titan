@@ -63,6 +63,7 @@ import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.label
 import com.opengym.core.ui.component.labelOrNull
 import com.opengym.core.ui.component.trackedLabel
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.detail.component.MusclesWorkedCard
@@ -416,7 +417,7 @@ private fun InstructionsCard(steps: List<String>) {
             steps.forEachIndexed { index, step ->
                 Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg)) {
                     Text(
-                        text = "${index + 1}",
+                        text = formatCount(index + 1),
                         style = OpenGymTheme.typography.numericSmall,
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.width(STEP_NUMBER_WIDTH),

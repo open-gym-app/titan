@@ -5,6 +5,8 @@ import com.opengym.core.domain.model.milligramsPerUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 import kotlin.math.absoluteValue
 
@@ -33,6 +35,7 @@ import kotlin.math.absoluteValue
  * as the baseline, [Locale.FRANCE] for a decimal comma and a non-breaking group separator,
  * and Persian for digits that are not ASCII at all.
  */
+@RunWith(RobolectricTestRunner::class)
 class UnitRoundTripTest {
 
     private val locales = listOf(Locale.UK, Locale.FRANCE, Locale.forLanguageTag("fa-IR"))

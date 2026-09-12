@@ -26,6 +26,7 @@ import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatAsElapsed
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
@@ -78,11 +79,11 @@ fun StatTile(
     accented: Boolean = false,
     badge: String? = null,
 ) {
-    val figure = listOfNotNull(value, unit).joinToString(" ")
+    val figure = if (unit == null) value else stringResource(R.string.figure_with_unit, value, unit)
     val spoken = stringResource(
         R.string.stat_description,
         label,
-        listOfNotNull(badge, figure).joinToString(", "),
+        listOfNotNull(badge, figure).joinToString(stringResource(R.string.spoken_separator)),
     )
 
     OpenGymCard(modifier = modifier.clearAndSetSemantics { contentDescription = spoken }) {
@@ -197,7 +198,7 @@ fun PrBadge(
     type: PrType? = null,
 ) {
     val badge = stringResource(R.string.pr_badge)
-    val text = if (type == null) badge else "$badge · ${type.label()}"
+    val text = if (type == null) badge else stringResource(R.string.badge_with_qualifier, badge, type.label())
     // "P R dot one R M" is what TalkBack makes of the drawn text. The description says the
     // words the abbreviation stands for, which is the whole reason a badge may abbreviate.
     val spoken = if (type == null) {
@@ -240,7 +241,7 @@ fun SessionStatChips(
             StatChip(value = stats.durationSeconds.seconds.formatAsElapsed())
         }
         StatChip(
-            value = stats.totalSets.toString(),
+            value = formatCount(stats.totalSets),
             label = pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
         )
         StatChip(
@@ -295,7 +296,7 @@ fun SessionStatGrid(
             } else {
                 StatTile(
                     label = stringResource(R.string.stat_muscles),
-                    value = musclesWorked.toString(),
+                    value = formatCount(musclesWorked),
                     unit = stringResource(R.string.stat_muscles_unit),
                     modifier = Modifier.weight(1f),
                 )
@@ -304,13 +305,13 @@ fun SessionStatGrid(
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
             StatTile(
                 label = stringResource(R.string.stat_sets),
-                value = stats.totalSets.toString(),
+                value = formatCount(stats.totalSets),
                 unit = stringResource(R.string.stat_sets_unit),
                 modifier = Modifier.weight(1f),
             )
             StatTile(
                 label = stringResource(R.string.stat_exercises),
-                value = stats.exerciseBreakdown.size.toString(),
+                value = formatCount(stats.exerciseBreakdown.size),
                 unit = stringResource(R.string.stat_exercises_unit),
                 modifier = Modifier.weight(1f),
             )

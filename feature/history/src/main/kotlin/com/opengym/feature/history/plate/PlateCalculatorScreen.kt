@@ -282,12 +282,15 @@ private fun TargetSteppers(onStep: (Long) -> Unit) {
                 modifier = Modifier.weight(1f),
             ) {
                 Text(
-                    // The minus is a real minus sign, not a hyphen: it is a number's sign, and
-                    // it sits beside a `+` that is full width.
+                    // The minus in `plate_step_down` is a real minus sign, not a hyphen: it is
+                    // a number's sign, and it sits beside a `+` that is full width.
                     text = if (step < 0) {
-                        "−${formatWeightValue(weightToMilligrams(-step, unitSystem))}"
+                        stringResource(
+                            R.string.plate_step_down,
+                            formatWeightValue(weightToMilligrams(-step, unitSystem)),
+                        )
                     } else {
-                        "+${formatWeightValue(milligrams)}"
+                        stringResource(R.string.plate_step_up, formatWeightValue(milligrams))
                     },
                     style = OpenGymTheme.typography.numeric,
                     maxLines = 1,

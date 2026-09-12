@@ -36,6 +36,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 lint {
                     abortOnError = true
                     lintConfig = rootProject.file("lint.xml")
+                    error += "HardcodedText"
                 }
             }
 

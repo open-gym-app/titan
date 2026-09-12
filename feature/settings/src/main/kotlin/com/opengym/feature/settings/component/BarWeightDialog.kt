@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.opengym.core.domain.model.UnitSystem
+import com.opengym.core.ui.format.formatWeight
 import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.parseWeightMilligrams
 import com.opengym.core.ui.format.weightSuffix
@@ -103,7 +104,7 @@ fun BarWeightDialog(
                             // whose own digits are not.
                             selected = milligrams == presetMilligrams,
                             onClick = { text = presetText },
-                            label = { Text(text = "$presetText ${unitSystem.weightSuffix}") },
+                            label = { Text(text = formatWeight(presetMilligrams, unitSystem)) },
                         )
                     }
                 }

@@ -55,6 +55,13 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // Builds `en-XA` and `ar-XB` into the debug APK from the English strings: the first
+            // is accented and about 30% longer, the second is right-to-left. Both are how a
+            // truncated label or a left-anchored row is found before a translator finds it, and
+            // neither is reachable without this flag - Developer options only lists a
+            // pseudolocale that the installed build actually carries. Debug only, so nothing
+            // ships them.
+            isPseudoLocalesEnabled = true
         }
         release {
             isMinifyEnabled = true
@@ -129,6 +136,7 @@ android {
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
+        error += "HardcodedText"
     }
 }
 

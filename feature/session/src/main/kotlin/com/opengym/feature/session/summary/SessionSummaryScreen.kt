@@ -50,6 +50,7 @@ import com.opengym.core.ui.component.SessionNameDialog
 import com.opengym.core.ui.component.SessionStatGrid
 import com.opengym.core.ui.component.TemplateNameDialog
 import com.opengym.core.ui.format.formatAsClock
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatSessionDate
 import com.opengym.core.ui.format.formatTimeOfDay
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -367,7 +368,7 @@ private fun SummaryContent(
                 SummarySection {
                     Section(
                         title = stringResource(R.string.summary_exercises),
-                        trailing = { Eyebrow(text = state.exercises.size.toString()) },
+                        trailing = { Eyebrow(text = formatCount(state.exercises.size)) },
                     ) {
                         ExerciseBreakdownCard(exercises = state.exercises)
                     }

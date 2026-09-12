@@ -21,6 +21,7 @@ import com.opengym.core.ui.component.label
 import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.home.R
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The last thing the user beat: `Deadlift · heaviest · 142 kg`, and what it beat.
@@ -144,5 +145,6 @@ private fun spokenRecord(
 ): String {
     val base = stringResource(R.string.home_record_description, name, kind, value, date)
     val badge = if (record.isRecent) stringResource(R.string.home_record_new_badge) else null
-    return listOfNotNull(base, badge, record.improvementLabel()).joinToString(separator = ", ")
+    return listOfNotNull(base, badge, record.improvementLabel())
+        .joinToString(stringResource(CoreR.string.spoken_separator))
 }

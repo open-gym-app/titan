@@ -20,10 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.OpenGymCard
@@ -106,6 +108,11 @@ fun ChartPlot(
     val currentSelection by rememberUpdatedState(selected)
     val select by rememberUpdatedState(onSelect)
 
+    // `PointerInputScope` carries a density but no layout direction, so the tap detector is
+    // handed the one its composable can see. Without it a mirrored chart would draw its marks
+    // one way and resolve thumbs the other.
+    val direction = LocalLayoutDirection.current
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md),
@@ -122,7 +129,7 @@ fun ChartPlot(
                     .height(height)
                     .then(
                         if (plottable && select != null) {
-                            Modifier.chartSelection(entries, scale) { index ->
+                            Modifier.chartSelection(entries, scale, direction) { index ->
                                 select?.invoke(if (index == currentSelection) null else index)
                             }
                         } else {
@@ -165,9 +172,10 @@ fun ChartPlot(
 private fun Modifier.chartSelection(
     entries: List<ChartEntry>,
     scale: ChartScale,
+    layoutDirection: LayoutDirection,
     onTap: (Int) -> Unit,
 ): Modifier =
-    pointerInput(entries, scale) {
+    pointerInput(entries, scale, layoutDirection) {
         // Built once the plot has a size, which is the only moment the marks have positions.
         val geometry = ChartGeometry(
             scale = scale,
@@ -175,6 +183,7 @@ private fun Modifier.chartSelection(
             count = entries.size,
             size = Size(size.width.toFloat(), size.height.toFloat()),
             inset = scale.inset.toPx(),
+            layoutDirection = layoutDirection,
         )
         detectTapGestures { offset -> onTap(geometry.nearestIndex(offset.x)) }
     }
@@ -209,6 +218,7 @@ private fun ChartTooltip(
             count = entries.size,
             size = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat()),
             inset = scale.inset.toPx(),
+            layoutDirection = layoutDirection,
         )
         val gap = ChartDefaults.TOOLTIP_GAP.toPx()
         val markX = geometry.x(index)

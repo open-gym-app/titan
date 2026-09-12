@@ -4,12 +4,15 @@ import com.opengym.core.domain.validation.BodyMeasurementValidator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /**
  * The body-fat formatter, in a pinned locale — see `WeightFormatTest` for why every assertion
  * on a literal string pins one.
  */
+@RunWith(RobolectricTestRunner::class)
 class PercentFormatTest {
 
     @Test

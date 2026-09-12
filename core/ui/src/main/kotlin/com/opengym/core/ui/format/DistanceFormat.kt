@@ -43,16 +43,18 @@ fun distanceSuffix(
 fun formatDistance(
     centimetres: Long,
     unitSystem: UnitSystem,
-): String {
-    val unit = unitSystem.distanceUnitFor(centimetres)
-    return "${formatDistanceValue(centimetres, unit)} ${unit.suffix}"
-}
+): String = formatDistance(centimetres, unitSystem.distanceUnitFor(centimetres))
 
 /** [centimetres] in an explicitly chosen [unit], with the unit. */
 fun formatDistance(
     centimetres: Long,
     unit: DistanceUnit,
-): String = "${formatDistanceValue(centimetres, unit)} ${unit.suffix}"
+): String =
+    formatMeasure(
+        value = centimetres / unit.centimetres,
+        unit = unit.measureUnit,
+        maxFractionDigits = unit.fractionDigits,
+    )
 
 /** [centimetres] in the ambient [LocalUnitSystem], with the unit. */
 @Composable

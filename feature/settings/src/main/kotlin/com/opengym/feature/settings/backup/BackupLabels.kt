@@ -2,14 +2,13 @@ package com.opengym.feature.settings.backup
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.format.formatMonthAndYear
+import com.opengym.core.ui.format.formatPercentTenths
 import com.opengym.feature.settings.R
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -53,16 +52,6 @@ internal fun ImportError.message(): String =
     }
 
 /**
- * `2,140` rather than `2140`.
- *
- * The composition's locale rather than the process default, so the grouping separator follows
- * a locale change without the screen having to be rebuilt — the rule `FootprintList` already
- * follows for the same numbers in the confirmation dialog.
- */
-@Composable
-internal fun Int.grouped(): String = NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(this)
-
-/**
  * `Training since April 2026`, or the sentence for a device that has logged nothing.
  *
  * The month rather than the day: a backup screen is asking *how long this device has been in
@@ -98,10 +87,21 @@ internal fun AutoBackupSchedule.statusLine(): String {
     }
 }
 
-/** Rounded down, so a bar that has not finished never announces 100%. */
-internal fun percentOf(
+/**
+ * How far along a run is, as the user reads it: `40%`, `40 %`, `٤٠٪`.
+ *
+ * **Rounded down**, so a bar that has not finished never announces 100%. Floored here rather
+ * than left to the formatter, which rounds to nearest and would call 99.6% done.
+ *
+ * Through [formatPercentTenths] rather than a `%` glued to an `Int`: the symbol and its side
+ * of the figure are both the locale's — Turkish writes `%40` — and the digits are too.
+ */
+internal fun progressPercent(
     completed: Long,
     total: Long,
-): Int = ((completed * PERCENT) / total).toInt()
+): String = formatPercentTenths((((completed * PERCENT) / total) * TENTHS_PER_PERCENT).toInt())
 
 private const val PERCENT = 100
+
+/** [formatPercentTenths] counts in tenths of a percent; these figures are whole ones. */
+private const val TENTHS_PER_PERCENT = 10

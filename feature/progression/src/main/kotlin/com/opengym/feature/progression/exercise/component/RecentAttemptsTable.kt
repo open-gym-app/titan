@@ -22,6 +22,7 @@ import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.format.formatSetCompact
@@ -29,6 +30,7 @@ import com.opengym.core.ui.format.formatVolume
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The lift's recent sessions, as a table: date, sets, top set, volume.
@@ -127,12 +129,12 @@ private fun AttemptRow(
             weight = DATE_WEIGHT,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Cell(text = attempt.sets.toString(), weight = SETS_WEIGHT)
+        Cell(text = formatCount(attempt.sets), weight = SETS_WEIGHT)
         Cell(
             // The star rides in the same cell as the figure rather than in a column of its
             // own: a fifth column would be empty on every row but one, and the mark belongs to
             // the set it is a record for.
-            text = if (isRecord) "$topSetCell $glyph" else topSetCell,
+            text = if (isRecord) stringResource(CoreR.string.figure_with_unit, topSetCell, glyph) else topSetCell,
             weight = TOP_SET_WEIGHT,
             color = if (isRecord) {
                 MaterialTheme.colorScheme.primary

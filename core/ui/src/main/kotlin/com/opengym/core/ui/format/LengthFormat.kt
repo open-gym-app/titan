@@ -1,5 +1,6 @@
 package com.opengym.core.ui.format
 
+import android.icu.util.MeasureUnit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import com.opengym.core.domain.model.UnitSystem
@@ -39,12 +40,23 @@ import kotlin.math.roundToInt
 /** How many decimals a circumference is shown to. See the note above. */
 private const val LENGTH_FRACTION_DIGITS = 1
 
-/** `cm` or `in`, for a label that shows the unit without a number in front of it. */
-val UnitSystem.lengthSuffix: String
+/** The CLDR unit a tape is marked in on this system. The twin of [UnitSystem.weightUnit]. */
+val UnitSystem.lengthUnit: MeasureUnit
     get() = when (this) {
-        UnitSystem.METRIC -> "cm"
-        UnitSystem.IMPERIAL -> "in"
+        UnitSystem.METRIC -> MeasureUnit.CENTIMETER
+        UnitSystem.IMPERIAL -> MeasureUnit.INCH
     }
+
+/**
+ * `cm` or `in`, for a label that shows the unit without a number in front of it — `po` to a
+ * French reader, `pol.` to a Brazilian one.
+ *
+ * From CLDR rather than a literal, as [UnitSystem.weightSuffix] is and for the same reason.
+ * The inch is the unit that makes the point: unlike `kg` it is not the same two letters
+ * everywhere, and this is the field label a body measurement is typed against.
+ */
+val UnitSystem.lengthSuffix: String
+    get() = unitSymbol(lengthUnit)
 
 /**
  * How many millimetres make one of this system's tape units.
@@ -71,7 +83,12 @@ fun formatLengthValue(
 fun formatLength(
     millimetres: Int,
     unitSystem: UnitSystem,
-): String = "${formatLengthValue(millimetres, unitSystem)} ${unitSystem.lengthSuffix}"
+): String =
+    formatMeasure(
+        value = millimetres / unitSystem.millimetresPerLengthUnit,
+        unit = unitSystem.lengthUnit,
+        maxFractionDigits = LENGTH_FRACTION_DIGITS,
+    )
 
 /** [millimetres] in the ambient [LocalUnitSystem], with the unit. See the note above. */
 @Composable

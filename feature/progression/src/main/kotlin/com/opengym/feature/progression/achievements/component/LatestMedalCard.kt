@@ -34,6 +34,7 @@ import com.opengym.feature.progression.R
 import com.opengym.feature.progression.achievements.AchievementEntry
 import com.opengym.feature.progression.achievements.label
 import kotlinx.coroutines.launch
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The newest medal, struck again as the screen opens.
@@ -147,11 +148,12 @@ internal fun LatestMedalCard(
 internal fun NoMedalsYetCard(modifier: Modifier = Modifier) {
     val title = stringResource(R.string.achievements_none_title)
     val body = stringResource(R.string.achievements_none_body)
+    val spoken = stringResource(CoreR.string.title_and_body_description, title, body)
 
     OpenGymCard(
         modifier = modifier
             .fillMaxWidth()
-            .clearAndSetSemantics { contentDescription = "$title. $body" },
+            .clearAndSetSemantics { contentDescription = spoken },
     ) {
         Column(
             modifier = Modifier

@@ -2,7 +2,6 @@ package com.opengym.feature.progression.quests
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.gamification.LevelTitle
 import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.DropSource
@@ -10,9 +9,9 @@ import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
 import com.opengym.core.domain.model.QuestPeriod
 import com.opengym.core.domain.model.Rarity
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.feature.progression.R
-import java.text.NumberFormat
 
 /**
  * The words behind the domain's ids.
@@ -121,17 +120,6 @@ internal fun dropSourceLabel(sourceKey: String): String =
         DropSource.SESSION_FINISHED.key -> stringResource(R.string.drop_source_session_finished)
         else -> stringResource(R.string.drop_source_unknown)
     }
-
-/**
- * A count as the user reads it, with thousands grouped: `2,140`.
- *
- * XP totals and volume targets reach five and six figures, and an ungrouped `20000` is a number
- * the eye has to count digits on. Grouped in the *formatting* locale rather than with a literal
- * comma, the rule this codebase applies to every figure it draws.
- */
-@Composable
-internal fun formatCount(value: Long): String =
-    NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(value)
 
 /**
  * One of a quest's two figures, in the unit its metric is *read* in rather than stored in.

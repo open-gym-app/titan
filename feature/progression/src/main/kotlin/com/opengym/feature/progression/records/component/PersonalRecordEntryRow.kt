@@ -16,6 +16,7 @@ import com.opengym.core.ui.component.label
 import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.progression.R
+import com.opengym.core.ui.R as CoreR
 
 /**
  * One record: what it was set on, what kind it is, what it reads, and what it beat.
@@ -123,5 +124,6 @@ private fun spokenRow(
 ): String {
     val base = stringResource(R.string.records_row_description, name, kind, value, date)
     val badge = if (entry.isRecent) stringResource(R.string.records_new_badge) else null
-    return listOfNotNull(base, badge, entry.improvementLabel()).joinToString(separator = ", ")
+    return listOfNotNull(base, badge, entry.improvementLabel())
+        .joinToString(stringResource(CoreR.string.spoken_separator))
 }

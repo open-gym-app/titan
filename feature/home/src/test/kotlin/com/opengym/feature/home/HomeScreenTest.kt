@@ -362,7 +362,7 @@ class HomeScreenTest {
         // list — so the lift, the kind, the figure, the date and the improvement over the
         // record it beat are asserted where a screen reader would meet them.
         composeTestRule
-            .onNodeWithContentDescription("Deadlift, 1RM, 142 kg, 27 Apr, +7 kg")
+            .onNodeWithContentDescription("Deadlift, 1RM, 142 kg, Apr 27, +7 kg")
             .performScrollTo()
             .assertIsDisplayed()
     }

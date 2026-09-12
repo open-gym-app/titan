@@ -290,7 +290,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Pet egg, Rare, Finished workout, 2 Sep")
+            .onNodeWithContentDescription("Pet egg, Rare, Finished workout, Sep 2")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -300,11 +300,11 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Lifting strap, Uncommon, Finished workout, 30 Aug")
+            .onNodeWithContentDescription("Lifting strap, Uncommon, Finished workout, Aug 30")
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Chalk block, Common, Finished workout, 28 Aug")
+            .onNodeWithContentDescription("Chalk block, Common, Finished workout, Aug 28")
             .performScrollTo()
             .assertIsDisplayed()
     }

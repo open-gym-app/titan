@@ -102,6 +102,7 @@ fun BarSeriesChart(
             count = entries.size,
             size = size,
             inset = ChartScale.BAR.inset.toPx(),
+            layoutDirection = layoutDirection,
         )
         drawBarSeries(
             geometry = geometry,
@@ -148,9 +149,11 @@ private fun DrawScope.drawBarSeries(
         val top = topOf(value)
         drawRoundRect(
             color = if (index == geometry.peakIndex || index == selectedIndex) peak else fill,
-            // Centred in its slot, so the first and last bars are inset from the card's edges
-            // by half a gap rather than sitting flush against them.
-            topLeft = Offset(x = slot * index + (slot - width) / 2, y = top),
+            // Centred on its slot, so the first and last bars are inset from the card's edges
+            // by half a gap rather than sitting flush against them. Through the geometry rather
+            // than re-derived from the slot, so a mirrored layout moves the bars and their
+            // leader together — see `ChartGeometry`.
+            topLeft = Offset(x = geometry.x(index) - width / 2f, y = top),
             size = Size(width = width, height = size.height - top),
             cornerRadius = corner,
         )

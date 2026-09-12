@@ -45,6 +45,7 @@ import com.opengym.feature.progression.exercise.component.ExerciseTrendCards
 import com.opengym.feature.progression.exercise.component.RecentAttemptsTable
 import com.opengym.feature.progression.stats.StatsTimeframe
 import com.opengym.feature.progression.stats.component.TimeframeSelector
+import com.opengym.core.ui.R as CoreR
 
 /**
  * The per-exercise drill-down, wired.
@@ -177,7 +178,7 @@ private fun ExerciseTitle(exercise: Exercise?) {
 
     Column {
         Text(text = exercise.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Eyebrow(text = qualifiers.joinToString(QUALIFIER_SEPARATOR))
+        Eyebrow(text = qualifiers.joinToString(stringResource(CoreR.string.exercise_meta_separator)))
     }
 }
 
@@ -313,9 +314,6 @@ private fun Readings(
         }
     }
 }
-
-/** What sits between the two halves of the bar's subtitle. Matches `PrBadge`'s own join. */
-private const val QUALIFIER_SEPARATOR = " · "
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 

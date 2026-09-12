@@ -97,7 +97,7 @@ class ExerciseProgressionScreenTest {
 
         // Uppercase because the tooltip reads its date in the eyebrow role, which is drawn
         // shouted and announced as written.
-        composeTestRule.onNodeWithText("28 APR").assertIsDisplayed()
+        composeTestRule.onNodeWithText("APR 28").assertIsDisplayed()
     }
 
     @Test

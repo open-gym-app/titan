@@ -54,7 +54,13 @@ fun formatVolumeValue(
 fun formatVolume(
     milligrams: Long,
     unitSystem: UnitSystem,
-): String = "${formatVolumeValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+): String =
+    formatMeasure(
+        value = milligrams / unitSystem.milligramsPerUnit,
+        unit = unitSystem.weightUnit,
+        maxFractionDigits = VOLUME_FRACTION_DIGITS,
+        grouping = true,
+    )
 
 /** [milligrams] of volume in the ambient [LocalUnitSystem], with the unit. */
 @Composable

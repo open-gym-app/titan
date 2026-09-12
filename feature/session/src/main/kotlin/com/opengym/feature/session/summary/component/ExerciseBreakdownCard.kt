@@ -22,6 +22,7 @@ import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.PrBadge
 import com.opengym.core.ui.component.label
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatWeight
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
@@ -83,7 +84,7 @@ private fun ExerciseRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = position.toString(),
+            text = formatCount(position),
             style = OpenGymTheme.typography.numericSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
@@ -158,7 +159,7 @@ private fun SummaryExerciseRow.repRange(): String? {
     val high = highestReps ?: return null
 
     return if (low == high) {
-        low.toString()
+        formatCount(low)
     } else {
         stringResource(R.string.summary_exercise_rep_range, low, high)
     }
@@ -183,7 +184,7 @@ private fun SummaryExerciseRow.spokenDescription(
         spokenReps(),
         topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) },
         record?.let { stringResource(CoreR.string.pr_description, it.type.label()) },
-    ).joinToString(SPOKEN_SEPARATOR)
+    ).joinToString(stringResource(CoreR.string.spoken_separator))
 
 /** `8 to 10 reps`, or `10 reps`, or nothing for an exercise that logs none. */
 @Composable
@@ -195,12 +196,9 @@ private fun SummaryExerciseRow.spokenReps(): String? {
     return if (low == high) {
         pluralStringResource(R.plurals.summary_exercise_description_reps, low, low)
     } else {
-        stringResource(R.string.summary_exercise_description_rep_range, low, high)
+        pluralStringResource(R.plurals.summary_exercise_description_rep_range, high, low, high)
     }
 }
 
 /** Wide enough for a two-digit index in the mono role; a session rarely runs past ten. */
 private val INDEX_COLUMN_WIDTH = 16.dp
-
-/** Between the fragments of a spoken row. A comma is what makes a reader pause. */
-private const val SPOKEN_SEPARATOR = ", "

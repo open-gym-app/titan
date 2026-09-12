@@ -9,6 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /**
@@ -19,6 +21,7 @@ import java.util.Locale
  * asserted on `22.5` while CI ran under `fr-FR` would fail for the one reason that is not a
  * bug. The locale-sensitivity itself is asserted at the bottom.
  */
+@RunWith(RobolectricTestRunner::class)
 class WeightFormatTest {
 
     @Test

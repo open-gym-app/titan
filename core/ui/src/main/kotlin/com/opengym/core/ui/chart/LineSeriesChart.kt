@@ -105,6 +105,7 @@ fun LineSeriesChart(
             count = entries.size,
             size = size,
             inset = ChartScale.LINE.inset.toPx(),
+            layoutDirection = layoutDirection,
         )
         drawLineSeries(
             geometry = geometry,

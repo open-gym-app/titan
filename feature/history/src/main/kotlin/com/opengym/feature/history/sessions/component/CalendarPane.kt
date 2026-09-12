@@ -25,6 +25,7 @@ import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.StatChip
 import com.opengym.core.ui.component.TrainingCalendar
 import com.opengym.core.ui.format.formatAsLength
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatMonthAndYear
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.format.weightSuffix
@@ -165,7 +166,7 @@ private fun MonthTotals(
             verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.sm),
         ) {
             StatChip(
-                value = page.sessionCount.toString(),
+                value = formatCount(page.sessionCount),
                 label = stringResource(R.string.sessions_calendar_stat_sessions),
             )
             StatChip(

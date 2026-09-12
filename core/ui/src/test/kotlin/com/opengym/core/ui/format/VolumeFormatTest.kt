@@ -4,9 +4,12 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.stats.VolumeCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /** The volume formatter, in a pinned locale. See `withLocale`. */
+@RunWith(RobolectricTestRunner::class)
 class VolumeFormatTest {
 
     @Test

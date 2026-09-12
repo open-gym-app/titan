@@ -1,11 +1,12 @@
 package com.opengym.core.ui.format
 
+import android.icu.text.DecimalFormatSymbols
+import android.icu.text.NumberFormat
 import java.math.BigDecimal
 import java.math.RoundingMode
-import java.text.DecimalFormatSymbols
-import java.text.NumberFormat
 import java.text.ParsePosition
 import java.util.Locale
+import android.icu.math.BigDecimal as IcuBigDecimal
 
 /*
  * The single seam between a number and the text a user reads or types.
@@ -16,6 +17,20 @@ import java.util.Locale
  * with a `%f` gets the separator right and the *grouping* separator wrong; plain
  * concatenation gets both wrong; and neither has an inverse, which is the half that
  * matters once a value can be typed back in.
+ *
+ * ### `android.icu`, not `java.text`
+ *
+ * On the device the two are the same code — Android's `java.text.DecimalFormat` is a thin
+ * shim over ICU — so naming ICU directly changes nothing a user sees. It changes what a
+ * *test* sees: on the JVM `java.text` is the JDK's own implementation, built from a CLDR
+ * snapshot that moves with the JDK, and it is not the one that will run on a phone. A
+ * localization test asserting on the JDK's idea of a French grouping separator is asserting
+ * about the machine again, which is the thing [withLocale] exists to stop.
+ *
+ * It is also what lets [formatWeight] and the rest join a number to its unit through
+ * `MeasureFormat` (see `MeasureFormats.kt`) without running two numbering engines side by
+ * side: a stat tile draws the figure through [formatNumber] and the unit through
+ * [unitSymbol], and those two have to be able to be read as one string.
  */
 
 /**
@@ -35,24 +50,75 @@ internal fun formatNumber(
     value: Double,
     maxFractionDigits: Int,
     grouping: Boolean = false,
-): String {
-    val format = displayNumberFormat(formattingLocale()).apply {
+): String = numberFormat(maxFractionDigits, grouping).format(value.withoutNegativeZero(maxFractionDigits))
+
+/**
+ * The formatter every number in this package is rendered through, and the one
+ * `MeasureFormats.kt` hands to `MeasureFormat` so a unit's number is written the way a bare
+ * one is.
+ *
+ * The instance is this thread's cached one, reconfigured on every call — see
+ * [displayNumberFormat]. Handing it to `MeasureFormat` is safe because `MeasureFormat` clones
+ * the number format it is given rather than keeping a reference to it.
+ */
+internal fun numberFormat(
+    maxFractionDigits: Int,
+    grouping: Boolean = false,
+): NumberFormat =
+    displayNumberFormat(formattingLocale()).apply {
         maximumFractionDigits = maxFractionDigits
         minimumFractionDigits = 0
         isGroupingUsed = grouping
-        roundingMode = RoundingMode.HALF_UP
+        roundingMode = IcuBigDecimal.ROUND_HALF_UP
     }
-    val formatted = format.format(value)
 
-    // A value that rounds to nothing at the display precision but is not quite zero prints
-    // with a minus sign in front of it — `-0 kg` for a weight four decimals below the
-    // rounding step. So does -0.0 itself, which `value < 0` does not catch. Both are a
-    // minus sign on a quantity the user reads as nothing, so both become the plain zero.
-    return if (value <= ZERO && formatted == format.format(NEGATIVE_ZERO)) format.format(ZERO) else formatted
+/**
+ * [this], with a negative zero flattened to a plain one.
+ *
+ * A value that rounds to nothing at the display precision but is not quite zero prints with a
+ * minus sign in front of it — `-0 kg` for a weight four decimals below the rounding step. So
+ * does -0.0 itself, which `value < 0` does not catch. Both are a minus sign on a quantity the
+ * user reads as nothing.
+ *
+ * Applied to the *value* rather than to the rendered string because the string is not always
+ * this package's to inspect: `MeasureFormat` joins the number to its unit itself, and a
+ * `-0 kg` produced in there has no seam to correct afterwards.
+ */
+internal fun Double.withoutNegativeZero(maxFractionDigits: Int): Double =
+    if (this <= ZERO && roundToFractionDigits(maxFractionDigits) == ZERO) ZERO else this
+
+/**
+ * A whole count as the user reads it, with thousands grouped: `12`, `2,140`, `2 140`.
+ *
+ * The integer counterpart of [formatNumber], and public where that is internal because a
+ * count is the one figure a feature module draws without going through a quantity formatter
+ * first — a set number, a session tally, an XP total. `value.toString()` is ASCII in every
+ * locale, which is the same bug the date rail has and the reason this exists at all.
+ *
+ * Grouped, unlike a weight: none of these is typed back into a field, and an XP total reaches
+ * six figures, where an ungrouped `120000` is a number the eye has to count digits on.
+ */
+fun formatCount(value: Long): String = integerFormat().format(value)
+
+/** The same, for the [Int] most counts actually are. */
+fun formatCount(value: Int): String = integerFormat().format(value)
+
+/**
+ * One integer [NumberFormat] per locale per thread, for the same reason as
+ * [displayNumberFormat]: a set marker, a reorder row and an attempts table each draw a count
+ * per row, and `getIntegerInstance` builds a `DecimalFormat` from locale data on every call.
+ */
+private val integerFormats = ThreadLocal<MutableMap<Locale, NumberFormat>>()
+
+private fun integerFormat(): NumberFormat {
+    val locale = formattingLocale()
+    return integerFormats.perThread().getOrPut(locale) {
+        NumberFormat.getIntegerInstance(locale).apply { isGroupingUsed = true }
+    }
 }
 
 /**
- * One [NumberFormat] per locale per thread, configured afresh by each [formatNumber] call.
+ * One [NumberFormat] per locale per thread, configured afresh by each [numberFormat] call.
  *
  * `NumberFormat.getInstance` builds an ICU `DecimalFormat` from locale data on every call,
  * and a history row formats two volumes on its way onto the screen — at 1,000 sessions that
@@ -62,11 +128,19 @@ internal fun formatNumber(
  */
 private val displayNumberFormats = ThreadLocal<MutableMap<Locale, NumberFormat>>()
 
-private fun displayNumberFormat(locale: Locale): NumberFormat {
-    val perThread = displayNumberFormats.get()
-        ?: mutableMapOf<Locale, NumberFormat>().also(displayNumberFormats::set)
-    return perThread.getOrPut(locale) { NumberFormat.getInstance(locale) }
-}
+private fun displayNumberFormat(locale: Locale): NumberFormat =
+    displayNumberFormats.perThread().getOrPut(locale) { NumberFormat.getInstance(locale) }
+
+/**
+ * This thread's map, created on its first use.
+ *
+ * The shape every ICU formatter cache in this package takes — see [displayNumberFormats],
+ * [integerFormats], and the ones in `MeasureFormats.kt` and `DateTimeFormat.kt`. Per thread
+ * rather than shared because an ICU formatter is mutable and not safe to format through from
+ * two threads at once, unlike a `java.time` one.
+ */
+internal fun <K, V> ThreadLocal<MutableMap<K, V>>.perThread(): MutableMap<K, V> =
+    get() ?: mutableMapOf<K, V>().also(::set)
 
 /**
  * [this] rounded to the decimals [formatNumber] would show it to.
@@ -180,10 +254,22 @@ private fun localeGroupingSeparator(): Char = DecimalFormatSymbols.getInstance(f
 /**
  * [NumberFormat] parses leniently — it reads `12abc` as 12 and stops — so the position it
  * ends at is checked against the length. A partial parse is a typo, not a value.
+ *
+ * The exponent is refused outright, because ICU is more generous here than the JDK was: left to
+ * itself it reads `1e5` as a hundred thousand, and a weight field on a decimal keypad cannot
+ * produce that string. What this pass is for is reading back what the app itself wrote, which is
+ * digits and a separator and never a mantissa.
+ *
+ * `parseStrict` alongside it, which refuses a number whose grouping falls in the wrong places —
+ * the other shape a typo takes in a locale that groups at all.
  */
 private fun String.parseLocalizedDecimal(): Double? {
+    val symbols = DecimalFormatSymbols.getInstance(formattingLocale())
+    if (contains(symbols.exponentSeparator, ignoreCase = true)) return null
+
     val position = ParsePosition(0)
-    val parsed = NumberFormat.getInstance(formattingLocale()).parse(this, position)
+    val format = NumberFormat.getInstance(formattingLocale()).apply { isParseStrict = true }
+    val parsed = format.parse(this, position)
     return parsed?.toDouble()?.takeIf { position.index == length }
 }
 
@@ -193,9 +279,6 @@ private val ASCII_DECIMAL = Regex("""[+-]?(\d+([.,]\d*)?|[.,]\d+)""")
 private const val GROUP_SIZE = 3
 
 private const val ZERO = 0.0
-
-/** The value whose rendering — a bare minus sign and a zero — [formatNumber] suppresses. */
-private const val NEGATIVE_ZERO = -0.0
 
 /**
  * The locale numbers are rendered in, which is not always the one the UI is translated to:

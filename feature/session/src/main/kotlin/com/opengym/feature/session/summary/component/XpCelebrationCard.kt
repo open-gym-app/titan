@@ -250,7 +250,7 @@ private fun XpEarned(
                 value = xp,
                 // The final figure, spoken once — a running integer read aloud sixty times a
                 // second is the accessibility failure this component exists to avoid.
-                contentDescription = stringResource(R.string.summary_xp_earned_description, xp),
+                contentDescription = pluralStringResource(R.plurals.summary_xp_earned_description, xp, xp),
                 style = OpenGymTheme.typography.numericDisplay,
                 color = OpenGymTheme.celebration.xp,
                 format = { resources.getString(R.string.summary_xp_source_amount, it) },

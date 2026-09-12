@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
@@ -22,6 +24,7 @@ import java.util.Locale
  * instant lands on the right day in the right zone, the weekday is in front of it, and both
  * follow the locale they are handed rather than the default.
  */
+@RunWith(RobolectricTestRunner::class)
 class DateTimeFormatTest {
 
     // 2026-04-28T09:14:00Z — a Tuesday morning UTC, which is still Monday evening in Honolulu.

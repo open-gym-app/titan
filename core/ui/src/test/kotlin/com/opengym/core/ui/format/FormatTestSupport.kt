@@ -37,6 +37,26 @@ fun withLocale(
 }
 
 /**
+ * The locales every formatter is asserted under: the one the app is written in and the two
+ * it is translated into.
+ *
+ * Three rather than one because a formatter that is right in English is not thereby right:
+ * `fr-FR` moves the decimal separator and translates the inch, `pt-BR` puts a `de` between a
+ * month and its year and groups thousands with a full stop. A suite that only ever ran under
+ * English would have passed every version of this package, including the ones that built a
+ * date by hand.
+ *
+ * `en-US` rather than `en-GB` for the same reason the screenshot references are recorded in
+ * it — see `WriteRobolectricConfig` — and because it is the one of the three that writes its
+ * date month-first, which is what a hand-built join gets wrong.
+ */
+val FORMATTING_LOCALES: List<Locale> = listOf(
+    Locale.US,
+    Locale.FRANCE,
+    Locale.forLanguageTag("pt-BR"),
+)
+
+/**
  * A completed strength set carrying [weight] milligrams and [distance] centimetres, so a
  * parsed value can be handed to `SetValidator` the way a form would hand it over.
  */

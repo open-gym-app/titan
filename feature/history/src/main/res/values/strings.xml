@@ -187,6 +187,12 @@
     <string name="plate_equipment_bar">Bar</string>
     <string name="plate_equipment_plates">Plates · pairs on the rack</string>
     <string name="plate_equipment_reset">Use the standard set</string>
+    <!-- The four step buttons under the target weight. The sign is part of the label rather
+         than glued on in Kotlin: it is a real minus sign in front of a figure whose digits are
+         the locale's, and a script that writes its numbers right to left needs the sign moved
+         with them. -->
+    <string name="plate_step_up">+%1$s</string>
+    <string name="plate_step_down">−%1$s</string>
     <string name="plate_bar_lighter">Lighter bar</string>
     <string name="plate_bar_heavier">Heavier bar</string>
     <string name="plate_pairs_fewer">One fewer pair of %1$s</string>

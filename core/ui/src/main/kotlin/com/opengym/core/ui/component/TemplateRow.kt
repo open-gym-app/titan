@@ -283,13 +283,15 @@ private fun TemplateSummary.spokenDescription(): String {
         exerciseCount,
         exerciseCount,
     )
+    val minutes = estimatedDuration.inWholeMinutes.toInt()
     val body = if (exerciseCount == 0) {
         count
     } else {
-        stringResource(
-            R.string.template_description_duration,
+        pluralStringResource(
+            R.plurals.template_description_duration,
+            minutes,
             count,
-            estimatedDuration.inWholeMinutes,
+            minutes,
         )
     }
 

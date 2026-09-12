@@ -81,8 +81,7 @@ class AndroidProgressionAnnouncer @Inject constructor(
                 // One notification with both facts rather than two posts or a group: there are
                 // at most two, and `BigTextStyle` — which `AndroidNotifier` sets on every
                 // body — is what makes both readable expanded.
-                body = listOfNotNull(saved?.let(::streakBody), dropped?.let(::lootBody))
-                    .joinToString(separator = " "),
+                body = joinSentences(saved?.let(::streakBody), dropped?.let(::lootBody)),
                 deepLink = DeepLinks.QUEST_LOG,
             ),
         )
@@ -117,8 +116,26 @@ class AndroidProgressionAnnouncer @Inject constructor(
             saved.protectionsRemaining,
             saved.protectionsRemaining,
         )
-        return "$days $left"
+        return joinSentences(days, left)
     }
+
+    /**
+     * [first] and [second] as one body, or whichever of them there is.
+     *
+     * The join is a resource rather than a space for the reason `MeasureFormats.kt` gives about
+     * units: what sits between two sentences belongs to the language, and a `+ " "` here is a
+     * decision no translator can reach.
+     */
+    private fun joinSentences(
+        first: String?,
+        second: String?,
+    ): String =
+        when {
+            first != null && second != null ->
+                context.getString(R.string.progression_notification_body_join, first, second)
+
+            else -> first ?: second.orEmpty()
+        }
 
     /**
      * "You found a Pet egg · Rare."

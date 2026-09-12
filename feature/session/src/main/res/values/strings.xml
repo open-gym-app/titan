@@ -221,7 +221,10 @@
         <item quantity="one">%1$d rep</item>
         <item quantity="other">%1$d reps</item>
     </plurals>
-    <string name="summary_exercise_description_rep_range">%1$d to %2$d reps</string>
+    <plurals name="summary_exercise_description_rep_range">
+        <item quantity="one">%1$d to %2$d rep</item>
+        <item quantity="other">%1$d to %2$d reps</item>
+    </plurals>
 
     <string name="summary_notes">Session notes</string>
     <string name="summary_notes_label">Session notes</string>
@@ -255,7 +258,10 @@
     <!-- Set beside the figure rather than inside it, so the two carry different type roles. -->
     <string name="summary_xp_unit">XP</string>
     <!-- Spoken in place of the counting digits. %1$d is the total earned. -->
-    <string name="summary_xp_earned_description">%1$d experience points earned</string>
+    <plurals name="summary_xp_earned_description">
+        <item quantity="one">%1$d experience point earned</item>
+        <item quantity="other">%1$d experience points earned</item>
+    </plurals>
     <!-- One line of the breakdown. %1$d is what that source paid. -->
     <string name="summary_xp_source_amount">+%1$d</string>
     <string name="summary_xp_source_session">Finishing the session</string>
@@ -323,8 +329,14 @@
          of a sentence whose other half is the row of marks beside them. %1$d is what is left,
          %2$d the month's allowance - a reader who cannot see three marks with one greyed out
          needs both counts and the word for what they are. -->
-    <string name="summary_streak_protections_left_description">%1$d of %2$d streak protections left this month</string>
-    <string name="summary_streak_protections_none_description">None of your %1$d streak protections are left this month</string>
+    <plurals name="summary_streak_protections_left_description">
+        <item quantity="one">%1$d of %2$d streak protection left this month</item>
+        <item quantity="other">%1$d of %2$d streak protections left this month</item>
+    </plurals>
+    <plurals name="summary_streak_protections_none_description">
+        <item quantity="one">Your %1$d streak protection is gone for this month</item>
+        <item quantity="other">None of your %1$d streak protections are left this month</item>
+    </plurals>
     <!-- The quests a workout cleared. Named rather than left as a breakdown line: a total
          says what they paid, and what a lifter wants is which one they finished. -->
     <string name="summary_quests">Quests cleared</string>

@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextOverflow
 import com.opengym.core.domain.model.Quest
 import com.opengym.core.domain.model.QuestMetric
@@ -29,11 +28,11 @@ import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.QUEST_MARK_COMPACT_SIZE
 import com.opengym.core.ui.component.QuestMark
 import com.opengym.core.ui.component.SectionHeading
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.format.formatVolumeValue
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.home.QuestSummary
 import com.opengym.feature.home.R
-import java.text.NumberFormat
 
 /**
  * What is left to clear this week, on the screen the app opens on.
@@ -251,8 +250,6 @@ private fun formatQuestFigure(
     value: Long,
 ): String =
     when (metric) {
-        QuestMetric.SESSIONS_FINISHED, QuestMetric.RECORDS_BROKEN ->
-            NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(value)
-
+        QuestMetric.SESSIONS_FINISHED, QuestMetric.RECORDS_BROKEN -> formatCount(value)
         QuestMetric.VOLUME_MILLIGRAMS -> formatVolumeValue(value)
     }

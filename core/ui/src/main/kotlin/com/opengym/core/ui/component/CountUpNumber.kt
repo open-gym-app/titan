@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.TextStyle
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.LocalReducedMotion
 
 /**
@@ -57,7 +58,7 @@ fun CountUpNumber(
     modifier: Modifier = Modifier,
     style: TextStyle = LocalTextStyle.current,
     color: Color = Color.Unspecified,
-    format: (Int) -> String = { it.toString() },
+    format: (Int) -> String = ::formatCount,
 ) {
     val reducedMotion = LocalReducedMotion.current
 

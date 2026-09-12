@@ -25,6 +25,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -273,8 +274,11 @@ fun SessionProgressRail(
     modifier: Modifier = Modifier,
 ) {
     val chrome = OpenGymTheme.sessionChrome
-    val description = stringResource(
-        R.string.session_progress,
+    // The plural agrees with the total rather than with what is done: the noun belongs to
+    // "of N exercises", and a workout of one exercise half finished is "0 of 1 exercise".
+    val description = pluralStringResource(
+        R.plurals.session_progress,
+        progress.total,
         progress.completed,
         progress.total,
     )

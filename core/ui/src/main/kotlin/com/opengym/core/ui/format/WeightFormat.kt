@@ -1,5 +1,6 @@
 package com.opengym.core.ui.format
 
+import android.icu.util.MeasureUnit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import com.opengym.core.domain.model.UnitSystem
@@ -59,12 +60,29 @@ private const val WEIGHT_FRACTION_DIGITS = 2
 /** How many decimals a *projected* weight is shown to. See [formatEstimateValue]. */
 private const val ESTIMATE_FRACTION_DIGITS = 0
 
-/** `kg` or `lb`, for a label that shows the unit without a number in front of it. */
-val UnitSystem.weightSuffix: String
+/**
+ * The CLDR unit a weight in this system is a quantity of.
+ *
+ * What both halves of a rendered weight are derived from — the symbol beside a bare figure
+ * and the pattern that joins a figure to it — so a screen cannot end up labelling a stat tile
+ * in one unit and its rows in another.
+ */
+val UnitSystem.weightUnit: MeasureUnit
     get() = when (this) {
-        UnitSystem.METRIC -> "kg"
-        UnitSystem.IMPERIAL -> "lb"
+        UnitSystem.METRIC -> MeasureUnit.KILOGRAM
+        UnitSystem.IMPERIAL -> MeasureUnit.POUND
     }
+
+/**
+ * `kg` or `lb`, for a label that shows the unit without a number in front of it — and `kg`
+ * or `lb` in every locale that writes them so, which is not all of them.
+ *
+ * Read from CLDR rather than written as a literal, for the reason `MeasureFormats.kt` gives
+ * in full: a unit symbol is translated text, and one spelled out in Kotlin is one no
+ * translator can reach.
+ */
+val UnitSystem.weightSuffix: String
+    get() = unitSymbol(weightUnit)
 
 /**
  * The step a loaded bar actually moves in: a pair of 1.25 kg plates, or a pair of 2.5 lb
@@ -137,11 +155,16 @@ fun formatEstimateValue(
     unitSystem: UnitSystem,
 ): String = formatNumber(milligrams / unitSystem.milligramsPerUnit, ESTIMATE_FRACTION_DIGITS)
 
-/** [milligrams] as a projection in [unitSystem], with the unit: `1,333 kg`. */
+/** [milligrams] as a projection in [unitSystem], with the unit: `1333 kg`, `2939 lb`. */
 fun formatEstimate(
     milligrams: Long,
     unitSystem: UnitSystem,
-): String = "${formatEstimateValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+): String =
+    formatMeasure(
+        value = milligrams / unitSystem.milligramsPerUnit,
+        unit = unitSystem.weightUnit,
+        maxFractionDigits = ESTIMATE_FRACTION_DIGITS,
+    )
 
 /** A projection in the ambient [LocalUnitSystem], with the unit. See the note above. */
 @Composable
@@ -154,16 +177,23 @@ fun formatEstimate(milligrams: Long): String = formatEstimate(milligrams, LocalU
 fun formatEstimateValue(milligrams: Long): String = formatEstimateValue(milligrams, LocalUnitSystem.current)
 
 /**
- * [milligrams] in [unitSystem], with the unit: `20 kg`, `44.09 lb`, `2.5 kg`.
+ * [milligrams] in [unitSystem], with the unit: `20 kg`, `44.09 lb`, `2,5 kg`.
  *
- * An ordinary space, deliberately: a non-breaking one would be typographically better but
- * makes every test and every accessibility label match on a character nobody types, which
- * has cost more than it has ever bought. Rows that could wrap constrain the text instead.
+ * The separator between the figure and the unit is CLDR's rather than a space this file
+ * picked, which in several locales means a non-breaking one. That is a change of policy from
+ * when this was assembled by hand: a test that wants to match the pair now matches what the
+ * formatter produced, and a row that could wrap constrains its text rather than relying on a
+ * break the locale does not offer.
  */
 fun formatWeight(
     milligrams: Long,
     unitSystem: UnitSystem,
-): String = "${formatWeightValue(milligrams, unitSystem)} ${unitSystem.weightSuffix}"
+): String =
+    formatMeasure(
+        value = milligrams / unitSystem.milligramsPerUnit,
+        unit = unitSystem.weightUnit,
+        maxFractionDigits = WEIGHT_FRACTION_DIGITS,
+    )
 
 /** [milligrams] in the ambient [LocalUnitSystem], with the unit. See the note above. */
 @Composable
