@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Brazilian Portuguese. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── Exercise library ───────────────────────────────────────────────────────── -->
+
+    <string name="library_title_select">Adicionar exercícios</string>
+    <string name="library_title_replace">Trocar exercício</string>
+    <string name="library_back">Voltar</string>
+    <string name="library_new">+ Novo</string>
+    <string name="library_new_description">Novo exercício</string>
+    <string name="library_search_placeholder">Pesquisar exercícios…</string>
+
+    <string name="library_search">Pesquisar</string>
+    <string name="library_filters">Filtros</string>
+
+    <string name="library_details">Detalhes de %1$s</string>
+
+    <string name="library_filter_muscle">Músculo</string>
+    <string name="library_filter_equipment">Equipamento</string>
+    <string name="library_filters_clear">Limpar</string>
+    <plurals name="library_filters_done">
+        <item quantity="one">Mostrar %1$d exercício</item>
+        <item quantity="many">Mostrar %1$d exercícios</item>
+        <item quantity="other">Mostrar %1$d exercícios</item>
+    </plurals>
+
+    <plurals name="library_count">
+        <item quantity="one">%1$d exercício</item>
+        <item quantity="many">%1$d exercícios</item>
+        <item quantity="other">%1$d exercícios</item>
+    </plurals>
+    <string name="library_count_filtered">%1$d de %2$d</string>
+    <plurals name="library_selected">
+        <item quantity="one">%1$d selecionado</item>
+        <item quantity="many">%1$d selecionados</item>
+        <item quantity="other">%1$d selecionados</item>
+    </plurals>
+
+    <string name="library_filter_all">Todos</string>
+
+    <string name="library_section_header">%1$s · %2$d</string>
+    <string name="library_section_unlinked">Outros</string>
+
+    <string name="library_no_results_title">Nada encontrado</string>
+    <string name="library_no_results_description">Nenhum exercício corresponde à sua pesquisa e aos seus filtros.</string>
+    <string name="library_clear_filters">Limpar filtros</string>
+    <string name="library_empty_title">A biblioteca está vazia</string>
+    <string name="library_empty_description">O catálogo de exercícios incluído não foi carregado. Reinstalar o app o restaura.</string>
+
+    <string name="library_confirm_none">Selecione exercícios</string>
+    <plurals name="library_confirm">
+        <item quantity="one">Adicionar %1$d exercício</item>
+        <item quantity="many">Adicionar %1$d exercícios</item>
+        <item quantity="other">Adicionar %1$d exercícios</item>
+    </plurals>
+    <string name="library_confirm_replace_none">Selecione um substituto</string>
+    <string name="library_confirm_replace">Trocar</string>
+
+    <string name="library_exercise_created">Exercício criado</string>
+    <string name="library_save_failed">Não foi possível salvar o exercício</string>
+
+    <!-- ── Exercise form ──────────────────────────────────────────────────────────── -->
+
+    <string name="exercise_form_title_new">Novo exercício</string>
+    <string name="exercise_form_title_edit">Editar exercício</string>
+    <string name="exercise_form_name">Nome</string>
+    <string name="exercise_form_name_duplicate">Você já tem este exercício com este equipamento</string>
+    <string name="exercise_form_type">Medido em</string>
+    <string name="exercise_form_equipment">Equipamento</string>
+    <string name="exercise_form_primary_muscle">Músculo principal</string>
+    <string name="exercise_form_secondary_muscles">Também trabalha</string>
+    <string name="exercise_form_notes">Notas (opcional)</string>
+    <string name="exercise_form_cancel">Cancelar</string>
+    <string name="exercise_form_create">Criar</string>
+    <string name="exercise_form_save">Salvar</string>
+    <string name="exercise_form_save_failed">Não foi possível salvar o exercício. Tente de novo.</string>
+
+    <!-- ── Exercise detail ────────────────────────────────────────────────────────── -->
+
+    <string name="detail_back">Voltar</string>
+    <string name="detail_edit">Editar exercício</string>
+    <string name="detail_delete">Excluir exercício</string>
+
+    <string name="detail_section_muscles">Músculos trabalhados</string>
+    <string name="detail_section_instructions">Execução</string>
+    <string name="detail_section_notes">Suas notas</string>
+
+    <string name="detail_muscles_primary">Principais</string>
+    <string name="detail_muscles_secondary">Secundários</string>
+    <string name="detail_muscles_description">%1$s, %2$s</string>
+    <string name="detail_muscle_separator">", "</string>
+
+    <string name="detail_meta_discipline">Tipo</string>
+    <string name="detail_meta_equipment">Equipamento</string>
+    <string name="detail_meta_mechanic">Mecânica</string>
+    <string name="detail_meta_difficulty">Dificuldade</string>
+    <string name="detail_meta_tracked">Registra</string>
+
+    <string name="detail_plate_calculator">Calculadora de anilhas</string>
+    <string name="detail_progression">Progressão</string>
+
+    <string name="detail_add_to_session">Adicionar ao treino</string>
+
+    <string name="detail_notes_label">Suas notas</string>
+    <string name="detail_notes_empty">Adicione uma nota sobre este exercício: a regulagem do banco, uma dica, qual máquina na sua academia.</string>
+    <string name="detail_notes_save_failed">Não foi possível salvar a nota</string>
+
+    <string name="detail_exercise_updated">Exercício atualizado</string>
+    <string name="detail_exercise_save_failed">Não foi possível salvar o exercício</string>
+
+    <string name="detail_delete_title">Excluir este exercício?</string>
+    <string name="detail_delete_body">%1$s será removido da sua biblioteca. Só pode ser excluído enquanto nenhum treino registrado nem modelo ainda o usar.</string>
+    <string name="detail_delete_confirm">Excluir</string>
+    <string name="detail_delete_cancel">Cancelar</string>
+    <string name="detail_delete_failed">Não foi possível excluir o exercício</string>
+
+    <string name="detail_missing_title">Exercício não encontrado</string>
+    <string name="detail_missing_description">Este exercício não está mais na sua biblioteca.</string>
+
+    <!-- ── Plate calculator ───────────────────────────────────────────────────────── -->
+
+    <string name="plate_title">Calculadora de anilhas</string>
+    <string name="plate_back">Voltar</string>
+
+    <string name="plate_target">Carga desejada</string>
+    <string name="plate_target_edit">Carga desejada, %1$s. Toque para digitar uma</string>
+    <string name="plate_target_field_label">Carga (%1$s)</string>
+    <string name="plate_target_invalid">Digite uma carga acima de zero</string>
+
+    <string name="plate_per_side_bar">Por lado · barra %1$s</string>
+
+    <string name="plate_shortfall">Carrega %1$s · %2$s abaixo da sua meta</string>
+    <string name="plate_below_bar">Mais leve que a barra %1$s vazia</string>
+
+    <string name="plate_equipment">Barra e anilhas</string>
+    <string name="plate_equipment_bar">Barra</string>
+    <string name="plate_equipment_plates">Anilhas · pares no suporte</string>
+    <string name="plate_equipment_reset">Usar o conjunto padrão</string>
+    <string name="plate_step_up">+%1$s</string>
+    <string name="plate_step_down">−%1$s</string>
+    <string name="plate_bar_lighter">Barra mais leve</string>
+    <string name="plate_bar_heavier">Barra mais pesada</string>
+    <string name="plate_pairs_fewer">Um par de %1$s a menos</string>
+    <string name="plate_pairs_more">Um par de %1$s a mais</string>
+
+    <string name="plate_dialog_save">Definir</string>
+    <string name="plate_dialog_cancel">Cancelar</string>
+    <string name="plate_save_failed">Não foi possível salvar seu equipamento</string>
+
+    <!-- ── Sessions tab ───────────────────────────────────────────────────────────── -->
+
+    <string name="sessions_tab_history">Histórico</string>
+    <string name="sessions_tab_templates">Modelos</string>
+    <string name="sessions_tab_calendar">Calendário</string>
+
+    <plurals name="sessions_count">
+        <item quantity="one">%1$d treino</item>
+        <item quantity="many">%1$d treinos</item>
+        <item quantity="other">%1$d treinos</item>
+    </plurals>
+    <string name="sessions_count_filtered">%1$d de %2$d</string>
+    <plurals name="sessions_templates_count">
+        <item quantity="one">%1$d modelo</item>
+        <item quantity="many">%1$d modelos</item>
+        <item quantity="other">%1$d modelos</item>
+    </plurals>
+    <string name="sessions_calendar_heading">%1$s · %2$s</string>
+
+    <string name="sessions_new">+ Novo</string>
+    <string name="sessions_new_description">Novo treino</string>
+    <string name="sessions_new_template_description">Novo modelo</string>
+    <string name="sessions_search">Pesquisar</string>
+    <string name="sessions_search_placeholder">Pesquisar em nomes e notas…</string>
+
+    <string name="sessions_month_heading">%1$s · %2$d</string>
+
+    <string name="sessions_empty_title">Nenhum treino ainda</string>
+    <string name="sessions_empty_description">Todo treino que você registra aparece aqui, com o que você levantou e quanto tempo levou.</string>
+    <string name="sessions_empty_action">Começar um treino</string>
+    <string name="sessions_no_results_title">Nada nesse período</string>
+    <string name="sessions_no_results_description">Nenhum treino corresponde à sua pesquisa e às datas escolhidas.</string>
+    <string name="sessions_clear_filters">Limpar filtros</string>
+
+    <string name="sessions_templates_empty_title">Nenhum modelo ainda</string>
+    <string name="sessions_templates_empty_description">Crie um aqui, ou finalize um treino e salve-o como modelo para repetir o mesmo treino com um toque.</string>
+    <string name="sessions_templates_empty_action">Criar um modelo</string>
+
+    <string name="sessions_template_actions">Mais opções para %1$s</string>
+    <string name="sessions_template_rename">Renomear</string>
+    <string name="sessions_template_duplicate">Duplicar</string>
+    <string name="sessions_template_delete">Excluir</string>
+    <string name="sessions_template_copy_name">%1$s (cópia)</string>
+    <string name="sessions_template_rename_title">Renomear modelo</string>
+    <string name="sessions_template_rename_confirm">Renomear</string>
+    <string name="sessions_template_duplicate_title">Duplicar modelo</string>
+    <string name="sessions_template_duplicate_body">Os mesmos exercícios, na mesma ordem, com as mesmas séries. Dê um nome próprio à cópia.</string>
+    <string name="sessions_template_duplicate_confirm">Duplicar</string>
+    <string name="sessions_template_name_taken">Você já tem um modelo com esse nome</string>
+
+    <string name="sessions_template_delete_title">Excluir “%1$s”?</string>
+    <string name="sessions_template_delete_body">Os treinos que você já registrou a partir dele ficam exatamente onde estão.</string>
+    <string name="sessions_template_delete_confirm">Excluir</string>
+    <string name="sessions_template_delete_cancel">Cancelar</string>
+
+    <string name="sessions_template_duplicated">Modelo duplicado</string>
+    <string name="sessions_template_deleted">Modelo excluído</string>
+    <string name="sessions_template_gone">Esse modelo não existe mais</string>
+    <string name="sessions_template_failed">Não foi possível alterar o modelo</string>
+
+    <string name="sessions_dates">Datas</string>
+    <string name="sessions_dates_all">Desde o início</string>
+    <plurals name="sessions_dates_last_days">
+        <item quantity="one">Último %1$d dia</item>
+        <item quantity="many">Últimos %1$d dias</item>
+        <item quantity="other">Últimos %1$d dias</item>
+    </plurals>
+    <string name="sessions_dates_custom">Escolher datas…</string>
+    <string name="sessions_dates_range">%1$s – %2$s</string>
+    <string name="sessions_dates_done">Concluído</string>
+    <string name="sessions_dates_confirm">Aplicar</string>
+    <string name="sessions_dates_cancel">Cancelar</string>
+
+    <string name="sessions_calendar_previous">Mês anterior</string>
+    <string name="sessions_calendar_next">Próximo mês</string>
+    <string name="sessions_calendar_legend">O tom compara o volume do dia com o maior do mês</string>
+    <string name="sessions_calendar_empty">Nada registrado este mês</string>
+    <string name="sessions_calendar_stat_sessions">Treinos</string>
+    <string name="sessions_calendar_stat_time">Tempo</string>
+
+    <!-- ── Template editor ────────────────────────────────────────────────────────── -->
+
+    <string name="template_editor_title">Editar modelo</string>
+    <string name="template_editor_new_title">Novo modelo</string>
+    <string name="template_editor_untitled">Modelo sem título</string>
+    <string name="template_editor_back">Voltar</string>
+    <string name="template_editor_save">Salvar</string>
+    <string name="template_editor_exercises">Exercícios</string>
+    <string name="template_editor_add_exercises">Adicionar exercícios</string>
+
+    <string name="template_editor_name_title">Nome e categoria</string>
+    <string name="template_editor_name_confirm">Aplicar</string>
+    <string name="template_editor_name_taken">Você já tem um modelo com esse nome</string>
+
+    <string name="template_exercise_position">Exercício %1$d</string>
+    <string name="template_exercise_removed">Removido da sua biblioteca</string>
+    <string name="template_remove_exercise">Remover %1$s deste modelo</string>
+    <string name="template_swap_exercise">Trocar %1$s por outro exercício</string>
+
+    <string name="template_add_set">Adicionar série</string>
+    <string name="template_remove_set">Remover a série %1$d de %2$s</string>
+    <string name="template_field_invalid">Não é um número que dê para planejar</string>
+
+    <string name="template_editor_empty_title">Este modelo está vazio</string>
+    <string name="template_editor_empty_body">Adicione pelo menos um exercício antes de salvar.</string>
+
+    <string name="template_editor_missing_title">Esse modelo não existe</string>
+    <string name="template_editor_missing_body">Ele foi excluído. Os treinos que você registrou a partir dele continuam no seu histórico.</string>
+    <string name="template_editor_missing_action">Voltar aos modelos</string>
+
+    <string name="template_editor_discard_title">Sair sem salvar?</string>
+    <string name="template_editor_discard_body">O modelo fica exatamente como estava. As mudanças que você acabou de fazer são perdidas.</string>
+    <string name="template_editor_discard_new_body">Nada foi salvo ainda, então o modelo que você estava montando é perdido.</string>
+    <string name="template_editor_discard_confirm">Descartar</string>
+    <string name="template_editor_discard_cancel">Continuar editando</string>
+
+    <string name="template_editor_exercises_unavailable">Alguns desses exercícios não estão mais na sua biblioteca e ficaram de fora</string>
+    <string name="template_editor_exercise_unavailable">Esse exercício não está mais na sua biblioteca, então nada foi alterado</string>
+    <string name="template_editor_restarted">O editor foi reaberto, então esses exercícios não foram adicionados. Escolha-os de novo.</string>
+    <string name="template_editor_save_failed">Não foi possível salvar o modelo</string>
+
+    <!-- ─── This exercise's bests, on its detail screen ────────────────────────────────── -->
+
+    <string name="detail_section_records">Recordes pessoais</string>
+    <string name="detail_record_description">%1$s, %2$s, %3$s</string>
+
+</resources>

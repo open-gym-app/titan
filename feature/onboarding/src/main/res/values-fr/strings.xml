@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French. Glossary and conventions: docs/TRANSLATION.md. Keys follow values/strings.xml. -->
+<resources>
+
+    <!-- ── Chrome ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_step_counter">Étape %1$d sur %2$d</string>
+    <string name="onboarding_skip">Passer</string>
+    <string name="onboarding_back">Retour</string>
+    <string name="onboarding_continue">Continuer</string>
+    <string name="onboarding_start">Commencer à s’entraîner</string>
+
+    <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_welcome_title">Notez le travail. Regardez-le s’accumuler.</string>
+    <string name="onboarding_welcome_body">Open Gym est un carnet d’entraînement qui tourne entièrement sur ce téléphone. Pas de compte, pas de cloud, pas de publicité.</string>
+    <string name="onboarding_welcome_logging">Enregistrez vos séries</string>
+    <string name="onboarding_welcome_logging_detail">Poids, répétitions et RPE, un geste par série</string>
+    <string name="onboarding_welcome_progress">Suivez vos progrès</string>
+    <string name="onboarding_welcome_progress_detail">Volume, records et calendrier d’entraînement</string>
+    <string name="onboarding_welcome_privacy">Gardez tout pour vous</string>
+    <string name="onboarding_welcome_privacy_detail">Tout reste sur cet appareil</string>
+    <string name="onboarding_welcome_length">Deux questions, et c’est parti</string>
+
+    <!-- ── Training goal ─────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_goal_title">Pourquoi vous entraînez-vous ?</string>
+    <string name="onboarding_goal_body">Conservé avec vos paramètres, et modifiable à tout moment. Cela ne change rien à la façon d’enregistrer.</string>
+
+    <!-- ── Units ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_units_title">Kilos ou livres ?</string>
+    <string name="onboarding_units_body">Comment les poids et les distances sont affichés. Chaque série est stockée de la même façon dans les deux cas, donc changer plus tard ne modifie rien de ce que vous avez enregistré.</string>
+
+    <!-- ── Ready ─────────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_ready_title">Vous êtes prêt.</string>
+    <string name="onboarding_ready_body">C’est tout. Votre première séance est à un geste de l’écran d’accueil.</string>
+    <string name="onboarding_ready_goal">Objectif d’entraînement</string>
+    <string name="onboarding_ready_units">Unités</string>
+    <string name="onboarding_ready_footnote">Les deux se retrouvent dans les paramètres, avec tout le reste.</string>
+    <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
+
+    <!-- ── Failures ──────────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_save_failed">Impossible d’enregistrer cette réponse</string>
+    <string name="onboarding_finish_failed">Impossible de terminer la configuration. Vérifiez le stockage de ce téléphone et réessayez.</string>
+
+</resources>

@@ -397,6 +397,13 @@ are what stands between a Compose screen and a string a translator cannot reach.
   (accented, about 30% longer) and `ar-XB` (bidi) once a debug build is installed. Walk every
   screen under both: a label that fits in English and nowhere else is a defect a translator
   should not be the one to find.
+- **A new string lands in four files.** The app ships in French, Spanish and Brazilian
+  Portuguese, one `values-<locale>/strings.xml` per module beside `values/`, and the words
+  each language holds itself to are in [docs/TRANSLATION.md](docs/TRANSLATION.md). Add the
+  translations in the same section as the base string, with a `many` form on any plural, and
+  run `make translations-check`: it reports every key a locale is missing, and CI runs it on
+  every PR as a warning. A string you cannot translate is left out of the locale files, not
+  pasted in English — the check keeps it visible until the locale's next pass.
 
 ### Files and packages
 

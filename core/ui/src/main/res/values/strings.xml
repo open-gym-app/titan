@@ -44,10 +44,10 @@
          label alone would announce the column and swallow the number. -->
     <string name="set_log_rpe_value">Rate of perceived exertion, set %1$d, %2$s</string>
     <string name="set_log_rpe_none">Rate of perceived exertion, set %1$d, not set</string>
-    <string name="set_log_rpe_unset">–</string>
+    <string name="set_log_rpe_unset" translatable="false">–</string>
     <!-- Drawn in the previous column when a set has no history, so the columns of one table
          still line up. Hidden from screen readers: it is a spacer, not a value. -->
-    <string name="set_log_previous_none">–</string>
+    <string name="set_log_previous_none" translatable="false">–</string>
     <string name="set_log_previous_value">Previously %1$s</string>
     <!-- The tick: its label, and its two states as a screen reader says them before the
          label — "Completed, Set 3, checkbox". It is the same control on the row being typed

@@ -63,8 +63,8 @@
 
     <!-- Empty states. The glyphs are drawn text, not icons — the design's marks are
          typographic throughout. -->
-    <string name="library_glyph_search">⌕</string>
-    <string name="library_glyph_empty">☐</string>
+    <string name="library_glyph_search" translatable="false">⌕</string>
+    <string name="library_glyph_empty" translatable="false">☐</string>
     <string name="library_no_results_title">Nothing matches</string>
     <string name="library_no_results_description">No exercise matches your search and filters.</string>
     <string name="library_clear_filters">Clear filters</string>
@@ -158,7 +158,7 @@
     <string name="detail_delete_failed">Could not delete the exercise</string>
 
     <!-- The glyph is drawn text, not an icon — the design's marks are typographic. -->
-    <string name="detail_glyph_missing">☐</string>
+    <string name="detail_glyph_missing" translatable="false">☐</string>
     <string name="detail_missing_title">Exercise not found</string>
     <string name="detail_missing_description">This exercise is no longer in your library.</string>
 
@@ -237,8 +237,8 @@
     <!-- The history's two empty states, which are not the same state: a user who has logged
          nothing is offered the way to start, and one whose filters matched nothing is offered
          the way back. -->
-    <string name="sessions_glyph_empty">◇</string>
-    <string name="sessions_glyph_search">⌕</string>
+    <string name="sessions_glyph_empty" translatable="false">◇</string>
+    <string name="sessions_glyph_search" translatable="false">⌕</string>
     <string name="sessions_empty_title">No sessions yet</string>
     <string name="sessions_empty_description">Every workout you log lands here, with what you lifted and how long it took.</string>
     <string name="sessions_empty_action">Start a session</string>
@@ -250,7 +250,7 @@
          because this is the only list in the app the user could otherwise not add to. The
          description still names the other way one is made — finishing a workout and saving it,
          which brings the sets and weights actually hit along as its defaults. -->
-    <string name="sessions_templates_glyph">▤</string>
+    <string name="sessions_templates_glyph" translatable="false">▤</string>
     <string name="sessions_templates_empty_title">No templates yet</string>
     <string name="sessions_templates_empty_description">Build one here, or finish a workout and save it as a template to start the same session again in one tap.</string>
     <string name="sessions_templates_empty_action">Create a template</string>

@@ -62,6 +62,8 @@ Reference documentation lives in [`docs/`](docs/):
   the storage assumptions built on it.
 - [ACCESSIBILITY.md](docs/ACCESSIBILITY.md) — what the app promises TalkBack, large fonts and
   a thumb, how every build checks it, and the record of the last pass on a device.
+- [TRANSLATION.md](docs/TRANSLATION.md) — the languages the app ships in, the check that
+  keeps every translation in step with the English, and the glossary each one is held to.
 
 ## Contributing
 

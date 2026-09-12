@@ -62,7 +62,7 @@
          90-day window exactly as thoroughly as somebody who installed the app today, and
          telling the first of them to log their first session would be the app failing to
          read its own data. -->
-    <string name="stats_empty_glyph">◷</string>
+    <string name="stats_empty_glyph" translatable="false">◷</string>
     <string name="stats_empty_first_run_title">No training logged yet</string>
     <string name="stats_empty_first_run_body">Finish your first workout and this fills up: volume, records, and what you have been training.</string>
     <string name="stats_empty_quiet_title">Nothing in this window</string>
@@ -106,7 +106,7 @@
     <string name="exercise_card_sets_unit">all-time</string>
     <!-- A kind of record this lift has none of. A dash rather than a zero: "0 kg" is a lift
          somebody made, and nothing here has been. -->
-    <string name="exercise_card_no_record">—</string>
+    <string name="exercise_card_no_record" translatable="false">—</string>
     <!-- Marks a record broken in the most recent session on screen. -->
     <string name="exercise_card_badge_new">New</string>
 
@@ -123,9 +123,9 @@
     <string name="exercise_attempts_top">Top</string>
     <string name="exercise_attempts_volume">Vol</string>
     <!-- A session with no set worth quoting: cardio, a timed hold. -->
-    <string name="exercise_attempts_missing">—</string>
+    <string name="exercise_attempts_missing" translatable="false">—</string>
     <!-- Drawn beside the top set of the session that broke a record. -->
-    <string name="exercise_attempts_record_glyph">★</string>
+    <string name="exercise_attempts_record_glyph" translatable="false">★</string>
     <plurals name="exercise_attempts_set_count">
         <item quantity="one">%1$d set</item>
         <item quantity="other">%1$d sets</item>
@@ -150,7 +150,7 @@
     <!-- Four of them, because they want four different things said. Telling somebody with
          three years on a lift to go and do it would be the app failing to read its own data,
          and a chart of one session is a bar filling its own track. -->
-    <string name="exercise_empty_glyph">◷</string>
+    <string name="exercise_empty_glyph" translatable="false">◷</string>
     <string name="exercise_empty_nothing_title">No lifts logged yet</string>
     <string name="exercise_empty_nothing_body">Finish a workout and every exercise in it turns up here, with its records and how it has been going.</string>
     <string name="exercise_empty_never_title">Not logged yet</string>
@@ -216,7 +216,7 @@
 
     <!-- Stands in for a figure that has never been measured, everywhere on this screen. A dash
          rather than a zero: "0 cm" is a reading somebody took, and this one has not been. -->
-    <string name="body_no_reading">—</string>
+    <string name="body_no_reading" translatable="false">—</string>
 
     <!-- The four parts, as a tape measure goes round them. -->
     <string name="body_part_chest">Chest</string>
@@ -272,7 +272,7 @@
 
     <!-- One state, unlike the other progression screens: every figure here is the last one
          recorded rather than a sum over the window, so a quiet period has nothing to say. -->
-    <string name="body_empty_glyph">◷</string>
+    <string name="body_empty_glyph" translatable="false">◷</string>
     <string name="body_empty_title">Nothing measured yet</string>
     <string name="body_empty_body">Log your weight, your body fat or a tape measurement and this fills in — every field is optional, so one number is a start.</string>
     <string name="body_empty_action">Log a measurement</string>

@@ -46,6 +46,27 @@ jobs:
       - name: Verify the committed seed matches the pinned source
         run: make seed-check
 
+  translations:
+    name: Translations
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      # Every key in `values/` against every `values-<locale>/` beside it, per module — see
+      # docs/TRANSLATION.md. A warning and never a failure, on purpose: a base string added in
+      # a PR should not block that PR on its French, Spanish and Portuguese, but a missing key
+      # falls back to English silently at runtime, so it has to be visible somewhere before a
+      # user reports it. The script writes each finding as a workflow annotation on the file
+      # it is about, which is what puts it on the PR's Files tab.
+      - name: Check every translation against the base strings
+        run: make translations-check
+
   lint:
     name: Lint
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
