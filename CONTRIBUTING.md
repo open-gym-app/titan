@@ -606,7 +606,8 @@ infinite-constraint errors, missing `CompositionLocal`s, recomposition loops and
 failures, and the accessibility checks above read the real semantics tree. It does **not**
 faithfully reproduce window insets, real font metrics at large font scales, TalkBack behaviour
 or IME behaviour. Those belong to the accessibility pass on a real device — `make a11y-scan`,
-`make a11y-talkback`, `make a11y-font-scale`, recorded in docs/ACCESSIBILITY.md — not here. A
+`make a11y-talkback`, `make a11y-font-scale`, recorded in docs/ACCESSIBILITY.md by
+`make a11y-record` — not here. A
 green screenshot suite is a floor under an accessibility result, not the result.
 
 ## Pull requests

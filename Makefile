@@ -15,13 +15,17 @@ ADB ?= adb
 APP_ID := com.opengym.app.debug
 SCANNER_PACKAGE := com.google.android.apps.accessibility.auditor
 SCANNER_SERVICE := $(SCANNER_PACKAGE)/$(SCANNER_PACKAGE).ScannerService
-TALKBACK_SERVICE := com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService
+# TalkBack ships under two names: Google's, from the Play Store's Accessibility Suite, and the
+# rebrand One UI preloads on Samsung phones. `a11y-talkback` switches on whichever is installed,
+# Google's first when both are.
+TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvin.talkback.TalkBackService \
+	com.samsung.android.accessibility.talkback/com.samsung.android.marvin.talkback.TalkBackService
 # The system font scale `a11y-font-scale` sets: the 2.0 the pass walks every screen at.
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
 .PHONY: help seed seed-update seed-check seed-clean test journeys screenshots screenshots-verify lint benchmark baseline-profile \
-	a11y-scan a11y-talkback a11y-font-scale a11y-reset
+	a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
 help: ## List the available targets
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -69,7 +73,10 @@ baseline-profile: ## Regenerate the committed Baseline Profile from a physical d
 # ─── The accessibility pass, on a phone ─────────────────────────────────────────────────────
 
 a11y-scan: ## Install the debug app, switch Accessibility Scanner on and open the app (needs a device on adb)
-	./gradlew :app:installDebug
+	@./gradlew :app:installDebug || { \
+		echo "Install refused. A $(APP_ID) signed by another machine's debug key? 'adb uninstall $(APP_ID)' and run again."; \
+		exit 1; \
+	}
 	@if ! $(ADB) shell pm list packages $(SCANNER_PACKAGE) | grep -q $(SCANNER_PACKAGE); then \
 		echo "Accessibility Scanner is not installed - opening its Play Store page on the device."; \
 		$(ADB) shell am start -a android.intent.action.VIEW -d "market://details?id=$(SCANNER_PACKAGE)" >/dev/null; \
@@ -80,8 +87,14 @@ a11y-scan: ## Install the debug app, switch Accessibility Scanner on and open th
 	@echo "Scanner is on: tap its floating button on each of the twenty screens in docs/ACCESSIBILITY.md."
 
 a11y-talkback: ## Switch TalkBack on for the linear-navigation walk (a11y-reset turns it off again)
-	@$(call enable-service,$(TALKBACK_SERVICE))
-	@echo "TalkBack is on. Swipe right to move, double-tap to activate; 'make a11y-reset' turns it off."
+	@for service in $(TALKBACK_SERVICES); do \
+		if $(ADB) shell pm list packages "$${service%%/*}" | grep -q "$${service%%/*}"; then \
+			$(call enable-service,$$service); \
+			echo "TalkBack is on ($${service%%/*}). Swipe right to move, double-tap to activate; 'make a11y-reset' turns it off."; \
+			exit 0; \
+		fi; \
+	done; \
+	echo "No TalkBack on the device - install the Android Accessibility Suite from the Play Store."; exit 1
 
 a11y-font-scale: ## Set the system font scale (SCALE=2.0 by default) for the large-text walk
 	$(ADB) shell settings put system font_scale $(SCALE)
@@ -90,6 +103,15 @@ a11y-reset: ## Switch every accessibility service off and put the font scale bac
 	$(ADB) shell settings put secure enabled_accessibility_services '""'
 	$(ADB) shell settings put secure accessibility_enabled 0
 	$(ADB) shell settings put system font_scale 1.0
+
+# The four rows adb cannot read are passed as variables, each one optional:
+#   make a11y-record SCANNER_ERRORS="0 on all twenty" TALKBACK_WALK="..." FONT_SCALE="..." DEVIATIONS="none"
+a11y-record: ## Write the device rows of the pass record in docs/ACCESSIBILITY.md from the phone on adb
+	$(PYTHON) tools/a11y/record.py --adb $(ADB) \
+		$(if $(SCANNER_ERRORS),--scanner-errors "$(SCANNER_ERRORS)") \
+		$(if $(TALKBACK_WALK),--talkback-walk "$(TALKBACK_WALK)") \
+		$(if $(FONT_SCALE),--font-scale "$(FONT_SCALE)") \
+		$(if $(DEVIATIONS),--deviations "$(DEVIATIONS)")
 
 # Adds one service to the colon-separated list Android keeps, rather than replacing the list:
 # switching the Scanner on must not switch TalkBack off, or the two halves of the pass cannot
