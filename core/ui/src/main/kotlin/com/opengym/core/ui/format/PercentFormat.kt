@@ -1,9 +1,9 @@
 package com.opengym.core.ui.format
 
-import java.math.RoundingMode
-import java.text.DecimalFormatSymbols
-import java.text.NumberFormat
+import android.icu.text.DecimalFormatSymbols
+import android.icu.text.NumberFormat
 import kotlin.math.roundToInt
+import android.icu.math.BigDecimal as IcuBigDecimal
 
 /*
  * A percentage that is a *quantity* rather than a comparison: body fat.
@@ -15,7 +15,8 @@ import kotlin.math.roundToInt
  *
  * Both go through [NumberFormat.getPercentInstance] rather than a `%` glued onto a number,
  * for the reason [formatPercentChange]'s own note gives: the symbol's *position* is locale-bound —
- * Turkish writes `%15,5` and French `15,5 %` — and no format string answers that.
+ * Turkish writes `%15,5` and French `15,5 %` — and no format string answers that. `android.icu`
+ * rather than `java.text`, as every number in this package — `NumberFormats.kt` says why.
  */
 
 /**
@@ -50,7 +51,7 @@ fun formatPercentTenths(tenths: Int): String =
         .apply {
             maximumFractionDigits = PERCENT_FRACTION_DIGITS
             minimumFractionDigits = 0
-            roundingMode = RoundingMode.HALF_UP
+            roundingMode = IcuBigDecimal.ROUND_HALF_UP
         }
         .format(tenths / TENTHS_PER_WHOLE)
 

@@ -1,6 +1,6 @@
 package com.opengym.core.ui.format
 
-import java.text.NumberFormat
+import android.icu.text.NumberFormat
 import kotlin.math.absoluteValue
 
 /*

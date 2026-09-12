@@ -4,6 +4,8 @@ import android.icu.text.MeasureFormat
 import android.icu.text.MeasureFormat.FormatWidth
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /*
  * The seam between a quantity and the unit it is read in — the twin of `NumberFormats.kt`,
@@ -57,8 +59,7 @@ internal fun formatMeasure(
     maxFractionDigits: Int,
     grouping: Boolean = false,
 ): String =
-    MeasureFormat
-        .getInstance(formattingLocale(), FormatWidth.SHORT, numberFormat(maxFractionDigits, grouping))
+    measureFormat(FormatWidth.SHORT, maxFractionDigits, grouping)
         .format(Measure(value.withoutNegativeZero(maxFractionDigits), unit))
 
 /**
@@ -84,15 +85,26 @@ internal fun formatMeasure(
  * them, which in several locales is a non-breaking space and therefore not whitespace as far
  * as [Char.isWhitespace] is concerned.
  */
-internal fun unitSymbol(unit: MeasureUnit): String {
-    val numbers = numberFormat(maxFractionDigits = 0)
-    val figure = numbers.format(SYMBOL_SAMPLE)
+internal fun unitSymbol(unit: MeasureUnit): String =
+    unitSymbols.getOrPut(formattingLocale() to unit) {
+        val figure = numberFormat(maxFractionDigits = 0).format(SYMBOL_SAMPLE)
 
-    return MeasureFormat.getInstance(formattingLocale(), FormatWidth.SHORT, numbers)
-        .format(Measure(SYMBOL_SAMPLE, unit))
-        .replaceFirst(figure, "")
-        .trim { it.isWhitespace() || it.category == CharCategory.SPACE_SEPARATOR }
-}
+        measureFormat(FormatWidth.SHORT, maxFractionDigits = 0)
+            .format(Measure(SYMBOL_SAMPLE, unit))
+            .replaceFirst(figure, "")
+            .trim { it.isWhitespace() || it.category == CharCategory.SPACE_SEPARATOR }
+    }
+
+/**
+ * The symbol each unit resolves to, per locale.
+ *
+ * A symbol is a pure function of the locale and the unit, and `weightSuffix` and its
+ * siblings are property getters read on every recomposition of a set-log header, a stat tile
+ * and a text field's trailing label — so the lookup above, which builds a formatter and
+ * formats twice, runs once per locale rather than once per frame. A plain string, so one map
+ * can serve every thread.
+ */
+private val unitSymbols = ConcurrentHashMap<Pair<Locale, MeasureUnit>, String>()
 
 /**
  * The number [unitSymbol] formats and then removes.
@@ -114,6 +126,34 @@ private const val SYMBOL_SAMPLE = 1
  * caller.
  */
 internal fun formatDurationMeasures(vararg measures: Measure): String =
-    MeasureFormat
-        .getInstance(formattingLocale(), FormatWidth.NARROW, numberFormat(maxFractionDigits = 0))
-        .formatMeasures(*measures)
+    measureFormat(FormatWidth.NARROW, maxFractionDigits = 0).formatMeasures(*measures)
+
+/**
+ * One [MeasureFormat] per configuration per locale per thread.
+ *
+ * `getInstance` clones the `NumberFormat` it is handed and builds the formatter around the
+ * clone on every call, and [formatMeasure] is what every set row and every history row draws
+ * its weight and volume through — the per-row cost `NumberFormats.kt` caches its own
+ * formatter against (#42). Keyed on the number configuration as well as the locale, because
+ * the clone inside is fixed at the moment it is made: a formatter built for two decimals
+ * never shows one.
+ */
+private fun measureFormat(
+    width: FormatWidth,
+    maxFractionDigits: Int,
+    grouping: Boolean = false,
+): MeasureFormat {
+    val locale = formattingLocale()
+    return measureFormats.perThread().getOrPut(MeasureFormatKey(locale, width, maxFractionDigits, grouping)) {
+        MeasureFormat.getInstance(locale, width, numberFormat(maxFractionDigits, grouping))
+    }
+}
+
+private data class MeasureFormatKey(
+    val locale: Locale,
+    val width: FormatWidth,
+    val maxFractionDigits: Int,
+    val grouping: Boolean,
+)
+
+private val measureFormats = ThreadLocal<MutableMap<MeasureFormatKey, MeasureFormat>>()

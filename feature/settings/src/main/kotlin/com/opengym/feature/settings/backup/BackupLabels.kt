@@ -2,7 +2,6 @@ package com.opengym.feature.settings.backup
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.intl.Locale
 import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.backup.model.ImportError
 import com.opengym.core.domain.model.DataFootprint
@@ -10,7 +9,6 @@ import com.opengym.core.ui.format.formatDayAndMonth
 import com.opengym.core.ui.format.formatMonthAndYear
 import com.opengym.core.ui.format.formatPercentTenths
 import com.opengym.feature.settings.R
-import java.text.NumberFormat
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneId
@@ -52,16 +50,6 @@ internal fun ImportError.message(): String =
 
         is ImportError.IoFailure -> stringResource(R.string.backup_error_io)
     }
-
-/**
- * `2,140` rather than `2140`.
- *
- * The composition's locale rather than the process default, so the grouping separator follows
- * a locale change without the screen having to be rebuilt — the rule `FootprintList` already
- * follows for the same numbers in the confirmation dialog.
- */
-@Composable
-internal fun Int.grouped(): String = NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(this)
 
 /**
  * `Training since April 2026`, or the sentence for a device that has logged nothing.

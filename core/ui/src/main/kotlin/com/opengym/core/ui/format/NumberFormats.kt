@@ -103,8 +103,19 @@ fun formatCount(value: Long): String = integerFormat().format(value)
 /** The same, for the [Int] most counts actually are. */
 fun formatCount(value: Int): String = integerFormat().format(value)
 
-private fun integerFormat(): NumberFormat =
-    NumberFormat.getIntegerInstance(formattingLocale()).apply { isGroupingUsed = true }
+/**
+ * One integer [NumberFormat] per locale per thread, for the same reason as
+ * [displayNumberFormat]: a set marker, a reorder row and an attempts table each draw a count
+ * per row, and `getIntegerInstance` builds a `DecimalFormat` from locale data on every call.
+ */
+private val integerFormats = ThreadLocal<MutableMap<Locale, NumberFormat>>()
+
+private fun integerFormat(): NumberFormat {
+    val locale = formattingLocale()
+    return integerFormats.perThread().getOrPut(locale) {
+        NumberFormat.getIntegerInstance(locale).apply { isGroupingUsed = true }
+    }
+}
 
 /**
  * One [NumberFormat] per locale per thread, configured afresh by each [numberFormat] call.
@@ -117,11 +128,19 @@ private fun integerFormat(): NumberFormat =
  */
 private val displayNumberFormats = ThreadLocal<MutableMap<Locale, NumberFormat>>()
 
-private fun displayNumberFormat(locale: Locale): NumberFormat {
-    val perThread = displayNumberFormats.get()
-        ?: mutableMapOf<Locale, NumberFormat>().also(displayNumberFormats::set)
-    return perThread.getOrPut(locale) { NumberFormat.getInstance(locale) }
-}
+private fun displayNumberFormat(locale: Locale): NumberFormat =
+    displayNumberFormats.perThread().getOrPut(locale) { NumberFormat.getInstance(locale) }
+
+/**
+ * This thread's map, created on its first use.
+ *
+ * The shape every ICU formatter cache in this package takes — see [displayNumberFormats],
+ * [integerFormats], and the ones in `MeasureFormats.kt` and `DateTimeFormat.kt`. Per thread
+ * rather than shared because an ICU formatter is mutable and not safe to format through from
+ * two threads at once, unlike a `java.time` one.
+ */
+internal fun <K, V> ThreadLocal<MutableMap<K, V>>.perThread(): MutableMap<K, V> =
+    get() ?: mutableMapOf<K, V>().also(::set)
 
 /**
  * [this] rounded to the decimals [formatNumber] would show it to.

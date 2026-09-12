@@ -44,6 +44,7 @@ import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.ui.component.OpenGymCard
 import com.opengym.core.ui.component.SectionHeading
 import com.opengym.core.ui.component.StatTile
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
 import com.opengym.feature.settings.backup.component.AutoBackupSection
@@ -188,12 +189,12 @@ private fun FootprintCard(footprint: DataFootprint) {
         Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
             StatTile(
                 label = stringResource(R.string.backup_stat_sessions),
-                value = footprint.sessions.grouped(),
+                value = formatCount(footprint.sessions),
                 modifier = Modifier.weight(1f),
             )
             StatTile(
                 label = stringResource(R.string.backup_stat_sets),
-                value = footprint.sets.grouped(),
+                value = formatCount(footprint.sets),
                 modifier = Modifier.weight(1f),
             )
         }

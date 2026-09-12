@@ -9,13 +9,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.settings.R
-import java.text.NumberFormat
 
 /**
  * What is about to be lost, one line per kind, counts right-aligned in the mono numeric role
@@ -71,9 +70,7 @@ private fun FootprintLine(
 
     Row(horizontalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.md)) {
         Text(
-            // The composition's locale rather than the process default, so the grouping
-            // separator follows a locale change without the dialog having to be rebuilt.
-            text = NumberFormat.getIntegerInstance(Locale.current.platformLocale).format(count),
+            text = formatCount(count),
             style = OpenGymTheme.typography.numeric,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.End,

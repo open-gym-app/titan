@@ -312,13 +312,10 @@ private val skeletonFormatters = ThreadLocal<MutableMap<Pair<String, Locale>, Ic
 private fun skeletonFormatter(
     skeleton: String,
     locale: Locale,
-): IcuDateFormat {
-    val perThread = skeletonFormatters.get()
-        ?: mutableMapOf<Pair<String, Locale>, IcuDateFormat>().also(skeletonFormatters::set)
-    return perThread.getOrPut(skeleton to locale) {
+): IcuDateFormat =
+    skeletonFormatters.perThread().getOrPut(skeleton to locale) {
         IcuDateFormat.getInstanceForSkeleton(skeleton, locale).apply { timeZone = IcuTimeZone.GMT_ZONE }
     }
-}
 
 /*
  * The fields each shape asks CLDR for. A skeleton names fields and widths and says nothing
