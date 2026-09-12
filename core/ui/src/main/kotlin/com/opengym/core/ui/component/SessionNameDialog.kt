@@ -2,7 +2,6 @@ package com.opengym.core.ui.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,10 +51,9 @@ fun SessionNameDialog(
     isSaving: Boolean = false,
     title: String = stringResource(R.string.session_name_title),
 ) {
-    AlertDialog(
+    OpenGymDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
         modifier = modifier,
-        shape = MaterialTheme.shapes.large,
         title = { Text(text = title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(OpenGymTheme.spacing.lg)) {

@@ -32,6 +32,11 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * a single line, a visible focus, a label a screen reader can read and an error it can hear —
  * all survives dropping the container.
  *
+ * Dropping `OutlinedTextField` was not the end of that story — see [OpenGymDialog], which both of
+ * this field's callers now use instead of `AlertDialog`. This field's own `fillMaxWidth` keeps it
+ * from asking its *own* question about width, but `AlertDialog` was still free to ask any of its
+ * *other* children the same question, and at a real phone's window size and density (#187) it did.
+ *
  * `fillMaxWidth` on the box rather than on the field, so a dialog's width is decided by its title
  * and its buttons rather than by how long the name happens to be: a field that grew as the user
  * typed would move the confirm button out from under their thumb.

@@ -617,6 +617,25 @@ or IME behaviour. Those belong to the accessibility pass on a real device — `m
 `make a11y-record` — not here. A
 green screenshot suite is a floor under an accessibility result, not the result.
 
+### A window size a component test never sees
+
+Every module's own tests run at Robolectric's default 320×470dp/mdpi window unless the test
+overrides it, `:core:ui` included. `:app` does not: `app/src/test/resources/robolectric.properties`
+drives the whole shell at a real phone's size (`w411dp-h891dp-xxhdpi`), because Home's actions
+sit below the fold at the default and a tap injected before a settling scroll lands where the
+button used to be. That gap is invisible almost everywhere — but Material3's `AlertDialog` sizes
+itself from its content's *intrinsic* width, and at this window size and density a text field
+inside one (measured by real `StaticLayout` line-breaking, unlike a `Text`) can answer that
+question in a way that depends on the width it is asked about, so the two measurements chase
+each other and composition never settles. Not on a device — a frame or two more of layout there
+is invisible — and not in a component test either, since none of them run at this window size.
+It surfaced once, in `EndToEndJourneyTest` (#187): the one test that assembles the whole app,
+which is the one place that runs at the size where it happens. `TemplateNameDialog` and
+`SessionNameDialog` both hit it and both now use `OpenGymDialog` instead of `AlertDialog` — see
+its own doc for the fix, which is sizing the dialog from the window's constraints rather than
+from its content, so there is nothing left to chase. If a new dialog with a text field in it
+ever needs the same shape, reach for `OpenGymDialog` rather than `AlertDialog` from the start.
+
 ## Pull requests
 
 - **One concern per PR** - keep scope tight so the diff stays readable.
