@@ -95,9 +95,9 @@ def parse(path: Path) -> StringsFile:
         if element.tag == "string":
             if element.get("translatable") == "false":
                 parsed.not_translatable.add(name)
-            parsed.strings[name] = element.text or ""
+            parsed.strings[name] = "".join(element.itertext())
         elif element.tag == "plurals":
-            items = {item.get("quantity", ""): item.text or "" for item in element.findall("item")}
+            items = {item.get("quantity", ""): "".join(item.itertext()) for item in element.findall("item")}
             parsed.plurals[name] = Plurals(items)
     return parsed
 
