@@ -61,6 +61,9 @@ class SettingsScreenTest {
     /** How many times the Backup & restore row asked to navigate. */
     private var backupOpened = 0
 
+    /** How many times the Open source licences row asked to navigate. */
+    private var licencesOpened = 0
+
     // --- reading the stored values ----------------------------------------
 
     @Test
@@ -516,6 +519,16 @@ class SettingsScreenTest {
         assertEquals(emptyList<SettingsEvent>(), events)
     }
 
+    @Test
+    fun `the open source licences row opens the licences screen`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Open source licences").performScrollTo().performClick()
+
+        assertEquals(1, licencesOpened)
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
     // --- helpers ----------------------------------------------------------
 
     /** Runs [block] with [locale] as the default, and puts the previous one back. */
@@ -562,6 +575,7 @@ class SettingsScreenTest {
                     onOpenLink = openedLinks::add,
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
                     onOpenReminders = { remindersOpened++ },
+                    onOpenLicences = { licencesOpened++ },
                 )
             }
         }

@@ -59,6 +59,8 @@
     <string name="settings_version">Versão</string>
     <string name="settings_github">Código aberto · GitHub</string>
     <string name="settings_github_detail">Leia o código, relate um problema</string>
+    <string name="settings_licences">Licenças de código aberto</string>
+    <string name="settings_licences_detail">Cada biblioteca usada pelo app, e sua licença</string>
     <string name="settings_donate">Doar</string>
     <string name="settings_footer">Sem conta. Sem nuvem. Tudo fica neste celular.</string>
 

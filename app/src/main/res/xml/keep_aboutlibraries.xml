@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  AboutLibraries (#208) looks up its generated `raw/aboutlibraries.json` by resource *name* at
+  runtime, not by a compile-time `R.raw` reference — `:feature:settings` cannot see `:app`'s R
+  class, so `produceLibraries()` resolves it with `Resources.getIdentifier` instead. AGP 9's
+  optimized resource shrinking runs before that lookup can be seen, and would otherwise strip
+  the file as unreferenced. See the AboutLibraries README, "Optimized Resource Shrinking".
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/aboutlibraries" />

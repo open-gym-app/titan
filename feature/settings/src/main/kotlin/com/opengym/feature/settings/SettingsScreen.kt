@@ -94,6 +94,7 @@ fun SettingsRoute(
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenReminders: () -> Unit,
+    onOpenLicences: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -123,6 +124,7 @@ fun SettingsRoute(
         onOpenLink = uriHandler::openUri,
         onOpenNotificationSettings = { context.startAppNotificationSettings() },
         onOpenReminders = onOpenReminders,
+        onOpenLicences = onOpenLicences,
         modifier = modifier,
     )
 }
@@ -149,6 +151,7 @@ fun SettingsScreen(
     onOpenLink: (String) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenReminders: () -> Unit,
+    onOpenLicences: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -196,7 +199,7 @@ fun SettingsScreen(
                 onOpenNotificationSettings = onOpenNotificationSettings,
                 onOpenReminders = onOpenReminders,
             )
-            AboutGroup(appVersion = appVersion, onOpenLink = onOpenLink)
+            AboutGroup(appVersion = appVersion, onOpenLink = onOpenLink, onOpenLicences = onOpenLicences)
             Footer()
         }
     }
@@ -386,6 +389,7 @@ private fun NotificationsGroup(
 private fun AboutGroup(
     appVersion: String,
     onOpenLink: (String) -> Unit,
+    onOpenLicences: () -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.settings_group_about)) {
         PreferenceInfoRow(label = stringResource(R.string.settings_version), value = appVersion)
@@ -395,6 +399,12 @@ private fun AboutGroup(
             supporting = stringResource(R.string.settings_github_detail),
             external = true,
             onClick = { onOpenLink(GITHUB_URL) },
+        )
+        HairlineDivider()
+        PreferenceRow(
+            label = stringResource(R.string.settings_licences),
+            supporting = stringResource(R.string.settings_licences_detail),
+            onClick = onOpenLicences,
         )
         HairlineDivider()
         // Disabled until there is somewhere to send people. A row promising a donation link
@@ -565,6 +575,7 @@ fun SettingsScreenPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }
@@ -595,6 +606,7 @@ fun SettingsScreenLargeFontPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }
@@ -620,6 +632,7 @@ fun SettingsScreenDarkPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }
@@ -647,6 +660,7 @@ fun SettingsScreenDeleteDialogPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }
@@ -671,6 +685,7 @@ fun SettingsScreenNotificationsBlockedPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }
@@ -688,6 +703,7 @@ fun SettingsScreenThemeDialogPreview() {
             onOpenLink = {},
             onOpenNotificationSettings = {},
             onOpenReminders = {},
+            onOpenLicences = {},
         )
     }
 }

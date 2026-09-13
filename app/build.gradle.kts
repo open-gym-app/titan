@@ -12,6 +12,9 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    // Generates the JSON the open source licences screen reads at runtime (#208), from this
+    // module's own dependency graph — which, as the composition root, is the whole app's.
+    alias(libs.plugins.aboutlibraries)
     id("opengym.android.jacoco")
 }
 
@@ -157,6 +160,16 @@ android {
 
 kotlin {
     jvmToolchain(17)
+}
+
+// The open source licences screen's data (#208), generated into `R.raw.aboutlibraries` as
+// part of this module's own Android build — the `.android` plugin variant registers that
+// automatically, so there is nothing to invoke by hand.
+aboutLibraries {
+    // No network calls at build time: every licence AboutLibraries cannot resolve from the
+    // dependency's own POM/module metadata is filled in from the SPDX text it ships, not
+    // fetched from GitHub's API. Keeps the build reproducible offline and needs no token.
+    offlineMode = true
 }
 
 // The same stability configuration every Compose module gets from `opengym.android.compose`,
