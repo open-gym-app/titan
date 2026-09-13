@@ -85,7 +85,10 @@ private fun OpenSourceLicencesScreen(
                 // exactly those three columns. The author and description are both off; a
                 // description doubles the height of every row for text nobody asked to read
                 // here. Tapping a row opens the licence text in a dialog by default when
-                // `onLibraryClick` is left null — nothing to set for that.
+                // `onLibraryClick` is left null — nothing to set for that, but only for a
+                // licence that *has* text: the container ignores a tap on one that does not.
+                // The text comes from `config/aboutlibraries/licenses/` at build time; see the
+                // `aboutLibraries` block in `app/build.gradle.kts`.
                 showAuthor = false,
                 showDescription = false,
                 showVersion = true,

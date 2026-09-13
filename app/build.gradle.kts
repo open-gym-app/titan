@@ -166,10 +166,26 @@ kotlin {
 // part of this module's own Android build — the `.android` plugin variant registers that
 // automatically, so there is nothing to invoke by hand.
 aboutLibraries {
-    // No network calls at build time: every licence AboutLibraries cannot resolve from the
-    // dependency's own POM/module metadata is filled in from the SPDX text it ships, not
-    // fetched from GitHub's API. Keeps the build reproducible offline and needs no token.
+    // No network calls at build time: keeps the build reproducible offline and needs no token.
+    // The plugin ships no licence *text* of its own — a POM names a licence but does not carry
+    // it, and the only place the plugin can get the text is the SPDX list on GitHub, which
+    // `offlineMode` rules out. Without text the screen's rows do nothing when tapped (the
+    // container only opens its dialog for a licence with content), so the text is checked in
+    // under `config/aboutlibraries/licenses/` instead, one file per SPDX id, and merged in by
+    // `hash` below.
     offlineMode = true
+    collect {
+        configPath.set(rootProject.layout.projectDirectory.dir("config/aboutlibraries"))
+    }
+    license {
+        // Every licence the graph pulls in must have a text file in the config folder above,
+        // or its rows are dead again. A licence that is not listed here fails the build rather
+        // than shipping silently — add its text, then its id. This is also the GPL-3.0
+        // compatibility gate: a dependency under a licence GPL cannot carry has to be argued
+        // here before it can be added at all.
+        strictMode.set(com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL)
+        allowedLicenses.addAll("Apache-2.0", "BSD-3-Clause")
+    }
 }
 
 // The same stability configuration every Compose module gets from `opengym.android.compose`,
