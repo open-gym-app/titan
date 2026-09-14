@@ -9,8 +9,8 @@ import com.opengym.core.domain.model.UserPreferences
  * The answers are held as the domain's own [UserPreferences], read straight from the store,
  * rather than as a draft the flow accumulates and writes at the end. That is the shape the
  * acceptance criteria ask for — *each step persists its selection* — and it is what makes
- * killing the app on step three and relaunching land on an app that already knows the answers
- * to steps one and two. It also means a radio here shows what is *stored*, never an
+ * killing the app on step four and relaunching land on an app that already knows the answers
+ * to the steps before it. It also means a radio here shows what is *stored*, never an
  * optimistic copy of it, so a write that fails cannot leave the screen disagreeing with the
  * disk.
  *
@@ -22,7 +22,7 @@ import com.opengym.core.domain.model.UserPreferences
  *   navigation at a screen that is already leaving.
  * @param isFinished onboarding is over and recorded — the flow's way of saying it is done.
  *   Set only once [UserPreferences.onboardingCompleted] has actually been written, because
- *   navigating on anything less means the next launch asks the same four questions again.
+ *   navigating on anything less means the next launch asks the same five questions again.
  * @param message a one-shot outcome to show and forget. Present only between the event that
  *   caused it and the screen acknowledging it with [OnboardingEvent.MessageShown].
  */

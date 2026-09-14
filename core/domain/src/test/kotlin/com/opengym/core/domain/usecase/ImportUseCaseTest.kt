@@ -10,6 +10,7 @@ import com.opengym.core.domain.backup.model.WorkoutSetRow
 import com.opengym.core.domain.backup.sampleDocument
 import com.opengym.core.domain.backup.samplePreferences
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateDraft
@@ -148,6 +149,7 @@ class ImportUseCaseTest {
             assertEquals(120.seconds, restored.defaultRestDuration)
             assertEquals(45_000_000L, restored.barWeight)
             assertEquals(TrainingGoal.HYPERTROPHY, restored.trainingGoal)
+            assertEquals(FitnessLevel.ADVANCED, restored.fitnessLevel)
             assertEquals(OneRepMaxFormula.BRZYCKI, restored.oneRepMaxFormula)
             assertTrue(restored.onboardingCompleted)
             assertEquals(listOf(20_000_000L, 10_000_000L), restored.plateInventory?.stock?.map { it.weight })
@@ -163,6 +165,24 @@ class ImportUseCaseTest {
             importer().invoke(encode(document)).toList()
 
             assertNull(preferences.observe().first().plateInventory)
+        }
+
+    /**
+     * A v1 file from before #M7-11 has no `fitness_level` at all — not a null, an absent key.
+     * It is still a v1 file, and the rule in docs/export-schema.md is that a nullable addition
+     * does not bump the version: it restores as the device it was, one never asked the question.
+     */
+    @Test
+    fun `a document written before the fitness level existed imports as a beginner`() =
+        runTest {
+            preferences.setFitnessLevel(FitnessLevel.ADVANCED)
+            val older = text(sampleDocument()).replace(",\"fitness_level\":\"ADVANCED\"", "")
+            check("fitness_level" !in older) { "the key must be absent, not null, for this to be a v1 file" }
+
+            val outcome = importer().invoke(older.asSource()).toList()
+
+            assertTrue(outcome.last() is ImportProgress.Complete)
+            assertEquals(FitnessLevel.BEGINNER, preferences.observe().first().fitnessLevel)
         }
 
     @Test
@@ -357,6 +377,9 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) =
         record("setTrainingGoal") { delegate.setTrainingGoal(trainingGoal) }
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) =
+        record("setFitnessLevel") { delegate.setFitnessLevel(fitnessLevel) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         record("setOneRepMaxFormula") { delegate.setOneRepMaxFormula(formula) }

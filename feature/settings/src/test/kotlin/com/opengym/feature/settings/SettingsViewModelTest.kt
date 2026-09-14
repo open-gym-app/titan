@@ -2,6 +2,7 @@ package com.opengym.feature.settings
 
 import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -100,6 +101,7 @@ class SettingsViewModelTest {
             viewModel.onEvent(SettingsEvent.RestDurationSelected(240.seconds))
             viewModel.onEvent(SettingsEvent.BarWeightSelected(15_000_000))
             viewModel.onEvent(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY))
+            viewModel.onEvent(SettingsEvent.FitnessLevelSelected(FitnessLevel.ADVANCED))
             viewModel.onEvent(SettingsEvent.OneRepMaxFormulaSelected(OneRepMaxFormula.BRZYCKI))
 
             assertEquals(
@@ -109,6 +111,7 @@ class SettingsViewModelTest {
                     defaultRestDuration = 240.seconds,
                     barWeight = 15_000_000,
                     trainingGoal = TrainingGoal.HYPERTROPHY,
+                    fitnessLevel = FitnessLevel.ADVANCED,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                 ),
                 viewModel.uiState.value.preferences,

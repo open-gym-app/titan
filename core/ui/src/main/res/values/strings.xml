@@ -483,8 +483,8 @@
 
     <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
 
-    <!-- The three settings the user is asked about in more than one place: onboarding asks
-         for the goal and the units on first launch, and settings offers all three for the
+    <!-- The settings the user is asked about in more than one place: onboarding asks for the
+         goal, the level and the units on first launch, and settings offers them all for the
          rest of the app's life. The words live here, next to the labels for the domain's
          other enums, so the two screens cannot describe the same stored value differently. -->
 
@@ -506,6 +506,16 @@
     <string name="preference_goal_endurance_detail">High reps, short rests</string>
     <string name="preference_goal_custom">Custom</string>
     <string name="preference_goal_custom_detail">Your own programme</string>
+
+    <!-- The fitness level, in the user's terms: how long they have trained, never what they
+         can lift. `FitnessLevel`, not the exercise catalogue's `DifficultyLevel` — the two
+         nearly share their names and are about different things, see the enum. -->
+    <string name="preference_level_beginner">Beginner</string>
+    <string name="preference_level_beginner_detail">Under a year of training</string>
+    <string name="preference_level_intermediate">Intermediate</string>
+    <string name="preference_level_intermediate_detail">One to three years</string>
+    <string name="preference_level_advanced">Advanced</string>
+    <string name="preference_level_advanced_detail">More than three years</string>
 
     <string name="preference_one_rep_max_epley">Epley</string>
     <string name="preference_one_rep_max_epley_detail">Simple; overestimates at high reps</string>

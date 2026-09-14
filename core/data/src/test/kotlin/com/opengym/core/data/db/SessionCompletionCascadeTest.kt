@@ -17,6 +17,7 @@ import com.opengym.core.domain.gamification.Quests
 import com.opengym.core.domain.gamification.XpCalculator
 import com.opengym.core.domain.model.Collectible
 import com.opengym.core.domain.model.DropSource
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.Rarity
@@ -640,6 +641,8 @@ private object DefaultPreferences : UserPreferencesRepository {
     ) = readOnly()
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = readOnly()
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = readOnly()
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
 

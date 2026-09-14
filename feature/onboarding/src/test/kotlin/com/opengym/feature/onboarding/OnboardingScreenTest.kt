@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
@@ -39,7 +40,7 @@ class OnboardingScreenTest {
         setContent(OnboardingUiState())
 
         composeTestRule.onNodeWithText(WELCOME_TITLE).assertIsDisplayed()
-        composeTestRule.onNodeWithText(STEP_ONE_OF_FOUR).assertIsDisplayed()
+        composeTestRule.onNodeWithText(STEP_ONE_OF_FIVE).assertIsDisplayed()
         composeTestRule.onNodeWithText(CONTINUE).assertIsDisplayed()
         composeTestRule.onNodeWithText(SKIP).assertIsDisplayed()
     }
@@ -118,6 +119,32 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun `the level step shows the stored answer as the selected one`() {
+        setContent(
+            OnboardingUiState(
+                step = OnboardingStep.LEVEL,
+                preferences = UserPreferences(fitnessLevel = FitnessLevel.INTERMEDIATE),
+            ),
+        )
+
+        composeTestRule.onNodeWithText(LEVEL_TITLE).assertIsDisplayed()
+        composeTestRule.onNodeWithText(INTERMEDIATE).assertIsSelected()
+        composeTestRule.onNodeWithText(BEGINNER).assertIsNotSelected()
+        composeTestRule.onNodeWithText(ADVANCED).assertIsNotSelected()
+    }
+
+    @Test
+    fun `tapping a level reports the value it stands for`() {
+        setContent(OnboardingUiState(step = OnboardingStep.LEVEL))
+
+        // The last option sits below the fold on Robolectric's 470dp device, and a tap that
+        // lands off-screen is a tap on nothing — scrolled to first, as the recap rows are.
+        composeTestRule.onNodeWithText(ADVANCED).performScrollTo().performClick()
+
+        assertEquals(listOf(OnboardingEvent.FitnessLevelSelected(FitnessLevel.ADVANCED)), events)
+    }
+
+    @Test
     fun `tapping a unit system reports it`() {
         setContent(OnboardingUiState(step = OnboardingStep.UNITS))
 
@@ -134,6 +161,7 @@ class OnboardingScreenTest {
                 step = OnboardingStep.READY,
                 preferences = UserPreferences(
                     trainingGoal = TrainingGoal.HYPERTROPHY,
+                    fitnessLevel = FitnessLevel.ADVANCED,
                     unitSystem = UnitSystem.IMPERIAL,
                 ),
             ),
@@ -145,6 +173,9 @@ class OnboardingScreenTest {
         // asserted where they lie: Robolectric's device is 470dp tall, shorter than any phone
         // this ships on, and the step scrolls there like every other screen in the app.
         composeTestRule.onNodeWithContentDescription(RECAP_GOAL)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription(RECAP_LEVEL)
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(RECAP_UNITS)
@@ -179,7 +210,7 @@ class OnboardingScreenTest {
     private companion object {
         // The eyebrow uppercases in the composition's locale, so the counter and SKIP are
         // matched as they are drawn.
-        const val STEP_ONE_OF_FOUR = "STEP 1 OF 4"
+        const val STEP_ONE_OF_FIVE = "STEP 1 OF 5"
         const val SKIP = "SKIP"
         const val CONTINUE = "Continue"
         const val BACK = "Back"
@@ -187,15 +218,20 @@ class OnboardingScreenTest {
 
         const val WELCOME_TITLE = "Log the work. Watch it add up."
         const val GOAL_TITLE = "What are you training for?"
+        const val LEVEL_TITLE = "How long have you been training?"
         const val UNITS_TITLE = "Kilos or pounds?"
         const val READY_TITLE = "You are set."
 
         const val STRENGTH = "Strength"
         const val HYPERTROPHY = "Hypertrophy"
         const val ENDURANCE = "Endurance"
+        const val BEGINNER = "Beginner"
+        const val INTERMEDIATE = "Intermediate"
+        const val ADVANCED = "Advanced"
         const val IMPERIAL = "Imperial"
 
         const val RECAP_GOAL = "Training goal, Hypertrophy"
+        const val RECAP_LEVEL = "Fitness level, Advanced"
         const val RECAP_UNITS = "Units, Imperial"
     }
 }

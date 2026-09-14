@@ -74,8 +74,17 @@ data class UserPreferences(
      */
     val plateInventory: PlateInventory? = null,
 
-    /** What the user says they are training for. Recorded, not yet acted on — see [TrainingGoal]. */
+    /** What the user says they are training for — the rep range a next-load suggestion targets, see [TrainingGoal]. */
     val trainingGoal: TrainingGoal = TrainingGoal.STRENGTH,
+
+    /**
+     * How experienced a lifter the user says they are — how fast a next-load suggestion
+     * progresses, see [FitnessLevel].
+     *
+     * Defaults to the most cautious band, deliberately: a user who skipped the question gets
+     * suggestions that go up slowly rather than ones that assume three years under the bar.
+     */
+    val fitnessLevel: FitnessLevel = FitnessLevel.BEGINNER,
 
     /**
      * Which formula estimates a one-rep max from a set that was not one — see
@@ -89,8 +98,8 @@ data class UserPreferences(
      *
      * The flag that makes first launch route to onboarding *exactly once*: it is the
      * only durable record that the questions were asked, so nothing else — an empty
-     * session list, an unset [trainingGoal] — should be read as a proxy for it. A user
-     * who skips every question has still completed onboarding.
+     * session list, an unset [trainingGoal] or [fitnessLevel] — should be read as a proxy for
+     * it. A user who skips every question has still completed onboarding.
      */
     val onboardingCompleted: Boolean = false,
 

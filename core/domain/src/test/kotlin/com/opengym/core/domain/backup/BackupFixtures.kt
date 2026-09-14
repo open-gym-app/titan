@@ -270,6 +270,7 @@ fun samplePreferences(): PreferencesPayload =
             PlateStockPayload(weight = 20_000_000, pairs = 4),
             PlateStockPayload(weight = 10_000_000, pairs = 2),
         ),
+        fitnessLevel = "ADVANCED",
     )
 
 const val EXPORTED_AT: Long = 1_788_686_970_491L

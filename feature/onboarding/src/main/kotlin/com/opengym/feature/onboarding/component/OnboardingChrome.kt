@@ -34,7 +34,7 @@ import com.opengym.feature.onboarding.R
 /**
  * The flow's header: where you are, and the way past this question.
  *
- * `STEP 2 OF 4` on the left, `SKIP` on the right, the segmented rail under both — the
+ * `STEP 2 OF 5` on the left, `SKIP` on the right, the segmented rail under both — the
  * wireframes' treatment exactly. The counter is what a screen reader announces; the rail is
  * decorative and says so (see `StepProgress`), so the same fact is not read out twice.
  *

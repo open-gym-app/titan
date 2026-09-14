@@ -64,6 +64,33 @@ timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assump
 `preferences` is keyed by the **Preferences DataStore key names** for the same reason —
 `default_rest_duration_seconds`, not `defaultRestDuration`.
 
+### The `preferences` object
+
+| Key | Type | Absent from a file means |
+| --- | --- | --- |
+| `unit_system` | `UnitSystem` name | *required* |
+| `theme` | `ThemePreference` name | *required* |
+| `default_rest_duration_seconds` | int64 seconds | *required* |
+| `bar_weight_milligrams` | int64 milligrams | *required* |
+| `training_goal` | `TrainingGoal` name | *required* |
+| `one_rep_max_formula` | `OneRepMaxFormula` name | *required* |
+| `onboarding_completed` | bool | *required* |
+| `plate_inventory_milligrams` | array of `{weight_milligrams, pairs}`, or `null` | `null` — the user never chose a rack |
+| `fitness_level` | `FitnessLevel` name | `BEGINNER` — the file predates #M7-11 |
+
+*Required* is the decoder's word, not the importer's: a required key that is missing makes the
+document `MalformedJson`, where a value the build does not recognise degrades to the setting's
+default (see below). The last two are the keys that may be absent. `plate_inventory_milligrams`
+is written as an explicit `null` by this build and has been since the format's first version;
+`fitness_level` is written by every build from #M7-11 on and is simply not there in a file from
+before it. Both read back as the default the table gives, and neither bumped `schema_version`,
+per [the rule](#when-to-bump). A settings key added after this one takes the same shape:
+nullable in `PreferencesPayload`, defaulted on read, listed here.
+
+Not in the object: the notification switches and the reminder schedule. They are device state
+— a permission this phone was granted and alarms this phone has scheduled — and an import that
+wrote them would draw switches that are on with nothing behind them.
+
 ## What is in it, and what is not
 
 Every table in the schema is exported. Three of those choices have a defensible alternative and

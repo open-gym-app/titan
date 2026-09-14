@@ -2,6 +2,7 @@ package com.opengym.core.domain.backup
 
 import com.opengym.core.domain.backup.model.PlateStockPayload
 import com.opengym.core.domain.backup.model.PreferencesPayload
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -28,6 +29,7 @@ fun UserPreferences.toPayload(): PreferencesPayload =
         oneRepMaxFormula = oneRepMaxFormula.name,
         onboardingCompleted = onboardingCompleted,
         plateInventory = plateInventory?.stock?.map { PlateStockPayload(weight = it.weight, pairs = it.pairs) },
+        fitnessLevel = fitnessLevel.name,
     )
 
 /**
@@ -56,6 +58,9 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         barWeight = barWeight.takeIf { it > 0 } ?: UserPreferences.DEFAULT_BAR_WEIGHT,
         plateInventory = plateInventory?.toInventoryOrNull(),
         trainingGoal = trainingGoal.asEnumOr(TrainingGoal.STRENGTH),
+        // Null is a file from before the question existed, and it means the same thing an
+        // unrecognised name does: this user has never given an answer this build can use.
+        fitnessLevel = fitnessLevel?.asEnumOr(FitnessLevel.BEGINNER) ?: FitnessLevel.BEGINNER,
         oneRepMaxFormula = oneRepMaxFormula.asEnumOr(OneRepMaxFormula.EPLEY),
         onboardingCompleted = onboardingCompleted,
     )

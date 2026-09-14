@@ -275,8 +275,15 @@ Outside the schema for the same reason the drafts are, from the other direction.
 | `theme` | `ThemePreference` name | `SYSTEM` |
 | `default_rest_duration_seconds` | int64 seconds | 90 |
 | `bar_weight_milligrams` | int64 milligrams | 20 000 000 (a 20 kg Olympic bar) |
+| `plate_inventory_milligrams` | string, `<weight>x<pairs>` entries joined by `;` (`20000000x2;10000000x2`) | absent — the standard rack for `unit_system` |
 | `training_goal` | `TrainingGoal` name | `STRENGTH` |
+| `fitness_level` | `FitnessLevel` name | `BEGINNER` |
+| `one_rep_max_formula` | `OneRepMaxFormula` name | `EPLEY` |
 | `onboarding_completed` | bool | `false` |
+| `notifications_<kind>` | bool, one key per `NotificationKind` | `true` for `rest_timer`, `false` for the rest |
+| `notification_permission_requested` | bool | `false` |
+| `reminder_days_iso` | string, ISO day numbers comma-separated | `1,3,5` — Monday, Wednesday, Friday |
+| `reminder_time_minutes` | int32 minutes after midnight | 1080 — 18:00 |
 
 - **Preferences DataStore rather than Proto.** Proto would add the protobuf plugin, a `.proto` file and a generated-source directory for six scalars, and the typed document it buys is largely spent again: `UserPreferences` is declared in `:core:domain` where the storage layer cannot reach it, so a mapping step exists either way. Preferences also degrade *per key* where a serialized document is all-or-nothing, and `edit` over one key is a narrower write than `updateData` over a whole document - a new setter physically cannot clobber a sibling by forgetting to copy it through.
 - **Key names and enum names are a persisted format.** Renaming `unit_system`, or renaming `UnitSystem.METRIC`, silently resets that setting for every existing install. `UserPreferencesTest` pins the enum names for exactly this reason; the keys are string literals in one private object rather than derived from anything a refactor would rename.

@@ -27,6 +27,7 @@
     <string name="settings_bar_weight_detail">La barre à vide, avant les disques</string>
     <string name="settings_bar_weight_custom">Personnalisée</string>
     <string name="settings_training_goal">Objectif d’entraînement</string>
+    <string name="settings_fitness_level">Niveau d’entraînement</string>
     <string name="settings_one_rep_max_formula">Formule de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Comment le maximum estimé sur une répétition est calculé</string>
 

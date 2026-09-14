@@ -18,6 +18,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -75,6 +76,7 @@ class SettingsScreenTest {
                 defaultRestDuration = 150.seconds,
                 barWeight = 15_000_000,
                 trainingGoal = TrainingGoal.ENDURANCE,
+                fitnessLevel = FitnessLevel.INTERMEDIATE,
                 oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
             ),
         )
@@ -83,7 +85,7 @@ class SettingsScreenTest {
         // merely composed is not a row the user can read. By state, not by text: a picker row
         // announces its value as its `stateDescription` — "Dark, Theme, button" — and clears
         // the drawn value from the tree so it is not said twice. See `PreferenceRow`.
-        listOf("Dark", "Metric", "2:30", "15 kg", "Endurance", "Brzycki").forEach { value ->
+        listOf("Dark", "Metric", "2:30", "15 kg", "Endurance", "Intermediate", "Brzycki").forEach { value ->
             composeTestRule.onNode(hasStateDescription(value)).performScrollTo().assertIsDisplayed()
         }
     }
@@ -164,6 +166,15 @@ class SettingsScreenTest {
         composeTestRule.onNodeWithText("Hypertrophy").performClick()
 
         assertTrue(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY) in events)
+    }
+
+    @Test
+    fun `the fitness level picker reports a level`() {
+        setContent(dialog = SettingsDialog.FITNESS_LEVEL)
+
+        composeTestRule.onNodeWithText("Advanced").performClick()
+
+        assertTrue(SettingsEvent.FitnessLevelSelected(FitnessLevel.ADVANCED) in events)
     }
 
     @Test

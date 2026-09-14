@@ -52,6 +52,13 @@ class UserPreferencesTest {
     }
 
     @Test
+    fun `a fresh install is a beginner`() {
+        // The most cautious band: somebody who skipped the question gets suggestions that go
+        // up slowly rather than ones that assume years under the bar.
+        assertEquals(FitnessLevel.BEGINNER, UserPreferences().fitnessLevel)
+    }
+
+    @Test
     fun `a rest duration of zero or less is refused`() {
         assertThrows(IllegalArgumentException::class.java) {
             UserPreferences(defaultRestDuration = Duration.ZERO)
@@ -156,5 +163,6 @@ class UserPreferencesTest {
             listOf("STRENGTH", "HYPERTROPHY", "ENDURANCE", "CUSTOM"),
             TrainingGoal.entries.map { it.name },
         )
+        assertEquals(listOf("BEGINNER", "INTERMEDIATE", "ADVANCED"), FitnessLevel.entries.map { it.name })
     }
 }

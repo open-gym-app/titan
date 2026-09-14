@@ -1,5 +1,6 @@
 package com.opengym.core.domain.repository
 
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -136,11 +137,20 @@ interface UserPreferencesRepository {
     )
 
     /**
-     * Sets the training goal. Recorded only; nothing reads it in v1.
+     * Sets the training goal — the rep range the next-load engine targets, see
+     * [com.opengym.core.domain.model.TrainingGoal].
      *
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setTrainingGoal(trainingGoal: TrainingGoal)
+
+    /**
+     * Sets the fitness level — how fast the next-load engine progresses, see
+     * [com.opengym.core.domain.model.FitnessLevel].
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setFitnessLevel(fitnessLevel: FitnessLevel)
 
     /**
      * Sets which formula estimates a one-rep max from a set that was not one.

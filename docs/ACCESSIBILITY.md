@@ -192,7 +192,7 @@ The inventory is every destination in the navigation graph — all twenty:
 
 | Slice | Screens |
 | --- | --- |
-| Onboarding | Onboarding (4 steps) |
+| Onboarding | Onboarding (5 steps) |
 | Home | Home |
 | History | Sessions, Template editor, Exercise library, Exercise detail, Plate calculator, Exercise picker |
 | Session | New session, Active session, Session summary |

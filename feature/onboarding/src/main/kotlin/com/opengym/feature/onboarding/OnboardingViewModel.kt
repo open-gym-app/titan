@@ -3,6 +3,7 @@ package com.opengym.feature.onboarding
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
@@ -50,7 +51,7 @@ import kotlin.time.Duration.Companion.seconds
  * Every setter can throw [java.io.IOException]. A failed *answer* is worth saying out loud and
  * nothing more — the step still advances, and the preference is still the default it would
  * have been. A failed *completion* stops the flow where it stands: navigating to Home without
- * `onboardingCompleted` on disk means the next launch asks all four questions again, which is
+ * `onboardingCompleted` on disk means the next launch asks all five questions again, which is
  * worse than a snackbar and a second press of the same button.
  *
  * Both catch [Throwable] rather than a type, because the store is not the only thing that can
@@ -107,6 +108,10 @@ class OnboardingViewModel @Inject constructor(
                 userPreferencesRepository.setTrainingGoal(event.goal)
             }
 
+            is OnboardingEvent.FitnessLevelSelected -> answer {
+                userPreferencesRepository.setFitnessLevel(event.level)
+            }
+
             is OnboardingEvent.UnitSystemSelected -> answer {
                 userPreferencesRepository.setUnitSystem(event.unitSystem)
             }
@@ -119,7 +124,7 @@ class OnboardingViewModel @Inject constructor(
      * Move on with the answer as it stands — or finish, on the last step.
      *
      * The primary action does both because it is one action to the user: the button says
-     * `Continue` three times and then says `Start training`, and there is nothing behind that
+     * `Continue` four times and then says `Start training`, and there is nothing behind that
      * difference except which step is showing.
      */
     private fun advance() {
@@ -138,6 +143,10 @@ class OnboardingViewModel @Inject constructor(
 
             OnboardingStep.GOAL -> answer {
                 userPreferencesRepository.setTrainingGoal(DEFAULT_TRAINING_GOAL)
+            }
+
+            OnboardingStep.LEVEL -> answer {
+                userPreferencesRepository.setFitnessLevel(DEFAULT_FITNESS_LEVEL)
             }
 
             OnboardingStep.UNITS -> answer {
@@ -235,6 +244,13 @@ class OnboardingViewModel @Inject constructor(
          * is the *same* default a fresh install already reads and the two cannot drift apart.
          */
         val DEFAULT_TRAINING_GOAL: TrainingGoal = UserPreferences().trainingGoal
+
+        /**
+         * What skipping the level question stores. Same argument as above — and here the
+         * default is also the safe answer: a beginner is progressed most cautiously, which is
+         * what somebody who did not want to say should get.
+         */
+        val DEFAULT_FITNESS_LEVEL: FitnessLevel = UserPreferences().fitnessLevel
 
         /** What skipping the units question stores. Same argument as above. */
         val DEFAULT_UNIT_SYSTEM: UnitSystem = UserPreferences().unitSystem

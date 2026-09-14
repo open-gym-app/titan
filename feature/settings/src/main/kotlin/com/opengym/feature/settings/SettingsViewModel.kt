@@ -3,6 +3,7 @@ package com.opengym.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -128,6 +129,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.RestDurationSelected -> setRestDuration(event.duration)
             is SettingsEvent.BarWeightSelected -> setBarWeight(event.milligrams)
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event.goal)
+            is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
             is SettingsEvent.Notification -> onNotificationEvent(event)
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
@@ -167,6 +169,9 @@ class SettingsViewModel @Inject constructor(
 
     private fun setTrainingGoal(goal: TrainingGoal) =
         writeAndDismiss { userPreferencesRepository.setTrainingGoal(goal) }
+
+    private fun setFitnessLevel(level: FitnessLevel) =
+        writeAndDismiss { userPreferencesRepository.setFitnessLevel(level) }
 
     private fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         writeAndDismiss { userPreferencesRepository.setOneRepMaxFormula(formula) }

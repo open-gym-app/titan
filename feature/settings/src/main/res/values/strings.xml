@@ -27,6 +27,7 @@
     <string name="settings_bar_weight_detail">The empty bar, before plates</string>
     <string name="settings_bar_weight_custom">Custom</string>
     <string name="settings_training_goal">Training goal</string>
+    <string name="settings_fitness_level">Fitness level</string>
     <string name="settings_one_rep_max_formula">1RM formula</string>
     <string name="settings_one_rep_max_formula_detail">How an estimated one-rep max is calculated</string>
 

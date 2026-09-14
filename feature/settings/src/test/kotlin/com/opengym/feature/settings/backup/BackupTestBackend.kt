@@ -10,6 +10,7 @@ import com.opengym.core.domain.backup.model.WorkoutSessionRow
 import com.opengym.core.domain.backup.toPayload
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateDraft
@@ -182,6 +183,8 @@ class InMemoryUserPreferences : UserPreferencesRepository {
     ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 

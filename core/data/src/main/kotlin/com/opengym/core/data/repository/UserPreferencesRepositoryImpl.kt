@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.data.di.UserPreferencesStore
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -211,6 +212,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.TRAINING_GOAL] = trainingGoal.name }
     }
 
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) {
+        dataStore.edit { it[UserPreferencesKeys.FITNESS_LEVEL] = fitnessLevel.name }
+    }
+
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) {
         dataStore.edit { it[UserPreferencesKeys.ONE_REP_MAX_FORMULA] = formula.name }
     }
@@ -315,7 +320,7 @@ class UserPreferencesRepositoryImpl @Inject constructor(
  *
  * The names are a persisted format: renaming one silently resets that setting for every
  * existing install, which is why they are string literals here rather than derived from a
- * property or an enum that a refactor would happily rename. The *values* of the three
+ * property or an enum that a refactor would happily rename. The *values* of the
  * enum-typed keys are persisted by `name` for the same reason, and
  * [com.opengym.core.domain.model.UserPreferences]' own test pins those names.
  *
@@ -329,6 +334,7 @@ private object UserPreferencesKeys {
     val BAR_WEIGHT = longPreferencesKey("bar_weight_milligrams")
     val PLATE_INVENTORY = stringPreferencesKey("plate_inventory_milligrams")
     val TRAINING_GOAL = stringPreferencesKey("training_goal")
+    val FITNESS_LEVEL = stringPreferencesKey("fitness_level")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
@@ -387,6 +393,7 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
         barWeight = values.valueOrNull(UserPreferencesKeys.BAR_WEIGHT)?.takeIf { it > 0 } ?: defaults.barWeight,
         plateInventory = values.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
         trainingGoal = values.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
+        fitnessLevel = values.valueOrNull(UserPreferencesKeys.FITNESS_LEVEL).toEnumOrDefault(defaults.fitnessLevel),
         onboardingCompleted = values.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
             ?: defaults.onboardingCompleted,
         oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)

@@ -60,6 +60,7 @@ enum class SettingsDialog {
     REST_DURATION,
     BAR_WEIGHT,
     TRAINING_GOAL,
+    FITNESS_LEVEL,
     ONE_REP_MAX_FORMULA,
 
     /** The destructive one. See `DeleteAllDataDialog` for why it is not a plain confirm. */
