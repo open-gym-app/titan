@@ -9,7 +9,7 @@ It does not list build or runtime-only dependencies (Room, Compose, Hilt, kotlin
 
 The seeded exercise library (names, muscles, equipment and instructions in `core/data/src/main/assets/seed/exercises.sql`) is derived from [yuhonas/free-exercise-db](https://github.com/yuhonas/free-exercise-db), pinned at the commit recorded in `tools/seed/source.lock`.
 
-- **Licence:** [Unlicense](https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE): public domain. No attribution is legally required; it is credited here anyway, because the data is not ours.
+- **Licence:** [Unlicense](https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE.md): public domain. No attribution is legally required; it is credited here anyway, because the data is not ours.
 
 ## Exercise images
 
