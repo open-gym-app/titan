@@ -60,7 +60,7 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         trainingGoal = trainingGoal.asEnumOr(TrainingGoal.STRENGTH),
         // Null is a file from before the question existed, and it means the same thing an
         // unrecognised name does: this user has never given an answer this build can use.
-        fitnessLevel = fitnessLevel?.asEnumOr(FitnessLevel.BEGINNER) ?: FitnessLevel.BEGINNER,
+        fitnessLevel = fitnessLevel.asEnumOr(FitnessLevel.BEGINNER),
         oneRepMaxFormula = oneRepMaxFormula.asEnumOr(OneRepMaxFormula.EPLEY),
         onboardingCompleted = onboardingCompleted,
     )
@@ -96,8 +96,14 @@ private fun List<PlateStockPayload>.toInventoryOrNull(): PlateInventory? =
 private fun Long.asRestDurationOrNull(): Duration? =
     takeIf { it >= MIN_REST_SECONDS }?.seconds?.takeIf { it.isFinite() }
 
-/** The constant of [T] named by this string, or [fallback] when this build has no such constant. */
-private inline fun <reified T : Enum<T>> String.asEnumOr(fallback: T): T =
+/**
+ * The constant of [T] named by this string, or [fallback] when this build has no such constant.
+ *
+ * Nullable on purpose: a key that arrived after the first documents were written is absent
+ * from older files, and absent means the same thing an unrecognised name does. One fallback
+ * for both keeps the two answers from ever drifting apart.
+ */
+private inline fun <reified T : Enum<T>> String?.asEnumOr(fallback: T): T =
     enumValues<T>().firstOrNull { it.name == this } ?: fallback
 
 /**
