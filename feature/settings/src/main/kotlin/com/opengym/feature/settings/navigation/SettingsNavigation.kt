@@ -9,6 +9,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.composable
 import com.opengym.feature.settings.SettingsRoute
 import com.opengym.feature.settings.backup.BackupRoute
+import com.opengym.feature.settings.licences.OpenSourceLicencesRoute
 import com.opengym.feature.settings.reminder.ReminderRoute
 import kotlinx.serialization.Serializable
 
@@ -45,16 +46,28 @@ data object BackupDestination
 data object ReminderDestination
 
 /**
+ * The runtime dependency graph and its licences (#208), one push above settings.
+ *
+ * Its own destination for the same reason [BackupDestination] is: reachable only from a
+ * settings row, and a module of its own would buy nothing beyond a build file and a
+ * `checkArchitecture` entry.
+ */
+@Serializable
+data object OpenSourceLicencesDestination
+
+/**
  * @param appVersion the running build's version name, from `:app`. A feature module's own
  *   `BuildConfig` carries the library's version, which is not the number a user is being asked
  *   to quote in a bug report — nor the one an export should stamp into its envelope.
  * @param onBack leave the current screen. Hoisted like every other navigation action: the
- *   `NavController` belongs to `:app`. It serves all three destinations, since every one of
+ *   `NavController` belongs to `:app`. It serves all four destinations, since every one of
  *   them is one pop from where the user came from.
  * @param onOpenBackup open [BackupDestination]. Hoisted even though it stays inside this
  *   module, for the reason `progressionDetailGraph` hoists its own intra-slice push: the
  *   controller is `:app`'s, and a feature that navigated itself would need one of its own.
  * @param onOpenReminders open [ReminderDestination]. Hoisted for the same reason as
+ *   [onOpenBackup]: the controller is `:app`'s.
+ * @param onOpenLicences open [OpenSourceLicencesDestination]. Hoisted for the same reason as
  *   [onOpenBackup]: the controller is `:app`'s.
  */
 fun NavGraphBuilder.settingsGraph(
@@ -62,6 +75,7 @@ fun NavGraphBuilder.settingsGraph(
     onBack: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenReminders: () -> Unit,
+    onOpenLicences: () -> Unit,
 ) {
     composable<SettingsDestination> {
         SettingsRoute(
@@ -69,6 +83,7 @@ fun NavGraphBuilder.settingsGraph(
             onBack = onBack,
             onOpenBackup = onOpenBackup,
             onOpenReminders = onOpenReminders,
+            onOpenLicences = onOpenLicences,
         )
     }
     composable<BackupDestination> {
@@ -76,5 +91,8 @@ fun NavGraphBuilder.settingsGraph(
     }
     composable<ReminderDestination> {
         ReminderRoute(onBack = onBack)
+    }
+    composable<OpenSourceLicencesDestination> {
+        OpenSourceLicencesRoute(onBack = onBack)
     }
 }

@@ -67,6 +67,8 @@
     <string name="settings_version">Version</string>
     <string name="settings_github">Open source · GitHub</string>
     <string name="settings_github_detail">Read the code, file an issue</string>
+    <string name="settings_licences">Open source licences</string>
+    <string name="settings_licences_detail">Every library this app is built on, and its licence</string>
     <string name="settings_donate">Donate</string>
     <string name="settings_footer">No account. No cloud. Everything stays on this phone.</string>
 

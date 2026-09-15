@@ -55,6 +55,7 @@ import com.opengym.feature.session.navigation.SessionSummaryDestination
 import com.opengym.feature.session.navigation.sessionGraph
 import com.opengym.feature.session.navigation.sessionSummaryGraph
 import com.opengym.feature.settings.navigation.BackupDestination
+import com.opengym.feature.settings.navigation.OpenSourceLicencesDestination
 import com.opengym.feature.settings.navigation.ReminderDestination
 import com.opengym.feature.settings.navigation.settingsGraph
 
@@ -470,6 +471,11 @@ fun OpenGymNavHost(
             // same reason as the row above it.
             onOpenReminders = {
                 navController.navigate(ReminderDestination) { launchSingleTop = true }
+            },
+            // A push over settings, which is itself outside the tabs, and single-top for the
+            // same reason as the row above it.
+            onOpenLicences = {
+                navController.navigate(OpenSourceLicencesDestination) { launchSingleTop = true }
             },
         )
     }

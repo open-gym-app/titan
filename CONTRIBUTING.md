@@ -1,5 +1,10 @@
 # Contributing
 
+## Licence
+
+OpenGym is licensed under the [GNU General Public License v3.0](LICENSE). By submitting a
+pull request, you agree that your contribution is provided under the same licence.
+
 ## Branch naming
 
 ```text
@@ -24,7 +29,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/).
 ```
 
 | Type | When to use |
-|------|-------------|
+| ------ | ------------- |
 | `feat` | New feature |
 | `fix` | Bug fix |
 | `refactor` | Code change that is neither a feature nor a fix |
@@ -44,7 +49,7 @@ The description must be lowercase and must not end with a period.
 ### Classes
 
 | Construct | Pattern | Example |
-|---|---|---|
+| --- | --- | --- |
 | Entity | `<Noun>` | `Session`, `Exercise`, `WorkoutSet` |
 | Repository interface | `<Noun>Repository` | `SessionRepository` |
 | Repository implementation | `<Noun>RepositoryImpl` | `SessionRepositoryImpl` |
@@ -332,6 +337,7 @@ Text(
 
 `core/ui/src/test/.../format/FormatCatalog.kt` renders every formatter in both unit systems;
 open its previews rather than guessing what a weight or a rest looks like.
+
 - **Every number the user reads is a numeric role.** Weights, reps, durations, dates,
   counts — mono, with tabular figures, so a running timer does not shift the layout.
 - The accent (`colorScheme.primary`) marks *the thing that matters right now* — a PR, the
