@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.milligramsPerUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
@@ -82,6 +83,23 @@ class PlateInventoryTest {
         assertEquals(listOf(kg(20.0), kg(10.0)), inventory.available.map { it.weight })
         // The switched-off size stays in the rack, so the editor still has a row to turn back on.
         assertEquals(3, inventory.stock.size)
+    }
+
+    @Test
+    fun `the step is a pair of the smallest plate the user actually has`() {
+        // 2.5 kg on the metric default, 5 lb on the imperial one — the change plates, doubled.
+        assertEquals(kg(2.5), PlateInventory.METRIC.loadStep)
+        assertEquals(2 * lb(2.5), PlateInventory.IMPERIAL.loadStep)
+
+        // A size switched off is not a step the user can take.
+        val noChangePlates = PlateInventory.METRIC.withPairs(kg(1.25), pairs = 0)
+        assertEquals(kg(5.0), noChangePlates.loadStep)
+    }
+
+    @Test
+    fun `a rack with nothing to load has no step`() {
+        assertNull(PlateInventory(emptyList()).loadStep)
+        assertNull(rackOf(kg(20.0) to 0).loadStep)
     }
 
     @Test

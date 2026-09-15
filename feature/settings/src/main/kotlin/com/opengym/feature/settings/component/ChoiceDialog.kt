@@ -81,8 +81,15 @@ fun <T> ChoiceDialog(
     )
 }
 
+/**
+ * One option of a [ChoiceDialog]: a radio and its label, the whole row a single target.
+ *
+ * Internal rather than private so `TrainingGoalDialog` — a choice dialog with fields under
+ * one of its choices — draws its options as this dialog draws them, rather than as a copy
+ * that stops matching the first time the padding here changes.
+ */
 @Composable
-private fun <T> ChoiceRow(
+internal fun <T> ChoiceRow(
     choice: SettingsChoice<T>,
     isSelected: Boolean,
     onSelect: () -> Unit,

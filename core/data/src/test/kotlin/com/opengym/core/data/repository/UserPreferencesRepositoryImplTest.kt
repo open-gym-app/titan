@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -121,6 +122,15 @@ class UserPreferencesRepositoryImplTest {
 
             repository.setFitnessLevel(FitnessLevel.INTERMEDIATE)
             assertEquals(FitnessLevel.INTERMEDIATE, repository.observe().first().fitnessLevel)
+
+            repository.setCustomRepRange(RepRange(6, 10))
+            assertEquals(RepRange(6, 10), repository.observe().first().customRepRange)
+
+            repository.setCustomIncrement(1_250_000)
+            assertEquals(1_250_000L, repository.observe().first().customIncrement)
+
+            repository.setCustomIncrement(null)
+            assertNull(repository.observe().first().customIncrement)
 
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             assertEquals(OneRepMaxFormula.BRZYCKI, repository.observe().first().oneRepMaxFormula)
@@ -251,6 +261,8 @@ class UserPreferencesRepositoryImplTest {
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
             repository.setFitnessLevel(FitnessLevel.ADVANCED)
+            repository.setCustomRepRange(RepRange(6, 10))
+            repository.setCustomIncrement(1_250_000)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
             repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
@@ -270,6 +282,8 @@ class UserPreferencesRepositoryImplTest {
                     plateInventory = HOME_RACK,
                     trainingGoal = TrainingGoal.CUSTOM,
                     fitnessLevel = FitnessLevel.ADVANCED,
+                    customRepRange = RepRange(6, 10),
+                    customIncrement = 1_250_000,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                     onboardingCompleted = true,
                     notifications = NotificationPreferences(
@@ -307,6 +321,8 @@ class UserPreferencesRepositoryImplTest {
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
             repository.setFitnessLevel(FitnessLevel.ADVANCED)
+            repository.setCustomRepRange(RepRange(6, 10))
+            repository.setCustomIncrement(1_250_000)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
             repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
@@ -356,6 +372,36 @@ class UserPreferencesRepositoryImplTest {
             store.edit { it[stringPreferencesKey("one_rep_max_formula")] = "LOMBARDI" }
 
             assertEquals(OneRepMaxFormula.EPLEY, repository.observe().first().oneRepMaxFormula)
+        }
+
+    @Test
+    fun `a custom range with one end missing, or ends the wrong way round, falls back`() =
+        withRawStore { repository, store ->
+            store.edit { it[intPreferencesKey("custom_rep_range_min")] = 6 }
+            assertEquals(RepRange.DEFAULT_CUSTOM, repository.observe().first().customRepRange)
+
+            store.edit {
+                it[intPreferencesKey("custom_rep_range_min")] = 12
+                it[intPreferencesKey("custom_rep_range_max")] = 8
+            }
+            // The model throws on `12..8`; the store must not, since this runs inside a flow
+            // every screen collects.
+            assertEquals(RepRange.DEFAULT_CUSTOM, repository.observe().first().customRepRange)
+        }
+
+    @Test
+    fun `a stored custom increment of nothing reads as unset`() =
+        withRawStore { repository, store ->
+            store.edit { it[longPreferencesKey("custom_increment_milligrams")] = 0L }
+            assertNull(repository.observe().first().customIncrement)
+        }
+
+    @Test
+    fun `a custom increment of nothing is refused by the setter`() =
+        withStore { repository ->
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setCustomIncrement(0) }
+            }
         }
 
     @Test

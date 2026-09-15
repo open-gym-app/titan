@@ -10,11 +10,13 @@ import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
@@ -286,6 +288,10 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
 
     override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
 
+    override suspend fun setCustomRepRange(range: RepRange) = write { it.copy(customRepRange = range) }
+
+    override suspend fun setCustomIncrement(milligrams: Long?) = write { it.copy(customIncrement = milligrams) }
+
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
@@ -445,6 +451,11 @@ class FakeVolumeStore(weeks: List<WeeklyVolume> = emptyList()) : ProgressionRepo
 
     override fun countExerciseSets(exerciseId: Long): Flow<Int> = unsupported()
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unsupported()
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>> = unsupported()
 
     private fun unsupported(): Nothing = throw UnsupportedOperationException("home reads volume by week")
 }
@@ -508,6 +519,12 @@ class FakeQuestAggregates : ProgressionRepository {
     override fun countExerciseSets(exerciseId: Long): Flow<Int> = unused()
 
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unused()
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>> = unused()
 
     private fun unused(): Nothing = error("the quest board does not read this")
 }

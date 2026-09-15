@@ -5,6 +5,7 @@ import com.opengym.core.data.db.exercise
 import com.opengym.core.data.db.session
 import com.opengym.core.data.db.sessionExercise
 import com.opengym.core.data.db.workoutSet
+import com.opengym.core.data.mapper.WorkoutSetMapper
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
 import kotlinx.coroutines.flow.first
@@ -41,7 +42,11 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
     }
 
     private val repository by lazy {
-        ProgressionRepositoryImpl(setDao = db.workoutSetDao(), sessionDao = db.workoutSessionDao())
+        ProgressionRepositoryImpl(
+            setDao = db.workoutSetDao(),
+            sessionDao = db.workoutSessionDao(),
+            setMapper = WorkoutSetMapper(),
+        )
     }
 
     @Test
@@ -166,6 +171,39 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
                 repository.getTrainedExercises().first().map { it.exerciseId },
             )
             assertEquals(2, repository.getTrainedExercises().first().single().sets)
+        }
+
+    @Test
+    fun `recent performances come back grouped by slot, newest first, sets in order`() =
+        runBlocking {
+            val older = workoutOn(WEEK_1)
+            logSet(older, 1, at(WEEK_1), reps = 5, weight = kg(80))
+            logSet(older, 2, at(WEEK_1), reps = 5, weight = kg(80))
+            val newer = workoutOn(WEEK_2)
+            logSet(newer, 1, at(WEEK_2), reps = 6, weight = kg(82))
+            logSet(newer, 2, at(WEEK_2), reps = 4, weight = kg(82))
+            logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 3, weight = kg(85))
+
+            val performances = repository
+                .getRecentPerformances(sharedExercise!!, excludingSessionId = -1L, limit = 2)
+                .first()
+
+            // The DAO's ordering is the grouping: one performance per slot, the newest first,
+            // and each one's sets in the order they were done — nothing re-sorted here.
+            assertEquals(listOf(listOf(3), listOf(6, 4)), performances.map { it.sets.map { set -> set.reps } })
+            assertEquals(listOf(kg(85), kg(82)), performances.map { it.sets.first().weight })
+        }
+
+    @Test
+    fun `an exercise never performed has no recent performances`() =
+        runBlocking {
+            assertTrue(
+                repository.getRecentPerformances(
+                    exerciseId = 404L,
+                    excludingSessionId = -1L,
+                    limit = 2,
+                ).first().isEmpty(),
+            )
         }
 
     private var sharedExercise: Long? = null

@@ -2,6 +2,7 @@ package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
@@ -12,13 +13,15 @@ import java.time.LocalDate
 /**
  * The pre-aggregated history the progression screens are built on.
  *
- * Separate from [SessionRepository], which stores the session aggregate, because nothing
- * here reads a row: every method is a roll-up whose result is one entry per **week**,
- * however many sets or sessions went into it. That is the whole contract —
- * *implementations must aggregate in the database* — and it is what lets a chart cover
+ * Separate from [SessionRepository], which stores the session aggregate, because almost
+ * nothing here reads a row: every method but two is a roll-up whose result is one
+ * entry per **week**, however many sets or sessions went into it. That is the whole contract
+ * — *implementations must aggregate in the database* — and it is what lets a chart cover
  * three years of training without any of it reaching `:core:domain`. A repository that
  * satisfied these by loading history and summing in Kotlin would be correct and would also
- * defeat the point; see `WorkoutSetDao.getVolumeByWeek` for the query shape.
+ * defeat the point; see `WorkoutSetDao.getVolumeByWeek` for the query shape. The exceptions,
+ * [getExerciseAttempts] and [getRecentPerformances], each say why they are one, and both are
+ * bounded — by a period, and by a count — so neither grows with the history behind it.
  *
  * ### Weeks, and what a period means
  *
@@ -181,6 +184,39 @@ interface ProgressionRepository {
         exerciseId: Long,
         days: ClosedRange<LocalDate>,
     ): Flow<List<ExerciseAttempt>>
+
+    /**
+     * The [limit] most recent times [exerciseId] was performed, **newest first**, each as its
+     * working sets in set order — excluding anything logged in [excludingSessionId].
+     *
+     * The next-load engine's reading of history (#M7-15), and the second exception here to
+     * "one entry per week": the rule it feeds asks whether *every* set of a performance reached
+     * the top of the range, which no roll-up can answer, so this is the one method that returns
+     * rows. It is bounded by [limit] — two, in practice — so it stays a read of a handful of
+     * rows however long the user's history is; implementations must apply the limit in the
+     * query, not on a list.
+     *
+     * ### The same "last time" as the `PREV` column
+     *
+     * A performance is a `session_exercise` **slot** rather than a session, chosen and filtered
+     * exactly as [SessionRepository.getPreviousSets] chooses it: the newest slots by their
+     * session's creation, warm-ups out, only completed sets, and only slots that have at least
+     * one qualifying set. The suggestion this feeds is drawn beside that column, and the two
+     * have to be readings of the same performance or the screen argues with itself. The first
+     * entry here *is* what that column shows for the exercise.
+     *
+     * Unlike [getExerciseAttempts], the session need not be finished: the exclusion by id is
+     * what keeps the session being logged out, and a workout the user paused and never closed
+     * is still the last time they did the lift.
+     *
+     * An exercise never performed — or performed only as warm-ups — returns an empty list,
+     * which the engine reads as "nothing to say".
+     */
+    fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>>
 
     /**
      * How many working sets of [exerciseId] the user has ever completed.

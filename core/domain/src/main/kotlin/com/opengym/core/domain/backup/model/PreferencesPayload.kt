@@ -29,8 +29,9 @@ import kotlinx.serialization.Serializable
  * [fitnessLevel] arrived after the first documents were written (#M7-11), so it defaults to
  * null and a file without it reads back as the setting's default. That is docs/export-schema.md's
  * rule for a nullable addition — the older file restores into exactly what it held, which is a
- * device that had never been asked — and it is why `schema_version` stayed at 1. Every key
- * added from here on takes the same shape.
+ * device that had never been asked — and it is why `schema_version` stayed at 1. The CUSTOM
+ * goal's rep range and increment (#M7-15) followed the same shape, and every key added from
+ * here on takes it.
  *
  * ### Units are canonical
  *
@@ -61,6 +62,23 @@ data class PreferencesPayload(
      * order and a key that may be absent belongs after the ones that never are.
      */
     @SerialName("fitness_level") val fitnessLevel: String? = null,
+    /**
+     * The bottom and top of the rep range the CUSTOM goal targets, or **null** in a file from
+     * before the setting existed (#M7-15) — which reads back as the default range. Two keys
+     * rather than one `"6-10"` string, because two integers need no parser and cannot be
+     * half-valid; held under the store's `custom_rep_range_min` and `custom_rep_range_max`.
+     * A file holding one without the other, or a range that ends before it starts, reads back
+     * as the default too.
+     */
+    @SerialName("custom_rep_range_min") val customRepRangeMin: Int? = null,
+    @SerialName("custom_rep_range_max") val customRepRangeMax: Int? = null,
+    /**
+     * The weight the CUSTOM goal adds between sessions, in milligrams, or **null** — which is
+     * a value rather than a gap, as it is for [plateInventory]: null means "the rack's own
+     * smallest step", so it restores as null and not as a copy of whatever that step was on
+     * the exporting device. Held under the store's `custom_increment_milligrams` key.
+     */
+    @SerialName("custom_increment_milligrams") val customIncrement: Long? = null,
 )
 
 /** One denomination of [PreferencesPayload.plateInventory]: a plate weight in milligrams, and how many pairs of it. */

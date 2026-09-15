@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.opengym.core.data.di.UserPreferencesStore
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -216,6 +217,31 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.FITNESS_LEVEL] = fitnessLevel.name }
     }
 
+    /**
+     * Both ends in one `edit`, so no reader ever sees a range with one end moved and the other
+     * not — which [toUserPreferences] would have to reject and fall back from, flashing the
+     * default range through a screen between two halves of a write.
+     */
+    override suspend fun setCustomRepRange(range: RepRange) {
+        dataStore.edit {
+            it[UserPreferencesKeys.CUSTOM_REP_RANGE_MIN] = range.min
+            it[UserPreferencesKeys.CUSTOM_REP_RANGE_MAX] = range.max
+        }
+    }
+
+    override suspend fun setCustomIncrement(milligrams: Long?) {
+        require(milligrams == null || milligrams > 0) {
+            "the custom increment must be positive or absent, was $milligrams mg"
+        }
+        dataStore.edit {
+            if (milligrams == null) {
+                it.remove(UserPreferencesKeys.CUSTOM_INCREMENT)
+            } else {
+                it[UserPreferencesKeys.CUSTOM_INCREMENT] = milligrams
+            }
+        }
+    }
+
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) {
         dataStore.edit { it[UserPreferencesKeys.ONE_REP_MAX_FORMULA] = formula.name }
     }
@@ -335,6 +361,9 @@ private object UserPreferencesKeys {
     val PLATE_INVENTORY = stringPreferencesKey("plate_inventory_milligrams")
     val TRAINING_GOAL = stringPreferencesKey("training_goal")
     val FITNESS_LEVEL = stringPreferencesKey("fitness_level")
+    val CUSTOM_REP_RANGE_MIN = intPreferencesKey("custom_rep_range_min")
+    val CUSTOM_REP_RANGE_MAX = intPreferencesKey("custom_rep_range_max")
+    val CUSTOM_INCREMENT = longPreferencesKey("custom_increment_milligrams")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
@@ -394,6 +423,11 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
         plateInventory = values.valueOrNull(UserPreferencesKeys.PLATE_INVENTORY)?.toPlateInventoryOrNull(),
         trainingGoal = values.valueOrNull(UserPreferencesKeys.TRAINING_GOAL).toEnumOrDefault(defaults.trainingGoal),
         fitnessLevel = values.valueOrNull(UserPreferencesKeys.FITNESS_LEVEL).toEnumOrDefault(defaults.fitnessLevel),
+        customRepRange = repRangeOrNull(
+            min = values.valueOrNull(UserPreferencesKeys.CUSTOM_REP_RANGE_MIN),
+            max = values.valueOrNull(UserPreferencesKeys.CUSTOM_REP_RANGE_MAX),
+        ) ?: defaults.customRepRange,
+        customIncrement = values.valueOrNull(UserPreferencesKeys.CUSTOM_INCREMENT)?.takeIf { it > 0 },
         onboardingCompleted = values.valueOrNull(UserPreferencesKeys.ONBOARDING_COMPLETED)
             ?: defaults.onboardingCompleted,
         oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
@@ -419,6 +453,25 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
  */
 private inline fun <reified T : Any> Map<Preferences.Key<*>, Any>.valueOrNull(key: Preferences.Key<T>): T? =
     this[key] as? T
+
+/**
+ * The range these two stored ends describe, or **null** when they do not describe one: either
+ * end missing, or a pair [RepRange] refuses — `10..6`, or a bound outside what it admits. The
+ * model throws on those, and a throw here is a throw inside a flow every screen collects, so
+ * the store's rule of falling back to the default is applied before the constructor sees them.
+ */
+private fun repRangeOrNull(
+    min: Int?,
+    max: Int?,
+): RepRange? {
+    min ?: return null
+    max ?: return null
+    return try {
+        RepRange(min = min, max = max)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
 
 /**
  * The notification flags, one key at a time, defaulting per kind.

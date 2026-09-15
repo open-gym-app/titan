@@ -10,10 +10,12 @@ import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.RecordTally
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainedExercise
@@ -110,6 +112,12 @@ class FakeExerciseProgressionStore : ProgressionRepository {
     override fun countExerciseSets(exerciseId: Long): Flow<Int> = setCounts.map { counts -> counts[exerciseId] ?: 0 }
 
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> = trained
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>> = throw UnsupportedOperationException("the drill-down reads attempts, not sets")
 
     override fun getFirstTrainingDay(): Flow<LocalDate?> = firstDay
 
@@ -256,6 +264,10 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
 
     override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
+
+    override suspend fun setCustomRepRange(range: RepRange) = write { it.copy(customRepRange = range) }
+
+    override suspend fun setCustomIncrement(milligrams: Long?) = write { it.copy(customIncrement = milligrams) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 

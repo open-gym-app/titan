@@ -49,6 +49,20 @@ data class PlateInventory(val stock: List<PlateStock>) {
     val totalWeight: Long get() = stock.sumOf { it.totalWeight }
 
     /**
+     * The smallest change this rack can make to a loaded bar: twice its smallest [available]
+     * plate, since a bar is loaded in pairs. **Null** for a rack with no plates to load.
+     *
+     * What the next-load engine (#M7-15) adds to a bar between sessions when the user has not
+     * said otherwise — 2.5 kg on the metric default, 5 lb on the imperial one. The smallest
+     * step rather than a percentage, because a percentage produces 41.3 kg and the user then
+     * has to work out what to put on; this is a weight the rack can make by construction.
+     *
+     * Over [available] rather than [stock]: a 1.25 kg plate the user has switched off is one
+     * they cannot put on, so the step it would allow is not a step they can take.
+     */
+    val loadStep: Long? get() = available.lastOrNull()?.let { it.weight * PlateStock.PLATES_PER_PAIR }
+
+    /**
      * This inventory with [weight]'s count set to [pairs], adding the size if it is new.
      *
      * What the inventory editor's steppers call. Setting a count to zero keeps the row, which

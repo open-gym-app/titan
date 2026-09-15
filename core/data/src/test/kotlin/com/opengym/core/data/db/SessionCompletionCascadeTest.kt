@@ -21,6 +21,7 @@ import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.Rarity
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -112,7 +113,11 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     }
 
     private val progression by lazy {
-        ProgressionRepositoryImpl(setDao = db.workoutSetDao(), sessionDao = db.workoutSessionDao())
+        ProgressionRepositoryImpl(
+            setDao = db.workoutSetDao(),
+            sessionDao = db.workoutSessionDao(),
+            setMapper = WorkoutSetMapper(),
+        )
     }
 
     private val quests by lazy { QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()) }
@@ -643,6 +648,10 @@ private object DefaultPreferences : UserPreferencesRepository {
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = readOnly()
 
     override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = readOnly()
+
+    override suspend fun setCustomRepRange(range: RepRange) = readOnly()
+
+    override suspend fun setCustomIncrement(milligrams: Long?) = readOnly()
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
 

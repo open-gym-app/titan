@@ -87,6 +87,29 @@ data class UserPreferences(
     val fitnessLevel: FitnessLevel = FitnessLevel.BEGINNER,
 
     /**
+     * The rep range a next-load suggestion targets when [trainingGoal] is [TrainingGoal.CUSTOM].
+     *
+     * Stored whatever the goal is, and read only under CUSTOM — see [repRange], which is what
+     * every reader wants. Keeping it while the goal is something else is what lets a user try
+     * HYPERTROPHY for a month and come back to the range they typed. The three named goals
+     * carry their ranges as constants on [RepRange], not here: those are the app's, this is
+     * the user's.
+     */
+    val customRepRange: RepRange = RepRange.DEFAULT_CUSTOM,
+
+    /**
+     * How much weight a next-load suggestion adds when [trainingGoal] is [TrainingGoal.CUSTOM],
+     * **in milligrams**, or **null** while the user has never said.
+     *
+     * Nullable for the reason [plateInventory] is: the right default is not a constant, it is
+     * the smallest step the user's own rack can make — twice its smallest plate — and that
+     * follows the rack and the unit system until the user overrides it. The next-load engine
+     * derives it on read; the settings dialog seeds its field with the same derivation. Must
+     * be positive when set — an increment of nothing is a missing answer, not a preference.
+     */
+    val customIncrement: Long? = null,
+
+    /**
      * Which formula estimates a one-rep max from a set that was not one — see
      * [OneRepMaxFormula] for the tradeoff between the two, and
      * [com.opengym.core.domain.pr.OneRepMaxCalculator] for where this is read.
@@ -139,14 +162,34 @@ data class UserPreferences(
             "the default rest duration must be a whole number of seconds, was $defaultRestDuration"
         }
         require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
+        require(customIncrement == null || customIncrement > 0) {
+            "the custom increment must be positive or absent, was $customIncrement mg"
+        }
     }
+
+    /**
+     * The rep range the next-load engine targets: the constant for the goal, or the user's own
+     * range under [TrainingGoal.CUSTOM].
+     *
+     * The one place the goal is turned into numbers. A reader that wrote its own `when` over
+     * [TrainingGoal] would be a second copy of this table, and the two would disagree the day
+     * one of them is tuned.
+     */
+    val repRange: RepRange
+        get() = when (trainingGoal) {
+            TrainingGoal.STRENGTH -> RepRange.STRENGTH
+            TrainingGoal.HYPERTROPHY -> RepRange.HYPERTROPHY
+            TrainingGoal.ENDURANCE -> RepRange.ENDURANCE
+            TrainingGoal.CUSTOM -> customRepRange
+        }
 
     /**
      * The rack to load from: what the user said they own, or the standard set for [unitSystem].
      *
-     * Every reader wants this rather than [plateInventory] — the plate calculator, and anything
-     * later that suggests a next load. The nullable field is for the *editor*, which is the one
-     * caller that needs to tell "I have not been asked" from "this is my rack".
+     * Every reader wants this rather than [plateInventory] — the plate calculator, and the
+     * next-load engine (#M7-15), which takes its step from the rack's smallest plate. The
+     * nullable field is for the *editor*, which is the one caller that needs to tell "I have
+     * not been asked" from "this is my rack".
      */
     val plates: PlateInventory get() = plateInventory ?: PlateInventory.defaultFor(unitSystem)
 

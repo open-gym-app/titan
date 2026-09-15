@@ -2,6 +2,7 @@ package com.opengym.core.domain.repository
 
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -151,6 +152,30 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setFitnessLevel(fitnessLevel: FitnessLevel)
+
+    /**
+     * Sets the rep range the next-load engine targets under the CUSTOM goal — see
+     * [com.opengym.core.domain.model.UserPreferences.customRepRange].
+     *
+     * Stored whatever the current goal is; it is only *read* under CUSTOM.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setCustomRepRange(range: RepRange)
+
+    /**
+     * Sets the weight the next-load engine adds under the CUSTOM goal, in milligrams, or
+     * **null** to go back to the rack's own smallest step — see
+     * [com.opengym.core.domain.model.UserPreferences.customIncrement].
+     *
+     * Null is a real value here for the reason it is on [setPlateInventory]: a restore of a
+     * file that never carried the setting has to *forget* the stored increment, not overwrite
+     * it with a copy of today's derived step that would then stop following the rack.
+     *
+     * @throws IllegalArgumentException if [milligrams] is zero or negative.
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setCustomIncrement(milligrams: Long?)
 
     /**
      * Sets which formula estimates a one-rep max from a set that was not one.

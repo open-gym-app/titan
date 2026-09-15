@@ -162,6 +162,58 @@ interface WorkoutSetDao {
     fun getPreviousSetsForSession(sessionId: Long): Flow<List<PreviousSetRow>>
 
     /**
+     * The working sets of the [limit] most recent slots that performed [exerciseId], newest
+     * slot first and each slot's sets in `set_number` order — excluding [sessionId]'s own.
+     *
+     * The next-load engine's history read (#M7-15), and the per-exercise twin of
+     * [getPreviousSetsForSession]: the same choice of slot — by the session's `created_at`,
+     * then position, then row id — and the same idea of a qualifying set, completed and not a
+     * warm-up, so that the engine's "last time" is the `PREV` column's "last time". The one
+     * difference is depth: this reaches [limit] slots back where that reaches one, because the
+     * rule it feeds looks at the performance before the last.
+     *
+     * The `EXISTS` guard is inside the `IN` sub-select for the reason it is inside `last_slot`
+     * there: a slot whose only sets were warm-ups must not take one of the [limit] places and
+     * then contribute nothing, which would read as a shorter history than the user has.
+     *
+     * `LIMIT` inside an `IN` sub-select is SQLite's own extension and is what keeps this a read
+     * of a handful of rows on any history: the outer join only ever sees the slots chosen.
+     * The outer `ORDER BY` restates the sub-select's, since a sub-select's order does not
+     * survive the `IN` — SQL sets are unordered — and the repository groups by encounter order.
+     */
+    @Query(
+        """
+        SELECT ws.*
+        FROM workout_set ws
+        INNER JOIN session_exercise se ON se.id = ws.session_exercise_id
+        INNER JOIN workout_session s ON s.id = se.session_id
+        WHERE se.id IN (
+            SELECT prev.id
+            FROM session_exercise prev
+            INNER JOIN workout_session ps ON ps.id = prev.session_id
+            WHERE prev.exercise_id = :exerciseId
+                AND prev.session_id <> :sessionId
+                AND EXISTS (
+                    SELECT 1 FROM workout_set pws
+                    WHERE pws.session_exercise_id = prev.id
+                        AND pws.is_completed = 1
+                        AND pws.set_type <> 'WARMUP'
+                )
+            ORDER BY ps.created_at DESC, prev.position DESC, prev.id DESC
+            LIMIT :limit
+        )
+            AND ws.is_completed = 1
+            AND ws.set_type <> 'WARMUP'
+        ORDER BY s.created_at DESC, se.position DESC, se.id DESC, ws.set_number ASC
+        """,
+    )
+    fun getRecentSetsByExercise(
+        exerciseId: Long,
+        sessionId: Long,
+        limit: Int,
+    ): Flow<List<WorkoutSetEntity>>
+
+    /**
      * Every session's set count and volume, one row each.
      *
      * The history list's read, and the reason it is an aggregate rather than a

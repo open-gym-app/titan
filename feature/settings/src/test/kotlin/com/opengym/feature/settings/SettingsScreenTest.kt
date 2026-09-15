@@ -17,9 +17,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -160,12 +162,76 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun `the training goal picker reports a goal`() {
+    fun `the training goal picker reports a goal on Save`() {
         setContent(dialog = SettingsDialog.TRAINING_GOAL)
 
         composeTestRule.onNodeWithText("Hypertrophy").performClick()
+        // Unlike the other pickers, a tap is not a choice here: CUSTOM has more to ask.
+        assertTrue(events.isEmpty())
+        composeTestRule.onNodeWithText("Save").performClick()
 
-        assertTrue(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY) in events)
+        assertEquals(listOf(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY)), events)
+    }
+
+    @Test
+    fun `choosing CUSTOM asks for the range and the step, and reports them in milligrams`() {
+        setContent(
+            UserPreferences(customRepRange = RepRange(8, 12), customIncrement = 2_500_000),
+            dialog = SettingsDialog.TRAINING_GOAL,
+        )
+
+        // The fields are not there for a named goal.
+        composeTestRule.onNodeWithText("Reps from").assertDoesNotExist()
+
+        composeTestRule.onNodeWithText("Custom").performClick()
+        composeTestRule.onNodeWithText("Reps from").performTextReplacement("6")
+        composeTestRule.onNodeWithText("Reps to").performTextReplacement("10")
+        composeTestRule.onNodeWithText("Weight step (kg)").performTextReplacement("1.25")
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        assertEquals(
+            listOf(
+                SettingsEvent.TrainingGoalSelected(
+                    TrainingGoal.CUSTOM,
+                    customRepRange = RepRange(6, 10),
+                    customIncrement = 1_250_000,
+                ),
+            ),
+            events,
+        )
+    }
+
+    @Test
+    fun `a CUSTOM range the wrong way round cannot be saved, and says why`() {
+        setContent(UserPreferences(trainingGoal = TrainingGoal.CUSTOM), dialog = SettingsDialog.TRAINING_GOAL)
+
+        composeTestRule.onNodeWithText("Reps from").performTextReplacement("12")
+        composeTestRule.onNodeWithText("Reps to").performTextReplacement("8")
+
+        composeTestRule.onNodeWithText("Save").assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Enter a range from 1 to 100 reps, lowest first")
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
+    @Test
+    fun `the CUSTOM step field is seeded with the rack's own step when none is stored`() {
+        // 2.5 kg: a pair of the metric rack's 1.25 kg change plates, which is what the engine
+        // adds when the user has never typed a step. Saving untouched writes that same number.
+        setContent(UserPreferences(trainingGoal = TrainingGoal.CUSTOM), dialog = SettingsDialog.TRAINING_GOAL)
+
+        composeTestRule.onNodeWithText("Save").performClick()
+
+        assertEquals(
+            listOf(
+                SettingsEvent.TrainingGoalSelected(
+                    TrainingGoal.CUSTOM,
+                    customRepRange = RepRange.DEFAULT_CUSTOM,
+                    customIncrement = 2_500_000,
+                ),
+            ),
+            events,
+        )
     }
 
     @Test

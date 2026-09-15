@@ -130,6 +130,7 @@ class BackupIdempotencyTest : RoomTestBase() {
                     progressionRepository = ProgressionRepositoryImpl(
                         setDao = db.workoutSetDao(),
                         sessionDao = db.workoutSessionDao(),
+                        setMapper = WorkoutSetMapper(),
                     ),
                     personalRecordRepository = records,
                     questRepository = QuestRepositoryImpl(questCompletionDao = db.questCompletionDao()),

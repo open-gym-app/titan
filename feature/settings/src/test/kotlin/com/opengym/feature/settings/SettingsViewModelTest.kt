@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.DataFootprint
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -116,6 +117,44 @@ class SettingsViewModelTest {
                 ),
                 viewModel.uiState.value.preferences,
             )
+        }
+
+    @Test
+    fun `a CUSTOM goal writes its range and step beside it`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(
+                SettingsEvent.TrainingGoalSelected(
+                    TrainingGoal.CUSTOM,
+                    customRepRange = RepRange(6, 10),
+                    customIncrement = 1_250_000,
+                ),
+            )
+
+            val preferences = viewModel.uiState.value.preferences
+            assertEquals(TrainingGoal.CUSTOM, preferences.trainingGoal)
+            assertEquals(RepRange(6, 10), preferences.customRepRange)
+            assertEquals(1_250_000L, preferences.customIncrement)
+        }
+
+    @Test
+    fun `a named goal leaves the CUSTOM range and step as they were`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            viewModel.onEvent(
+                SettingsEvent.TrainingGoalSelected(TrainingGoal.CUSTOM, RepRange(6, 10), 1_250_000),
+            )
+
+            viewModel.onEvent(SettingsEvent.TrainingGoalSelected(TrainingGoal.STRENGTH))
+
+            // Kept, so a month on HYPERTROPHY does not cost the user the range they typed.
+            val preferences = viewModel.uiState.value.preferences
+            assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
+            assertEquals(RepRange(6, 10), preferences.customRepRange)
+            assertEquals(1_250_000L, preferences.customIncrement)
         }
 
     @Test
