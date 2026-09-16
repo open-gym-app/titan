@@ -69,9 +69,12 @@ import com.opengym.core.domain.plate.PlateSolution
  * weight the rack makes exactly, never a target it cannot. That rounds *down*, which is why
  * a custom increment smaller than the rack's own step is raised to it on a bar: 1 kg on a
  * rack whose lightest pair is 1.25 kg rounds back to the weight the user just lifted, and a
- * suggestion to add weight that adds none is worse than none. Other equipment adds the step
- * as it is, and a deload on it is floored to a multiple of the step so that it, too, is a
- * weight the user can pick up.
+ * suggestion to add weight that adds none is worse than none. The same rule covers a rack
+ * that has run out: the calculator caps at what the plates can build, and a lift logged above
+ * that — an inventory with no plates, a session at a better-stocked gym — gets one more rep
+ * at the weight it was, rather than an "increase" to a weight under it. Other equipment adds
+ * the step as it is, and a deload on it is floored to a multiple of the step so that it, too,
+ * is a weight the user can pick up.
  *
  * ### Bodyweight
  *
@@ -122,11 +125,14 @@ object NextLoadEngine {
                 latest.weight == null -> addRep(latest)
 
                 increaseEarned(preferences.fitnessLevel, latest, history.getOrNull(1)?.judge(range)) ->
-                    LoadSuggestion(
-                        weight = rack.increase(latest.weight),
-                        reps = range.min,
-                        reason = SuggestionReason.INCREASE,
-                    )
+                    rack.increase(latest.weight)
+                        ?.let { heavier ->
+                            LoadSuggestion(weight = heavier, reps = range.min, reason = SuggestionReason.INCREASE)
+                        }
+                        // The rack cannot make anything heavier — see `Rack.increase` — so
+                        // this is a bodyweight movement for the purpose of the rule: with no
+                        // load to add, one more rep is the only way up.
+                        ?: addRep(latest)
 
                 else -> LoadSuggestion(weight = latest.weight, reps = range.max, reason = SuggestionReason.REPEAT)
             }
@@ -213,12 +219,24 @@ object NextLoadEngine {
         private val plates: PlateInventory,
     ) {
 
-        fun increase(weight: Long): Long = loadable(weight + step)
+        /**
+         * [weight] plus the step, as the equipment can make it — or **null** when the rack
+         * cannot make anything heavier than [weight].
+         *
+         * The calculator caps a bar at what the rack holds, so a lift logged above that —
+         * an inventory with no plates, a session at a better-stocked gym — would otherwise
+         * come back as an "increase" to a weight under or equal to the one just lifted. That
+         * is the answer the class doc calls worse than none, and null is what lets the caller
+         * say something true instead.
+         */
+        fun increase(weight: Long): Long? =
+            loadable(weight + step).takeIf { it > weight + PlateSolution.WEIGHT_TOLERANCE }
 
         /**
          * Ten percent off, rounded to something the equipment can be: the calculator's own
          * answer for a bar, and the step below for anything else — never less than one step,
-         * because a deload to nothing is not a set.
+         * because a deload to nothing is not a set, and never more than [weight], because a
+         * lift under one step (or under the bar) must not deload *upwards* to it.
          *
          * The floor is taken a gram above the target, for the reason [PlateSolution.WEIGHT_TOLERANCE]
          * exists: ninety percent of 50 lb is nine steps of 5 lb exactly, and in rounded
@@ -227,8 +245,13 @@ object NextLoadEngine {
          */
         fun deload(weight: Long): Long {
             val target = weight * DELOAD_NUMERATOR / DELOAD_DENOMINATOR
-            if (bar != null) return loadable(target)
-            return ((target + PlateSolution.WEIGHT_TOLERANCE) / step * step).coerceAtLeast(step)
+            val floored =
+                if (bar != null) {
+                    loadable(target)
+                } else {
+                    ((target + PlateSolution.WEIGHT_TOLERANCE) / step * step).coerceAtLeast(step)
+                }
+            return floored.coerceAtMost(weight)
         }
 
         /** [target] as the bar can be loaded, or the empty bar for a target under it. */

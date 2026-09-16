@@ -55,11 +55,11 @@ class NextLoadLoadabilityTest {
             val weight = checkNotNull(suggestion.weight)
 
             when (suggestion.reason) {
-                // Unless the bar cannot go up: a rack out of plates for the next step answers
-                // with what it has, which is the weight the user just lifted.
+                // Never "what the rack has": a rack out of plates for the next step answers
+                // with one more rep at the same weight, which the ADD_REP branch checks.
                 SuggestionReason.INCREASE -> assertTrue(
                     "seed $seed: an increase from $last mg suggested $weight mg",
-                    weight > last || weight == preferences.plates.ceiling(preferences.barWeight),
+                    weight > last,
                 )
 
                 SuggestionReason.DELOAD -> assertTrue(
@@ -108,9 +108,6 @@ class NextLoadLoadabilityTest {
         random: Random,
         bar: Long,
     ): Long = bar + checkNotNull(loadStep) * random.nextLong(0, 40)
-
-    /** The heaviest bar this rack can build. */
-    private fun PlateInventory.ceiling(bar: Long): Long = bar + totalWeight
 
     private companion object {
         const val TRIALS = 2_000

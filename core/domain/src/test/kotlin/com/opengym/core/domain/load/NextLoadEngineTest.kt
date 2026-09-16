@@ -534,6 +534,55 @@ class NextLoadEngineTest {
     }
 
     @Test
+    fun `a deload never goes above what was lifted, even when that is under one step`() {
+        assertSuggestion(
+            NextLoadEngine.suggest(listOf(performance(kg(1.0) to 1)), METRIC, DUMBBELL_PRESS),
+            weight = kg(1.0),
+            reps = 3,
+            reason = SuggestionReason.DELOAD,
+        )
+        assertSuggestion(
+            NextLoadEngine.suggest(listOf(performance(kg(15.0) to 1)), METRIC, BENCH_PRESS),
+            weight = kg(15.0),
+            reps = 3,
+            reason = SuggestionReason.DELOAD,
+        )
+    }
+
+    @Test
+    fun `a bar the rack cannot load any heavier asks for one more rep instead of an increase`() {
+        // Two pairs of 20 kg: the ceiling is 100 kg, and the lift was logged above it.
+        val small = METRIC.copy(plateInventory = PlateInventory(listOf(PlateStock(weight = kg(20.0), pairs = 2))))
+
+        assertSuggestion(
+            NextLoadEngine.suggest(listOf(performance(kg(120.0) to 6)), small, BENCH_PRESS),
+            weight = kg(120.0),
+            reps = 7,
+            reason = SuggestionReason.ADD_REP,
+        )
+        assertSuggestion(
+            NextLoadEngine.suggest(listOf(performance(kg(100.0) to 6)), small, BENCH_PRESS),
+            weight = kg(100.0),
+            reps = 7,
+            reason = SuggestionReason.ADD_REP,
+        )
+    }
+
+    @Test
+    fun `a rack with no plates cannot add to a bar, so the bar gets one more rep`() {
+        val barOnly = METRIC.copy(
+            plateInventory = PlateInventory(listOf(PlateStock(weight = kg(20.0), pairs = 0))),
+        )
+
+        assertSuggestion(
+            NextLoadEngine.suggest(listOf(performance(kg(20.0) to 6)), barOnly, BENCH_PRESS),
+            weight = kg(20.0),
+            reps = 7,
+            reason = SuggestionReason.ADD_REP,
+        )
+    }
+
+    @Test
     fun `a rack with no plates falls back to the standard rack's step for the dumbbells`() {
         val barOnly = METRIC.copy(
             plateInventory = PlateInventory(listOf(PlateStock(weight = kg(20.0), pairs = 0))),
