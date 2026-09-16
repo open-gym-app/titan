@@ -3,6 +3,7 @@ package com.opengym.feature.history.detail
 import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.feature.history.exercise.ExerciseDraft
@@ -18,6 +19,10 @@ import com.opengym.feature.history.exercise.ExerciseDraft
  *   split and deriving it twice is how the two come to disagree.
  * @param taxonomy the muscle vocabulary the edit form picks from. Empty until it loads, which
  *   only matters when the form is open.
+ * @param records this exercise's bests, one per kind. Empty draws no section.
+ * @param nextTarget what the next set should be, from the next-load engine (#M7-16), or
+ *   **null** when it has nothing to say — never performed, timed work, warm-ups only. Null
+ *   draws no card, on the same rule as an empty [records]: absent rather than empty.
  * @param notesDraft what is in the note field, or **null** when the note is not being edited.
  *   Null is the read state, so a screen asking "is the field open" is asking one question.
  * @param isSavingNotes a note write is in flight. The field stays up and inert rather than
@@ -39,6 +44,7 @@ data class ExerciseDetailUiState(
     val muscleLinks: List<ExerciseMuscleGroupLink> = emptyList(),
     val taxonomy: List<MuscleGroup> = emptyList(),
     val records: List<PersonalRecord> = emptyList(),
+    val nextTarget: LoadSuggestion? = null,
     val notesDraft: String? = null,
     val isSavingNotes: Boolean = false,
     val editDraft: ExerciseDraft? = null,

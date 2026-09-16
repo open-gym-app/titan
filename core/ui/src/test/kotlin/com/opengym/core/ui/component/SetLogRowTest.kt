@@ -10,12 +10,15 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasStateDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -24,7 +27,11 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.requestFocus
 import com.opengym.core.domain.model.ActiveSet
+import com.opengym.core.domain.model.LoadSuggestion
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.SuggestionReason
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.theme.OpenGymTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -58,6 +65,7 @@ class SetLogRowTest {
     private val completions = mutableListOf<Boolean>()
     private val types = mutableListOf<SetType>()
     private val ratings = mutableListOf<Int?>()
+    private var fills = 0
 
     @Test
     fun `renders the values it is given`() {
@@ -66,6 +74,51 @@ class SetLogRowTest {
         composeTestRule.onNodeWithText("80").assertIsDisplayed()
         composeTestRule.onNodeWithText("5").assertIsDisplayed()
         composeTestRule.onNodeWithText("8.5").assertIsDisplayed()
+    }
+
+    // ─── The target ─────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a target sits under the row as one button, and in the fields as nothing at all`() {
+        setRow(weight = "", reps = "", target = TARGET)
+
+        // The line: one node, the whole sentence, and a tap that asks rather than logs.
+        composeTestRule
+            .onNodeWithContentDescription(
+                "Target 82.5 kg × 3 · +2.5 kg. Hit the top of the range last time — add 2.5 kg",
+            )
+            .assertIsDisplayed()
+            .performClick()
+        assertEquals(1, fills)
+        assertTrue(completions.isEmpty())
+
+        // The placeholders: drawn in the two fields and absent from the tree, so the fields
+        // still read as empty and the target is heard once, from the line.
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").assert(hasText(""))
+        composeTestRule.onNodeWithContentDescription("Reps, set 3").assert(hasText(""))
+        composeTestRule.onAllNodes(hasText("82.5")).assertCountEquals(0)
+    }
+
+    @Test
+    fun `negative - typing over a target is typing, and the fields say what was typed`() {
+        setRow(weight = "85", reps = "", target = TARGET)
+
+        composeTestRule.onNodeWithContentDescription("Weight, set 3").assert(hasText("85"))
+        composeTestRule.onNodeWithContentDescription("Reps, set 3").assert(hasText(""))
+    }
+
+    @Test
+    fun `negative - a row with no target draws no line`() {
+        setRow(weight = "", reps = "")
+
+        composeTestRule.onAllNodes(hasContentDescription("Target", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun `the target line keeps its place when the previous column goes`() {
+        setRow(weight = "", reps = "", showPrevious = false, target = TARGET)
+
+        composeTestRule.onNodeWithContentDescription("Target", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -581,6 +634,7 @@ class SetLogRowTest {
         error: String? = null,
         enabled: Boolean = true,
         canComplete: Boolean = true,
+        target: LoadSuggestion? = null,
     ) {
         composeTestRule.setContent {
             OpenGymTheme {
@@ -601,12 +655,36 @@ class SetLogRowTest {
                     error = error,
                     enabled = enabled,
                     canComplete = canComplete,
+                    target = target,
+                    onFillTarget = { fills++ },
                 )
             }
         }
     }
 
     private companion object {
+
+        /** What the engine makes of 80 × 6 under the strength range: the step goes on. */
+        val TARGET = LoadSuggestion(
+            weight = 82_500_000,
+            reps = 3,
+            reason = SuggestionReason.INCREASE,
+            previousWeight = 80_000_000,
+            basis = PastPerformance(
+                listOf(
+                    WorkoutSet(
+                        sessionExerciseId = 1,
+                        setNumber = 1,
+                        reps = 6,
+                        weight = 80_000_000,
+                        isCompleted = true,
+                        completedAt = 0,
+                        createdAt = 0,
+                        updatedAt = 0,
+                    ),
+                ),
+            ),
+        )
 
         /** Layout is computed in floating point; a fraction of a pixel is not a misalignment. */
         const val HALF_A_PIXEL = 0.5f

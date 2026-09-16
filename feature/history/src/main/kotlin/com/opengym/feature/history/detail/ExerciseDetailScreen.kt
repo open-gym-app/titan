@@ -48,11 +48,15 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MechanicType
 import com.opengym.core.domain.model.MuscleGroup
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.SuggestionReason
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.component.EmptyState
 import com.opengym.core.ui.component.ExerciseHeroImage
 import com.opengym.core.ui.component.MetaEntry
@@ -67,6 +71,7 @@ import com.opengym.core.ui.format.formatCount
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.history.R
 import com.opengym.feature.history.detail.component.MusclesWorkedCard
+import com.opengym.feature.history.detail.component.NextTargetCard
 import com.opengym.feature.history.detail.component.PersonalRecordsCard
 import com.opengym.feature.history.exercise.ExerciseFormSheet
 import kotlinx.coroutines.flow.filterNotNull
@@ -283,6 +288,15 @@ private fun ExerciseDetailBody(
                 ?.takeIf { exercise.equipmentType?.isPlateLoaded == true },
             onViewProgression = onViewProgression,
         )
+
+        // Between the muscles and the records, per the issue: what to do *next* sits over what
+        // has been done, and both sit above how to perform it. Absent for the exercises the
+        // engine has no opinion on — see [ExerciseDetailUiState.nextTarget].
+        state.nextTarget?.let { target ->
+            Section(title = stringResource(R.string.detail_section_next_target)) {
+                NextTargetCard(target = target)
+            }
+        }
 
         // Above the instructions and below the tools: what the user has *done* on this movement
         // outranks how to perform it, and a section absent for most of the catalogue should not
@@ -623,6 +637,28 @@ private val PREVIEW_BENCH_STATE = ExerciseDetailUiState(
         ExerciseMuscleGroupLink(PREVIEW_CHEST, isPrimary = true),
         ExerciseMuscleGroupLink(PREVIEW_SHOULDERS, isPrimary = false),
         ExerciseMuscleGroupLink(PREVIEW_TRICEPS, isPrimary = false),
+    ),
+    // What the engine makes of last time's 80 × 6 × 3 under the strength range: the top was
+    // hit, so the weight goes up. The card between the muscles and the records.
+    nextTarget = LoadSuggestion(
+        weight = 82_500_000,
+        reps = 3,
+        reason = SuggestionReason.INCREASE,
+        previousWeight = 80_000_000,
+        basis = PastPerformance(
+            List(3) { index ->
+                WorkoutSet(
+                    sessionExerciseId = 1,
+                    setNumber = index + 1,
+                    reps = 6,
+                    weight = 80_000_000,
+                    isCompleted = true,
+                    completedAt = PREVIEW_RECORD_AT,
+                    createdAt = PREVIEW_RECORD_AT,
+                    updatedAt = PREVIEW_RECORD_AT,
+                )
+            },
+        ),
     ),
     // Two bests, one per kind — the shape the screen is handed, not every record ever set. A
     // fixture with two heaviest rows would draw a log and hide the bug that would be.

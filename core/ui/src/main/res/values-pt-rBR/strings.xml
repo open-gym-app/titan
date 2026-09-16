@@ -41,6 +41,18 @@
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
     <string name="set_delete_action">Excluir a série %1$d</string>
+
+    <string name="set_target_line">Meta %1$s</string>
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_fill_action">Preencher com a meta</string>
+
+    <string name="suggestion_reason_increase">Atingiu o topo da faixa da última vez — adicione %1$s</string>
+    <string name="suggestion_reason_increase_unsized">Atingiu o topo da faixa da última vez — adicione peso</string>
+    <string name="suggestion_reason_add_rep">Dentro da faixa da última vez — uma repetição a mais</string>
+    <string name="suggestion_reason_repeat">Atingiu o topo da faixa uma vez — atinja de novo para ganhar o aumento</string>
+    <string name="suggestion_reason_deload">Ficou abaixo da última vez — tire %1$s e reconstrua</string>
+    <string name="suggestion_reason_deload_bodyweight">Ficou abaixo da última vez — recomece pelo mínimo da faixa</string>
     <string name="set_type_field">Tipo de série, série %1$d, %2$s</string>
     <string name="rpe_value">Esforço percebido %1$s</string>
     <string name="rpe_not_rated">Sem avaliação</string>

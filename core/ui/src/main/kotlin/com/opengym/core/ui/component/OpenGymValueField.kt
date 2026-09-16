@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,12 @@ import com.opengym.core.ui.theme.OpenGymTheme
  * @param caption drawn under the box in the eyebrow role — `SETS`, `REPS`, `KG`. For a field
  *   standing on its own, where there is no column header above it saying which figure this is.
  *   Null in a table, which has one.
+ * @param placeholder what the box shows while it is empty — a suggested value, drawn in the
+ *   same figure role as a typed one but in the quieter ink, so it reads as an answer offered
+ *   rather than one given. It is **not** the value: the first keystroke replaces it, and a
+ *   field left empty stays empty. Nor is it announced — a screen reader hears the field's
+ *   [description] and its (empty) contents, because whatever offered the figure is expected to
+ *   say it once, in a sentence, somewhere the reader can act on it; see `SetTargetLine`.
  */
 @Composable
 fun OpenGymValueField(
@@ -60,6 +67,7 @@ fun OpenGymValueField(
     error: String?,
     modifier: Modifier = Modifier,
     caption: String? = null,
+    placeholder: String? = null,
     onDone: (() -> Unit)? = null,
 ) {
     val shape = MaterialTheme.shapes.extraSmall
@@ -102,8 +110,23 @@ fun OpenGymValueField(
                         .border(HAIRLINE_WIDTH, border, shape)
                         .padding(vertical = OpenGymTheme.spacing.md),
                     contentAlignment = Alignment.Center,
-                    content = { field() },
-                )
+                ) {
+                    // Under the field rather than in place of it, so the cursor and the
+                    // keyboard still land on the box the figure will go in.
+                    if (placeholder != null && value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            style = OpenGymTheme.typography.numeric,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clearAndSetSemantics { },
+                        )
+                    }
+                    field()
+                }
             },
         )
 

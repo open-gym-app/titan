@@ -2,13 +2,20 @@ package com.opengym.feature.session.active
 
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.ExerciseAttempt
+import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionTotals
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.TrainedExercise
+import com.opengym.core.domain.model.WeeklyTraining
+import com.opengym.core.domain.model.WeeklyVolume
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.InProgressSessionRepository
+import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.session.IdleSessionMonitor
 import com.opengym.core.domain.time.Clock
@@ -21,6 +28,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /**
  * The stores the active session reads and writes, in memory.
@@ -352,6 +360,59 @@ class FixedClock(var now: Long = STARTED_AT) : Clock {
         now += millis
         return now
     }
+}
+
+/**
+ * The history the next-load engine reads (#M7-16), in memory.
+ *
+ * Only [getRecentPerformances] answers, and it answers with what a test seeded, newest first —
+ * the query's own rules (warm-ups out, the session being logged left out, the newest slots) are
+ * asserted against a real database in `RecentPerformanceDaoTest`. What this fake is *for* is the
+ * count: the contract is one read per exercise for the session's life, and a re-read on every
+ * keystroke is invisible in the values and obvious in [reads].
+ */
+class FakeProgressionStore : ProgressionRepository {
+
+    private val performances = MutableStateFlow<Map<Long, List<PastPerformance>>>(emptyMap())
+
+    /** Every (exercise, excluded session) the history has been asked for, in call order. */
+    val reads = mutableListOf<Pair<Long, Long?>>()
+
+    /** Seeds one exercise's history, newest first, each performance as its working sets. */
+    fun setPerformances(
+        exerciseId: Long,
+        vararg newestFirst: List<WorkoutSet>,
+    ) {
+        performances.value += exerciseId to newestFirst.map(::PastPerformance)
+    }
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long?,
+        limit: Int,
+    ): Flow<List<PastPerformance>> {
+        reads += exerciseId to excludingSessionId
+        return performances.map { byExercise -> byExercise[exerciseId].orEmpty().take(limit) }
+    }
+
+    override fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>> = unsupported()
+    override fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>> = unsupported()
+    override fun hasTrainingHistory(): Flow<Boolean> = unsupported()
+    override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> = unsupported()
+    override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = unsupported()
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun getFirstTrainingDay(): Flow<LocalDate?> = unsupported()
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> = unsupported()
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = unsupported()
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unsupported()
+
+    private fun unsupported(): Nothing =
+        throw UnsupportedOperationException("the workout reads recent performances only")
 }
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────────────────

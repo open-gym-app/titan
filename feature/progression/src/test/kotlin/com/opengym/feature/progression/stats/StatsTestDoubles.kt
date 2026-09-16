@@ -147,7 +147,7 @@ class FakeProgressionStore : ProgressionRepository {
 
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> = throw UnsupportedOperationException("the hub reads no single exercise")
 

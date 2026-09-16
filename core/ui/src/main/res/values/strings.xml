@@ -79,6 +79,31 @@
          otherwise offer five identical actions. -->
     <string name="set_delete_action">Delete set %1$d</string>
 
+    <!-- ── The next target ────────────────────────────────────────────────────────── -->
+
+    <!-- The line under the entry row that says what the next set should be (#M7-16): the
+         figures, and beside them how far the weight moved from last time. The whole line is
+         one button — tapping it fills the fields above — so it is read as one sentence: the
+         figures, then the reason, then the action. -->
+    <string name="set_target_line">Target %1$s</string>
+    <string name="set_target_with_change" translatable="false">%1$s · %2$s</string>
+    <!-- The change with its sign, since the figure beside it carries none: "+2.5 kg", "−5 kg".
+         A resource rather than a glyph in code so a translator can move the sign. -->
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_description" translatable="false">%1$s. %2$s</string>
+    <string name="set_target_fill_action">Fill in the target</string>
+
+    <!-- Why the target is what it is, one line per rule, written as advice rather than as the
+         rule's name — see SuggestionReason. The increase and the deload quote the step the
+         weight moves by; the bodyweight deload has no weight to take off. -->
+    <string name="suggestion_reason_increase">Hit the top of the range last time — add %1$s</string>
+    <string name="suggestion_reason_increase_unsized">Hit the top of the range last time — add weight</string>
+    <string name="suggestion_reason_add_rep">Inside the range last time — one more rep</string>
+    <string name="suggestion_reason_repeat">Hit the top of the range once — hit it again to earn the increase</string>
+    <string name="suggestion_reason_deload">Fell short last time — take %1$s off and rebuild</string>
+    <string name="suggestion_reason_deload_bodyweight">Fell short last time — start again at the bottom of the range</string>
+
     <!-- Announced for the leading cell when the type can be changed: "Set type, set 3,
          Warm-up". The value is folded in for the reason the RPE cell folds its own in. -->
     <string name="set_type_field">Set type, set %1$d, %2$s</string>

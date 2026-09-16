@@ -129,9 +129,27 @@ class RecentPerformanceDaoTest : RoomTestBase() {
             assertEquals(listOf(80_000_000L), read(bench, today, limit = 2).map(WorkoutSetEntity::weight))
         }
 
+    @Test
+    fun `with no session to leave out, the one in progress is history too`() =
+        runBlocking {
+            // The exercise detail's read: nothing is being logged from there, so every slot
+            // counts — including a workout still open, which from that page is simply the
+            // most recent time the lift was done.
+            val bench = db.exerciseDao().insert(exercise(name = "Bench press"))
+            logged(session = 100, exerciseId = bench, weights = listOf(75_000_000))
+            val open = db.workoutSessionDao().insert(session(isInProgress = true, createdAt = 200))
+            val slot = db.sessionExerciseDao().insert(sessionExercise(open, bench, position = 0))
+            db.workoutSetDao().insert(workoutSet(slot, setNumber = 1, weight = 80_000_000, reps = 5))
+
+            assertEquals(
+                listOf(80_000_000L, 75_000_000L),
+                read(bench, sessionId = null, limit = 2).map(WorkoutSetEntity::weight),
+            )
+        }
+
     private suspend fun read(
         exerciseId: Long,
-        sessionId: Long,
+        sessionId: Long?,
         limit: Int,
     ): List<WorkoutSetEntity> =
         db.workoutSetDao().getRecentSetsByExercise(

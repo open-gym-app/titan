@@ -453,7 +453,7 @@ class FakeVolumeStore(weeks: List<WeeklyVolume> = emptyList()) : ProgressionRepo
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unsupported()
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> = unsupported()
 
@@ -522,7 +522,7 @@ class FakeQuestAggregates : ProgressionRepository {
 
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> = unused()
 

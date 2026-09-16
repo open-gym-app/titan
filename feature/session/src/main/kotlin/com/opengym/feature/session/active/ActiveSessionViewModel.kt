@@ -10,6 +10,7 @@ import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
@@ -43,6 +44,7 @@ import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
+import com.opengym.core.domain.usecase.NextLoadUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
@@ -64,14 +66,19 @@ import com.opengym.feature.session.navigation.ActiveSessionDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.job
@@ -133,8 +140,8 @@ import kotlin.time.TimeSource
  * the app exists for, and it is the one place a workout can be logged, edited, named, paused,
  * finished and thrown away.
  *
- * - **The parameter list.** Twenty-three constructor parameters, and every one is a graph edge:
- *   three stores, the catalogue, the settings, sixteen use cases and a clock. Bundling them into
+ * - **The parameter list.** Twenty-four constructor parameters, and every one is a graph edge:
+ *   three stores, the catalogue, the settings, seventeen use cases and a clock. Bundling them into
  *   a holder to satisfy a count would put a type in the way of reading what this screen depends
  *   on, which is the one thing the list is good for.
  * - **The function count, and the size that follows from it.** The handlers are already
@@ -167,6 +174,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val resumeSession: ResumeSessionUseCase,
     private val finishSession: FinishSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
+    nextLoad: NextLoadUseCase,
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
@@ -321,6 +329,37 @@ class ActiveSessionViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     /**
+     * What the next set of each exercise should be (#M7-16), keyed by *catalogue* exercise id.
+     *
+     * One [NextLoadUseCase] flow per distinct exercise in the workout, held open for as long as
+     * the screen is — which is what "cached in the ViewModel for the session's life" comes to.
+     * It is keyed off [loaded] only through the *set* of exercise ids: a set logged, a rename or
+     * a reorder re-emits `loaded` and changes nothing here, and a keystroke never reaches this
+     * at all, because it is folded in downstream in [assembled] rather than recomputed there.
+     * What does restart the read is the workout changing shape — an exercise added, swapped or
+     * removed — since that is a new question.
+     *
+     * The use case excludes this session's own sets, so what a lifter logs today does not move
+     * the target under their thumb; the engine is judging last time, not this time. And it is
+     * answered per catalogue exercise rather than per slot on purpose: an exercise that appears
+     * twice in one workout has one history, and asking twice would be two identical reads.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val targets: StateFlow<Map<Long, LoadSuggestion?>> = loaded
+        .map { loaded -> loaded?.ordered?.mapTo(LinkedHashSet(), SessionExercise::exerciseId).orEmpty() }
+        .distinctUntilChanged()
+        .flatMapLatest { exerciseIds ->
+            if (exerciseIds.isEmpty()) {
+                flowOf(emptyMap())
+            } else {
+                combine(exerciseIds.map { exerciseId -> nextLoad(exerciseId, sessionId) }) { suggestions ->
+                    exerciseIds.zip(suggestions.asList()).toMap()
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyMap())
+
+    /**
      * The unit system every weight on this screen is typed and read in.
      *
      * Needed here rather than only in composition because this is the half that *parses*: what
@@ -374,8 +413,9 @@ class ActiveSessionViewModel @Inject constructor(
         // *reads* as: every logged row is drawn from the store through this, so a lifter who
         // switches to pounds mid-workout has to see the table they are looking at change.
         unitSystem,
-    ) { loaded, catalogue, screen, unitSystem ->
-        build(loaded, catalogue, screen, unitSystem, clock.nowMillis())
+        targets,
+    ) { loaded, catalogue, screen, unitSystem, targets ->
+        build(loaded, catalogue, screen, unitSystem, targets, clock.nowMillis())
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -533,7 +573,7 @@ class ActiveSessionViewModel @Inject constructor(
             onLayoutEvent(event) || onRestEvent(event)
 
     /**
-     * The five events that only change the row being typed, handled together.
+     * The six events that only change the row being typed, handled together.
      *
      * Split off [onEvent] because they are one concern with one effect — edit the entry,
      * re-validate, save the draft — and leaving them inline made a `when` that branched fifteen
@@ -558,9 +598,32 @@ class ActiveSessionViewModel @Inject constructor(
             is ActiveSessionEvent.NotesChanged ->
                 editEntry(event.sessionExerciseId) { it.copy(notes = event.text) }
 
+            is ActiveSessionEvent.TargetFilled -> fillTarget(event.sessionExerciseId)
+
             else -> return false
         }
         return true
+    }
+
+    /**
+     * Puts the exercise's target into its entry row, as the text the lifter would have typed.
+     *
+     * Through [editEntry], so it is validated and drafted exactly as two keystrokes would be —
+     * and refused exactly when they would be, on a paused or closing session. The weight is
+     * formatted into the unit the field is typed in, which is also the form its placeholder
+     * showed: what the tap writes is what the empty field was already saying. Nothing else
+     * on the row moves. The rating, the type and the note are the lifter's, and the tick stays
+     * unpressed because a target is not a set — see [ActiveSessionEvent.TargetFilled].
+     *
+     * Silent for an exercise with no target. The line that raises this is only drawn where
+     * there is one, so reaching here without is an event dispatched a frame before the row was
+     * redrawn without it.
+     */
+    private fun fillTarget(sessionExerciseId: Long) {
+        val exercise = exerciseRow(sessionExerciseId) ?: return
+        val target = targets.value[exercise.exerciseId] ?: return
+        val weight = target.weight?.let { formatWeightValue(it, unitSystem.value) }.orEmpty()
+        editEntry(sessionExerciseId) { it.copy(weight = weight, reps = target.reps.toString()) }
     }
 
     // ─── Entry ──────────────────────────────────────────────────────────────────────────
@@ -2142,6 +2205,7 @@ class ActiveSessionViewModel @Inject constructor(
         catalogue: Catalogue?,
         screen: ScreenState,
         unitSystem: UnitSystem,
+        targets: Map<Long, LoadSuggestion?>,
         now: Long,
     ): ActiveSessionUiState {
         val base = ActiveSessionUiState(
@@ -2180,6 +2244,7 @@ class ActiveSessionViewModel @Inject constructor(
             setEdits = screen.setEdits,
             savingSetIds = screen.savingSetIds,
             unitSystem = unitSystem,
+            targets = targets,
         )
 
         return base.copy(
@@ -2478,6 +2543,7 @@ private class Loaded(
         setEdits: Map<Long, SetEntry>,
         savingSetIds: Set<Long>,
         unitSystem: UnitSystem,
+        targets: Map<Long, LoadSuggestion?>,
     ): List<SessionExerciseRow> {
         val grouping = Supersets.normalize(ordered.map(SessionExercise::supersetGroup))
         val labels = supersetLabels(grouping)
@@ -2544,6 +2610,9 @@ private class Loaded(
                 // The exercise has been performed before, which is not the same as any row of
                 // it having something to compare against — see [SessionExerciseRow.hasHistory].
                 hasHistory = history != null,
+                // Keyed by catalogue id like the history, and for the same reason: it is a fact
+                // about the exercise, and two slots holding the same one get the same answer.
+                target = targets[exercise.exerciseId],
             )
         }
     }

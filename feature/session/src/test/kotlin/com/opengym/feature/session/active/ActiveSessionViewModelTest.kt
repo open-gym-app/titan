@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.ActiveSet
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.SuggestionReason
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
@@ -20,6 +21,7 @@ import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
 import com.opengym.core.domain.usecase.MarkSetCompletedUseCase
+import com.opengym.core.domain.usecase.NextLoadUseCase
 import com.opengym.core.domain.usecase.PauseSessionUseCase
 import com.opengym.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.opengym.core.domain.usecase.RenameSessionUseCase
@@ -84,9 +86,9 @@ import kotlin.time.Duration.Companion.seconds
  * thrown away on, and the tests for those are one subject each — they are already grouped under
  * headings, and none of the groups is long.
  *
- * What a split would cost is the support block at the bottom: `viewModel()` wires seventeen
- * dependencies over four fakes this class owns as fields, and a second class would either
- * duplicate that or hoist it into `ActiveSessionTestDoubles` as a factory taking all four back
+ * What a split would cost is the support block at the bottom: `viewModel()` wires eighteen
+ * dependencies over five fakes this class owns as fields, and a second class would either
+ * duplicate that or hoist it into `ActiveSessionTestDoubles` as a factory taking all five back
  * as parameters. Both are more machinery between a failure and what it means than a heading is.
  */
 @Suppress("LargeClass")
@@ -102,6 +104,9 @@ class ActiveSessionViewModelTest {
     private val personalRecords = FakeRecordStore()
     private val settings = FakeSettings()
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
+
+    /** No history seeded: the target under the entry row is absent for an exercise with none. */
+    private val history = FakeProgressionStore()
     private val backgroundRest = FakeBackgroundRestTimer()
     private val idleSession = FakeIdleSessionMonitor()
     private val skipRequests = FakeRestSkipRequests()
@@ -2793,6 +2798,133 @@ class ActiveSessionViewModelTest {
             assertEquals(1, store.logged.size)
         }
 
+    // ─── The next target ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an exercise with history carries the engine's target for its next set`() =
+        runTest {
+            // 80 × 6 on every set is the top of the strength range, so the beginner default
+            // gets the rack's step: 82.5 × 3, read from those sets.
+            val store = benchStore()
+            history.setPerformances(BENCH.id, previousSets(80_000_000L to 6, 80_000_000L to 6))
+
+            val row = viewModel(store = store).uiState.value.rowOf(BENCH_ROW)
+
+            val target = checkNotNull(row.target) { "expected a target for an exercise with history" }
+            assertEquals(82_500_000L, target.weight)
+            assertEquals(3, target.reps)
+            assertEquals(SuggestionReason.INCREASE, target.reason)
+            assertEquals(80_000_000L, target.previousWeight)
+            assertEquals(listOf(6, 6), target.basis.sets.map(WorkoutSet::reps))
+            // Read with this workout left out, so what is logged today never judges itself.
+            assertEquals(listOf(BENCH.id to ACTIVE_SESSION_ID), history.reads)
+        }
+
+    @Test
+    fun `negative - an exercise with no history has no target, and the row is as it was`() =
+        runTest {
+            val row = viewModel(store = benchStore()).uiState.value.rowOf(BENCH_ROW)
+
+            assertNull(row.target)
+            assertEquals(SetEntry(), row.entry)
+        }
+
+    @Test
+    fun `filling the target writes its figures into the entry as text, and nothing else`() =
+        runTest {
+            val store = benchStore()
+            history.setPerformances(BENCH.id, previousSets(80_000_000L to 6, 80_000_000L to 6))
+            val viewModel = viewModel(store = store)
+            viewModel.onEvent(ActiveSessionEvent.RpeChanged(BENCH_ROW, 80))
+
+            viewModel.onEvent(ActiveSessionEvent.TargetFilled(BENCH_ROW))
+            scheduler.advanceTimeBy(DRAFT_SETTLED)
+
+            // The two fields, in the text the lifter would have typed; the rating they already
+            // gave stays, and nothing has been written to the store — see the count below.
+            val entry = viewModel.uiState.value.entryOf(BENCH_ROW)
+            assertEquals("82.5", entry.weight)
+            assertEquals("3", entry.reps)
+            assertEquals(80, entry.rpe)
+            assertNull(entry.error)
+            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+            assertTrue(store.logged.isEmpty())
+            // And the draft carries it, as it would two keystrokes.
+            assertEquals(82_500_000L, drafts.saves.last().exercises.single().sets.last().weight)
+        }
+
+    @Test
+    fun `a filled target is in the unit the lifter types in`() =
+        runTest {
+            // A 100 lb lift on the imperial rack: the top of the range at 100, so 105 — and the
+            // field says `105`, not the kilograms the store holds.
+            val store = benchStore()
+            val settings = FakeSettings(UserPreferences(unitSystem = UnitSystem.IMPERIAL, barWeight = LB_45))
+            history.setPerformances(BENCH.id, previousSets(LB_100 to 6, LB_100 to 6))
+            val viewModel = viewModel(store = store, settings = settings)
+
+            viewModel.onEvent(ActiveSessionEvent.TargetFilled(BENCH_ROW))
+
+            assertEquals("105", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+        }
+
+    @Test
+    fun `negative - filling a target that is not there changes nothing`() =
+        runTest {
+            val viewModel = viewModel(store = benchStore())
+
+            viewModel.onEvent(ActiveSessionEvent.TargetFilled(BENCH_ROW))
+
+            assertEquals(SetEntry(), viewModel.uiState.value.entryOf(BENCH_ROW))
+        }
+
+    @Test
+    fun `negative - a paused session takes no target, as it takes no typing`() =
+        runTest {
+            val store = benchStore()
+            history.setPerformances(BENCH.id, previousSets(80_000_000L to 6))
+            val viewModel = viewModel(store = store)
+            viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+            viewModel.onEvent(ActiveSessionEvent.TargetFilled(BENCH_ROW))
+
+            assertEquals(SetEntry(), viewModel.uiState.value.entryOf(BENCH_ROW))
+        }
+
+    @Test
+    fun `the history is read once per exercise, not once per keystroke or per set`() =
+        runTest {
+            val store = pushDayStore()
+            history.setPerformances(BENCH.id, previousSets(80_000_000L to 6))
+            val viewModel = viewModel(store = store)
+
+            viewModel.enter("82.5", "3")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.enter("82.5", "3")
+
+            // Three exercises, three reads, on open — and not one more for the typing, the set
+            // written or the entry cleared and typed again. The suggestion is a fact about the
+            // last workout, and this one does not change it.
+            assertEquals(listOf(BENCH.id, INCLINE.id, FLY.id), history.reads.map { (exerciseId, _) -> exerciseId })
+            assertEquals(82_500_000L, viewModel.uiState.value.rowOf(BENCH_ROW).target?.weight)
+        }
+
+    @Test
+    fun `an exercise added mid-workout gets its target too`() =
+        runTest {
+            val store = benchStore()
+            history.setPerformances(PUSHDOWN.id, previousSets(30_000_000L to 4))
+            val viewModel = viewModel(store = store)
+
+            viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
+
+            // The workout changed shape, which is the one thing that re-asks the question.
+            assertTrue(history.reads.any { (exerciseId, _) -> exerciseId == PUSHDOWN.id })
+            val pushdown = viewModel.uiState.value.exercises.last()
+            assertEquals(PUSHDOWN.id, pushdown.exercise?.id)
+            assertEquals(SuggestionReason.ADD_REP, pushdown.target?.reason)
+        }
+
     // ─── A session that is gone ─────────────────────────────────────────────────────────
 
     @Test
@@ -3013,6 +3145,7 @@ class ActiveSessionViewModelTest {
         backgroundRest: FakeBackgroundRestTimer = this@ActiveSessionViewModelTest.backgroundRest,
         idleSession: FakeIdleSessionMonitor = this@ActiveSessionViewModelTest.idleSession,
         skipRequests: FakeRestSkipRequests = this@ActiveSessionViewModelTest.skipRequests,
+        history: FakeProgressionStore = this@ActiveSessionViewModelTest.history,
         savedState: SavedStateHandle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID)),
     ): ActiveSessionViewModel {
         val lock = SessionLifecycleLock()
@@ -3039,6 +3172,7 @@ class ActiveSessionViewModelTest {
             resumeSession = ResumeSessionUseCase(store, state, clock, lock),
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
+            nextLoad = NextLoadUseCase(history, catalogue, settings),
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
             backgroundRestTimer = backgroundRest,
@@ -3070,6 +3204,10 @@ class ActiveSessionViewModelTest {
 
         /** A `session_exercise` row of some earlier workout, which this screen never resolves. */
         const val PREVIOUS_ROW = 99L
+
+        /* Imperial weights, in the milligrams everything is stored in. */
+        const val LB_45 = 20_411_657L
+        const val LB_100 = 45_359_237L
 
         /**
          * Long enough for the debounced draft save to fire, short enough not to reach a tick.

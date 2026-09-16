@@ -145,7 +145,7 @@ class ProgressionRepositoryImpl @Inject constructor(
      */
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> =
         setDao.getRecentSetsByExercise(exerciseId = exerciseId, sessionId = excludingSessionId, limit = limit)

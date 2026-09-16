@@ -50,13 +50,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.ActiveSet
+import com.opengym.core.domain.model.LoadSuggestion
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.SuggestionReason
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.ui.R
 import com.opengym.core.ui.format.formatRpe
 import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.format.formatSetCompact
+import com.opengym.core.ui.format.formatWeightValue
 import com.opengym.core.ui.format.weightSuffix
 import com.opengym.core.ui.theme.LocalUnitSystem
 import com.opengym.core.ui.theme.MIN_TOUCH_TARGET
@@ -123,6 +127,15 @@ import com.opengym.core.ui.theme.OpenGymTheme
  *   exercise is logged in may not be filled in — and a tick that is live for a set the write
  *   path refuses is the one thing this row must not do. The fields stay live either way, since
  *   filling them in is the way out of it.
+ * @param target what the next-load engine says this set should be, or null for a row with
+ *   nothing to suggest — an exercise never performed, a logged set, timed work. Drawn twice
+ *   and spoken once: the weight and the reps show as the fields' placeholders while they are
+ *   empty, and [SetTargetLine] sits under the row with the reason, as the one button that
+ *   fills them in. See that component for the whole of it. Typing anything replaces the
+ *   placeholder as it would in any field, and nothing about the tick changes — a target is
+ *   never a set until the lifter says so.
+ * @param onFillTarget put [target]'s figures into the fields. Required with a target, since
+ *   the line is a button; ignored without one.
  * @param onCommit the fields have been left: focus has gone from the row altogether, or the
  *   keyboard's DONE was pressed. Null for a row whose text is not written until something else
  *   says so — the entry row, whose tick is that something.
@@ -154,6 +167,8 @@ fun SetLogRow(
     error: String? = null,
     enabled: Boolean = true,
     canComplete: Boolean = true,
+    target: LoadSuggestion? = null,
+    onFillTarget: (() -> Unit)? = null,
     onCommit: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
@@ -171,6 +186,22 @@ fun SetLogRow(
         isActive = isActive,
         isCompleted = isCompleted,
         error = error,
+        footer = target?.let { suggestion ->
+            {
+                SetTargetLine(
+                    target = suggestion,
+                    onFill = onFillTarget ?: {},
+                    // The line sits on the row's own ground, and the entry row's is the tint:
+                    // its ink is the one the contrast test holds against that tint.
+                    color = if (isActive) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                    enabled = enabled && onFillTarget != null,
+                )
+            }
+        },
     ) {
         SetTypeCell(
             setNumber = setNumber,
@@ -188,6 +219,10 @@ fun SetLogRow(
             keyboardType = KeyboardType.Decimal,
             enabled = enabled,
             error = error,
+            // The figure without its unit, since the column's header carries that — and in
+            // the form the field will hold once it is typed, so the tap and the keystroke
+            // produce the same text.
+            placeholder = target?.weight?.let { formatWeightValue(it) },
             onDone = onDone,
             modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
         )
@@ -198,6 +233,7 @@ fun SetLogRow(
             keyboardType = KeyboardType.Number,
             enabled = enabled,
             error = error,
+            placeholder = target?.reps?.toString(),
             onDone = onDone,
             modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
@@ -354,7 +390,8 @@ fun SetLogHeader(
 // ─── Cells ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * The ground a set row sits on, its padding, and the error under it.
+ * The ground a set row sits on, its padding, and what goes under it: the error, and the
+ * [footer] a row may carry — the target line, on the row being typed.
  *
  * Internal rather than private because both rows in this file are it: the row with fields and the
  * row that is a record draw the same cells on the same grid, and a frame each would be two sets
@@ -366,6 +403,7 @@ internal fun SetRowFrame(
     isActive: Boolean,
     isCompleted: Boolean,
     error: String?,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable RowScope.() -> Unit,
 ) {
     // Three grounds, in order of how much they are asking for: the set being worked is
@@ -404,6 +442,13 @@ internal fun SetRowFrame(
                 color = MaterialTheme.colorScheme.error,
                 modifier = Modifier.padding(top = OpenGymTheme.spacing.xs),
             )
+        }
+        // Under the error, not above it: a refusal is about what is in the fields now, and
+        // the target is about what could be, so the one nearer the fields is the one about them.
+        if (footer != null) {
+            Box(modifier = Modifier.padding(top = OpenGymTheme.spacing.xs)) {
+                footer()
+            }
         }
     }
 }
@@ -939,6 +984,30 @@ private fun CorrectableTable() {
             onRpeChange = {},
             previous = PreviousSet(weight = 75_000_000, reps = 6),
             isActive = true,
+            // What the engine makes of 75 × 6 under the strength range: the top was hit, so
+            // the step goes on and the reps drop back — shown in the empty fields and said
+            // under the row. See [SetTargetLine].
+            target = LoadSuggestion(
+                weight = 77_500_000,
+                reps = 3,
+                reason = SuggestionReason.INCREASE,
+                previousWeight = 75_000_000,
+                basis = PastPerformance(
+                    listOf(
+                        WorkoutSet(
+                            sessionExerciseId = 1,
+                            setNumber = 1,
+                            reps = 6,
+                            weight = 75_000_000,
+                            isCompleted = true,
+                            completedAt = 0,
+                            createdAt = 0,
+                            updatedAt = 0,
+                        ),
+                    ),
+                ),
+            ),
+            onFillTarget = {},
         )
     }
 }

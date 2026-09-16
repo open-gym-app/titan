@@ -73,7 +73,11 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     }
 
     override fun getById(id: Long): Flow<WorkoutSession?> = unsupported()
-    override fun getActive(): Flow<WorkoutSession?> = unsupported()
+
+    /** The one in progress, if any — what the exercise detail leaves out of a target's history. */
+    override fun getActive(): Flow<WorkoutSession?> =
+        stored.filterNotNull().map { sessions -> sessions.firstOrNull(WorkoutSession::isInProgress) }
+
     override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> = unsupported()
     override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> = unsupported()
     override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> = unsupported()
@@ -97,8 +101,9 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     override suspend fun delete(id: Long) = unsupported()
 
     /**
-     * The sessions browser reads three things and writes none. Anything else reached from here
-     * is a change of behaviour worth failing on rather than a gap worth stubbing.
+     * The sessions browser reads three things, the exercise detail a fourth, and neither writes.
+     * Anything else reached from here is a change of behaviour worth failing on rather than a
+     * gap worth stubbing.
      */
     private fun unsupported(): Nothing = throw UnsupportedOperationException("the sessions browser only reads")
 }

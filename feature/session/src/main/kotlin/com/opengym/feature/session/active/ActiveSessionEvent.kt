@@ -53,6 +53,17 @@ sealed interface ActiveSessionEvent {
     /** Write this exercise's entry row as a set. */
     data class SetLogged(val sessionExerciseId: Long) : ActiveSessionEvent
 
+    /**
+     * Put the exercise's target — see `SessionExerciseRow.target` — into its weight and reps
+     * fields, as text, exactly as if the lifter had typed it.
+     *
+     * Only the fields: the tick is untouched, and the set is still logged by [SetLogged]. The
+     * target line is a shortcut for typing two numbers, not for deciding the set happened, and
+     * an event that did both would log a set nobody has lifted yet. Ignored for an exercise
+     * with no target, which draws no line to raise it from.
+     */
+    data class TargetFilled(val sessionExerciseId: Long) : ActiveSessionEvent
+
     /*
      * ── Correcting a set that is already logged ─────────────────────────────────────────
      *

@@ -115,7 +115,7 @@ class FakeExerciseProgressionStore : ProgressionRepository {
 
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> = throw UnsupportedOperationException("the drill-down reads attempts, not sets")
 

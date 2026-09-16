@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.usecase.NextLoadUseCase
 import com.opengym.feature.history.afterProcessDeath
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.library.CHEST
@@ -12,6 +13,9 @@ import com.opengym.feature.history.library.FakePersonalRecordRepository
 import com.opengym.feature.history.library.LATS
 import com.opengym.feature.history.library.TAXONOMY
 import com.opengym.feature.history.library.TRICEPS
+import com.opengym.feature.history.plate.FakeUserPreferencesRepository
+import com.opengym.feature.history.sessions.FakeSessionStore
+import com.opengym.feature.history.sessions.loggedSession
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -31,6 +35,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.time.LocalDate
 
 /**
  * The detail ViewModel against an in-memory catalogue.
@@ -51,6 +56,11 @@ class ExerciseDetailViewModelTest {
 
     /** No records seeded: the default for every test that is not about the bests section. */
     private val personalRecords = FakePersonalRecordRepository()
+
+    /** No history seeded, and no workout running: the next-target card is absent by default. */
+    private val history = FakeProgressionStore()
+    private val sessions = FakeSessionStore()
+    private val preferences = FakeUserPreferencesRepository()
 
     private val repository = FakeExerciseRepository(
         exercises = listOf(DETAIL_BENCH, DETAIL_CUSTOM),
@@ -84,7 +94,13 @@ class ExerciseDetailViewModelTest {
         savedState: SavedStateHandle =
             SavedStateHandle(mapOf("exerciseId" to exerciseId, "addToSession" to false)),
     ): ExerciseDetailViewModel {
-        val viewModel = ExerciseDetailViewModel(savedState, repository, records)
+        val viewModel = ExerciseDetailViewModel(
+            savedStateHandle = savedState,
+            exerciseRepository = repository,
+            personalRecordRepository = records,
+            sessionRepository = sessions,
+            nextLoad = NextLoadUseCase(history, repository, preferences),
+        )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
         }
@@ -405,6 +421,40 @@ class ExerciseDetailViewModelTest {
             assertFalse(state.isDeleted)
             assertFalse(state.confirmingDelete)
             assertEquals(ExerciseDetailMessage.DELETE_FAILED, state.message)
+        }
+
+    // ─── The next target ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an exercise with history carries the engine's next target, read from all of it`() =
+        runTest {
+            history.setPerformances(DETAIL_BENCH.id, benchedLastTime())
+
+            val target = viewModel(DETAIL_BENCH.id).uiState.value.nextTarget
+
+            assertEquals(benchTarget(), target)
+            // No workout running, so nothing is left out: every performance is history here.
+            assertEquals(listOf(DETAIL_BENCH.id to null), history.reads)
+        }
+
+    @Test
+    fun `a workout in progress is left out of the target's history`() =
+        runTest {
+            // The user came here mid-session. The target has to be the one the set row is
+            // showing — read from the last *finished* time — not one judged off the sets typed
+            // a minute ago.
+            sessions.setSessions(listOf(loggedSession(id = 7L, date = LocalDate.of(2026, 4, 28), isInProgress = true)))
+            history.setPerformances(DETAIL_BENCH.id, benchedLastTime())
+
+            viewModel(DETAIL_BENCH.id).uiState.value
+
+            assertEquals(listOf(DETAIL_BENCH.id to 7L), history.reads)
+        }
+
+    @Test
+    fun `negative - an exercise never performed has no target`() =
+        runTest {
+            assertNull(viewModel(DETAIL_BENCH.id).uiState.value.nextTarget)
         }
 
     // ─── The exercise's own bests ───────────────────────────────────────────────────────

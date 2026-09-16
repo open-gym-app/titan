@@ -55,6 +55,9 @@ class FakeProgressionRepository : ProgressionRepository {
     /** Every depth [getRecentPerformances] has been asked for, in call order. */
     val requestedLimits = mutableListOf<Int>()
 
+    /** Every session [getRecentPerformances] was told to leave out, in call order, null included. */
+    val requestedExclusions = mutableListOf<Long?>()
+
     /**
      * Seeds one week's volume. [weekStart] is snapped to its Monday, so a test can write a
      * date that reads like a training day and still land in the bucket the query would put
@@ -225,10 +228,11 @@ class FakeProgressionRepository : ProgressionRepository {
 
     override fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>> {
         requestedLimits += limit
+        requestedExclusions += excludingSessionId
         return performances.map { byExercise -> byExercise[exerciseId].orEmpty().take(limit) }
     }
 

@@ -113,7 +113,8 @@ object NextLoadEngine {
         if (exercise.type != ExerciseType.STRENGTH) return null
 
         val range = preferences.repRange
-        val latest = history.firstOrNull()?.judge(range) ?: return null
+        val basis = history.firstOrNull() ?: return null
+        val latest = basis.judge(range) ?: return null
         val rack = Rack.of(preferences, exercise)
 
         return when (latest.verdict) {
@@ -126,31 +127,38 @@ object NextLoadEngine {
 
                 increaseEarned(preferences.fitnessLevel, latest, history.getOrNull(1)?.judge(range)) ->
                     rack.increase(latest.weight)
-                        ?.let { heavier ->
-                            LoadSuggestion(weight = heavier, reps = range.min, reason = SuggestionReason.INCREASE)
-                        }
+                        ?.let { heavier -> latest.suggest(heavier, range.min, SuggestionReason.INCREASE) }
                         // The rack cannot make anything heavier — see `Rack.increase` — so
                         // this is a bodyweight movement for the purpose of the rule: with no
                         // load to add, one more rep is the only way up.
                         ?: addRep(latest)
 
-                else -> LoadSuggestion(weight = latest.weight, reps = range.max, reason = SuggestionReason.REPEAT)
+                else -> latest.suggest(latest.weight, range.max, SuggestionReason.REPEAT)
             }
         }
     }
 
     private fun addRep(latest: Judged): LoadSuggestion =
-        LoadSuggestion(weight = latest.weight, reps = latest.lowestReps + 1, reason = SuggestionReason.ADD_REP)
+        latest.suggest(latest.weight, latest.lowestReps + 1, SuggestionReason.ADD_REP)
 
     private fun deload(
         latest: Judged,
         range: RepRange,
         rack: Rack,
+    ): LoadSuggestion = latest.suggest(latest.weight?.let(rack::deload), range.min, SuggestionReason.DELOAD)
+
+    /** A suggestion off this judged performance, carrying what it was read from. */
+    private fun Judged.suggest(
+        weight: Long?,
+        reps: Int,
+        reason: SuggestionReason,
     ): LoadSuggestion =
         LoadSuggestion(
-            weight = latest.weight?.let(rack::deload),
-            reps = range.min,
-            reason = SuggestionReason.DELOAD,
+            weight = weight,
+            reps = reps,
+            reason = reason,
+            previousWeight = this.weight,
+            basis = performance,
         )
 
     /**
@@ -189,17 +197,19 @@ object NextLoadEngine {
             reps.all { it >= range.max } -> Verdict.TOP
             else -> Verdict.WITHIN
         }
-        return Judged(weight = heaviest, lowestReps = reps.min(), verdict = verdict)
+        return Judged(performance = this, weight = heaviest, lowestReps = reps.min(), verdict = verdict)
     }
 
     /** What the sets at a performance's heaviest weight said about the range. */
     private enum class Verdict { BELOW, WITHIN, TOP }
 
     /**
+     * @property performance what was judged, handed on as the suggestion's basis.
      * @property weight the heaviest weight lifted, or null for a bodyweight performance.
      * @property lowestReps the fewest reps any judged set got.
      */
     private class Judged(
+        val performance: PastPerformance,
         val weight: Long?,
         val lowestReps: Int,
         val verdict: Verdict,

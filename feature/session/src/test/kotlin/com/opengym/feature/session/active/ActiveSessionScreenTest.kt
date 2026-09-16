@@ -1,10 +1,16 @@
 package com.opengym.feature.session.active
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -34,11 +40,16 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.LoadSuggestion
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.SuggestionReason
 import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.ui.component.PreviousSet
 import com.opengym.core.ui.component.SessionProgress
@@ -269,6 +280,84 @@ class ActiveSessionScreenTest {
         assertMissing(hasText("FIRST TIME"))
         composeTestRule.onAllNodes(hasContentDescription("Previously", substring = true))
             .assertCountEquals(1)
+    }
+
+    // ─── The next target ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `with history, the entry row says what the next set should be and why`() {
+        setScreen(state(exercises = listOf(benchedBefore().copy(target = benchTarget()))))
+
+        // One node, the whole sentence, the button role: the figures, how far they moved, the
+        // reason, and — from the click label — what a tap does. See `SetTargetLine`.
+        scrollTo(targetLine())
+            .assertIsDisplayed()
+            .assert(expectValue(SemanticsProperties.Role, Role.Button))
+            .assert(
+                SemanticsMatcher("has the fill action") { node ->
+                    node.config.getOrNull(SemanticsActions.OnClick)?.label == "Fill in the target"
+                },
+            )
+    }
+
+    @Test
+    fun `the target is offered, not typed - the fields stay empty until the line is tapped`() {
+        setScreen(state(exercises = listOf(benchedBefore().copy(target = benchTarget()))))
+
+        // The placeholders are drawn in the two fields and nowhere in the tree: the field's
+        // own text is still empty, so nothing is logged on the strength of a suggestion, and
+        // a reader hears the target once, from the line, rather than twice more on the fields.
+        scrollToDescription("Weight, set 3").assert(hasText(""))
+        scrollToDescription("Reps, set 3").assert(hasText(""))
+        assertMissing(hasText("82.5"))
+        composeTestRule.onAllNodes(hasContentDescription("Target ", substring = true)).assertCountEquals(1)
+    }
+
+    @Test
+    fun `tapping the target line asks for the fields to be filled, and logs nothing`() {
+        setScreen(state(exercises = listOf(benchedBefore().copy(target = benchTarget()))))
+
+        scrollTo(targetLine()).performClick()
+
+        // The one event, and not `SetLogged`: the tick is still the lifter's to press.
+        assertEquals(listOf<ActiveSessionEvent>(ActiveSessionEvent.TargetFilled(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `negative - without history there is no target line, and the row is as it always was`() {
+        setScreen(state(exercises = listOf(benchRow())))
+
+        assertMissing(hasContentDescription("Target ", substring = true))
+        assertMissing(hasContentDescription("Fill in the target"))
+        scrollToDescription("Weight, set 3").assertIsDisplayed()
+    }
+
+    @Test
+    fun `negative - a paused workout draws the target line inert`() {
+        setScreen(state(exercises = listOf(benchedBefore().copy(target = benchTarget()))).copy(isPaused = true))
+
+        scrollTo(targetLine()).assertIsDisplayed().assertIsNotEnabled()
+    }
+
+    @Test
+    fun `at twice the font on a narrow phone, the target line is whole and the fields keep their room`() {
+        // 320dp is where the previous column gives way — see `setTableFitsPrevious` — and 2x
+        // is the scale #40 holds every screen to. The line is not a column and stays.
+        setScreen(
+            state(exercises = listOf(benchedBefore().copy(target = benchTarget()))),
+            fontScale = 2f,
+            widthDp = 320,
+        )
+
+        val line = scrollTo(targetLine()).assertIsDisplayed().fetchSemanticsNode()
+        val root = composeTestRule.onRoot().fetchSemanticsNode()
+        // Whole: inside the page sideways, with nothing cut off either edge.
+        assertTrue(line.boundsInRoot.left >= root.boundsInRoot.left)
+        assertTrue(line.boundsInRoot.right <= root.boundsInRoot.right)
+        // The column went, and the fields are still there to type into.
+        assertMissing(hasContentDescription("Previously", substring = true))
+        scrollToDescription("Weight, set 3").assertIsDisplayed()
+        scrollToDescription("Reps, set 3").assertIsDisplayed()
     }
 
     // ─── Logging a set ──────────────────────────────────────────────────────────────────
@@ -1482,13 +1571,44 @@ class ActiveSessionScreenTest {
         value: String,
     ): SemanticsNodeInteraction = scrollTo(hasContentDescription(description) and hasText(value))
 
-    private fun setScreen(state: ActiveSessionUiState) {
+    /**
+     * @param fontScale the system font scale the screen is drawn at, for the one bar every
+     *   screen is held to — see docs/ACCESSIBILITY.md.
+     * @param widthDp narrower than the class's own viewport, for a layout that changes shape
+     *   with the width; null draws at the viewport.
+     */
+    private fun setScreen(
+        state: ActiveSessionUiState,
+        fontScale: Float = 1f,
+        widthDp: Int? = null,
+    ) {
         composeTestRule.setContent {
-            OpenGymTheme {
-                ActiveSessionScreen(state = state, onEvent = events::add)
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
+                OpenGymTheme {
+                    Box(modifier = if (widthDp != null) Modifier.width(widthDp.dp) else Modifier) {
+                        ActiveSessionScreen(state = state, onEvent = events::add)
+                    }
+                }
             }
         }
     }
+
+    /** The target line under the bench's entry row, as `benchTarget` reads. */
+    private fun targetLine(): SemanticsMatcher =
+        hasContentDescription("Target 82.5 kg × 3 · +2.5 kg. Hit the top of the range last time — add 2.5 kg")
+
+    /** What the engine makes of last week's 80 × 6 under the strength range: the step goes on. */
+    private fun benchTarget() =
+        LoadSuggestion(
+            weight = 82_500_000L,
+            reps = 3,
+            reason = SuggestionReason.INCREASE,
+            previousWeight = 80_000_000L,
+            basis = PastPerformance(
+                listOf(loggedSet(id = 100L, sessionExerciseId = 99L, setNumber = 1, reps = 6, weight = 80_000_000L)),
+            ),
+        )
 
     /**
      * A push day two sets into its first exercise, with three exercises in it.

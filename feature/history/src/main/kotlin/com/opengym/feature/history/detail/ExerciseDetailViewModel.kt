@@ -6,11 +6,14 @@ import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.bestByType
 import com.opengym.core.domain.repository.ExerciseRepository
 import com.opengym.core.domain.repository.PersonalRecordRepository
+import com.opengym.core.domain.repository.SessionRepository
+import com.opengym.core.domain.usecase.NextLoadUseCase
 import com.opengym.core.ui.state.savedScreenState
 import com.opengym.feature.history.exercise.ExerciseDraft
 import com.opengym.feature.history.exercise.applyTo
@@ -20,9 +23,12 @@ import com.opengym.feature.history.exercise.resolveMuscleGroups
 import com.opengym.feature.history.navigation.ExerciseDetailDestination
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -57,6 +63,8 @@ class ExerciseDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val exerciseRepository: ExerciseRepository,
     personalRecordRepository: PersonalRecordRepository,
+    sessionRepository: SessionRepository,
+    nextLoad: NextLoadUseCase,
 ) : ViewModel() {
 
     private val exerciseId = savedStateHandle.toRoute<ExerciseDetailDestination>().exerciseId
@@ -123,14 +131,41 @@ class ExerciseDetailViewModel @Inject constructor(
                 initialValue = emptyList(),
             )
 
+    /**
+     * What the next set should be (#M7-16), or null when the engine has nothing to say.
+     *
+     * Asked with the session *in progress* left out, if there is one. This page has no workout
+     * of its own, but the user may well have one open in the other tab — they came here from
+     * the picker, or to check a number between sets — and the target it shows has to be the
+     * one the set row is showing: the last *finished* performance judged, not the two sets
+     * typed a minute ago. With nothing running, nothing is excluded and every performance is
+     * history. `flatMapLatest` because the answer is a different flow for a different session,
+     * and the session can start or end while the page is open.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val nextTarget: StateFlow<LoadSuggestion?> = sessionRepository.getActive()
+        .map { active -> active?.id }
+        .distinctUntilChanged()
+        .flatMapLatest { activeSessionId -> nextLoad(exerciseId, activeSessionId) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
+
+    /**
+     * The two reads about what the user has done and should do next, as one value, so the
+     * outer combine stays within `combine`'s five-flow arity — the same reason [vocabulary] is
+     * one value.
+     */
+    private val performance: StateFlow<Performance> = combine(records, nextTarget) { records, target ->
+        Performance(records = records, nextTarget = target)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), Performance())
+
     val uiState: StateFlow<ExerciseDetailUiState> = combine(
         loaded,
         exerciseRepository.getMuscleGroupLinks(exerciseId),
         vocabulary,
-        records,
+        performance,
         screenState,
-    ) { loaded, links, vocabulary, records, screen ->
-        buildState(loaded, links, vocabulary, records, screen)
+    ) { loaded, links, vocabulary, performance, screen ->
+        buildState(loaded, links, vocabulary, performance, screen)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -141,7 +176,7 @@ class ExerciseDetailViewModel @Inject constructor(
             loaded = null,
             links = emptyList(),
             vocabulary = Vocabulary(),
-            records = emptyList(),
+            performance = Performance(),
             screen = screenState.value,
         ),
     )
@@ -325,14 +360,15 @@ class ExerciseDetailViewModel @Inject constructor(
         loaded: Loaded?,
         links: List<ExerciseMuscleGroupLink>,
         vocabulary: Vocabulary,
-        records: List<PersonalRecord>,
+        performance: Performance,
         screen: ScreenState,
     ): ExerciseDetailUiState =
         ExerciseDetailUiState(
             exercise = loaded?.exercise,
             muscleLinks = links,
             taxonomy = vocabulary.taxonomy,
-            records = records,
+            records = performance.records,
+            nextTarget = performance.nextTarget,
             notesDraft = screen.noteDraft,
             isSavingNotes = screen.isSavingNotes,
             editDraft = screen.editDraft?.let { it.copy(isDuplicateName = it.isDuplicateIn(vocabulary.catalogue)) },
@@ -378,6 +414,12 @@ class ExerciseDetailViewModel @Inject constructor(
     private data class Vocabulary(
         val taxonomy: List<MuscleGroup> = emptyList(),
         val catalogue: List<Exercise> = emptyList(),
+    )
+
+    /** What the user has done on this exercise and what they should do next, as one value. */
+    private data class Performance(
+        val records: List<PersonalRecord> = emptyList(),
+        val nextTarget: LoadSuggestion? = null,
     )
 
     private companion object {

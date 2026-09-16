@@ -185,7 +185,7 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
             logSet(workoutOn(WEEK_3), 1, at(WEEK_3), reps = 3, weight = kg(85))
 
             val performances = repository
-                .getRecentPerformances(sharedExercise!!, excludingSessionId = -1L, limit = 2)
+                .getRecentPerformances(sharedExercise!!, excludingSessionId = null, limit = 2)
                 .first()
 
             // The DAO's ordering is the grouping: one performance per slot, the newest first,
@@ -200,7 +200,7 @@ class ProgressionRepositoryImplTest : RoomTestBase() {
             assertTrue(
                 repository.getRecentPerformances(
                     exerciseId = 404L,
-                    excludingSessionId = -1L,
+                    excludingSessionId = null,
                     limit = 2,
                 ).first().isEmpty(),
             )
