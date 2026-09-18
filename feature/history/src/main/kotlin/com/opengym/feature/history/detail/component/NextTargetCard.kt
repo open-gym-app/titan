@@ -15,6 +15,7 @@ import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.ui.component.Eyebrow
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.OpenGymCard
+import com.opengym.core.ui.component.formattedFigures
 import com.opengym.core.ui.component.reasonText
 import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.theme.OpenGymTheme
@@ -55,7 +56,7 @@ internal fun NextTargetCard(
 ) {
     // The figures without the "Target" the set row prefixes them with: the section heading
     // over this card already says what they are.
-    val figures = formatSet(target.weight, target.reps) ?: target.reps.toString()
+    val figures = target.formattedFigures()
     val reason = target.reasonText()
     val separator = stringResource(R.string.detail_next_target_basis_separator)
     val basis = target.basis.sets

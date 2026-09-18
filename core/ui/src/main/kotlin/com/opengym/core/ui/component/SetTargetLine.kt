@@ -134,6 +134,21 @@ fun SetTargetLine(
 }
 
 /**
+ * The prescription as a set reads anywhere else: `82.5 kg × 8`, or `9 reps` for a bodyweight
+ * movement. The figures alone, with nothing said about where they came from.
+ *
+ * Public because the exercise detail's card draws the same figures under a heading that
+ * already names them, where [formattedTarget]'s `Target` prefix would be that heading said
+ * twice — and because two call sites deriving one set's text is how they come to disagree
+ * about a bodyweight movement.
+ */
+@Composable
+fun LoadSuggestion.formattedFigures(): String =
+    // Never null: a suggestion always prescribes at least one rep, so `formatSet` always has
+    // something to put on the line. The fallback is for the type system, not for a case.
+    formatSet(weight, reps) ?: reps.toString()
+
+/**
  * The target as its figures: `Target 82.5 kg × 8 · +2.5 kg`, or `Target 9 reps` for a
  * bodyweight movement, or `Target 72 kg × 3 · −8 kg` for a deload.
  *
@@ -142,11 +157,8 @@ fun SetTargetLine(
  * nothing.
  */
 @Composable
-fun LoadSuggestion.formattedTarget(): String {
-    // Never null: a suggestion always prescribes at least one rep, so `formatSet` always has
-    // something to put on the line. The fallback is for the type system, not for a case.
-    val figures = formatSet(weight, reps) ?: reps.toString()
-    val line = stringResource(R.string.set_target_line, figures)
+private fun LoadSuggestion.formattedTarget(): String {
+    val line = stringResource(R.string.set_target_line, formattedFigures())
     val change = formattedChange() ?: return line
     return stringResource(R.string.set_target_with_change, line, change)
 }
@@ -157,7 +169,7 @@ fun LoadSuggestion.formattedTarget(): String {
  */
 @Composable
 @ReadOnlyComposable
-fun LoadSuggestion.formattedChange(): String? {
+private fun LoadSuggestion.formattedChange(): String? {
     val change = weightChange?.takeIf { it != 0L } ?: return null
     return if (change > 0) {
         stringResource(R.string.set_target_gain, formatWeight(change))
@@ -262,7 +274,7 @@ private fun TargetLines() {
 }
 
 /** An increase, an add-rep, a repeat and a deload, off one 80 kg × 6 × 3 bench session. */
-internal fun previewTargets(): List<LoadSuggestion> {
+private fun previewTargets(): List<LoadSuggestion> {
     val benched = PastPerformance(List(3) { index -> previewTargetSet(index + 1, 80_000_000L, 6) })
     val pressed = PastPerformance(List(3) { index -> previewTargetSet(index + 1, null, 8) })
     return listOf(

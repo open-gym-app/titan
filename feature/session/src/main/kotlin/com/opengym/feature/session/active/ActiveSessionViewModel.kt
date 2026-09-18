@@ -140,10 +140,11 @@ import kotlin.time.TimeSource
  * the app exists for, and it is the one place a workout can be logged, edited, named, paused,
  * finished and thrown away.
  *
- * - **The parameter list.** Twenty-four constructor parameters, and every one is a graph edge:
- *   three stores, the catalogue, the settings, seventeen use cases and a clock. Bundling them into
- *   a holder to satisfy a count would put a type in the way of reading what this screen depends
- *   on, which is the one thing the list is good for.
+ * - **The parameter list.** Thirty constructor parameters, and every one is a graph edge: the
+ *   saved state, three stores, the catalogue, the settings, seventeen use cases, the progression
+ *   handoff, the records store, the rest timer, the idle monitor, the skip channel, a clock and a
+ *   time source. Bundling them into a holder to satisfy a count would put a type in the way of
+ *   reading what this screen depends on, which is the one thing the list is good for.
  * - **The function count, and the size that follows from it.** The handlers are already
  *   grouped — `onEntryEvent`, `onSetEditEvent`, `onNameEvent` and `onLayoutEvent` each own one
  *   subject — and what is left is one private method per thing the user can do. Splitting

@@ -171,7 +171,7 @@ Text(
   | `ChipSection` | an eyebrow over a wrapping row of chips — a closed vocabulary shown whole rather than scrolled | a label and the chips |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
-  | `SetTargetLine` | what the next set should be and why — `Target 82.5 kg × 8 · +2.5 kg` over the rule in a sentence — as one button that fills the entry row's fields. `SetLogRow` draws it under the row and the same figures as the fields' placeholders when handed a `target`; `formattedTarget`, `formattedChange` and `reasonText` are the three strings on their own, for the exercise detail's card | `LoadSuggestion` |
+  | `SetTargetLine` | what the next set should be and why — `Target 82.5 kg × 8 · +2.5 kg` over the rule in a sentence — as one button that fills the entry row's fields. `SetLogRow` draws it under the row and the same figures as the fields' placeholders when handed a `target`; `formattedFigures` and `reasonText` are the two strings on their own, for the exercise detail's card | `LoadSuggestion` |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
   | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
