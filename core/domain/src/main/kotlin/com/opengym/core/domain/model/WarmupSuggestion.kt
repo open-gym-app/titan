@@ -53,9 +53,10 @@ data class WarmupSuggestion(
      * The **movements** decide it, and neither [rampUp] nor [includeGeneralNote] can carry a card
      * on its own. A card is a list of things to do with one action that adds them, so a card with
      * nothing in the list is a card whose action is inert — and two ramp-up sets under a heading,
-     * with no way to take them, is worse than no card at all. In practice this never costs
-     * anything: the seed covers all seventeen muscle groups, so a session that trains a muscle
-     * has something to warm it up with.
+     * with no way to take them, is worse than no card at all. In practice it costs almost
+     * nothing: the seed's dynamic movements are the prime movers of twelve of the seventeen
+     * muscle groups, and the secondary links a session is matched on widen that further, so a
+     * workout with nothing to warm it up with is a rare one.
      */
     val hasWarmup: Boolean get() = warmup.isNotEmpty()
 

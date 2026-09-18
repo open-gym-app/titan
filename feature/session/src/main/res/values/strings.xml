@@ -116,7 +116,6 @@
          in its place — at the same point in the workout, in the same superset. -->
     <string name="active_swap_exercise">Swap %1$s for another exercise</string>
 
-    <!-- A session started empty, before any exercise has been added to it. -->
     <!-- ── The warm-up and the cool-down (#214) ───────────────────────────────────────────
          Two cards around the workout, each proposing two or three mobility movements the
          session's muscles call for. Nothing is added until the button is pressed, which is why
@@ -141,6 +140,7 @@
     <!-- Heads the ramp-up sets. %1$s is the lift they lead into — "Bench press ramp-up". -->
     <string name="active_warmup_ramp_up">%1$s ramp-up</string>
 
+    <!-- A session started empty, before any exercise has been added to it. -->
     <string name="active_no_exercises_title">No exercises yet</string>
     <string name="active_no_exercises_body">This session was started empty. Add the first exercise below and start logging.</string>
 

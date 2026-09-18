@@ -1663,20 +1663,29 @@ class ActiveSessionViewModel @Inject constructor(
             MobilityKind.WARMUP -> suggestion.warmup
             MobilityKind.COOLDOWN -> suggestion.cooldown
         }
-        if (movements.isEmpty() || alreadyInSession(movements)) return
+        // Only what the workout does not already hold. `isAdded` is read off the workout, so a
+        // card whose movements were accepted and then *partly* cut back out offers itself again
+        // — and adding the whole list a second time would put the survivors in twice.
+        val inSession = sessionExerciseIds()
+        val missing = movements.filterNot { it.exercise.id in inSession }
+        if (missing.isEmpty()) return
 
         screenState.update { it.copy(addingMobility = it.addingMobility + kind, message = null) }
 
         viewModelScope.launch {
             val added = addExercises(
-                exercises = movements.map { SessionExerciseDraft(exerciseId = it.exercise.id) },
+                exercises = missing.map { SessionExerciseDraft(exerciseId = it.exercise.id) },
                 placement = if (kind == MobilityKind.WARMUP) ExercisePlacement.START else ExercisePlacement.END,
             )
-            // Only after the movements have landed, and only for the warm-up. A failure here
-            // leaves the movements in the workout without their ramp-up, which is a warm-up the
-            // lifter can still perform — where reporting the whole thing as failed over it would
-            // say the card did nothing.
-            if (added.isSuccess && kind == MobilityKind.WARMUP) addRampUp(suggestion)
+            // Only after the movements have landed, only for the warm-up, and only the first
+            // time the card is taken — the ramp-up is already under the lift from that first
+            // acceptance, and a second copy would be four warm-up sets under one working set.
+            // A failure here leaves the movements in the workout without their ramp-up, which is
+            // a warm-up the lifter can still perform, where reporting the whole thing as failed
+            // over it would say the card did nothing.
+            if (added.isSuccess && kind == MobilityKind.WARMUP && missing.size == movements.size) {
+                addRampUp(suggestion)
+            }
 
             screenState.update { state ->
                 state.copy(
@@ -1692,17 +1701,14 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Whether the workout already holds every one of [movements].
+     * The catalogue exercises the workout currently holds.
      *
-     * The same question [MobilityCard.isAdded] answers for the card, asked again on the write
-     * path — and it is the guard that actually stops a double tap. The in-flight flag cannot:
-     * the write is over by the time a second event arrives, and what is left to say no is the
-     * workout itself.
+     * What [MobilityCard.isAdded] is read from, asked again on the write path — and it is what
+     * actually stops a double tap. The in-flight flag cannot: the write is over by the time a
+     * second event arrives, and what is left to say no is the workout itself.
      */
-    private fun alreadyInSession(movements: List<MobilityExercise>): Boolean {
-        val inSession = loaded.value?.ordered?.mapTo(mutableSetOf(), SessionExercise::exerciseId).orEmpty()
-        return movements.all { it.exercise.id in inSession }
-    }
+    private fun sessionExerciseIds(): Set<Long> =
+        loaded.value?.ordered?.mapTo(mutableSetOf(), SessionExercise::exerciseId).orEmpty()
 
     /**
      * Writes the ramp-up sets against the lift they were computed for, under its existing sets.
@@ -2610,10 +2616,11 @@ class ActiveSessionViewModel @Inject constructor(
 /**
  * The part of [ScreenState] that outlives the process in saved instance state.
  *
- * Deliberately two fields. Everything else the workout screen holds is either restored from the
- * draft (the entries, the rest, the pause) or is a flag about something that was happening when
- * the process died and therefore is not happening any more (a write in flight, a sheet, a
- * message). See [ActiveSessionViewModel.typedInput] for what must not be added here and why.
+ * Deliberately these four and no more. Everything else the workout screen holds is either
+ * restored from the draft (the entries, the rest, the pause) or is a flag about something that
+ * was happening when the process died and therefore is not happening any more (a write in
+ * flight, a sheet, a message). See [ActiveSessionViewModel.typedInput] for what must not be
+ * added here and why.
  */
 @Serializable
 private data class TypedInput(

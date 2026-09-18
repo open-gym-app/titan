@@ -43,7 +43,7 @@ import com.opengym.core.domain.plate.Rack
  *
  * ### The pick is stable for a given session
  *
- * The catalogue holds 87 dynamic movements and 94 static stretches, and most sessions match
+ * The catalogue holds 87 dynamic movements and 96 static stretches, and most sessions match
  * dozens of them. Picking at random would reshuffle the card on every recomposition — and, far
  * worse, hand back a different suggestion after a rotation or a process death than the one the
  * user was reading. So the order is a *hash* of the session id and the candidate's id: fixed for
