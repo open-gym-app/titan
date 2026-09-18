@@ -104,6 +104,7 @@ class SettingsViewModelTest {
             viewModel.onEvent(SettingsEvent.TrainingGoalSelected(TrainingGoal.HYPERTROPHY))
             viewModel.onEvent(SettingsEvent.FitnessLevelSelected(FitnessLevel.ADVANCED))
             viewModel.onEvent(SettingsEvent.OneRepMaxFormulaSelected(OneRepMaxFormula.BRZYCKI))
+            viewModel.onEvent(SettingsEvent.WarmupSuggestionsToggled(false))
 
             assertEquals(
                 UserPreferences(
@@ -114,9 +115,23 @@ class SettingsViewModelTest {
                     trainingGoal = TrainingGoal.HYPERTROPHY,
                     fitnessLevel = FitnessLevel.ADVANCED,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
+                    warmupSuggestions = false,
                 ),
                 viewModel.uiState.value.preferences,
             )
+        }
+
+    @Test
+    fun `the warm-up switch goes back on without a dialog in the way`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.WarmupSuggestionsToggled(false))
+            viewModel.onEvent(SettingsEvent.WarmupSuggestionsToggled(true))
+
+            assertTrue(viewModel.uiState.value.preferences.warmupSuggestions)
+            assertNull(viewModel.uiState.value.dialog)
         }
 
     @Test

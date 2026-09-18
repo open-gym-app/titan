@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
@@ -105,6 +106,8 @@ class FakeExerciseRepository(
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> = MutableStateFlow(taxonomy)
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = MutableStateFlow(emptyList())
+
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = MutableStateFlow(emptyList())
 
     override suspend fun insert(exercise: Exercise): Long = insert(exercise, emptyList())
 

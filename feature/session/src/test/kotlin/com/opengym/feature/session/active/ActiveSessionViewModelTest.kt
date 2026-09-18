@@ -4,7 +4,10 @@ import androidx.lifecycle.SavedStateHandle
 import com.opengym.core.domain.model.ActiveExercise
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.ActiveSet
+import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MechanicType
+import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.SuggestionReason
@@ -29,6 +32,7 @@ import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.RestoreSetUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
 import com.opengym.core.domain.usecase.SessionLifecycleLock
+import com.opengym.core.domain.usecase.SuggestWarmupUseCase
 import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
@@ -43,6 +47,7 @@ import com.opengym.feature.session.summary.FakeRecordStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
@@ -3088,6 +3093,231 @@ class ActiveSessionViewModelTest {
             restTimer = RestTimerSnapshot.Running(deadline = deadline, total = 90.seconds),
         )
 
+    // ─── The warm-up and the cool-down (#214) ───────────────────────────────────────────
+
+    @Test
+    fun `a push day is offered a warm-up and a cool-down`() =
+        runTest {
+            val state = viewModel(catalogue = mobilityCatalogue()).uiState.value
+
+            assertTrue(state.warmup!!.movements.isNotEmpty())
+            assertTrue(state.cooldown!!.movements.isNotEmpty())
+            // Open on arrival: a suggestion nobody can see is not one.
+            assertTrue(state.warmup!!.isExpanded)
+        }
+
+    @Test
+    fun `the warm-up ramps into the first compound lift at a loadable weight`() =
+        runTest {
+            val state = viewModel(
+                store = pushDayStore(
+                    // The bench's working sets, as a template would have laid them down.
+                    sets = listOf(
+                        loggedSet(
+                            id = 1L,
+                            sessionExerciseId = BENCH_ROW,
+                            setNumber = 1,
+                            reps = 5,
+                            weight = 80_000_000L,
+                        ),
+                    ),
+                ),
+                catalogue = mobilityCatalogue(),
+            ).uiState.value
+
+            assertEquals(listOf(40_000_000L, 60_000_000L), state.warmup!!.rampUp.map { it.weight })
+            assertEquals(BENCH.name, state.warmup!!.rampUpExerciseName)
+        }
+
+    @Test
+    fun `the setting turned off draws no cards`() =
+        runTest {
+            val state = viewModel(
+                catalogue = mobilityCatalogue(),
+                settings = FakeSettings(UserPreferences(warmupSuggestions = false)),
+            ).uiState.value
+
+            assertNull(state.warmup)
+            assertNull(state.cooldown)
+        }
+
+    @Test
+    fun `accepting the warm-up puts its movements in front of the workout`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            val suggested = viewModel.uiState.value.warmup!!.movements.map(MobilityMovement::exerciseId)
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            val layout = store.getExercises(ACTIVE_SESSION_ID).first().sortedBy(SessionExercise::position)
+            assertEquals(suggested, layout.take(suggested.size).map(SessionExercise::exerciseId))
+            assertEquals(
+                listOf(BENCH.id, INCLINE.id, FLY.id),
+                layout.drop(suggested.size).map(SessionExercise::exerciseId),
+            )
+        }
+
+    @Test
+    fun `accepting the warm-up writes its ramp-up as warm-up sets on the lift`() =
+        runTest {
+            val store = pushDayStore(
+                sets = listOf(
+                    loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 5, weight = 80_000_000L),
+                ),
+            )
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            val bench = store.getSetsForSession(ACTIVE_SESSION_ID).first()
+                .filter { it.sessionExerciseId == BENCH_ROW }
+                .sortedBy(WorkoutSet::setNumber)
+            // Under the set that was already there rather than in front of it: renumbering a
+            // lifter's own rows to make room would move sets they have already ticked.
+            assertEquals(listOf(1, 2, 3), bench.map(WorkoutSet::setNumber))
+            assertEquals(
+                listOf(SetType.NORMAL, SetType.WARMUP, SetType.WARMUP),
+                bench.map(WorkoutSet::setType),
+            )
+            assertEquals(listOf(true, false, false), bench.map(WorkoutSet::isCompleted))
+        }
+
+    @Test
+    fun `accepting the cool-down puts its movements on the end`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            val suggested = viewModel.uiState.value.cooldown!!.movements.map(MobilityMovement::exerciseId)
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.COOLDOWN))
+
+            val layout = store.getExercises(ACTIVE_SESSION_ID).first().sortedBy(SessionExercise::position)
+            assertEquals(suggested, layout.takeLast(suggested.size).map(SessionExercise::exerciseId))
+        }
+
+    @Test
+    fun `a card that has been accepted folds itself away and says so`() =
+        runTest {
+            val viewModel = viewModel(catalogue = mobilityCatalogue())
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            val card = viewModel.uiState.value.warmup!!
+            assertTrue(card.isAdded)
+            assertTrue(!card.isExpanded)
+            assertTrue(!card.canAdd)
+        }
+
+    @Test
+    fun `accepting it twice does not add it twice`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            val suggested = viewModel.uiState.value.warmup!!.movements.size
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            assertEquals(3 + suggested, store.getExercises(ACTIVE_SESSION_ID).first().size)
+        }
+
+    @Test
+    fun `a dismissed card goes and does not come back`() =
+        runTest {
+            val viewModel = viewModel(catalogue = mobilityCatalogue())
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityDismissed(MobilityKind.WARMUP))
+
+            assertNull(viewModel.uiState.value.warmup)
+            // The other card is a separate decision and stays.
+            assertNotNull(viewModel.uiState.value.cooldown)
+        }
+
+    @Test
+    fun `folding a card shut leaves it on the page`() =
+        runTest {
+            val viewModel = viewModel(catalogue = mobilityCatalogue())
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityExpanded(MobilityKind.WARMUP, expanded = false))
+
+            assertTrue(!viewModel.uiState.value.warmup!!.isExpanded)
+            viewModel.onEvent(ActiveSessionEvent.MobilityExpanded(MobilityKind.WARMUP, expanded = true))
+            assertTrue(viewModel.uiState.value.warmup!!.isExpanded)
+        }
+
+    @Test
+    fun `a paused workout takes no suggestion`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            assertEquals(3, store.getExercises(ACTIVE_SESSION_ID).first().size)
+        }
+
+    @Test
+    fun `the same session is suggested the same movements after a process death`() =
+        runTest {
+            val store = pushDayStore()
+            val catalogue = mobilityCatalogue()
+            val handle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID))
+            val before = viewModel(store = store, catalogue = catalogue, savedState = handle)
+            val suggested = before.uiState.value.warmup!!.movements
+
+            val restored = viewModel(
+                store = store,
+                catalogue = catalogue,
+                savedState = handle.afterProcessDeath(),
+            )
+
+            assertEquals(suggested, restored.uiState.value.warmup!!.movements)
+        }
+
+    @Test
+    fun `a card sent away stays away after a process death`() =
+        runTest {
+            val store = pushDayStore()
+            val catalogue = mobilityCatalogue()
+            val handle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID))
+            val before = viewModel(store = store, catalogue = catalogue, savedState = handle)
+            before.onEvent(ActiveSessionEvent.MobilityDismissed(MobilityKind.COOLDOWN))
+            before.onEvent(ActiveSessionEvent.MobilityExpanded(MobilityKind.WARMUP, expanded = false))
+
+            val restored = viewModel(
+                store = store,
+                catalogue = catalogue,
+                savedState = handle.afterProcessDeath(),
+            )
+
+            assertNull(restored.uiState.value.cooldown)
+            assertTrue(!restored.uiState.value.warmup!!.isExpanded)
+        }
+
+    /**
+     * The push day's catalogue with muscles on it, and a mobility half to suggest from.
+     *
+     * The default `catalogue` field carries no links at all, which is why every other test on
+     * this screen sees no cards: a session that trains nothing has nothing to warm up.
+     */
+    private fun mobilityCatalogue() =
+        FakeExerciseCatalogue(
+            exercises = listOf(
+                BENCH.copy(mechanicType = MechanicType.COMPOUND, equipmentType = EquipmentType.BARBELL),
+                INCLINE,
+                FLY,
+                PUSHDOWN,
+            ),
+            links = mapOf(
+                BENCH.id to links(CHEST, listOf(SHOULDERS, TRICEPS)),
+                INCLINE.id to links(CHEST),
+                FLY.id to links(CHEST),
+            ),
+            mobility = MOBILITY_CATALOGUE,
+        )
+
     // ─── Process death (#183) ───────────────────────────────────────────────────────────
 
     @Test
@@ -3178,7 +3408,7 @@ class ActiveSessionViewModelTest {
             deleteSet = DeleteSetUseCase(store, state, clock),
             restoreSet = RestoreSetUseCase(store, state, clock),
             markSetCompleted = MarkSetCompletedUseCase(store, state, clock),
-            addExercises = AddSessionExercisesUseCase(store, state, clock),
+            addExercises = AddSessionExercisesUseCase(store, state, clock, lock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
             reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),
             swapExercise = SwapSessionExerciseUseCase(store, state, clock, lock),
@@ -3190,6 +3420,7 @@ class ActiveSessionViewModelTest {
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
             nextLoad = NextLoadUseCase(history, catalogue, settings),
+            suggestWarmup = SuggestWarmupUseCase(catalogue, settings),
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
             backgroundRestTimer = backgroundRest,

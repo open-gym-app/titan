@@ -117,6 +117,30 @@
     <string name="active_swap_exercise">Swap %1$s for another exercise</string>
 
     <!-- A session started empty, before any exercise has been added to it. -->
+    <!-- ── The warm-up and the cool-down (#214) ───────────────────────────────────────────
+         Two cards around the workout, each proposing two or three mobility movements the
+         session's muscles call for. Nothing is added until the button is pressed, which is why
+         the card names the exercises rather than counting them. -->
+    <string name="active_warmup_title">Warm-up</string>
+    <string name="active_cooldown_title">Cool-down</string>
+    <!-- Added beside the heading once the workout holds every movement the card named. -->
+    <string name="active_mobility_added">Added</string>
+    <string name="active_mobility_add">Add to session</string>
+    <!-- Sends the card away for this workout only. Not a setting: "no warm-up today" and "never
+         show me a warm-up" are different answers, and the second one lives in Settings. -->
+    <string name="active_mobility_dismiss">Not now</string>
+    <!-- What a screen reader hears on the heading row, which folds the card. The label is the
+         action and the two below are the state, so a reader hears both rather than a label that
+         changes under them. -->
+    <string name="active_mobility_fold">Show or hide the suggestion</string>
+    <string name="active_mobility_expanded">Expanded</string>
+    <string name="active_mobility_collapsed">Collapsed</string>
+    <!-- Added to the warm-up when the session spans more than two muscle groups: no two or
+         three movements cover all of it, so raising the whole body's temperature is the advice. -->
+    <string name="active_warmup_general_note">Plus 5 min of easy cardio</string>
+    <!-- Heads the ramp-up sets. %1$s is the lift they lead into — "Bench press ramp-up". -->
+    <string name="active_warmup_ramp_up">%1$s ramp-up</string>
+
     <string name="active_no_exercises_title">No exercises yet</string>
     <string name="active_no_exercises_body">This session was started empty. Add the first exercise below and start logging.</string>
 

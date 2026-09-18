@@ -130,6 +130,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event)
             is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
+            is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
             is SettingsEvent.Notification -> onNotificationEvent(event)
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
             SettingsEvent.MessageShown -> screenState.update { it.copy(message = null) }
@@ -183,6 +184,10 @@ class SettingsViewModel @Inject constructor(
 
     private fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         writeAndDismiss { userPreferencesRepository.setOneRepMaxFormula(formula) }
+
+    // `write`, not `writeAndDismiss`: a switch has no dialog to close behind it.
+    private fun setWarmupSuggestions(enabled: Boolean) =
+        write { userPreferencesRepository.setWarmupSuggestions(enabled) }
 
     /**
      * Stores a notification switch, and asks for the permission behind it if this is the first

@@ -380,6 +380,23 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `the warm-up switch reads the stored setting and reports a flip`() {
+        setContent(UserPreferences(warmupSuggestions = true))
+
+        composeTestRule.onNodeWithText("Warm-up suggestions").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Warm-up suggestions").performClick()
+
+        assertEquals(listOf(SettingsEvent.WarmupSuggestionsToggled(false)), events)
+    }
+
+    @Test
+    fun `the warm-up switch reads as off when it is`() {
+        setContent(UserPreferences(warmupSuggestions = false))
+
+        composeTestRule.onNodeWithText("Warm-up suggestions").performScrollTo().assertIsOff()
+    }
+
+    @Test
     fun `flipping a switch reports the kind and the direction`() {
         setContent(UserPreferences(notifications = NotificationPreferences(enabled = emptySet())))
 

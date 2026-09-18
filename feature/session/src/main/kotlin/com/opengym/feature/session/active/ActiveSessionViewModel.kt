@@ -11,13 +11,17 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.LoadSuggestion
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
+import com.opengym.core.domain.model.SessionExerciseDraft
+import com.opengym.core.domain.model.SessionMovement
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
+import com.opengym.core.domain.model.WarmupSuggestion
 import com.opengym.core.domain.model.WorkoutSession
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.ExerciseRepository
@@ -40,6 +44,7 @@ import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
 import com.opengym.core.domain.usecase.EditSetUseCase
+import com.opengym.core.domain.usecase.ExercisePlacement
 import com.opengym.core.domain.usecase.FinishSessionUseCase
 import com.opengym.core.domain.usecase.LinkSupersetUseCase
 import com.opengym.core.domain.usecase.LogSetUseCase
@@ -51,6 +56,7 @@ import com.opengym.core.domain.usecase.RenameSessionUseCase
 import com.opengym.core.domain.usecase.ReorderSessionExercisesUseCase
 import com.opengym.core.domain.usecase.RestoreSetUseCase
 import com.opengym.core.domain.usecase.ResumeSessionUseCase
+import com.opengym.core.domain.usecase.SuggestWarmupUseCase
 import com.opengym.core.domain.usecase.SwapSessionExerciseUseCase
 import com.opengym.core.domain.usecase.UnlinkSupersetUseCase
 import com.opengym.core.domain.validation.SetValidator
@@ -176,6 +182,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val finishSession: FinishSessionUseCase,
     private val discardSession: DiscardSessionUseCase,
     nextLoad: NextLoadUseCase,
+    suggestWarmup: SuggestWarmupUseCase,
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
@@ -229,7 +236,12 @@ class ActiveSessionViewModel @Inject constructor(
 
     /** What the user is in the middle of, which no store has an opinion about. */
     private val screenState = MutableStateFlow(
-        ScreenState(nameDraft = typedInput.value.nameDraft, setEdits = typedInput.value.setEdits),
+        ScreenState(
+            nameDraft = typedInput.value.nameDraft,
+            setEdits = typedInput.value.setEdits,
+            collapsedMobility = typedInput.value.collapsedMobility,
+            dismissedMobility = typedInput.value.dismissedMobility,
+        ),
     )
 
     init {
@@ -237,7 +249,14 @@ class ActiveSessionViewModel @Inject constructor(
         // lives, and this is what is left of it when the process does not. A `MutableStateFlow`
         // conflates, so a burst of keystrokes costs one encode rather than one per character.
         viewModelScope.launch {
-            screenState.collect { typedInput.value = TypedInput(it.nameDraft, it.setEdits) }
+            screenState.collect {
+                typedInput.value = TypedInput(
+                    nameDraft = it.nameDraft,
+                    setEdits = it.setEdits,
+                    collapsedMobility = it.collapsedMobility,
+                    dismissedMobility = it.dismissedMobility,
+                )
+            }
         }
     }
 
@@ -361,6 +380,52 @@ class ActiveSessionViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyMap())
 
     /**
+     * The workout as the warm-up planner reads it — the exercises, what they train, and what
+     * each is about to be loaded with.
+     *
+     * Assembled here rather than read again in [SuggestWarmupUseCase] because this screen is
+     * already holding every part of it: the exercises are [loaded]'s, the muscle links and
+     * catalogue rows are [catalogue]'s, and the working weight is either the session's own sets
+     * or the target [targets] already computed. A second set of observers on the same tables
+     * would sometimes disagree with what is drawn.
+     *
+     * ### Why the working weight is read this way
+     *
+     * The heaviest weight the exercise's sets carry in *this* session — which for a workout
+     * started from a template is the plan, laid down before the first rep — and failing that,
+     * what the next-load engine says the next set should be. A session built by hand has no sets
+     * at all when the card is first drawn, so without the second half there would be nothing to
+     * take half of and the ramp-up would never appear outside a template.
+     *
+     * [distinctUntilChanged] is what keeps this from restarting the suggestion on every
+     * keystroke: the value only moves when the workout's shape or its planned load does, and
+     * both are rare.
+     */
+    private val movements: StateFlow<List<SessionMovement>> = combine(
+        loaded,
+        catalogue,
+        targets,
+    ) { loaded, catalogue, targets ->
+        loaded?.movements(catalogue, targets).orEmpty()
+    }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), emptyList())
+
+    /**
+     * What to warm up with and what to stretch afterwards (#214), or an empty suggestion.
+     *
+     * Empty covers three different situations the screen does not have to tell apart: the
+     * setting is off, the workout has nothing to warm up for, and the reads have not arrived.
+     * All three draw no card.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val suggestion: StateFlow<WarmupSuggestion> = movements
+        .flatMapLatest { movements ->
+            if (movements.isEmpty()) flowOf(WarmupSuggestion()) else suggestWarmup(sessionId, movements)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), WarmupSuggestion())
+
+    /**
      * The unit system every weight on this screen is typed and read in.
      *
      * Needed here rather than only in composition because this is the half that *parses*: what
@@ -398,6 +463,19 @@ class ActiveSessionViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), 0L)
 
     /**
+     * The two things this screen works out from *outside* its own rows, as one value: what the
+     * next set of each exercise should be, and what to warm up and stretch with.
+     *
+     * Paired rather than combined separately because [assembled] is already at `combine`'s five
+     * typed arguments, and a sixth would drop it into the untyped `Array<Any?>` overload — five
+     * casts in the place the whole screen is built. They belong together anyway: both are advice
+     * about the workout rather than a reading of it.
+     */
+    private val advice: StateFlow<Advice> = combine(targets, suggestion) { targets, suggestion ->
+        Advice(targets = targets, suggestion = suggestion)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), Advice())
+
+    /**
      * Everything the reads decide, with what the user is in the middle of laid over it.
      *
      * The tick is not one of its inputs. Assembling this runs the row pipeline over every
@@ -414,9 +492,9 @@ class ActiveSessionViewModel @Inject constructor(
         // *reads* as: every logged row is drawn from the store through this, so a lifter who
         // switches to pounds mid-workout has to see the table they are looking at change.
         unitSystem,
-        targets,
-    ) { loaded, catalogue, screen, unitSystem, targets ->
-        build(loaded, catalogue, screen, unitSystem, targets, clock.nowMillis())
+        advice,
+    ) { loaded, catalogue, screen, unitSystem, advice ->
+        build(loaded, catalogue, screen, unitSystem, advice, clock.nowMillis())
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
@@ -1537,9 +1615,133 @@ class ActiveSessionViewModel @Inject constructor(
 
             is ActiveSessionEvent.ExerciseSwapRequested -> Unit
 
+            is ActiveSessionEvent.MobilityExpanded -> screenState.update {
+                it.copy(
+                    collapsedMobility = if (event.expanded) {
+                        it.collapsedMobility - event.kind
+                    } else {
+                        it.collapsedMobility + event.kind
+                    },
+                )
+            }
+
+            is ActiveSessionEvent.MobilityAccepted -> acceptMobility(event.kind)
+
+            // No confirmation and no undo: what a dismissal costs is a card, and the same card is
+            // back next session. Folding it shut is the softer half, and both are one tap.
+            is ActiveSessionEvent.MobilityDismissed -> screenState.update {
+                it.copy(dismissedMobility = it.dismissedMobility + event.kind)
+            }
+
             else -> return false
         }
         return true
+    }
+
+    /**
+     * Puts a suggestion card's movements into the workout, at the end the card belongs to.
+     *
+     * The warm-up goes in front — a warm-up performed after the working sets is not a warm-up —
+     * and carries the ramp-up sets on the exercise they were computed for, which is why the
+     * drafts are built here rather than in the planner: a [SessionExerciseDraft] is a write, and
+     * the planner does not write.
+     *
+     * The ramp-up hangs off *the lift*, not off a mobility movement, and that lift is already in
+     * the workout. It is therefore not added here at all — the sets are written against the slot
+     * it already occupies, which is what makes them show up in its own table rather than in a
+     * fourth card. See [addRampUp].
+     *
+     * Guarded per card, the way [log] is guarded per exercise: two taps dispatched before
+     * recomposition would otherwise add the same movements twice, and `session_exercise` is
+     * keyed on position rather than on the exercise, so nothing downstream would refuse it.
+     */
+    private fun acceptMobility(kind: MobilityKind) {
+        val state = screenState.value
+        if (state.isBusy || state.pausedAt != null || kind in state.addingMobility) return
+        val suggestion = suggestion.value
+        val movements = when (kind) {
+            MobilityKind.WARMUP -> suggestion.warmup
+            MobilityKind.COOLDOWN -> suggestion.cooldown
+        }
+        if (movements.isEmpty() || alreadyInSession(movements)) return
+
+        screenState.update { it.copy(addingMobility = it.addingMobility + kind, message = null) }
+
+        viewModelScope.launch {
+            val added = addExercises(
+                exercises = movements.map { SessionExerciseDraft(exerciseId = it.exercise.id) },
+                placement = if (kind == MobilityKind.WARMUP) ExercisePlacement.START else ExercisePlacement.END,
+            )
+            // Only after the movements have landed, and only for the warm-up. A failure here
+            // leaves the movements in the workout without their ramp-up, which is a warm-up the
+            // lifter can still perform — where reporting the whole thing as failed over it would
+            // say the card did nothing.
+            if (added.isSuccess && kind == MobilityKind.WARMUP) addRampUp(suggestion)
+
+            screenState.update { state ->
+                state.copy(
+                    addingMobility = state.addingMobility - kind,
+                    // The card folds itself away on success, because the workout below is now
+                    // the better copy of the same list — `isAdded` is what keeps it shut.
+                    collapsedMobility = if (added.isSuccess) state.collapsedMobility + kind else state.collapsedMobility,
+                    message = if (added.isSuccess) state.message else ActiveSessionMessage.ADD_EXERCISES_FAILED,
+                )
+            }
+            saveDraft()
+        }
+    }
+
+    /**
+     * Whether the workout already holds every one of [movements].
+     *
+     * The same question [MobilityCard.isAdded] answers for the card, asked again on the write
+     * path — and it is the guard that actually stops a double tap. The in-flight flag cannot:
+     * the write is over by the time a second event arrives, and what is left to say no is the
+     * workout itself.
+     */
+    private fun alreadyInSession(movements: List<MobilityExercise>): Boolean {
+        val inSession = loaded.value?.ordered?.mapTo(mutableSetOf(), SessionExercise::exerciseId).orEmpty()
+        return movements.all { it.exercise.id in inSession }
+    }
+
+    /**
+     * Writes the ramp-up sets against the lift they were computed for, under its existing sets.
+     *
+     * Numbered from the end of the table rather than from 1, unlike every other planned set in
+     * this codebase: the exercise has been in the workout since it started and may already have
+     * rows. They go *after* those rather than in front, because `set_number` is the order the
+     * table is drawn in and renumbering a lifter's logged sets to make room would move rows they
+     * have already ticked.
+     *
+     * Best effort, and silent. A ramp-up that could not be written is two sets the lifter types
+     * themselves; it is not worth a message over a card that has otherwise done what it said.
+     */
+    private suspend fun addRampUp(suggestion: WarmupSuggestion) {
+        val exerciseId = suggestion.rampUpExerciseId ?: return
+        val loaded = loaded.value ?: return
+        val slot = loaded.ordered.firstOrNull { it.exerciseId == exerciseId } ?: return
+        val from = loaded.setsOf(slot.id).maxOfOrNull(WorkoutSet::setNumber) ?: 0
+        val now = clock.nowMillis()
+
+        runCatching {
+            sessionRepository.insertSets(
+                suggestion.rampUp.mapIndexed { index, planned ->
+                    WorkoutSet(
+                        sessionExerciseId = slot.id,
+                        setNumber = from + index + 1,
+                        reps = planned.reps,
+                        weight = planned.weight,
+                        setType = planned.setType,
+                        // The placeholder `workout_set.completed_at` holds for a set nobody has
+                        // performed — see `StartPlannedSessionUseCase`.
+                        completedAt = 0L,
+                        isCompleted = false,
+                        createdAt = now,
+                        updatedAt = now,
+                    )
+                },
+            )
+        }
     }
 
     /**
@@ -1556,7 +1758,9 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(isAddingExercises = true, message = null) }
 
         viewModelScope.launch {
-            addExercises(exerciseIds)
+            // Bare drafts: the picker answers with ids and nothing else, so there is no plan to
+            // carry. The warm-up card is the caller that has one — see [acceptMobility].
+            addExercises(exerciseIds.map { SessionExerciseDraft(exerciseId = it) })
                 .onSuccess { screenState.update { state -> state.copy(isAddingExercises = false) } }
                 .onFailure {
                     screenState.update { state ->
@@ -2213,7 +2417,7 @@ class ActiveSessionViewModel @Inject constructor(
         catalogue: Catalogue?,
         screen: ScreenState,
         unitSystem: UnitSystem,
-        targets: Map<Long, LoadSuggestion?>,
+        advice: Advice,
         now: Long,
     ): ActiveSessionUiState {
         val base = ActiveSessionUiState(
@@ -2252,7 +2456,7 @@ class ActiveSessionViewModel @Inject constructor(
             setEdits = screen.setEdits,
             savingSetIds = screen.savingSetIds,
             unitSystem = unitSystem,
-            targets = targets,
+            targets = advice.targets,
         )
 
         return base.copy(
@@ -2286,7 +2490,73 @@ class ActiveSessionViewModel @Inject constructor(
                 ?.takeIf { screen.rest.isLive }
                 ?.let { loaded.setsOf(it).lastOrNull() }
                 ?.let { RestTarget(weight = it.weight, reps = it.reps) },
+            warmup = advice.suggestion.warmupCard(catalogue, loaded, screen),
+            cooldown = advice.suggestion.cooldownCard(loaded, screen),
             isLoading = false,
+        )
+    }
+
+    /**
+     * The warm-up card, or **null** where there is nothing to draw.
+     *
+     * Null covers the setting being off, a session with no match in the catalogue and a card the
+     * user has sent away — three situations the screen does not have to tell apart, because in
+     * all three there is no suggestion on the page.
+     */
+    private fun WarmupSuggestion.warmupCard(
+        catalogue: Catalogue,
+        loaded: Loaded,
+        screen: ScreenState,
+    ): MobilityCard? {
+        if (!hasWarmup) return null
+        return card(
+            kind = MobilityKind.WARMUP,
+            movements = warmup,
+            loaded = loaded,
+            screen = screen,
+        )?.copy(
+            rampUp = rampUp,
+            rampUpExerciseName = rampUpExerciseId?.let { catalogue.exercises[it]?.name },
+            includeGeneralNote = includeGeneralNote,
+        )
+    }
+
+    /**
+     * The cool-down card, on the same rules — see [warmupCard].
+     *
+     * No catalogue: there is no ramp-up after the workout, so nothing here has to be resolved
+     * back to an exercise's name.
+     */
+    private fun WarmupSuggestion.cooldownCard(
+        loaded: Loaded,
+        screen: ScreenState,
+    ): MobilityCard? {
+        if (!hasCooldown) return null
+        return card(kind = MobilityKind.COOLDOWN, movements = cooldown, loaded = loaded, screen = screen)
+    }
+
+    /**
+     * One card's common half: the movements as rows, and the three states it can be in.
+     *
+     * "Added" is read off the workout rather than remembered — see [MobilityCard] — so it
+     * survives a rotation and a process death without anything being written down, and it goes
+     * back to false if the lifter cuts the movements out again.
+     */
+    private fun card(
+        kind: MobilityKind,
+        movements: List<MobilityExercise>,
+        loaded: Loaded,
+        screen: ScreenState,
+    ): MobilityCard? {
+        if (kind in screen.dismissedMobility) return null
+        val inSession = loaded.ordered.mapTo(mutableSetOf(), SessionExercise::exerciseId)
+        return MobilityCard(
+            movements = movements.map {
+                MobilityMovement(exerciseId = it.exercise.id, name = it.exercise.name)
+            },
+            isExpanded = kind !in screen.collapsedMobility,
+            isAdded = movements.isNotEmpty() && movements.all { it.exercise.id in inSession },
+            isAdding = kind in screen.addingMobility,
         )
     }
 
@@ -2349,6 +2619,17 @@ class ActiveSessionViewModel @Inject constructor(
 private data class TypedInput(
     val nameDraft: String? = null,
     val setEdits: Map<Long, SetEntry> = emptyMap(),
+    /**
+     * Which suggestion cards are folded shut and which have been sent away (#214).
+     *
+     * The exception to the rule above, and it earns it: these are not typed input, but they are
+     * the one thing about the cards that neither the store nor the suggestion can say. The
+     * suggestion itself is recomputed — that is what makes it stable across a process death —
+     * and "the user already said no to this" is not recomputable from anything. Two enum names
+     * per session is nothing next to what a `Bundle` can hold.
+     */
+    val collapsedMobility: Set<MobilityKind> = emptySet(),
+    val dismissedMobility: Set<MobilityKind> = emptySet(),
 )
 
 /**
@@ -2415,6 +2696,22 @@ private data class ScreenState(
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
+    /**
+     * The suggestion cards the user has folded shut, and the ones they have sent away (#214).
+     *
+     * Both are the *negative* — collapsed rather than expanded, dismissed rather than shown —
+     * because the default is a card that is open and on the page, and an empty set is what a
+     * workout nobody has touched the cards on looks like. Both survive a process death; see
+     * [TypedInput].
+     */
+    val collapsedMobility: Set<MobilityKind> = emptySet(),
+    val dismissedMobility: Set<MobilityKind> = emptySet(),
+    /**
+     * The cards whose movements are being written. A set rather than a flag, for the reason
+     * [togglingSetIds] is one: the two cards are independent, and the cool-down going inert
+     * while the warm-up is written would be a control disabled by an unrelated write.
+     */
+    val addingMobility: Set<MobilityKind> = emptySet(),
     val message: ActiveSessionMessage? = null,
 ) {
 
@@ -2490,6 +2787,15 @@ private data class ScreenState(
 private class EditTarget(
     val stored: WorkoutSet,
     val exerciseType: ExerciseType?,
+)
+
+/**
+ * What this screen is *advised* to do, as opposed to what it has read: the next-load target for
+ * each exercise, and the warm-up and cool-down. See `ActiveSessionViewModel.advice`.
+ */
+private data class Advice(
+    val targets: Map<Long, LoadSuggestion?> = emptyMap(),
+    val suggestion: WarmupSuggestion = WarmupSuggestion(),
 )
 
 /** The two catalogue-wide reads, as one value. */
@@ -2621,6 +2927,35 @@ private class Loaded(
                 // Keyed by catalogue id like the history, and for the same reason: it is a fact
                 // about the exercise, and two slots holding the same one get the same answer.
                 target = targets[exercise.exerciseId],
+            )
+        }
+    }
+
+    /**
+     * The session as the warm-up planner reads it — see
+     * [com.opengym.core.domain.model.SessionMovement] and `ActiveSessionViewModel.movements`.
+     *
+     * An exercise deleted from the catalogue under an open session is left out entirely rather
+     * than carried with a placeholder: with no catalogue row there is no mechanic, no equipment
+     * and no muscle links, so it can decide nothing the planner asks.
+     */
+    fun movements(
+        catalogue: Catalogue?,
+        targets: Map<Long, LoadSuggestion?>,
+    ): List<SessionMovement> {
+        catalogue ?: return emptyList()
+        return ordered.mapNotNull { exercise ->
+            val row = catalogue.exercises[exercise.exerciseId] ?: return@mapNotNull null
+            SessionMovement(
+                exercise = row,
+                muscleGroups = catalogue.muscleLinks[exercise.exerciseId].orEmpty(),
+                // This session's own plan first — a workout started from a template carries its
+                // weights before a rep is performed — and the next-load target behind it, which
+                // is what a session built by hand has instead. Zero and null are the same answer
+                // here: a set with no weight is nothing to take a fraction of.
+                workingWeight = setsOf(exercise.id).mapNotNull(WorkoutSet::weight).maxOrNull()
+                    ?.takeIf { it > 0 }
+                    ?: targets[exercise.exerciseId]?.weight,
             )
         }
     }

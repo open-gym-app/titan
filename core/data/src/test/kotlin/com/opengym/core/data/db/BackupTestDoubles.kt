@@ -67,6 +67,8 @@ class InMemoryUserPreferencesRepository : UserPreferencesRepository {
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun setNotificationEnabled(

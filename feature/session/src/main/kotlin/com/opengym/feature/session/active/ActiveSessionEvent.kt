@@ -192,6 +192,39 @@ sealed interface ActiveSessionEvent {
     /** The picker came back with these, in the order they were ticked. */
     data class ExercisesPicked(val exerciseIds: List<Long>) : ActiveSessionEvent
 
+    /*
+     * ── The warm-up and the cool-down (#214) ────────────────────────────────────────────
+     *
+     * Three events for two cards, each naming which card it is about rather than one pair of
+     * events per card. The two behave identically — open it, take it, or send it away — and
+     * spelling that twice would be six cases the ViewModel has to keep agreeing about.
+     */
+
+    /** The card was folded open or shut. */
+    data class MobilityExpanded(
+        val kind: MobilityKind,
+        val expanded: Boolean,
+    ) : ActiveSessionEvent
+
+    /**
+     * Put the card's suggestion into the workout: its movements, and for the warm-up its
+     * ramp-up sets.
+     *
+     * The one thing on this screen that writes exercises the user did not pick. It is a tap on
+     * a card that lists exactly what it will add, which is the whole of why nothing is added
+     * without one — see `WarmupSuggestion`.
+     */
+    data class MobilityAccepted(val kind: MobilityKind) : ActiveSessionEvent
+
+    /**
+     * Take the card off this workout's screen.
+     *
+     * Remembered for this session and no longer: the suggestion is not a setting, and a lifter
+     * who skips the warm-up today has not said anything about tomorrow. The setting that does
+     * say something about tomorrow is in Settings › Workout.
+     */
+    data class MobilityDismissed(val kind: MobilityKind) : ActiveSessionEvent
+
     /**
      * Perform the workout's exercises in this order from now on.
      *
@@ -325,4 +358,19 @@ sealed interface ActiveSessionEvent {
 
     /** The transient message has been shown. */
     data object MessageShown : ActiveSessionEvent
+}
+
+/**
+ * Which of the two suggestion cards an event is about.
+ *
+ * A warm-up and a cool-down are the same card with different contents and different ends of the
+ * workout to land on — see `MobilityCard` — so they are one type with a discriminator rather
+ * than two of everything.
+ */
+enum class MobilityKind {
+    /** Before the first exercise. Carries the ramp-up sets; the cool-down has none. */
+    WARMUP,
+
+    /** After the last one. */
+    COOLDOWN,
 }

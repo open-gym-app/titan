@@ -655,6 +655,8 @@ private object DefaultPreferences : UserPreferencesRepository {
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
 
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = readOnly()
+
     override suspend fun clear() = readOnly()
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = readOnly()

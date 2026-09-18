@@ -34,6 +34,7 @@ fun UserPreferences.toPayload(): PreferencesPayload =
         customRepRangeMin = customRepRange.min,
         customRepRangeMax = customRepRange.max,
         customIncrement = customIncrement,
+        warmupSuggestions = warmupSuggestions,
     )
 
 /**
@@ -68,6 +69,9 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         customRepRange = repRangeOrNull(customRepRangeMin, customRepRangeMax) ?: RepRange.DEFAULT_CUSTOM,
         customIncrement = customIncrement?.takeIf { it > 0 },
         oneRepMaxFormula = oneRepMaxFormula.asEnumOr(OneRepMaxFormula.EPLEY),
+        // Absent is a file from before the cards existed, and a user who has never turned
+        // them off has them on — the same answer a fresh install gets.
+        warmupSuggestions = warmupSuggestions ?: DEFAULT_WARMUP_SUGGESTIONS,
         onboardingCompleted = onboardingCompleted,
     )
 
@@ -138,3 +142,11 @@ private inline fun <reified T : Enum<T>> String?.asEnumOr(fallback: T): T =
  * [asRestDurationOrNull].
  */
 private const val MIN_REST_SECONDS = 1L
+
+/**
+ * What an export with no `warmup_suggestions` key restores that setting to.
+ *
+ * `UserPreferences`' own default, restated because this side of the mapping names every
+ * fallback it uses — see the enum defaults above, which are spelled out for the same reason.
+ */
+private const val DEFAULT_WARMUP_SUGGESTIONS = true

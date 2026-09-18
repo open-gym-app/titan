@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +55,7 @@ import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
@@ -81,6 +83,7 @@ import com.opengym.core.ui.format.formatSet
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.session.R
 import com.opengym.feature.session.active.component.CollapsedExerciseRow
+import com.opengym.feature.session.active.component.MobilitySuggestionCard
 import com.opengym.feature.session.active.component.SessionExerciseCard
 import kotlinx.coroutines.flow.first
 import kotlin.time.Duration
@@ -633,6 +636,18 @@ private fun SessionBody(
             }
         }
 
+        if (!reorder.isActive) {
+            // Above the first exercise, because that is the order it is performed in — and
+            // under the stats rather than over them, so the running figures stay the first
+            // thing on the page for the rest of the workout.
+            mobilityCard(
+                card = state.warmup,
+                kind = MobilityKind.WARMUP,
+                enabled = enabled,
+                onEvent = onEvent,
+            )
+        }
+
         exercises.forEachIndexed { index, row ->
             item(key = "exercise-${row.sessionExerciseId}") {
                 val isHeldItem = reorder.heldKey == row.sessionExerciseId
@@ -715,6 +730,15 @@ private fun SessionBody(
 
         if (reorder.isActive) return@LazyColumn
 
+        // Under the last exercise and above the add action: it belongs after the work, and the
+        // button below it is about the work rather than about the stretch.
+        mobilityCard(
+            card = state.cooldown,
+            kind = MobilityKind.COOLDOWN,
+            enabled = enabled,
+            onEvent = onEvent,
+        )
+
         item(key = "add-exercises") {
             // At the bottom, under everything the workout already holds, because that is where
             // what it adds will land — an action at the top would append to the far end of a
@@ -746,6 +770,35 @@ private fun SessionBody(
                 )
             }
         }
+    }
+}
+
+/**
+ * One of the two suggestion cards as a list item, or nothing at all (#214).
+ *
+ * A `LazyListScope` extension rather than a composable, because what it has to be able to do is
+ * *not emit an item*: a null card draws no row and takes no gap in the column's spacing, where a
+ * composable returning early would still have an item around it.
+ *
+ * Keyed on the kind so the two cards keep their identity as the workout between them grows.
+ */
+private fun LazyListScope.mobilityCard(
+    card: MobilityCard?,
+    kind: MobilityKind,
+    enabled: Boolean,
+    onEvent: (ActiveSessionEvent) -> Unit,
+) {
+    card ?: return
+    item(key = "mobility-$kind") {
+        MobilitySuggestionCard(
+            card = card,
+            kind = kind,
+            onExpand = { onEvent(ActiveSessionEvent.MobilityExpanded(kind, it)) },
+            onAdd = { onEvent(ActiveSessionEvent.MobilityAccepted(kind)) },
+            onDismiss = { onEvent(ActiveSessionEvent.MobilityDismissed(kind)) },
+            enabled = enabled,
+            modifier = Modifier.animateItem(),
+        )
     }
 }
 
@@ -921,6 +974,42 @@ fun ActiveSessionScreenRestingPreview() {
             state = previewState().copy(
                 rest = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
                 restTarget = RestTarget(weight = 80_000_000L, reps = 5),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
+/**
+ * The two suggestion cards in place: the warm-up over the workout, the cool-down under it.
+ *
+ * In context rather than only in `MobilitySuggestionCard`'s own previews, because where they sit
+ * is half of what they are — a warm-up under the last exercise would be a warm-up nobody does.
+ */
+@Preview(name = "Active session - with suggestions", showBackground = true, heightDp = 2400)
+@Composable
+fun ActiveSessionScreenSuggestionsPreview() {
+    OpenGymTheme(theme = ThemePreference.LIGHT) {
+        ActiveSessionScreen(
+            state = previewState().copy(
+                warmup = MobilityCard(
+                    movements = listOf(
+                        MobilityMovement(exerciseId = 10L, name = "Arm circles"),
+                        MobilityMovement(exerciseId = 11L, name = "Band pull-apart"),
+                    ),
+                    rampUp = listOf(
+                        PlannedSet(setType = SetType.WARMUP, reps = 5, weight = 40_000_000L),
+                        PlannedSet(setType = SetType.WARMUP, reps = 3, weight = 60_000_000L),
+                    ),
+                    rampUpExerciseName = "Bench press",
+                ),
+                cooldown = MobilityCard(
+                    movements = listOf(
+                        MobilityMovement(exerciseId = 20L, name = "Standing chest stretch"),
+                        MobilityMovement(exerciseId = 21L, name = "Overhead triceps stretch"),
+                    ),
+                    isExpanded = false,
+                ),
             ),
             onEvent = {},
         )

@@ -24,11 +24,14 @@ fun exercise(
     exerciseType: String = "STRENGTH",
     equipmentType: String? = "BARBELL",
     machineBrand: String? = null,
+    /** The `Discipline` name, for the reads that filter on it — the warm-up catalogue above all. */
+    discipline: String? = null,
 ) = ExerciseEntity(
     name = name,
     exerciseType = exerciseType,
     equipmentType = equipmentType,
     machineBrand = machineBrand,
+    discipline = discipline,
 )
 
 fun muscleGroup(

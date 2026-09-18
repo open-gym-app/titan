@@ -185,6 +185,7 @@ object SessionUseCaseModule {
             sessionRepository = sessionRepository,
             sessionStateRepository = sessionStateRepository,
             clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
         )
 
     @Provides

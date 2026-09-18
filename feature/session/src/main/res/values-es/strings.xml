@@ -74,6 +74,17 @@
     <string name="active_remove_exercise">Quitar %1$s de este entrenamiento</string>
     <string name="active_swap_exercise">Cambiar %1$s por otro ejercicio</string>
 
+    <string name="active_warmup_title">Calentamiento</string>
+    <string name="active_cooldown_title">Vuelta a la calma</string>
+    <string name="active_mobility_added">Añadido</string>
+    <string name="active_mobility_add">Añadir a la sesión</string>
+    <string name="active_mobility_dismiss">Ahora no</string>
+    <string name="active_mobility_fold">Mostrar u ocultar la sugerencia</string>
+    <string name="active_mobility_expanded">Desplegado</string>
+    <string name="active_mobility_collapsed">Plegado</string>
+    <string name="active_warmup_general_note">Más 5 min de cardio suave</string>
+    <string name="active_warmup_ramp_up">Series de aproximación: %1$s</string>
+
     <string name="active_no_exercises_title">Aún no hay ejercicios</string>
     <string name="active_no_exercises_body">Esta sesión empezó vacía. Añade el primer ejercicio abajo y empieza a registrar.</string>
 

@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,23 @@ interface ExerciseRepository {
      * is what a grouped list sections on.
      */
     fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>>
+
+    /**
+     * The mobility half of the catalogue: every [com.opengym.core.domain.model.Discipline.STRETCHING]
+     * and [com.opengym.core.domain.model.Discipline.PLYOMETRICS] movement, with its prime movers
+     * and whether it is dynamic.
+     *
+     * The one read [com.opengym.core.domain.usecase.SuggestWarmupUseCase] makes of the catalogue,
+     * and it is deliberately not three: the exercises, their primary links and the `DYNAMIC` tag
+     * are one question — "what could this session warm up with" — and asking it as three Flows
+     * would combine 873 rows, 2,574 links and 1,717 tag rows to arrive at the 184 that matter.
+     *
+     * Ordered by name, and an exercise appears once however many prime movers it has. An exercise
+     * of one of those disciplines with no primary link at all is absent rather than empty, as it
+     * is from [getAllMuscleGroupLinks]: with nothing to match a session against, it could never
+     * be suggested.
+     */
+    fun getMobilityExercises(): Flow<List<MobilityExercise>>
 
     fun getTags(exerciseId: Long): Flow<List<Tag>>
     suspend fun insert(exercise: Exercise): Long

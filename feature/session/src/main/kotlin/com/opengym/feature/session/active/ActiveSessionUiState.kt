@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
 import com.opengym.core.domain.model.WorkoutSet
@@ -110,6 +111,11 @@ import kotlin.time.Duration
  *   worth watching rather than waiting out. Null where nothing has been logged to predict it
  *   from. Carried as quantities rather than as `80 kg × 5`, because the unit is the ambient
  *   one and the "×" is a word — both belong in composition.
+ * @param warmup the card above the first exercise, or **null** where there is nothing to offer:
+ *   the setting is off, the card has been sent away, or the catalogue has no match for what
+ *   this workout trains. Null rather than an empty card, so the page asks one question.
+ * @param cooldown the same card below the last exercise. Two fields rather than a pair, because
+ *   they are shown in two places and go away independently.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -138,6 +144,8 @@ data class ActiveSessionUiState(
     val rest: RestTimerState = RestTimerState.Idle,
     val isRestSheetOpen: Boolean = false,
     val restTarget: RestTarget? = null,
+    val warmup: MobilityCard? = null,
+    val cooldown: MobilityCard? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -206,6 +214,66 @@ data class ActiveSessionUiState(
 data class RestTarget(
     val weight: Long?,
     val reps: Int?,
+)
+
+/**
+ * One of the two suggestion cards: what it proposes, and what state it is in (#214).
+ *
+ * ### It is a proposal until it is tapped
+ *
+ * Nothing in here is in the workout. The movements are catalogue rows and [rampUp] is a plan,
+ * and both stay that way until [ActiveSessionEvent.MobilityAccepted] — which is why the card
+ * lists them rather than summarising: a user is agreeing to *these* exercises, so these are
+ * what it has to say.
+ *
+ * ### "Added" is read off the workout, not remembered
+ *
+ * [isAdded] is true when every movement named here is already in the session. That makes the
+ * collapse survive a rotation and a process death without anything being written down — and it
+ * makes the card honest about the one case a remembered flag would get wrong: a lifter who
+ * accepts the warm-up and then cuts the movements back out is looking at a workout that does not
+ * have them, and the card says so again.
+ *
+ * @param movements what to do, in the order suggested, as the card draws them.
+ * @param rampUp the working lift's ramp-up sets, lightest first, or empty. Only ever on the
+ *   warm-up card: there is nothing to ramp into after the workout.
+ * @param rampUpExerciseName the lift [rampUp] belongs to, or null with no ramp-up. Named rather
+ *   than left implicit, because the sets are drawn under a heading and "80 × 5" under nothing
+ *   is two numbers.
+ * @param includeGeneralNote whether to add the line about five minutes of easy cardio — see
+ *   `WarmupSuggestion.includeGeneralNote`.
+ * @param isExpanded whether the card is folded open. Screen state, remembered across a rotation
+ *   and a process death, and open to begin with: a suggestion nobody can see is not one.
+ * @param isAdded the workout already holds every movement named here.
+ * @param isAdding the write is in flight, so the action goes inert — a second tap would add the
+ *   same movements twice, and [isAdded] cannot be true until the read comes back.
+ */
+@Immutable
+data class MobilityCard(
+    val movements: List<MobilityMovement> = emptyList(),
+    val rampUp: List<PlannedSet> = emptyList(),
+    val rampUpExerciseName: String? = null,
+    val includeGeneralNote: Boolean = false,
+    val isExpanded: Boolean = true,
+    val isAdded: Boolean = false,
+    val isAdding: Boolean = false,
+) {
+
+    /** Whether the action is live: there is something to add, and nothing stopping it. */
+    val canAdd: Boolean get() = movements.isNotEmpty() && !isAdded && !isAdding
+}
+
+/**
+ * One suggested movement, as a card row: what it is called and what the user is about to add.
+ *
+ * The id travels because accepting the card writes it — the name is what is drawn, and the two
+ * must be the same row. The catalogue id rather than a `session_exercise` one, because there is
+ * no session row yet and the whole point is that there may never be.
+ */
+@Immutable
+data class MobilityMovement(
+    val exerciseId: Long,
+    val name: String,
 )
 
 /**

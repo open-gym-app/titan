@@ -417,6 +417,9 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         record("setOneRepMaxFormula") { delegate.setOneRepMaxFormula(formula) }
 
+    override suspend fun setWarmupSuggestions(enabled: Boolean) =
+        record("setWarmupSuggestions") { delegate.setWarmupSuggestions(enabled) }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) =
         record("setOnboardingCompleted") { delegate.setOnboardingCompleted(completed) }
 

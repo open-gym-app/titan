@@ -59,7 +59,9 @@ MUSCLE_GROUPS = [
 ]
 
 # CARRY has no upstream equivalent; it stays seeded for user-tagged exercises.
-SYSTEM_TAGS = ["PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION"]
+# DYNAMIC is appended rather than inserted: the ids are positions in this list,
+# so putting it anywhere else would renumber every tag link below it.
+SYSTEM_TAGS = ["PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION", "DYNAMIC"]
 
 # --- Upstream -> schema mappings ------------------------------------------
 
@@ -103,6 +105,11 @@ CATEGORY = {
 MECHANIC = {"compound": "COMPOUND", "isolation": "ISOLATION", None: None}
 DIFFICULTY = {"beginner": "BEGINNER", "intermediate": "INTERMEDIATE", "expert": "EXPERT"}
 FORCE_TAG = {"push": "PUSH", "pull": "PULL", "static": "STATIC"}
+
+# The `force` values that mean a movement travels through a range rather than
+# holding a position. Used only for DYNAMIC below; the STATIC tag above is the
+# same column read the other way round, and the two never disagree.
+MOVING_FORCES = ("push", "pull")
 
 # exercise.is_unilateral is not an upstream field. These markers appear only in
 # genuinely one-side-at-a-time movement names, so the inference is safe; an
@@ -210,6 +217,28 @@ def muscle_name(upstream: str) -> str:
     return name
 
 
+def dynamic_tag(record: dict) -> str | None:
+    """`"DYNAMIC"` when this movement warms a muscle up rather than stretching it out.
+
+    The warm-up/cool-down suggestion (#214) needs to tell leg swings from a seated
+    hamstring stretch, and no upstream field says so on its own. Two rules cover it:
+
+    * **plyometrics** are dynamic by definition - a box jump is nothing else - bar the
+      single upstream record whose ``force`` is ``static``;
+    * a **stretch** is dynamic when ``force`` says it pushes or pulls, i.e. the body
+      travels, and static when it says ``static`` or says nothing.
+
+    Every other category is neither: a bench press is not mobility work, and tagging it
+    would put it in a warm-up card next to leg swings.
+    """
+    category, force = record["category"], record.get("force")
+    if category == "plyometrics":
+        return None if force == "static" else "DYNAMIC"
+    if category == "stretching" and force in MOVING_FORCES:
+        return "DYNAMIC"
+    return None
+
+
 def build_sql(exercises: list[dict], commit: str, has_image: set[str]) -> str:
     muscle_ids = {name: i + 1 for i, name in enumerate(MUSCLE_GROUPS)}
     tag_ids = {name: i + 1 for i, name in enumerate(SYSTEM_TAGS)}
@@ -268,7 +297,11 @@ def build_sql(exercises: list[dict], commit: str, has_image: set[str]) -> str:
             seen.add(name)
             muscle_rows.append(f"({index}, {muscle_ids[name]}, 0)")
 
-        for tag in (FORCE_TAG.get(record.get("force")), MECHANIC.get(record.get("mechanic"))):
+        for tag in (
+            FORCE_TAG.get(record.get("force")),
+            MECHANIC.get(record.get("mechanic")),
+            dynamic_tag(record),
+        ):
             if tag:
                 tag_rows.append(f"({index}, {tag_ids[tag]})")
 

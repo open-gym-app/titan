@@ -157,6 +157,10 @@ class MainViewModelTest {
             preferences.update { it.copy(oneRepMaxFormula = formula) }
         }
 
+        override suspend fun setWarmupSuggestions(enabled: Boolean) {
+            preferences.update { it.copy(warmupSuggestions = enabled) }
+        }
+
         override suspend fun setDefaultRestDuration(duration: Duration) {
             preferences.update { it.copy(defaultRestDuration = duration) }
         }

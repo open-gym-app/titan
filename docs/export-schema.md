@@ -79,14 +79,16 @@ timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assump
 | `fitness_level` | `FitnessLevel` name | `BEGINNER` — the file predates #M7-11 |
 | `custom_rep_range_min`, `custom_rep_range_max` | int32 reps | `8` and `12` — the file predates #M7-15, or holds one end without the other |
 | `custom_increment_milligrams` | int64 milligrams, or `null` | `null` — the rack's own smallest step |
+| `warmup_suggestions` | bool | `true` — the file predates #214 |
 
 *Required* is the decoder's word, not the importer's: a required key that is missing makes the
 document `MalformedJson`, where a value the build does not recognise degrades to the setting's
-default (see below). The last five are the keys that may be absent. `plate_inventory_milligrams`
+default (see below). The last six are the keys that may be absent. `plate_inventory_milligrams`
 is written as an explicit `null` by this build and has been since the format's first version;
-`fitness_level` is written by every build from #M7-11 on, and the three CUSTOM-goal keys by
-every build from #M7-15 on — each is simply not there in a file from before it. All read back
-as the default the table gives, and none bumped `schema_version`, per [the rule](#when-to-bump).
+`fitness_level` is written by every build from #M7-11 on, the three CUSTOM-goal keys by every
+build from #M7-15 on, and `warmup_suggestions` by every build from #214 on — each is simply not
+there in a file from before it. All read back as the default the table gives, and none bumped
+`schema_version`, per [the rule](#when-to-bump).
 A settings key added after these takes the same shape: nullable in `PreferencesPayload`,
 defaulted on read, listed here.
 

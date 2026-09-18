@@ -29,6 +29,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -46,6 +47,7 @@ import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
@@ -1645,6 +1647,94 @@ class ActiveSessionScreenTest {
         exercises = exercises,
         isLoading = false,
     )
+
+    // ─── The warm-up and the cool-down (#214) ───────────────────────────────────────────
+
+    @Test
+    fun `the warm-up card lists what it would add`() {
+        setScreen(state().copy(warmup = warmupCard()))
+
+        scrollToText("Arm circles").assertIsDisplayed()
+        scrollToText("Band pull-apart").assertIsDisplayed()
+        // The ramp-up, under the lift it belongs to.
+        scrollToText("Bench press ramp-up").assertIsDisplayed()
+        scrollToText("40 kg × 5").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the warm-up heading is a heading, and the fold says which way it is`() {
+        setScreen(state().copy(warmup = warmupCard()))
+
+        scrollToText("WARM-UP").assert(SemanticsMatcher.keyIsDefined(SemanticsProperties.Heading))
+        scrollTo(hasStateDescription("Expanded")).assertIsDisplayed()
+    }
+
+    @Test
+    fun `adding the warm-up reports it once`() {
+        setScreen(state().copy(warmup = warmupCard()))
+
+        scrollToText("Add to session").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP)), events)
+    }
+
+    @Test
+    fun `sending the warm-up away reports it`() {
+        setScreen(state().copy(warmup = warmupCard()))
+
+        scrollToText("Not now").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.MobilityDismissed(MobilityKind.WARMUP)), events)
+    }
+
+    @Test
+    fun `folding the card reports the state it is going to`() {
+        setScreen(state().copy(warmup = warmupCard()))
+
+        scrollToText("WARM-UP").performClick()
+
+        assertEquals(
+            listOf(ActiveSessionEvent.MobilityExpanded(MobilityKind.WARMUP, expanded = false)),
+            events,
+        )
+    }
+
+    @Test
+    fun `a card that has been taken says so and offers nothing more`() {
+        setScreen(state().copy(warmup = warmupCard().copy(isAdded = true, isExpanded = false)))
+
+        scrollToText("Added").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Add to session").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a paused workout cannot take a suggestion`() {
+        setScreen(state().copy(warmup = warmupCard(), isPaused = true))
+
+        scrollToText("Add to session").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `no card is drawn when there is nothing to suggest`() {
+        setScreen(state())
+
+        composeTestRule.onAllNodesWithText("WARM-UP").assertCountEquals(0)
+        composeTestRule.onAllNodesWithText("COOL-DOWN").assertCountEquals(0)
+    }
+
+    /** A push day's warm-up: two movements and an 80 kg bench to ramp into. */
+    private fun warmupCard() =
+        MobilityCard(
+            movements = listOf(
+                MobilityMovement(exerciseId = 10L, name = "Arm circles"),
+                MobilityMovement(exerciseId = 11L, name = "Band pull-apart"),
+            ),
+            rampUp = listOf(
+                PlannedSet(setType = SetType.WARMUP, reps = 5, weight = 40_000_000L),
+                PlannedSet(setType = SetType.WARMUP, reps = 3, weight = 60_000_000L),
+            ),
+            rampUpExerciseName = "Bench press",
+        )
 
     /**
      * Presses a node through its click *action* rather than through a finger.
