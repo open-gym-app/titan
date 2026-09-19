@@ -1,0 +1,8 @@
+Primera versión.
+• Registra una sesión libre o desde una plantilla, con temporizador de descanso y calculadora de discos.
+• Biblioteca de ejercicios: músculos trabajados y cómo realizar cada uno.
+• Récords, 1RM estimado y gráficas de progresión por ejercicio.
+• Calendario de sesiones, estadísticas y tendencias.
+• Recordatorios para entrenar.
+• Copia de seguridad y restauración en un archivo. Todo queda en tu móvil: sin cuenta ni anuncios.
+• Tema claro u oscuro, unidades métricas o imperiales.

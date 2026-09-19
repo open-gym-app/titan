@@ -76,6 +76,11 @@ aboutlibraries = "13.2.1"
 # artifacts went to 21. The JSON the plugin writes has carried the same keys since v10, so
 # a newer plugin feeding the older runtime is a supported pairing.
 aboutlibrariesPlugin = "14.2.1"
+# Gradle Play Publisher: the release workflow's upload to Play's internal track (#209). Applied
+# to `:app` only and a build-time plugin only — nothing of it reaches the runtime classpath,
+# which is what keeps the F-Droid build (#210) free of Google code. 4.x is the AGP 9 line;
+# 3.x does not configure against AGP 9 at all.
+playPublisher = "4.1.1"
 # Roborazzi's preview-scanning support delegates to this; it is a separate project on its
 # own release train, so it carries its own version rather than sharing `roborazzi`.
 composablePreviewScanner = "0.9.2"
@@ -189,3 +194,4 @@ detekt = { id = "dev.detekt", version.ref = "detekt" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 sonarqube = { id = "org.sonarqube", version.ref = "sonarqube" }
 aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutlibrariesPlugin" }
+play-publisher = { id = "com.github.triplet.play", version.ref = "playPublisher" }

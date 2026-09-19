@@ -86,6 +86,8 @@ Reference documentation lives in [`docs/`](docs/):
 - [ACCESSIBILITY.md](docs/ACCESSIBILITY.md): what the app promises TalkBack, large fonts and a thumb, how every build checks it, and the record of the last pass on a device.
 - [TRANSLATION.md](docs/TRANSLATION.md): the languages the app ships in, the check that keeps every translation in step with the English, and the glossary each one is held to.
 
+How a tag becomes a build on Google Play, a GitHub Release and F-Droid is in [`release/RELEASE.md`](release/RELEASE.md).
+
 ## Contributing
 
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.

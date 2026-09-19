@@ -23,7 +23,7 @@ here that is not a change to those tests is a change nobody made.
 {
   "schema_version": 1,
   "exported_at": 1788686970491,        // epoch milliseconds, UTC
-  "app_version": "1.0-debug",          // diagnostic only; nothing reads it back
+  "app_version": "1.2.3",              // versionName (release/RELEASE.md); diagnostic only, nothing reads it back
   "preferences": { … },                // the settings store — see below
   "muscle_group":          [ … ],      // one array per table, in restore order
   "tag":                   [ … ],

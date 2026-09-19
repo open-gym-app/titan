@@ -1,0 +1,8 @@
+Première version.
+• Enregistrez une séance libre ou depuis un modèle, avec minuteur de repos et calculateur de disques.
+• Bibliothèque d'exercices : muscles travaillés et exécution de chacun.
+• Records, 1RM estimé et courbes de progression par exercice.
+• Calendrier des séances, statistiques et tendances.
+• Rappels d'entraînement.
+• Sauvegarde et restauration dans un fichier. Tout reste sur votre appareil : sans compte ni publicité.
+• Thèmes clair et sombre, unités métriques ou impériales.

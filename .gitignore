@@ -34,3 +34,7 @@ keystore.properties
 
 # Cached upstream tarballs for tools/seed/generate_seed.py
 tools/seed/.cache/
+
+# Written by :app:syncPlayReleaseNotes from fastlane/metadata/android/*/changelogs/ — the
+# layout Gradle Play Publisher reads release notes from. Edit the changelog, never this.
+app/src/release/play/

@@ -1,3 +1,6 @@
+import com.github.triplet.gradle.androidpublisher.ReleaseStatus
+import com.opengym.buildlogic.ReleaseVersion
+import com.opengym.buildlogic.SyncPlayReleaseNotes
 import java.util.Properties
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -15,6 +18,9 @@ plugins {
     // Generates the JSON the open source licences screen reads at runtime (#208), from this
     // module's own dependency graph — which, as the composition root, is the whole app's.
     alias(libs.plugins.aboutlibraries)
+    // Uploads the release bundle to Play's internal track from the release workflow (#209).
+    // Build-time only: it adds nothing to the APK.
+    alias(libs.plugins.play.publisher)
     id("opengym.android.jacoco")
 }
 
@@ -24,6 +30,17 @@ private val keystoreProperties = Properties().also { props ->
 
 private fun prop(envKey: String, fileKey: String): String? =
     (System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey))?.takeIf { it.isNotEmpty() }
+
+// The version comes from the tag and from nowhere else: `.github/workflows/release.yml` passes
+// the tag without its `v` as `-PreleaseVersion=`, and `ReleaseVersion` (build-logic) turns it
+// into the name and the code below. Without the property this is `0.0.0-dev` / `1`, which is
+// every local build and CI's own `assembleRelease`. The rule, and why a candidate shares its
+// release's code, are written up in release/RELEASE.md.
+private val releaseVersion = ReleaseVersion.parse(providers.gradleProperty("releaseVersion").orNull)
+
+// Play's names for the four locales `androidResources.localeFilters` (below) ships, and the
+// directories `fastlane/metadata/android/` is keyed by.
+private val shippedLocales = listOf("en-US", "fr-FR", "es-ES", "pt-BR")
 
 android {
     namespace = "com.opengym.app"
@@ -39,10 +56,22 @@ android {
         // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
         // runtime behaviour changes, which is a decision that needs its own testing pass.
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersion.code
+        versionName = releaseVersion.name
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    packaging {
+        dex {
+            // Store the dex files uncompressed. With a `minSdk` below 28 AGP's default is to
+            // deflate them; stored, Android 9 and later map them straight out of the APK
+            // instead of extracting a copy at install, and a verifier comparing the release
+            // to its own build (release/RELEASE.md) sees R8's bytes with one less transform
+            // between. The cost lands on Android 8, which extracts the dex regardless and so
+            // holds it twice.
+            useLegacyPackaging = false
+        }
     }
 
     signingConfigs {
@@ -77,6 +106,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Nothing in the release runtime classpath ships an `.so` today, so this produces
+            // nothing. It is set now so that the first dependency that does gets its symbols
+            // packed into the AAB (and `native-debug-symbols.zip` beside it, which the release
+            // workflow archives) rather than shipping stripped, with no crash on Play ever
+            // symbolised.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
         create("staging") {
             initWith(getByName("release"))
@@ -185,6 +222,74 @@ aboutLibraries {
         // here before it can be added at all.
         strictMode.set(com.mikepenz.aboutlibraries.plugin.StrictMode.FAIL)
         allowedLicenses.addAll("Apache-2.0", "BSD-3-Clause")
+    }
+}
+
+// ### Publishing to Play (#209)
+//
+// The release workflow's `publishReleaseBundle` and nothing else: the internal track, as a
+// draft, so a build appears in the Console and rolls out to nobody until a person promotes it
+// (#47, #49). No track above internal is ever named here or in the workflow. Credentials come
+// from the `ANDROID_PUBLISHER_CREDENTIALS` environment variable GPP reads on its own, so no
+// key file is ever on disk. `resolutionStrategy` keeps its `FAIL` default on purpose: a
+// `versionCode` Play has already seen means a tag was reused, and the fix is a new tag, not a
+// silently bumped number the tag no longer describes.
+play {
+    track.set("internal")
+    releaseStatus.set(ReleaseStatus.DRAFT)
+    defaultToAppBundles.set(true)
+    // Off for every variant but `release` (below). `staging` and `benchmark` are release-like
+    // and GPP would otherwise register an upload task for each; neither is a build that
+    // should ever reach a store, under any track.
+    enabled.set(false)
+}
+
+android {
+    playConfigs {
+        register("release") {
+            enabled.set(true)
+        }
+    }
+}
+
+// ### Release notes: one file, three consumers
+//
+// Play's "What's new", F-Droid's changelog and the GitHub Release body are all
+// `fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt` (release/RELEASE.md).
+// GPP reads release notes from a fixed layout of its own — `src/<sourceSet>/play/release-notes/
+// <locale>/<track>.txt`, an input its resource task discovers rather than a property — so this
+// copies the changelog into that layout before it looks, and fails the build when a locale's
+// file is missing or over Play's limit. `default.txt` rather than `internal.txt`: the notes
+// follow the build when it is promoted, and the workflow only ever publishes to one track
+// anyway. The destination is generated and gitignored; the source is the only file anyone
+// edits.
+private val syncPlayReleaseNotes = tasks.register<SyncPlayReleaseNotes>("syncPlayReleaseNotes") {
+    group = "publishing"
+    description = "Copies this version's fastlane changelogs into the layout Gradle Play Publisher reads."
+    metadata.set(rootProject.layout.projectDirectory.dir("fastlane/metadata/android"))
+    version.set(releaseVersion.name)
+    versionCode.set(releaseVersion.code)
+    locales.set(shippedLocales)
+    destination.set(layout.projectDirectory.dir("src/release/play/release-notes"))
+}
+
+// GPP registers `generateReleasePlayResources` from a variant callback, after this script has
+// run, so it is wired by name as it appears rather than looked up.
+tasks.configureEach {
+    if (name == "generateReleasePlayResources") dependsOn(syncPlayReleaseNotes)
+}
+
+// What the release workflow reads the version back out of, in `$GITHUB_OUTPUT` form, so the
+// name on the GitHub Release, the changelog it attaches and the decision to skip Play for a
+// candidate all come from the same parse as the APK's own `versionCode`.
+tasks.register("printReleaseVersion") {
+    group = "publishing"
+    description = "Prints the version the -PreleaseVersion property resolves to."
+    val version = releaseVersion
+    doLast {
+        println("version=${version.name}")
+        println("version_code=${version.code}")
+        println("prerelease=${version.isReleaseCandidate}")
     }
 }
 

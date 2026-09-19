@@ -1,0 +1,8 @@
+First release.
+• Log a session free-form or from a template, with a rest timer and a plate calculator.
+• Exercise library with the muscles each one works and how to perform it.
+• Personal records, estimated one-rep max and per-exercise progression charts.
+• Session calendar, stats and trends.
+• Training reminders.
+• Backup and restore to a file. Everything stays on your device: no account, no ads.
+• Light and dark themes, metric or imperial units.

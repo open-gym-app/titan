@@ -1,0 +1,307 @@
+name: Release
+
+# The tag-driven release pipeline (#209). A pushed `v<MAJOR>.<MINOR>.<PATCH>` tag — or a
+# `-rc.<N>` candidate — is the only thing that produces a release artifact; `ci.yml` builds the
+# release variant on every push to prove it assembles, and never signs it. The whole flow, and
+# what to do when a step fails after the tag exists, is written up in release/RELEASE.md.
+#
+# Two jobs. `build` needs no secret and proves the tag builds the same bytes twice; `release`
+# runs in the `release` environment, whose required reviewers are the human gate in front of
+# the keystore and the Play service account, and is the only job that uploads anywhere.
+on:
+  push:
+    tags: ["v*.*.*"]
+  # A rehearsal. Builds and signs everything for `version` from the dispatched branch and
+  # uploads nowhere, so a first-time releaser can watch the whole pipeline — the environment
+  # approval included — without a tag to clean up afterwards. `dry_run` off is the one way to
+  # release an existing tag again with a *fixed workflow file*: "Re-run failed jobs" replays
+  # `release.yml` as it was at the tag, so a bug in this file cannot be re-run past. The sources
+  # are still checked out at the tag, never at the dispatched branch.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The version, without the v — 1.2.3 or 1.2.3-rc.1"
+        required: true
+        type: string
+      dry_run:
+        description: "Build and sign everything, upload nothing"
+        type: boolean
+        default: true
+
+# One release per version at a time, and never cancelled: a run that is interrupted between
+# the Play upload and the GitHub Release would leave the two channels disagreeing about what
+# shipped, and the tag already exists for both.
+concurrency:
+  group: release-${{ inputs.version || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # `-PreleaseVersion=`: the tag without its `v` (build-logic's `ReleaseVersion`). On a
+  # dispatch it is the input verbatim, so a typo fails Gradle's parser before anything builds.
+  RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+
+jobs:
+  build:
+    name: Reproducible build
+    # See ci.yml for CI_RUNNER: the org-level switch between the homelab scale set and
+    # GitHub-hosted runners.
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      unsigned_apk_sha256: ${{ steps.first.outputs.sha256 }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # A real release from a dispatch builds the tag it names, not the branch it was
+          # dispatched from; a rehearsal builds whatever was dispatched.
+          ref: ${{ (github.event_name == 'workflow_dispatch' && !inputs.dry_run) && format('refs/tags/v{0}', inputs.version) || '' }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The one place the tag is turned into numbers. `printReleaseVersion` runs the same
+      # parser `assembleRelease` does, so what the GitHub Release is named, which changelog
+      # is read and whether Play is skipped all come from the value the APK carries.
+      - name: Resolve the version from the tag
+        id: version
+        run: |
+          ./gradlew -q :app:printReleaseVersion -PreleaseVersion="${RELEASE_VERSION#v}" \
+            | grep -E '^(version|version_code|prerelease)=' | tee -a "$GITHUB_OUTPUT"
+          test "$(grep -c . "$GITHUB_OUTPUT")" -ge 3
+
+      # Play's "What's new" has a 500-character limit per locale and GPP would only find out at
+      # upload time, after the environment was approved and the build spent. Same task the
+      # bundle step runs; here it runs first so a missing or overlong changelog is the first
+      # line of the first job's log.
+      - name: Check the changelog exists in every locale
+        run: ./gradlew :app:syncPlayReleaseNotes -PreleaseVersion="${{ steps.version.outputs.version }}"
+
+      # Two builds of the unsigned APK, from a clean tree and without the build cache, have
+      # to produce the same bytes. This is what F-Droid's verifier (#210) does on its own
+      # server against the signed APK we publish: if the two runs here differ, the difference
+      # is a timestamp, a path or a hash-order dependency somewhere in the build, and it is
+      # this job's business to find it before a release carries it. No keystore in this job
+      # on purpose — the unsigned APK is the artifact whose bytes are being compared.
+      - name: Build the unsigned release APK (first run)
+        id: first
+        run: |
+          ./gradlew :app:assembleRelease -PreleaseVersion="${{ steps.version.outputs.version }}" --no-build-cache
+          echo "sha256=$(sha256sum app/build/outputs/apk/release/app-release-unsigned.apk | cut -d' ' -f1)" | tee -a "$GITHUB_OUTPUT"
+
+      # A fresh daemon as well as a clean tree: nothing the first run left in memory — R8's
+      # caches, the Kotlin compiler's, a class loaded once — is allowed to feed the second.
+      - name: Build the unsigned release APK (second run, clean)
+        id: second
+        run: |
+          ./gradlew clean
+          ./gradlew --stop
+          ./gradlew :app:assembleRelease -PreleaseVersion="${{ steps.version.outputs.version }}" --no-build-cache
+          echo "sha256=$(sha256sum app/build/outputs/apk/release/app-release-unsigned.apk | cut -d' ' -f1)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Assert the two builds are byte-identical
+        run: |
+          if [ "${{ steps.first.outputs.sha256 }}" != "${{ steps.second.outputs.sha256 }}" ]; then
+            echo "::error::The release APK is not reproducible: ${{ steps.first.outputs.sha256 }} != ${{ steps.second.outputs.sha256 }}"
+            exit 1
+          fi
+          echo "Reproducible: ${{ steps.first.outputs.sha256 }}"
+
+      # What a verifier needs to rebuild this exact APK, and what the GitHub Release carries
+      # next to it. Gradle and AGP come from the files that pin them so the record cannot
+      # drift from the build that was just run; the JDK is whatever setup-java resolved.
+      - name: Record the toolchain
+        run: |
+          {
+            echo "tag=v${{ steps.version.outputs.version }}"
+            echo "commit=$(git rev-parse HEAD)"
+            echo "versionName=${{ steps.version.outputs.version }}"
+            echo "versionCode=${{ steps.version.outputs.version_code }}"
+            echo "unsignedApkSha256=${{ steps.first.outputs.sha256 }}"
+            echo "jdk=$(java -version 2>&1 | head -n 1)"
+            echo "gradle=$(sed -n 's|.*/gradle-\(.*\)-bin\.zip|\1|p' gradle/wrapper/gradle-wrapper.properties)"
+            echo "agp=$(sed -n 's/^agp = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
+            echo "kotlin=$(sed -n 's/^kotlin = "\(.*\)"/\1/p' gradle/libs.versions.toml)"
+          } > build-info.txt
+          { echo '```'; cat build-info.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the toolchain record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: build-info
+          path: build-info.txt
+          retention-days: 90
+
+  release:
+    name: Sign and publish
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    needs: [build]
+    # Every secret below lives on this environment and nowhere else (#44), so a fork's PR
+    # cannot reach them and its required reviewers see every run before it gets them.
+    environment: release
+    permissions:
+      # The GitHub Release and its assets. Nothing else in this job writes to the repository.
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      VERSION_CODE: ${{ needs.build.outputs.version_code }}
+      # `true` for a `-rc.N` tag: a GitHub pre-release, and no Play upload.
+      PRERELEASE: ${{ needs.build.outputs.prerelease }}
+      # A rehearsal signs and bundles exactly as a release does — that is what it rehearses —
+      # and stops at each upload step. On a tag push `inputs` is empty and this is `false`.
+      DRY_RUN: ${{ inputs.dry_run == true }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && !inputs.dry_run) && format('refs/tags/v{0}', inputs.version) || '' }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version: "17"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # The upload keystore, base64 in a secret, decoded outside the checkout so no Gradle
+      # task can ever package it. `KEYSTORE_PATH` is what app/build.gradle.kts reads; it
+      # is the same four names keystore.properties.example documents for a local build.
+      - name: Install the upload keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          test -s "$RUNNER_TEMP/upload.jks" || { echo "::error::KEYSTORE_BASE64 decoded to an empty file"; exit 1; }
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+
+      # The AAB for Play and the APK for GitHub and F-Droid, from one Gradle invocation so
+      # they share a configuration, a commit and a signing key. R8's `mapping.txt` comes out
+      # beside them; AGP also packs it into the AAB, which is how Play gets it.
+      - name: Build the signed release bundle and APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease :app:assembleRelease -PreleaseVersion="$VERSION"
+
+      # A signed APK is the unsigned one plus a signature block; `apksigner verify` fails on
+      # an APK that has none (the signing config silently does not attach when the keystore is
+      # missing — app/build.gradle.kts) and prints the certificate's fingerprint, which is what
+      # a reviewer holds against the upload certificate recorded in release/RELEASE.md.
+      - name: Verify the signature and name the artifacts
+        run: |
+          APKSIGNER="$(ls -d "${ANDROID_HOME:-$ANDROID_SDK_ROOT}"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
+          mkdir -p dist
+          cp app/build/outputs/apk/release/app-release.apk "dist/opengym-$VERSION.apk"
+          cp app/build/outputs/bundle/release/app-release.aab "dist/opengym-$VERSION.aab"
+          # 68 MB of text that gzips to under 5; every copy below is one someone downloads.
+          gzip -9 -c app/build/outputs/mapping/release/mapping.txt > "dist/mapping-$VERSION.txt.gz"
+          cp "fastlane/metadata/android/en-US/changelogs/$VERSION_CODE.txt" "dist/changelog-$VERSION.txt"
+          (cd dist && sha256sum "opengym-$VERSION.apk" > "opengym-$VERSION.apk.sha256")
+          cat "dist/opengym-$VERSION.apk.sha256"
+
+      - name: Download the toolchain record
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: build-info
+          path: dist
+
+      # Play deobfuscates crash reports with this for as long as the version is installed
+      # anywhere, and the Console only holds the copy inside the AAB. The GitHub Release below
+      # carries it for good; this artifact is the copy that exists for a `-rc.N` (which has no
+      # Play upload) and for a rehearsal (which has no release at all).
+      - name: Archive the R8 mapping file
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: mapping-${{ env.VERSION }}
+          path: dist/mapping-${{ env.VERSION }}.txt.gz
+          retention-days: 90
+
+      # None today: nothing in the release runtime classpath ships an `.so`. The step exists
+      # so that the first dependency that does is uploaded rather than silently shipped
+      # without them — `ndk.debugSymbolLevel` in app/build.gradle.kts is what makes AGP
+      # produce this zip the day there is something to put in it.
+      - name: Archive the native debug symbols
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-debug-symbols-${{ env.VERSION }}
+          path: app/build/outputs/native-debug-symbols/release/native-debug-symbols.zip
+          if-no-files-found: ignore
+          retention-days: 90
+
+      # The very first upload of an app cannot go through the API — Play only binds a package
+      # name to an app from the Console (release/RELEASE.md) — and a rehearsal or a candidate
+      # has nowhere else to leave it. Fourteen days: the file exists to be downloaded once, by
+      # someone who may not be watching the run.
+      - name: Archive the signed bundle and APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: opengym-${{ env.VERSION }}
+          path: |
+            dist/opengym-${{ env.VERSION }}.aab
+            dist/opengym-${{ env.VERSION }}.apk
+            dist/opengym-${{ env.VERSION }}.apk.sha256
+          retention-days: 14
+
+      # GitHub first, Play second, because of what a re-run has to be able to do: this step
+      # updates a release that already exists, so a run that failed at the Play step can be
+      # re-run from here without a second `v1.2.3` — whereas Play refuses a `versionCode` it has
+      # already seen, so a Play upload that went through cannot sit in front of a retried step.
+      #
+      # The body is the en-US changelog, so the three channels tell the same story from the
+      # same file. A candidate is a pre-release and never becomes "latest"; a release does.
+      - name: Create the GitHub Release
+        if: env.DRY_RUN == 'false'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          body_path: dist/changelog-${{ env.VERSION }}.txt
+          prerelease: ${{ env.PRERELEASE == 'true' }}
+          make_latest: ${{ env.PRERELEASE == 'false' }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/opengym-${{ env.VERSION }}.apk
+            dist/opengym-${{ env.VERSION }}.apk.sha256
+            dist/changelog-${{ env.VERSION }}.txt
+            dist/mapping-${{ env.VERSION }}.txt.gz
+            dist/build-info.txt
+
+      - name: Skip the GitHub Release
+        if: env.DRY_RUN == 'true'
+        run: echo "Dry run — no GitHub Release for v$VERSION. The signed APK is in the opengym-$VERSION artifact for fourteen days."
+
+      # Internal track, as a draft: the Console shows the build and nothing rolls out until a
+      # person promotes it (#47, #49). The workflow never touches another track. GPP reads the
+      # credentials from this variable and needs no file; `publishReleaseBundle` finds the AAB
+      # the build step already produced and the changelogs `syncPlayReleaseNotes` copied into
+      # its layout — there is no second build. The keystore variables are here because the
+      # bundle task is in the graph again and the signing config attaches at configuration.
+      - name: Upload the bundle to Play's internal track
+        if: env.PRERELEASE == 'false' && env.DRY_RUN == 'false'
+        env:
+          ANDROID_PUBLISHER_CREDENTIALS: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:publishReleaseBundle -PreleaseVersion="$VERSION"
+
+      - name: Skip Play
+        if: env.PRERELEASE == 'true' || env.DRY_RUN == 'true'
+        run: echo "Not uploading v$VERSION to Play — ${{ env.DRY_RUN == 'true' && 'dry run' || 'release candidate' }}."

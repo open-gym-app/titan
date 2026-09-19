@@ -1,0 +1,8 @@
+Primeira versão.
+• Registre um treino livre ou a partir de um modelo, com cronômetro de descanso e calculadora de anilhas.
+• Biblioteca de exercícios com os músculos trabalhados e como executar cada um.
+• Recordes, 1RM estimado e gráficos de progressão por exercício.
+• Calendário de treinos, estatísticas e tendências.
+• Lembretes de treino.
+• Backup e restauração em um arquivo. Tudo fica no seu aparelho: sem conta, sem anúncios.
+• Temas claro e escuro, unidades métricas ou imperiais.
