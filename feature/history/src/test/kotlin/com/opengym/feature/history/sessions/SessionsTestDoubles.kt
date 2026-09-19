@@ -99,6 +99,7 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     override suspend fun deleteExercise(sessionExerciseId: Long) = unsupported()
     override suspend fun update(session: WorkoutSession) = unsupported()
     override suspend fun delete(id: Long) = unsupported()
+    override suspend fun <T> atomically(block: suspend () -> T): T = unsupported()
 
     /**
      * The sessions browser reads three things, the exercise detail a fourth, and neither writes.

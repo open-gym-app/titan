@@ -40,6 +40,7 @@ import com.opengym.core.domain.timer.RestSkipRequests
 import com.opengym.core.domain.timer.RestTimerController
 import com.opengym.core.domain.timer.RestTimerSnapshot
 import com.opengym.core.domain.timer.RestTimerState
+import com.opengym.core.domain.usecase.AddPlannedSetsUseCase
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -147,7 +148,7 @@ import kotlin.time.TimeSource
  * finished and thrown away.
  *
  * - **The parameter list.** Thirty constructor parameters, and every one is a graph edge: the
- *   saved state, three stores, the catalogue, the settings, seventeen use cases, the progression
+ *   saved state, three stores, the catalogue, the settings, eighteen use cases, the progression
  *   handoff, the records store, the rest timer, the idle monitor, the skip channel, a clock and a
  *   time source. Bundling them into a holder to satisfy a count would put a type in the way of
  *   reading what this screen depends on, which is the one thing the list is good for.
@@ -171,6 +172,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val restoreSet: RestoreSetUseCase,
     private val markSetCompleted: MarkSetCompletedUseCase,
     private val addExercises: AddSessionExercisesUseCase,
+    private val addPlannedSets: AddPlannedSetsUseCase,
     private val removeExercise: RemoveSessionExerciseUseCase,
     private val reorderExercises: ReorderSessionExercisesUseCase,
     private val swapExercise: SwapSessionExerciseUseCase,
@@ -1647,9 +1649,9 @@ class ActiveSessionViewModel @Inject constructor(
      * the planner does not write.
      *
      * The ramp-up hangs off *the lift*, not off a mobility movement, and that lift is already in
-     * the workout. It is therefore not added here at all — the sets are written against the slot
-     * it already occupies, which is what makes them show up in its own table rather than in a
-     * fourth card. See [addRampUp].
+     * the workout. It is therefore not added here at all — the sets are written into the table
+     * of the slot it already occupies, which is what makes them show up under its own working
+     * sets rather than in a fourth card. See [addRampUp].
      *
      * Guarded per card, the way [log] is guarded per exercise: two taps dispatched before
      * recomposition would otherwise add the same movements twice, and `session_exercise` is
@@ -1711,43 +1713,19 @@ class ActiveSessionViewModel @Inject constructor(
         loaded.value?.ordered?.mapTo(mutableSetOf(), SessionExercise::exerciseId).orEmpty()
 
     /**
-     * Writes the ramp-up sets against the lift they were computed for, under its existing sets.
+     * Writes the ramp-up sets into the table of the lift they were computed for.
      *
-     * Numbered from the end of the table rather than from 1, unlike every other planned set in
-     * this codebase: the exercise has been in the workout since it started and may already have
-     * rows. They go *after* those rather than in front, because `set_number` is the order the
-     * table is drawn in and renumbering a lifter's logged sets to make room would move rows they
-     * have already ticked.
+     * Where in that table is [AddPlannedSetsUseCase]'s decision: after whatever the lifter has
+     * already ticked, and in front of the working sets a template laid down — `set_number` is
+     * the order the table is drawn in, and a warm-up drawn below the working sets is not one.
      *
      * Best effort, and silent. A ramp-up that could not be written is two sets the lifter types
      * themselves; it is not worth a message over a card that has otherwise done what it said.
      */
     private suspend fun addRampUp(suggestion: WarmupSuggestion) {
         val exerciseId = suggestion.rampUpExerciseId ?: return
-        val loaded = loaded.value ?: return
-        val slot = loaded.ordered.firstOrNull { it.exerciseId == exerciseId } ?: return
-        val from = loaded.setsOf(slot.id).maxOfOrNull(WorkoutSet::setNumber) ?: 0
-        val now = clock.nowMillis()
-
-        runCatching {
-            sessionRepository.insertSets(
-                suggestion.rampUp.mapIndexed { index, planned ->
-                    WorkoutSet(
-                        sessionExerciseId = slot.id,
-                        setNumber = from + index + 1,
-                        reps = planned.reps,
-                        weight = planned.weight,
-                        setType = planned.setType,
-                        // The placeholder `workout_set.completed_at` holds for a set nobody has
-                        // performed — see `StartPlannedSessionUseCase`.
-                        completedAt = 0L,
-                        isCompleted = false,
-                        createdAt = now,
-                        updatedAt = now,
-                    )
-                },
-            )
-        }
+        val slot = loaded.value?.ordered?.firstOrNull { it.exerciseId == exerciseId } ?: return
+        addPlannedSets(sessionExerciseId = slot.id, sets = suggestion.rampUp)
     }
 
     /**
@@ -2960,7 +2938,15 @@ private class Loaded(
                 // weights before a rep is performed — and the next-load target behind it, which
                 // is what a session built by hand has instead. Zero and null are the same answer
                 // here: a set with no weight is nothing to take a fraction of.
-                workingWeight = setsOf(exercise.id).mapNotNull(WorkoutSet::weight).maxOrNull()
+                //
+                // Warm-up sets are not the plan. Once a ramp-up has been accepted they are the
+                // only rows a hand-built session holds under the lift, and reading them as its
+                // working weight would ramp into the ramp-up — a suggestion that gets lighter
+                // every time it is recomputed.
+                workingWeight = setsOf(exercise.id)
+                    .filterNot { it.setType == SetType.WARMUP }
+                    .mapNotNull(WorkoutSet::weight)
+                    .maxOrNull()
                     ?.takeIf { it > 0 }
                     ?: targets[exercise.exerciseId]?.weight,
             )

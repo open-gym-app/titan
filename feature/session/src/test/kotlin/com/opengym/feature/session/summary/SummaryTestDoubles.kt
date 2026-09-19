@@ -110,6 +110,7 @@ class FakeSummarySessionStore(
     ): List<Long> = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
+    override suspend fun <T> atomically(block: suspend () -> T): T = unsupported()
 
     private fun unsupported(): Nothing =
         throw UnsupportedOperationException("the recap reads one session and writes its note")

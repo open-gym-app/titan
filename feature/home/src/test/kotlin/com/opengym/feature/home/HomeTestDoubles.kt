@@ -115,6 +115,8 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
         sets.update { it - id }
     }
 
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     /** [count] logged sets against [sessionId] — what discarding it would cost. */
     fun seedSets(
         sessionId: Long,

@@ -4,7 +4,6 @@ import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionState
-import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.time.Clock
@@ -35,12 +34,22 @@ import kotlinx.coroutines.flow.first
  * the list rather than from the caller. That is a read-modify-write over `session_exercise`, so
  * this takes [SessionLifecycleLock] for the same reason the removal and the superset writes do.
  *
+ * ### One write, not three
+ *
+ * The append, the sets and the renumbering go through [SessionRepository.atomically]. Each is
+ * atomic on its own, but a process killed between two of them would leave a workout nobody
+ * asked for — a warm-up at the *end*, or exercises with no sets — and no compensating write
+ * can reach that case, because nothing is running to compensate. A store that throws part-way
+ * rolls the lot back, so a failure here is a workout exactly as it was.
+ *
  * ### The plan travels with them
  *
  * A draft carrying [PlannedSet]s lays them down as real `workout_set` rows with
  * `is_completed = 0`, exactly as [StartPlannedSessionUseCase] does for a session started from a
- * template — which is what lets the warm-up card add movements *with their ramp-up sets already
- * in the fields*. A draft carrying none adds a bare exercise, which is what the picker produces.
+ * template — see [PlannedSets] for the shape, which the two share. A draft carrying none adds a
+ * bare exercise, which is what both the picker and the warm-up card produce: the card's ramp-up
+ * hangs off the *lift*, which is already in the workout, and goes in through
+ * [AddPlannedSetsUseCase] rather than on a draft.
  *
  * ### They stand alone
  *
@@ -84,16 +93,18 @@ class AddSessionExercisesUseCase(
                 // `created_at` is the one column that records that they were not in the plan
                 // the workout began with.
                 val now = clock.nowMillis()
-                val added = sessionRepository.insertExercises(
-                    sessionId = active.sessionId,
-                    exercises = exercises,
-                    createdAt = now,
-                )
-                sessionRepository.insertSets(
-                    exercises.zip(added) { draft, id -> draft.plannedSets(id, now) }.flatten(),
-                )
-                if (placement == ExercisePlacement.START) moveToFront(active.sessionId, added, now)
-                added
+                sessionRepository.atomically {
+                    val added = sessionRepository.insertExercises(
+                        sessionId = active.sessionId,
+                        exercises = exercises,
+                        createdAt = now,
+                    )
+                    sessionRepository.insertSets(
+                        exercises.zip(added) { draft, id -> draft.plannedSets(id, now) }.flatten(),
+                    )
+                    if (placement == ExercisePlacement.START) moveToFront(active.sessionId, added, now)
+                    added
+                }
             }
         }
 
@@ -139,31 +150,3 @@ enum class ExercisePlacement {
     /** After everything, which is where an accessory added mid-workout belongs. */
     END,
 }
-
-/**
- * This draft's planned sets as the rows that hold them, numbered from 1 in the order planned.
- *
- * The same shape [StartPlannedSessionUseCase] writes, down to the `0` in `completed_at`: the
- * column is NOT NULL, a set nobody has performed needs a value that reads as "no time at all",
- * and every aggregate filters on `is_completed` before it looks at the timestamp.
- *
- * Numbering from 1 is trivially correct here for the reason it is there — the exercise was
- * written a moment ago and has no sets of its own yet.
- */
-private fun SessionExerciseDraft.plannedSets(
-    sessionExerciseId: Long,
-    createdAt: Long,
-): List<WorkoutSet> =
-    sets.mapIndexed { index, planned ->
-        WorkoutSet(
-            sessionExerciseId = sessionExerciseId,
-            setNumber = index + 1,
-            reps = planned.reps,
-            weight = planned.weight,
-            setType = planned.setType,
-            completedAt = 0L,
-            isCompleted = false,
-            createdAt = createdAt,
-            updatedAt = createdAt,
-        )
-    }

@@ -16,6 +16,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.timer.RestTimerSnapshot
 import com.opengym.core.domain.timer.RestTimerState
+import com.opengym.core.domain.usecase.AddPlannedSetsUseCase
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -3173,14 +3174,73 @@ class ActiveSessionViewModelTest {
             val bench = store.getSetsForSession(ACTIVE_SESSION_ID).first()
                 .filter { it.sessionExerciseId == BENCH_ROW }
                 .sortedBy(WorkoutSet::setNumber)
-            // Under the set that was already there rather than in front of it: renumbering a
-            // lifter's own rows to make room would move sets they have already ticked.
+            // Under the set that was already there rather than in front of it: that one has
+            // been ticked, and a warm-up drawn above a set already performed would be a table
+            // claiming the lifter warmed up after lifting.
             assertEquals(listOf(1, 2, 3), bench.map(WorkoutSet::setNumber))
             assertEquals(
                 listOf(SetType.NORMAL, SetType.WARMUP, SetType.WARMUP),
                 bench.map(WorkoutSet::setType),
             )
             assertEquals(listOf(true, false, false), bench.map(WorkoutSet::isCompleted))
+        }
+
+    @Test
+    fun `the ramp-up goes in front of the working sets a template laid down`() =
+        runTest {
+            val store = pushDayStore(
+                // Planned, not performed: what a session started from a template opens with.
+                sets = listOf(
+                    loggedSet(
+                        id = 1L,
+                        sessionExerciseId = BENCH_ROW,
+                        setNumber = 1,
+                        weight = 80_000_000L,
+                        isCompleted = false,
+                    ),
+                    loggedSet(
+                        id = 2L,
+                        sessionExerciseId = BENCH_ROW,
+                        setNumber = 2,
+                        weight = 80_000_000L,
+                        isCompleted = false,
+                    ),
+                ),
+            )
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            val bench = store.getSetsForSession(ACTIVE_SESSION_ID).first()
+                .filter { it.sessionExerciseId == BENCH_ROW }
+                .sortedBy(WorkoutSet::setNumber)
+            // The table is drawn in set order, and a warm-up drawn below the working sets is
+            // not one — so the working sets move down to make room for it.
+            assertEquals(listOf(1, 2, 3, 4), bench.map(WorkoutSet::setNumber))
+            assertEquals(
+                listOf(40_000_000L, 60_000_000L, 80_000_000L, 80_000_000L),
+                bench.map(WorkoutSet::weight),
+            )
+            assertEquals(
+                listOf(SetType.WARMUP, SetType.WARMUP, SetType.NORMAL, SetType.NORMAL),
+                bench.map(WorkoutSet::setType),
+            )
+        }
+
+    @Test
+    fun `a ramp-up already in the table is not read as the working weight`() =
+        runTest {
+            // A hand-built session: nothing planned under the bench, so the ramp-up came off the
+            // next-load target. Once accepted, the ramp-up is the only thing under the lift.
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            val offered = viewModel.uiState.value.warmup!!.rampUp.map { it.weight }
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            // Recomputed off the same target, not off the two light sets just written — which
+            // would ramp into the ramp-up, and get lighter every time.
+            assertEquals(offered, viewModel.uiState.value.warmup!!.rampUp.map { it.weight })
         }
 
     @Test
@@ -3409,6 +3469,7 @@ class ActiveSessionViewModelTest {
             restoreSet = RestoreSetUseCase(store, state, clock),
             markSetCompleted = MarkSetCompletedUseCase(store, state, clock),
             addExercises = AddSessionExercisesUseCase(store, state, clock, lock),
+            addPlannedSets = AddPlannedSetsUseCase(store, state, clock, lock),
             removeExercise = RemoveSessionExerciseUseCase(store, state, clock, lock),
             reorderExercises = ReorderSessionExercisesUseCase(store, state, clock, lock),
             swapExercise = SwapSessionExerciseUseCase(store, state, clock, lock),

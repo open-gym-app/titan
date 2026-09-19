@@ -253,6 +253,9 @@ class FakeActiveSessionStore(
         sets.value = sets.value.filterNot { it.sessionExerciseId in orphaned }
     }
 
+    /** Just the block — no rollback; see the domain `FakeSessionRepository` for why. */
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     override fun getAll(): Flow<List<WorkoutSession>> = session.map { listOfNotNull(it) }
 
     override fun getActive(): Flow<WorkoutSession?> = session.map { it?.takeIf(WorkoutSession::isInProgress) }

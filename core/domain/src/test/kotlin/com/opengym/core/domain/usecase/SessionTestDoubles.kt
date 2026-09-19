@@ -334,6 +334,13 @@ class FakeSessionRepository : SessionRepository {
         sets.value -= orphaned
     }
 
+    /**
+     * Just the block. This fake has no rollback, so what a use case does inside one of these
+     * is asserted on *here* only in the success case; that a throw undoes the writes before
+     * it is the real store's promise and is proved against it, in `SessionRepositoryImplTest`.
+     */
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     /** Direct read, bypassing the Flow, for assertions. */
     fun stored(id: Long): WorkoutSession? = sessions.value[id]
 

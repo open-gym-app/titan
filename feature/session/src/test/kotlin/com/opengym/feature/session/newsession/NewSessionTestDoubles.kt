@@ -241,6 +241,8 @@ class FakeSessionStore : SessionRepository {
         exercises.update { it - id }
     }
 
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     /** [count] completed sets against [sessionId], for the workout that is already running. */
     fun seedSets(
         sessionId: Long,

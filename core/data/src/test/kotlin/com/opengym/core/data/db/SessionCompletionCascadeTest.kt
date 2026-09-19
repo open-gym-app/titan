@@ -87,9 +87,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     // what makes the hand-computed figures below the app's own figures.
     private val sessions by lazy {
         SessionRepositoryImpl(
-            sessionDao = db.workoutSessionDao(),
-            sessionExerciseDao = db.sessionExerciseDao(),
-            setDao = db.workoutSetDao(),
+            database = db,
             sessionMapper = SessionMapper(),
             sessionExerciseMapper = SessionExerciseMapper(),
             setMapper = WorkoutSetMapper(),
