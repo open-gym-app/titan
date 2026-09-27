@@ -73,6 +73,12 @@
     <string name="settings_dialog_save">Enregistrer</string>
     <string name="settings_bar_weight_field_label">Poids de la barre (%1$s)</string>
     <string name="settings_bar_weight_invalid">Saisissez un poids supérieur à zéro</string>
+    <string name="settings_custom_reps_from">Répétitions de</string>
+    <string name="settings_custom_reps_to">Répétitions à</string>
+    <string name="settings_custom_reps_invalid">Saisissez une fourchette de %1$d à %2$d répétitions, la plus basse en premier</string>
+    <string name="settings_custom_increment_field_label">Palier de charge (%1$s)</string>
+    <string name="settings_custom_increment_detail">Ajouté quand chaque série atteint le haut de la fourchette</string>
+    <string name="settings_custom_increment_invalid">Saisissez un palier supérieur à zéro</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Supprimer toutes les données</string>

@@ -278,6 +278,8 @@ Outside the schema for the same reason the drafts are, from the other direction.
 | `plate_inventory_milligrams` | string, `<weight>x<pairs>` entries joined by `;` (`20000000x2;10000000x2`) | absent — the standard rack for `unit_system` |
 | `training_goal` | `TrainingGoal` name | `STRENGTH` |
 | `fitness_level` | `FitnessLevel` name | `BEGINNER` |
+| `custom_rep_range_min`, `custom_rep_range_max` | int32 reps, both ends inclusive | absent — `8` and `12`, the hypertrophy range; one without the other reads as absent |
+| `custom_increment_milligrams` | int64 milligrams | absent — twice the smallest plate on the user's rack |
 | `one_rep_max_formula` | `OneRepMaxFormula` name | `EPLEY` |
 | `onboarding_completed` | bool | `false` |
 | `notifications_<kind>` | bool, one key per `NotificationKind` | `true` for `rest_timer`, `false` for the rest |

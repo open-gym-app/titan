@@ -3,6 +3,7 @@ package com.opengym.core.domain.backup
 import com.opengym.core.domain.backup.model.PlateStockPayload
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -35,6 +36,8 @@ class PreferencesMappingTest {
             plateInventory = PlateInventory.of(listOf(PlateStock(weight = 20_000_000, pairs = 4))),
             trainingGoal = TrainingGoal.HYPERTROPHY,
             fitnessLevel = FitnessLevel.ADVANCED,
+            customRepRange = RepRange(6, 10),
+            customIncrement = 1_250_000,
             oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
             onboardingCompleted = true,
         )
@@ -114,6 +117,65 @@ class PreferencesMappingTest {
         val payload = UserPreferences(fitnessLevel = FitnessLevel.INTERMEDIATE).toPayload()
 
         assertEquals("INTERMEDIATE", payload.fitnessLevel)
+    }
+
+    // ─── The CUSTOM goal's range and step (#M7-15) ──────────────────────────────────────
+
+    @Test
+    fun `the custom range and step are written under the store's keys`() {
+        val payload = UserPreferences(customRepRange = RepRange(6, 10), customIncrement = 1_250_000).toPayload()
+
+        assertEquals(6, payload.customRepRangeMin)
+        assertEquals(10, payload.customRepRangeMax)
+        assertEquals(1_250_000L, payload.customIncrement)
+    }
+
+    @Test
+    fun `a file written before the custom range existed restores the default range`() {
+        val payload = samplePreferences().copy(customRepRangeMin = null, customRepRangeMax = null)
+
+        assertEquals(RepRange.DEFAULT_CUSTOM, payload.toPreferences().customRepRange)
+    }
+
+    @Test
+    fun `a custom range with one end missing restores the default range`() {
+        assertEquals(
+            RepRange.DEFAULT_CUSTOM,
+            samplePreferences().copy(customRepRangeMax = null).toPreferences().customRepRange,
+        )
+        assertEquals(
+            RepRange.DEFAULT_CUSTOM,
+            samplePreferences().copy(customRepRangeMin = null).toPreferences().customRepRange,
+        )
+    }
+
+    @Test
+    fun `a custom range the model refuses restores the default range rather than throwing`() {
+        // Ends the wrong way round, and a bound outside what a range may hold: both are what a
+        // hand-edited file looks like, and neither may take a training history down with it.
+        assertEquals(
+            RepRange.DEFAULT_CUSTOM,
+            samplePreferences().copy(customRepRangeMin = 12, customRepRangeMax = 8).toPreferences().customRepRange,
+        )
+        assertEquals(
+            RepRange.DEFAULT_CUSTOM,
+            samplePreferences().copy(customRepRangeMin = 0).toPreferences().customRepRange,
+        )
+    }
+
+    /** Null is a value — "the rack's own step" — and must stay null rather than become a number. */
+    @Test
+    fun `an unset custom increment stays unset`() {
+        val payload = UserPreferences(customIncrement = null).toPayload()
+
+        assertNull(payload.customIncrement)
+        assertNull(payload.toPreferences().customIncrement)
+    }
+
+    @Test
+    fun `a custom increment of nothing restores as unset rather than throwing`() {
+        assertNull(samplePreferences().copy(customIncrement = 0).toPreferences().customIncrement)
+        assertNull(samplePreferences().copy(customIncrement = -1).toPreferences().customIncrement)
     }
 
     @Test

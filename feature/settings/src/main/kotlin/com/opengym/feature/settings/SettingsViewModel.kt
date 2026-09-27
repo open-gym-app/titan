@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
-import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermission
@@ -128,7 +127,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.UnitSystemSelected -> setUnitSystem(event.unitSystem)
             is SettingsEvent.RestDurationSelected -> setRestDuration(event.duration)
             is SettingsEvent.BarWeightSelected -> setBarWeight(event.milligrams)
-            is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event.goal)
+            is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event)
             is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
             is SettingsEvent.Notification -> onNotificationEvent(event)
@@ -167,8 +166,17 @@ class SettingsViewModel @Inject constructor(
 
     private fun setBarWeight(milligrams: Long) = writeAndDismiss { userPreferencesRepository.setBarWeight(milligrams) }
 
-    private fun setTrainingGoal(goal: TrainingGoal) =
-        writeAndDismiss { userPreferencesRepository.setTrainingGoal(goal) }
+    /**
+     * The goal, then whatever CUSTOM asked for — three targeted writes rather than one, per the
+     * repository's read-whole-write-one contract, and in that order so that a failure on the
+     * second leaves a goal stored with the range it had rather than a range with no goal.
+     */
+    private fun setTrainingGoal(event: SettingsEvent.TrainingGoalSelected) =
+        writeAndDismiss {
+            userPreferencesRepository.setTrainingGoal(event.goal)
+            event.customRepRange?.let { userPreferencesRepository.setCustomRepRange(it) }
+            event.customIncrement?.let { userPreferencesRepository.setCustomIncrement(it) }
+        }
 
     private fun setFitnessLevel(level: FitnessLevel) =
         writeAndDismiss { userPreferencesRepository.setFitnessLevel(level) }

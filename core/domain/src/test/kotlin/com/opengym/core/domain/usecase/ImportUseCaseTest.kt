@@ -12,6 +12,7 @@ import com.opengym.core.domain.backup.samplePreferences
 import com.opengym.core.domain.model.ActiveSession
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.TemplateDraft
 import com.opengym.core.domain.model.ThemePreference
@@ -150,6 +151,8 @@ class ImportUseCaseTest {
             assertEquals(45_000_000L, restored.barWeight)
             assertEquals(TrainingGoal.HYPERTROPHY, restored.trainingGoal)
             assertEquals(FitnessLevel.ADVANCED, restored.fitnessLevel)
+            assertEquals(RepRange(6, 10), restored.customRepRange)
+            assertEquals(1_250_000L, restored.customIncrement)
             assertEquals(OneRepMaxFormula.BRZYCKI, restored.oneRepMaxFormula)
             assertTrue(restored.onboardingCompleted)
             assertEquals(listOf(20_000_000L, 10_000_000L), restored.plateInventory?.stock?.map { it.weight })
@@ -183,6 +186,30 @@ class ImportUseCaseTest {
 
             assertTrue(outcome.last() is ImportProgress.Complete)
             assertEquals(FitnessLevel.BEGINNER, preferences.observe().first().fitnessLevel)
+        }
+
+    /**
+     * The CUSTOM goal's range and step (#M7-15) took the same shape as the fitness level: a
+     * file from before them has none of the three keys, and restores as a device that never
+     * typed a range — the default one — with the step left to follow the rack.
+     */
+    @Test
+    fun `a document written before the custom range existed imports with the default range`() =
+        runTest {
+            preferences.setCustomRepRange(RepRange(5, 5))
+            preferences.setCustomIncrement(2_000_000)
+            val older = text(sampleDocument())
+                .replace(",\"custom_rep_range_min\":6", "")
+                .replace(",\"custom_rep_range_max\":10", "")
+                .replace(",\"custom_increment_milligrams\":1250000", "")
+            check("custom_" !in older) { "the keys must be absent, not null, for this to be a v1 file" }
+
+            val outcome = importer().invoke(older.asSource()).toList()
+
+            assertTrue(outcome.last() is ImportProgress.Complete)
+            val restored = preferences.observe().first()
+            assertEquals(RepRange.DEFAULT_CUSTOM, restored.customRepRange)
+            assertNull(restored.customIncrement)
         }
 
     @Test
@@ -380,6 +407,12 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) =
         record("setFitnessLevel") { delegate.setFitnessLevel(fitnessLevel) }
+
+    override suspend fun setCustomRepRange(range: RepRange) =
+        record("setCustomRepRange") { delegate.setCustomRepRange(range) }
+
+    override suspend fun setCustomIncrement(milligrams: Long?) =
+        record("setCustomIncrement") { delegate.setCustomIncrement(milligrams) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         record("setOneRepMaxFormula") { delegate.setOneRepMaxFormula(formula) }

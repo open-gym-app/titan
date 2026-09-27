@@ -59,6 +59,33 @@ class UserPreferencesTest {
     }
 
     @Test
+    fun `a fresh install has the hypertrophy range on file for CUSTOM and no step of its own`() {
+        assertEquals(RepRange.DEFAULT_CUSTOM, UserPreferences().customRepRange)
+        // Null, not a number: the step follows the rack until the user says otherwise.
+        assertNull(UserPreferences().customIncrement)
+    }
+
+    @Test
+    fun `the rep range is the goal's, and the user's own only under CUSTOM`() {
+        val typed = RepRange(6, 10)
+
+        assertEquals(
+            RepRange.STRENGTH,
+            UserPreferences(trainingGoal = TrainingGoal.STRENGTH, customRepRange = typed).repRange,
+        )
+        assertEquals(RepRange.HYPERTROPHY, UserPreferences(trainingGoal = TrainingGoal.HYPERTROPHY).repRange)
+        assertEquals(RepRange.ENDURANCE, UserPreferences(trainingGoal = TrainingGoal.ENDURANCE).repRange)
+        assertEquals(typed, UserPreferences(trainingGoal = TrainingGoal.CUSTOM, customRepRange = typed).repRange)
+    }
+
+    @Test
+    fun `a custom increment of nothing is refused, and absent is allowed`() {
+        assertThrows(IllegalArgumentException::class.java) { UserPreferences(customIncrement = 0) }
+        assertThrows(IllegalArgumentException::class.java) { UserPreferences(customIncrement = -1) }
+        assertNull(UserPreferences(customIncrement = null).customIncrement)
+    }
+
+    @Test
     fun `a rest duration of zero or less is refused`() {
         assertThrows(IllegalArgumentException::class.java) {
             UserPreferences(defaultRestDuration = Duration.ZERO)

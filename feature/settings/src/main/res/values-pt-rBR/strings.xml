@@ -73,6 +73,12 @@
     <string name="settings_dialog_save">Salvar</string>
     <string name="settings_bar_weight_field_label">Peso da barra (%1$s)</string>
     <string name="settings_bar_weight_invalid">Digite um peso acima de zero</string>
+    <string name="settings_custom_reps_from">Repetições de</string>
+    <string name="settings_custom_reps_to">Repetições até</string>
+    <string name="settings_custom_reps_invalid">Digite uma faixa de %1$d a %2$d repetições, a menor primeiro</string>
+    <string name="settings_custom_increment_field_label">Incremento de carga (%1$s)</string>
+    <string name="settings_custom_increment_detail">Adicionado quando todas as séries chegam ao topo da faixa</string>
+    <string name="settings_custom_increment_invalid">Digite um incremento acima de zero</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Excluir todos os dados</string>

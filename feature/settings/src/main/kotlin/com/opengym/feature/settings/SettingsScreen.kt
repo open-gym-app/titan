@@ -44,6 +44,7 @@ import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.domain.notification.NotificationKind
 import com.opengym.core.domain.notification.NotificationPermissionState
 import com.opengym.core.domain.notification.NotificationPreferences
+import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.ui.component.BadgeTone
 import com.opengym.core.ui.component.HairlineDivider
 import com.opengym.core.ui.component.PreferenceGroup
@@ -63,6 +64,7 @@ import com.opengym.feature.settings.component.ChoiceDialog
 import com.opengym.feature.settings.component.DeleteAllDataDialog
 import com.opengym.feature.settings.component.NotificationPermissionEffects
 import com.opengym.feature.settings.component.SettingsChoice
+import com.opengym.feature.settings.component.TrainingGoalDialog
 import com.opengym.feature.settings.component.startAppNotificationSettings
 import kotlinx.coroutines.flow.filterNotNull
 import kotlin.time.Duration
@@ -493,17 +495,19 @@ private fun SettingsDialogs(
             onDismiss = dismiss,
         )
 
-        SettingsDialog.TRAINING_GOAL -> ChoiceDialog(
-            title = stringResource(R.string.settings_training_goal),
-            choices = TrainingGoal.entries.map { goal ->
-                SettingsChoice(
-                    value = goal,
-                    label = goal.label(),
-                    detail = goal.detail(),
-                )
+        SettingsDialog.TRAINING_GOAL -> TrainingGoalDialog(
+            goal = state.preferences.trainingGoal,
+            customRepRange = state.preferences.customRepRange,
+            // The step the engine would use: the stored one, or the rack's own — see
+            // `NextLoadEngine`, which derives it the same way. Seeding the field with it means
+            // Save without an edit writes down what was already in effect.
+            customIncrement = state.preferences.customIncrement
+                ?: state.preferences.plates.loadStep
+                ?: checkNotNull(PlateInventory.defaultFor(state.preferences.unitSystem).loadStep),
+            unitSystem = state.preferences.unitSystem,
+            onConfirm = { goal, range, increment ->
+                onEvent(SettingsEvent.TrainingGoalSelected(goal, customRepRange = range, customIncrement = increment))
             },
-            selected = state.preferences.trainingGoal,
-            onSelect = { onEvent(SettingsEvent.TrainingGoalSelected(it)) },
             onDismiss = dismiss,
         )
 

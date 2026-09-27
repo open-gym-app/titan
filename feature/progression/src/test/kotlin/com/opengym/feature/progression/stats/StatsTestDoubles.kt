@@ -3,6 +3,7 @@ package com.opengym.feature.progression.stats
 import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
 import com.opengym.core.domain.model.PrType
@@ -143,6 +144,12 @@ class FakeProgressionStore : ProgressionRepository {
 
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> =
         throw UnsupportedOperationException("the hub reads no single exercise")
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>> = throw UnsupportedOperationException("the hub reads no single exercise")
 
     private fun markTrained(day: LocalDate) {
         everTrained.value = true

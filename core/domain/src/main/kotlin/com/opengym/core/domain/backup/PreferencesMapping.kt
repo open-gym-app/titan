@@ -4,6 +4,7 @@ import com.opengym.core.domain.backup.model.PlateStockPayload
 import com.opengym.core.domain.backup.model.PreferencesPayload
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -30,6 +31,9 @@ fun UserPreferences.toPayload(): PreferencesPayload =
         onboardingCompleted = onboardingCompleted,
         plateInventory = plateInventory?.stock?.map { PlateStockPayload(weight = it.weight, pairs = it.pairs) },
         fitnessLevel = fitnessLevel.name,
+        customRepRangeMin = customRepRange.min,
+        customRepRangeMax = customRepRange.max,
+        customIncrement = customIncrement,
     )
 
 /**
@@ -61,9 +65,29 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         // Null is a file from before the question existed, and it means the same thing an
         // unrecognised name does: this user has never given an answer this build can use.
         fitnessLevel = fitnessLevel.asEnumOr(FitnessLevel.BEGINNER),
+        customRepRange = repRangeOrNull(customRepRangeMin, customRepRangeMax) ?: RepRange.DEFAULT_CUSTOM,
+        customIncrement = customIncrement?.takeIf { it > 0 },
         oneRepMaxFormula = oneRepMaxFormula.asEnumOr(OneRepMaxFormula.EPLEY),
         onboardingCompleted = onboardingCompleted,
     )
+
+/**
+ * The range these two bounds describe, or **null** if they do not describe one — either end
+ * missing, or a pair [RepRange] refuses. Null falls back to the default range rather than to
+ * an error, per the rule [toPreferences] follows for every setting.
+ */
+private fun repRangeOrNull(
+    min: Int?,
+    max: Int?,
+): RepRange? {
+    min ?: return null
+    max ?: return null
+    return try {
+        RepRange(min = min, max = max)
+    } catch (_: IllegalArgumentException) {
+        null
+    }
+}
 
 /**
  * The rack these rows describe, or **null** if they do not describe one.

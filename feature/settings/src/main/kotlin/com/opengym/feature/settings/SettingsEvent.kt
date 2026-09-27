@@ -2,6 +2,7 @@ package com.opengym.feature.settings
 
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -37,7 +38,19 @@ sealed interface SettingsEvent {
      */
     data class BarWeightSelected(val milligrams: Long) : SettingsEvent
 
-    data class TrainingGoalSelected(val goal: TrainingGoal) : SettingsEvent
+    /**
+     * A training goal, and under CUSTOM the range and step it runs on.
+     *
+     * [customRepRange] and [customIncrement] are non-null together and only when [goal] is
+     * [TrainingGoal.CUSTOM] — the dialog asks the two questions only then, and the ViewModel
+     * writes only what was answered. [customIncrement] is in milligrams, converted by the
+     * screen as `BarWeightSelected`'s is, for the same reason.
+     */
+    data class TrainingGoalSelected(
+        val goal: TrainingGoal,
+        val customRepRange: RepRange? = null,
+        val customIncrement: Long? = null,
+    ) : SettingsEvent
 
     data class FitnessLevelSelected(val level: FitnessLevel) : SettingsEvent
 

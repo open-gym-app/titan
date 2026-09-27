@@ -2,6 +2,7 @@ package com.opengym.core.domain.usecase
 
 import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.TrainedExercise
 import com.opengym.core.domain.model.WeeklyTraining
 import com.opengym.core.domain.model.WeeklyVolume
@@ -43,12 +44,16 @@ class FakeProgressionRepository : ProgressionRepository {
     private val firstTrainingDay = MutableStateFlow<LocalDate?>(null)
     private val attempts = MutableStateFlow<Map<Long, List<ExerciseAttempt>>>(emptyMap())
     private val setCounts = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    private val performances = MutableStateFlow<Map<Long, List<PastPerformance>>>(emptyMap())
     private val trainedExercises = MutableStateFlow<List<TrainedExercise>>(emptyList())
     private val sessionsByDay = MutableStateFlow<Map<LocalDate, Int>>(emptyMap())
     private val volumeByDay = MutableStateFlow<Map<LocalDate, Long>>(emptyMap())
 
     /** Every range this repository has been read over, in call order. */
     val requestedRanges = mutableListOf<ClosedRange<LocalDate>>()
+
+    /** Every depth [getRecentPerformances] has been asked for, in call order. */
+    val requestedLimits = mutableListOf<Int>()
 
     /**
      * Seeds one week's volume. [weekStart] is snapped to its Monday, so a test can write a
@@ -204,6 +209,28 @@ class FakeProgressionRepository : ProgressionRepository {
     }
 
     override fun countExerciseSets(exerciseId: Long): Flow<Int> = setCounts.map { counts -> counts[exerciseId] ?: 0 }
+
+    /**
+     * Seeds one exercise's recent performances, **newest first** — the order the query returns
+     * and the order [getRecentPerformances] hands on, truncated to the limit it is asked for.
+     * Nothing here filters by session: the real query excludes the session being logged, and a
+     * test that wants that case seeds the history without it.
+     */
+    fun setPerformances(
+        exerciseId: Long,
+        vararg newestFirst: PastPerformance,
+    ) {
+        performances.value += exerciseId to newestFirst.toList()
+    }
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long,
+        limit: Int,
+    ): Flow<List<PastPerformance>> {
+        requestedLimits += limit
+        return performances.map { byExercise -> byExercise[exerciseId].orEmpty().take(limit) }
+    }
 
     override fun getTrainedExercises(): Flow<List<TrainedExercise>> = trainedExercises
 

@@ -2,6 +2,7 @@ package com.opengym.app
 
 import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
+import com.opengym.core.domain.model.RepRange
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
@@ -142,6 +143,14 @@ class MainViewModelTest {
 
         override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) {
             preferences.update { it.copy(fitnessLevel = fitnessLevel) }
+        }
+
+        override suspend fun setCustomRepRange(range: RepRange) {
+            preferences.update { it.copy(customRepRange = range) }
+        }
+
+        override suspend fun setCustomIncrement(milligrams: Long?) {
+            preferences.update { it.copy(customIncrement = milligrams) }
         }
 
         override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) {
