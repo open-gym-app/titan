@@ -31,6 +31,7 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.io.IOException
@@ -256,21 +257,40 @@ class InMemoryAutoBackupSchedule : AutoBackupRepository {
     }
 }
 
-/** The platform half of the toggle, counted rather than performed. */
+/**
+ * The platform half of the toggle, counted rather than performed.
+ *
+ * The count is a [MutableStateFlow] rather than a plain `var`: [schedule] and [cancel] run on
+ * [kotlinx.coroutines.Dispatchers.IO], off any dispatcher a test controls, so a call landing
+ * after the assertion that expects it is a real race, not a hypothetical one. [awaitSchedule]
+ * and [awaitCancel] give a test something to suspend on instead of reading the count the
+ * instant the switch's own state settles.
+ */
 class RecordingAutoBackupScheduler : AutoBackupScheduler {
 
-    var scheduleCount = 0
-        private set
+    private val schedules = MutableStateFlow(0)
+    private val cancels = MutableStateFlow(0)
 
-    var cancelCount = 0
-        private set
+    val scheduleCount: Int get() = schedules.value
+
+    val cancelCount: Int get() = cancels.value
 
     override fun schedule() {
-        scheduleCount++
+        schedules.update { it + 1 }
     }
 
     override fun cancel() {
-        cancelCount++
+        cancels.update { it + 1 }
+    }
+
+    /** Suspends until [schedule] has been called at least once. */
+    suspend fun awaitSchedule() {
+        schedules.first { it >= 1 }
+    }
+
+    /** Suspends until [cancel] has been called at least once. */
+    suspend fun awaitCancel() {
+        cancels.first { it >= 1 }
     }
 }
 

@@ -362,8 +362,12 @@ class BackupViewModelTest {
 
             viewModel.onEvent(BackupEvent.OutcomeDismissed)
 
-            assertNull(viewModel.uiState.value.lastExport)
-            assertNull(viewModel.uiState.value.lastRestore)
+            // Read back through the flow rather than `.value`: the export that set `lastExport`
+            // finished on `Dispatchers.IO`, and `.value` can still be the `stateIn` cache from
+            // just before that combine's own dispatch caught up with the dismissal.
+            val dismissed = viewModel.uiState.first { it.lastExport == null && it.lastRestore == null }
+            assertNull(dismissed.lastExport)
+            assertNull(dismissed.lastRestore)
         }
 
     // --- the weekly automatic backup --------------------------------------
@@ -377,7 +381,11 @@ class BackupViewModelTest {
 
             viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
 
+            // The switch's own state and the scheduler call land in that order, but off two
+            // different suspension points — see `RecordingAutoBackupScheduler` — so the count
+            // is awaited on its own rather than read the instant the switch settles.
             assertTrue(viewModel.uiState.first { it.autoBackup.enabled }.autoBackup.enabled)
+            backend.scheduler.awaitSchedule()
             assertEquals(1, backend.scheduler.scheduleCount)
         }
 
@@ -388,10 +396,12 @@ class BackupViewModelTest {
             collect(viewModel)
             viewModel.onEvent(BackupEvent.AutoBackupToggled(true))
             viewModel.uiState.first { it.autoBackup.enabled }
+            backend.scheduler.awaitSchedule()
 
             viewModel.onEvent(BackupEvent.AutoBackupToggled(false))
 
             assertEquals(false, viewModel.uiState.first { !it.autoBackup.enabled }.autoBackup.enabled)
+            backend.scheduler.awaitCancel()
             assertEquals(1, backend.scheduler.cancelCount)
         }
 
