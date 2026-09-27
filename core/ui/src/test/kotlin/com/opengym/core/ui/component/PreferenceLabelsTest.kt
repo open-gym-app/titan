@@ -2,6 +2,7 @@ package com.opengym.core.ui.component
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -20,8 +21,8 @@ import org.robolectric.RobolectricTestRunner
  * the value somebody added and did not label.
  *
  * They matter more than the other labels for one reason — two screens render them. Onboarding
- * asks for the goal and the units on first launch and settings offers all three afterwards, so
- * a missing label is a blank row on the *first* screen a user ever sees.
+ * asks for the goal, the level and the units on first launch and settings offers them all
+ * afterwards, so a missing label is a blank row on the *first* screen a user ever sees.
  */
 @RunWith(RobolectricTestRunner::class)
 class PreferenceLabelsTest {
@@ -42,6 +43,11 @@ class PreferenceLabelsTest {
     @Test
     fun `every training goal has a name and says what training that way looks like`() {
         assertAllLabelled(TrainingGoal.entries) { listOf(it.label(), it.detail()) }
+    }
+
+    @Test
+    fun `every fitness level has a name and says how long it means`() {
+        assertAllLabelled(FitnessLevel.entries) { listOf(it.label(), it.detail()) }
     }
 
     @Test

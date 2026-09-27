@@ -28,7 +28,7 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
  * ### It marks onboarding complete
  *
  * A launch with the first-run flow still pending opens on onboarding, so every benchmark past
- * the first would be measuring four questions instead of the screen it named. This is the one
+ * the first would be measuring the first-run questions instead of the screen it named. This is the one
  * piece of app state the seeder touches that is not history.
  *
  * ### It rebases the history onto "now"

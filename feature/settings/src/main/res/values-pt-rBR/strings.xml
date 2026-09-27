@@ -27,6 +27,7 @@
     <string name="settings_bar_weight_detail">A barra vazia, antes das anilhas</string>
     <string name="settings_bar_weight_custom">Personalizada</string>
     <string name="settings_training_goal">Objetivo de treino</string>
+    <string name="settings_fitness_level">Nível de treino</string>
     <string name="settings_one_rep_max_formula">Fórmula de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Como a carga máxima estimada para uma repetição é calculada</string>
 

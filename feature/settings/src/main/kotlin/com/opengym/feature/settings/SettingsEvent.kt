@@ -1,5 +1,6 @@
 package com.opengym.feature.settings
 
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -37,6 +38,8 @@ sealed interface SettingsEvent {
     data class BarWeightSelected(val milligrams: Long) : SettingsEvent
 
     data class TrainingGoalSelected(val goal: TrainingGoal) : SettingsEvent
+
+    data class FitnessLevelSelected(val level: FitnessLevel) : SettingsEvent
 
     data class OneRepMaxFormulaSelected(val formula: OneRepMaxFormula) : SettingsEvent
 

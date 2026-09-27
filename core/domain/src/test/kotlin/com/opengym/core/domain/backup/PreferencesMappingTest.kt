@@ -1,6 +1,7 @@
 package com.opengym.core.domain.backup
 
 import com.opengym.core.domain.backup.model.PlateStockPayload
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -33,6 +34,7 @@ class PreferencesMappingTest {
             barWeight = 45_000_000,
             plateInventory = PlateInventory.of(listOf(PlateStock(weight = 20_000_000, pairs = 4))),
             trainingGoal = TrainingGoal.HYPERTROPHY,
+            fitnessLevel = FitnessLevel.ADVANCED,
             oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
             onboardingCompleted = true,
         )
@@ -87,6 +89,31 @@ class PreferencesMappingTest {
         val payload = samplePreferences().copy(trainingGoal = "LOOKING_GOOD")
 
         assertEquals(TrainingGoal.STRENGTH, payload.toPreferences().trainingGoal)
+    }
+
+    @Test
+    fun `a fitness level this build does not have falls back to beginner`() {
+        val payload = samplePreferences().copy(fitnessLevel = "ELITE")
+
+        assertEquals(FitnessLevel.BEGINNER, payload.toPreferences().fitnessLevel)
+    }
+
+    /**
+     * The key arrived after the first documents were written (#M7-11), so a file without it is
+     * not malformed — it is a device that was never asked, and it restores as one.
+     */
+    @Test
+    fun `a file written before the fitness level existed restores as a beginner`() {
+        val payload = samplePreferences().copy(fitnessLevel = null)
+
+        assertEquals(FitnessLevel.BEGINNER, payload.toPreferences().fitnessLevel)
+    }
+
+    @Test
+    fun `the fitness level is written by name, so a file from this build carries it`() {
+        val payload = UserPreferences(fitnessLevel = FitnessLevel.INTERMEDIATE).toPayload()
+
+        assertEquals("INTERMEDIATE", payload.fitnessLevel)
     }
 
     @Test

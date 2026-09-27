@@ -1,5 +1,6 @@
 package com.opengym.feature.onboarding
 
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -66,6 +67,8 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
     }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 

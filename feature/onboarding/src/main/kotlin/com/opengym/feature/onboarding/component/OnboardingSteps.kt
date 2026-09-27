@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.ui.component.Eyebrow
@@ -41,7 +42,7 @@ import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.onboarding.R
 
 /*
- * The four step bodies, and the heading every one of them opens with.
+ * The five step bodies, and the heading every one of them opens with.
  *
  * Each is stateless and hoisted like any other screen half: it takes what is stored and emits
  * what was tapped. The step *dispatch* lives in `OnboardingScreen`, so this file is only ever
@@ -229,7 +230,34 @@ internal fun GoalStep(
 }
 
 /**
- * Step three: kilograms or pounds.
+ * Step three: the fitness level.
+ *
+ * Asked as *how long*, not *how much*: the bands are years of training because that is a
+ * question anybody can answer on a first-run screen, where a strength standard is one the
+ * reader this app is for would have to guess at. The engine reads it for how fast to add load
+ * (#M7-15), and the copy under the question says that and no more.
+ */
+@Composable
+internal fun LevelStep(
+    selected: FitnessLevel,
+    onSelect: (FitnessLevel) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    OptionStep(
+        title = stringResource(R.string.onboarding_level_title),
+        body = stringResource(R.string.onboarding_level_body),
+        options = FitnessLevel.entries,
+        selected = selected,
+        label = { it.label() },
+        detail = { it.detail() },
+        icon = { it.icon() },
+        onSelect = onSelect,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Step four: kilograms or pounds.
  *
  * The one answer here that changes every later screen, and the one worth asking before the
  * user has logged anything — a lifter who sees their first set written in the wrong unit
@@ -255,9 +283,9 @@ internal fun UnitsStep(
 }
 
 /**
- * The shape both question steps share: a heading, then one [SelectableOption] per value.
+ * The shape every question step shares: a heading, then one [SelectableOption] per value.
  *
- * One composable rather than two nearly identical ones, so the two questions cannot drift into
+ * One composable rather than three nearly identical ones, so the questions cannot drift into
  * different spacing or a different selection treatment. The whole list is a [selectableGroup]
  * so a screen reader announces it as one set of radio buttons rather than as four unrelated
  * controls.
@@ -298,9 +326,9 @@ private fun <T> OptionStep(
 }
 
 /**
- * Step four: the answers, read back.
+ * Step five: the answers, read back.
  *
- * A closing step that only said "all done" would be a tap for nothing. Showing the two stored
+ * A closing step that only said "all done" would be a tap for nothing. Showing the three stored
  * values is what makes the flow verifiable — a user who mistapped the unit system finds out
  * here, one press of `Back` from the screen that fixes it, rather than in the middle of their
  * first set. Each is shown with the same mark it was chosen under, so the recap is recognisable
@@ -309,6 +337,7 @@ private fun <T> OptionStep(
 @Composable
 internal fun ReadyStep(
     goal: TrainingGoal,
+    level: FitnessLevel,
     unitSystem: UnitSystem,
     modifier: Modifier = Modifier,
 ) {
@@ -332,6 +361,12 @@ internal fun ReadyStep(
                 icon = goal.icon(),
                 label = stringResource(R.string.onboarding_ready_goal),
                 value = goal.label(),
+            )
+            HairlineDivider()
+            RecapRow(
+                icon = level.icon(),
+                label = stringResource(R.string.onboarding_ready_level),
+                value = level.label(),
             )
             HairlineDivider()
             RecapRow(

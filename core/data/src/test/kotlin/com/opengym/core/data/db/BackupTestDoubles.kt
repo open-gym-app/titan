@@ -2,6 +2,7 @@ package com.opengym.core.data.db
 
 import com.opengym.core.domain.backup.AutoBackupSchedule
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.TemplateDraft
 import com.opengym.core.domain.model.ThemePreference
@@ -56,6 +57,8 @@ class InMemoryUserPreferencesRepository : UserPreferencesRepository {
     ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 

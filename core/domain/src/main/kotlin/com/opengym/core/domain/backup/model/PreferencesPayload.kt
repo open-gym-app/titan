@@ -17,12 +17,20 @@ import kotlinx.serialization.Serializable
  *
  * ### Enums travel as their names, and an unknown one is not an error
  *
- * [unitSystem], [theme], [trainingGoal] and [oneRepMaxFormula] are stored as enum *names*, for
- * the reason the store stores them that way: an ordinal is meaningless the moment a constant is
- * inserted. A name this build does not have — a downgrade, or a value since renamed — falls
- * back to the documented default rather than failing the import, which is exactly what the
- * store's own reader does with the same value. A settings restore must not be the thing that
- * refuses somebody's training history.
+ * [unitSystem], [theme], [trainingGoal], [fitnessLevel] and [oneRepMaxFormula] are stored as
+ * enum *names*, for the reason the store stores them that way: an ordinal is meaningless the
+ * moment a constant is inserted. A name this build does not have — a downgrade, or a value since
+ * renamed — falls back to the documented default rather than failing the import, which is
+ * exactly what the store's own reader does with the same value. A settings restore must not be
+ * the thing that refuses somebody's training history.
+ *
+ * ### A key added later is nullable, and its absence is not a bump
+ *
+ * [fitnessLevel] arrived after the first documents were written (#M7-11), so it defaults to
+ * null and a file without it reads back as the setting's default. That is docs/export-schema.md's
+ * rule for a nullable addition — the older file restores into exactly what it held, which is a
+ * device that had never been asked — and it is why `schema_version` stayed at 1. Every key
+ * added from here on takes the same shape.
  *
  * ### Units are canonical
  *
@@ -46,6 +54,13 @@ data class PreferencesPayload(
      * no plates. Held under the store's `plate_inventory_milligrams` key.
      */
     @SerialName("plate_inventory_milligrams") val plateInventory: List<PlateStockPayload>? = null,
+    /**
+     * The user's fitness level, or **null** in a file written before the question existed —
+     * which reads back as the default, `BEGINNER`. Held under the store's `fitness_level` key.
+     * Last rather than beside [trainingGoal], because the written order is the declaration
+     * order and a key that may be absent belongs after the ones that never are.
+     */
+    @SerialName("fitness_level") val fitnessLevel: String? = null,
 )
 
 /** One denomination of [PreferencesPayload.plateInventory]: a plate weight in milligrams, and how many pairs of it. */

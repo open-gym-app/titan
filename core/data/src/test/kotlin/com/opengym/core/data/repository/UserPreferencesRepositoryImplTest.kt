@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -89,6 +90,7 @@ class UserPreferencesRepositoryImplTest {
             assertEquals(90.seconds, preferences.defaultRestDuration)
             assertEquals(20_000_000L, preferences.barWeight)
             assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
+            assertEquals(FitnessLevel.BEGINNER, preferences.fitnessLevel)
             assertEquals(OneRepMaxFormula.EPLEY, preferences.oneRepMaxFormula)
             assertFalse(preferences.onboardingCompleted)
             // Null, not the metric rack: the derived `plates` is what follows the unit system,
@@ -116,6 +118,9 @@ class UserPreferencesRepositoryImplTest {
 
             repository.setTrainingGoal(TrainingGoal.HYPERTROPHY)
             assertEquals(TrainingGoal.HYPERTROPHY, repository.observe().first().trainingGoal)
+
+            repository.setFitnessLevel(FitnessLevel.INTERMEDIATE)
+            assertEquals(FitnessLevel.INTERMEDIATE, repository.observe().first().fitnessLevel)
 
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             assertEquals(OneRepMaxFormula.BRZYCKI, repository.observe().first().oneRepMaxFormula)
@@ -197,14 +202,15 @@ class UserPreferencesRepositoryImplTest {
     @Test
     fun `concurrent writes to different preferences do not clobber each other`() =
         withStore { repository ->
-            // Six writers, genuinely overlapping on the IO pool, each naming a different
-            // setting. A read-modify-write of the whole document would lose five of them.
+            // Seven writers, genuinely overlapping on the IO pool, each naming a different
+            // setting. A read-modify-write of the whole document would lose six of them.
             listOf(
                 async(Dispatchers.IO) { repository.setUnitSystem(UnitSystem.IMPERIAL) },
                 async(Dispatchers.IO) { repository.setTheme(ThemePreference.DARK) },
                 async(Dispatchers.IO) { repository.setDefaultRestDuration(45.seconds) },
                 async(Dispatchers.IO) { repository.setBarWeight(15_000_000) },
                 async(Dispatchers.IO) { repository.setTrainingGoal(TrainingGoal.ENDURANCE) },
+                async(Dispatchers.IO) { repository.setFitnessLevel(FitnessLevel.ADVANCED) },
                 async(Dispatchers.IO) { repository.setOnboardingCompleted(true) },
             ).awaitAll()
 
@@ -215,6 +221,7 @@ class UserPreferencesRepositoryImplTest {
                     defaultRestDuration = 45.seconds,
                     barWeight = 15_000_000,
                     trainingGoal = TrainingGoal.ENDURANCE,
+                    fitnessLevel = FitnessLevel.ADVANCED,
                     onboardingCompleted = true,
                 ),
                 repository.observe().first(),
@@ -243,6 +250,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setBarWeight(15_000_000)
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
+            repository.setFitnessLevel(FitnessLevel.ADVANCED)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
             repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)
@@ -261,6 +269,7 @@ class UserPreferencesRepositoryImplTest {
                     barWeight = 15_000_000,
                     plateInventory = HOME_RACK,
                     trainingGoal = TrainingGoal.CUSTOM,
+                    fitnessLevel = FitnessLevel.ADVANCED,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                     onboardingCompleted = true,
                     notifications = NotificationPreferences(
@@ -297,6 +306,7 @@ class UserPreferencesRepositoryImplTest {
             repository.setBarWeight(15_000_000)
             repository.setPlateInventory(HOME_RACK)
             repository.setTrainingGoal(TrainingGoal.CUSTOM)
+            repository.setFitnessLevel(FitnessLevel.ADVANCED)
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             repository.setOnboardingCompleted(true)
             repository.setNotificationEnabled(NotificationKind.REST_TIMER, false)

@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.SessionExercise
@@ -354,6 +355,8 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     ) = write { it.copy(plateInventory = it.plates.withPairs(weight, pairs)) }
 
     override suspend fun setTrainingGoal(trainingGoal: TrainingGoal) = write { it.copy(trainingGoal = trainingGoal) }
+
+    override suspend fun setFitnessLevel(fitnessLevel: FitnessLevel) = write { it.copy(fitnessLevel = fitnessLevel) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
 

@@ -342,9 +342,9 @@ graph — and empties the back stack — when `startDestination` changes, and th
 *end* of onboarding: read live, it would tear the graph down underneath the very navigation
 onboarding is making. Finishing is a `navigate(TabsGraphDestination)` with
 `popUpTo<OnboardingDestination> { inclusive = true }`, so the back gesture from Home leaves the
-app rather than re-asking four questions the user has just answered.
+app rather than re-asking questions the user has just answered.
 
-**The four onboarding steps are state, not four destinations.** The flow is one flat
+**The five onboarding steps are state, not five destinations.** The flow is one flat
 destination whose current step lives in its ViewModel. Putting the steps on the back stack
 would make "leave nothing of onboarding behind" a property that has to be re-established every
 time a step is added, where one destination makes it a single `popUpTo`. The system back

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.opengym.app.HiltTestActivity
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.repository.UserPreferencesRepository
@@ -34,7 +35,7 @@ import javax.inject.Inject
  * launch after the first. This one is the first launch: it drives the real flow against the
  * real preferences store and asserts the two things that cannot be tested inside
  * `:feature:onboarding` — that finishing lands on Home, and that the back gesture from there
- * does not put four just-answered questions back on the screen.
+ * does not put five just-answered steps back on the screen.
  *
  * Nothing is faked. The store behind this is the real `UserPreferencesRepository` over a real
  * (empty) preferences file, so "the answers were persisted" is asserted against what the app
@@ -117,6 +118,7 @@ class OnboardingRoutingTest {
 
         val stored = runBlocking { preferences.observe().first() }
         assertEquals(TrainingGoal.HYPERTROPHY, stored.trainingGoal)
+        assertEquals(FitnessLevel.INTERMEDIATE, stored.fitnessLevel)
         assertEquals(UnitSystem.IMPERIAL, stored.unitSystem)
         // The flag is what stops the *next* launch opening here, and it is written last.
         assertTrue(stored.onboardingCompleted)
@@ -135,11 +137,14 @@ class OnboardingRoutingTest {
         assertFalse(runBlocking { preferences.observe().first() }.onboardingCompleted)
     }
 
-    /** Walk the four steps, choosing the non-default answer on each of the two questions. */
+    /** Walk the five steps, choosing a non-default answer on each of the three questions. */
     private fun answerEveryStep() {
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
         composeTestRule.onNodeWithText(HYPERTROPHY).performClick()
+        composeTestRule.onNodeWithText(CONTINUE).performClick()
+
+        composeTestRule.onNodeWithText(INTERMEDIATE).performClick()
         composeTestRule.onNodeWithText(CONTINUE).performClick()
 
         composeTestRule.onNodeWithText(IMPERIAL).performClick()
@@ -179,12 +184,13 @@ class OnboardingRoutingTest {
 
     private companion object {
         // The step counter, as the eyebrow draws it.
-        const val STEP_ONE = "STEP 1 OF 4"
+        const val STEP_ONE = "STEP 1 OF 5"
         const val CONTINUE = "Continue"
         const val START = "Start training"
 
         const val GOAL_TITLE = "What are you training for?"
         const val HYPERTROPHY = "Hypertrophy"
+        const val INTERMEDIATE = "Intermediate"
         const val IMPERIAL = "Imperial"
 
         // Home's eyebrow, and the chrome that only exists inside the tab scaffold.

@@ -1,5 +1,6 @@
 package com.opengym.feature.onboarding
 
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 
@@ -30,6 +31,8 @@ sealed interface OnboardingEvent {
     data object BackPressed : OnboardingEvent
 
     data class TrainingGoalSelected(val goal: TrainingGoal) : OnboardingEvent
+
+    data class FitnessLevelSelected(val level: FitnessLevel) : OnboardingEvent
 
     data class UnitSystemSelected(val unitSystem: UnitSystem) : OnboardingEvent
 

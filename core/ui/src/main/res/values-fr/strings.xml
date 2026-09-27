@@ -353,6 +353,13 @@
     <string name="preference_goal_custom">Personnalisé</string>
     <string name="preference_goal_custom_detail">Votre propre programme</string>
 
+    <string name="preference_level_beginner">Débutant</string>
+    <string name="preference_level_beginner_detail">Moins d’un an d’entraînement</string>
+    <string name="preference_level_intermediate">Intermédiaire</string>
+    <string name="preference_level_intermediate_detail">Un à trois ans</string>
+    <string name="preference_level_advanced">Avancé</string>
+    <string name="preference_level_advanced_detail">Plus de trois ans</string>
+
     <string name="preference_one_rep_max_epley">Epley</string>
     <string name="preference_one_rep_max_epley_detail">Simple ; surestime à haut nombre de répétitions</string>
     <string name="preference_one_rep_max_brzycki">Brzycki</string>

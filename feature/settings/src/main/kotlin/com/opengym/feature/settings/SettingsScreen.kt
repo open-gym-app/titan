@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.DataFootprint
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -260,6 +261,14 @@ private fun WorkoutGroup(
             label = stringResource(R.string.settings_training_goal),
             value = preferences.trainingGoal.label(),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.TRAINING_GOAL)) },
+        )
+        HairlineDivider()
+        // Beside the goal because the two are one decision to the next-load engine: the goal
+        // picks the rep range, the level picks how fast the load moves through it (#M7-15).
+        PreferenceRow(
+            label = stringResource(R.string.settings_fitness_level),
+            value = preferences.fitnessLevel.label(),
+            onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.FITNESS_LEVEL)) },
         )
         HairlineDivider()
         PreferenceRow(
@@ -495,6 +504,20 @@ private fun SettingsDialogs(
             },
             selected = state.preferences.trainingGoal,
             onSelect = { onEvent(SettingsEvent.TrainingGoalSelected(it)) },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.FITNESS_LEVEL -> ChoiceDialog(
+            title = stringResource(R.string.settings_fitness_level),
+            choices = FitnessLevel.entries.map { level ->
+                SettingsChoice(
+                    value = level,
+                    label = level.label(),
+                    detail = level.detail(),
+                )
+            },
+            selected = state.preferences.fitnessLevel,
+            onSelect = { onEvent(SettingsEvent.FitnessLevelSelected(it)) },
             onDismiss = dismiss,
         )
 

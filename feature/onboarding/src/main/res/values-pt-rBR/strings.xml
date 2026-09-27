@@ -20,12 +20,17 @@
     <string name="onboarding_welcome_progress_detail">Volume, recordes e um calendário de treino</string>
     <string name="onboarding_welcome_privacy">Tudo é seu</string>
     <string name="onboarding_welcome_privacy_detail">Tudo fica neste aparelho</string>
-    <string name="onboarding_welcome_length">Duas perguntas e você está dentro</string>
+    <string name="onboarding_welcome_length">Três perguntas e você está dentro</string>
 
     <!-- ── Training goal ─────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_goal_title">Para que você treina?</string>
-    <string name="onboarding_goal_body">Fica salvo nas suas configurações e pode ser alterado a qualquer momento. Não muda como você registra.</string>
+    <string name="onboarding_goal_body">Define a faixa de repetições em que o app sugere sua próxima carga. Fica salvo com suas configurações e pode ser alterado a qualquer momento.</string>
+
+    <!-- ── Fitness level ─────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_level_title">Há quanto tempo você treina?</string>
+    <string name="onboarding_level_body">Define o ritmo em que as cargas sugeridas aumentam. Fica salvo com suas configurações e pode ser alterado a qualquer momento.</string>
 
     <!-- ── Units ─────────────────────────────────────────────────────────────────── -->
 
@@ -37,8 +42,9 @@
     <string name="onboarding_ready_title">Tudo pronto.</string>
     <string name="onboarding_ready_body">É isso. Seu primeiro treino está a um toque da tela inicial.</string>
     <string name="onboarding_ready_goal">Objetivo de treino</string>
+    <string name="onboarding_ready_level">Nível de treino</string>
     <string name="onboarding_ready_units">Unidades</string>
-    <string name="onboarding_ready_footnote">Os dois ficam em Configurações, junto com todo o resto.</string>
+    <string name="onboarding_ready_footnote">Os três ficam em Configurações, junto com todo o resto.</string>
     <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
 
     <!-- ── Failures ──────────────────────────────────────────────────────────────── -->

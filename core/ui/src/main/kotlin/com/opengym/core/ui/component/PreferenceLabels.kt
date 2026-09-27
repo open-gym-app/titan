@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
@@ -18,11 +19,11 @@ import com.opengym.core.ui.R
  * library with no Android on its classpath and no business knowing what a string resource is.
  *
  * They started life in `:feature:settings`, which was correct while settings was the only
- * screen that rendered them. Onboarding (#M4-22) is the second: it asks for the training goal
- * and the unit system on first launch, and settings offers the same two for the rest of the
- * app's life. Two features writing the same words twice is how "Hypertrophy — volume and time
- * under tension" becomes two different sentences about one stored value, so they moved here
- * the moment there was a second caller.
+ * screen that rendered them. Onboarding (#M4-22) is the second: it asks for the training goal,
+ * the fitness level (#M7-11) and the unit system on first launch, and settings offers the same
+ * three for the rest of the app's life. Two features writing the same words twice is how
+ * "Hypertrophy — volume and time under tension" becomes two different sentences about one
+ * stored value, so they moved here the moment there was a second caller.
  *
  * Each label is paired with a *detail*: one line saying what the value actually means. It is
  * not decoration — `Auto` says nothing without "Follows your device", and `Hypertrophy` means
@@ -105,9 +106,10 @@ internal fun TrainingGoal.labelRes(): Int =
  * What training for that goal looks like — `Heavy, low reps, long rests`.
  *
  * A description of the *training*, deliberately, and never a description of what the app will
- * do about it. Nothing consumes [TrainingGoal] in v1 — see the note on the enum — so a detail
- * promising tailored rests or suggested plans would be a claim the app does not honour on the
- * one screen a new user has no reason yet to distrust.
+ * do about it. The goal picks the rep range the next-load engine (#M7-15) targets and nothing
+ * else — see the note on the enum — so a detail promising tailored rests or suggested plans
+ * would be a claim the app does not honour on the one screen a new user has no reason yet to
+ * distrust.
  */
 @Composable
 @ReadOnlyComposable
@@ -118,6 +120,38 @@ fun TrainingGoal.detail(): String =
             TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy_detail
             TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance_detail
             TrainingGoal.CUSTOM -> R.string.preference_goal_custom_detail
+        },
+    )
+
+/** What a fitness level is called: `Beginner`, `Intermediate`, `Advanced`. */
+@Composable
+@ReadOnlyComposable
+fun FitnessLevel.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun FitnessLevel.labelRes(): Int =
+    when (this) {
+        FitnessLevel.BEGINNER -> R.string.preference_level_beginner
+        FitnessLevel.INTERMEDIATE -> R.string.preference_level_intermediate
+        FitnessLevel.ADVANCED -> R.string.preference_level_advanced
+    }
+
+/**
+ * How long somebody at that level has been training — `Under a year of training`.
+ *
+ * Time under the bar rather than what is on it: a year is something anyone can answer on a
+ * first-run screen, where "can you squat one and a half times bodyweight?" is a question the
+ * reader this app is for cannot answer yet and would guess at. The bands are the ones
+ * [FitnessLevel] documents, and the words are the only place the user meets them.
+ */
+@Composable
+@ReadOnlyComposable
+fun FitnessLevel.detail(): String =
+    stringResource(
+        when (this) {
+            FitnessLevel.BEGINNER -> R.string.preference_level_beginner_detail
+            FitnessLevel.INTERMEDIATE -> R.string.preference_level_intermediate_detail
+            FitnessLevel.ADVANCED -> R.string.preference_level_advanced_detail
         },
     )
 

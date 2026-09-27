@@ -1,6 +1,7 @@
 package com.opengym.feature.onboarding
 
 import androidx.lifecycle.SavedStateHandle
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
@@ -72,6 +73,11 @@ class OnboardingViewModelTest {
             assertEquals(TrainingGoal.HYPERTROPHY, preferences.current.trainingGoal)
             viewModel.onEvent(OnboardingEvent.Continued)
 
+            assertEquals(OnboardingStep.LEVEL, viewModel.uiState.value.step)
+            viewModel.onEvent(OnboardingEvent.FitnessLevelSelected(FitnessLevel.INTERMEDIATE))
+            assertEquals(FitnessLevel.INTERMEDIATE, preferences.current.fitnessLevel)
+            viewModel.onEvent(OnboardingEvent.Continued)
+
             assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
             viewModel.onEvent(OnboardingEvent.UnitSystemSelected(UnitSystem.IMPERIAL))
             assertEquals(UnitSystem.IMPERIAL, preferences.current.unitSystem)
@@ -84,6 +90,7 @@ class OnboardingViewModelTest {
                 UserPreferences(
                     unitSystem = UnitSystem.IMPERIAL,
                     trainingGoal = TrainingGoal.HYPERTROPHY,
+                    fitnessLevel = FitnessLevel.INTERMEDIATE,
                     onboardingCompleted = true,
                 ),
                 preferences.current,
@@ -97,7 +104,11 @@ class OnboardingViewModelTest {
             // Started from the *opposite* of every default, so "the defaults were applied" cannot
             // pass by the store simply never having been written.
             val stored = FakeUserPreferencesRepository(
-                UserPreferences(unitSystem = UnitSystem.IMPERIAL, trainingGoal = TrainingGoal.CUSTOM),
+                UserPreferences(
+                    unitSystem = UnitSystem.IMPERIAL,
+                    trainingGoal = TrainingGoal.CUSTOM,
+                    fitnessLevel = FitnessLevel.ADVANCED,
+                ),
             )
             val viewModel = viewModel(stored)
             collectState(viewModel)
@@ -105,9 +116,11 @@ class OnboardingViewModelTest {
             viewModel.onEvent(OnboardingEvent.Skipped)
             viewModel.onEvent(OnboardingEvent.Skipped)
             viewModel.onEvent(OnboardingEvent.Skipped)
+            viewModel.onEvent(OnboardingEvent.Skipped)
 
             assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
             assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, stored.current.trainingGoal)
+            assertEquals(OnboardingViewModel.DEFAULT_FITNESS_LEVEL, stored.current.fitnessLevel)
             assertEquals(OnboardingViewModel.DEFAULT_UNIT_SYSTEM, stored.current.unitSystem)
 
             viewModel.onEvent(OnboardingEvent.Continued)
@@ -125,7 +138,11 @@ class OnboardingViewModelTest {
 
             viewModel.onEvent(OnboardingEvent.Continued)
             viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
             assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
+
+            viewModel.onEvent(OnboardingEvent.BackPressed)
+            assertEquals(OnboardingStep.LEVEL, viewModel.uiState.value.step)
 
             viewModel.onEvent(OnboardingEvent.BackPressed)
             assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
@@ -154,6 +171,60 @@ class OnboardingViewModelTest {
             assertEquals(OnboardingViewModel.DEFAULT_TRAINING_GOAL, preferences.current.trainingGoal)
         }
 
+    // --- the level step (#M7-11) ------------------------------------------
+
+    @Test
+    fun `the level is asked after the goal and written as it is chosen`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            assertEquals(OnboardingStep.LEVEL, viewModel.uiState.value.step)
+
+            viewModel.onEvent(OnboardingEvent.FitnessLevelSelected(FitnessLevel.ADVANCED))
+
+            assertEquals(FitnessLevel.ADVANCED, preferences.current.fitnessLevel)
+            // Choosing does not advance: the step is left for `Continue`, like every other.
+            assertEquals(OnboardingStep.LEVEL, viewModel.uiState.value.step)
+        }
+
+    @Test
+    fun `back from the level returns to the goal with the level kept`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.FitnessLevelSelected(FitnessLevel.INTERMEDIATE))
+
+            viewModel.onEvent(OnboardingEvent.BackPressed)
+
+            // Nothing is undone by going back: the answer is on disk, and coming forward again
+            // shows it selected rather than the default.
+            assertEquals(OnboardingStep.GOAL, viewModel.uiState.value.step)
+            assertEquals(FitnessLevel.INTERMEDIATE, viewModel.uiState.value.preferences.fitnessLevel)
+        }
+
+    @Test
+    fun `skipping the level stores a beginner, whatever was chosen before`() =
+        runTest {
+            val stored = FakeUserPreferencesRepository(UserPreferences(fitnessLevel = FitnessLevel.ADVANCED))
+            val viewModel = viewModel(stored)
+            collectState(viewModel)
+
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Skipped)
+
+            // The safe answer: a user who did not want to say is progressed most cautiously.
+            assertEquals(FitnessLevel.BEGINNER, OnboardingViewModel.DEFAULT_FITNESS_LEVEL)
+            assertEquals(FitnessLevel.BEGINNER, stored.current.fitnessLevel)
+            assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
+        }
+
     @Test
     fun `an answer that cannot be stored is reported, and the step still advances`() =
         runTest {
@@ -168,7 +239,7 @@ class OnboardingViewModelTest {
             assertEquals(OnboardingMessage.SAVE_FAILED, viewModel.uiState.value.message)
             // Said out loud, but not a wall: the value that failed to write is the default the
             // store is already reporting, and trapping a new user in step two over it is worse.
-            assertEquals(OnboardingStep.UNITS, viewModel.uiState.value.step)
+            assertEquals(OnboardingStep.LEVEL, viewModel.uiState.value.step)
         }
 
     @Test
@@ -180,12 +251,14 @@ class OnboardingViewModelTest {
             viewModel.onEvent(OnboardingEvent.Continued)
             viewModel.onEvent(OnboardingEvent.Continued)
             viewModel.onEvent(OnboardingEvent.Continued)
+            viewModel.onEvent(OnboardingEvent.Continued)
+            assertEquals(OnboardingStep.READY, viewModel.uiState.value.step)
             preferences.writeFailure = IOException("read-only file system")
 
             viewModel.onEvent(OnboardingEvent.Continued)
 
             // The one failure that must stop the user: navigating to Home without the flag on disk
-            // means the next launch asks all four questions over again.
+            // means the next launch asks all five questions over again.
             assertEquals(OnboardingMessage.FINISH_FAILED, viewModel.uiState.value.message)
             assertFalse(viewModel.uiState.value.isFinished)
             assertFalse(viewModel.uiState.value.isFinishing)
@@ -226,6 +299,25 @@ class OnboardingViewModelTest {
 
             assertEquals(reached, restored.uiState.value.step)
             assertFalse("a finished flow would navigate the user out", restored.uiState.value.isFinished)
+        }
+
+    @Test
+    fun `a level chosen before process death is still the answer afterwards`() =
+        runTest {
+            val handle = SavedStateHandle()
+            val before = viewModel(savedState = handle)
+            collectState(before)
+            before.onEvent(OnboardingEvent.Continued)
+            before.onEvent(OnboardingEvent.Continued)
+            before.onEvent(OnboardingEvent.FitnessLevelSelected(FitnessLevel.ADVANCED))
+
+            // The store outlives the process where the ViewModel does not; the answer was
+            // written when it was given, so the rebuilt flow reads it back rather than a draft.
+            val restored = viewModel(savedState = handle.afterProcessDeath())
+            collectState(restored)
+
+            assertEquals(OnboardingStep.LEVEL, restored.uiState.value.step)
+            assertEquals(FitnessLevel.ADVANCED, restored.uiState.value.preferences.fitnessLevel)
         }
 
     // --- helpers ----------------------------------------------------------

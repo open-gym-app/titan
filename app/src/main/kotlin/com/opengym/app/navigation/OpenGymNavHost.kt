@@ -178,7 +178,7 @@ fun OpenGymNavHost(
         onboardingGraph(
             // Home, with the flow dropped behind it. The `popUpTo` is the acceptance
             // criterion: a back gesture from Home after setting the app up must leave the
-            // app, not put four questions the user has just answered back on the screen.
+            // app, not put the questions the user has just answered back on the screen.
             //
             // Registered whether or not this launch started on it. A graph whose destinations
             // depend on which one it starts at is a graph that behaves differently on the

@@ -32,12 +32,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.opengym.core.domain.model.FitnessLevel
 import com.opengym.core.domain.model.ThemePreference
 import com.opengym.core.domain.model.TrainingGoal
 import com.opengym.core.domain.model.UnitSystem
 import com.opengym.core.domain.model.UserPreferences
 import com.opengym.core.ui.theme.OpenGymTheme
 import com.opengym.feature.onboarding.component.GoalStep
+import com.opengym.feature.onboarding.component.LevelStep
 import com.opengym.feature.onboarding.component.OnboardingFooter
 import com.opengym.feature.onboarding.component.OnboardingHeader
 import com.opengym.feature.onboarding.component.ReadyStep
@@ -65,9 +67,9 @@ fun OnboardingRoute(
         if (state.isFinished) onFinished()
     }
 
-    // Back is a step *within* the flow rather than a way out of it — the four steps are one
+    // Back is a step *within* the flow rather than a way out of it — the five steps are one
     // destination, so without this the gesture would drop the user out of onboarding entirely
-    // from step three, having answered two questions and been shown none of them again.
+    // from step four, having answered three questions and been shown none of them again.
     //
     // Disabled on the first step, where there is no previous question and back therefore means
     // what it means anywhere else at the root: leave. Nothing is lost by it — onboarding is not
@@ -83,12 +85,12 @@ fun OnboardingRoute(
 }
 
 /**
- * Four questions, one screen at a time.
+ * Five steps, one screen at a time.
  *
- * The whole flow is a single destination rather than four, and the step is state. The back
+ * The whole flow is a single destination rather than five, and the step is state. The back
  * stack is the wrong place for it: `:app` has to be able to drop onboarding *entirely* when it
  * finishes — the acceptance criterion is that system back does not return to it — and popping
- * one destination is a thing that can be got right once, where popping four is a thing that
+ * one destination is a thing that can be got right once, where popping five is a thing that
  * has to keep being got right as steps are added.
  *
  * The screen is stateless: it renders [state] and reports [OnboardingEvent]s. It writes
@@ -149,7 +151,7 @@ fun OnboardingScreen(
                 // `NavMotion`). The steps are not separate destinations, so the motion is what
                 // tells the user this is the same kind of move.
                 //
-                // `SizeTransform(clip = false)`: the four steps are different heights, and
+                // `SizeTransform(clip = false)`: the five steps are different heights, and
                 // animating the container between them makes the header appear to breathe.
                 transitionSpec = {
                     val forward = targetState.ordinal > initialState.ordinal
@@ -221,6 +223,12 @@ private fun StepBody(
             modifier = Modifier.fillMaxWidth(),
         )
 
+        OnboardingStep.LEVEL -> LevelStep(
+            selected = state.preferences.fitnessLevel,
+            onSelect = { onEvent(OnboardingEvent.FitnessLevelSelected(it)) },
+            modifier = Modifier.fillMaxWidth(),
+        )
+
         OnboardingStep.UNITS -> UnitsStep(
             selected = state.preferences.unitSystem,
             onSelect = { onEvent(OnboardingEvent.UnitSystemSelected(it)) },
@@ -229,6 +237,7 @@ private fun StepBody(
 
         OnboardingStep.READY -> ReadyStep(
             goal = state.preferences.trainingGoal,
+            level = state.preferences.fitnessLevel,
             unitSystem = state.preferences.unitSystem,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -240,12 +249,12 @@ private fun StepBody(
  *
  * It follows what the step is *doing*, and the two answers look wrong on each other's steps.
  *
- * The two that ask a question are lists. They start at the top, under the rail that says how
+ * The three that ask a question are lists. They start at the top, under the rail that says how
  * far through the flow this is, because that is where the eye goes looking for the question —
  * centred, the units step's two options push the heading into the middle of the screen with a
  * third of it blank above, which reads as a page that failed to draw its top half. They are
- * also the two that overflow at a large font scale, where there is no spare space to centre in
- * anyway.
+ * also the ones that overflow at a large font scale, where there is no spare space to centre
+ * in anyway.
  *
  * The two that announce something — the greeting and the recap — are a mark, a sentence and
  * one small block, and there is no list under them for the eye to run down. Left at the top
@@ -257,7 +266,7 @@ private fun StepBody(
 private val OnboardingStep.isCentred: Boolean
     get() = when (this) {
         OnboardingStep.WELCOME, OnboardingStep.READY -> true
-        OnboardingStep.GOAL, OnboardingStep.UNITS -> false
+        OnboardingStep.GOAL, OnboardingStep.LEVEL, OnboardingStep.UNITS -> false
     }
 
 /** The sentence a message is shown as. */
@@ -300,6 +309,20 @@ fun OnboardingGoalPreview() {
     }
 }
 
+@Preview(name = "Onboarding - fitness level", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
+@Composable
+fun OnboardingLevelPreview() {
+    OpenGymTheme {
+        OnboardingScreen(
+            state = OnboardingUiState(
+                step = OnboardingStep.LEVEL,
+                preferences = UserPreferences(fitnessLevel = FitnessLevel.INTERMEDIATE),
+            ),
+            onEvent = {},
+        )
+    }
+}
+
 @Preview(name = "Onboarding - units, dark", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun OnboardingUnitsDarkPreview() {
@@ -326,6 +349,7 @@ fun OnboardingReadyPreview() {
                 step = OnboardingStep.READY,
                 preferences = UserPreferences(
                     trainingGoal = TrainingGoal.HYPERTROPHY,
+                    fitnessLevel = FitnessLevel.ADVANCED,
                     unitSystem = UnitSystem.IMPERIAL,
                 ),
             ),
