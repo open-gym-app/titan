@@ -2854,6 +2854,23 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `filling the target leaves a field the lifter already typed into alone`() =
+        runTest {
+            // The lifter has their own weight typed in; the tap should only offer the reps that
+            // are still blank, per field, the same as the placeholder it replaces.
+            val store = benchStore()
+            history.setPerformances(BENCH.id, previousSets(80_000_000L to 6, 80_000_000L to 6))
+            val viewModel = viewModel(store = store)
+            viewModel.onEvent(ActiveSessionEvent.WeightChanged(BENCH_ROW, "90"))
+
+            viewModel.onEvent(ActiveSessionEvent.TargetFilled(BENCH_ROW))
+
+            val entry = viewModel.uiState.value.entryOf(BENCH_ROW)
+            assertEquals("90", entry.weight)
+            assertEquals("3", entry.reps)
+        }
+
+    @Test
     fun `a filled target is in the unit the lifter types in`() =
         runTest {
             // A 100 lb lift on the imperial rack: the top of the range at 100, so 105 — and the

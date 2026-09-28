@@ -612,9 +612,11 @@ class ActiveSessionViewModel @Inject constructor(
      * Through [editEntry], so it is validated and drafted exactly as two keystrokes would be —
      * and refused exactly when they would be, on a paused or closing session. The weight is
      * formatted into the unit the field is typed in, which is also the form its placeholder
-     * showed: what the tap writes is what the empty field was already saying. Nothing else
-     * on the row moves. The rating, the type and the note are the lifter's, and the tick stays
-     * unpressed because a target is not a set — see [ActiveSessionEvent.TargetFilled].
+     * showed: what the tap writes is what the empty field was already saying. A field the
+     * lifter has already typed into is theirs and is left alone — the tap fills what is still
+     * blank, per field, the same as the placeholder it replaces. The rating, the type and the
+     * note are the lifter's too, and the tick stays unpressed because a target is not a set —
+     * see [ActiveSessionEvent.TargetFilled].
      *
      * Silent for an exercise with no target. The line that raises this is only drawn where
      * there is one, so reaching here without is an event dispatched a frame before the row was
@@ -624,7 +626,12 @@ class ActiveSessionViewModel @Inject constructor(
         val exercise = exerciseRow(sessionExerciseId) ?: return
         val target = targets.value[exercise.exerciseId] ?: return
         val weight = target.weight?.let { formatWeightValue(it, unitSystem.value) }.orEmpty()
-        editEntry(sessionExerciseId) { it.copy(weight = weight, reps = target.reps.toString()) }
+        editEntry(sessionExerciseId) {
+            it.copy(
+                weight = it.weight.ifBlank { weight },
+                reps = it.reps.ifBlank { target.reps.toString() },
+            )
+        }
     }
 
     // ─── Entry ──────────────────────────────────────────────────────────────────────────
