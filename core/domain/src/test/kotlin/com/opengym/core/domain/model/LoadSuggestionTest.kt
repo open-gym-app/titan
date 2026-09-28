@@ -5,7 +5,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-/** The two things a suggestion may not say: lift nothing, or do it no times. */
+/** What a suggestion may not say: lift nothing, do it no times, or call a non-step an increase. */
 class LoadSuggestionTest {
 
     @Test
@@ -27,6 +27,22 @@ class LoadSuggestionTest {
     fun `the weight it moves from is positive or absent, like the weight itself`() {
         assertThrows(IllegalArgumentException::class.java) {
             suggestion(weight = 100_000_000, reps = 5, reason = SuggestionReason.REPEAT, previousWeight = 0)
+        }
+    }
+
+    @Test
+    fun `an increase moves from a weight to a heavier one`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            suggestion(weight = null, reps = 9, reason = SuggestionReason.INCREASE)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            suggestion(weight = 82_500_000, reps = 3, reason = SuggestionReason.INCREASE, previousWeight = null)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            suggestion(weight = 80_000_000, reps = 3, reason = SuggestionReason.INCREASE, previousWeight = 80_000_000)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            suggestion(weight = 77_500_000, reps = 3, reason = SuggestionReason.INCREASE, previousWeight = 80_000_000)
         }
     }
 

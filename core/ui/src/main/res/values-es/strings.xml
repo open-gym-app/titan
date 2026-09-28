@@ -48,7 +48,6 @@
     <string name="set_target_fill_action">Rellenar con el objetivo</string>
 
     <string name="suggestion_reason_increase">Alcanzaste el tope del rango la última vez — añade %1$s</string>
-    <string name="suggestion_reason_increase_unsized">Alcanzaste el tope del rango la última vez — añade peso</string>
     <string name="suggestion_reason_add_rep">Dentro del rango la última vez — una repetición más</string>
     <string name="suggestion_reason_repeat">Alcanzaste el tope del rango una vez — alcánzalo otra vez para ganar el aumento</string>
     <string name="suggestion_reason_deload">Te quedaste corto la última vez — quita %1$s y vuelve a subir</string>

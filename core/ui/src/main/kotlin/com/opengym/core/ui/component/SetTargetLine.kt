@@ -191,14 +191,9 @@ private fun LoadSuggestion.formattedChange(): String? {
 @ReadOnlyComposable
 fun LoadSuggestion.reasonText(): String =
     when (reason) {
-        SuggestionReason.INCREASE -> {
-            val step = weightChange?.takeIf { it > 0L }
-            if (step != null) {
-                stringResource(R.string.suggestion_reason_increase, formatWeight(step))
-            } else {
-                stringResource(R.string.suggestion_reason_increase_unsized)
-            }
-        }
+        // Never null: an increase always moves between two weights — see `LoadSuggestion`.
+        SuggestionReason.INCREASE ->
+            stringResource(R.string.suggestion_reason_increase, formatWeight(checkNotNull(weightChange)))
 
         SuggestionReason.ADD_REP -> stringResource(R.string.suggestion_reason_add_rep)
 

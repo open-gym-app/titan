@@ -98,7 +98,6 @@
          rule's name — see SuggestionReason. The increase and the deload quote the step the
          weight moves by; the bodyweight deload has no weight to take off. -->
     <string name="suggestion_reason_increase">Hit the top of the range last time — add %1$s</string>
-    <string name="suggestion_reason_increase_unsized">Hit the top of the range last time — add weight</string>
     <string name="suggestion_reason_add_rep">Inside the range last time — one more rep</string>
     <string name="suggestion_reason_repeat">Hit the top of the range once — hit it again to earn the increase</string>
     <string name="suggestion_reason_deload">Fell short last time — take %1$s off and rebuild</string>

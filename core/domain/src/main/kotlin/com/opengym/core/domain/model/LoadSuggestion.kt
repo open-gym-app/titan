@@ -45,6 +45,13 @@ data class LoadSuggestion(
         require(previousWeight == null || previousWeight > 0) {
             "the weight a suggestion moves from must be positive or absent, was $previousWeight mg"
         }
+        // An increase is a step up from a weight to a heavier one — the engine has nothing to
+        // add to a bodyweight movement, and a rack that cannot go heavier is an add-rep — so
+        // a screen may always quote the step without a case for there being none.
+        val heavier = weight != null && previousWeight != null && weight > previousWeight
+        require(reason != SuggestionReason.INCREASE || heavier) {
+            "an increase must move from a weight to a heavier one, was $previousWeight mg to $weight mg"
+        }
     }
 
     /**
@@ -68,7 +75,8 @@ enum class SuggestionReason {
     /**
      * Every working set last time reached the top of the range, so the weight goes up by the
      * increment and the reps drop back to the bottom of the range. *"You hit the top of the
-     * range — add weight."*
+     * range — add weight."* Always carries both weights, the new one the heavier, so
+     * [LoadSuggestion.weightChange] is a positive step.
      */
     INCREASE,
 

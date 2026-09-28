@@ -49,7 +49,6 @@
     <string name="set_target_fill_action">Remplir avec l’objectif</string>
 
     <string name="suggestion_reason_increase">Haut de la fourchette atteint la dernière fois — ajoutez %1$s</string>
-    <string name="suggestion_reason_increase_unsized">Haut de la fourchette atteint la dernière fois — ajoutez du poids</string>
     <string name="suggestion_reason_add_rep">Dans la fourchette la dernière fois — une répétition de plus</string>
     <string name="suggestion_reason_repeat">Haut de la fourchette atteint une fois — atteignez-le encore pour gagner l’augmentation</string>
     <string name="suggestion_reason_deload">En dessous la dernière fois — retirez %1$s et reconstruisez</string>
