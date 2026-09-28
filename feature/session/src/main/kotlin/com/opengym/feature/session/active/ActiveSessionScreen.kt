@@ -1,3 +1,11 @@
+/*
+ * Over the file's function count by the previews: the screen is one composable and its bar,
+ * and the rest is the eight states it is drawn in plus the four builders they share. A
+ * previews file of its own would put the states a reader checks a change against one file
+ * away from the code that draws them.
+ */
+@file:Suppress("TooManyFunctions")
+
 package com.opengym.feature.session.active
 
 import androidx.annotation.StringRes
@@ -42,12 +50,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MILLIGRAMS_PER_KILOGRAM
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.SuggestionReason
 import com.opengym.core.domain.model.ThemePreference
+import com.opengym.core.domain.model.WorkoutSet
 import com.opengym.core.domain.timer.RestTimerState
 import com.opengym.core.ui.component.DiscardSessionDialog
 import com.opengym.core.ui.component.EmptyState
@@ -968,6 +980,15 @@ private fun previewExercises(): List<SessionExerciseRow> =
             supersetGroupName = "A",
             entryPrevious = previously(weightKg = 30.0, reps = 15),
             hasHistory = true,
+            // Fifteen is past the top of any range: the weight goes up and the line under the
+            // row says by how much — the one target on this page that shows a change.
+            target = previewTarget(
+                weightKg = 32.5,
+                reps = 3,
+                reason = SuggestionReason.INCREASE,
+                previousWeightKg = 30.0,
+                basis = listOf(previously(weightKg = 30.0, reps = 15)),
+            ),
         ),
     )
 
@@ -1005,6 +1026,21 @@ private fun previewBench() =
         // What the fourth set was last time, which is the row that reads as a target.
         entryPrevious = previously(weightKg = 80.0, reps = 5),
         hasHistory = true,
+        // And what the engine makes of it: 80 × 5 sits inside the strength range, so the
+        // weight stays and the reps go up by one. Drawn as the fields' placeholders and as the
+        // line under the entry row — see `SetTargetLine`.
+        target = previewTarget(
+            weightKg = 80.0,
+            reps = 6,
+            reason = SuggestionReason.ADD_REP,
+            previousWeightKg = 80.0,
+            basis = listOf(
+                previously(weightKg = 60.0, reps = 10),
+                previously(weightKg = 70.0, reps = 8),
+                previously(weightKg = 72.5, reps = 6),
+                previously(weightKg = 80.0, reps = 5),
+            ),
+        ),
         // The other line under a name: the mark to beat, which is what an exercise with history
         // carries where one without it carries the "first time" badge. Set on this exercise so
         // every preview of this screen draws both states of that pair at once.
@@ -1068,3 +1104,34 @@ private fun previously(
     weightKg: Double,
     reps: Int,
 ) = PreviousSet(weight = (weightKg * MILLIGRAMS_PER_KILOGRAM).toLong(), reps = reps)
+
+/**
+ * What the engine would prescribe, written the same way: kilograms, and the sets it was read
+ * from as [previously] writes them, in set order.
+ */
+private fun previewTarget(
+    weightKg: Double?,
+    reps: Int,
+    reason: SuggestionReason,
+    previousWeightKg: Double?,
+    basis: List<PreviousSet>,
+) = LoadSuggestion(
+    weight = weightKg?.let { (it * MILLIGRAMS_PER_KILOGRAM).toLong() },
+    reps = reps,
+    reason = reason,
+    previousWeight = previousWeightKg?.let { (it * MILLIGRAMS_PER_KILOGRAM).toLong() },
+    basis = PastPerformance(
+        basis.mapIndexed { index, set ->
+            WorkoutSet(
+                sessionExerciseId = 1L,
+                setNumber = index + 1,
+                reps = set.reps,
+                weight = set.weight,
+                isCompleted = true,
+                completedAt = 0,
+                createdAt = 0,
+                updatedAt = 0,
+            )
+        },
+    ),
+)

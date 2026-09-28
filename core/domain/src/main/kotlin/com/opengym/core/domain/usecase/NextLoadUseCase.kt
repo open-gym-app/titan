@@ -35,6 +35,14 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  *
  * An exercise that no longer exists — deleted under an open session — yields null, which is
  * what the screen draws for "nothing to suggest" anyway.
+ *
+ * ### Asked from outside a workout
+ *
+ * The exercise detail (#M7-16) asks the same question with no session of its own, and it
+ * passes the session *in progress* if there is one: a workout half logged is not a performance
+ * to judge yet, and a detail page opened mid-session must show the target the set row is
+ * showing, not one read off the sets typed a minute ago. With no session running there is
+ * nothing to leave out, and null says so.
  */
 class NextLoadUseCase(
     private val progressionRepository: ProgressionRepository,
@@ -46,11 +54,12 @@ class NextLoadUseCase(
      * The suggestion for [exerciseId]'s next set in [sessionId], or null when the engine has
      * nothing to say — see [NextLoadEngine.suggest] for when that is.
      *
-     * @param sessionId the session being logged, whose own sets are never its own history.
+     * @param sessionId the session being logged, whose own sets are never its own history — or
+     *   null when none is, and every performance counts.
      */
     operator fun invoke(
         exerciseId: Long,
-        sessionId: Long,
+        sessionId: Long?,
     ): Flow<LoadSuggestion?> =
         combine(
             progressionRepository.getRecentPerformances(

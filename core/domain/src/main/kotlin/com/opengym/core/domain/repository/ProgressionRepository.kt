@@ -187,7 +187,8 @@ interface ProgressionRepository {
 
     /**
      * The [limit] most recent times [exerciseId] was performed, **newest first**, each as its
-     * working sets in set order — excluding anything logged in [excludingSessionId].
+     * working sets in set order — excluding anything logged in [excludingSessionId], or
+     * excluding nothing when that is null.
      *
      * The next-load engine's reading of history (#M7-15), and the second exception here to
      * "one entry per week": the rule it feeds asks whether *every* set of a performance reached
@@ -207,14 +208,16 @@ interface ProgressionRepository {
      *
      * Unlike [getExerciseAttempts], the session need not be finished: the exclusion by id is
      * what keeps the session being logged out, and a workout the user paused and never closed
-     * is still the last time they did the lift.
+     * is still the last time they did the lift. A caller with no session of its own — the
+     * exercise detail — passes the one in progress, if any, for the same reason: the sets typed
+     * so far today are not yet a performance.
      *
      * An exercise never performed — or performed only as warm-ups — returns an empty list,
      * which the engine reads as "nothing to say".
      */
     fun getRecentPerformances(
         exerciseId: Long,
-        excludingSessionId: Long,
+        excludingSessionId: Long?,
         limit: Int,
     ): Flow<List<PastPerformance>>
 

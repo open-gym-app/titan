@@ -11,6 +11,7 @@ import com.opengym.core.domain.plate.PlateInventory
 import com.opengym.core.domain.plate.PlateStock
 import com.opengym.core.domain.plate.kg
 import com.opengym.core.domain.plate.lb
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -673,6 +674,31 @@ class NextLoadEngineTest {
             reps = 3,
             reason = SuggestionReason.INCREASE,
         )
+    }
+
+    // ─── What the suggestion says it was read from ───────────────────────────────────────
+
+    @Test
+    fun `a suggestion carries the performance it judged and the weight it moves from`() {
+        val latest = performance(kg(100.0) to 6, kg(100.0) to 6, kg(80.0) to 5)
+        val history = listOf(latest, performance(kg(97.5) to 6))
+
+        val suggestion = checkNotNull(NextLoadEngine.suggest(history, METRIC, BENCH_PRESS))
+
+        // The latest performance, whole — back-off set included, since the screen lists what
+        // was done — and the working weight it was judged at, which is what "+2.5 kg" is
+        // measured against.
+        assertEquals(latest, suggestion.basis)
+        assertEquals(kg(100.0), suggestion.previousWeight)
+        assertEquals(kg(2.5), suggestion.weightChange)
+    }
+
+    @Test
+    fun `a bodyweight suggestion moves from no weight`() {
+        val suggestion = checkNotNull(NextLoadEngine.suggest(listOf(performance(null to 6)), METRIC, PRESS_UP))
+
+        assertNull(suggestion.previousWeight)
+        assertNull(suggestion.weightChange)
     }
 
     // ─── Nothing to say ──────────────────────────────────────────────────────────────────

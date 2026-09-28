@@ -42,6 +42,17 @@
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
     <string name="set_delete_action">Supprimer la série %1$d</string>
+
+    <string name="set_target_line">Objectif %1$s</string>
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_fill_action">Remplir avec l’objectif</string>
+
+    <string name="suggestion_reason_increase">Haut de la fourchette atteint la dernière fois — ajoutez %1$s</string>
+    <string name="suggestion_reason_add_rep">Dans la fourchette la dernière fois — une répétition de plus</string>
+    <string name="suggestion_reason_repeat">Haut de la fourchette atteint une fois — atteignez-le encore pour gagner l’augmentation</string>
+    <string name="suggestion_reason_deload">En dessous la dernière fois — retirez %1$s et reconstruisez</string>
+    <string name="suggestion_reason_deload_bodyweight">En dessous la dernière fois — repartez du bas de la fourchette</string>
     <string name="set_type_field">Type de série, série %1$d, %2$s</string>
     <string name="rpe_value">Effort perçu %1$s</string>
     <string name="rpe_not_rated">Non noté</string>

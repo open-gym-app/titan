@@ -171,6 +171,7 @@ Text(
   | `ChipSection` | an eyebrow over a wrapping row of chips — a closed vocabulary shown whole rather than scrolled | a label and the chips |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
   | `SetLogHeader` | the column labels above either of the above | — |
+  | `SetTargetLine` | what the next set should be and why — `Target 82.5 kg × 8 · +2.5 kg` over the rule in a sentence — as one button that fills the entry row's fields. `SetLogRow` draws it under the row and the same figures as the fields' placeholders when handed a `target`; `formattedFigures` and `reasonText` are the two strings on their own, for the exercise detail's card | `LoadSuggestion` |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
   | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
@@ -199,7 +200,7 @@ Text(
   | `CollapsedReorderRow` | what every item of such a list shrinks to while one is held: its place, its name, one fact and its superset | a position and a name |
   | `SupersetLink` | the join in the gap between two exercises, where a superset is made and unmade | whether the two are already one |
   | `SupersetBadge` | the `SS A1` an exercise in a superset wears | the marker from `supersetLabels` |
-  | `OpenGymValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it | the text, hoisted, and an error |
+  | `OpenGymValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it and an optional placeholder in it — a suggested figure that is drawn while the box is empty, never typed for the user and never announced | the text, hoisted, and an error |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |

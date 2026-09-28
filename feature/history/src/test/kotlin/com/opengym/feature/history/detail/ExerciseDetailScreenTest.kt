@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
@@ -67,6 +68,36 @@ class ExerciseDetailScreenTest {
         // Absent rather than an empty card: "no records yet" on a movement the user has never
         // loaded is the screen telling them what they have not done.
         composeTestRule.onAllNodesWithText("PERSONAL RECORDS").assertCountEquals(0)
+    }
+
+    // ─── What to do next ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an exercise with history shows the next target, why, and the sets it came from`() {
+        setContent(benchState().copy(nextTarget = benchTarget(), records = detailRecords()))
+
+        composeTestRule.onNodeWithText("NEXT TARGET").assertExists()
+        // One node, one sentence: the prescription, the reason, then the derivation — the
+        // same words the set row speaks mid-workout. Scrolled to on Robolectric's 470dp
+        // viewport, where the card sits below the hero image and the muscles.
+        composeTestRule.onNodeWithContentDescription(
+            "Next target 82.5 kg × 3. Hit the top of the range last time — add 2.5 kg. " +
+                "From last time: 80 kg × 6 · 80 kg × 6 · 80 kg × 6",
+        ).performScrollTo().assertIsDisplayed()
+        // Between the muscles and the records, per the issue. Positions rather than bounds,
+        // since a heading scrolled off the top has bounds clipped to nothing.
+        val muscles = composeTestRule.onNodeWithText("MUSCLES WORKED").fetchSemanticsNode().positionInRoot.y
+        val target = composeTestRule.onNodeWithText("NEXT TARGET").fetchSemanticsNode().positionInRoot.y
+        val records = composeTestRule.onNodeWithText("PERSONAL RECORDS").fetchSemanticsNode().positionInRoot.y
+        assertTrue(muscles < target && target < records)
+    }
+
+    @Test
+    fun `negative - an exercise the engine has nothing to say about draws no target section`() {
+        setContent(benchState())
+
+        composeTestRule.onAllNodesWithText("NEXT TARGET").assertCountEquals(0)
+        composeTestRule.onAllNodes(hasContentDescription("Next target", substring = true)).assertCountEquals(0)
     }
 
     private fun setContent(

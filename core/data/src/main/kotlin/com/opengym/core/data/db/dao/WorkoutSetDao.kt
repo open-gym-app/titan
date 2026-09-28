@@ -163,7 +163,8 @@ interface WorkoutSetDao {
 
     /**
      * The working sets of the [limit] most recent slots that performed [exerciseId], newest
-     * slot first and each slot's sets in `set_number` order — excluding [sessionId]'s own.
+     * slot first and each slot's sets in `set_number` order — excluding [sessionId]'s own, or
+     * excluding nothing when [sessionId] is null.
      *
      * The next-load engine's history read (#M7-15), and the per-exercise twin of
      * [getPreviousSetsForSession]: the same choice of slot — by the session's `created_at`,
@@ -192,7 +193,7 @@ interface WorkoutSetDao {
             FROM session_exercise prev
             INNER JOIN workout_session ps ON ps.id = prev.session_id
             WHERE prev.exercise_id = :exerciseId
-                AND prev.session_id <> :sessionId
+                AND (:sessionId IS NULL OR prev.session_id <> :sessionId)
                 AND EXISTS (
                     SELECT 1 FROM workout_set pws
                     WHERE pws.session_exercise_id = prev.id
@@ -209,7 +210,7 @@ interface WorkoutSetDao {
     )
     fun getRecentSetsByExercise(
         exerciseId: Long,
-        sessionId: Long,
+        sessionId: Long?,
         limit: Int,
     ): Flow<List<WorkoutSetEntity>>
 

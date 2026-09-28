@@ -4,13 +4,27 @@ import com.opengym.core.domain.model.DifficultyLevel
 import com.opengym.core.domain.model.Discipline
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
+import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.MechanicType
+import com.opengym.core.domain.model.MuscleTraining
+import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PrType
+import com.opengym.core.domain.model.SuggestionReason
+import com.opengym.core.domain.model.TrainedExercise
+import com.opengym.core.domain.model.WeeklyTraining
+import com.opengym.core.domain.model.WeeklyVolume
+import com.opengym.core.domain.model.WorkoutSet
+import com.opengym.core.domain.repository.ProgressionRepository
 import com.opengym.feature.history.library.CHEST
 import com.opengym.feature.history.library.LATS
 import com.opengym.feature.history.library.TRICEPS
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /*
  * Two exercises: one with everything the seed supplies, one with everything a user can.
@@ -92,3 +106,87 @@ fun detailRecords() =
 
 /** 2026-04-21, so the rows read as a date rather than as the epoch. */
 private const val RECORD_ACHIEVED_AT = 1_776_729_600_000L
+
+/**
+ * What the engine makes of three sets of 80 × 6 under the strength range: the top was hit, so
+ * the rack's step goes on and the reps drop back. The shape the card is handed.
+ */
+fun benchTarget() =
+    LoadSuggestion(
+        weight = 82_500_000,
+        reps = 3,
+        reason = SuggestionReason.INCREASE,
+        previousWeight = 80_000_000,
+        basis = benchedLastTime(),
+    )
+
+/** Last time's bench: three working sets of 80 × 6, the history [benchTarget] is read from. */
+fun benchedLastTime() =
+    PastPerformance(List(3) { index -> workingSet(setNumber = index + 1, weight = 80_000_000, reps = 6) })
+
+fun workingSet(
+    setNumber: Int,
+    weight: Long?,
+    reps: Int,
+) = WorkoutSet(
+    sessionExerciseId = PREVIOUS_ROW,
+    setNumber = setNumber,
+    reps = reps,
+    weight = weight,
+    isCompleted = true,
+    completedAt = RECORD_ACHIEVED_AT,
+    createdAt = RECORD_ACHIEVED_AT,
+    updatedAt = RECORD_ACHIEVED_AT,
+)
+
+/** A `session_exercise` row of some earlier workout, which the detail screen never resolves. */
+private const val PREVIOUS_ROW = 99L
+
+/**
+ * The history the next-load engine reads (#M7-16), in memory: what a test seeded, newest
+ * first, and a record of what was asked for. The query's own rules are asserted against a
+ * real database in `RecentPerformanceDaoTest`; what matters here is the session the read was
+ * told to leave out.
+ */
+class FakeProgressionStore : ProgressionRepository {
+
+    private val performances = MutableStateFlow<Map<Long, List<PastPerformance>>>(emptyMap())
+
+    /** Every (exercise, excluded session) the history has been asked for, in call order. */
+    val reads = mutableListOf<Pair<Long, Long?>>()
+
+    fun setPerformances(
+        exerciseId: Long,
+        vararg newestFirst: PastPerformance,
+    ) {
+        performances.value += exerciseId to newestFirst.toList()
+    }
+
+    override fun getRecentPerformances(
+        exerciseId: Long,
+        excludingSessionId: Long?,
+        limit: Int,
+    ): Flow<List<PastPerformance>> {
+        reads += exerciseId to excludingSessionId
+        return performances.map { byExercise -> byExercise[exerciseId].orEmpty().take(limit) }
+    }
+
+    override fun getWeeklyVolume(days: ClosedRange<LocalDate>): Flow<List<WeeklyVolume>> = unsupported()
+    override fun getWeeklyTraining(days: ClosedRange<LocalDate>): Flow<List<WeeklyTraining>> = unsupported()
+    override fun hasTrainingHistory(): Flow<Boolean> = unsupported()
+    override fun getMuscleTraining(days: ClosedRange<LocalDate>): Flow<List<MuscleTraining>> = unsupported()
+    override fun getTrainingMillis(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun countSessionsFinished(days: ClosedRange<LocalDate>): Flow<Int> = unsupported()
+    override fun getVolume(days: ClosedRange<LocalDate>): Flow<Long> = unsupported()
+    override fun getFirstTrainingDay(): Flow<LocalDate?> = unsupported()
+    override fun getExerciseAttempts(
+        exerciseId: Long,
+        days: ClosedRange<LocalDate>,
+    ): Flow<List<ExerciseAttempt>> = unsupported()
+
+    override fun countExerciseSets(exerciseId: Long): Flow<Int> = unsupported()
+    override fun getTrainedExercises(): Flow<List<TrainedExercise>> = unsupported()
+
+    private fun unsupported(): Nothing =
+        throw UnsupportedOperationException("the exercise detail reads recent performances only")
+}

@@ -87,6 +87,19 @@ class NextLoadUseCaseTest {
         }
 
     @Test
+    fun `the session being logged is what the store is told to leave out, and none is passed on as none`() =
+        runTest {
+            progressionRepository.setPerformances(BENCH_PRESS.id, performance(kg(100.0) to 6))
+
+            useCase(BENCH_PRESS.id, SESSION).first()
+            useCase(BENCH_PRESS.id, sessionId = null).first()
+
+            // The exercise detail's call: no workout of its own, so nothing is excluded and the
+            // repository is asked exactly that rather than a sentinel it has to know about.
+            assertEquals(listOf(SESSION, null), progressionRepository.requestedExclusions)
+        }
+
+    @Test
     fun `a bodyweight exercise reads through to a reps-only suggestion`() =
         runTest {
             progressionRepository.setPerformances(PRESS_UP.id, performance(null to 5))

@@ -41,6 +41,17 @@
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
     <string name="set_delete_action">Eliminar la serie %1$d</string>
+
+    <string name="set_target_line">Objetivo %1$s</string>
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_fill_action">Rellenar con el objetivo</string>
+
+    <string name="suggestion_reason_increase">Alcanzaste el tope del rango la última vez — añade %1$s</string>
+    <string name="suggestion_reason_add_rep">Dentro del rango la última vez — una repetición más</string>
+    <string name="suggestion_reason_repeat">Alcanzaste el tope del rango una vez — alcánzalo otra vez para ganar el aumento</string>
+    <string name="suggestion_reason_deload">Te quedaste corto la última vez — quita %1$s y vuelve a subir</string>
+    <string name="suggestion_reason_deload_bodyweight">Te quedaste corto la última vez — empieza de nuevo por el mínimo del rango</string>
     <string name="set_type_field">Tipo de serie, serie %1$d, %2$s</string>
     <string name="rpe_value">Esfuerzo percibido %1$s</string>
     <string name="rpe_not_rated">Sin valorar</string>

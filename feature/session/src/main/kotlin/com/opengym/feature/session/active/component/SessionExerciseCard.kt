@@ -84,6 +84,15 @@ import com.opengym.core.ui.R as CoreR
  * a fault rather than as a first attempt, so an exercise with no history says so once, under its
  * name, and the cells stay as they are for every other card on the screen.
  *
+ * ### And what to do about it
+ *
+ * The `PREV` cell on the entry row says what the next set was last time; the target under that
+ * row says what it should be this time (#M7-16). It is the next-load engine's answer, carried on
+ * [SessionExerciseRow.target], and it is drawn in the entry row's empty fields as placeholders and
+ * under it as one line — the figures, how far they moved, and the reason — which is a button that
+ * fills the fields in. Absent, not empty, wherever the engine has nothing to say: an exercise with
+ * no history draws the row exactly as it always has. See `SetTargetLine`.
+ *
  * @param row the exercise, its sets and its half-typed set.
  * @param position where it sits in the workout, from 0 — the *drawn* order rather than
  *   [SessionExerciseRow.position], which is what is stored and is a frame behind it while a
@@ -364,6 +373,11 @@ private fun SetTable(
                 isActive = true,
                 error = error,
                 enabled = enabled,
+                // What that next number should be, where the engine has an opinion. Placeholders
+                // in the two fields and the line under the row, both from this; a tap on the
+                // line writes the figures into the entry as text, and only that.
+                target = row.target,
+                onFillTarget = { onEvent(ActiveSessionEvent.TargetFilled(row.sessionExerciseId)) },
                 // The fields stay live while the tick does not: a row with a weight in it and no
                 // reps yet is a set half typed, not a refused one, and an exercise logged by time
                 // is one this screen cannot write at all. Either way the tick would be pressed for

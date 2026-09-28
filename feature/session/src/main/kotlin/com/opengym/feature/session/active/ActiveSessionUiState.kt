@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.LoadSuggestion
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.SessionStats
 import com.opengym.core.domain.model.SetType
@@ -270,6 +271,14 @@ data class ActiveSessionHeader(
  *   and empty cells, and the two must not be drawn the same way. False also covers an exercise
  *   whose whole history is warm-ups, which is never having performed it — see
  *   `SessionRepository.getPreviousSets`.
+ * @param target what the next-load engine says the next set should be (#M7-16), or null where
+ *   it has nothing to say — no history, timed work, an exercise since deleted. One per
+ *   exercise rather than per row, because the rule reads the last *performance* and answers
+ *   for the next set of this one; it does not move as sets are logged today, since today's
+ *   sets are not history yet. Drawn on the entry row as placeholders and as the line under it —
+ *   see `SetTargetLine` — and filled in by [ActiveSessionEvent.TargetFilled]. Kept current by
+ *   the ViewModel for the session's life, not re-derived on a keystroke: see
+ *   `ActiveSessionViewModel.targets`.
  */
 @Immutable
 data class SessionExerciseRow(
@@ -285,6 +294,7 @@ data class SessionExerciseRow(
     val entry: SetEntry = SetEntry(),
     val entryPrevious: PreviousSet? = null,
     val hasHistory: Boolean = false,
+    val target: LoadSuggestion? = null,
 ) {
 
     /** How many sets sit under it, performed or not, which is what the table draws. */

@@ -274,4 +274,8 @@
     <string name="detail_section_records">Récords personales</string>
     <string name="detail_record_description">%1$s, %2$s, %3$s</string>
 
+    <string name="detail_section_next_target">Próximo objetivo</string>
+    <string name="detail_next_target_basis">Según la última vez</string>
+    <string name="detail_next_target_description">Próximo objetivo %1$s. %2$s. La última vez: %3$s</string>
+
 </resources>
