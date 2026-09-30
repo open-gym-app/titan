@@ -1,6 +1,6 @@
 # Export schema
 
-The JSON document Open Gym writes when you back a device up, and reads when you restore one.
+The JSON document Titan writes when you back a device up, and reads when you restore one.
 
 It is the only copy of a user's training history that leaves the phone, so this file is the
 specification rather than a description: the format is pinned by tests against it, and a change
@@ -8,14 +8,14 @@ here that is not a change to those tests is a change nobody made.
 
 | Artifact | Path |
 | --- | --- |
-| The document, and the version | `core/domain/src/main/kotlin/com/opengym/core/domain/backup/model/ExportDocument.kt` |
+| The document, and the version | `core/domain/src/main/kotlin/com/titan/core/domain/backup/model/ExportDocument.kt` |
 | One data class per table | `.../backup/model/BackupRow.kt` |
 | The tables, and the order they restore in | `.../backup/model/BackupTable.kt` |
 | Reading, writing and the `Json` configuration | `.../backup/ExportFormat.kt`, `.../backup/ExportWriter.kt` |
 | What an import refuses | `.../backup/BackupValidator.kt`, `.../backup/model/ImportError.kt` |
 | The use cases | `.../usecase/ExportUseCase.kt`, `.../usecase/ImportUseCase.kt` |
-| The row-level store | `core/data/src/main/kotlin/com/opengym/core/data/repository/BackupRepositoryImpl.kt` |
-| Round trip, idempotency and schema-drift tests | `core/data/src/test/kotlin/com/opengym/core/data/db/Backup*.kt`, `ExportSchemaTest.kt` |
+| The row-level store | `core/data/src/main/kotlin/com/titan/core/data/repository/BackupRepositoryImpl.kt` |
+| Round trip, idempotency and schema-drift tests | `core/data/src/test/kotlin/com/titan/core/data/db/Backup*.kt`, `ExportSchemaTest.kt` |
 
 ## The shape
 
@@ -49,14 +49,14 @@ here that is not a change to those tests is a change nobody made.
 
 **Every key above is present in every document**, empty arrays included, so `jq 'keys'` returns
 the same answer for a fresh install as for a power user. `ExportSchemaTest` asserts that this
-list is exactly the tables `OpenGymDatabase` declares.
+list is exactly the tables `TitanDatabase` declares.
 
 ### Keys are the schema's names
 
 A top-level array key is a **SQLite table name**. A row's keys are that table's **column
 names**, in the order the table declares them, and a nullable column is written as `null`
 rather than omitted. So a row in an export and a row in
-`core/data/schemas/com.opengym.core.data.db.OpenGymDatabase/1.json` can be read side by side
+`core/data/schemas/com.titan.core.data.db.TitanDatabase/1.json` can be read side by side
 with no translation — which is the point, and is what `ExportSchemaTest` holds, column for
 column. Units are the schema's too: milligrams, centimetres, seconds, epoch-millisecond UTC
 timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assumptions).

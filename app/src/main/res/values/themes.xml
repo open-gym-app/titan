@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The platform theme, which exists for exactly one thing: what the window looks like before
-  Compose has drawn. Everything after that comes from `OpenGymTheme`.
+  Compose has drawn. Everything after that comes from `TitanTheme`.
 
   It follows the *system* light/dark setting through the `values-night` variant, not the
   stored preference — a resource qualifier cannot read DataStore. A user who has chosen Light
@@ -11,7 +11,7 @@
   itself.
 -->
 <resources>
-    <style name="Theme.OpenGym" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.Titan" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>
 </resources>

@@ -1,11 +1,11 @@
-import com.opengym.buildlogic.CheckModuleDependencies
+import com.titan.buildlogic.CheckModuleDependencies
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.ProjectDependency
 import org.gradle.kotlin.dsl.register
 
 /**
- * `opengym.architecture` — registers `checkArchitecture`, which asserts the module
+ * `titan.architecture` — registers `checkArchitecture`, which asserts the module
  * dependency graph against docs/ARCHITECTURE.md.
  *
  * Applied to the root project only: the graph is a property of the build, not of any one
@@ -18,7 +18,7 @@ class ArchitectureConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
             require(this == rootProject) {
-                "opengym.architecture applies to the root project; it was applied to $path"
+                "titan.architecture applies to the root project; it was applied to $path"
             }
 
             tasks.register<CheckModuleDependencies>("checkArchitecture") {

@@ -1,6 +1,6 @@
 import com.android.build.api.dsl.LibraryExtension
-import com.opengym.buildlogic.AndroidSdk
-import com.opengym.buildlogic.library
+import com.titan.buildlogic.AndroidSdk
+import com.titan.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -8,7 +8,7 @@ import org.gradle.kotlin.dsl.dependencies
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 /**
- * `opengym.android.library` — the baseline every `:core:*` and `:feature:*` Android
+ * `titan.android.library` — the baseline every `:core:*` and `:feature:*` Android
  * module shares: SDK levels, the JVM toolchain, the project-wide lint configuration and
  * the JVM unit-test dependencies.
  *

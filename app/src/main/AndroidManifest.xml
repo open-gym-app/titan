@@ -24,13 +24,13 @@
       through an export the user asked for (#37, #38).
     -->
     <application
-        android:name=".OpenGymApplication"
+        android:name=".TitanApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OpenGym">
+        android:theme="@style/Theme.Titan">
 
         <!--
           Portrait only, on purpose rather than by omission.
@@ -51,7 +51,7 @@
           the app is already running builds a *second* MainActivity over the first — two copies
           of the shell, two navigation graphs, and a back gesture that walks out of one into the
           other. With it the intent is delivered to the running instance through `onNewIntent`,
-          which `OpenGymNavHost` hands to the NavController.
+          which `TitanNavHost` hands to the NavController.
         -->
         <activity
             android:name=".MainActivity"
@@ -80,8 +80,8 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="opengym" android:host="session" />
-                <data android:scheme="opengym" android:host="progression" />
+                <data android:scheme="titan" android:host="session" />
+                <data android:scheme="titan" android:host="progression" />
             </intent-filter>
         </activity>
 
@@ -90,7 +90,7 @@
 
           `androidx.startup` runs `WorkManagerInitializer` from the library's own manifest,
           which initialises WorkManager with the *default* worker factory — before
-          `OpenGymApplication`'s `Configuration.Provider` is ever consulted. The auto-backup
+          `TitanApplication`'s `Configuration.Provider` is ever consulted. The auto-backup
           worker (#181) is built by Hilt, so that factory could not construct it, and the
           failure would land in a background job at three in the morning.
 

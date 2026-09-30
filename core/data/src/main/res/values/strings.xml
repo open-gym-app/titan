@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The only user-facing strings the data layer owns: the names Android shows for this app's
-  notification channels, under Settings → Apps → OpenGym → Notifications.
+  notification channels, under Settings → Apps → Titan → Notifications.
 
   They live here rather than in `:core:ui` because the channels are registered here and
   nowhere else, and a name is what the user reads when deciding whether to silence a channel

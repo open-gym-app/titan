@@ -1,5 +1,5 @@
 // The `apply false` entries are not dead weight even where no build script names the alias:
-// they are what puts these plugins on the build script classpath for the `opengym.android.*`
+// they are what puts these plugins on the build script classpath for the `titan.android.*`
 // convention plugins, which declare them `compileOnly` and apply them by id. Removing one as
 // "unused" fails the build at "Plugin with id '...' not found" — see
 // build-logic/convention/build.gradle.kts.
@@ -20,7 +20,7 @@ plugins {
     // Registers `checkArchitecture`, wired into `check` below. Applied rather than
     // `apply false`: unlike the others this one configures the root project itself, because
     // the module dependency graph is a property of the build and not of any module in it.
-    id("opengym.architecture")
+    id("titan.architecture")
 }
 
 detekt {
@@ -48,9 +48,9 @@ dependencies {
 // modules, which all share the same convention plugin and so the same paths.
 sonar {
     properties {
-        property("sonar.projectKey", "opengym")
-        property("sonar.projectName", "OpenGym")
-        property("sonar.projectDescription", "Open Gym - A fitness app built with Kotlin and Jetpack Compose")
+        property("sonar.projectKey", "titan")
+        property("sonar.projectName", "Titan")
+        property("sonar.projectDescription", "Titan - A fitness app built with Kotlin and Jetpack Compose")
         property("sonar.sourceEncoding", "UTF-8")
 
         // Generated code and build output. Sonar only ever scans each module's declared
@@ -62,10 +62,10 @@ sonar {
         // report (see the `detekt {}` block above), so this is set once, not per module.
         property("sonar.kotlin.detekt.reportPaths", "$rootDir/build/reports/detekt/detekt.xml")
 
-        property("sonar.links.homepage", "https://github.com/open-gym-app/open-gym")
-        property("sonar.links.ci", "https://github.com/open-gym-app/open-gym/actions")
-        property("sonar.links.issue", "https://github.com/open-gym-app/open-gym/issues")
-        property("sonar.links.scm", "https://github.com/open-gym-app/open-gym.git")
+        property("sonar.links.homepage", "https://github.com/open-gym-app/titan")
+        property("sonar.links.ci", "https://github.com/open-gym-app/titan/actions")
+        property("sonar.links.issue", "https://github.com/open-gym-app/titan/issues")
+        property("sonar.links.scm", "https://github.com/open-gym-app/titan.git")
     }
 }
 
@@ -163,7 +163,7 @@ subprojects {
             plugins.hasPlugin("com.android.library")
 
         // Every module that opts into coverage — `:core:domain` directly, the other three
-        // through `opengym.android.jacoco` — reports its own JaCoCo XML and JUnit results
+        // through `titan.android.jacoco` — reports its own JaCoCo XML and JUnit results
         // to the same Sonar analysis. An Android module's debug unit tests write under
         // variant-named paths (`jacocoDebugUnitTestReport`, `testDebugUnitTest`); the plain
         // `jacoco` plugin `:core:domain` applies on its own writes under the source set's

@@ -3,7 +3,7 @@
   Strings for the Sessions tab and the exercise library.
 
   Written in sentence case even where the design draws them uppercase: `Eyebrow`,
-  `OpenGymBadge` and `OpenGymFilterChip` all uppercase for the caller, so a translator is
+  `TitanBadge` and `TitanFilterChip` all uppercase for the caller, so a translator is
   never asked to reproduce a typographic treatment.
 -->
 <resources>
@@ -204,7 +204,7 @@
 
     <!-- ── Sessions tab ───────────────────────────────────────────────────────────── -->
 
-    <!-- The three tabs. Sentence case; OpenGymTabRow uppercases them. -->
+    <!-- The three tabs. Sentence case; TitanTabRow uppercases them. -->
     <string name="sessions_tab_history">History</string>
     <string name="sessions_tab_templates">Templates</string>
     <string name="sessions_tab_calendar">Calendar</string>

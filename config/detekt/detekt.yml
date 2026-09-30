@@ -1,4 +1,4 @@
-# Detekt configuration for open-gym
+# Detekt configuration for titan
 # Suppression policy: any accepted violation committed to detekt-baseline.xml
 # must have an inline comment with the rationale at the suppression site.
 #
@@ -103,7 +103,7 @@ naming:
     ignoreAnnotated:
       - 'Composable'
   InvalidPackageDeclaration:
-    rootPackage: 'com.opengym'
+    rootPackage: 'com.titan'
   TopLevelPropertyNaming:
     constantPattern: '[A-Z][_A-Z0-9]*'
     propertyPattern: '[A-Za-z][_A-Za-z0-9]*'

@@ -13,7 +13,7 @@ BASELINE_PROFILE_DIR := app/src/main/baselineProfiles
 # settings the way the Settings app does; both have to be installed first, and neither is by
 # default on a clean device — `a11y-scan` opens the Play Store page when the Scanner is missing.
 ADB ?= adb
-APP_ID := com.opengym.app.debug
+APP_ID := com.titan.app.debug
 SCANNER_PACKAGE := com.google.android.apps.accessibility.auditor
 SCANNER_SERVICE := $(SCANNER_PACKAGE)/$(SCANNER_PACKAGE).ScannerService
 # TalkBack ships under two names: Google's, from the Play Store's Accessibility Suite, and the
@@ -53,7 +53,7 @@ test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug
 
 journeys: ## Run only the end-to-end journey suite (#29)
-	./gradlew :app:testDebugUnitTest --tests "com.opengym.app.ui.EndToEndJourneyTest"
+	./gradlew :app:testDebugUnitTest --tests "com.titan.app.ui.EndToEndJourneyTest"
 
 screenshots: ## Re-record the screenshot references after an intended visual change
 	./gradlew recordRoborazziDebug -Proborazzi.cleanupOldScreenshots=true
@@ -69,7 +69,7 @@ benchmark: ## Run the on-device benchmarks (#42) - needs a physical device on ad
 
 baseline-profile: ## Regenerate the committed Baseline Profile from a physical device
 	./gradlew :benchmark:connectedBenchmarkAndroidTest \
-		-Pandroid.testInstrumentationRunnerArguments.class=com.opengym.benchmark.BaselineProfileGenerator
+		-Pandroid.testInstrumentationRunnerArguments.class=com.titan.benchmark.BaselineProfileGenerator
 	@mkdir -p $(BASELINE_PROFILE_DIR)
 	@found=$$(find $(BENCHMARK_OUTPUT) -name '*-baseline-prof.txt' -print -quit); \
 		test -n "$$found" || { echo "No profile in $(BENCHMARK_OUTPUT) - did the run reach a device?"; exit 1; }; \

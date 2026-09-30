@@ -1,16 +1,16 @@
 plugins {
-    id("opengym.android.library")
-    id("opengym.android.compose")
-    id("opengym.android.jacoco")
+    id("titan.android.library")
+    id("titan.android.compose")
+    id("titan.android.jacoco")
 
     // The saved-screen-state helper encodes a ViewModel's own state as JSON, so this module
     // needs the serialization compiler plugin the features already apply for their route
-    // types — see `com.opengym.core.ui.state.savedScreenState`.
+    // types — see `com.titan.core.ui.state.savedScreenState`.
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.opengym.core.ui"
+    namespace = "com.titan.core.ui"
 }
 
 dependencies {

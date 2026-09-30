@@ -13,7 +13,7 @@
     <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_welcome_title">Notez le travail. Regardez-le s’accumuler.</string>
-    <string name="onboarding_welcome_body">Open Gym est un carnet d’entraînement qui tourne entièrement sur ce téléphone. Pas de compte, pas de cloud, pas de publicité.</string>
+    <string name="onboarding_welcome_body">Titan est un carnet d’entraînement qui tourne entièrement sur ce téléphone. Pas de compte, pas de cloud, pas de publicité.</string>
     <string name="onboarding_welcome_logging">Enregistrez vos séries</string>
     <string name="onboarding_welcome_logging_detail">Poids, répétitions et RPE, un geste par série</string>
     <string name="onboarding_welcome_progress">Suivez vos progrès</string>

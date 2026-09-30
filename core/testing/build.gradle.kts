@@ -1,9 +1,9 @@
 plugins {
-    id("opengym.android.library")
+    id("titan.android.library")
 }
 
 android {
-    namespace = "com.opengym.core.testing"
+    namespace = "com.titan.core.testing"
 }
 
 // Test support that has to be *shared*: the module sits on every Compose module's test

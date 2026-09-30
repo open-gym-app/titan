@@ -43,8 +43,8 @@ private val packageBranchFloor = "0.75".toBigDecimal()
 // lives in `backup` and `usecase`, which carry the full floor; the split between the two
 // packages is exactly so that the exclusion here cannot cover for it.
 private val generatedHeavyPackages = listOf(
-    "com.opengym.core.domain.model",
-    "com.opengym.core.domain.backup.model",
+    "com.titan.core.domain.model",
+    "com.titan.core.domain.backup.model",
 )
 
 tasks.test {

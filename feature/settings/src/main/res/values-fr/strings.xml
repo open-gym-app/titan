@@ -56,7 +56,7 @@
     <string name="settings_notifications_blocked">Les notifications sont bloquées</string>
     <string name="settings_notifications_blocked_detail">Android ne les délivre pas. Réactivez-les dans les paramètres du système.</string>
     <string name="settings_notifications_allow">Autoriser les notifications</string>
-    <string name="settings_notifications_allow_detail">OpenGym n’a pas encore demandé l’autorisation</string>
+    <string name="settings_notifications_allow_detail">Titan n’a pas encore demandé l’autorisation</string>
 
     <!-- About -->
     <string name="settings_version">Version</string>
@@ -157,7 +157,7 @@
     <string name="backup_auto_last">Dernière sauvegarde %1$s</string>
     <string name="backup_auto_failed">La dernière sauvegarde automatique n’a pas abouti, malgré plusieurs tentatives. Elle réessaiera à la prochaine exécution.</string>
     <string name="backup_auto_save_failed">Ce réglage n’a pas pu être enregistré. Réessayez.</string>
-    <string name="backup_auto_uninstall">Les sauvegardes automatiques sont conservées dans le stockage propre d’Open Gym : elles sont donc supprimées si vous désinstallez l’application. Exportez et enregistrez une copie pour en avoir une qui lui survive.</string>
+    <string name="backup_auto_uninstall">Les sauvegardes automatiques sont conservées dans le stockage propre de Titan : elles sont donc supprimées si vous désinstallez l’application. Exportez et enregistrez une copie pour en avoir une qui lui survive.</string>
 
     <string name="backup_restore_title">Restaurer</string>
     <string name="backup_restore_detail">Remplace tout ce qui est sur cet appareil par le contenu d’un fichier de sauvegarde. Les deux ne sont pas fusionnés.</string>
@@ -167,8 +167,8 @@
     <string name="backup_restore_done">%1$d lignes restaurées. Tout ce qui est sur cet appareil vient désormais du fichier.</string>
 
     <!-- One message per ImportError. -->
-    <string name="backup_error_malformed">Ce fichier n’est pas une sauvegarde Open Gym, ou il est endommagé. Rien n’a été modifié sur cet appareil.</string>
-    <string name="backup_error_version">Cette sauvegarde a été écrite au format version %1$d et cette version de l’application lit la version %2$d. Mettez Open Gym à jour et réessayez. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_malformed">Ce fichier n’est pas une sauvegarde Titan, ou il est endommagé. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_version">Cette sauvegarde a été écrite au format version %1$d et cette version de l’application lit la version %2$d. Mettez Titan à jour et réessayez. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_constraint">Cette sauvegarde est incomplète — elle fait référence à des séances qu’elle ne contient pas. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_io">La sauvegarde n’a pas pu être lue. Si la restauration avait déjà commencé, vos séances sont revenues mais vos paramètres peut-être pas.</string>
 
@@ -201,6 +201,6 @@
     <string name="reminder_days_empty_detail">Aucun jour choisi, donc rien n’est planifié.</string>
 
     <string name="reminder_inexact">Peut arriver en retard</string>
-    <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour OpenGym, donc Android peut retenir le rappel quelques minutes.</string>
+    <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour Titan, donc Android peut retenir le rappel quelques minutes.</string>
 
 </resources>
