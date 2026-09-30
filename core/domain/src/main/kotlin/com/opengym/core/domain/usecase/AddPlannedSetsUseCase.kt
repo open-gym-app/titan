@@ -80,26 +80,29 @@ class AddPlannedSetsUseCase(
             }
 
             runCatching {
-                val table = SetNumbering.inOrder(sessionRepository.getSets(sessionExerciseId).first())
-                // The last number the lifter has ticked, or nothing: the plan goes right after
-                // it. Ticked rather than "the last one in the table", because a template lays
-                // the working sets down unperformed, and those are what the plan goes in front of.
-                val performed = table.filter(WorkoutSet::isCompleted).maxOfOrNull(WorkoutSet::setNumber) ?: 0
                 val now = clock.nowMillis()
-
-                val planned = PlannedSets.rows(
-                    planned = sets,
-                    sessionExerciseId = sessionExerciseId,
-                    from = performed + 1,
-                    createdAt = now,
-                )
-                val shifted = SetNumbering.renumber(
-                    sets = table.filter { it.setNumber > performed },
-                    now = now,
-                    from = performed + planned.size + 1,
-                )
-
+                // The read is inside the transaction as well as the writes. The set writes — a
+                // tick, an edit — do not take [lock], and the shift below writes whole rows back:
+                // a table read outside would let a set ticked in between be written back unticked.
                 sessionRepository.atomically {
+                    val table = SetNumbering.inOrder(sessionRepository.getSets(sessionExerciseId).first())
+                    // The last number the lifter has ticked, or nothing: the plan goes right after
+                    // it. Ticked rather than "the last one in the table", because a template lays
+                    // the working sets down unperformed, and those are what the plan goes in front of.
+                    val performed = table.filter(WorkoutSet::isCompleted).maxOfOrNull(WorkoutSet::setNumber) ?: 0
+
+                    val planned = PlannedSets.rows(
+                        planned = sets,
+                        sessionExerciseId = sessionExerciseId,
+                        from = performed + 1,
+                        createdAt = now,
+                    )
+                    val shifted = SetNumbering.renumber(
+                        sets = table.filter { it.setNumber > performed },
+                        now = now,
+                        from = performed + planned.size + 1,
+                    )
+
                     if (shifted.isNotEmpty()) sessionRepository.updateSets(shifted)
                     sessionRepository.insertSets(planned)
                 }

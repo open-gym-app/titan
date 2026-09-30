@@ -3283,6 +3283,30 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `taking the warm-up again after cutting its movements does not ramp up twice`() =
+        runTest {
+            val store = pushDayStore(
+                sets = listOf(
+                    loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 5, weight = 80_000_000L),
+                ),
+            )
+            val viewModel = viewModel(store = store, catalogue = mobilityCatalogue())
+            val suggested = viewModel.uiState.value.warmup!!.movements.map(MobilityMovement::exerciseId).toSet()
+
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+            store.getExercises(ACTIVE_SESSION_ID).first()
+                .filter { it.exerciseId in suggested }
+                .forEach { store.deleteExercise(it.id) }
+            viewModel.onEvent(ActiveSessionEvent.MobilityAccepted(MobilityKind.WARMUP))
+
+            val bench = store.getSetsForSession(ACTIVE_SESSION_ID).first()
+                .filter { it.sessionExerciseId == BENCH_ROW }
+            // The card is back once its movements are gone, and taking it again puts them back —
+            // but the lift already has its ramp-up, and a second copy would be four warm-up sets.
+            assertEquals(2, bench.count { it.setType == SetType.WARMUP })
+        }
+
+    @Test
     fun `a dismissed card goes and does not come back`() =
         runTest {
             val viewModel = viewModel(catalogue = mobilityCatalogue())

@@ -1679,13 +1679,12 @@ class ActiveSessionViewModel @Inject constructor(
                 exercises = missing.map { SessionExerciseDraft(exerciseId = it.exercise.id) },
                 placement = if (kind == MobilityKind.WARMUP) ExercisePlacement.START else ExercisePlacement.END,
             )
-            // Only after the movements have landed, only for the warm-up, and only the first
-            // time the card is taken — the ramp-up is already under the lift from that first
-            // acceptance, and a second copy would be four warm-up sets under one working set.
+            // Only after the movements have landed, and only for the warm-up. Whether the lift
+            // already has its ramp-up is [addRampUp]'s question, asked of the table itself.
             // A failure here leaves the movements in the workout without their ramp-up, which is
             // a warm-up the lifter can still perform, where reporting the whole thing as failed
             // over it would say the card did nothing.
-            if (added.isSuccess && kind == MobilityKind.WARMUP && missing.size == movements.size) {
+            if (added.isSuccess && kind == MobilityKind.WARMUP) {
                 addRampUp(suggestion)
             }
 
@@ -1719,12 +1718,19 @@ class ActiveSessionViewModel @Inject constructor(
      * already ticked, and in front of the working sets a template laid down — `set_number` is
      * the order the table is drawn in, and a warm-up drawn below the working sets is not one.
      *
+     * Nothing is written when the lift already carries a warm-up set. That is read off the table
+     * rather than off the card, because the card can be taken more than once: a lifter who
+     * accepts it, cuts every movement back out and accepts it again would otherwise get a
+     * second ramp-up — four warm-up sets under one working set.
+     *
      * Best effort, and silent. A ramp-up that could not be written is two sets the lifter types
      * themselves; it is not worth a message over a card that has otherwise done what it said.
      */
     private suspend fun addRampUp(suggestion: WarmupSuggestion) {
         val exerciseId = suggestion.rampUpExerciseId ?: return
-        val slot = loaded.value?.ordered?.firstOrNull { it.exerciseId == exerciseId } ?: return
+        val loaded = loaded.value ?: return
+        val slot = loaded.ordered.firstOrNull { it.exerciseId == exerciseId } ?: return
+        if (loaded.setsOf(slot.id).any { it.setType == SetType.WARMUP }) return
         addPlannedSets(sessionExerciseId = slot.id, sets = suggestion.rampUp)
     }
 
