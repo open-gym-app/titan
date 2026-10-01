@@ -24,8 +24,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class TemplateDraftRepositoryImpl @Inject constructor(
-    @param:ApplicationContext context: Context,
-    @param:IoDispatcher ioDispatcher: CoroutineDispatcher,
+    @ApplicationContext context: Context,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : TemplateDraftRepository {
 
     private val document = AtomicDocument(context.filesDir, DOCUMENT_NAME, ioDispatcher)

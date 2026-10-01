@@ -34,8 +34,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class InProgressSessionRepositoryImpl @Inject constructor(
-    @param:ApplicationContext context: Context,
-    @param:IoDispatcher ioDispatcher: CoroutineDispatcher,
+    @ApplicationContext context: Context,
+    @IoDispatcher ioDispatcher: CoroutineDispatcher,
 ) : InProgressSessionRepository {
 
     private val document = AtomicDocument(context.filesDir, DOCUMENT_NAME, ioDispatcher)
