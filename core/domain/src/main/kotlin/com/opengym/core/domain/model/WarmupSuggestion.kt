@@ -23,7 +23,12 @@ package com.opengym.core.domain.model
  *   bodyweight work, cardio, or a workout whose first sets have no weight planned yet.
  * @property rampUpExerciseId the catalogue exercise [rampUp] belongs to, or **null** when there
  *   are no ramp-up sets. Held beside them rather than inside each set, because a [PlannedSet]
- *   has no exercise: it is a row of the table the exercise already owns.
+ *   has no exercise: it is a row of the table the exercise already owns. For display only —
+ *   see [rampUpSessionExerciseId] for the row the sets are written into.
+ * @property rampUpSessionExerciseId the `session_exercise` row [rampUp] is written into, or
+ *   **null** when there are no ramp-up sets. The same catalogue exercise can occupy more than
+ *   one row of a session (two bench slots either side of an accessory), and [rampUpExerciseId]
+ *   alone cannot tell those rows apart — this is the one that can.
  * @property cooldown the static stretches to do afterwards, in the order suggested.
  * @property includeGeneralNote whether the card should also say "five minutes of easy cardio".
  *   True for a session spread over more than [GENERAL_NOTE_MUSCLE_GROUPS] muscle groups, where
@@ -34,6 +39,7 @@ data class WarmupSuggestion(
     val warmup: List<MobilityExercise> = emptyList(),
     val rampUp: List<PlannedSet> = emptyList(),
     val rampUpExerciseId: Long? = null,
+    val rampUpSessionExerciseId: Long? = null,
     val cooldown: List<MobilityExercise> = emptyList(),
     val includeGeneralNote: Boolean = false,
 ) {
@@ -41,6 +47,10 @@ data class WarmupSuggestion(
         require(rampUp.isEmpty() == (rampUpExerciseId == null)) {
             "ramp-up sets and the exercise they belong to travel together, had " +
                 "${rampUp.size} set(s) and exercise $rampUpExerciseId"
+        }
+        require(rampUp.isEmpty() == (rampUpSessionExerciseId == null)) {
+            "ramp-up sets and the session row they belong to travel together, had " +
+                "${rampUp.size} set(s) and session exercise $rampUpSessionExerciseId"
         }
         require(rampUp.all { it.setType == SetType.WARMUP }) {
             "every ramp-up set is a warm-up set, had ${rampUp.map(PlannedSet::setType)}"

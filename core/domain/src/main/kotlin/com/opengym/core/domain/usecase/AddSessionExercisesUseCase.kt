@@ -53,9 +53,13 @@ import kotlinx.coroutines.flow.first
  *
  * ### They stand alone
  *
- * Nothing added here joins a superset. A group is a decision about two exercises performed back
- * to back, and there is no way to express *which* one a new exercise pairs with from an
- * "add to this workout" action.
+ * Nothing added here joins a superset, and that is enforced rather than merely asked of callers:
+ * a group is a decision about two exercises performed back to back, there is no way to express
+ * *which* one a new exercise pairs with from an "add to this workout" action, and a
+ * [SessionExerciseDraft] carrying a [SessionExerciseDraft.supersetGroup] left over from wherever
+ * it was copied from (a template, an existing row) would otherwise write a grouping nothing here
+ * asked for. `supersetGroup` is cleared on the way in for that reason, not left to each caller to
+ * remember.
  */
 class AddSessionExercisesUseCase(
     private val sessionRepository: SessionRepository,
@@ -93,14 +97,16 @@ class AddSessionExercisesUseCase(
                 // `created_at` is the one column that records that they were not in the plan
                 // the workout began with.
                 val now = clock.nowMillis()
+                // Stripped here rather than trusted from the caller — see the class doc.
+                val standalone = exercises.map { it.copy(supersetGroup = null) }
                 sessionRepository.atomically {
                     val added = sessionRepository.insertExercises(
                         sessionId = active.sessionId,
-                        exercises = exercises,
+                        exercises = standalone,
                         createdAt = now,
                     )
                     sessionRepository.insertSets(
-                        exercises.zip(added) { draft, id -> draft.plannedSets(id, now) }.flatten(),
+                        standalone.zip(added) { draft, id -> draft.plannedSets(id, now) }.flatten(),
                     )
                     if (placement == ExercisePlacement.START) moveToFront(active.sessionId, added, now)
                     added

@@ -130,6 +130,24 @@ class WarmupPlannerTest {
     }
 
     @Test
+    fun `the ramp-up is tagged with the session row it was computed for, not just the catalogue exercise`() {
+        // The same lift twice in one session — a bench slot either side of an accessory — with
+        // only the second occurrence carrying a working weight. The ramp-up is computed from
+        // that second row, and the id that travels with it must say so: the catalogue id alone
+        // cannot tell the two slots apart.
+        val suggestion = plan(
+            listOf(
+                lift(1, "Bench press", CHEST, workingWeight = null, sessionExerciseId = 10L),
+                lift(2, "Triceps pushdown", TRICEPS, mechanic = MechanicType.ISOLATION, workingWeight = 30_000_000L),
+                lift(1, "Bench press", CHEST, workingWeight = 80_000_000L, sessionExerciseId = 20L),
+            ),
+        )
+
+        assertEquals(1L, suggestion.rampUpExerciseId)
+        assertEquals(20L, suggestion.rampUpSessionExerciseId)
+    }
+
+    @Test
     fun `an isolation lift is not ramped into even when it is first`() {
         val suggestion = plan(
             listOf(

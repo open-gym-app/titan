@@ -1727,9 +1727,9 @@ class ActiveSessionViewModel @Inject constructor(
      * themselves; it is not worth a message over a card that has otherwise done what it said.
      */
     private suspend fun addRampUp(suggestion: WarmupSuggestion) {
-        val exerciseId = suggestion.rampUpExerciseId ?: return
+        val sessionExerciseId = suggestion.rampUpSessionExerciseId ?: return
         val loaded = loaded.value ?: return
-        val slot = loaded.ordered.firstOrNull { it.exerciseId == exerciseId } ?: return
+        val slot = loaded.ordered.firstOrNull { it.id == sessionExerciseId } ?: return
         if (loaded.setsOf(slot.id).any { it.setType == SetType.WARMUP }) return
         addPlannedSets(sessionExerciseId = slot.id, sets = suggestion.rampUp)
     }
@@ -2940,6 +2940,7 @@ private class Loaded(
             SessionMovement(
                 exercise = row,
                 muscleGroups = catalogue.muscleLinks[exercise.exerciseId].orEmpty(),
+                sessionExerciseId = exercise.id,
                 // This session's own plan first — a workout started from a template carries its
                 // weights before a rep is performed — and the next-load target behind it, which
                 // is what a session built by hand has instead. Zero and null are the same answer

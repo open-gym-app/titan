@@ -110,6 +110,29 @@ class AddPlannedSetsUseCaseTest {
         }
 
     @Test
+    fun `an out-of-order tick still puts the plan in front of everything unperformed`() =
+        runTest {
+            // Four working sets, and the lifter ticks the third before the second — nothing
+            // about ticking is ordered. The second set is still unperformed and must not be
+            // left sitting in front of the plan just because its number is lower.
+            val bench = startBench(working = 4)
+            tick(bench, table(bench)[2])
+
+            addPlannedSets(bench, rampUp).getOrThrow()
+
+            val table = table(bench)
+            // Only set 3 was ticked; it is renumbered to close the gap its out-of-order
+            // completion would otherwise leave, the plan follows it, and every unperformed set —
+            // including the one originally numbered lower — follows the plan.
+            assertEquals(listOf(1, 2, 3, 4, 5, 6), table.map(WorkoutSet::setNumber))
+            assertEquals(listOf(true, false, false, false, false, false), table.map(WorkoutSet::isCompleted))
+            assertEquals(
+                listOf(SetType.NORMAL, SetType.WARMUP, SetType.WARMUP, SetType.NORMAL, SetType.NORMAL, SetType.NORMAL),
+                table.map(WorkoutSet::setType),
+            )
+        }
+
+    @Test
     fun `an exercise with nothing under it is numbered from 1`() =
         runTest {
             val bench = startBench(working = 0)

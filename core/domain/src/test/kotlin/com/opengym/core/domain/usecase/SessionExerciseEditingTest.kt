@@ -106,6 +106,20 @@ class SessionExerciseEditingTest {
         }
 
     @Test
+    fun `a draft carrying a leftover superset group still joins no superset`() =
+        runTest {
+            // A caller handing over a draft copied from an existing row (a template, another
+            // session) could carry a stale `supersetGroup` along with it; nothing added through
+            // this door should honor one, since there is no way to say which exercise it would
+            // pair with.
+            val sessionId = startPushDay()
+
+            addExercises(listOf(SessionExerciseDraft(exerciseId = PUSHDOWN, supersetGroup = 0))).getOrThrow()
+
+            assertEquals(null, layout(sessionId).last().supersetGroup)
+        }
+
+    @Test
     fun `an added exercise is stamped with when it was added, not when the session began`() =
         runTest {
             val sessionId = startPushDay()

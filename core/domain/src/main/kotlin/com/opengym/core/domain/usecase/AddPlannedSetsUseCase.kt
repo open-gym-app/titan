@@ -24,12 +24,20 @@ import kotlinx.coroutines.flow.first
  * After the last set the lifter has ticked, and in front of every set they have not. A ramp-up
  * drawn below the working sets is a warm-up performed after the work, which is not a warm-up;
  * one drawn above a set already performed would be a table claiming the lifter warmed up after
- * lifting. The rows that have not been performed are moved down to make room, and the rows that
- * have keep their numbers — a set somebody has ticked is not moved out from under them.
+ * lifting. The table is split into what is ticked and what is not — not by comparing numbers,
+ * because ticking is not ordered: nothing stops a lifter ticking set 3 before set 2 — and each
+ * half keeps its own relative order. The plan goes between the two halves.
  *
- * Only the sets after the insertion point move, and only by the length of the plan, so a
- * renumbering here is a shift rather than a rewrite: the tail keeps its order and its gaps
- * stay closed, which is the invariant [SetNumbering] keeps for the deletes.
+ * A ticked set keeps its number only when nothing ticked out of order needs to move past it;
+ * where it does, the gap an out-of-order tick would otherwise leave in the ticked half is closed
+ * the same way a deletion closes one, because leaving it would put an unticked set in front of
+ * the plan — which is the one thing this insertion point promises not to do. Ordinary,
+ * in-sequence ticking is unaffected: the ticked half is already contiguous, so renumbering it
+ * changes nothing and rewrites nothing.
+ *
+ * Only the rows whose number actually changes are rewritten, so a renumbering here is a shift
+ * rather than a rewrite: the tail keeps its order and its gaps stay closed, which is the
+ * invariant [SetNumbering] keeps for the deletes.
  *
  * ### One write
  *
@@ -86,23 +94,25 @@ class AddPlannedSetsUseCase(
                 // a table read outside would let a set ticked in between be written back unticked.
                 sessionRepository.atomically {
                     val table = SetNumbering.inOrder(sessionRepository.getSets(sessionExerciseId).first())
-                    // The last number the lifter has ticked, or nothing: the plan goes right after
-                    // it. Ticked rather than "the last one in the table", because a template lays
-                    // the working sets down unperformed, and those are what the plan goes in front of.
-                    val performed = table.filter(WorkoutSet::isCompleted).maxOfOrNull(WorkoutSet::setNumber) ?: 0
+                    // Ticked and not, each in the order they already had. Partitioned rather than
+                    // split on a number, because ticking is not ordered — see the class doc.
+                    val (performed, unperformed) = table.partition(WorkoutSet::isCompleted)
+
+                    val performedRenumbered = SetNumbering.renumber(sets = performed, now = now)
 
                     val planned = PlannedSets.rows(
                         planned = sets,
                         sessionExerciseId = sessionExerciseId,
-                        from = performed + 1,
+                        from = performed.size + 1,
                         createdAt = now,
                     )
-                    val shifted = SetNumbering.renumber(
-                        sets = table.filter { it.setNumber > performed },
+                    val unperformedRenumbered = SetNumbering.renumber(
+                        sets = unperformed,
                         now = now,
-                        from = performed + planned.size + 1,
+                        from = performed.size + planned.size + 1,
                     )
 
+                    val shifted = performedRenumbered + unperformedRenumbered
                     if (shifted.isNotEmpty()) sessionRepository.updateSets(shifted)
                     sessionRepository.insertSets(planned)
                 }

@@ -101,6 +101,7 @@ object WarmupPlanner {
                 .pick(wanted, sessionId, primaryMuscles),
             rampUp = rampUp?.sets.orEmpty(),
             rampUpExerciseId = rampUp?.exerciseId,
+            rampUpSessionExerciseId = rampUp?.sessionExerciseId,
             cooldown = catalogue
                 .filter { it.isStaticStretch && it.matches(trainedMuscles) }
                 .pick(wanted, sessionId, primaryMuscles),
@@ -180,7 +181,9 @@ object WarmupPlanner {
                 val sets = rampUpSets(working, Rack.of(preferences, movement.exercise))
                 // A lift whose ramp rounds away is passed over rather than answered with an
                 // empty one: the *next* compound lift may still have something to ramp into.
-                sets.takeIf { it.isNotEmpty() }?.let { RampUp(exerciseId = movement.exercise.id, sets = it) }
+                sets.takeIf { it.isNotEmpty() }?.let {
+                    RampUp(exerciseId = movement.exercise.id, sessionExerciseId = movement.sessionExerciseId, sets = it)
+                }
             }
             // A sequence, so the search stops at the first lift that has an answer rather than
             // pricing every compound movement in the workout.
@@ -239,9 +242,10 @@ object WarmupPlanner {
         val reps: Int,
     )
 
-    /** The ramp-up, and the exercise it hangs off — the two halves [WarmupSuggestion] holds. */
+    /** The ramp-up, and the row it hangs off — the halves [WarmupSuggestion] holds. */
     private class RampUp(
         val exerciseId: Long,
+        val sessionExerciseId: Long,
         val sets: List<PlannedSet>,
     )
 

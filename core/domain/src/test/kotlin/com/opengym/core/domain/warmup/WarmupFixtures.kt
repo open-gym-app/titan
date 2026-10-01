@@ -37,6 +37,7 @@ fun lift(
     workingWeight: Long? = null,
     type: ExerciseType = ExerciseType.STRENGTH,
     discipline: Discipline = Discipline.STRENGTH,
+    sessionExerciseId: Long = id,
 ): SessionMovement =
     SessionMovement(
         exercise = Exercise(
@@ -49,6 +50,7 @@ fun lift(
         ),
         muscleGroups = links(primary, secondary),
         workingWeight = workingWeight,
+        sessionExerciseId = sessionExerciseId,
     )
 
 /** One mobility movement of the catalogue, dynamic or static. */
