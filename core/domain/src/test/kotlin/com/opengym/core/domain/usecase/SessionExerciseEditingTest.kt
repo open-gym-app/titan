@@ -1,11 +1,14 @@
 package com.opengym.core.domain.usecase
 
+import com.opengym.core.domain.model.PlannedSet
 import com.opengym.core.domain.model.SessionError
 import com.opengym.core.domain.model.SessionExercise
 import com.opengym.core.domain.model.SessionExerciseDraft
 import com.opengym.core.domain.model.SessionPlan
 import com.opengym.core.domain.model.SessionState
 import com.opengym.core.domain.model.SessionSummary
+import com.opengym.core.domain.model.SetType
+import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -32,7 +35,7 @@ class SessionExerciseEditingTest {
         sessionRepository = sessions,
         sessionStateRepository = state,
     )
-    private val addExercises = AddSessionExercisesUseCase(sessions, state, clock)
+    private val addExercises = AddSessionExercisesUseCase(sessions, state, clock, lock)
     private val removeExercise = RemoveSessionExerciseUseCase(sessions, state, clock, lock)
     private val linkSuperset = LinkSupersetUseCase(sessions, state, clock, lock)
 
@@ -58,7 +61,7 @@ class SessionExerciseEditingTest {
         runTest {
             val sessionId = startPushDay()
 
-            addExercises(listOf(PUSHDOWN)).getOrThrow()
+            addExercises(drafts(PUSHDOWN)).getOrThrow()
 
             assertEquals(
                 listOf(BENCH, INCLINE, FLY, PUSHDOWN),
@@ -71,7 +74,7 @@ class SessionExerciseEditingTest {
         runTest {
             val sessionId = startPushDay()
 
-            addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
+            addExercises(drafts(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
 
             assertEquals(
                 listOf(BENCH, INCLINE, FLY, PUSHDOWN, LATERAL_RAISE),
@@ -84,7 +87,7 @@ class SessionExerciseEditingTest {
         runTest {
             val sessionId = startPushDay()
 
-            val added = addExercises(listOf(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
+            val added = addExercises(drafts(PUSHDOWN, LATERAL_RAISE)).getOrThrow()
 
             val tail = layout(sessionId).takeLast(2)
             assertEquals(tail.map(SessionExercise::id), added)
@@ -97,7 +100,21 @@ class SessionExerciseEditingTest {
             // workout", and `Supersets` requires a group's members to be adjacent anyway.
             val sessionId = startPushDay()
 
-            addExercises(listOf(PUSHDOWN)).getOrThrow()
+            addExercises(drafts(PUSHDOWN)).getOrThrow()
+
+            assertEquals(null, layout(sessionId).last().supersetGroup)
+        }
+
+    @Test
+    fun `a draft carrying a leftover superset group still joins no superset`() =
+        runTest {
+            // A caller handing over a draft copied from an existing row (a template, another
+            // session) could carry a stale `supersetGroup` along with it; nothing added through
+            // this door should honor one, since there is no way to say which exercise it would
+            // pair with.
+            val sessionId = startPushDay()
+
+            addExercises(listOf(SessionExerciseDraft(exerciseId = PUSHDOWN, supersetGroup = 0))).getOrThrow()
 
             assertEquals(null, layout(sessionId).last().supersetGroup)
         }
@@ -108,7 +125,7 @@ class SessionExerciseEditingTest {
             val sessionId = startPushDay()
             clock.advance(20 * 60_000L)
 
-            addExercises(listOf(PUSHDOWN)).getOrThrow()
+            addExercises(drafts(PUSHDOWN)).getOrThrow()
 
             val added = layout(sessionId).last()
             assertEquals(1_205_000L, added.createdAt)
@@ -129,7 +146,7 @@ class SessionExerciseEditingTest {
     @Test
     fun `adding with no session running is refused`() =
         runTest {
-            val result = addExercises(listOf(PUSHDOWN))
+            val result = addExercises(drafts(PUSHDOWN))
 
             assertEquals(SessionError.SessionNotActive(SessionState.Idle), result.exceptionOrNull())
         }
@@ -140,7 +157,7 @@ class SessionExerciseEditingTest {
             startPushDay()
             val paused = PauseSessionUseCase(sessions, state, clock, lock)().getOrThrow()
 
-            val result = addExercises(listOf(PUSHDOWN))
+            val result = addExercises(drafts(PUSHDOWN))
 
             assertEquals(SessionError.SessionNotActive(paused), result.exceptionOrNull())
         }
@@ -164,7 +181,7 @@ class SessionExerciseEditingTest {
                 sessions,
                 FakeSessionStateRepository(finished),
                 clock,
-            )(listOf(PUSHDOWN))
+            )(drafts(PUSHDOWN))
 
             assertEquals(SessionError.SessionNotActive(finished), result.exceptionOrNull())
         }
@@ -176,7 +193,72 @@ class SessionExerciseEditingTest {
             val failure = IllegalStateException("disk full")
             sessions.exerciseInsertFailure = failure
 
-            assertEquals(failure, addExercises(listOf(PUSHDOWN)).exceptionOrNull())
+            assertEquals(failure, addExercises(drafts(PUSHDOWN)).exceptionOrNull())
+        }
+
+    @Test
+    fun `a warm-up added at the start goes in front of everything`() =
+        runTest {
+            val sessionId = startPushDay()
+
+            addExercises(drafts(PUSHDOWN, LATERAL_RAISE), ExercisePlacement.START).getOrThrow()
+
+            assertEquals(
+                listOf(PUSHDOWN, LATERAL_RAISE, BENCH, INCLINE, FLY),
+                layout(sessionId).map(SessionExercise::exerciseId),
+            )
+            assertEquals(listOf(0, 1, 2, 3, 4), layout(sessionId).map(SessionExercise::position))
+        }
+
+    @Test
+    fun `prepending moves the superset down without breaking it`() =
+        runTest {
+            val sessionId = startPushDay()
+
+            addExercises(drafts(PUSHDOWN), ExercisePlacement.START).getOrThrow()
+
+            // Incline and fly were group 0 at positions 1 and 2; they are still one group and
+            // still next to each other, one place further down.
+            assertEquals(
+                listOf(null, null, 0, 0),
+                layout(sessionId).map(SessionExercise::supersetGroup),
+            )
+        }
+
+    @Test
+    fun `prepending into an empty session writes nothing extra`() =
+        runTest {
+            val started = StartSessionUseCase(sessions, state, clock, lock)().getOrThrow()
+
+            val added = addExercises(drafts(PUSHDOWN), ExercisePlacement.START).getOrThrow()
+
+            assertEquals(1, added.size)
+            assertEquals(listOf(0), layout(started.sessionId).map(SessionExercise::position))
+        }
+
+    @Test
+    fun `a draft carrying planned sets writes them as unperformed rows`() =
+        runTest {
+            val sessionId = startPushDay()
+
+            val added = addExercises(
+                listOf(
+                    SessionExerciseDraft(
+                        exerciseId = PUSHDOWN,
+                        sets = listOf(
+                            PlannedSet(setType = SetType.WARMUP, reps = 5, weight = 40_000_000L),
+                            PlannedSet(setType = SetType.WARMUP, reps = 3, weight = 60_000_000L),
+                        ),
+                    ),
+                ),
+            ).getOrThrow()
+
+            val sets = sessions.getSetsForSession(sessionId).first()
+                .filter { it.sessionExerciseId == added.single() }
+            assertEquals(listOf(1, 2), sets.map(WorkoutSet::setNumber))
+            assertEquals(listOf(SetType.WARMUP, SetType.WARMUP), sets.map(WorkoutSet::setType))
+            assertEquals(listOf(false, false), sets.map(WorkoutSet::isCompleted))
+            assertEquals(listOf(0L, 0L), sets.map(WorkoutSet::completedAt))
         }
 
     // ─── Removing ───────────────────────────────────────────────────────────────────────
@@ -279,7 +361,7 @@ class SessionExerciseEditingTest {
             val sessionId = startPushDay()
             removeExercise(layout(sessionId)[1].id).getOrThrow()
 
-            addExercises(listOf(PUSHDOWN)).getOrThrow()
+            addExercises(drafts(PUSHDOWN)).getOrThrow()
 
             assertEquals(listOf(0, 2, 3), layout(sessionId).map(SessionExercise::position))
         }
@@ -393,6 +475,15 @@ class SessionExerciseEditingTest {
                 thrown.message,
             )
         }
+
+    /**
+     * Catalogue ids as the bare drafts the picker produces — no plan, no superset.
+     *
+     * The shape almost every test here wants; the two that care about the plan build their own
+     * drafts, because carrying a set is the whole of what they are about.
+     */
+    private fun drafts(vararg exerciseIds: Long): List<SessionExerciseDraft> =
+        exerciseIds.map { SessionExerciseDraft(exerciseId = it) }
 
     private companion object {
         const val BENCH = 1L

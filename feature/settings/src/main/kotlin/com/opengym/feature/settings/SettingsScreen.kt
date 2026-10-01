@@ -279,6 +279,16 @@ private fun WorkoutGroup(
             supporting = stringResource(R.string.settings_one_rep_max_formula_detail),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.ONE_REP_MAX_FORMULA)) },
         )
+        HairlineDivider()
+        // The only switch outside the notifications group, and the only row in this one that is
+        // about what a *screen* offers rather than about how a number is worked out. It is here
+        // rather than under Appearance because what it hides is training advice, not chrome.
+        PreferenceSwitchRow(
+            label = stringResource(R.string.settings_warmup_suggestions),
+            supporting = stringResource(R.string.settings_warmup_suggestions_detail),
+            checked = preferences.warmupSuggestions,
+            onCheckedChange = { onEvent(SettingsEvent.WarmupSuggestionsToggled(it)) },
+        )
     }
 }
 

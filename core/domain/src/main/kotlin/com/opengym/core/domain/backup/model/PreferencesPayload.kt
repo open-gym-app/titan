@@ -79,6 +79,12 @@ data class PreferencesPayload(
      * the exporting device. Held under the store's `custom_increment_milligrams` key.
      */
     @SerialName("custom_increment_milligrams") val customIncrement: Long? = null,
+    /**
+     * Whether the warm-up and cool-down cards are offered, or **null** in a file from before
+     * the setting existed (#214) — which reads back as on, the setting's own default. Held
+     * under the store's `warmup_suggestions` key.
+     */
+    @SerialName("warmup_suggestions") val warmupSuggestions: Boolean? = null,
 )
 
 /** One denomination of [PreferencesPayload.plateInventory]: a plate weight in milligrams, and how many pairs of it. */

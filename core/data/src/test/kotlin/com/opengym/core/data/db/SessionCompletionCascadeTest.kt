@@ -87,9 +87,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     // what makes the hand-computed figures below the app's own figures.
     private val sessions by lazy {
         SessionRepositoryImpl(
-            sessionDao = db.workoutSessionDao(),
-            sessionExerciseDao = db.sessionExerciseDao(),
-            setDao = db.workoutSetDao(),
+            database = db,
             sessionMapper = SessionMapper(),
             sessionExerciseMapper = SessionExerciseMapper(),
             setMapper = WorkoutSetMapper(),
@@ -654,6 +652,8 @@ private object DefaultPreferences : UserPreferencesRepository {
     override suspend fun setCustomIncrement(milligrams: Long?) = readOnly()
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
+
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = readOnly()
 
     override suspend fun clear() = readOnly()
 

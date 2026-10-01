@@ -6,10 +6,12 @@ import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.mapper.ExerciseMapper
 import com.opengym.core.data.mapper.MuscleGroupLinkMapper
 import com.opengym.core.data.mapper.TagMapper
+import com.opengym.core.domain.model.Discipline
 import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.repository.ExerciseRepository
@@ -71,6 +73,25 @@ class ExerciseRepositoryImpl @Inject constructor(
             )
         }
 
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> =
+        exerciseDao.getMobilityExercises(
+            disciplines = MOBILITY_DISCIPLINES.map(Discipline::name),
+            dynamicTag = MobilityExercise.DYNAMIC_TAG,
+        ).map { rows ->
+            // One pass over rows the query has already ordered by exercise name, so an exercise
+            // with two prime movers arrives as two adjacent rows and collapses without a sort.
+            // `isDynamic` is the same value on every row of one exercise — it is an `EXISTS` over
+            // that exercise — so taking the first is taking the only one there is.
+            rows.groupBy { it.exercise.id }
+                .map { (_, sameExercise) ->
+                    MobilityExercise(
+                        exercise = exerciseMapper.toDomain(sameExercise.first().exercise),
+                        primaryMuscleGroupIds = sameExercise.mapTo(mutableSetOf()) { it.muscleGroupId },
+                        isDynamic = sameExercise.first().isDynamic,
+                    )
+                }
+        }
+
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> =
         muscleGroupDao.getAll().map { rows -> rows.map(muscleGroupLinkMapper::toDomain) }
 
@@ -115,4 +136,15 @@ class ExerciseRepositoryImpl @Inject constructor(
             muscleGroupId = link.muscleGroup.id,
             isPrimary = link.isPrimary,
         )
+
+    private companion object {
+
+        /**
+         * The two disciplines a warm-up or a cool-down is built from.
+         *
+         * Here rather than in the DAO because they are domain constants: the `discipline` column
+         * stores [Discipline] by name, and the SQL should not be the place that spells them.
+         */
+        val MOBILITY_DISCIPLINES = listOf(Discipline.STRETCHING, Discipline.PLYOMETRICS)
+    }
 }

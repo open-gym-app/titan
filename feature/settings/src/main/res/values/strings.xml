@@ -30,6 +30,10 @@
     <string name="settings_fitness_level">Fitness level</string>
     <string name="settings_one_rep_max_formula">1RM formula</string>
     <string name="settings_one_rep_max_formula_detail">How an estimated one-rep max is calculated</string>
+    <!-- Switches the warm-up and cool-down cards on the active session screen (#214). On by
+         default: the cards propose and never add, so the cost of showing them is a fold. -->
+    <string name="settings_warmup_suggestions">Warm-up suggestions</string>
+    <string name="settings_warmup_suggestions_detail">Offer a warm-up and a cool-down for the muscles a session trains</string>
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>

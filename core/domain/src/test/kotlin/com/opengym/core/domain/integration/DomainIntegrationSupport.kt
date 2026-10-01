@@ -6,6 +6,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.Tag
 import com.opengym.core.domain.model.WorkoutSet
@@ -44,7 +45,11 @@ import kotlin.time.Duration
  * Only the reads those two need are backed by the catalogue; the rest of the interface
  * is present because the contract declares it.
  */
-class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : ExerciseRepository {
+class FakeExerciseRepository(
+    exercises: List<Exercise> = emptyList(),
+    /** The mobility half of the catalogue, for the warm-up suggestion. Empty for every other caller. */
+    private val mobility: List<MobilityExercise> = emptyList(),
+) : ExerciseRepository {
 
     private val catalogue = MutableStateFlow(exercises.associateBy(Exercise::id))
     private val links = MutableStateFlow<Map<Long, List<ExerciseMuscleGroupLink>>>(emptyMap())
@@ -80,6 +85,8 @@ class FakeExerciseRepository(exercises: List<Exercise> = emptyList()) : Exercise
         }
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = flowOf(emptyList())
+
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = flowOf(mobility)
 
     override suspend fun insert(exercise: Exercise): Long {
         val id = nextId++

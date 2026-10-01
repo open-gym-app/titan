@@ -7,6 +7,7 @@ import com.opengym.core.domain.repository.UserPreferencesRepository
 import com.opengym.core.domain.usecase.ConsistencyUseCase
 import com.opengym.core.domain.usecase.ExerciseProgressionUseCase
 import com.opengym.core.domain.usecase.NextLoadUseCase
+import com.opengym.core.domain.usecase.SuggestWarmupUseCase
 import com.opengym.core.domain.usecase.VolumeTrendUseCase
 import dagger.Module
 import dagger.Provides
@@ -55,6 +56,22 @@ object ProgressionUseCaseModule {
     ): NextLoadUseCase =
         NextLoadUseCase(
             progressionRepository = progressionRepository,
+            exerciseRepository = exerciseRepository,
+            userPreferencesRepository = userPreferencesRepository,
+        )
+
+    /**
+     * The warm-up suggestion (#214). Here beside [NextLoadUseCase] rather than in
+     * [SessionUseCaseModule] because it is the same kind of thing: a stateless read that answers
+     * a question *about* a session without writing one. Accepting its answer is a write, and
+     * that goes through `AddSessionExercisesUseCase`, which is bound over there.
+     */
+    @Provides
+    fun provideSuggestWarmupUseCase(
+        exerciseRepository: ExerciseRepository,
+        userPreferencesRepository: UserPreferencesRepository,
+    ): SuggestWarmupUseCase =
+        SuggestWarmupUseCase(
             exerciseRepository = exerciseRepository,
             userPreferencesRepository = userPreferencesRepository,
         )

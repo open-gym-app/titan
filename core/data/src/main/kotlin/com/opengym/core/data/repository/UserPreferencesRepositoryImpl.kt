@@ -246,6 +246,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.ONE_REP_MAX_FORMULA] = formula.name }
     }
 
+    override suspend fun setWarmupSuggestions(enabled: Boolean) {
+        dataStore.edit { it[UserPreferencesKeys.WARMUP_SUGGESTIONS] = enabled }
+    }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
     }
@@ -366,6 +370,7 @@ private object UserPreferencesKeys {
     val CUSTOM_INCREMENT = longPreferencesKey("custom_increment_milligrams")
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
+    val WARMUP_SUGGESTIONS = booleanPreferencesKey("warmup_suggestions")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
     val REMINDER_DAYS = stringPreferencesKey("reminder_days_iso")
     val REMINDER_TIME_MINUTES = intPreferencesKey("reminder_time_minutes")
@@ -432,6 +437,8 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
             ?: defaults.onboardingCompleted,
         oneRepMaxFormula = values.valueOrNull(UserPreferencesKeys.ONE_REP_MAX_FORMULA)
             .toEnumOrDefault(defaults.oneRepMaxFormula),
+        warmupSuggestions = values.valueOrNull(UserPreferencesKeys.WARMUP_SUGGESTIONS)
+            ?: defaults.warmupSuggestions,
         notifications = values.toNotificationPreferences(defaults.notifications),
         reminders = values.toReminderPreferences(defaults.reminders),
     )

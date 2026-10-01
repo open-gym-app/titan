@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.FitnessLevel
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -114,6 +115,8 @@ class FakeSessionStore(sessions: List<WorkoutSession> = emptyList()) : SessionRe
         sets.update { it - id }
     }
 
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     /** [count] logged sets against [sessionId] — what discarding it would cost. */
     fun seedSets(
         sessionId: Long,
@@ -217,6 +220,8 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise> = emptyList())
     override fun searchByPartialName(query: String): Flow<List<Exercise>> = unsupported()
     override fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLink>> = unsupported()
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = unsupported()
+
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = unsupported()
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> = unsupported()
     override suspend fun insert(exercise: Exercise): Long = unsupported()
     override suspend fun insert(
@@ -293,6 +298,8 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override suspend fun setCustomIncrement(milligrams: Long?) = write { it.copy(customIncrement = milligrams) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
+
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 

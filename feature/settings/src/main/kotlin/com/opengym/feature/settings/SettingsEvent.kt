@@ -57,6 +57,14 @@ sealed interface SettingsEvent {
     data class OneRepMaxFormulaSelected(val formula: OneRepMaxFormula) : SettingsEvent
 
     /**
+     * The warm-up suggestions switch was flipped (#214).
+     *
+     * A switch rather than a picker, and so the one row in this group that does not open a
+     * dialog: the setting has two states and no third thing to say about either.
+     */
+    data class WarmupSuggestionsToggled(val enabled: Boolean) : SettingsEvent
+
+    /**
      * The user typed the confirmation word and pressed the destructive button.
      *
      * The only event here that is not undoable by doing the opposite, and the only one the

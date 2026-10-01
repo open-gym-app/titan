@@ -5,6 +5,7 @@ import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.FitnessLevel
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.OneRepMaxFormula
 import com.opengym.core.domain.model.RepRange
@@ -240,6 +241,8 @@ class FakeSessionStore : SessionRepository {
         exercises.update { it - id }
     }
 
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
+
     /** [count] completed sets against [sessionId], for the workout that is already running. */
     fun seedSets(
         sessionId: Long,
@@ -291,6 +294,14 @@ class FakeSessionStateStore(initial: SessionState = SessionState.Idle) : Session
 class FakeExerciseCatalogue(
     private val exercises: List<Exercise> = emptyList(),
     private val links: Map<Long, List<ExerciseMuscleGroupLink>> = emptyMap(),
+    /**
+     * The mobility half of the catalogue, for the warm-up suggestion (#214).
+     *
+     * Empty by default and read rather than [unsupported], unlike the rest of the interface: the
+     * active session subscribes to it on open whether or not the test is about the cards, and an
+     * empty catalogue is what "this session has nothing to warm up with" looks like.
+     */
+    private val mobility: List<MobilityExercise> = emptyList(),
 ) : ExerciseRepository {
 
     override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
@@ -308,6 +319,8 @@ class FakeExerciseCatalogue(
     override fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLink>> = unsupported()
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = unsupported()
+
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = MutableStateFlow(mobility)
 
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> = unsupported()
 
@@ -364,6 +377,8 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override suspend fun setCustomIncrement(milligrams: Long?) = write { it.copy(customIncrement = milligrams) }
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
+
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 

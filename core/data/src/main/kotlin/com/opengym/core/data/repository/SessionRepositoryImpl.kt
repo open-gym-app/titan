@@ -1,8 +1,7 @@
 package com.opengym.core.data.repository
 
-import com.opengym.core.data.db.dao.SessionExerciseDao
-import com.opengym.core.data.db.dao.WorkoutSessionDao
-import com.opengym.core.data.db.dao.WorkoutSetDao
+import androidx.room.withTransaction
+import com.opengym.core.data.db.OpenGymDatabase
 import com.opengym.core.data.db.projection.PreviousSetRow
 import com.opengym.core.data.mapper.SessionExerciseMapper
 import com.opengym.core.data.mapper.SessionMapper
@@ -30,13 +29,20 @@ import javax.inject.Inject
  */
 @Suppress("TooManyFunctions") // One per `SessionRepository` method — see its own note.
 class SessionRepositoryImpl @Inject constructor(
-    private val sessionDao: WorkoutSessionDao,
-    private val sessionExerciseDao: SessionExerciseDao,
-    private val setDao: WorkoutSetDao,
+    private val database: OpenGymDatabase,
     private val sessionMapper: SessionMapper,
     private val sessionExerciseMapper: SessionExerciseMapper,
     private val setMapper: WorkoutSetMapper,
 ) : SessionRepository {
+
+    /*
+     * Reached through the database rather than injected beside it, as `LocalDataRepositoryImpl`
+     * does: [atomically] needs the database itself, the three DAOs would always be its own, and
+     * a constructor that takes all four invites the day they are not.
+     */
+    private val sessionDao get() = database.workoutSessionDao()
+    private val sessionExerciseDao get() = database.sessionExerciseDao()
+    private val setDao get() = database.workoutSetDao()
 
     override fun getAll(): Flow<List<WorkoutSession>> =
         sessionDao.getAll().map { rows -> rows.map(sessionMapper::toDomain) }
@@ -133,4 +139,12 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun update(session: WorkoutSession) = sessionDao.update(sessionMapper.toEntity(session))
 
     override suspend fun delete(id: Long) = sessionDao.delete(id)
+
+    /**
+     * Room's own transaction, which is what gives the contract its two properties for free:
+     * a DAO call from inside the block — including one that is `@Transaction` itself — joins
+     * it rather than opening a second, and a `Flow` read inside it runs on the transaction's
+     * dispatcher and so sees its writes.
+     */
+    override suspend fun <T> atomically(block: suspend () -> T): T = database.withTransaction { block() }
 }

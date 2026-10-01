@@ -4,6 +4,7 @@ import com.opengym.core.data.db.RoomTestBase
 import com.opengym.core.data.db.entity.ExerciseMuscleGroupEntity
 import com.opengym.core.data.db.entity.ExerciseTagEntity
 import com.opengym.core.data.db.exercise
+import com.opengym.core.data.db.exerciseMuscleGroup
 import com.opengym.core.data.db.muscleGroup
 import com.opengym.core.data.db.tag
 import com.opengym.core.data.mapper.ExerciseMapper
@@ -60,6 +61,61 @@ class ExerciseRepositoryImplTest : RoomTestBase() {
             assertEquals(MechanicType.COMPOUND, loaded?.mechanicType)
             assertEquals(true, loaded?.isCustom)
             assertEquals(id, loaded?.id)
+        }
+
+    @Test
+    fun `getMobilityExercises returns the two mobility disciplines with their prime movers`() =
+        runBlocking {
+            val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+            val quads = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "QUADRICEPS"))).single()
+            val dynamic = db.tagDao().insert(tag(name = "DYNAMIC", isSystem = true))
+
+            val swing = db.exerciseDao().insert(exercise(name = "Arm swing", discipline = "STRETCHING"))
+            val stretch = db.exerciseDao().insert(exercise(name = "Chest stretch", discipline = "STRETCHING"))
+            val jump = db.exerciseDao().insert(exercise(name = "Box jump", discipline = "PLYOMETRICS"))
+            val bench = db.exerciseDao().insert(exercise(name = "Bench press", discipline = "STRENGTH"))
+            listOf(swing to chest, stretch to chest, jump to quads, bench to chest).forEach { (id, muscle) ->
+                db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId = id, muscleGroupId = muscle))
+            }
+            // A secondary link on the swing, which must not come back: a stretch is *for* the
+            // muscle it lengthens, and matching on assistance would suggest the wrong movement.
+            db.exerciseDao().addMuscleGroup(
+                exerciseMuscleGroup(exerciseId = swing, muscleGroupId = quads, isPrimary = false),
+            )
+            listOf(swing, jump).forEach { id ->
+                db.exerciseDao().addTag(ExerciseTagEntity(exerciseId = id, tagId = dynamic))
+            }
+
+            val mobility = repository.getMobilityExercises().first()
+
+            // The bench press is neither discipline and is absent; the rest arrive by name.
+            assertEquals(listOf("Arm swing", "Box jump", "Chest stretch"), mobility.map { it.exercise.name })
+            assertEquals(listOf(true, true, false), mobility.map { it.isDynamic })
+            assertEquals(setOf(chest), mobility.first { it.exercise.id == swing }.primaryMuscleGroupIds)
+        }
+
+    @Test
+    fun `a mobility exercise with two prime movers arrives once`() =
+        runBlocking {
+            val chest = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "CHEST"))).single()
+            val shoulders = db.muscleGroupDao().insertAll(listOf(muscleGroup(name = "SHOULDERS"))).single()
+            val swing = db.exerciseDao().insert(exercise(name = "Arm swing", discipline = "STRETCHING"))
+            listOf(chest, shoulders).forEach { muscle ->
+                db.exerciseDao().addMuscleGroup(exerciseMuscleGroup(exerciseId = swing, muscleGroupId = muscle))
+            }
+
+            val mobility = repository.getMobilityExercises().first()
+
+            assertEquals(1, mobility.size)
+            assertEquals(setOf(chest, shoulders), mobility.single().primaryMuscleGroupIds)
+        }
+
+    @Test
+    fun `a mobility exercise with no muscle link at all is left out`() =
+        runBlocking {
+            db.exerciseDao().insert(exercise(name = "Arm swing", discipline = "STRETCHING"))
+
+            assertTrue(repository.getMobilityExercises().first().isEmpty())
         }
 
     @Test

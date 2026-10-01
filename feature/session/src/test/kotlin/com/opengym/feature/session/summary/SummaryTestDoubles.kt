@@ -4,6 +4,7 @@ import com.opengym.core.domain.model.EquipmentType
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.PersonalRecord
 import com.opengym.core.domain.model.PersonalRecordEntry
@@ -109,6 +110,7 @@ class FakeSummarySessionStore(
     ): List<Long> = unsupported()
 
     override suspend fun delete(id: Long) = unsupported()
+    override suspend fun <T> atomically(block: suspend () -> T): T = unsupported()
 
     private fun unsupported(): Nothing =
         throw UnsupportedOperationException("the recap reads one session and writes its note")
@@ -142,6 +144,8 @@ class FakeSummaryCatalogue(
     override fun getMuscleGroupLinks(exerciseId: Long): Flow<List<ExerciseMuscleGroupLink>> = unsupported()
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = unsupported()
+
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = unsupported()
 
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> = unsupported()
 

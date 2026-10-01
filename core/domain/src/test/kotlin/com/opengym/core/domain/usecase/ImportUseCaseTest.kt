@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -156,6 +157,17 @@ class ImportUseCaseTest {
             assertEquals(OneRepMaxFormula.BRZYCKI, restored.oneRepMaxFormula)
             assertTrue(restored.onboardingCompleted)
             assertEquals(listOf(20_000_000L, 10_000_000L), restored.plateInventory?.stock?.map { it.weight })
+        }
+
+    /** A lifter who turned the cards off keeps them off on the device the file is restored to. */
+    @Test
+    fun `warm-up suggestions switched off in the document stay off`() =
+        runTest {
+            val document = sampleDocument(preferences = samplePreferences().copy(warmupSuggestions = false))
+
+            importer().invoke(encode(document)).toList()
+
+            assertFalse(preferences.observe().first().warmupSuggestions)
         }
 
     /** Null means "never chosen a rack", and writing it is what forgets the target device's. */
@@ -416,6 +428,9 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         record("setOneRepMaxFormula") { delegate.setOneRepMaxFormula(formula) }
+
+    override suspend fun setWarmupSuggestions(enabled: Boolean) =
+        record("setWarmupSuggestions") { delegate.setWarmupSuggestions(enabled) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) =
         record("setOnboardingCompleted") { delegate.setOnboardingCompleted(completed) }

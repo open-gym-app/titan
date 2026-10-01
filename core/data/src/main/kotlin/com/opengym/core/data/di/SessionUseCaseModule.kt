@@ -5,6 +5,7 @@ import com.opengym.core.domain.repository.InProgressSessionRepository
 import com.opengym.core.domain.repository.SessionRepository
 import com.opengym.core.domain.repository.SessionStateRepository
 import com.opengym.core.domain.time.Clock
+import com.opengym.core.domain.usecase.AddPlannedSetsUseCase
 import com.opengym.core.domain.usecase.AddSessionExercisesUseCase
 import com.opengym.core.domain.usecase.DeleteSetUseCase
 import com.opengym.core.domain.usecase.DiscardSessionUseCase
@@ -185,6 +186,19 @@ object SessionUseCaseModule {
             sessionRepository = sessionRepository,
             sessionStateRepository = sessionStateRepository,
             clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
+        )
+
+    @Provides
+    fun provideAddPlannedSetsUseCase(
+        sessionRepository: SessionRepository,
+        sessionStateRepository: SessionStateRepository,
+    ): AddPlannedSetsUseCase =
+        AddPlannedSetsUseCase(
+            sessionRepository = sessionRepository,
+            sessionStateRepository = sessionStateRepository,
+            clock = Clock.SYSTEM,
+            lock = SessionLifecycleLock.SHARED,
         )
 
     @Provides

@@ -7,6 +7,7 @@ import com.opengym.core.domain.model.ExerciseAttempt
 import com.opengym.core.domain.model.ExerciseMuscleGroupLink
 import com.opengym.core.domain.model.ExerciseType
 import com.opengym.core.domain.model.FitnessLevel
+import com.opengym.core.domain.model.MobilityExercise
 import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.OneRepMaxFormula
@@ -212,6 +213,8 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise>) : ExerciseRep
 
     override fun getTags(exerciseId: Long): Flow<List<Tag>> = unsupported()
 
+    override fun getMobilityExercises(): Flow<List<MobilityExercise>> = unsupported()
+
     override fun getMuscleGroups(): Flow<List<MuscleGroup>> = unsupported()
 
     override suspend fun insert(exercise: Exercise): Long = unsupported()
@@ -245,6 +248,8 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
     override fun observe(): Flow<UserPreferences> = preferences
 
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = write { it.copy(oneRepMaxFormula = formula) }
+
+    override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
     override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }
 

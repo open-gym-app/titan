@@ -117,6 +117,17 @@ data class UserPreferences(
     val oneRepMaxFormula: OneRepMaxFormula = OneRepMaxFormula.EPLEY,
 
     /**
+     * Whether the active session offers a warm-up and a cool-down (#214).
+     *
+     * **On by default**, which is the safe direction for a suggestion that adds nothing until
+     * it is accepted: the cards propose, and a lifter who wants no warm-up never sees one in
+     * their log. Off hides both cards outright rather than emptying them —
+     * [com.opengym.core.domain.usecase.SuggestWarmupUseCase] answers with an empty suggestion,
+     * and a screen with nothing to draw draws nothing.
+     */
+    val warmupSuggestions: Boolean = true,
+
+    /**
      * Whether the user has been through onboarding.
      *
      * The flag that makes first launch route to onboarding *exactly once*: it is the

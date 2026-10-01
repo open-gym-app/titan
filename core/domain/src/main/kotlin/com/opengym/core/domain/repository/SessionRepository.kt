@@ -8,7 +8,7 @@ import com.opengym.core.domain.model.WorkoutSet
 import kotlinx.coroutines.flow.Flow
 
 /*
- * Twenty-one methods, one past detekt's threshold, and deliberately so: this is the store for a
+ * Twenty-two methods, past detekt's threshold, and deliberately so: this is the store for a
  * whole aggregate — sessions, their exercises and their sets — and the alternative is three
  * interfaces whose implementations would all wrap the same database and whose callers would all
  * take two of them. The read/write pairs are what make it long, not a lack of a seam.
@@ -299,4 +299,32 @@ interface SessionRepository {
 
     suspend fun update(session: WorkoutSession)
     suspend fun delete(id: Long)
+
+    /**
+     * Runs [block] as one unit of work against the store: every write it makes lands, or none
+     * does.
+     *
+     * The batch writes above each make one *operation* atomic — a layout, a plan, a renumbering
+     * — and that is the right seam for them. What none of them can cover is a use case that is
+     * several operations in a row.
+     * [com.opengym.core.domain.usecase.AddSessionExercisesUseCase] lays a warm-up out, writes
+     * its sets, then moves it to the front, and a process killed between any two of those
+     * leaves a workout nobody asked for: a warm-up at the end, or one with no sets. A
+     * compensating delete, which is how [com.opengym.core.domain.usecase.StartPlannedSessionUseCase]
+     * handles a *failure*, cannot reach that case — nothing is running to compensate. This is
+     * the seam for it.
+     *
+     * Every call on this repository from inside [block] takes part: a read sees the writes made
+     * before it, and a throw out of the block rolls all of them back before it is rethrown.
+     * Calls already atomic on their own ([insertExercises], [updateExercises], [insertSets],
+     * [updateSets]) join the enclosing transaction rather than opening a second one, so the
+     * outer call owns the commit.
+     *
+     * What it is **not** is a lock. Two callers on two coroutines still interleave at the
+     * store's discretion; [com.opengym.core.domain.usecase.SessionLifecycleLock] is what keeps
+     * a read-modify-write over the layout from racing another. Nor is it a place for anything
+     * slow: the store is single-writer, and a transaction held open across a network call or a
+     * user prompt is every other write on the app waiting behind it.
+     */
+    suspend fun <T> atomically(block: suspend () -> T): T
 }

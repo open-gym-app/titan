@@ -87,9 +87,7 @@ class BackupIdempotencyTest : RoomTestBase() {
     // that a second roll would be visible as a second row rather than as four-in-five nothing.
     private val sessions by lazy {
         SessionRepositoryImpl(
-            sessionDao = db.workoutSessionDao(),
-            sessionExerciseDao = db.sessionExerciseDao(),
-            setDao = db.workoutSetDao(),
+            database = db,
             sessionMapper = SessionMapper(),
             sessionExerciseMapper = SessionExerciseMapper(),
             setMapper = WorkoutSetMapper(),

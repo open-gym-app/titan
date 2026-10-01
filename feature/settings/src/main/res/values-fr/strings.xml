@@ -30,6 +30,8 @@
     <string name="settings_fitness_level">Niveau d’entraînement</string>
     <string name="settings_one_rep_max_formula">Formule de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Comment le maximum estimé sur une répétition est calculé</string>
+    <string name="settings_warmup_suggestions">Suggestions d’échauffement</string>
+    <string name="settings_warmup_suggestions_detail">Proposer un échauffement et un retour au calme selon les muscles travaillés</string>
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Sauvegarde &amp; restauration</string>

@@ -156,7 +156,7 @@ class ImportUseCase(
     /**
      * Puts every setting back, having first reset them all.
      *
-     * [UserPreferencesRepository.clear] before the eleven setters, rather than the setters
+     * [UserPreferencesRepository.clear] before the twelve setters, rather than the setters
      * alone: replace means replace, and a setting added to the store later and forgotten here
      * would otherwise survive an import as a value from the device being overwritten. Resetting
      * first makes the omission show up as a default rather than as somebody else's setting.
@@ -178,6 +178,7 @@ class ImportUseCase(
         userPreferencesRepository.setCustomRepRange(preferences.customRepRange)
         userPreferencesRepository.setCustomIncrement(preferences.customIncrement)
         userPreferencesRepository.setOneRepMaxFormula(preferences.oneRepMaxFormula)
+        userPreferencesRepository.setWarmupSuggestions(preferences.warmupSuggestions)
         userPreferencesRepository.setOnboardingCompleted(preferences.onboardingCompleted)
     }
 }

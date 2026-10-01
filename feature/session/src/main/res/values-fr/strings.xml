@@ -74,6 +74,17 @@
     <string name="active_remove_exercise">Retirer %1$s de cette séance</string>
     <string name="active_swap_exercise">Remplacer %1$s par un autre exercice</string>
 
+    <string name="active_warmup_title">Échauffement</string>
+    <string name="active_cooldown_title">Retour au calme</string>
+    <string name="active_mobility_added">Ajouté</string>
+    <string name="active_mobility_add">Ajouter à la séance</string>
+    <string name="active_mobility_dismiss">Pas maintenant</string>
+    <string name="active_mobility_fold">Afficher ou masquer la suggestion</string>
+    <string name="active_mobility_expanded">Déplié</string>
+    <string name="active_mobility_collapsed">Replié</string>
+    <string name="active_warmup_general_note">Plus 5 min de cardio léger</string>
+    <string name="active_warmup_ramp_up">Montée en charge : %1$s</string>
+
     <string name="active_no_exercises_title">Aucun exercice pour l’instant</string>
     <string name="active_no_exercises_body">Cette séance a démarré vide. Ajoutez le premier exercice ci-dessous et commencez à enregistrer.</string>
 

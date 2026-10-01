@@ -41,6 +41,7 @@ All data lives on your device. **No account required**, and no ads.
 - **Templates**: save a workout's shape and start from it next time.
 - **Exercise library**: a searchable library of exercises, seeded from [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db), with the muscles each one works and how to perform it.
 - **Progression**: personal records, an estimated one-rep max, and per-exercise progression charts.
+- **Suggestions**: a next target for every set, and a warm-up and cool-down for the muscles a session trains. Nothing reaches your log until you accept it, and the warm-up cards can be switched off in Settings.
 - **Stats & history**: a calendar of past sessions and the trends behind them.
 - **Reminders**: a notification on the days and at the time you plan to train.
 - **Backup & restore**: export everything to a file, or restore a device from one. Nothing leaves the phone unless you send it somewhere yourself.

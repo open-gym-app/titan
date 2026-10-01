@@ -190,6 +190,18 @@ interface UserPreferencesRepository {
     suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula)
 
     /**
+     * Switches the warm-up and cool-down cards on or off — see
+     * [com.opengym.core.domain.model.UserPreferences.warmupSuggestions].
+     *
+     * Nothing already in a log changes: what this hides is a *proposal*, and a warm-up the user
+     * accepted before turning the setting off is a set they performed and stays in the session
+     * it was performed in.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setWarmupSuggestions(enabled: Boolean)
+
+    /**
      * Puts every setting back to the default a fresh install reads, in one write.
      *
      * The one operation that is not "a setter for a named setting", and it earns the

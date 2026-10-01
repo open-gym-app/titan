@@ -67,12 +67,40 @@ class DatabaseSeedTest {
         }
 
     @Test
-    fun `seed inserts the six system tags and marks them system`() =
+    fun `seed inserts the seven system tags and marks them system`() =
         runBlocking {
             val systemTags = db.tagDao().getSystemTags().first().map { it.name }.toSet()
             assertEquals(
-                setOf("PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION"),
+                // DYNAMIC arrived with the warm-up suggestion (#214): it is what tells a leg
+                // swing from a seated hamstring stretch, and the generator derives it from the
+                // upstream `category` and `force` fields.
+                setOf("PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION", "DYNAMIC"),
                 systemTags,
+            )
+        }
+
+    @Test
+    fun `the dynamic tag marks movements a warm-up can be built from`() =
+        runBlocking {
+            // Every tagged exercise is stretching or plyometrics, so nothing a warm-up card
+            // could suggest is a bench press — and there is more than one of them to pick from.
+            val disciplines = distinctValues(
+                """
+                SELECT DISTINCT e.discipline FROM exercise e
+                INNER JOIN exercise_tag et ON et.exercise_id = e.id
+                INNER JOIN tag t ON t.id = et.tag_id
+                WHERE t.name = 'DYNAMIC'
+                """,
+            )
+            assertEquals(setOf("STRETCHING", "PLYOMETRICS"), disciplines)
+            assertTrue(
+                "expected a catalogue of dynamic movements to pick from",
+                count(
+                    """
+                    SELECT COUNT(*) FROM exercise_tag et
+                    INNER JOIN tag t ON t.id = et.tag_id WHERE t.name = 'DYNAMIC'
+                    """,
+                ) >= 20,
             )
         }
 

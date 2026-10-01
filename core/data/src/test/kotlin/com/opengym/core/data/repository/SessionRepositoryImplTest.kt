@@ -24,9 +24,7 @@ class SessionRepositoryImplTest : RoomTestBase() {
 
     private val repository by lazy {
         SessionRepositoryImpl(
-            sessionDao = db.workoutSessionDao(),
-            sessionExerciseDao = db.sessionExerciseDao(),
-            setDao = db.workoutSetDao(),
+            database = db,
             sessionMapper = SessionMapper(),
             sessionExerciseMapper = SessionExerciseMapper(),
             setMapper = WorkoutSetMapper(),
@@ -319,6 +317,62 @@ class SessionRepositoryImplTest : RoomTestBase() {
                 listOf(bench, squat),
                 repository.getExercises(sessionId).first().map { it.exerciseId },
             )
+        }
+
+    @Test
+    fun `atomically commits every write in the block as one`() =
+        runBlocking {
+            // The shape `AddSessionExercisesUseCase` writes — an append, its sets, then a reorder
+            // read back through a Flow *inside* the transaction — landing together.
+            val sessionId = db.workoutSessionDao().insert(session())
+            val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+            val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+            repository.insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
+
+            repository.atomically {
+                val added = repository.insertExercises(
+                    sessionId,
+                    listOf(SessionExerciseDraft(bench)),
+                    createdAt = 8_000,
+                )
+                repository.insertSets(
+                    listOf(WorkoutSetMapper().toDomain(workoutSet(added.single(), setNumber = 1, reps = 5))),
+                )
+                val stored = repository.getExercises(sessionId).first()
+                repository.updateExercises(
+                    listOf(
+                        stored[0].copy(position = 1, updatedAt = 8_000),
+                        stored[1].copy(position = 0, updatedAt = 8_000),
+                    ),
+                )
+            }
+
+            assertEquals(listOf(bench, squat), repository.getExercises(sessionId).first().map { it.exerciseId })
+            assertEquals(1, repository.getSetsForSession(sessionId).first().size)
+        }
+
+    @Test
+    fun `atomically rolls every write in the block back when it throws`() =
+        runBlocking {
+            // The failure `atomically` exists for: the exercises have landed and the sets have
+            // not, and what is left must be the workout exactly as it was — not a bare exercise
+            // at the end of it.
+            val sessionId = db.workoutSessionDao().insert(session())
+            val squat = db.exerciseDao().insert(exercise(name = "Squat"))
+            val bench = db.exerciseDao().insert(exercise(name = "Bench"))
+            repository.insertExercises(sessionId, listOf(SessionExerciseDraft(squat)), createdAt = 7_000)
+
+            val failure = assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    repository.atomically {
+                        repository.insertExercises(sessionId, listOf(SessionExerciseDraft(bench)), createdAt = 8_000)
+                        error("disk full")
+                    }
+                }
+            }
+
+            assertEquals("disk full", failure.message)
+            assertEquals(listOf(squat), repository.getExercises(sessionId).first().map { it.exerciseId })
         }
 
     @Test

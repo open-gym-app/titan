@@ -1,8 +1,13 @@
 package com.opengym.feature.session.active
 
 import com.opengym.core.domain.model.ActiveSession
+import com.opengym.core.domain.model.Discipline
 import com.opengym.core.domain.model.Exercise
 import com.opengym.core.domain.model.ExerciseAttempt
+import com.opengym.core.domain.model.ExerciseMuscleGroupLink
+import com.opengym.core.domain.model.ExerciseType
+import com.opengym.core.domain.model.MobilityExercise
+import com.opengym.core.domain.model.MuscleGroup
 import com.opengym.core.domain.model.MuscleTraining
 import com.opengym.core.domain.model.PastPerformance
 import com.opengym.core.domain.model.SessionExercise
@@ -247,6 +252,9 @@ class FakeActiveSessionStore(
         exercises.value = exercises.value.filterNot { it.sessionId == id }
         sets.value = sets.value.filterNot { it.sessionExerciseId in orphaned }
     }
+
+    /** Just the block — no rollback; see the domain `FakeSessionRepository` for why. */
+    override suspend fun <T> atomically(block: suspend () -> T): T = block()
 
     override fun getAll(): Flow<List<WorkoutSession>> = session.map { listOfNotNull(it) }
 
@@ -562,3 +570,51 @@ class FakeIdleSessionMonitor : IdleSessionMonitor {
 
     enum class Call { ARMED, DISARMED }
 }
+
+// ─── The warm-up and the cool-down (#214) ───────────────────────────────────────────────
+
+val CHEST = MuscleGroup(id = 1L, name = "CHEST")
+val SHOULDERS = MuscleGroup(id = 2L, name = "SHOULDERS")
+val TRICEPS = MuscleGroup(id = 3L, name = "TRICEPS")
+
+/** One exercise's muscle links: a prime mover, and whatever it assists with. */
+fun links(
+    primary: MuscleGroup,
+    secondary: List<MuscleGroup> = emptyList(),
+): List<ExerciseMuscleGroupLink> =
+    listOf(ExerciseMuscleGroupLink(muscleGroup = primary, isPrimary = true)) +
+        secondary.map { ExerciseMuscleGroupLink(muscleGroup = it, isPrimary = false) }
+
+/**
+ * A mobility catalogue with two of everything, so the planner has a choice to make.
+ *
+ * `:core:domain` has a fixture of the same shape for the planner's own tests. It is not shared,
+ * because a test source set is not published: what is being checked here is that the *screen*
+ * draws whatever the planner picked, not which rows those were.
+ */
+val MOBILITY_CATALOGUE: List<MobilityExercise> = buildList {
+    var id = 100L
+    listOf(CHEST, SHOULDERS, TRICEPS).forEach { muscle ->
+        val name = muscle.name.lowercase()
+        add(mobility(id++, "$name swing", muscle, isDynamic = true))
+        add(mobility(id++, "$name circle", muscle, isDynamic = true))
+        add(mobility(id++, "$name stretch", muscle, isDynamic = false))
+        add(mobility(id++, "$name hold", muscle, isDynamic = false))
+    }
+}
+
+private fun mobility(
+    id: Long,
+    name: String,
+    primary: MuscleGroup,
+    isDynamic: Boolean,
+) = MobilityExercise(
+    exercise = Exercise(
+        id = id,
+        name = name,
+        type = ExerciseType.ISOMETRIC,
+        discipline = Discipline.STRETCHING,
+    ),
+    primaryMuscleGroupIds = setOf(primary.id),
+    isDynamic = isDynamic,
+)

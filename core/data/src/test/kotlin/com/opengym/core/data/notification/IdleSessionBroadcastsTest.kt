@@ -68,9 +68,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
 
     private val sessions: SessionRepository by lazy {
         SessionRepositoryImpl(
-            sessionDao = db.workoutSessionDao(),
-            sessionExerciseDao = db.sessionExerciseDao(),
-            setDao = db.workoutSetDao(),
+            database = db,
             sessionMapper = SessionMapper(),
             sessionExerciseMapper = SessionExerciseMapper(),
             setMapper = WorkoutSetMapper(),
