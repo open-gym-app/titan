@@ -3,6 +3,11 @@ package com.titan.feature.settings.backup
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.test.core.app.ApplicationProvider
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ImportSource
@@ -13,7 +18,9 @@ import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -51,6 +58,15 @@ import java.io.File
  * The blocking work is on `Dispatchers.IO`, which no test scheduler owns — see the note on
  * `BackupViewModel`. So every test collects `uiState` in the background and suspends on
  * `first { … }` until the state it expects arrives, which is what a screen does anyway.
+ *
+ * ### Clearing every ViewModel before Main is reset
+ *
+ * The same `Dispatchers.IO` outlives the test that started it. A `withContext(Dispatchers.IO)`
+ * still in flight when `runTest` returns resumes onto `viewModelScope` — onto Main — from an IO
+ * thread, and if that lands while [tearDownMainDispatcher] is resetting Main, the test fails
+ * with "Dispatchers.Main is used concurrently with setting it" (it did, on CI). So every
+ * ViewModel is built through [viewModels], and teardown clears the store and waits for each
+ * cancelled scope to finish before Main is touched.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -58,6 +74,8 @@ class BackupViewModelTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val backend = BackupTestBackend()
+    private val viewModels = ViewModelStore()
+    private val created = mutableListOf<BackupViewModel>()
 
     @Before
     fun setUpMainDispatcher() {
@@ -66,6 +84,8 @@ class BackupViewModelTest {
 
     @After
     fun tearDownMainDispatcher() {
+        viewModels.clear()
+        runBlocking { created.forEach { it.viewModelScope.coroutineContext.job.join() } }
         Dispatchers.resetMain()
     }
 
@@ -488,7 +508,13 @@ class BackupViewModelTest {
         viewModel.onEvent(BackupEvent.RestoreConfirmed)
     }
 
-    private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()) =
+    private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()): BackupViewModel {
+        val factory = viewModelFactory { initializer { newViewModel(savedState) } }
+        return ViewModelProvider.create(viewModels, factory)["backup-${created.size}", BackupViewModel::class]
+            .also { created += it }
+    }
+
+    private fun newViewModel(savedState: SavedStateHandle) =
         BackupViewModel(
             savedStateHandle = savedState,
             context = context,
