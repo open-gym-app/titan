@@ -1,0 +1,299 @@
+package com.titan.feature.history.sessions
+
+import com.titan.core.domain.model.PersonalRecord
+import com.titan.core.domain.model.PersonalRecordEntry
+import com.titan.core.domain.model.PrType
+import com.titan.core.domain.model.RecordTally
+import com.titan.core.domain.model.SessionExercise
+import com.titan.core.domain.model.SessionExerciseDraft
+import com.titan.core.domain.model.SessionTotals
+import com.titan.core.domain.model.TemplateCategory
+import com.titan.core.domain.model.TemplateExercise
+import com.titan.core.domain.model.TemplateExerciseDraft
+import com.titan.core.domain.model.WorkoutSession
+import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.model.WorkoutTemplate
+import com.titan.core.domain.repository.PersonalRecordRepository
+import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.TemplateRepository
+import com.titan.core.domain.time.Clock
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+
+/*
+ * Hand-written fakes rather than mocks, for the reason the domain's own doubles give: these
+ * tests exercise a screen over several reads and several filter changes, and asserting on the
+ * state that comes out is both shorter and stricter than stubbing each read in turn.
+ */
+
+/** A clock whose reading only changes when a test says so. */
+class FixedClock(var now: Long) : Clock {
+    override fun nowMillis(): Long = now
+}
+
+/**
+ * The sessions and their aggregates, in memory.
+ *
+ * @param sessions what the store holds, or **null** for a store that has not answered yet.
+ *   Null is not "empty": a `StateFlow` seeded with an empty list emits one immediately, which
+ *   is a settled answer, and the screen draws the two differently. The distinction is what
+ *   lets a test pin the loading state at all.
+ */
+class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionRepository {
+
+    private val stored = MutableStateFlow(sessions)
+    private val totals = MutableStateFlow<Map<Long, SessionTotals>>(emptyMap())
+
+    override fun getAll(): Flow<List<WorkoutSession>> = stored.filterNotNull()
+
+    override fun getTotals(): Flow<Map<Long, SessionTotals>> = totals
+
+    override suspend fun countFinished(): Int = unsupported()
+
+    /** Records what a session logged, as the grouped query would report it. */
+    fun setTotals(
+        sessionId: Long,
+        sets: Int,
+        volume: Long,
+    ) {
+        totals.value += sessionId to SessionTotals(totalSets = sets, totalVolume = volume)
+    }
+
+    fun setSessions(sessions: List<WorkoutSession>) {
+        stored.value = sessions
+    }
+
+    override fun getById(id: Long): Flow<WorkoutSession?> = unsupported()
+
+    /** The one in progress, if any — what the exercise detail leaves out of a target's history. */
+    override fun getActive(): Flow<WorkoutSession?> =
+        stored.filterNotNull().map { sessions -> sessions.firstOrNull(WorkoutSession::isInProgress) }
+
+    override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> = unsupported()
+    override fun getSets(sessionExerciseId: Long): Flow<List<WorkoutSet>> = unsupported()
+    override fun getSetsForSession(sessionId: Long): Flow<List<WorkoutSet>> = unsupported()
+    override fun getPreviousSets(sessionId: Long): Flow<Map<Long, List<WorkoutSet>>> = unsupported()
+    override suspend fun insert(session: WorkoutSession): Long = unsupported()
+    override suspend fun insertExercises(
+        sessionId: Long,
+        exercises: List<SessionExerciseDraft>,
+        createdAt: Long,
+    ): List<Long> = unsupported()
+
+    override suspend fun insertSet(set: WorkoutSet): Long = unsupported()
+    override suspend fun insertSets(sets: List<WorkoutSet>): List<Long> = unsupported()
+    override suspend fun updateSet(set: WorkoutSet) = unsupported()
+    override suspend fun updateSets(sets: List<WorkoutSet>) = unsupported()
+    override suspend fun deleteSet(setId: Long) = unsupported()
+    override suspend fun updateExercise(exercise: SessionExercise) = unsupported()
+    override suspend fun updateExercises(exercises: List<SessionExercise>) = unsupported()
+    override suspend fun deleteExercise(sessionExerciseId: Long) = unsupported()
+    override suspend fun update(session: WorkoutSession) = unsupported()
+    override suspend fun delete(id: Long) = unsupported()
+    override suspend fun <T> atomically(block: suspend () -> T): T = unsupported()
+
+    /**
+     * The sessions browser reads three things, the exercise detail a fourth, and neither writes.
+     * Anything else reached from here is a change of behaviour worth failing on rather than a
+     * gap worth stubbing.
+     */
+    private fun unsupported(): Nothing = throw UnsupportedOperationException("the sessions browser only reads")
+}
+
+/** The records the PR engine (#30) writes. Nothing here writes one, so [insertIfBetter] is unsupported. */
+class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+
+    override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
+
+    override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("no test here reads one exercise's records")
+
+    override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
+        throw UnsupportedOperationException("no test here tallies records over a period")
+
+    override suspend fun insertIfBetter(
+        exerciseId: Long,
+        type: PrType,
+        record: PersonalRecord,
+        isBetter: (current: PersonalRecord?) -> Boolean,
+    ): PersonalRecord? = throw UnsupportedOperationException("no test here writes a personal record")
+
+    /** Unused here: this fake serves the reads its own screen makes, not the records list. */
+    override suspend fun getRecordsPage(
+        type: PrType?,
+        offset: Int,
+        limit: Int,
+    ): List<PersonalRecordEntry> = emptyList()
+
+    override fun observeRecordCount(): Flow<Int> = flowOf(0)
+}
+
+/** A record of the only kind that matters here: one achieved at a known instant. */
+fun recordAt(
+    exerciseId: Long,
+    achievedAt: Long,
+): PersonalRecord =
+    PersonalRecord(
+        id = exerciseId,
+        exerciseId = exerciseId,
+        workoutSetId = exerciseId,
+        type = PrType.MAX_WEIGHT,
+        weight = 100_000_000,
+        achievedAt = achievedAt,
+    )
+
+/**
+ * The saved templates, in memory, with the writes the tab's row actions make.
+ *
+ * A real little store rather than a stub, because the tab's actions are *round trips*: a rename
+ * reads a template's exercises, hands them back to `UpdateTemplateUseCase`, and the list is
+ * expected to redraw from what was stored. Stubbing each of those in turn would assert on the
+ * calls rather than on the outcome, and the outcome is the whole question.
+ *
+ * @param writeFailure thrown by every write, for the "the store could not be written at all"
+ *   path — which is the one the use cases do not return and so cannot be reached any other way.
+ */
+class FakeTemplateStore(
+    templates: List<WorkoutTemplate> = emptyList(),
+    exercises: List<TemplateExercise> = emptyList(),
+    var writeFailure: Throwable? = null,
+) : TemplateRepository {
+
+    /**
+     * When set, every write waits on it before doing anything.
+     *
+     * A real write is slow enough for the user to act while it is in flight, and the screens
+     * here are built around that — they go inert rather than closing. A store that resolves the
+     * instant it is called cannot express the window those guards exist for. Complete it to let
+     * the write finish. The same shape `FakeExerciseRepository.insertGate` has.
+     */
+    var writeGate: CompletableDeferred<Unit>? = null
+
+    private val stored = MutableStateFlow(templates)
+    private val body = MutableStateFlow(exercises)
+    private var nextId: Long = (templates.maxOfOrNull(WorkoutTemplate::id) ?: 0L) + 1
+
+    override fun getAll(): Flow<List<WorkoutTemplate>> = stored
+
+    override fun getAllExercises(): Flow<List<TemplateExercise>> = body
+
+    override fun getById(id: Long): Flow<WorkoutTemplate?> =
+        stored.map { templates -> templates.firstOrNull { it.id == id } }
+
+    override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> =
+        body.map { rows -> rows.filter { it.templateId == templateId }.sortedBy(TemplateExercise::position) }
+
+    override suspend fun insert(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ): Long {
+        writeGate?.await()
+        writeFailure?.let { throw it }
+        val id = nextId++
+        stored.value += template.copy(id = id)
+        body.value += exercises.rowsFor(id)
+        return id
+    }
+
+    override suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ) {
+        writeGate?.await()
+        writeFailure?.let { throw it }
+        stored.value = stored.value.map { if (it.id == template.id) template else it }
+        // Replaced wholesale, which is the contract — see `TemplateRepository.update`.
+        body.value = body.value.filterNot { it.templateId == template.id } +
+            exercises.rowsFor(template.id)
+    }
+
+    override suspend fun delete(id: Long) {
+        writeGate?.await()
+        writeFailure?.let { throw it }
+        stored.value = stored.value.filterNot { it.id == id }
+        body.value = body.value.filterNot { it.templateId == id }
+    }
+
+    /** What the store holds now, for a test that wants to assert on the write rather than the read. */
+    fun templates(): List<WorkoutTemplate> = stored.value
+
+    /** [templateId]'s body as it is stored, in position order. */
+    fun exercisesOf(templateId: Long): List<TemplateExercise> =
+        body.value.filter { it.templateId == templateId }.sortedBy(TemplateExercise::position)
+
+    /** The drafts as rows, numbered from position 0 — the numbering the contract requires. */
+    private fun List<TemplateExerciseDraft>.rowsFor(templateId: Long): List<TemplateExercise> =
+        mapIndexed { position, draft ->
+            TemplateExercise(
+                id = nextId++,
+                templateId = templateId,
+                exerciseId = draft.exerciseId,
+                position = position,
+                supersetGroup = draft.supersetGroup,
+                sets = draft.sets,
+                restDuration = draft.restDuration,
+                notes = draft.notes,
+            )
+        }
+}
+
+/** A template with a name and a category, and nothing else the row draws. */
+fun namedTemplate(
+    id: Long,
+    name: String,
+    category: TemplateCategory? = null,
+): WorkoutTemplate = WorkoutTemplate(id = id, name = name, category = category)
+
+// ─── Session fixtures ───────────────────────────────────────────────────────────────────
+
+/**
+ * The zone these fixtures are written in — the device's, which is the one the ViewModel reads
+ * instants in.
+ *
+ * Deliberately *not* a fixed zone. The assertions below are about which calendar day a session
+ * lands on, and the ViewModel answers that in the device's zone; a fixture pinned to UTC would
+ * disagree with it by a day on any machine that is not, and the test would fail on the
+ * behaviour being correct. Every instant is midday, so the two never disagree by a day here.
+ */
+val TEST_ZONE: ZoneId = ZoneId.systemDefault()
+
+/** Midday on [date] in [TEST_ZONE], as epoch millis — far enough from either midnight. */
+fun middayOn(date: LocalDate): Long = date.atTime(LocalTime.NOON).atZone(TEST_ZONE).toInstant().toEpochMilli()
+
+/**
+ * A finished session that started at midday on [date] and ran for [duration].
+ *
+ * `isInProgress` defaults to false because this is a *history* fixture: an unfinished session
+ * is the exception here and a test that wants one says so.
+ */
+fun loggedSession(
+    id: Long,
+    date: LocalDate,
+    name: String? = null,
+    notes: String? = null,
+    duration: Duration = 50.minutes,
+    isInProgress: Boolean = false,
+): WorkoutSession {
+    val startedAt = middayOn(date)
+
+    return WorkoutSession(
+        id = id,
+        name = name,
+        notes = notes,
+        isInProgress = isInProgress,
+        completedAt = (startedAt + duration.inWholeMilliseconds).takeUnless { isInProgress },
+        lastActiveAt = startedAt + duration.inWholeMilliseconds,
+        createdAt = startedAt,
+        updatedAt = startedAt,
+    )
+}

@@ -1,9 +1,9 @@
 plugins {
-    id("opengym.android.feature")
+    id("titan.android.feature")
 }
 
 android {
-    namespace = "com.opengym.feature.progression"
+    namespace = "com.titan.feature.progression"
 }
 
 dependencies {

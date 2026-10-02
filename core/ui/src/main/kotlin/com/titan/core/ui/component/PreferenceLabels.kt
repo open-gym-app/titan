@@ -1,0 +1,182 @@
+package com.titan.core.ui.component
+
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.res.stringResource
+import com.titan.core.domain.model.FitnessLevel
+import com.titan.core.domain.model.OneRepMaxFormula
+import com.titan.core.domain.model.ThemePreference
+import com.titan.core.domain.model.TrainingGoal
+import com.titan.core.domain.model.UnitSystem
+import com.titan.core.ui.R
+
+/*
+ * The display names of the *stored preferences* the user is asked about by name.
+ *
+ * The same rule as `DomainLabels.kt`, applied to the settings enums: an extension in
+ * `:core:ui` rather than a `labelRes` on the enum, because `:core:domain` is a plain Kotlin
+ * library with no Android on its classpath and no business knowing what a string resource is.
+ *
+ * They started life in `:feature:settings`, which was correct while settings was the only
+ * screen that rendered them. Onboarding (#M4-22) is the second: it asks for the training goal,
+ * the fitness level (#M7-11) and the unit system on first launch, and settings offers the same
+ * three for the rest of the app's life. Two features writing the same words twice is how
+ * "Hypertrophy — volume and time under tension" becomes two different sentences about one
+ * stored value, so they moved here the moment there was a second caller.
+ *
+ * Each label is paired with a *detail*: one line saying what the value actually means. It is
+ * not decoration — `Auto` says nothing without "Follows your device", and `Hypertrophy` means
+ * little to somebody three weeks into training, who is exactly the reader this app is for.
+ *
+ * Every `when` is exhaustive, so a value added to one of these enums is a compile error here
+ * rather than a blank row on two screens.
+ */
+
+/** What a colour scheme is called: `Light`, `Dark`, `Auto`. */
+@Composable
+@ReadOnlyComposable
+fun ThemePreference.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun ThemePreference.labelRes(): Int =
+    when (this) {
+        ThemePreference.LIGHT -> R.string.preference_theme_light
+        ThemePreference.DARK -> R.string.preference_theme_dark
+        ThemePreference.SYSTEM -> R.string.preference_theme_system
+    }
+
+/**
+ * What following the device means, or **null** for the two schemes that are what they say.
+ *
+ * The one label of the three whose detail is optional: `Light` and `Dark` are self-describing
+ * and a line under them would be filler, where `Auto` is a promise that has to be spelled out.
+ */
+@Composable
+@ReadOnlyComposable
+fun ThemePreference.detailOrNull(): String? =
+    when (this) {
+        ThemePreference.SYSTEM -> stringResource(R.string.preference_theme_system_detail)
+        ThemePreference.LIGHT, ThemePreference.DARK -> null
+    }
+
+/** What a unit system is called: `Metric`, `Imperial`. */
+@Composable
+@ReadOnlyComposable
+fun UnitSystem.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun UnitSystem.labelRes(): Int =
+    when (this) {
+        UnitSystem.METRIC -> R.string.preference_units_metric
+        UnitSystem.IMPERIAL -> R.string.preference_units_imperial
+    }
+
+/**
+ * The units themselves — `Kilograms and kilometres`.
+ *
+ * Named rather than left to `Metric` and `Imperial`, which are the words a user is least
+ * likely to be sure about at the moment they are being asked to choose between them.
+ */
+@Composable
+@ReadOnlyComposable
+fun UnitSystem.detail(): String =
+    stringResource(
+        when (this) {
+            UnitSystem.METRIC -> R.string.preference_units_metric_detail
+            UnitSystem.IMPERIAL -> R.string.preference_units_imperial_detail
+        },
+    )
+
+/** What a training goal is called: `Strength`, `Hypertrophy`, `Endurance`, `Custom`. */
+@Composable
+@ReadOnlyComposable
+fun TrainingGoal.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun TrainingGoal.labelRes(): Int =
+    when (this) {
+        TrainingGoal.STRENGTH -> R.string.preference_goal_strength
+        TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy
+        TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance
+        TrainingGoal.CUSTOM -> R.string.preference_goal_custom
+    }
+
+/**
+ * What training for that goal looks like — `Heavy, low reps, long rests`.
+ *
+ * A description of the *training*, deliberately, and never a description of what the app will
+ * do about it. The goal picks the rep range the next-load engine (#M7-15) targets and nothing
+ * else — see the note on the enum — so a detail promising tailored rests or suggested plans
+ * would be a claim the app does not honour on the one screen a new user has no reason yet to
+ * distrust.
+ */
+@Composable
+@ReadOnlyComposable
+fun TrainingGoal.detail(): String =
+    stringResource(
+        when (this) {
+            TrainingGoal.STRENGTH -> R.string.preference_goal_strength_detail
+            TrainingGoal.HYPERTROPHY -> R.string.preference_goal_hypertrophy_detail
+            TrainingGoal.ENDURANCE -> R.string.preference_goal_endurance_detail
+            TrainingGoal.CUSTOM -> R.string.preference_goal_custom_detail
+        },
+    )
+
+/** What a fitness level is called: `Beginner`, `Intermediate`, `Advanced`. */
+@Composable
+@ReadOnlyComposable
+fun FitnessLevel.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun FitnessLevel.labelRes(): Int =
+    when (this) {
+        FitnessLevel.BEGINNER -> R.string.preference_level_beginner
+        FitnessLevel.INTERMEDIATE -> R.string.preference_level_intermediate
+        FitnessLevel.ADVANCED -> R.string.preference_level_advanced
+    }
+
+/**
+ * How long somebody at that level has been training — `Under a year of training`.
+ *
+ * Time under the bar rather than what is on it: a year is something anyone can answer on a
+ * first-run screen, where "can you squat one and a half times bodyweight?" is a question the
+ * reader this app is for cannot answer yet and would guess at. The bands are the ones
+ * [FitnessLevel] documents, and the words are the only place the user meets them.
+ */
+@Composable
+@ReadOnlyComposable
+fun FitnessLevel.detail(): String =
+    stringResource(
+        when (this) {
+            FitnessLevel.BEGINNER -> R.string.preference_level_beginner_detail
+            FitnessLevel.INTERMEDIATE -> R.string.preference_level_intermediate_detail
+            FitnessLevel.ADVANCED -> R.string.preference_level_advanced_detail
+        },
+    )
+
+/** What a one-rep-max formula is called: `Epley`, `Brzycki`. */
+@Composable
+@ReadOnlyComposable
+fun OneRepMaxFormula.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun OneRepMaxFormula.labelRes(): Int =
+    when (this) {
+        OneRepMaxFormula.EPLEY -> R.string.preference_one_rep_max_epley
+        OneRepMaxFormula.BRZYCKI -> R.string.preference_one_rep_max_brzycki
+    }
+
+/**
+ * The tradeoff, in one line — the reason this is worth choosing between rather than a fixed
+ * constant. See [com.titan.core.domain.pr.OneRepMaxCalculator] for the arithmetic itself.
+ */
+@Composable
+@ReadOnlyComposable
+fun OneRepMaxFormula.detail(): String =
+    stringResource(
+        when (this) {
+            OneRepMaxFormula.EPLEY -> R.string.preference_one_rep_max_epley_detail
+            OneRepMaxFormula.BRZYCKI -> R.string.preference_one_rep_max_brzycki_detail
+        },
+    )

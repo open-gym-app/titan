@@ -7,7 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     // `:app` declares navigation types of its own — the tab scaffold's graph route and, until
     // #97 gives settings a module, the settings destination — so it needs the serialization
-    // compiler plugin the way a feature does. The `opengym.android.feature` convention
+    // compiler plugin the way a feature does. The `titan.android.feature` convention
     // applies it for the modules that use it; `:app` applies no convention plugin.
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
@@ -15,7 +15,7 @@ plugins {
     // Generates the JSON the open source licences screen reads at runtime (#208), from this
     // module's own dependency graph — which, as the composition root, is the whole app's.
     alias(libs.plugins.aboutlibraries)
-    id("opengym.android.jacoco")
+    id("titan.android.jacoco")
 }
 
 private val keystoreProperties = Properties().also { props ->
@@ -26,7 +26,7 @@ private fun prop(envKey: String, fileKey: String): String? =
     (System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey))?.takeIf { it.isNotEmpty() }
 
 android {
-    namespace = "com.opengym.app"
+    namespace = "com.titan.app"
 
     // :app does not apply a convention plugin, so these are a second copy of the levels in
     // build-logic/.../AndroidSdk.kt. Bump both together, or the APK ships against an older
@@ -34,7 +34,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.opengym.app"
+        applicationId = "com.titan.app"
         minSdk = 26
         // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
         // runtime behaviour changes, which is a decision that needs its own testing pass.
@@ -92,7 +92,7 @@ android {
         //
         // Unlike `staging`. The benchmarks and the profile generator address the app by
         // package name from a second process, and a suffix here would make every one of them
-        // carry a name that is `com.opengym.app` in the build that ships and something else in
+        // carry a name that is `com.titan.app` in the build that ships and something else in
         // the build that was measured.
         //
         // ### Minification is off, and that is the trade
@@ -144,7 +144,7 @@ android {
             // test on the JVM needs the merged resources and a Robolectric runtime behind
             // it. The SDK pin that goes with this lives in
             // `src/test/resources/robolectric.properties` — the library modules get both
-            // from `opengym.android.compose`, which :app does not apply.
+            // from `titan.android.compose`, which :app does not apply.
             isIncludeAndroidResources = true
         }
     }
@@ -188,7 +188,7 @@ aboutLibraries {
     }
 }
 
-// The same stability configuration every Compose module gets from `opengym.android.compose`,
+// The same stability configuration every Compose module gets from `titan.android.compose`,
 // which `:app` does not apply. See `config/compose/stability.conf`; a rule that held in the
 // features and not in the composition root would be the worst of both.
 composeCompiler {

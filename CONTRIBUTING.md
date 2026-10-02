@@ -2,7 +2,7 @@
 
 ## Licence
 
-OpenGym is licensed under the [GNU General Public License v3.0](LICENSE). By submitting a
+Titan is licensed under the [GNU General Public License v3.0](LICENSE). By submitting a
 pull request, you agree that your contribution is provided under the same licence.
 
 ## Branch naming
@@ -123,23 +123,23 @@ standard rhythm.** All three come from `:core:ui`'s theme package.
 ```kotlin
 Text(
     text = "THIS WEEK",                                     // eyebrows are uppercased by the caller
-    style = OpenGymTheme.typography.eyebrow,                // ours: eyebrow, numeric*
+    style = TitanTheme.typography.eyebrow,                // ours: eyebrow, numeric*
     color = MaterialTheme.colorScheme.onSurfaceVariant,     // Material: colour, shape, the type roles
-    modifier = Modifier.padding(OpenGymTheme.spacing.md),
+    modifier = Modifier.padding(TitanTheme.spacing.md),
 )
 ```
 
 - **Material's own tokens stay on `MaterialTheme`** — `colorScheme`, `shapes`, and the
   Material type roles. There is no wrapper for them; a second way to reach the same value
   is a second thing to keep in step.
-- **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, the
+- **`TitanTheme.x` is only for what Material has no slot for**: the spacing scale, the
   `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, `plateColors` and
   `sessionChrome`.
 
   `sessionChrome` is the one token set that does **not** invert with the scheme: the active
   workout runs under a solid near-black bar in light *and* dark, because a workout is a mode —
   the bottom bar is hidden and the back gesture does not simply leave — and a header built from
-  Material's `inverse*` slots would be near-white half the time. See `theme/OpenGymSessionChrome.kt`;
+  Material's `inverse*` slots would be near-white half the time. See `theme/TitanSessionChrome.kt`;
   every pair in it is held to WCAG AA by the same test that holds the two schemes.
 
   `plateColors` is an *ordinal* ramp — the heaviest size on the user's rack is the accent and
@@ -148,8 +148,8 @@ Text(
   Every tone carries the label colour that reads on it; see `theme/PlateColors.kt`.
 - **Reach for a component before a style.** `core/ui/.../component/` holds the primitives the
   tokens are meant to be used through — `Eyebrow` (which uppercases for you), `SectionHeading`
-  (the eyebrow with the rule that makes it read as a section break), `OpenGymCard` and
-  `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A screen
+  (the eyebrow with the rule that makes it read as a section break), `TitanCard` and
+  `HairlineDivider` (the bordered surface and the rule inside it), `TitanBadge`. A screen
   that draws its own bordered `Surface` has restated four arguments that will drift.
 
   The same package holds the shared *workout* components, which are not primitives but whole
@@ -188,11 +188,11 @@ Text(
   | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
-  | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
+  | `TitanTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
   | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles | `PrType` / `PersonalRecord` |
   | `PersonalRecordRow` | the same record as a row of its own: the kind as an eyebrow, the date under it, the figure in the accent on the end, with slots for a badge beside the kind and a line under the figure. The list form of `PrValue`, shared by the exercise's bests and the records list | the three pieces already formatted, plus the sentence the whole row is read as |
-  | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
-  | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
+  | `TitanSearchField` | the in-place search box, with its clear button | the query, hoisted |
+  | `TitanFilterChip` / `TitanFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `SelectableOption` | one choice in a list where exactly one is taken, as a card: a radio, the name, and a mono line saying what the option means. What a question asked *as a screen* looks like | a label, an optional detail, and a selected flag |
   | `StepProgress` | how far through a numbered flow the user is, as one filled rail | the step and how many there are |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
@@ -200,7 +200,7 @@ Text(
   | `CollapsedReorderRow` | what every item of such a list shrinks to while one is held: its place, its name, one fact and its superset | a position and a name |
   | `SupersetLink` | the join in the gap between two exercises, where a superset is made and unmade | whether the two are already one |
   | `SupersetBadge` | the `SS A1` an exercise in a superset wears | the marker from `supersetLabels` |
-  | `OpenGymValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it and an optional placeholder in it — a suggested figure that is drawn while the box is empty, never typed for the user and never announced | the text, hoisted, and an error |
+  | `TitanValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it and an optional placeholder in it — a suggested figure that is drawn while the box is empty, never typed for the user and never announced | the text, hoisted, and an error |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
@@ -365,7 +365,7 @@ are what stands between a Compose screen and a string a translator cannot reach.
 - **Naming.** `<screen-or-component>_<what-it-is>`, lowercase with underscores:
   `set_log_column_reps`, `backup_export_failed`, `quest_log_streak_personal_best`. A
   description a screen reader gets ends in `_description`. Labels are written in sentence case
-  even where the design draws them uppercase — `Eyebrow` and `OpenGymBadge` uppercase for the
+  even where the design draws them uppercase — `Eyebrow` and `TitanBadge` uppercase for the
   caller, so a translator is never asked to reproduce a typographic treatment.
 - **A count takes a `<plurals>`, always.** Not `"$n sets"`, and not a `<string>` with a `%1$d`
   in front of a noun: `1 sets` is the first set of every workout reading wrong in English, and
@@ -417,9 +417,9 @@ are what stands between a Compose screen and a string a translator cannot reach.
 Each class lives in a package that matches its layer and module:
 
 ```text
-com.opengym.core.domain.usecase.LogSessionUseCase
-com.opengym.core.data.repository.SessionRepositoryImpl
-com.opengym.core.data.local.dao.SessionDao
+com.titan.core.domain.usecase.LogSessionUseCase
+com.titan.core.data.repository.SessionRepositoryImpl
+com.titan.core.data.local.dao.SessionDao
 ```
 
 ## Test coverage
@@ -481,7 +481,7 @@ Both are picked up by `make test` and by CI's `unit-test` job. **Use `make test`
 verifying anything. `verifyRoborazziDebug` has to be in the same invocation, which is what
 `make test` and CI both do. Everything they need —
 `ui-test-junit4`, Robolectric, Roborazzi, the SDK pin, `isIncludeAndroidResources` — comes
-from the `opengym.android.compose` convention plugin, so a module's build file adds nothing.
+from the `titan.android.compose` convention plugin, so a module's build file adds nothing.
 
 `:core:ui`'s `example/` package is a worked copy of both patterns against a screen written
 to the two-composable convention above. Start there.
@@ -509,7 +509,7 @@ class ExerciseLibraryScreenTest {
     @Test
     fun `emits ExerciseClicked with the exercise that was tapped`() {
         composeTestRule.setContent {
-            OpenGymTheme {
+            TitanTheme {
                 ExerciseLibraryScreen(
                     state = ExerciseLibraryUiState(exercises = listOf(benchPress)),
                     onEvent = events::add,
@@ -529,12 +529,12 @@ class ExerciseLibraryScreenTest {
 - **A test that composes an `XRoute` needs Hilt**, because `hiltViewModel()` resolves its
   factory through the activity and a plain `ComponentActivity` is not an entry point. That is
   `@HiltAndroidTest` + `@Config(application = HiltTestApplication::class)` +
-  `createAndroidComposeRule<HiltTestActivity>()`; `:app`'s `OpenGymAppNavigationTest` is the
+  `createAndroidComposeRule<HiltTestActivity>()`; `:app`'s `TitanAppNavigationTest` is the
   worked example, and `HiltTestActivity` lives in `app/src/debug`. Prefer not needing it: drive
   the stateless half.
 - Do **not** add `@Config(sdk = ...)`. The level is pinned once for every module by the
   generated `robolectric.properties`; a per-class override drifts the day it moves.
-- Wrap the screen in `OpenGymTheme` so it composes against the colours and typography the
+- Wrap the screen in `TitanTheme` so it composes against the colours and typography the
   app actually uses.
 
 ### How to add a screenshot test
@@ -547,7 +547,7 @@ scanned per module, scoped to that module's namespace.
 @Preview(name = "Exercise library - empty", showBackground = true)
 @Composable
 fun ExerciseLibraryScreenEmptyPreview() {
-    OpenGymTheme {
+    TitanTheme {
         ExerciseLibraryScreen(state = ExerciseLibraryUiState(), onEvent = {})
     }
 }
@@ -638,10 +638,10 @@ each other and composition never settles. Not on a device — a frame or two mor
 is invisible — and not in a component test either, since none of them run at this window size.
 It surfaced once, in `EndToEndJourneyTest` (#187): the one test that assembles the whole app,
 which is the one place that runs at the size where it happens. `TemplateNameDialog` and
-`SessionNameDialog` both hit it and both now use `OpenGymDialog` instead of `AlertDialog` — see
+`SessionNameDialog` both hit it and both now use `TitanDialog` instead of `AlertDialog` — see
 its own doc for the fix, which is sizing the dialog from the window's constraints rather than
 from its content, so there is nothing left to chase. If a new dialog with a text field in it
-ever needs the same shape, reach for `OpenGymDialog` rather than `AlertDialog` from the start.
+ever needs the same shape, reach for `TitanDialog` rather than `AlertDialog` from the start.
 
 ## Pull requests
 

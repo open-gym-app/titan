@@ -1,6 +1,6 @@
 # Notice
 
-OpenGym is licensed under the GNU General Public License v3.0: see [LICENSE](LICENSE).
+Titan is licensed under the GNU General Public License v3.0: see [LICENSE](LICENSE).
 
 This file lists third-party content bundled with the app (data and assets shipped inside the APK) and the terms it is used under.
 It does not list build or runtime-only dependencies (Room, Compose, Hilt, kotlinx.serialization, and the rest of the dependency graph): those are listed with their own licences in-app, under **Settings › About › Open source licences**, generated at build time from the dependency graph.
@@ -17,4 +17,4 @@ The exercise images in `core/data/src/main/assets/seed/images/` come from the sa
 
 ## Fonts
 
-OpenGym does not bundle any custom font. It draws exclusively in the system font the device provides through Jetpack Compose's default `Typography`.
+Titan does not bundle any custom font. It draws exclusively in the system font the device provides through Jetpack Compose's default `Typography`.

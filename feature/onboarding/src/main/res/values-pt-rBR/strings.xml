@@ -13,7 +13,7 @@
     <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_welcome_title">Registre o trabalho. Veja a soma crescer.</string>
-    <string name="onboarding_welcome_body">O Open Gym é um diário de treino que roda inteiramente neste celular. Sem conta, sem nuvem, sem anúncios.</string>
+    <string name="onboarding_welcome_body">O Titan é um diário de treino que roda inteiramente neste celular. Sem conta, sem nuvem, sem anúncios.</string>
     <string name="onboarding_welcome_logging">Registre séries</string>
     <string name="onboarding_welcome_logging_detail">Carga, repetições e RPE, um toque por série</string>
     <string name="onboarding_welcome_progress">Veja o progresso</string>

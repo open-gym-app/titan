@@ -28,7 +28,7 @@
     <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_welcome_title">Log the work. Watch it add up.</string>
-    <string name="onboarding_welcome_body">Open Gym is a training log that runs entirely on this phone. No account, no cloud, no ads.</string>
+    <string name="onboarding_welcome_body">Titan is a training log that runs entirely on this phone. No account, no cloud, no ads.</string>
     <string name="onboarding_welcome_logging">Log sets</string>
     <string name="onboarding_welcome_logging_detail">Weight, reps and RPE, one tap per set</string>
     <string name="onboarding_welcome_progress">See progress</string>

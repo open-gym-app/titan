@@ -7,7 +7,7 @@
   site would be written once per screen and drift four ways.
 
   Labels are written in sentence case even where the design draws them uppercase. The
-  `Eyebrow` and `OpenGymBadge` components uppercase for the caller, so a translator is never
+  `Eyebrow` and `TitanBadge` components uppercase for the caller, so a translator is never
   asked to reproduce a typographic treatment.
 -->
 <resources>

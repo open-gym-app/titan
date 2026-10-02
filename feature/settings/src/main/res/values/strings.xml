@@ -66,7 +66,7 @@
     <string name="settings_notifications_blocked">Notifications are blocked</string>
     <string name="settings_notifications_blocked_detail">Android is not delivering them. Turn them back on in system settings.</string>
     <string name="settings_notifications_allow">Allow notifications</string>
-    <string name="settings_notifications_allow_detail">OpenGym has not asked for permission yet</string>
+    <string name="settings_notifications_allow_detail">Titan has not asked for permission yet</string>
 
     <!-- About -->
     <string name="settings_version">Version</string>
@@ -165,7 +165,7 @@
     <string name="backup_auto_failed">The last automatic backup did not finish, after several attempts. It will try again on the next run.</string>
     <string name="backup_auto_save_failed">That switch could not be saved. Try again.</string>
     <!-- The one sentence in this section a user must not miss; see AutoBackupSection. -->
-    <string name="backup_auto_uninstall">Automatic backups are kept in Open Gym\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
+    <string name="backup_auto_uninstall">Automatic backups are kept in Titan\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
 
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
@@ -178,8 +178,8 @@
       One message per ImportError. Each says what went wrong and, for the three that guarantee
       it, that nothing on the device was touched — see BackupLabels.kt.
     -->
-    <string name="backup_error_malformed">That file is not an Open Gym backup, or it is damaged. Nothing on this device was changed.</string>
-    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Open Gym and try again. Nothing on this device was changed.</string>
+    <string name="backup_error_malformed">That file is not an Titan backup, or it is damaged. Nothing on this device was changed.</string>
+    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
     <string name="backup_error_constraint">That backup is incomplete — it refers to workouts it does not contain. Nothing on this device was changed.</string>
     <string name="backup_error_io">The backup could not be read. If the restore had already started, your workouts are back but your settings may not be.</string>
 
@@ -223,6 +223,6 @@
     <!-- Said rather than offered as a fix: the exact-alarm permission lives on a full-screen
          system page most people will not want, and the cost of not having it is minutes. -->
     <string name="reminder_inexact">May arrive late</string>
-    <string name="reminder_inexact_detail">Exact alarms are off for OpenGym, so Android may hold the reminder back a few minutes.</string>
+    <string name="reminder_inexact_detail">Exact alarms are off for Titan, so Android may hold the reminder back a few minutes.</string>
 
 </resources>

@@ -7,7 +7,7 @@
   read and act on is here, and translatable.
 
   Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
-  and `OpenGymBadge` uppercase for the caller, so a translator is never asked to reproduce a
+  and `TitanBadge` uppercase for the caller, so a translator is never asked to reproduce a
   typographic treatment.
 -->
 <resources>

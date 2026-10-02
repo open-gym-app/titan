@@ -120,7 +120,7 @@ every preview. The notable decisions:
 - **The set table** (`SetLogRow`, `PlannedSetRow`): the set-type picker, the RPE picker and
   the tick keep their drawn 28 / 32 / 32 dp; the grid carries two clearances instead
   (`INDEX_CLEARANCE`, `TOGGLE_CLEARANCE`) and gives up its 8dp side padding to pay for them.
-- **Filter chips** (`OpenGymFilterChip`): drawn at 30dp inside a 48dp
+- **Filter chips** (`TitanFilterChip`): drawn at 30dp inside a 48dp
   `minimumInteractiveComponentSize`, as Material's own chips are. Chip sections got 18dp of
   air between lines out of it.
 - **The workout header** (`SessionHeaderBar`): the three 36dp controls sit 12dp apart; the

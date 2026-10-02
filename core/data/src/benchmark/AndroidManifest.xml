@@ -9,7 +9,7 @@
           rather than a receiver.
 
           `android:exported="true"` because the caller is a different app: the benchmark runs
-          as `com.opengym.benchmark`, self-instrumenting, so that the app it measures can be
+          as `com.titan.benchmark`, self-instrumenting, so that the app it measures can be
           killed and cold-started underneath it. Lint is right that an exported provider with
           no permission on it is a way in, which is why this declaration lives in
           `src/benchmark` and not in `src/main` — no build a user can install merges it.
@@ -18,7 +18,7 @@
           follows the build type's package the way every other component's does.
         -->
         <provider
-            android:name="com.opengym.core.data.benchmark.BenchmarkSeedProvider"
+            android:name="com.titan.core.data.benchmark.BenchmarkSeedProvider"
             android:authorities="${applicationId}.benchmark.seed"
             android:exported="true"
             tools:ignore="ExportedContentProvider" />

@@ -13,7 +13,7 @@
     <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_welcome_title">Registra el trabajo. Míralo sumar.</string>
-    <string name="onboarding_welcome_body">Open Gym es un diario de entrenamiento que funciona por completo en este teléfono. Sin cuenta, sin nube, sin anuncios.</string>
+    <string name="onboarding_welcome_body">Titan es un diario de entrenamiento que funciona por completo en este teléfono. Sin cuenta, sin nube, sin anuncios.</string>
     <string name="onboarding_welcome_logging">Registra series</string>
     <string name="onboarding_welcome_logging_detail">Peso, repeticiones y RPE, un toque por serie</string>
     <string name="onboarding_welcome_progress">Ve tu progreso</string>
