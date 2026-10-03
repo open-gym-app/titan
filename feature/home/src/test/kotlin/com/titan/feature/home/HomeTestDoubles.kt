@@ -208,12 +208,16 @@ class FakeSessionStateStore(initial: SessionState = SessionState.Idle) : Session
     val current: SessionState get() = state.value
 }
 
-/** The catalogue, read for the one name the resume banner puts in its position line. */
+/**
+ * The catalogue, read for the one name the resume banner puts in its position line and for the
+ * exercise types the template estimate reads.
+ */
 class FakeExerciseCatalogue(private val exercises: List<Exercise> = emptyList()) : ExerciseRepository {
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.find { it.id == id })
 
-    override fun getAll(): Flow<List<Exercise>> = unsupported()
+    override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
+
     override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> = unsupported()
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> = unsupported()
     override fun getByEquipmentType(equipmentType: EquipmentType): Flow<List<Exercise>> = unsupported()

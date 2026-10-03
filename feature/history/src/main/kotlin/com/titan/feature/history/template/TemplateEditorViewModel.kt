@@ -24,8 +24,7 @@ import com.titan.core.domain.usecase.UpdateTemplateUseCase
 import com.titan.core.domain.validation.SetValidator
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
-import com.titan.core.ui.format.bareClockNumber
-import com.titan.core.ui.format.distanceEntryUnit
+import com.titan.core.ui.format.EntryUnits
 import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatWeightValue
@@ -268,11 +267,11 @@ class TemplateEditorViewModel @Inject constructor(
             icon = template.icon,
             unitSystem = unitSystem,
             exercises = exercises.map { exercise ->
+                val units = EntryUnits.of(catalogue[exercise.exerciseId], unitSystem)
                 TemplateDraftExercise(
                     key = exercise.id,
                     exerciseId = exercise.exerciseId,
                     sets = exercise.sets.map { planned ->
-                        val distanceUnit = unitSystem.distanceEntryUnit(catalogue[exercise.exerciseId])
                         TemplateDraftSet(
                             key = nextSetKey++,
                             setType = planned.setType,
@@ -281,7 +280,7 @@ class TemplateEditorViewModel @Inject constructor(
                                 .orEmpty(),
                             reps = planned.reps?.toString().orEmpty(),
                             duration = planned.duration?.let(::formatClockValue).orEmpty(),
-                            distance = planned.distance?.let { formatDistanceValue(it, distanceUnit) }.orEmpty(),
+                            distance = planned.distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
                         )
                     },
                     supersetGroup = exercise.supersetGroup,
@@ -726,6 +725,11 @@ class TemplateEditorViewModel @Inject constructor(
      * and retyping the weight. Clearing them on their behalf would be the destructive reading of
      * an edit that is meant to be the mild one, and there is no undo on this page.
      *
+     * What travels is the *figures*, not the keystrokes. A time and a distance are typed in units
+     * the exercise decides — a bare `30` is half an hour of running and thirty seconds of plank,
+     * and `5` is kilometres on a run and metres in a pool — so the text is re-expressed in the
+     * new movement's units rather than re-read in them: see [swappedTo].
+     *
      * ### The catalogue is re-read, for [addExercises]' reason
      *
      * The picker can create an exercise, so an id missing from the map this screen opened with is
@@ -750,7 +754,17 @@ class TemplateEditorViewModel @Inject constructor(
                 if (state.isSaving) return@update state
 
                 state.copy(
-                    draft = if (known) draft.mapRow(key) { it.copy(exerciseId = exerciseId) } else draft,
+                    draft = if (known) {
+                        draft.mapRow(key) { row ->
+                            row.swappedTo(
+                                exerciseId = exerciseId,
+                                from = EntryUnits.of(catalogue[row.exerciseId], unitSystem),
+                                to = EntryUnits.of(catalogue[exerciseId], unitSystem),
+                            )
+                        }
+                    } else {
+                        draft
+                    },
                     catalogue = catalogue,
                 )
             }
@@ -851,6 +865,23 @@ class TemplateEditorViewModel @Inject constructor(
         }
     }
 
+    /** The draft's [TemplateDuration] estimate, priced against the user's default rest. */
+    private fun estimate(
+        draft: TemplateDraft,
+        catalogue: Map<Long, Exercise>,
+    ): Duration {
+        // Only the draft's own exercises, not the whole catalogue: this runs on every keystroke.
+        val exerciseTypes = draft.exercises
+            .mapNotNull { row -> catalogue[row.exerciseId]?.let { row.exerciseId to it.type } }
+            .toMap()
+
+        return TemplateDuration.estimate(
+            exercises = draft.toDrafts(unitSystem, catalogue),
+            defaultRest = defaultRest,
+            exerciseTypes = exerciseTypes,
+        )
+    }
+
     /**
      * Assemble the screen from the draft, resolving names and re-deriving everything derived.
      *
@@ -881,7 +912,7 @@ class TemplateEditorViewModel @Inject constructor(
             category = draft.category,
             exercises = draft.exercises.mapIndexed { index, row ->
                 val exercise = state.catalogue[row.exerciseId]
-                val distanceUnit = unitSystem.distanceEntryUnit(exercise)
+                val units = EntryUnits.of(exercise, unitSystem)
                 TemplateExerciseRow(
                     key = row.key,
                     exerciseId = row.exerciseId,
@@ -894,10 +925,10 @@ class TemplateEditorViewModel @Inject constructor(
                             reps = set.reps,
                             duration = set.duration,
                             distance = set.distance,
-                            errors = set.errors(unitSystem, exercise),
+                            errors = set.errors(unitSystem, units),
                         )
                     },
-                    distanceUnit = distanceUnit,
+                    distanceUnit = units.distanceUnit,
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
                     supersetGroupName = groupNames[index],
@@ -905,10 +936,7 @@ class TemplateEditorViewModel @Inject constructor(
                         grouping.getOrNull(index + 1) == row.supersetGroup,
                 )
             },
-            estimatedDuration = TemplateDuration.estimate(
-                exercises = draft.toDrafts(unitSystem, state.catalogue),
-                defaultRest = defaultRest,
-            ),
+            estimatedDuration = estimate(draft, state.catalogue),
             unitSystem = unitSystem,
             naming = screen.naming,
             isNew = isNew,
@@ -1045,7 +1073,7 @@ private fun TemplateDraftExercise.withSetAdded(key: Long): TemplateDraftExercise
  */
 private fun TemplateDraftSet.errors(
     unitSystem: UnitSystem,
-    exercise: Exercise?,
+    units: EntryUnits,
 ): Set<TemplateSetField> =
     buildSet {
         if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
@@ -1058,14 +1086,14 @@ private fun TemplateDraftSet.errors(
         }
 
         if (duration.isNotBlank()) {
-            val seconds = parseClockSeconds(duration, exercise?.type.bareClockNumber)
+            val seconds = parseClockSeconds(duration, units.bareClockNumber)
             if (seconds == null || seconds !in SetValidator.DURATION_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS) {
                 add(TemplateSetField.DURATION)
             }
         }
 
         if (distance.isNotBlank()) {
-            val centimetres = parseDistanceCentimetres(distance, unitSystem.distanceEntryUnit(exercise))
+            val centimetres = parseDistanceCentimetres(distance, units.distanceUnit)
             if (centimetres == null || centimetres !in SetValidator.DISTANCE_MIN_CM..SetValidator.DISTANCE_MAX_CM) {
                 add(TemplateSetField.DISTANCE)
             }
@@ -1089,7 +1117,7 @@ private fun TemplateDraft.toDrafts(
     catalogue: Map<Long, Exercise>,
 ): List<TemplateExerciseDraft> =
     exercises.map { row ->
-        val exercise = catalogue[row.exerciseId]
+        val units = EntryUnits.of(catalogue[row.exerciseId], unitSystem)
         TemplateExerciseDraft(
             exerciseId = row.exerciseId,
             sets = row.sets.map { set ->
@@ -1099,9 +1127,9 @@ private fun TemplateDraft.toDrafts(
                     weight = set.weight.takeIf { it.isNotBlank() }
                         ?.let { parseWeightMilligrams(it, unitSystem) },
                     duration = set.duration.takeIf { it.isNotBlank() }
-                        ?.let { parseClockSeconds(it, exercise?.type.bareClockNumber) },
+                        ?.let { parseClockSeconds(it, units.bareClockNumber) },
                     distance = set.distance.takeIf { it.isNotBlank() }
-                        ?.let { parseDistanceCentimetres(it, unitSystem.distanceEntryUnit(exercise)) },
+                        ?.let { parseDistanceCentimetres(it, units.distanceUnit) },
                 )
             },
             restDuration = row.restDuration,
@@ -1109,6 +1137,36 @@ private fun TemplateDraft.toDrafts(
             supersetGroup = row.supersetGroup,
         )
     }
+
+/**
+ * The row with its movement replaced by [exerciseId], each set's time and distance re-expressed
+ * from the units the old movement's fields were typed in ([from]) into the new one's ([to]).
+ *
+ * Text that does not parse under [from] is carried as it stands — it is already flagged under
+ * the row, and guessing at it would be worse than leaving it for the user to fix.
+ */
+private fun TemplateDraftExercise.swappedTo(
+    exerciseId: Long,
+    from: EntryUnits,
+    to: EntryUnits,
+): TemplateDraftExercise =
+    copy(
+        exerciseId = exerciseId,
+        sets = if (from == to) {
+            sets
+        } else {
+            sets.map { set ->
+                set.copy(
+                    duration = parseClockSeconds(set.duration, from.bareClockNumber)
+                        ?.let(::formatClockValue)
+                        ?: set.duration,
+                    distance = parseDistanceCentimetres(set.distance, from.distanceUnit)
+                        ?.let { formatDistanceValue(it, to.distanceUnit) }
+                        ?: set.distance,
+                )
+            }
+        },
+    )
 
 /** The draft with one row replaced. A key the plan no longer holds is a no-op. */
 private fun TemplateDraft.mapRow(

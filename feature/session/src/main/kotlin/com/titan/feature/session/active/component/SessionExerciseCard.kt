@@ -44,10 +44,10 @@ import com.titan.core.ui.component.setTableFitsPrevious
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
 import com.titan.feature.session.active.ActiveSessionEvent
-import com.titan.feature.session.active.RunningStopwatch
 import com.titan.feature.session.active.SessionExerciseRow
 import com.titan.feature.session.active.SetEntry
 import com.titan.feature.session.active.SetEntryError
+import kotlin.time.Duration
 import com.titan.core.ui.R as CoreR
 
 /**
@@ -110,9 +110,12 @@ import com.titan.core.ui.R as CoreR
  *   broken on this one.
  * @param togglingSetIds the logged sets of this exercise whose tick is being written, passed
  *   through to the table so those rows' ticks go inert.
- * @param stopwatch the workout's hold stopwatch, wherever it is running, or null. A hold's card
- *   reads it twice: as its own reading when it is timing *this* exercise, and as a reason to
- *   draw its start control inert when it is timing another — one plank at a time.
+ * @param holdElapsed what the workout's hold stopwatch reads, when it is timing *this* exercise,
+ *   or null. Only this card's share of the stopwatch rather than the stopwatch itself: the reading
+ *   moves once a second, and a parameter every card was handed would recompose every card of the
+ *   workout on every one of those seconds.
+ * @param isHoldTimedElsewhere the stopwatch is timing another exercise, which draws this card's
+ *   start control inert — one plank at a time.
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
@@ -133,7 +136,8 @@ fun SessionExerciseCard(
     onSwap: () -> Unit,
     modifier: Modifier = Modifier,
     togglingSetIds: Set<Long> = emptySet(),
-    stopwatch: RunningStopwatch? = null,
+    holdElapsed: Duration? = null,
+    isHoldTimedElsewhere: Boolean = false,
     enabled: Boolean = true,
     isLogging: Boolean = false,
     isMovable: Boolean = false,
@@ -159,7 +163,8 @@ fun SessionExerciseCard(
                 onEvent = onEvent,
                 togglingSetIds = togglingSetIds,
                 enabled = enabled,
-                stopwatch = stopwatch,
+                holdElapsed = holdElapsed,
+                isHoldTimedElsewhere = isHoldTimedElsewhere,
             )
 
             if (entry.isStarted) {
@@ -318,7 +323,8 @@ private fun SetTable(
     onEvent: (ActiveSessionEvent) -> Unit,
     togglingSetIds: Set<Long>,
     enabled: Boolean,
-    stopwatch: RunningStopwatch?,
+    holdElapsed: Duration?,
+    isHoldTimedElsewhere: Boolean,
 ) {
     val entry = row.entry
     val error = entry.error?.message()
@@ -397,11 +403,11 @@ private fun SetTable(
                     {
                         HoldStopwatch(
                             setNumber = row.nextSetNumber,
-                            elapsed = stopwatch?.takeIf { it.sessionExerciseId == exerciseId }?.elapsed,
+                            elapsed = holdElapsed,
                             onStart = { onEvent(ActiveSessionEvent.StopwatchStarted(exerciseId)) },
                             onStop = { onEvent(ActiveSessionEvent.StopwatchStopped(exerciseId)) },
                             // Inert while another hold is being timed: one plank at a time.
-                            enabled = enabled && (stopwatch == null || stopwatch.sessionExerciseId == exerciseId),
+                            enabled = enabled && !isHoldTimedElsewhere,
                         )
                     }
                 } else {

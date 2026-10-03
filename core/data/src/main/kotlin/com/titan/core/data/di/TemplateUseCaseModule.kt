@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.ApplyTemplateUseCase
@@ -52,9 +53,11 @@ object TemplateUseCaseModule {
     fun provideGetTemplateSummariesUseCase(
         templateRepository: TemplateRepository,
         userPreferencesRepository: UserPreferencesRepository,
+        exerciseRepository: ExerciseRepository,
     ): GetTemplateSummariesUseCase =
         GetTemplateSummariesUseCase(
             templateRepository = templateRepository,
             userPreferencesRepository = userPreferencesRepository,
+            exerciseRepository = exerciseRepository,
         )
 }

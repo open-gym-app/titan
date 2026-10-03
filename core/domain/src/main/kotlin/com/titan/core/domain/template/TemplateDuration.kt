@@ -1,5 +1,6 @@
 package com.titan.core.domain.template
 
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedExercise
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.UserPreferences
@@ -23,7 +24,8 @@ import kotlin.time.Duration.Companion.seconds
  * For each exercise, in position order:
  *
  * ```
- * work = Σ over its sets (the set's planned duration, or WORK_PER_SET when it has none)
+ * work = Σ over its sets (the set's planned duration where its type shows one,
+ *        or WORK_PER_SET)
  * rest = sets × (the exercise's restDuration, or defaultRest when it has none)
  * ```
  *
@@ -44,6 +46,15 @@ import kotlin.time.Duration.Companion.seconds
  * and a half minutes of holding, not a rep tempo. A non-positive duration — which only
  * an import can write — falls back to the allowance rather than pricing the set at
  * nothing.
+ *
+ * It is read only where the exercise's type draws a time field — [ExerciseType.ENDURANCE]
+ * and [ExerciseType.ISOMETRIC]. A set keeps every figure it was planned with whatever the
+ * exercise, so a slot can be swapped without being rebuilt; a 30-minute run swapped for
+ * bench press therefore still carries its 30 minutes, in a field the strength row does
+ * not draw. Pricing that would grow the estimate by a figure nothing on screen shows or
+ * lets the user clear, so a [ExerciseType.STRENGTH] set is priced at [WORK_PER_SET]
+ * whatever it carries. An exercise the caller has no type for — one gone from the
+ * catalogue — has its duration read, since nothing says it is hidden.
  *
  * A superset changes only the rest: its members are performed back to back with the
  * rest taken after the group, so a member that is not the last of its group
@@ -90,6 +101,11 @@ object TemplateDuration {
      * template row is the plan, and an estimate that quietly read a different number
      * from a second table would not match the rest the session actually runs.
      *
+     * [exerciseTypes] is the catalogue's type for each exercise id, which decides whether
+     * a set's planned duration is read — see the class note. It is required for the same
+     * reason [defaultRest] is: a caller that left it out would price the hidden duration
+     * of every swapped slot.
+     *
      * An empty template estimates [Duration.ZERO], as does one whose exercises all plan
      * no sets. A negative rest — which nothing writes, but an import can — contributes
      * nothing rather than subtracting time.
@@ -97,6 +113,7 @@ object TemplateDuration {
     fun estimate(
         exercises: List<PlannedExercise>,
         defaultRest: Duration,
+        exerciseTypes: Map<Long, ExerciseType>,
     ): Duration {
         // An exercise planning no sets is not performed, so it is dropped before the
         // grouping is read rather than skipped inside the loop: a superset whose last
@@ -114,7 +131,8 @@ object TemplateDuration {
         var trailingRest = Duration.ZERO
 
         performed.forEachIndexed { index, exercise ->
-            total += exercise.sets.fold(Duration.ZERO) { work, set -> work + workOf(set) }
+            val readsDuration = exerciseTypes[exercise.exerciseId] != ExerciseType.STRENGTH
+            total += exercise.sets.fold(Duration.ZERO) { work, set -> work + workOf(set, readsDuration) }
             if (Supersets.isRestDueAfter(grouping, index)) {
                 val rest = exercise.restDuration
                     ?.seconds
@@ -128,8 +146,14 @@ object TemplateDuration {
         return total - trailingRest
     }
 
-    /** How long one planned set occupies, rest excluded. See the class note. */
-    private fun workOf(set: PlannedSet): Duration = set.duration?.takeIf { it > 0 }?.seconds ?: WORK_PER_SET
+    /**
+     * How long one planned set occupies, rest excluded — its duration when [readsDuration]
+     * and it has a positive one, the allowance otherwise. See the class note.
+     */
+    private fun workOf(
+        set: PlannedSet,
+        readsDuration: Boolean,
+    ): Duration = set.duration?.takeIf { readsDuration && it > 0 }?.seconds ?: WORK_PER_SET
 
     /**
      * How many times a rest is taken after the exercise at [last], which is a standalone

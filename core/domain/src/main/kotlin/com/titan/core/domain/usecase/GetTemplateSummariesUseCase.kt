@@ -2,6 +2,7 @@ package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.TemplateExercise
 import com.titan.core.domain.model.TemplateSummary
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.template.TemplateDuration
@@ -10,7 +11,7 @@ import kotlinx.coroutines.flow.combine
 
 /**
  * The saved templates as a list renders them: name, category, exercise count and the
- * estimated duration, re-emitted whenever any of the three inputs changes.
+ * estimated duration, re-emitted whenever any of the four inputs changes.
  *
  * [GetTemplatesUseCase] answers "what templates are there"; this answers "what does a
  * template row say", which is a different question with two more sources behind it.
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.combine
 class GetTemplateSummariesUseCase(
     private val templateRepository: TemplateRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
+    private val exerciseRepository: ExerciseRepository,
 ) {
 
     operator fun invoke(): Flow<List<TemplateSummary>> =
@@ -46,8 +48,12 @@ class GetTemplateSummariesUseCase(
             templateRepository.getAll(),
             templateRepository.getAllExercises(),
             userPreferencesRepository.observe(),
-        ) { templates, exercises, preferences ->
+            // The catalogue's types, which decide whether a set's planned duration is shown and
+            // so whether the estimate reads it — see `TemplateDuration`.
+            exerciseRepository.getAll(),
+        ) { templates, exercises, preferences, catalogue ->
             val byTemplate = exercises.groupBy(TemplateExercise::templateId)
+            val exerciseTypes = catalogue.associate { it.id to it.type }
 
             templates.map { template ->
                 // Re-sorted rather than trusted, as `ApplyTemplateUseCase` does and for the
@@ -59,7 +65,11 @@ class GetTemplateSummariesUseCase(
                 TemplateSummary(
                     template = template,
                     exerciseCount = body.size,
-                    estimatedDuration = TemplateDuration.estimate(body, preferences.defaultRestDuration),
+                    estimatedDuration = TemplateDuration.estimate(
+                        exercises = body,
+                        defaultRest = preferences.defaultRestDuration,
+                        exerciseTypes = exerciseTypes,
+                    ),
                 )
             }
         }

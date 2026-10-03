@@ -676,7 +676,11 @@ private fun SessionBody(
                             // which is a frame behind while an order is being written.
                             position = index,
                             onEvent = onEvent,
-                            stopwatch = state.stopwatch,
+                            holdElapsed = state.stopwatch
+                                ?.takeIf { it.sessionExerciseId == row.sessionExerciseId }
+                                ?.elapsed,
+                            isHoldTimedElsewhere = state.stopwatch
+                                ?.let { it.sessionExerciseId != row.sessionExerciseId } == true,
                             onRemove = {
                                 onEvent(ActiveSessionEvent.ExerciseRemoved(row.sessionExerciseId))
                             },

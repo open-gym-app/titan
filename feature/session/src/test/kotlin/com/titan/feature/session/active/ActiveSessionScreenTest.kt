@@ -512,7 +512,7 @@ class ActiveSessionScreenTest {
             ),
         )
 
-        scrollToText("That time is not a time — type it as 1:30 or 1:05:30").assertIsDisplayed()
+        scrollToText("That time is not a time — type it as 1.30 or 1.05.30").assertIsDisplayed()
     }
 
     @Test

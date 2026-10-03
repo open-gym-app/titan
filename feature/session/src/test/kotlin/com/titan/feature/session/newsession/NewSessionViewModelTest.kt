@@ -734,7 +734,7 @@ class NewSessionViewModelTest {
     ): NewSessionViewModel {
         val viewModel = NewSessionViewModel(
             savedStateHandle = savedState,
-            getTemplateSummaries = GetTemplateSummariesUseCase(templates, settings),
+            getTemplateSummaries = GetTemplateSummariesUseCase(templates, settings, catalogue),
             applyTemplate = ApplyTemplateUseCase(templates),
             startPlannedSession = StartPlannedSessionUseCase(
                 startSession = StartSessionUseCase(

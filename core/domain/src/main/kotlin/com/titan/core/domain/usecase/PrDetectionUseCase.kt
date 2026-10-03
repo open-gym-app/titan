@@ -195,28 +195,31 @@ class PrDetectionUseCase(
      */
 
     private fun bestByWeight(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.mapNotNull { set -> set.weight?.takeIf { it > 0L }?.let { set to it } }
-            .maxByOrNull { (_, weight) -> weight }
-            ?.first
+        sets.highest { set -> set.weight?.takeIf { it > 0L } }
 
-    private fun bestByReps(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.mapNotNull { set -> set.reps?.takeIf { it > 0 }?.let { set to it } }
-            .maxByOrNull { (_, reps) -> reps }
-            ?.first
+    private fun bestByReps(sets: List<WorkoutSet>): WorkoutSet? = sets.highest { set -> set.reps?.takeIf { it > 0 } }
 
     private fun bestByDistance(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.mapNotNull { set -> set.distance?.takeIf { it > 0L }?.let { set to it } }
-            .maxByOrNull { (_, distance) -> distance }
-            ?.first
+        sets.highest { set -> set.distance?.takeIf { it > 0L } }
 
+    /** The fewest seconds per centimetre: the lower the pace figure, the faster the set. */
     private fun bestByPace(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.mapNotNull { set ->
-            val distance = set.distance?.takeIf { it > 0L } ?: return@mapNotNull null
-            val duration = set.duration?.takeIf { it > 0L } ?: return@mapNotNull null
-            set to duration.toDouble() / distance
+        sets.lowest { set ->
+            val distance = set.distance?.takeIf { it > 0L } ?: return@lowest null
+            val duration = set.duration?.takeIf { it > 0L } ?: return@lowest null
+            duration.toDouble() / distance
         }
-            .minByOrNull { (_, secondsPerCentimetre) -> secondsPerCentimetre }
-            ?.first
+
+    /** The set with the greatest [measure], among the sets that have one; ties go to the first. */
+    private inline fun <T : Comparable<T>> List<WorkoutSet>.highest(measure: (WorkoutSet) -> T?): WorkoutSet? =
+        measured(measure).maxByOrNull { (_, value) -> value }?.first
+
+    /** The set with the least [measure], among the sets that have one; ties go to the first. */
+    private inline fun <T : Comparable<T>> List<WorkoutSet>.lowest(measure: (WorkoutSet) -> T?): WorkoutSet? =
+        measured(measure).minByOrNull { (_, value) -> value }?.first
+
+    private inline fun <T> List<WorkoutSet>.measured(measure: (WorkoutSet) -> T?): List<Pair<WorkoutSet, T>> =
+        mapNotNull { set -> measure(set)?.let { set to it } }
 
     /**
      * The session's total volume for this exercise's sets, anchored to the last of them —

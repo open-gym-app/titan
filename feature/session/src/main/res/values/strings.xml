@@ -100,10 +100,11 @@
          and the value it saw, which is more than a paraphrase could. -->
     <string name="active_weight_not_a_number">That weight is not a number</string>
     <string name="active_reps_not_a_number">That rep count is not a number</string>
-    <!-- The time field of a hold or a run (#M7-17). Says the shape it takes, because the
-         decimal pad has no colon and "1.5" is refused rather than guessed at — see
-         parseClockSeconds. -->
-    <string name="active_duration_not_a_time">That time is not a time — type it as 1:30 or 1:05:30</string>
+    <!-- The time field of a hold or a run (#M7-17). Says the shape it takes, because "1.5"
+         is refused rather than guessed at — see parseClockSeconds. The examples are written
+         with the locale's decimal separator rather than a colon: the field opens a decimal
+         pad, which has no colon, and the parser reads either separator as one. -->
+    <string name="active_duration_not_a_time">That time is not a time — type it as 1.30 or 1.05.30</string>
     <string name="active_distance_not_a_number">That distance is not a number</string>
 
     <!-- The action that opens the picker from inside a running workout. "More" rather than

@@ -1,6 +1,10 @@
 package com.titan.core.domain.usecase
 
 import app.cash.turbine.test
+import com.titan.core.domain.integration.FakeExerciseRepository
+import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseType
+import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateSummary
 import com.titan.core.domain.model.UserPreferences
@@ -16,7 +20,13 @@ class GetTemplateSummariesUseCaseTest {
 
     private val templates = FakeTemplateRepository()
     private val preferences = FakeUserPreferencesRepository()
-    private val summaries = GetTemplateSummariesUseCase(templates, preferences)
+    private val catalogue = FakeExerciseRepository(
+        listOf(
+            Exercise(id = 1L, name = "Bench press", type = ExerciseType.STRENGTH),
+            Exercise(id = 2L, name = "Plank", type = ExerciseType.ISOMETRIC),
+        ),
+    )
+    private val summaries = GetTemplateSummariesUseCase(templates, preferences, catalogue)
 
     @Test
     fun `summarising carries the template's own fields through`() =
@@ -66,7 +76,11 @@ class GetTemplateSummariesUseCaseTest {
             val summary = summaries().first().single()
 
             assertEquals(
-                TemplateDuration.estimate(templates.storedExercises(1L), UserPreferences().defaultRestDuration),
+                TemplateDuration.estimate(
+                    exercises = templates.storedExercises(1L),
+                    defaultRest = UserPreferences().defaultRestDuration,
+                    exerciseTypes = mapOf(1L to ExerciseType.STRENGTH, 2L to ExerciseType.ISOMETRIC),
+                ),
                 summary.estimatedDuration,
             )
         }
@@ -147,5 +161,20 @@ class GetTemplateSummariesUseCaseTest {
             templates.honoursPositionOrder = false
 
             assertEquals(ordered, summaries().first().single().estimatedDuration)
+        }
+
+    @Test
+    fun `summarising reads the catalogue's types for which planned times count`() =
+        runTest {
+            // The same 30 seconds on both: the plank draws it as its time field, while the bench
+            // press — a swapped-in slot — carries it hidden, so only the plank's is priced.
+            val timed = List(2) { PlannedSet(duration = 30) }
+            templates.seed("Bench", listOf(draft(exerciseId = 1L, sets = timed, restDuration = 0)))
+            templates.seed("Plank", listOf(draft(exerciseId = 2L, sets = timed, restDuration = 0)))
+
+            val (bench, plank) = summaries().first().map(TemplateSummary::estimatedDuration)
+
+            assertEquals(TemplateDuration.WORK_PER_SET * 2, bench)
+            assertEquals(60.seconds, plank)
         }
 }

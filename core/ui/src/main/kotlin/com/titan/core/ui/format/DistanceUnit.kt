@@ -129,3 +129,29 @@ val Exercise.isSwim: Boolean get() = SWIM_STEMS.any { name.contains(it, ignoreCa
 
 /** The name fragments [isSwim] recognises. */
 private val SWIM_STEMS = listOf("swim", "aqua")
+
+/**
+ * The units one exercise's set fields are typed and read in (#M7-17): the distance unit its rows
+ * are labelled with, and what a bare number in its time field counts.
+ *
+ * One value for both, resolved in one place, because every screen that labels a field and every
+ * one that parses it has to give the same answer — a field labelled in metres and parsed in
+ * kilometres is a set logged a thousand times too long. See [distanceEntryUnit] and
+ * [bareClockNumber].
+ */
+data class EntryUnits(
+    val distanceUnit: DistanceUnit,
+    val bareClockNumber: BareClockNumber,
+) {
+    companion object {
+        /** The units [exercise]'s fields take on [unitSystem]. A null exercise takes the fallbacks. */
+        fun of(
+            exercise: Exercise?,
+            unitSystem: UnitSystem,
+        ): EntryUnits =
+            EntryUnits(
+                distanceUnit = unitSystem.distanceEntryUnit(exercise),
+                bareClockNumber = exercise?.type.bareClockNumber,
+            )
+    }
+}

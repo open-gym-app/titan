@@ -67,7 +67,7 @@
 
     <string name="active_weight_not_a_number">Ese peso no es un número</string>
     <string name="active_reps_not_a_number">Ese número de repeticiones no es un número</string>
-    <string name="active_duration_not_a_time">Ese tiempo no es un tiempo: escríbelo como 1:30 o 1:05:30</string>
+    <string name="active_duration_not_a_time">Ese tiempo no es un tiempo: escríbelo como 1,30 o 1,05,30</string>
     <string name="active_distance_not_a_number">Esa distancia no es un número</string>
 
     <string name="active_add_exercises">Añadir más ejercicios</string>

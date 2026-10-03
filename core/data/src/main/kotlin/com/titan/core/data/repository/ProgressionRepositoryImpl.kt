@@ -3,6 +3,7 @@ package com.titan.core.data.repository
 import com.titan.core.data.db.dao.WorkoutSessionDao
 import com.titan.core.data.db.dao.WorkoutSetDao
 import com.titan.core.data.db.entity.WorkoutSetEntity
+import com.titan.core.data.db.projection.ExerciseAttemptRow
 import com.titan.core.data.mapper.WorkoutSetMapper
 import com.titan.core.domain.model.AttemptSet
 import com.titan.core.domain.model.ExerciseAttempt
@@ -130,7 +131,7 @@ class ProgressionRepositoryImpl @Inject constructor(
                     volume = row.totalVolume,
                     timedSeconds = row.timedSeconds,
                     distance = row.totalDistance,
-                    topSet = topSetOf(row.topSetWeight, row.topSetReps, row.topSetDuration, row.topSetDistance),
+                    topSet = row.topSet(),
                     firstSetAt = row.firstSetAt,
                 )
             }
@@ -172,15 +173,10 @@ class ProgressionRepositoryImpl @Inject constructor(
         }
 
     /** A top set worth quoting, or null when the row carries nothing to quote it by. */
-    private fun topSetOf(
-        weight: Long?,
-        reps: Int?,
-        duration: Long?,
-        distance: Long?,
-    ): AttemptSet? =
-        if (listOf(weight, reps, duration, distance).all { it == null }) {
-            null
-        } else {
-            AttemptSet(weight = weight, reps = reps, duration = duration, distance = distance)
-        }
+    private fun ExerciseAttemptRow.topSet(): AttemptSet? =
+        AttemptSet(weight = topSetWeight, reps = topSetReps, duration = topSetDuration, distance = topSetDistance)
+            .takeIf { it != NOTHING_TO_QUOTE }
 }
+
+/** A top set with none of its four figures — what a row with no set worth quoting reads as. */
+private val NOTHING_TO_QUOTE = AttemptSet(weight = null, reps = null, duration = null, distance = null)

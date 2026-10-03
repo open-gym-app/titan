@@ -66,10 +66,7 @@ import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
-import com.titan.core.ui.format.BareClockNumber
-import com.titan.core.ui.format.DistanceUnit
-import com.titan.core.ui.format.bareClockNumber
-import com.titan.core.ui.format.distanceEntryUnit
+import com.titan.core.ui.format.EntryUnits
 import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatWeightValue
@@ -965,6 +962,9 @@ class ActiveSessionViewModel @Inject constructor(
      * A rotation keeps it, because this object outlives the activity. A process death does not,
      * and is what the snapshot is for: [restoreDraft] puts a mark back as far in the past as the
      * snapshot's wall clock says the hold began.
+     *
+     * Only read while [ScreenState.stopwatch] is set, and replaced by every path that sets it, so
+     * one left over from a stopwatch dropped with its exercise is inert rather than wrong.
      */
     private var stopwatchMark: TimeMark? = null
 
@@ -1039,12 +1039,12 @@ class ActiveSessionViewModel @Inject constructor(
     /**
      * Drops the stopwatch if it is timing [sessionExerciseId], which has just left the workout or
      * been swapped for another movement: the hold it was timing is not one anybody is doing now.
+     *
+     * Pure, because it runs inside `screenState.update`, whose block may be run more than once.
+     * The [stopwatchMark] it leaves behind is never read — see there.
      */
-    private fun ScreenState.withoutStopwatchOn(sessionExerciseId: Long): ScreenState {
-        if (stopwatch?.sessionExerciseId != sessionExerciseId) return this
-        stopwatchMark = null
-        return copy(stopwatch = null)
-    }
+    private fun ScreenState.withoutStopwatchOn(sessionExerciseId: Long): ScreenState =
+        if (stopwatch?.sessionExerciseId == sessionExerciseId) copy(stopwatch = null) else this
 
     // ─── Correcting a set that is already logged ────────────────────────────────────────
 
@@ -3340,27 +3340,6 @@ private fun ActiveSet.toEntry(
  */
 private fun WorkoutSet.toPreviousSet(): PreviousSet =
     PreviousSet(weight = weight, reps = reps, duration = duration, distance = distance)
-
-/**
- * The units one exercise's fields are typed and read in: which distance unit its rows are
- * labelled with, and what a bare number in its time field counts. See
- * `ActiveSessionViewModel.unitsOf`.
- */
-private data class EntryUnits(
-    val distanceUnit: DistanceUnit,
-    val bareClockNumber: BareClockNumber,
-) {
-    companion object {
-        fun of(
-            exercise: Exercise?,
-            unitSystem: UnitSystem,
-        ): EntryUnits =
-            EntryUnits(
-                distanceUnit = unitSystem.distanceEntryUnit(exercise),
-                bareClockNumber = exercise?.type.bareClockNumber,
-            )
-    }
-}
 
 /** The set a rest follows, as what the next one is expected to be — see [RestTarget]. */
 private fun WorkoutSet.toRestTarget(): RestTarget =

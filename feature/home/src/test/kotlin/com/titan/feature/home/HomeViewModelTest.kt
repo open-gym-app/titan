@@ -736,7 +736,7 @@ class HomeViewModelTest {
             inProgressSessionRepository = drafts,
             exerciseRepository = catalogue,
             gamificationRepository = progress,
-            getTemplateSummaries = GetTemplateSummariesUseCase(templates, FakeSettings()),
+            getTemplateSummaries = GetTemplateSummariesUseCase(templates, FakeSettings(), catalogue),
             latestPersonalRecord = LatestPersonalRecordUseCase(records),
             volumeTrend = VolumeTrendUseCase(volume),
             questProgress = QuestProgressUseCase(

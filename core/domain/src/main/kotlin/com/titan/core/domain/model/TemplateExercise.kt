@@ -14,7 +14,7 @@ package com.titan.core.domain.model
 data class TemplateExercise(
     val id: Long = 0,
     val templateId: Long,
-    val exerciseId: Long,
+    override val exerciseId: Long,
     val position: Int,
     override val supersetGroup: Int? = null,
     override val sets: List<PlannedSet> = emptyList(),

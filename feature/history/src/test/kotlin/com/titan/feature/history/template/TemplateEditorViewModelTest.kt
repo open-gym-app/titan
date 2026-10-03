@@ -55,7 +55,7 @@ import kotlin.time.Duration.Companion.seconds
 @RunWith(RobolectricTestRunner::class)
 class TemplateEditorViewModelTest {
 
-    private val exercises = FakeExerciseRepository(exercises = listOf(BENCH, FLY, PUSHDOWN, PLANK, RUN))
+    private val exercises = FakeExerciseRepository(exercises = listOf(BENCH, FLY, PUSHDOWN, PLANK, RUN, SWIM))
     private val drafts = FakeTemplateDraftRepository()
     private val preferences = FakeUserPreferencesRepository(
         UserPreferences(unitSystem = UnitSystem.METRIC, defaultRestDuration = 90.seconds),
@@ -877,6 +877,42 @@ class TemplateEditorViewModelTest {
             assertFalse(viewModel.uiState.value.canSave)
         }
 
+    @Test
+    fun `a swap carries a planned distance across into the new movement's unit`() =
+        runTest {
+            val templates = templateStore(timedBody())
+            val viewModel = viewModel(templates = templates)
+
+            // The run's `5` is kilometres. A swim's field is in metres, and re-reading the same
+            // text there would plan a five-metre swim.
+            viewModel.swap(KEY_FLY, SWIM.id)
+
+            val swim = viewModel.uiState.value.exercises.last()
+            assertEquals(DistanceUnit.METRE, swim.distanceUnit)
+            assertEquals("5000", swim.sets.single().distance)
+            assertEquals("30:00", swim.sets.single().duration)
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            assertEquals(
+                PlannedSet(distance = 500_000, duration = 1_800),
+                templates.exercisesOf(1).last().sets.single(),
+            )
+        }
+
+    @Test
+    fun `a swap carries a bare planned time across as the time it was`() =
+        runTest {
+            val viewModel = viewModel(exercises = timedBody())
+            val run = viewModel.uiState.value.exercises.last()
+
+            // A bare `20` in a run's field is twenty minutes; in a plank's it would be twenty seconds.
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(run.key, run.sets.single().key, TemplateSetField.DURATION, "20"),
+            )
+            viewModel.swap(KEY_FLY, PLANK.id)
+
+            assertEquals("20:00", viewModel.uiState.value.exercises.last().sets.single().duration)
+        }
+
     /** `3 × 0:45` of a plank and a `5 km` run, the issue's own example plan. */
     private fun timedBody() =
         listOf(
@@ -1246,6 +1282,7 @@ class TemplateEditorViewModelTest {
         val PUSHDOWN = Exercise(id = 12, name = "Tricep pushdown")
         val PLANK = Exercise(id = 13, name = "Plank", type = ExerciseType.ISOMETRIC)
         val RUN = Exercise(id = 14, name = "Running, Outdoor", type = ExerciseType.ENDURANCE)
+        val SWIM = Exercise(id = 15, name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
 
         /** The stored `template_exercise` ids, which are the draft's keys. */
         const val KEY_BENCH = 100L

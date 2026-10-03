@@ -21,7 +21,7 @@ package com.titan.core.domain.model
  * with a single member after a removal without repairing it first.
  */
 data class TemplateExerciseDraft(
-    val exerciseId: Long,
+    override val exerciseId: Long,
     /** What to perform, in order. Empty is a line that plans no sets — see [PlannedSet]. */
     override val sets: List<PlannedSet> = emptyList(),
     /** Seconds, per [TemplateExercise.restDuration]. */
