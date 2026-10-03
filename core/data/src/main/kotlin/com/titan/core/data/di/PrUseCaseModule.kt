@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
@@ -31,11 +32,13 @@ object PrUseCaseModule {
     @Provides
     fun providePrDetectionUseCase(
         sessionRepository: SessionRepository,
+        exerciseRepository: ExerciseRepository,
         personalRecordRepository: PersonalRecordRepository,
         userPreferencesRepository: UserPreferencesRepository,
     ): PrDetectionUseCase =
         PrDetectionUseCase(
             sessionRepository = sessionRepository,
+            exerciseRepository = exerciseRepository,
             personalRecordRepository = personalRecordRepository,
             userPreferencesRepository = userPreferencesRepository,
         )

@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.model.MuscleGroup
+import com.titan.core.domain.model.PaceStyle
+import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.TemplateCategory
@@ -80,10 +82,14 @@ private fun SetType.markerRes(): Int? =
     }
 
 /**
- * What a personal record is a record *of*: `Heaviest`, `Most reps`, `1RM`.
+ * What a *kind* of personal record is called: `Heaviest`, `Most reps`, `1RM`, `Fastest`.
  *
  * The short form on purpose — it is read inside a badge next to the figure it qualifies, and
  * "Estimated one-rep max" in that position is a sentence where a tag belongs.
+ *
+ * For a kind on its own, with no record in hand — the records list's filter. A record is named by
+ * [PersonalRecord.label], which can say more: [PrType.BEST_PACE] is `Fastest` here because the
+ * filter covers runs and rides alike, and `Best pace` or `Top speed` on a record of one of them.
  */
 @Composable
 @ReadOnlyComposable
@@ -97,7 +103,29 @@ internal fun PrType.labelRes(): Int =
         PrType.MAX_VOLUME -> R.string.pr_max_volume
         PrType.ESTIMATED_1RM -> R.string.pr_estimated_1rm
         PrType.MAX_DISTANCE -> R.string.pr_max_distance
-        PrType.BEST_PACE -> R.string.pr_best_pace
+        PrType.BEST_PACE -> R.string.pr_fastest
+        PrType.MAX_DURATION -> R.string.pr_max_duration
+        PrType.MAX_WEIGHTED_HOLD -> R.string.pr_max_weighted_hold
+    }
+
+/**
+ * What this record is a record *of*, as its exercise would say it: `Heaviest`, `Best pace`,
+ * `Top speed`.
+ *
+ * [PrType.label] for every kind but [PrType.BEST_PACE], whose name follows how the figure beside
+ * it is drawn — see [PaceStyle]. A ride's record reads `Top speed` over `30.0 km/h`, and a label
+ * of `Best pace` over a speed would be the one word on the row that disagrees with the number.
+ */
+@Composable
+@ReadOnlyComposable
+fun PersonalRecord.label(): String = stringResource(labelRes())
+
+@StringRes
+internal fun PersonalRecord.labelRes(): Int =
+    when {
+        type != PrType.BEST_PACE -> type.labelRes()
+        paceStyle == PaceStyle.SPEED -> R.string.pr_top_speed
+        else -> R.string.pr_best_pace
     }
 
 /**

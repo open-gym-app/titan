@@ -379,6 +379,20 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Furthest</string>
     <string name="pr_best_pace">Best pace</string>
+    <!-- What a pace record reads as once its exercise says how: per kilometre for a run or a
+         swim, per hour for a ride. "Best pace" above is the first; the kind itself, in a
+         filter that covers both, is "Fastest". -->
+    <string name="pr_top_speed">Top speed</string>
+    <string name="pr_fastest">Fastest</string>
+    <string name="pr_max_duration">Longest</string>
+    <string name="pr_max_weighted_hold">Weighted hold</string>
+    <!-- How much a record beat the one before it. A pace beats by going down, so its
+         improvement is a minus (U+2212, not a hyphen); everything else goes up. -->
+    <string name="pr_improvement_up" translatable="false">+%1$s</string>
+    <string name="pr_improvement_down" translatable="false">−%1$s</string>
+    <!-- The load a weighted hold was held with, which is weight added to a body rather than
+         lifted - the same `+` a timed set's load wears in `set_log_timed_with_load`. -->
+    <string name="pr_added_load" translatable="false">+%1$s</string>
     <!-- Opens with the badge's own letters. "PR" is what a lifter says and what is drawn,
          and a label that starts with the drawn text is one Voice Access matches; the words
          the abbreviation stands for follow it. -->

@@ -24,10 +24,10 @@ import kotlin.math.abs
  * @property exerciseName what it was set on, or **null** when the exercise has since been removed
  *   from the catalogue. The record still stands — it is a thing the user did — so the row is
  *   drawn with a fallback title rather than dropped, the same call `SummaryRecord` makes.
- * @property previousValue the figure this record beat, in the kind's own unit, or **null** when it
- *   is the first of its kind for that exercise. Null is not zero: a first record improved on
- *   nothing, and drawing it as "+92 kg" would credit the user with beating a record they never
- *   held.
+ * @property previousValue the figure this record beat, as [rankedFigure] reads it — the kind's own
+ *   unit, or nanoseconds per centimetre for [PrType.BEST_PACE] (see [paceOf]) — or **null** when it
+ *   is the first of its kind for that exercise. Null is not zero: a first record improved on nothing, and drawing
+ *   it as "+92 kg" would credit the user with beating a record they never held.
  * @property isRecent whether this was set in the most recently finished session — what the `NEW`
  *   badge marks.
  */
@@ -39,48 +39,66 @@ data class PersonalRecordEntry(
 ) {
 
     /**
-     * How much better this record is than the one it replaced, or **null** when there was none —
-     * and **null** for a kind whose figure is not what it is ranked on.
+     * How much better this record is than the one it replaced, in the record's own unit, or
+     * **null** when there was none — and **null** for a kind whose difference is not a figure of
+     * that kind.
      *
      * Always positive when present: every record on file beat what came before it, or it would
      * not have been written, so the difference between two consecutive figures of a kind that is
      * ranked *by* that figure can only run one way. `abs` states that rather than relying on it.
      *
-     * [PrType.BEST_PACE] is excluded, and that is the whole reason the rule is asked of
-     * [PrType.higherIsBetter] rather than assumed. A pace record is ranked on duration *over
-     * distance* — see `PrDetectionUseCase.pace` — while [value] and the previous figure carried
-     * beside it are bare durations. A 10 km run at a better pace than a previous 5 km takes more
-     * time, not less, so subtracting the two durations would report an improvement of the amount
-     * the run got *longer*. Making that honest needs the previous record's distance too, which
-     * this row does not carry; until it does, a pace row draws no improvement rather than a
-     * wrong one.
+     * Two kinds are left out, each for its own reason:
+     *
+     * - [PrType.BEST_PACE] is ranked on a ratio, and the difference between two paces is still a
+     *   pace — not a duration this record could be re-rendered with. It has [previousPace]
+     *   instead, which a screen turns into "−0:17 /km" or "+1.2 km/h" as the exercise reads it.
+     * - [PrType.MAX_WEIGHTED_HOLD] is ranked on load times seconds, which is never drawn: a hold
+     *   is shown as its two parts, and the difference of two products has no parts to show.
      */
     val improvement: Long?
         get() {
-            if (!record.type.higherIsBetter) return null
+            if (record.type == PrType.BEST_PACE || record.type == PrType.MAX_WEIGHTED_HOLD) return null
             val previous = previousValue ?: return null
-            val current = value ?: return null
+            val current = record.rankedFigure ?: return null
             return abs(current - previous)
         }
 
     /**
-     * The record's own figure, in the unit its kind is measured in, or **null** for a row whose
-     * `pr_type` and populated column disagree.
+     * The pace this [PrType.BEST_PACE] record beat, in nanoseconds per centimetre (see [paceOf]),
+     * or **null** for a first record or any other kind.
      *
-     * [PrType.MAX_VOLUME] reads `weight` because that is the column the engine writes a session's
-     * volume into — see `PrDetectionUseCase`. It is the one kind whose figure is not named after
-     * the column holding it, which is worth saying out loud here rather than leaving as a
-     * surprise for the next reader of this `when`.
+     * The store reads it off the previous record's own distance and duration, so a 10 km run is
+     * compared with the 5 km it beat by how fast each went rather than by how long each took — a
+     * faster 10 km takes more time, not less.
      */
-    val value: Long?
-        get() = when (record.type) {
-            PrType.MAX_WEIGHT, PrType.MAX_VOLUME -> record.weight
-            PrType.MAX_REPS -> record.reps?.toLong()
-            PrType.ESTIMATED_1RM -> record.estimated1Rm
-            PrType.MAX_DISTANCE -> record.distance
-            PrType.BEST_PACE -> record.duration
-        }
+    val previousPace: Long?
+        get() = previousValue.takeIf { record.type == PrType.BEST_PACE }
 }
+
+/**
+ * The figure this record is ranked on, or **null** for a row whose `pr_type` and populated column
+ * disagree.
+ *
+ * The kind's own column for every kind but two. [PrType.MAX_VOLUME] and
+ * [PrType.MAX_WEIGHTED_HOLD] read `weight`, because that is the column the engine writes a
+ * session's volume and a hold's load-seconds into — see `PrDetectionUseCase`. [PrType.BEST_PACE]
+ * is the one figure no column holds: nanoseconds per centimetre, from its distance and duration —
+ * see [pace].
+ *
+ * One `when` for the engine deciding whether a candidate beats what is on file, and for the list
+ * working out what a record beat. The store's improvement query makes the same choice in SQL —
+ * see `PersonalRecordDao.getRecordsPage` — and the two agree by inspection, so a kind added here
+ * has to be added there too.
+ */
+val PersonalRecord.rankedFigure: Long?
+    get() = when (type) {
+        PrType.MAX_WEIGHT, PrType.MAX_VOLUME, PrType.MAX_WEIGHTED_HOLD -> weight
+        PrType.MAX_REPS -> reps?.toLong()
+        PrType.ESTIMATED_1RM -> estimated1Rm
+        PrType.MAX_DISTANCE -> distance
+        PrType.MAX_DURATION -> duration
+        PrType.BEST_PACE -> pace
+    }
 
 /**
  * A copy of this record carrying [value] in place of its own figure.
@@ -90,8 +108,9 @@ data class PersonalRecordEntry(
  * second `when` over [PrType] at the call site deciding which unit a kind is measured in, which
  * is the mapping this app already states in three places and does not need a fourth of.
  *
- * Null for a kind whose figure cannot be substituted, which is none of them today; the branch
- * exists so a kind added later cannot silently render its improvement under the wrong unit.
+ * Null for a kind whose figure cannot be substituted: [PrType.BEST_PACE] and
+ * [PrType.MAX_WEIGHTED_HOLD], whose figures are a ratio and a product of two columns rather than
+ * one column's value — see [PersonalRecordEntry.improvement].
  */
 fun PersonalRecord.withValue(value: Long): PersonalRecord? =
     when (type) {
@@ -99,7 +118,8 @@ fun PersonalRecord.withValue(value: Long): PersonalRecord? =
         PrType.MAX_REPS -> copy(reps = value.toInt())
         PrType.ESTIMATED_1RM -> copy(estimated1Rm = value)
         PrType.MAX_DISTANCE -> copy(distance = value)
-        PrType.BEST_PACE -> copy(duration = value)
+        PrType.MAX_DURATION -> copy(duration = value)
+        PrType.BEST_PACE, PrType.MAX_WEIGHTED_HOLD -> null
     }
 
 /**

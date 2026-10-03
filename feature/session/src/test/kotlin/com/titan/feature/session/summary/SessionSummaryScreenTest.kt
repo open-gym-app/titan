@@ -16,6 +16,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
+import com.titan.core.domain.model.PaceStyle
+import com.titan.core.domain.model.PersonalRecord
+import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.ui.theme.TitanTheme
 import org.junit.Assert.assertEquals
@@ -80,6 +83,26 @@ class SessionSummaryScreenTest {
         scrollTo("92 kg")
         composeTestRule.onNodeWithText("92 kg").assertIsDisplayed()
         composeTestRule.onNodeWithText("Barbell bench press").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a timed session celebrates each record once, in its exercise's own terms`() {
+        // A run, a ride and a plank (#225). The run's pace and the ride's speed are the same kind
+        // of record, stored once; the ride's is drawn as a speed and named for it, and nothing
+        // beside it is a second, pace-shaped row for the same achievement.
+        setContent(previewState(records = timedRecords()))
+
+        scrollTo("5:27 /km")
+        composeTestRule.onNodeWithText("5:27 /km").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("PR Best pace, personal record").assertIsDisplayed()
+
+        scrollTo("30.0 km/h")
+        composeTestRule.onAllNodesWithText("30.0 km/h").assertCountEquals(1)
+        composeTestRule.onNodeWithContentDescription("PR Top speed, personal record").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("2:00 /km").assertCountEquals(0)
+
+        scrollTo("2:30")
+        composeTestRule.onNodeWithContentDescription("PR Longest, personal record").assertIsDisplayed()
     }
 
     @Test
@@ -515,6 +538,31 @@ class SessionSummaryScreenTest {
         // confetti would be the same event with the volume up, which is what naming it avoids.
         composeTestRule.onNodeWithText("MILESTONE REACHED").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
+    }
+
+    /** A 5 km run in 27:14, a 40 km ride in 1:20:00 and a 2:30 plank. */
+    private fun timedRecords(): List<SummaryRecord> {
+        val record = PersonalRecord(exerciseId = 0, workoutSetId = 0, type = PrType.BEST_PACE, achievedAt = 0)
+        return listOf(
+            SummaryRecord(
+                record = record.copy(id = 21, exerciseId = 21, distance = 500_000, duration = 1_634),
+                exerciseName = "Running, Outdoor",
+            ),
+            SummaryRecord(
+                record = record.copy(
+                    id = 22,
+                    exerciseId = 22,
+                    distance = 4_000_000,
+                    duration = 4_800,
+                    paceStyle = PaceStyle.SPEED,
+                ),
+                exerciseName = "Bicycling",
+            ),
+            SummaryRecord(
+                record = record.copy(id = 23, exerciseId = 23, type = PrType.MAX_DURATION, duration = 150),
+                exerciseName = "Plank",
+            ),
+        )
     }
 
     private fun setContent(state: SessionSummaryUiState) {

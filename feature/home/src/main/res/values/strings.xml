@@ -85,8 +85,6 @@
     <!-- Marks a record set in the most recently finished session, which is the one thing on
          this card that is news rather than history. -->
     <string name="home_record_new_badge">New</string>
-    <!-- How much the record beat the one before it. %1$s carries its own unit. -->
-    <string name="home_record_improvement">+%1$s</string>
     <!-- A record whose exercise has been removed from the catalogue since. The record still
          stands, so the card is drawn with this rather than dropped. -->
     <string name="home_record_unknown_exercise">Removed exercise</string>

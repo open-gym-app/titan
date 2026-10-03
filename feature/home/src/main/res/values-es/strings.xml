@@ -52,7 +52,6 @@
     <string name="home_record_heading">Récord reciente</string>
     <string name="home_record_open">Mostrar todos los récords personales</string>
     <string name="home_record_new_badge">Nuevo</string>
-    <string name="home_record_improvement">+%1$s</string>
     <string name="home_record_unknown_exercise">Ejercicio eliminado</string>
     <string name="home_record_description">%1$s, %2$s, %3$s, %4$s</string>
 

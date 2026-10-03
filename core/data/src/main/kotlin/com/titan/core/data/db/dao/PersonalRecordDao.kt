@@ -8,6 +8,7 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
 import com.titan.core.data.db.entity.PersonalRecordEntity
+import com.titan.core.data.db.projection.ExerciseTagNameRow
 import com.titan.core.data.db.projection.PersonalRecordEntryRow
 import com.titan.core.data.db.projection.RecordTallyRow
 import kotlinx.coroutines.flow.Flow
@@ -160,10 +161,17 @@ interface PersonalRecordDao {
      * knows what each record beat — the property the old `LAG` got by partitioning before
      * filtering.
      *
-     * The value being compared is chosen by kind, because each kind lives in its own column and
-     * `MAX_VOLUME` lives in `weight` — see `PersonalRecordEntry.value`, which makes the same
-     * choice for the row that is drawn. The two agree by inspection rather than by construction,
-     * which is a seam worth knowing about: a seventh kind has to be added in both.
+     * The value being compared is chosen by kind, because each kind lives in its own column,
+     * `MAX_VOLUME` and `MAX_WEIGHTED_HOLD` live in `weight`, and `BEST_PACE` lives in no column at
+     * all: it is the previous record's own duration over its own distance, in whole nanoseconds
+     * per centimetre — the figure the engine ranks paces on — so a 10 km run is measured against
+     * the 5 km it beat by pace rather than by total time, which would read a faster but longer run
+     * as a slower one. Integer arithmetic throughout, rounded half up by adding half the divisor
+     * before SQLite's integer division, exactly as `paceOf` rounds in Kotlin; `duration` is at
+     * most 864,000 s, so the product stays far inside a 64-bit integer. See
+     * `PersonalRecord.rankedFigure`, which makes the
+     * same choice for the row that is drawn. The two agree by inspection rather than by
+     * construction, which is a seam worth knowing about: a ninth kind has to be added in both.
      *
      * ### Ordering, filtering and the index
      *
@@ -204,8 +212,10 @@ interface PersonalRecordDao {
                         WHEN 'MAX_VOLUME' THEN previous.weight
                         WHEN 'MAX_REPS' THEN previous.reps
                         WHEN 'ESTIMATED_1RM' THEN previous.estimated_1rm
+                        WHEN 'MAX_WEIGHTED_HOLD' THEN previous.weight
                         WHEN 'MAX_DISTANCE' THEN previous.distance
-                        WHEN 'BEST_PACE' THEN previous.duration
+                        WHEN 'MAX_DURATION' THEN previous.duration
+                        WHEN 'BEST_PACE' THEN (previous.duration * 1000000000 + previous.distance / 2) / previous.distance
                     END
                 FROM personal_record AS previous
                 WHERE previous.exercise_id = record.exercise_id
@@ -261,10 +271,13 @@ interface PersonalRecordDao {
      *
      * A row has space for a single figure and an exercise accumulates records of several
      * kinds off the same sets, so something has to choose. The order below is what a lifter
-     * would quote: what you lifted, then what you lifted it for, then how far or how fast,
-     * and only then the two derived figures — an estimated 1RM is arithmetic over a set that
-     * already has a `MAX_WEIGHT` record, and a volume record is a property of a session
-     * rather than of a lift.
+     * would quote: what you lifted, then what you lifted it for, then how far, how fast and
+     * how long — a hold's longest time before the load it was held with, which is the record
+     * a plank is known by — and only then the two derived figures — an estimated 1RM is
+     * arithmetic over a set that already has a `MAX_WEIGHT` record, and a volume record is a
+     * property of a session rather than of a lift. The exercise's type decides which kinds it
+     * can have at all (see `PrType.eligibleFor`), so a run is headlined by its distance and a
+     * plank by its time without this having to know which is which.
      *
      * Ties inside a kind go to the most recent, which is also the best: a record of a given
      * kind is only written when it beats the one before it.
@@ -300,9 +313,11 @@ interface PersonalRecordDao {
                         WHEN 'MAX_REPS' THEN 1
                         WHEN 'MAX_DISTANCE' THEN 2
                         WHEN 'BEST_PACE' THEN 3
-                        WHEN 'ESTIMATED_1RM' THEN 4
-                        WHEN 'MAX_VOLUME' THEN 5
-                        ELSE 6
+                        WHEN 'MAX_DURATION' THEN 4
+                        WHEN 'MAX_WEIGHTED_HOLD' THEN 5
+                        WHEN 'ESTIMATED_1RM' THEN 6
+                        WHEN 'MAX_VOLUME' THEN 7
+                        ELSE 8
                     END ASC,
                     candidate.achieved_at DESC
                 LIMIT 1
@@ -312,4 +327,38 @@ interface PersonalRecordDao {
         """,
     )
     fun getHeadlineRecords(): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * Every exercise carrying one of [tagNames], one row per exercise and tag.
+     *
+     * How a record learns whether its exercise reads a pace as a speed or per hundred metres —
+     * see `PaceStyle` — without each records query joining two more tables onto rows that are
+     * mostly lifts. The answer is a handful of rows (the seed tags a few cardio movements, and
+     * nothing else), so the repository reads it whole and looks records up in it. The `EXISTS`
+     * shape the warm-up query uses would be the alternative, and it would put the same join on
+     * the hot paths `LargeHistoryBenchmarkTest` measures.
+     *
+     * A `Flow`, re-emitted when either table changes, so a user who tags their own exercise sees
+     * its records re-read without the records table having moved.
+     */
+    @Query(
+        """
+        SELECT et.exercise_id AS exercise_id, t.name AS tag_name
+        FROM exercise_tag et
+        INNER JOIN tag t ON t.id = et.tag_id
+        WHERE t.name IN (:tagNames)
+        """,
+    )
+    fun observeExerciseTags(tagNames: List<String>): Flow<List<ExerciseTagNameRow>>
+
+    /** [observeExerciseTags], once — for the paged read, which is a one-shot itself. */
+    @Query(
+        """
+        SELECT et.exercise_id AS exercise_id, t.name AS tag_name
+        FROM exercise_tag et
+        INNER JOIN tag t ON t.id = et.tag_id
+        WHERE t.name IN (:tagNames)
+        """,
+    )
+    suspend fun getExerciseTags(tagNames: List<String>): List<ExerciseTagNameRow>
 }

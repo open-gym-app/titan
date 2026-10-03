@@ -70,7 +70,7 @@ class StatTest {
 
     @Test
     fun `a PR badge spells out what the abbreviation stands for`() {
-        setContent { PrBadge(type = PrType.ESTIMATED_1RM) }
+        setContent { PrBadge(kind = PrType.ESTIMATED_1RM.label()) }
 
         composeTestRule.onNodeWithContentDescription("PR 1RM, personal record").assertIsDisplayed()
     }

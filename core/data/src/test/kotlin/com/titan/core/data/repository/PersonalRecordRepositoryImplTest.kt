@@ -1,12 +1,15 @@
 package com.titan.core.data.repository
 
 import com.titan.core.data.db.RoomTestBase
+import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.PersonalRecordEntity
 import com.titan.core.data.db.exercise
 import com.titan.core.data.db.session
 import com.titan.core.data.db.sessionExercise
+import com.titan.core.data.db.tag
 import com.titan.core.data.db.workoutSet
 import com.titan.core.data.mapper.PersonalRecordMapper
+import com.titan.core.domain.model.PaceStyle
 import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PrType
 import kotlinx.coroutines.flow.first
@@ -51,6 +54,8 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
         achievedAt: Long,
         weight: Long? = null,
         reps: Int? = null,
+        distance: Long? = null,
+        duration: Long? = null,
     ) = db.personalRecordDao().insert(
         PersonalRecordEntity(
             exerciseId = exerciseId,
@@ -58,9 +63,20 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
             prType = type.name,
             weight = weight,
             reps = reps,
+            distance = distance,
+            duration = duration,
             achievedAt = achievedAt,
         ),
     )
+
+    /** Tags [exerciseId] with the system tag [name], creating the tag row if it is not there. */
+    private suspend fun tagExercise(
+        exerciseId: Long,
+        name: String,
+    ) {
+        val tagId = db.tagDao().insert(tag(name = name, isSystem = true))
+        db.exerciseDao().addTag(ExerciseTagEntity(exerciseId = exerciseId, tagId = tagId))
+    }
 
     @Test
     fun `an empty table yields no records`() =
@@ -95,6 +111,55 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
 
             assertEquals(PrType.MAX_REPS, headline.type)
             assertEquals(14, headline.reps)
+        }
+
+    @Test
+    fun `a run is headlined by its distance and a hold by its time`() =
+        runBlocking {
+            val (run, runSet) = seedSet("Running, Outdoor")
+            val (plank, plankSet) = seedSet("Plank")
+            record(run, runSet, PrType.BEST_PACE, achievedAt = 300, distance = 500_000, duration = 1_634)
+            record(run, runSet, PrType.MAX_DURATION, achievedAt = 300, duration = 1_634)
+            record(run, runSet, PrType.MAX_DISTANCE, achievedAt = 100, distance = 500_000)
+            record(
+                plank,
+                plankSet,
+                PrType.MAX_WEIGHTED_HOLD,
+                achievedAt = 300,
+                weight = 20_000_000L * 60,
+                duration = 60,
+            )
+            record(plank, plankSet, PrType.MAX_DURATION, achievedAt = 100, duration = 150)
+
+            val headlines = repository.getHeadlineRecords().first()
+
+            assertEquals(PrType.MAX_DISTANCE, headlines.getValue(run).type)
+            assertEquals(PrType.MAX_DURATION, headlines.getValue(plank).type)
+        }
+
+    @Test
+    fun `a record reads its pace in the style its exercise is tagged with`() =
+        runBlocking {
+            val (ride, rideSet) = seedSet("Bicycling")
+            val (swim, swimSet) = seedSet("Swimming, Freestyle")
+            val (run, runSet) = seedSet("Running, Outdoor")
+            tagExercise(ride, PaceStyle.SPEED_TAG)
+            tagExercise(swim, PaceStyle.SWIM_TAG)
+            listOf(ride to rideSet, swim to swimSet, run to runSet).forEach { (exercise, set) ->
+                record(exercise, set, PrType.BEST_PACE, achievedAt = 100, distance = 100_000, duration = 300)
+            }
+
+            val headlines = repository.getHeadlineRecords().first()
+            assertEquals(PaceStyle.SPEED, headlines.getValue(ride).paceStyle)
+            assertEquals(PaceStyle.SWIM_PACE, headlines.getValue(swim).paceStyle)
+            assertEquals(PaceStyle.PACE, headlines.getValue(run).paceStyle)
+
+            assertEquals(PaceStyle.SPEED, repository.getRecordsForExercise(ride).first().single().paceStyle)
+            val page = repository.getRecordsPage(type = PrType.BEST_PACE, offset = 0, limit = 10)
+            assertEquals(
+                mapOf(ride to PaceStyle.SPEED, swim to PaceStyle.SWIM_PACE, run to PaceStyle.PACE),
+                page.associate { it.record.exerciseId to it.record.paceStyle },
+            )
         }
 
     @Test

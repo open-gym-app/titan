@@ -148,7 +148,6 @@
     <string name="records_filter_all">Tous</string>
 
     <string name="records_new_badge">Nouveau</string>
-    <string name="records_improvement">+%1$s</string>
     <string name="records_unknown_exercise">Exercice supprimé</string>
 
     <string name="records_row_description">%1$s, %2$s, %3$s, %4$s</string>

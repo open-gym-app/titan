@@ -11,11 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.model.PersonalRecordEntry
-import com.titan.core.domain.model.withValue
 import com.titan.core.ui.component.Eyebrow
 import com.titan.core.ui.component.PersonalRecordRow
 import com.titan.core.ui.component.SectionHeading
 import com.titan.core.ui.component.TitanCard
+import com.titan.core.ui.component.formattedImprovement
 import com.titan.core.ui.component.formattedValue
 import com.titan.core.ui.component.label
 import com.titan.core.ui.format.formatDayAndMonth
@@ -58,7 +58,7 @@ fun RecentRecordSection(
     modifier: Modifier = Modifier,
 ) {
     val name = record.exerciseName ?: stringResource(R.string.home_record_unknown_exercise)
-    val kind = record.record.type.label()
+    val kind = record.record.label()
     val value = record.record.formattedValue()
     val date = formatDayAndMonth(record.record.achievedAt)
 
@@ -93,7 +93,7 @@ fun RecentRecordSection(
                     }
                 },
                 trailing = {
-                    record.improvementLabel()?.let { improvement ->
+                    record.formattedImprovement()?.let { improvement ->
                         Text(
                             text = improvement,
                             style = TitanTheme.typography.numericSmall,
@@ -117,20 +117,6 @@ fun RecentRecordSection(
 }
 
 /**
- * How much this record beat the one before it — `+7 kg` — or null when it beat nothing.
- *
- * Formatted through the record's own formatter with the improvement substituted for its value,
- * exactly as #103's row does it: a second `when` over the kind at the call site is how two
- * screens end up disagreeing about what a kind is measured in.
- */
-@Composable
-private fun PersonalRecordEntry.improvementLabel(): String? {
-    val improvement = improvement ?: return null
-    val asRecord = record.withValue(improvement) ?: return null
-    return asRecord.formattedValue()?.let { stringResource(R.string.home_record_improvement, it) }
-}
-
-/**
  * The card as one sentence. [PersonalRecordRow] clears its subtree's semantics, so anything a
  * slot draws — the badge, the improvement — exists only for people who can see it unless it is
  * said here.
@@ -145,6 +131,6 @@ private fun spokenRecord(
 ): String {
     val base = stringResource(R.string.home_record_description, name, kind, value, date)
     val badge = if (record.isRecent) stringResource(R.string.home_record_new_badge) else null
-    return listOfNotNull(base, badge, record.improvementLabel())
+    return listOfNotNull(base, badge, record.formattedImprovement())
         .joinToString(stringResource(CoreR.string.spoken_separator))
 }

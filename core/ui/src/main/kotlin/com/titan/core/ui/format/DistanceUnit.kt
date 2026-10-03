@@ -17,6 +17,17 @@ enum class DistanceUnit(
     /** How many centimetres make one of this unit. */
     val centimetres: Double,
 
+    /**
+     * How many tenths of a millimetre make one of this unit — the same length as [centimetres],
+     * as an integer.
+     *
+     * The tenth of a millimetre is the coarsest length every unit here is a whole number of: a
+     * yard is 9,144 of them and a mile 16,093,440. For arithmetic that must not round on the way
+     * — a pace per mile is worked out from whole seconds and whole centimetres, and converted
+     * through this rather than through a `Double`.
+     */
+    internal val decimillimetres: Long,
+
     /** The CLDR unit this is, which is where its name and its number-and-unit pattern come from. */
     internal val measureUnit: MeasureUnit,
 
@@ -41,24 +52,28 @@ enum class DistanceUnit(
 ) {
     METRE(
         centimetres = 100.0,
+        decimillimetres = 10_000,
         measureUnit = MeasureUnit.METER,
         fractionDigits = 0,
         entryFractionDigits = 0,
     ),
     KILOMETRE(
         centimetres = 100_000.0,
+        decimillimetres = 10_000_000,
         measureUnit = MeasureUnit.KILOMETER,
         fractionDigits = 2,
         entryFractionDigits = 3,
     ),
     YARD(
         centimetres = 91.44,
+        decimillimetres = 9_144,
         measureUnit = MeasureUnit.YARD,
         fractionDigits = 0,
         entryFractionDigits = 0,
     ),
     MILE(
         centimetres = 160_934.4,
+        decimillimetres = 16_093_440,
         measureUnit = MeasureUnit.MILE,
         fractionDigits = 2,
         entryFractionDigits = 3,

@@ -4,6 +4,7 @@ import com.titan.core.domain.gamification.Achievements
 import com.titan.core.domain.gamification.DropRates
 import com.titan.core.domain.gamification.DropTableEvaluator
 import com.titan.core.domain.gamification.XpCalculator
+import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.DropSource
@@ -701,6 +702,9 @@ class SessionCompletionPipelineTest {
 
         val detectPersonalRecords = PrDetectionUseCase(
             sessionRepository = sessions,
+            // Empty: an exercise the catalogue does not hold is judged as a lift, which is what
+            // every set in this suite is.
+            exerciseRepository = FakeExerciseRepository(),
             personalRecordRepository = observedRecords,
             userPreferencesRepository = FakeUserPreferencesRepository(),
         )

@@ -16,6 +16,7 @@ import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.PrBadge
 import com.titan.core.ui.component.TitanCard
 import com.titan.core.ui.component.formattedValue
+import com.titan.core.ui.component.label
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
 import com.titan.feature.session.summary.SummaryRecord
@@ -76,7 +77,7 @@ private fun RecordRow(record: SummaryRecord) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
         ) {
-            PrBadge(type = record.record.type)
+            PrBadge(kind = record.record.label())
             Text(
                 text = record.exerciseName ?: stringResource(R.string.summary_record_unknown),
                 style = MaterialTheme.typography.titleSmall,

@@ -2,14 +2,17 @@ package com.titan.core.data.repository
 
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.entity.PersonalRecordEntity
+import com.titan.core.data.db.projection.ExerciseTagNameRow
 import com.titan.core.data.db.projection.PersonalRecordColumns
 import com.titan.core.data.mapper.PersonalRecordMapper
+import com.titan.core.domain.model.PaceStyle
 import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PersonalRecordEntry
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.RecordTally
 import com.titan.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 import javax.inject.Inject
@@ -21,6 +24,15 @@ import javax.inject.Inject
  * [PersonalRecordDao.getHeadlineRecords]. This class only turns the rows into domain models
  * and keys them, so the ranking lives next to the index that serves it rather than being a
  * sort in Kotlin over rows SQLite has already ordered.
+ *
+ * ### Every record leaves with its exercise's [PaceStyle]
+ *
+ * Whether a `BEST_PACE` reads as a pace or a speed is a fact about the exercise — its `SPEED`
+ * and `SWIM` tags — and every screen that draws a record has to know it. Filling it in here, on
+ * every read, is what lets those screens stay ignorant of tags: the alternative is seven callers
+ * each looking the exercise up, and the first one that forgets draws a cyclist's record as a
+ * pace. The tags are read whole (a handful of rows) and joined in memory — see
+ * [PersonalRecordDao.observeExerciseTags] for why not in SQL.
  */
 class PersonalRecordRepositoryImpl @Inject constructor(
     private val personalRecordDao: PersonalRecordDao,
@@ -28,11 +40,11 @@ class PersonalRecordRepositoryImpl @Inject constructor(
 ) : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
-        personalRecordDao.getHeadlineRecords().map { rows ->
+        combine(personalRecordDao.getHeadlineRecords(), observePaceStyles()) { rows, styles ->
             // `mapNotNull`, because a row whose type this build cannot read is dropped rather
             // than guessed at — see the mapper. The query already guarantees one row per
             // exercise, so `associateBy` cannot lose one to a collision.
-            rows.mapNotNull(personalRecordMapper::toDomainOrNull).associateBy { it.exerciseId }
+            rows.mapNotNull { toDomainOrNull(it, styles) }.associateBy { it.exerciseId }
         }
 
     /**
@@ -44,8 +56,9 @@ class PersonalRecordRepositoryImpl @Inject constructor(
      * first row of a type is still that type's best.
      */
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
-        personalRecordDao.getByExercise(exerciseId)
-            .map { rows -> rows.mapNotNull(personalRecordMapper::toDomainOrNull) }
+        combine(personalRecordDao.getByExercise(exerciseId), observePaceStyles()) { rows, styles ->
+            rows.mapNotNull { toDomainOrNull(it, styles) }
+        }
 
     /**
      * Counted in SQLite over every row, including ones this build's mapper could not read: a
@@ -67,17 +80,20 @@ class PersonalRecordRepositoryImpl @Inject constructor(
         type: PrType?,
         offset: Int,
         limit: Int,
-    ): List<PersonalRecordEntry> =
-        personalRecordDao.getRecordsPage(type = type?.name, limit = limit, offset = offset)
-            .mapNotNull { row ->
-                val record = personalRecordMapper.toDomainOrNull(row.record.toEntity()) ?: return@mapNotNull null
-                PersonalRecordEntry(
-                    record = record,
-                    exerciseName = row.exerciseName,
-                    previousValue = row.previousValue,
-                    isRecent = row.isRecent,
-                )
-            }
+    ): List<PersonalRecordEntry> {
+        val rows = personalRecordDao.getRecordsPage(type = type?.name, limit = limit, offset = offset)
+        if (rows.isEmpty()) return emptyList()
+        val styles = personalRecordDao.getExerciseTags(PaceStyle.TAG_NAMES).toPaceStyles()
+        return rows.mapNotNull { row ->
+            val record = toDomainOrNull(row.record.toEntity(), styles) ?: return@mapNotNull null
+            PersonalRecordEntry(
+                record = record,
+                exerciseName = row.exerciseName,
+                previousValue = row.previousValue,
+                isRecent = row.isRecent,
+            )
+        }
+    }
 
     override fun observeRecordCount(): Flow<Int> = personalRecordDao.observeCount()
 
@@ -110,7 +126,24 @@ class PersonalRecordRepositoryImpl @Inject constructor(
         ) { current -> isBetter(current?.let(personalRecordMapper::toDomainOrNull)) }
         return id?.let { record.copy(id = it) }
     }
+
+    /** Each tagged exercise's style, re-emitted when anyone tags or untags one. */
+    private fun observePaceStyles(): Flow<Map<Long, PaceStyle>> =
+        personalRecordDao.observeExerciseTags(PaceStyle.TAG_NAMES).map { it.toPaceStyles() }
+
+    /** The row as a record in its exercise's style — [PaceStyle.PACE] for one with no tag. */
+    private fun toDomainOrNull(
+        entity: PersonalRecordEntity,
+        styles: Map<Long, PaceStyle>,
+    ): PersonalRecord? =
+        personalRecordMapper.toDomainOrNull(entity)?.let { record ->
+            styles[record.exerciseId]?.let { record.copy(paceStyle = it) } ?: record
+        }
 }
+
+/** The tag rows, folded into one style per exercise. Untagged exercises are simply absent. */
+private fun List<ExerciseTagNameRow>.toPaceStyles(): Map<Long, PaceStyle> =
+    groupBy(ExerciseTagNameRow::exerciseId) { it.tagName }.mapValues { (_, names) -> PaceStyle.of(names) }
 
 /** What a day is, in the milliseconds `achieved_at` is stored in. */
 private const val MILLIS_PER_DAY = 86_400_000L

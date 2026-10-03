@@ -115,7 +115,16 @@ class PersistedEnumTest {
     @Test
     fun `pr type names are the ones personal_record pr_type holds`() {
         assertEquals(
-            setOf("MAX_WEIGHT", "MAX_REPS", "MAX_VOLUME", "ESTIMATED_1RM", "MAX_DISTANCE", "BEST_PACE"),
+            setOf(
+                "MAX_WEIGHT",
+                "MAX_REPS",
+                "MAX_VOLUME",
+                "ESTIMATED_1RM",
+                "MAX_DISTANCE",
+                "BEST_PACE",
+                "MAX_DURATION",
+                "MAX_WEIGHTED_HOLD",
+            ),
             PrType.entries.map(PrType::name).toSet(),
         )
     }

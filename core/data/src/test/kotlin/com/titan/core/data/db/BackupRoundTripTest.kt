@@ -1,6 +1,8 @@
 package com.titan.core.data.db
 
+import com.titan.core.data.mapper.PersonalRecordMapper
 import com.titan.core.data.repository.BackupRepositoryImpl
+import com.titan.core.data.repository.PersonalRecordRepositoryImpl
 import com.titan.core.data.repository.SessionStateRepositoryImpl
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ExportSink
@@ -11,7 +13,9 @@ import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.backup.model.ImportProgress
 import com.titan.core.domain.backup.model.WorkoutSetRow
 import com.titan.core.domain.backup.toPayload
+import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.SessionState
+import com.titan.core.domain.model.holdLoad
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import kotlinx.coroutines.Dispatchers
@@ -121,6 +125,48 @@ class BackupRoundTripTest : RoomTestBase() {
             val hold = db.dumpTable(BackupTable.TEMPLATE_SET).first { it["id"] == "3" }
             assertEquals("45", hold["duration"])
             assertEquals(null, hold["distance"])
+        }
+
+    /**
+     * The timed records (#225) come back as the kinds they were written as. The file stores the
+     * enum's name, so this is the guard against a rename that an older file would then fail to
+     * read — and the read goes through the repository, where an unreadable `pr_type` is dropped
+     * rather than failing, so a dump comparison alone would not notice.
+     */
+    @Test
+    fun `the timed record kinds survive an export and an import`() =
+        runBlocking {
+            db.seedEveryTable()
+            db.backupDao().insertPersonalRecords(
+                listOf(
+                    personalRecord(exerciseId = 2, workoutSetId = 2, prType = "MAX_DURATION", achievedAt = FINISHED_AT)
+                        .copy(id = 10, duration = 60),
+                    personalRecord(
+                        exerciseId = 2,
+                        workoutSetId = 2,
+                        prType = "MAX_WEIGHTED_HOLD",
+                        achievedAt = FINISHED_AT,
+                    )
+                        .copy(id = 11, weight = 20_000_000L * 60, duration = 60),
+                    personalRecord(exerciseId = 2, workoutSetId = 2, prType = "BEST_PACE", achievedAt = FINISHED_AT)
+                        .copy(id = 12, distance = 2_000, duration = 60),
+                ),
+            )
+            val before = db.dumpTable(BackupTable.PERSONAL_RECORD)
+            val document = exportToText()
+
+            wipeEverything()
+            import(source(document)).toList()
+
+            assertEquals(before, db.dumpTable(BackupTable.PERSONAL_RECORD))
+            val restored = PersonalRecordRepositoryImpl(db.personalRecordDao(), PersonalRecordMapper())
+                .getRecordsForExercise(exerciseId = 2)
+                .first()
+            assertEquals(
+                setOf(PrType.MAX_DURATION, PrType.MAX_WEIGHTED_HOLD, PrType.BEST_PACE),
+                restored.map { it.type }.toSet(),
+            )
+            assertEquals(20_000_000L, restored.single { it.type == PrType.MAX_WEIGHTED_HOLD }.holdLoad)
         }
 
     /** Null is not blank, and a restore must not normalise it into one. */

@@ -8,9 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.model.PersonalRecordEntry
-import com.titan.core.domain.model.withValue
 import com.titan.core.ui.component.Eyebrow
 import com.titan.core.ui.component.PersonalRecordRow
+import com.titan.core.ui.component.formattedImprovement
 import com.titan.core.ui.component.formattedValue
 import com.titan.core.ui.component.label
 import com.titan.core.ui.format.formatDayAndMonth
@@ -30,7 +30,8 @@ import com.titan.core.ui.R as CoreR
  *
  * A first record of its kind improved on nothing, and `+0` under it would credit the user with
  * beating a record they never held — see [PersonalRecordEntry.improvement], which is null for
- * exactly that case rather than zero.
+ * exactly that case rather than zero. How it is written — `+12 kg`, or `−0:17 /km` for a pace,
+ * which beats by going down — is `formattedImprovement`'s, shared with Home's card.
  *
  * ### The whole row is one node to a screen reader
  *
@@ -46,7 +47,7 @@ internal fun PersonalRecordEntryRow(
     modifier: Modifier = Modifier,
 ) {
     val name = entry.exerciseName ?: stringResource(R.string.records_unknown_exercise)
-    val kind = entry.record.type.label()
+    val kind = entry.record.label()
     val value = entry.record.formattedValue()
     val date = formatDayAndMonth(entry.record.achievedAt)
 
@@ -73,7 +74,7 @@ internal fun PersonalRecordEntryRow(
             }
         },
         trailing = {
-            entry.improvementLabel()?.let { improvement ->
+            entry.formattedImprovement()?.let { improvement ->
                 Text(
                     text = improvement,
                     style = TitanTheme.typography.numericSmall,
@@ -89,22 +90,6 @@ internal fun PersonalRecordEntryRow(
                 vertical = TitanTheme.spacing.lg,
             ),
     )
-}
-
-/**
- * The improvement as text — `+12 kg`, `+2 reps` — or null when this record beat nothing.
- *
- * Formatted through the same helper the record's own figure uses, so the two agree on units and
- * decimals. The record is copied with the improvement substituted for its value rather than
- * formatted by a second `when` over [com.titan.core.domain.model.PrType]: a seventh kind then
- * has one place to be added here instead of two that can disagree about what a kind is measured
- * in.
- */
-@Composable
-private fun PersonalRecordEntry.improvementLabel(): String? {
-    val improvement = improvement ?: return null
-    val asRecord = record.withValue(improvement) ?: return null
-    return asRecord.formattedValue()?.let { stringResource(R.string.records_improvement, it) }
 }
 
 /**
@@ -124,6 +109,6 @@ private fun spokenRow(
 ): String {
     val base = stringResource(R.string.records_row_description, name, kind, value, date)
     val badge = if (entry.isRecent) stringResource(R.string.records_new_badge) else null
-    return listOfNotNull(base, badge, entry.improvementLabel())
+    return listOfNotNull(base, badge, entry.formattedImprovement())
         .joinToString(stringResource(CoreR.string.spoken_separator))
 }
