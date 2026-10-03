@@ -29,9 +29,10 @@
         <item quantity="other">%1$d saved</item>
     </plurals>
 
-    <!-- Before the user has saved a template. It names where templates come from, because
-         nothing on this screen creates one — an empty list with no explanation reads as a
-         broken feature rather than an unused one. -->
+    <!-- When the template list is empty: the defaults a fresh install starts with (#213) have
+         all been deleted, and nothing has been saved since. It names where templates come
+         from, because nothing on this screen creates one — an empty list with no explanation
+         reads as a broken feature rather than an unused one. -->
     <string name="new_session_no_templates_title">No templates yet</string>
     <string name="new_session_no_templates_body">Finish a workout and save it as a template, and it shows up here ready to run again.</string>
 

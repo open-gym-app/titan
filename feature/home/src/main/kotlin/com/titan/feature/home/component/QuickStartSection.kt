@@ -69,7 +69,8 @@ import com.titan.feature.home.R
  * and the strip reads as two cards and nothing more.
  *
  * @param templates what the strip offers. Empty draws no strip and no heading for one, which
- *   is what a user who has never saved a template sees.
+ *   is what a user who has deleted every template, the defaults a fresh install starts with
+ *   (#213) included, sees.
  * @param enabled false while a workout is already open. Both actions and the strip under them
  *   lead into the flow that sets a new session up, and that flow *refuses* while one is running — `ResumeSessionDialog`
  *   is where the user finds that out today, a screen and a transition later. Home knows before

@@ -1,6 +1,9 @@
 package com.titan.feature.settings
 
 import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.notification.NotificationKind
 
 /*
@@ -14,12 +17,23 @@ import com.titan.core.domain.notification.NotificationKind
  * siblings.
  */
 
-@StringRes
-internal fun SettingsMessage.textRes(): Int =
+/** What the snackbar says for this message. */
+@Composable
+internal fun SettingsMessage.text(): String =
     when (this) {
-        SettingsMessage.SAVE_FAILED -> R.string.settings_save_failed
-        SettingsMessage.DELETE_SUCCEEDED -> R.string.settings_delete_done
-        SettingsMessage.DELETE_FAILED -> R.string.settings_delete_failed
+        SettingsMessage.SaveFailed -> stringResource(R.string.settings_save_failed)
+
+        SettingsMessage.DeleteSucceeded -> stringResource(R.string.settings_delete_done)
+
+        SettingsMessage.DeleteFailed -> stringResource(R.string.settings_delete_failed)
+
+        is SettingsMessage.TemplatesRestored -> if (count == 0) {
+            stringResource(R.string.settings_restore_templates_none_done)
+        } else {
+            pluralStringResource(R.plurals.settings_restore_templates_done, count, count)
+        }
+
+        SettingsMessage.RestoreFailed -> stringResource(R.string.settings_restore_templates_failed)
     }
 
 /**

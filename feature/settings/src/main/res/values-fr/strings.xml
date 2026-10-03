@@ -33,6 +33,29 @@
     <string name="settings_warmup_suggestions">Suggestions d’échauffement</string>
     <string name="settings_warmup_suggestions_detail">Proposer un échauffement et un retour au calme selon les muscles travaillés</string>
 
+    <string name="settings_restore_templates">Restaurer les modèles par défaut</string>
+    <string name="settings_restore_templates_none_missing">Tous les modèles par défaut sont dans votre liste</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">%d modèle par défaut supprimé peut être rétabli</item>
+        <item quantity="many">%d modèles par défaut supprimés peuvent être rétablis</item>
+        <item quantity="other">%d modèles par défaut supprimés peuvent être rétablis</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">Restaurer les modèles par défaut ?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Ajoute %1$d modèle que vous avez supprimé : %2$s</item>
+        <item quantity="many">Ajoute %1$d modèles que vous avez supprimés : %2$s</item>
+        <item quantity="other">Ajoute %1$d modèles que vous avez supprimés : %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restaurer</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d modèle restauré</item>
+        <item quantity="many">%d modèles restaurés</item>
+        <item quantity="other">%d modèles restaurés</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Rien à restaurer : tous les modèles par défaut sont déjà là</string>
+    <string name="settings_restore_templates_failed">Impossible de restaurer les modèles. Réessayez.</string>
+
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Sauvegarde &amp; restauration</string>
     <string name="settings_backup_detail">Exportez tout dans un fichier, ou remplacez cet appareil à partir d’un fichier</string>

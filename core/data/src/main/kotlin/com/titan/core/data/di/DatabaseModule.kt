@@ -52,7 +52,7 @@ object DatabaseModule {
         Room.databaseBuilder(context, TitanDatabase::class.java, DATABASE_NAME)
             .addCallback(TitanDatabase.foreignKeysCallback)
             .addCallback(TitanDatabase.singleRowProgressCallback)
-            .addCallback(TitanDatabase.seedCallback(context.assets))
+            .addCallback(TitanDatabase.seedCallback(context))
             .addMigrations(*TitanDatabase.MIGRATIONS)
             .build()
 

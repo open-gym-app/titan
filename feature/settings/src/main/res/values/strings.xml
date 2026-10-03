@@ -35,6 +35,29 @@
     <string name="settings_warmup_suggestions">Warm-up suggestions</string>
     <string name="settings_warmup_suggestions_detail">Offer a warm-up and a cool-down for the muscles a session trains</string>
 
+    <!-- Restore default templates (#213). Puts back the defaults seeded on first launch that
+         the user has since deleted; a default counts as deleted when no template carries its
+         name. The row is disabled, and says why, when there is nothing to put back. -->
+    <string name="settings_restore_templates">Restore default templates</string>
+    <string name="settings_restore_templates_none_missing">Every default template is in your list</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">%d deleted default can be added back</item>
+        <item quantity="other">%d deleted defaults can be added back</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">Restore default templates?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Adds %1$d template you deleted: %2$s</item>
+        <item quantity="other">Adds %1$d templates you deleted: %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restore</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d template restored</item>
+        <item quantity="other">%d templates restored</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Nothing to restore: every default template is already there</string>
+    <string name="settings_restore_templates_failed">Could not restore the templates. Try again.</string>
+
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>
     <string name="settings_backup_detail">Export everything to a file, or replace this device from one</string>

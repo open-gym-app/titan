@@ -10,14 +10,18 @@ import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.titan.app.HiltTestActivity
@@ -44,7 +48,7 @@ import org.robolectric.annotation.Config
 import javax.inject.Inject
 
 /**
- * The four journeys a user actually takes, each spanning several screens in several modules.
+ * The five journeys a user actually takes, each spanning several screens in several modules.
  *
  * ### What this suite is for, and what it deliberately leaves to others
  *
@@ -80,13 +84,19 @@ import javax.inject.Inject
  * still true in the sense that matters: nothing here reads or writes a device's data, and the
  * tests do not share state.
  *
- * ### The catalogue is real, and that shapes journey four
+ * ### The catalogue is real, and that shapes the picker journey
  *
  * The bundled seed **does** load here — the picker draws 894 rows — so an exercise is not
  * found by name in the unfiltered list: `LazyColumn` has composed the first screenful and
  * nothing else, and waiting for a row further down is waiting for recycling rather than for
  * the app. The two exercises these journeys add are therefore named so that nothing in the
- * catalogue collides with them, and journey four searches before it taps.
+ * catalogue collides with them, and the picker journey searches before it taps.
+ *
+ * The default templates load with it (#213), so the template list is longer than the window
+ * from the first frame: a journey scrolls to the row it wants rather than waiting for one
+ * `LazyColumn` may never compose. One journey starts from a default rather than a template of
+ * its own, because "a fresh install has something to start" is a claim only this suite can
+ * make end to end.
  *
  * ### Why everything is waited for
  *
@@ -297,7 +307,7 @@ class EndToEndJourneyTest {
 
         // Back into the flow, on the template the session produced rather than the seeded one.
         openTheTemplateList()
-        awaitNode(templateRow(SAVED_TEMPLATE))
+        scrollToTemplate(SAVED_TEMPLATE)
         composeTestRule.onNode(templateRow(SAVED_TEMPLATE)).performClick()
         awaitText(START_WORKOUT)
 
@@ -309,6 +319,45 @@ class EndToEndJourneyTest {
             val exerciseIds = templates.getExercises(saved.id).first().map { it.exerciseId }
             assertEquals(listOf(journeyPressId), exerciseIds)
         }
+    }
+
+    /**
+     * A default template → a workout laid out as it plans → a logged set → recap.
+     *
+     * Nothing is seeded here: the template is one the database was created with (#213), which
+     * is the point — a fresh install has something to start. Arms is the default with
+     * supersets in it, so the claim covers the grouping as well as the sets: three pairs in the
+     * template are three pairs in the workout, and every set it plans is a set waiting to be
+     * ticked.
+     */
+    @Test
+    fun `a default template starts a workout with its plan and logs`() {
+        startTheWorkoutFromTheTemplate(DEFAULT_TEMPLATE)
+
+        runBlocking {
+            val active = checkNotNull(sessions.getActive().first())
+            assertEquals(
+                listOf(0, 0, 1, 1, 2, 2),
+                sessions.getExercises(active.id).first().map { it.supersetGroup },
+            )
+            val planned = sessions.getSetsForSession(active.id).first()
+            assertEquals(DEFAULT_TEMPLATE_SETS, planned.size)
+            assertEquals(listOf(10, 10, 10), planned.take(3).map { it.reps })
+        }
+
+        // The first set of the first exercise; every exercise has a set one, so the first is
+        // the curl at the top of the list. A planned set is ticked rather than logged — its row
+        // already exists with the reps the template plans in it — so it is the row's own
+        // completion toggle that is pressed, and pressing it is the whole of logging it.
+        awaitNode(plannedSetTick(1, completed = false))
+        composeTestRule.onAllNodes(plannedSetTick(1, completed = false)).onFirst().performScrollTo().performClick()
+        awaitNode(plannedSetTick(1, completed = true))
+
+        finishTheWorkout()
+
+        // One set performed, out of eighteen planned: the recap counts what was done.
+        awaitContentDescription(ONE_SET_LOGGED)
+        composeTestRule.onNodeWithText(DEFAULT_TEMPLATE).assertIsDisplayed()
     }
 
     /**
@@ -346,9 +395,10 @@ class EndToEndJourneyTest {
     // ── The journeys' shared steps ──────────────────────────────────────────────────────
 
     /**
-     * The template the first three journeys start from.
+     * The template the first three journeys start from — not a default, so its single
+     * exercise is one of the journeys' own and the recap's counts are this file's to predict.
      *
-     * Seeded per test rather than in [setUp], because the fourth journey never opens the
+     * Seeded per test rather than in [setUp], because the picker journey never opens the
      * template list and a row it does not use is a row the picker has to draw past.
      */
     private fun seedTemplate() {
@@ -360,15 +410,30 @@ class EndToEndJourneyTest {
         }
     }
 
-    /** Home → template list → the seeded template → a running workout. */
-    private fun startTheWorkoutFromTheTemplate() {
+    /** Home → template list → [name] → a running workout. */
+    private fun startTheWorkoutFromTheTemplate(name: String = TEMPLATE) {
         openTheTemplateList()
-        awaitNode(templateRow(TEMPLATE))
-        composeTestRule.onNode(templateRow(TEMPLATE)).performClick()
+        scrollToTemplate(name)
+        composeTestRule.onNode(templateRow(name)).performClick()
         awaitText(START_WORKOUT)
         composeTestRule.onNodeWithText(START_WORKOUT).performClick()
         awaitActiveSession()
     }
+
+    /**
+     * Brings [name]'s row on screen in the template list.
+     *
+     * Scrolled to rather than waited for: the default templates are in this database as they
+     * are on a fresh install, so the list is longer than the window, and a row `LazyColumn` has
+     * not composed is one a wait would wait for forever. Retried, because the list fills from
+     * a Room read — a scroll that runs before the row exists searches to the end and fails.
+     */
+    private fun scrollToTemplate(name: String) =
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            runCatching {
+                composeTestRule.onNode(hasScrollToNodeAction()).performScrollToNode(templateRow(name))
+            }.isSuccess
+        }
 
     /**
      * Logs one set and waits for it to come back from the database.
@@ -456,6 +521,13 @@ class EndToEndJourneyTest {
 
     private fun detailsOf(exercise: String) = DETAILS_OF.format(exercise)
 
+    /** The tick on a set the workout was laid out with, by what it says and the state it is in. */
+    private fun plannedSetTick(
+        number: Int,
+        completed: Boolean,
+    ) = hasContentDescription(SET_TICK.format(number)) and
+        hasStateDescription(if (completed) COMPLETED else NOT_COMPLETED)
+
     private fun setWeightLabel(number: Int) = SET_WEIGHT.format(number)
 
     private fun setRepsLabel(number: Int) = SET_REPS.format(number)
@@ -511,6 +583,10 @@ class EndToEndJourneyTest {
         const val JOURNEY_ROW = "Journey row"
         const val TEMPLATE = "Push day"
 
+        /** A template the database is created with, and how many sets it plans: 6 × 3. */
+        const val DEFAULT_TEMPLATE = "Arms"
+        const val DEFAULT_TEMPLATE_SETS = 18
+
         // The template the recap makes, and the dialog that names it.
         const val SAVE_AS_TEMPLATE = "Save as template"
         const val SAVED_TEMPLATE = "Bench day"
@@ -522,11 +598,15 @@ class EndToEndJourneyTest {
         const val SET_WEIGHT = "Weight, set %d"
         const val SET_REPS = "Reps, set %d"
         const val COMPLETE_SET = "Complete set %d"
+        const val SET_TICK = "Set %d"
+        const val COMPLETED = "Completed"
+        const val NOT_COMPLETED = "Not completed"
         const val COMPLETE_SECOND_SET = "Complete set 2"
         const val FIRST_SET_WEIGHT = "Weight, set 1"
 
         // The recap's stat tiles, by the sentence a screen reader reads off them.
         const val TWO_SETS_LOGGED = "Sets, 2 total"
+        const val ONE_SET_LOGGED = "Sets, 1 total"
         const val ONE_EXERCISE_DONE = "Exercises, 1 done"
 
         // The picker: its search, and its confirm bar before and after one exercise is added.

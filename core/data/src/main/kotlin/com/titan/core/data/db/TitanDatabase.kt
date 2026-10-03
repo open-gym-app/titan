@@ -1,6 +1,6 @@
 package com.titan.core.data.db
 
-import android.content.res.AssetManager
+import android.content.Context
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
@@ -126,14 +126,14 @@ abstract class TitanDatabase : RoomDatabase() {
         }
 
         /**
-         * Seeds the bundled exercise catalogue on a fresh install. Takes the
-         * [AssetManager] rather than a `Context` because reading the generated
-         * SQL asset is the only thing the seed needs from the platform.
+         * Seeds the bundled exercise catalogue and the default templates on a fresh install.
+         * Takes a `Context` because the seed needs two things from the platform: the generated
+         * SQL asset, and the string resources the default templates are named from.
          */
-        fun seedCallback(assets: AssetManager) =
+        fun seedCallback(context: Context) =
             object : Callback() {
                 override fun onCreate(db: SupportSQLiteDatabase) {
-                    DatabaseSeed.insertInto(db, assets)
+                    DatabaseSeed.insertInto(db, context)
                 }
             }
 

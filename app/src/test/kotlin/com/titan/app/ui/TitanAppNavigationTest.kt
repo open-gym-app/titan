@@ -28,6 +28,7 @@ import com.titan.core.ui.theme.TitanTheme
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
@@ -107,6 +108,11 @@ class TitanAppNavigationTest {
     fun setUp() {
         hilt.inject()
         runBlocking {
+            // The default templates the database is created with (#213) are taken out first.
+            // This suite is about the graph, not about what a fresh install offers — that is
+            // `EndToEndJourneyTest`'s — and a template list of one keeps its row on screen and
+            // first on Home's strip, where seventeen defaults would push it past both.
+            templates.getAll().first().forEach { templates.delete(it.id) }
             val benchPress = exercises.insert(Exercise(name = BENCH_PRESS))
             templates.insert(
                 template = WorkoutTemplate(name = TEMPLATE),

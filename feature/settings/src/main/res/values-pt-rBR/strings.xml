@@ -33,6 +33,29 @@
     <string name="settings_warmup_suggestions">Sugestões de aquecimento</string>
     <string name="settings_warmup_suggestions_detail">Propor um aquecimento e uma volta à calma conforme os músculos do treino</string>
 
+    <string name="settings_restore_templates">Restaurar modelos padrão</string>
+    <string name="settings_restore_templates_none_missing">Todos os modelos padrão estão na sua lista</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">%d modelo padrão excluído pode ser recuperado</item>
+        <item quantity="many">%d modelos padrão excluídos podem ser recuperados</item>
+        <item quantity="other">%d modelos padrão excluídos podem ser recuperados</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">Restaurar os modelos padrão?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Adiciona %1$d modelo que você excluiu: %2$s</item>
+        <item quantity="many">Adiciona %1$d modelos que você excluiu: %2$s</item>
+        <item quantity="other">Adiciona %1$d modelos que você excluiu: %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restaurar</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d modelo restaurado</item>
+        <item quantity="many">%d modelos restaurados</item>
+        <item quantity="other">%d modelos restaurados</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Nada para restaurar: todos os modelos padrão já estão lá</string>
+    <string name="settings_restore_templates_failed">Não foi possível restaurar os modelos. Tente de novo.</string>
+
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup e restauração</string>
     <string name="settings_backup_detail">Exporte tudo para um arquivo, ou substitua este aparelho a partir de um</string>

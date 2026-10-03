@@ -12,7 +12,9 @@ import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.notification.NotificationPermissionState
 import com.titan.core.domain.notification.NotificationPreferences
+import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
+import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.feature.settings.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -48,6 +50,8 @@ class SettingsViewModelTest {
     private val preferences = FakeUserPreferencesRepository()
     private val localData = FakeLocalDataRepository()
     private val notificationPermission = FakeNotificationPermission()
+    private val templates = FakeTemplateRepository("Push", "Legs", "Arms")
+    private val defaults = FakeDefaultTemplateCatalogue("Push", "Legs", "Arms")
 
     @Before
     fun setUpMainDispatcher() {
@@ -193,7 +197,7 @@ class SettingsViewModelTest {
 
             viewModel.onEvent(SettingsEvent.ThemeSelected(ThemePreference.LIGHT))
 
-            assertEquals(SettingsMessage.SAVE_FAILED, viewModel.uiState.value.message)
+            assertEquals(SettingsMessage.SaveFailed, viewModel.uiState.value.message)
             // And the row still shows the stored value, because nothing was changed optimistically.
             assertEquals(ThemePreference.SYSTEM, viewModel.uiState.value.preferences.theme)
         }
@@ -209,7 +213,7 @@ class SettingsViewModelTest {
             // rejected, and an `IllegalArgumentException` out of `viewModelScope` is a crash.
             viewModel.onEvent(SettingsEvent.BarWeightSelected(0))
 
-            assertEquals(SettingsMessage.SAVE_FAILED, viewModel.uiState.value.message)
+            assertEquals(SettingsMessage.SaveFailed, viewModel.uiState.value.message)
             assertEquals(UserPreferences().barWeight, viewModel.uiState.value.preferences.barWeight)
         }
 
@@ -224,6 +228,63 @@ class SettingsViewModelTest {
             viewModel.onEvent(SettingsEvent.MessageShown)
 
             assertNull(viewModel.uiState.value.message)
+        }
+
+    // --- restoring the default templates ----------------------------------
+
+    @Test
+    fun `the state names the defaults the user has deleted, and follows the template list`() =
+        runTest {
+            val viewModel = viewModel()
+            collectState(viewModel)
+            assertEquals(emptyList<String>(), viewModel.uiState.value.missingDefaultTemplates)
+
+            templates.delete(2L)
+
+            assertEquals(listOf("Legs"), viewModel.uiState.value.missingDefaultTemplates)
+        }
+
+    @Test
+    fun `confirming the restore adds the missing defaults, closes the dialog and reports the count`() =
+        runTest {
+            val templates = FakeTemplateRepository("Push")
+            val viewModel = viewModel(templates = templates)
+            collectState(viewModel)
+            viewModel.onEvent(SettingsEvent.DialogRequested(SettingsDialog.RESTORE_TEMPLATES))
+
+            viewModel.onEvent(SettingsEvent.RestoreDefaultTemplatesConfirmed)
+
+            val state = viewModel.uiState.value
+            assertEquals(listOf("Push", "Legs", "Arms"), templates.names)
+            assertNull(state.dialog)
+            assertEquals(SettingsMessage.TemplatesRestored(2), state.message)
+            assertEquals(emptyList<String>(), state.missingDefaultTemplates)
+        }
+
+    @Test
+    fun `an unreadable catalogue leaves the screen working, with nothing to restore`() =
+        runTest {
+            defaults.readFailure = IOException("database is locked")
+            val viewModel = viewModel(
+                preferences = FakeUserPreferencesRepository(UserPreferences(theme = ThemePreference.DARK)),
+            )
+            collectState(viewModel)
+
+            assertEquals(ThemePreference.DARK, viewModel.uiState.value.preferences.theme)
+            assertEquals(emptyList<String>(), viewModel.uiState.value.missingDefaultTemplates)
+        }
+
+    @Test
+    fun `a restore that cannot write says so`() =
+        runTest {
+            val templates = FakeTemplateRepository()
+            templates.insertFailure = IOException("disk full")
+            val viewModel = viewModel(templates = templates)
+            collectState(viewModel)
+
+            viewModel.onEvent(SettingsEvent.RestoreDefaultTemplatesConfirmed)
+
+            assertEquals(SettingsMessage.RestoreFailed, viewModel.uiState.value.message)
         }
 
     // --- the destructive path ---------------------------------------------
@@ -241,7 +302,7 @@ class SettingsViewModelTest {
 
             val state = viewModel.uiState.value
             assertEquals(DataFootprint(), state.footprint)
-            assertEquals(SettingsMessage.DELETE_SUCCEEDED, state.message)
+            assertEquals(SettingsMessage.DeleteSucceeded, state.message)
             // The dialog closes itself when the wipe is over, not when it is started.
             assertNull(state.dialog)
             assertEquals(false, state.isDeleting)
@@ -259,7 +320,7 @@ class SettingsViewModelTest {
 
             // Not a crash, and not a success: this is the one action where the user has to be told
             // that what they were promised did not happen.
-            assertEquals(SettingsMessage.DELETE_FAILED, viewModel.uiState.value.message)
+            assertEquals(SettingsMessage.DeleteFailed, viewModel.uiState.value.message)
             assertEquals(false, viewModel.uiState.value.isDeleting)
         }
 
@@ -436,7 +497,7 @@ class SettingsViewModelTest {
 
             viewModel.onEvent(SettingsEvent.Notification.Toggled(NotificationKind.REMINDERS, true))
 
-            assertEquals(SettingsMessage.SAVE_FAILED, viewModel.uiState.value.message)
+            assertEquals(SettingsMessage.SaveFailed, viewModel.uiState.value.message)
         }
 
     @Test
@@ -481,6 +542,7 @@ class SettingsViewModelTest {
         preferences: FakeUserPreferencesRepository = this.preferences,
         localData: FakeLocalDataRepository = this.localData,
         notificationPermission: FakeNotificationPermission = this.notificationPermission,
+        templates: FakeTemplateRepository = this.templates,
         savedState: SavedStateHandle = SavedStateHandle(),
     ) = SettingsViewModel(
         savedState,
@@ -488,6 +550,7 @@ class SettingsViewModelTest {
         localData,
         notificationPermission,
         RequestNotificationPermissionUseCase(preferences, notificationPermission),
+        RestoreDefaultTemplatesUseCase(defaults, templates, CreateTemplateUseCase(templates)),
     )
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */

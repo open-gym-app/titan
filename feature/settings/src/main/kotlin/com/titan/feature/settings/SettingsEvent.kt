@@ -65,6 +65,14 @@ sealed interface SettingsEvent {
     data class WarmupSuggestionsToggled(val enabled: Boolean) : SettingsEvent
 
     /**
+     * The user confirmed putting back the default templates they deleted.
+     *
+     * Carries no list: the ViewModel works out what is missing again when it runs, so a
+     * template added or deleted on another screen since the dialog opened is accounted for.
+     */
+    data object RestoreDefaultTemplatesConfirmed : SettingsEvent
+
+    /**
      * The user typed the confirmation word and pressed the destructive button.
      *
      * The only event here that is not undoable by doing the opposite, and the only one the

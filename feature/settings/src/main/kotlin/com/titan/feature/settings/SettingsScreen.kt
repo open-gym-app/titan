@@ -29,6 +29,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -63,6 +64,7 @@ import com.titan.feature.settings.component.BarWeightDialog
 import com.titan.feature.settings.component.ChoiceDialog
 import com.titan.feature.settings.component.DeleteAllDataDialog
 import com.titan.feature.settings.component.NotificationPermissionEffects
+import com.titan.feature.settings.component.RestoreTemplatesDialog
 import com.titan.feature.settings.component.SettingsChoice
 import com.titan.feature.settings.component.TrainingGoalDialog
 import com.titan.feature.settings.component.startAppNotificationSettings
@@ -158,7 +160,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val message = state.message?.let { stringResource(it.textRes()) }
+    val message = state.message?.text()
 
     // The message is marked shown *before* the snackbar is, which is what makes
     // `SettingsMessage`'s "cannot be shown twice by a rotation" true: `showSnackbar` suspends
@@ -193,7 +195,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.section),
         ) {
             AppearanceGroup(state.preferences, onEvent)
-            WorkoutGroup(state.preferences, onEvent)
+            WorkoutGroup(state.preferences, state.missingDefaultTemplates, onEvent)
             DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
             NotificationsGroup(
                 preferences = state.preferences,
@@ -242,6 +244,7 @@ private fun AppearanceGroup(
 @Composable
 private fun WorkoutGroup(
     preferences: UserPreferences,
+    missingDefaultTemplates: List<String>,
     onEvent: (SettingsEvent) -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.settings_group_workout)) {
@@ -288,6 +291,25 @@ private fun WorkoutGroup(
             supporting = stringResource(R.string.settings_warmup_suggestions_detail),
             checked = preferences.warmupSuggestions,
             onCheckedChange = { onEvent(SettingsEvent.WarmupSuggestionsToggled(it)) },
+        )
+        HairlineDivider()
+        // Last in the group, after the settings rather than among them: it is an action on the
+        // template list, not a value, and putting it beside the goal would split the goal from
+        // the level it is one decision with. Disabled rather than hidden when nothing is
+        // missing, so the row is where the user learned it was and says why it does nothing.
+        PreferenceRow(
+            label = stringResource(R.string.settings_restore_templates),
+            supporting = if (missingDefaultTemplates.isEmpty()) {
+                stringResource(R.string.settings_restore_templates_none_missing)
+            } else {
+                pluralStringResource(
+                    R.plurals.settings_restore_templates_detail,
+                    missingDefaultTemplates.size,
+                    missingDefaultTemplates.size,
+                )
+            },
+            enabled = missingDefaultTemplates.isNotEmpty(),
+            onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.RESTORE_TEMPLATES)) },
         )
     }
 }
@@ -549,6 +571,12 @@ private fun SettingsDialogs(
             onDismiss = dismiss,
         )
 
+        SettingsDialog.RESTORE_TEMPLATES -> RestoreTemplatesDialog(
+            missing = state.missingDefaultTemplates,
+            onConfirm = { onEvent(SettingsEvent.RestoreDefaultTemplatesConfirmed) },
+            onDismiss = dismiss,
+        )
+
         SettingsDialog.DELETE_ALL -> DeleteAllDataDialog(
             footprint = state.footprint,
             isDeleting = state.isDeleting,
@@ -661,6 +689,9 @@ fun SettingsScreenDarkPreview() {
                     barWeight = 20_411_657,
                     trainingGoal = TrainingGoal.HYPERTROPHY,
                 ),
+                // The restore row enabled, which the light previews — a fresh install, nothing
+                // deleted — never draw.
+                missingDefaultTemplates = listOf("Legs", "Arms"),
             ),
             appVersion = "1.0",
             onEvent = {},
@@ -733,6 +764,27 @@ fun SettingsScreenThemeDialogPreview() {
     TitanTheme {
         SettingsScreen(
             state = SettingsUiState(dialog = SettingsDialog.THEME),
+            appVersion = "1.0",
+            onEvent = {},
+            onBack = {},
+            onOpenBackup = {},
+            onOpenLink = {},
+            onOpenNotificationSettings = {},
+            onOpenReminders = {},
+            onOpenLicences = {},
+        )
+    }
+}
+
+@Preview(name = "Settings - restore default templates", showBackground = true)
+@Composable
+fun SettingsScreenRestoreTemplatesDialogPreview() {
+    TitanTheme {
+        SettingsScreen(
+            state = SettingsUiState(
+                dialog = SettingsDialog.RESTORE_TEMPLATES,
+                missingDefaultTemplates = listOf("Legs", "Push", "HIIT"),
+            ),
             appVersion = "1.0",
             onEvent = {},
             onBack = {},

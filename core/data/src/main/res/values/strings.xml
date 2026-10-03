@@ -128,4 +128,26 @@
     <string name="progression_rarity_epic">Epic</string>
     <string name="progression_rarity_legendary">Legendary</string>
 
+    <!-- The default templates' names (#213), read once, when the database is created: each is
+         an ordinary template from then on and the user renames it like any other, so a later
+         change of language renames nothing. A name is a row title and the source of the
+         initial drawn beside it, so it is short and leads with the word that tells it apart. -->
+    <string name="default_template_push">Push</string>
+    <string name="default_template_pull">Pull</string>
+    <string name="default_template_legs">Legs</string>
+    <string name="default_template_chest">Chest</string>
+    <string name="default_template_back">Back</string>
+    <string name="default_template_shoulders">Shoulders</string>
+    <string name="default_template_arms">Arms</string>
+    <string name="default_template_abs">Abs</string>
+    <string name="default_template_upper_body">Upper body</string>
+    <string name="default_template_lower_body">Lower body</string>
+    <string name="default_template_full_body">Full body</string>
+    <string name="default_template_glutes">Glutes</string>
+    <string name="default_template_bodyweight">Bodyweight</string>
+    <string name="default_template_hiit">HIIT</string>
+    <string name="default_template_bike">Bike</string>
+    <string name="default_template_row">Row</string>
+    <string name="default_template_stretch">Stretch &amp; mobility</string>
+
 </resources>

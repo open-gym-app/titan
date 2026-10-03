@@ -66,6 +66,16 @@ The baseline exercise library is **generated, not hand-written**. `tools/seed/ge
 
 `exercises.sql` is replayed verbatim by `DatabaseSeed.insertInto`. Its format is deliberately parser-free - **every line is blank, a `--` comment, or one complete statement** - which is why instruction paragraphs are re-joined with `char(10)` concatenation instead of embedding raw newlines. Anything editing the generator must preserve that invariant. Every statement is `INSERT OR IGNORE`, so a replay over a populated database is a no-op; `DatabaseSeedTest` asserts this.
 
+### Default templates
+
+The seed has a second step after the catalogue: `DatabaseSeed.insertDefaultTemplates` writes the default templates (#213) into `workout_template`, `template_exercise` and `template_set`, in the same transaction as `exercises.sql`. They are defined in Kotlin, in `core/data/.../db/DefaultTemplates.kt`, not in a generated SQL file, for two reasons. **The names are string resources**, read in the device's language when the database is created, so a French phone starts with *Jambes* rather than *Legs*. **Exercises are referenced by the catalogue's natural key** - name and equipment type, on a seeded row with no machine brand - and resolved when the rows are written. They are never referenced by id, because the seed's ids are positional and move on every regeneration (see below). The rows are written through the support database because `onCreate` has no DAO, and they are numbered by `TemplateExerciseMapper`, the same code the template repository writes with.
+
+Once written they are **ordinary templates**. No column marks them, so the user renames, edits and deletes them like any template, and export, import, `observeFootprint` and the widget treat them as user rows. `icon` stays NULL, as on every template the editor writes.
+
+**This step is not idempotent, and must not be.** `workout_template.name` has no unique index, so a second run duplicates every default. It runs exactly where `DatabaseSeed.insertInto` runs: `onCreate`, and after `clearAllTables` in "Delete all data", where the wipe leaves the defaults back as a fresh install has them. It never runs on open, and never during an import. A default the user deleted stays deleted across restarts and restores; Settings › Workout › *Restore default templates* (`RestoreDefaultTemplatesUseCase`, over `DefaultTemplateCatalogue`) puts back the ones whose name, in the current language, no template carries.
+
+A default whose exercises do not all resolve is **skipped with a log line** rather than failing the seed: an unresolvable name is a build mistake, and a build mistake must not stop first launch. `DatabaseSeedTest` resolves every reference against the real catalogue and fails on any miss, so the skip path does not run in a shipped build.
+
 Exercise, muscle-group and tag ids are **written explicitly** by the generated SQL rather than autoincremented, because the link rows have to reference them. They therefore follow the ordering of `MUSCLE_GROUPS` / `SYSTEM_TAGS` in the generator and the upstream slug sort for exercises: reordering either constant renumbers rows, so the regenerated SQL must be committed with the change.
 
 ### Field mapping

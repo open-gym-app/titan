@@ -1,21 +1,29 @@
 package com.titan.feature.settings
 
 import com.titan.core.domain.model.DataFootprint
+import com.titan.core.domain.model.DefaultTemplate
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
+import com.titan.core.domain.model.TemplateCategory
+import com.titan.core.domain.model.TemplateExercise
+import com.titan.core.domain.model.TemplateExerciseDraft
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
+import com.titan.core.domain.model.WorkoutTemplate
 import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.notification.NotificationPermission
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.plate.PlateStock
+import com.titan.core.domain.repository.DefaultTemplateCatalogue
 import com.titan.core.domain.repository.LocalDataRepository
+import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.io.IOException
 import java.time.DayOfWeek
@@ -139,4 +147,59 @@ class FakeNotificationPermission(
 ) : NotificationPermission {
 
     override fun areNotificationsAllowed(): Boolean = allowed
+}
+
+/**
+ * Templates by name, which is all the restore row reads of them. The exercises are not kept:
+ * nothing on this screen draws a template's body.
+ */
+class FakeTemplateRepository(vararg names: String) : TemplateRepository {
+
+    private val templates = MutableStateFlow(names.mapIndexed { index, name -> WorkoutTemplate(index + 1L, name) })
+
+    /** When set, [insert] throws it — a store that cannot be written. */
+    var insertFailure: Throwable? = null
+
+    val names: List<String> get() = templates.value.map(WorkoutTemplate::name)
+
+    override fun getAll(): Flow<List<WorkoutTemplate>> = templates.map { it.sortedBy(WorkoutTemplate::name) }
+
+    override fun getById(id: Long): Flow<WorkoutTemplate?> = templates.map { all -> all.find { it.id == id } }
+
+    override fun getExercises(templateId: Long): Flow<List<TemplateExercise>> = MutableStateFlow(emptyList())
+
+    override fun getAllExercises(): Flow<List<TemplateExercise>> = MutableStateFlow(emptyList())
+
+    override suspend fun insert(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ): Long {
+        insertFailure?.let { throw it }
+        val id = (templates.value.maxOfOrNull(WorkoutTemplate::id) ?: 0L) + 1
+        templates.update { it + template.copy(id = id) }
+        return id
+    }
+
+    override suspend fun update(
+        template: WorkoutTemplate,
+        exercises: List<TemplateExerciseDraft>,
+    ) = templates.update { all -> all.map { if (it.id == template.id) template else it } }
+
+    override suspend fun delete(id: Long) = templates.update { all -> all.filterNot { it.id == id } }
+}
+
+/** The defaults, as plain names over one exercise each. */
+class FakeDefaultTemplateCatalogue(vararg names: String) : DefaultTemplateCatalogue {
+
+    private val defaults = names.map { name ->
+        DefaultTemplate(name, TemplateCategory.GENERAL, listOf(TemplateExerciseDraft(exerciseId = 1L)))
+    }
+
+    /** When set, [getAll] throws it — a catalogue that cannot be read. */
+    var readFailure: Throwable? = null
+
+    override suspend fun getAll(): List<DefaultTemplate> {
+        readFailure?.let { throw it }
+        return defaults
+    }
 }

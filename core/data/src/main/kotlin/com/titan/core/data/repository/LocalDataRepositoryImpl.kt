@@ -63,11 +63,11 @@ import kotlin.time.Duration.Companion.seconds
  * ### The catalogue is put back, not spared
  *
  * `clearAllTables` is all-or-nothing over every registered entity, so the seeded exercise
- * library goes with the user's rows and is replayed immediately afterwards. Replaying is
- * sound because the seed is `INSERT OR IGNORE` over unique indexes — the same property that
- * makes it safe to run on every open — and it is *necessary* because an app whose exercise
- * library is empty is broken rather than clean. Exercises the user typed in are not restored,
- * because those are theirs and this is a wipe.
+ * library goes with the user's rows and is replayed immediately afterwards, and the default
+ * templates with it: a wipe leaves the device as a fresh install would, with every default
+ * back in the template list whatever the user had done to them. Replaying is *necessary*
+ * because an app whose exercise library is empty is broken rather than clean.
+ * Exercises the user typed in are not restored, because those are theirs and this is a wipe.
  *
  * ### Failure is loud
  *
@@ -179,7 +179,7 @@ class LocalDataRepositoryImpl @Inject constructor(
             // screen further down the back stack) showing an empty catalogue until some
             // unrelated write refreshed it.
             database.withTransaction {
-                DatabaseSeed.insertInto(database.openHelper.writableDatabase, context.assets)
+                DatabaseSeed.insertInto(database.openHelper.writableDatabase, context)
             }
             userPreferencesRepository.clear()
             // And the alarms the settings had pointed at. `clear()` puts the reminder

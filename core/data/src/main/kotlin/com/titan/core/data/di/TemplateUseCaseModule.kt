@@ -1,5 +1,6 @@
 package com.titan.core.data.di
 
+import com.titan.core.domain.repository.DefaultTemplateCatalogue
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
@@ -7,6 +8,7 @@ import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.DeleteTemplateUseCase
 import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
+import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.core.domain.usecase.UpdateTemplateUseCase
 import dagger.Module
 import dagger.Provides
@@ -23,7 +25,8 @@ import dagger.hilt.components.SingletonComponent
  * The two reads have been here from the start. [CreateTemplateUseCase] joined them with
  * #27's "save as template", and template authoring (#92) supplied the callers the last two
  * were waiting for: the templates tab renames, duplicates and deletes, and the editor
- * rewrites. The rule being followed throughout is "a binding nothing injects is an
+ * rewrites. [RestoreDefaultTemplatesUseCase] is the settings row that puts back a default the
+ * user deleted (#213). The rule being followed throughout is "a binding nothing injects is an
  * unverified claim that the wiring works" — every use case here now has a consumer.
  *
  * See [SessionUseCaseModule] for why the use cases are wired from `:core:data` at all,
@@ -59,5 +62,17 @@ object TemplateUseCaseModule {
             templateRepository = templateRepository,
             userPreferencesRepository = userPreferencesRepository,
             exerciseRepository = exerciseRepository,
+        )
+
+    @Provides
+    fun provideRestoreDefaultTemplatesUseCase(
+        catalogue: DefaultTemplateCatalogue,
+        templateRepository: TemplateRepository,
+        createTemplate: CreateTemplateUseCase,
+    ): RestoreDefaultTemplatesUseCase =
+        RestoreDefaultTemplatesUseCase(
+            catalogue = catalogue,
+            templateRepository = templateRepository,
+            createTemplate = createTemplate,
         )
 }
