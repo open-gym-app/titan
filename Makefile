@@ -1,6 +1,7 @@
 PYTHON ?= python3
 SEED := tools/seed/generate_seed.py
 TRANSLATIONS := tools/translations/check.py
+ISSUE_REFS := tools/issue-refs/check.py
 
 # Where Macrobenchmark leaves what it pulled off the device, and where a Baseline Profile has
 # to land for AGP to package it — `src/main/baselineProfiles` is the source directory AGP reads
@@ -25,7 +26,7 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean translations-check test journeys screenshots screenshots-verify lint \
+.PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check test journeys screenshots screenshots-verify lint \
 	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
 help: ## List the available targets
@@ -48,6 +49,11 @@ seed-clean: ## Drop the cached upstream tarballs
 # translation (CI runs it the same way). `STRICT=1` is for claiming a locale is complete.
 translations-check: ## Report every key missing from, or stray in, each module's translations
 	$(PYTHON) $(TRANSLATIONS) $(if $(STRICT),--strict) $(if $(LOCALE),--locale $(LOCALE))
+
+# Asks GitHub, so it needs GITHUB_TOKEN or a logged-in `gh`. `PR=231` also counts the issues
+# that pull request closes, to check a change for what it made untrue before it merges.
+issue-refs-check: ## Fail on prose that still waits on a closed issue ("until #30 lands")
+	$(PYTHON) $(ISSUE_REFS) $(if $(PR),--pr $(PR))
 
 test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug

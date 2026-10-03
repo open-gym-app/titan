@@ -656,6 +656,7 @@ ever needs the same shape, reach for `TitanDialog` rather than `AlertDialog` fro
 
 - **One concern per PR** - keep scope tight so the diff stays readable.
 - **CI must be green** before requesting a review (lint, tests, build, coverage).
+- **Reword what your PR makes untrue.** A comment, doc or string that still waits on an issue the PR closes (`until #54`) should say what the code does now. `make issue-refs-check PR=<number>` lists them.
 - **1 approval required** to merge.
 - **Squash & merge** - all commits on the branch are squashed into one on `main`. The squash commit message must follow the Conventional Commits format above.
 - Delete the branch after merging.
