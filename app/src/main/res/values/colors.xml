@@ -3,13 +3,15 @@
   The window background, and the only place the palette is written twice.
 
   The window is painted by the platform from the manifest's theme *before* any Compose code
-  runs — it is what the user looks at between tapping the icon and the first frame — so this
-  one colour cannot come from `:core:ui`'s `ColorScheme` the way every other colour does. It
-  is deliberately the same value as `paper` (`background`/`surface`) in each scheme, so the
-  hand-off from window to composition is invisible.
+  runs, so this one colour cannot come from `:core:ui`'s `ColorScheme` the way every other
+  colour does. Since #207 the splash screen (`Theme.Titan.Starting`, in Titan orange) covers
+  the gap between tapping the icon and the first frame; this is what sits behind Compose after
+  it, and whatever shows through on a warm start or an activity recreation. It is deliberately
+  the same value as `paper` (`background`/`surface`) in each scheme, so the hand-off from
+  window to composition is invisible.
 
   Change it whenever `PaperLight` / `PaperDark` change in `core/ui/.../theme/Color.kt`; a
-  mismatch shows up as a flash of the wrong shade on every cold start.
+  mismatch shows up as a flash of the wrong shade wherever the window shows through.
 -->
 <resources>
     <color name="window_background">#FAFAF7</color>
