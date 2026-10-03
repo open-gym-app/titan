@@ -1,16 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The platform theme, which exists for exactly one thing: what the window looks like before
+  The platform themes, which exist for exactly one thing: what the window looks like before
   Compose has drawn. Everything after that comes from `TitanTheme`.
-
-  It follows the *system* light/dark setting through the `values-night` variant, not the
-  stored preference — a resource qualifier cannot read DataStore. A user who has chosen Light
-  on a dark device therefore sees a dark window for the moment before the first frame; that is
-  the cost of not blocking startup on a disk read, and it is why `MainActivity` draws nothing
-  at all until the preference has arrived rather than drawing the wrong theme and correcting
-  itself.
 -->
 <resources>
+    <!--
+      The launch theme (#207), on `MainActivity` only. `installSplashScreen()` swaps it for
+      `Theme.Titan` before the activity's first frame.
+
+      The same icon on the same colour at every API level: Android 12+ draws it as the system
+      splash, animated out of the launcher icon, and on API 26–30 the library paints it as the
+      window background. The icon is the launcher foreground, so the splash is the icon the
+      user just tapped, grown, and no separate branding image exists to drift from it.
+
+      Titan orange rather than `window_background`, and in both night modes, on purpose. A
+      resource qualifier follows the *system* dark setting, not the stored `ThemePreference` —
+      it cannot read DataStore — so a paper- or ink-coloured splash would be the wrong theme
+      for anyone whose choice differs from the phone's. The orange belongs to neither theme,
+      and `MainActivity` holds it on screen until the preference has been read, so the first
+      frame after it is already the right one.
+    -->
+    <style name="Theme.Titan.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Titan</item>
+    </style>
+
+    <!--
+      What the window shows after the splash, behind Compose. It follows the system light/dark
+      setting through the `values-night` variant, so it can disagree with the stored
+      preference; the splash covers it until the first frame, which is drawn in the right
+      theme, and Compose paints over all of it from then on.
+    -->
     <style name="Theme.Titan" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>

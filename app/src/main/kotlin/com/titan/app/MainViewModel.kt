@@ -58,9 +58,8 @@ class MainViewModel @Inject constructor(userPreferencesRepository: UserPreferenc
  *
  * The distinction is load-bearing for exactly one frame, and it is worth the type: rendering
  * the app with *default* preferences while the real ones are read means a user who chose the
- * light theme on a dark phone watches the app correct itself. [Loading] draws nothing, the
- * platform keeps showing the window background, and the first thing composed is already
- * right.
+ * light theme on a dark phone watches the app correct itself. [Loading] draws nothing,
+ * `MainActivity` keeps the splash screen up, and the first thing composed is already right.
  */
 sealed interface MainUiState {
 

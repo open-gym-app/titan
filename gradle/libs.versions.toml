@@ -8,6 +8,9 @@ lifecycle = "2.11.0"
 # `AndroidSdk.COMPILE` (and `:app`'s `compileSdk`) at 37 to be consumable at all.
 androidxHilt = "1.4.0"
 activityCompose = "1.12.3"
+# The splash screen (#207): Android 12's system splash, and the same icon-on-a-colour window
+# drawn by the library itself on API 26–30, from one theme.
+splashscreen = "1.2.0"
 composeBom = "2026.05.00"
 # 2.8+ is the floor for type-safe `composable<Route>` destinations; see docs/ARCHITECTURE.md.
 navigation = "2.9.8"
@@ -90,6 +93,7 @@ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "l
 # hands one to each `@HiltViewModel`; `:core:ui` names it because the saved-screen-state helper
 # there takes one as a receiver, and a transitive it does not declare is not a contract.
 androidx-lifecycle-viewmodel-savedstate = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-savedstate", version.ref = "lifecycle" }
+androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigation" }
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHilt" }
