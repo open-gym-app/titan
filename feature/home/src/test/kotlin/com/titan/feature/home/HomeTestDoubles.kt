@@ -216,6 +216,8 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise> = emptyList())
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.find { it.id == id })
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = exercises.filter { it.id in ids }
+
     override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
 
     override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> = unsupported()

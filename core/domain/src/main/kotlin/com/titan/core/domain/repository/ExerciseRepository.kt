@@ -12,6 +12,16 @@ import kotlinx.coroutines.flow.Flow
 interface ExerciseRepository {
     fun getAll(): Flow<List<Exercise>>
     fun getById(id: Long): Flow<Exercise?>
+
+    /**
+     * Every exercise in [ids] that the catalogue still holds, in one read.
+     *
+     * The batch form of [getById], for a caller that needs a handful of exercises once rather
+     * than one observed: `PrDetectionUseCase` reads the type of every exercise a finished session
+     * touched, and asking [getById] for each is a query apiece in the finish path. An id the
+     * catalogue no longer holds is simply absent, and the order is unspecified.
+     */
+    suspend fun getByIds(ids: Collection<Long>): List<Exercise>
     fun getByType(type: ExerciseType): Flow<List<Exercise>>
     fun getByEquipmentType(equipmentType: EquipmentType): Flow<List<Exercise>>
     fun searchByPartialName(query: String): Flow<List<Exercise>>

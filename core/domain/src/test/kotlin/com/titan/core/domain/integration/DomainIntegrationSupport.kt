@@ -59,6 +59,8 @@ class FakeExerciseRepository(
 
     override fun getById(id: Long): Flow<Exercise?> = catalogue.map { it[id] }
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = ids.mapNotNull(catalogue.value::get)
+
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> =
         catalogue.map { stored -> stored.values.filter { it.type == type } }
 

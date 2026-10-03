@@ -138,6 +138,22 @@ abstract class TitanDatabase : RoomDatabase() {
             }
 
         /**
+         * Brings an older database's catalogue up to the current seed's pace tags on every open —
+         * see [DatabaseSeed.backfillPaceTags] for why it cannot wait for `onCreate`.
+         *
+         * On every open rather than as a migration, because version 1 has not shipped: a
+         * migration would mean a version 2 for a data fix, and freezing version 1 with it. The
+         * cost is two `INSERT OR IGNORE` statements over a handful of indexed names, which find
+         * their rows already there on every open after the first.
+         */
+        fun paceTagBackfillCallback(assets: AssetManager) =
+            object : Callback() {
+                override fun onOpen(db: SupportSQLiteDatabase) {
+                    DatabaseSeed.backfillPaceTags(db, assets)
+                }
+            }
+
+        /**
          * Every version bump beyond 1 must add its `Migration` here and a matching
          * test in the migration test suite. The database is deliberately *not*
          * built with a destructive fallback: a version bump without a migration

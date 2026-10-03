@@ -79,6 +79,17 @@ class PaceFormatTest {
         }
 
     @Test
+    fun `a change too small to show is no change at all`() =
+        withLocale(Locale.UK) {
+            // 5:00 /km, then 4:59.9 /km: faster, and still 5:00 as shown. Likewise 30.0 km/h twice.
+            val previous = paceFor(centimetres = 500_000, seconds = 1_500)
+            val current = paceFor(centimetres = 1_000_000, seconds = 2_999)
+
+            assertEquals(null, formatPaceChange(previous, current, PaceStyle.PACE, UnitSystem.METRIC))
+            assertEquals(null, formatPaceChange(previous, current, PaceStyle.SPEED, UnitSystem.METRIC))
+        }
+
+    @Test
     fun `a speed follows the locale's decimal separator`() =
         withLocale(Locale.FRANCE) {
             val ride = paceFor(centimetres = 4_000_000, seconds = 4_800)

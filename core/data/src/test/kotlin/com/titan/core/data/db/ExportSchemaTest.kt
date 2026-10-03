@@ -1,6 +1,7 @@
 package com.titan.core.data.db
 
 import android.database.sqlite.SQLiteConstraintException
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import com.titan.core.data.db.entity.UserProgressEntity
 import com.titan.core.data.repository.BackupRepositoryImpl
@@ -40,7 +41,13 @@ import org.junit.Test
  */
 class ExportSchemaTest : RoomTestBase() {
 
-    private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
+    private val backup by lazy {
+        BackupRepositoryImpl(
+            db,
+            ApplicationProvider.getApplicationContext(),
+            Dispatchers.Unconfined,
+        )
+    }
 
     private val export by lazy {
         ExportUseCase(

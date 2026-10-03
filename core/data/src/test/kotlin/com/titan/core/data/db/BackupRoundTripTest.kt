@@ -1,5 +1,6 @@
 package com.titan.core.data.db
 
+import androidx.test.core.app.ApplicationProvider
 import com.titan.core.data.mapper.PersonalRecordMapper
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
@@ -47,7 +48,13 @@ import org.junit.Test
  */
 class BackupRoundTripTest : RoomTestBase() {
 
-    private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
+    private val backup by lazy {
+        BackupRepositoryImpl(
+            db,
+            ApplicationProvider.getApplicationContext(),
+            Dispatchers.Unconfined,
+        )
+    }
     private val preferences = InMemoryUserPreferencesRepository()
     private val draft = CountingInProgressSessionRepository()
     private val templateDraft = CountingTemplateDraftRepository()

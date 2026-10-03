@@ -47,7 +47,10 @@ data class PersonalRecordEntry(
      * not have been written, so the difference between two consecutive figures of a kind that is
      * ranked *by* that figure can only run one way. `abs` states that rather than relying on it.
      *
-     * Two kinds are left out, each for its own reason:
+     * Which kinds have one is [withValue]'s to say, not this property's: a difference is only a
+     * figure of the kind if the record can be re-drawn carrying it, and that `when` is exhaustive,
+     * so a kind added to [PrType] is decided there once rather than here and at every screen too.
+     * Two kinds have none today, each for its own reason:
      *
      * - [PrType.BEST_PACE] is ranked on a ratio, and the difference between two paces is still a
      *   pace — not a duration this record could be re-rendered with. It has [previousPace]
@@ -57,10 +60,9 @@ data class PersonalRecordEntry(
      */
     val improvement: Long?
         get() {
-            if (record.type == PrType.BEST_PACE || record.type == PrType.MAX_WEIGHTED_HOLD) return null
             val previous = previousValue ?: return null
             val current = record.rankedFigure ?: return null
-            return abs(current - previous)
+            return abs(current - previous).takeIf { record.withValue(it) != null }
         }
 
     /**
@@ -110,7 +112,8 @@ val PersonalRecord.rankedFigure: Long?
  *
  * Null for a kind whose figure cannot be substituted: [PrType.BEST_PACE] and
  * [PrType.MAX_WEIGHTED_HOLD], whose figures are a ratio and a product of two columns rather than
- * one column's value — see [PersonalRecordEntry.improvement].
+ * one column's value. This is the one place that decision is made —
+ * [PersonalRecordEntry.improvement] is null for exactly the kinds this is.
  */
 fun PersonalRecord.withValue(value: Long): PersonalRecord? =
     when (type) {

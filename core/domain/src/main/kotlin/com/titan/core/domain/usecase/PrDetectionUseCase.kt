@@ -120,19 +120,23 @@ class PrDetectionUseCase(
             .associate { it.id to it.exerciseId }
         val formula = userPreferencesRepository.observe().first().oneRepMaxFormula
 
-        performed
-            .groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
-            .forEach { (exerciseId, sets) -> detect(exerciseId, sets, formula, into) }
+        val setsByExercise = performed.groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
+        // One read for every exercise the session touched, rather than one per exercise.
+        val typeByExercise = exerciseRepository.getByIds(setsByExercise.keys).associate { it.id to it.type }
+        setsByExercise.forEach { (exerciseId, sets) ->
+            val type = typeByExercise[exerciseId] ?: ExerciseType.STRENGTH
+            detect(exerciseId, type, sets, formula, into)
+        }
         return into
     }
 
     private suspend fun detect(
         exerciseId: Long,
+        type: ExerciseType,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
         into: MutableList<PersonalRecord>,
     ) {
-        val type = exerciseRepository.getById(exerciseId).first()?.type ?: ExerciseType.STRENGTH
         val eligible = PrType.eligibleFor(type)
         candidates(exerciseId, sets, formula).filter { it.type in eligible }.forEach { candidate ->
             val written = personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->

@@ -1,5 +1,6 @@
 package com.titan.core.data.db
 
+import androidx.test.core.app.ApplicationProvider
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.domain.backup.ExportSink
 import com.titan.core.domain.backup.model.BackupTable
@@ -44,7 +45,13 @@ class ExportStreamingTest : RoomTestBase() {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 
-    private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
+    private val backup by lazy {
+        BackupRepositoryImpl(
+            db,
+            ApplicationProvider.getApplicationContext(),
+            Dispatchers.Unconfined,
+        )
+    }
 
     private val export by lazy {
         ExportUseCase(

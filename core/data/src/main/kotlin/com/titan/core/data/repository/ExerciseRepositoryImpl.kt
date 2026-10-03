@@ -50,6 +50,9 @@ class ExerciseRepositoryImpl @Inject constructor(
     override fun getById(id: Long): Flow<Exercise?> =
         exerciseDao.getById(id).map { row -> row?.let(exerciseMapper::toDomain) }
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> =
+        exerciseDao.getByIds(ids).map(exerciseMapper::toDomain)
+
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> =
         exerciseDao.getByType(type.name).map { rows -> rows.map(exerciseMapper::toDomain) }
 

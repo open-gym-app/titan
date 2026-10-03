@@ -80,28 +80,33 @@ fun paceUnit(
 
 /**
  * How much faster [current] is than [previous], both in nanoseconds per centimetre, as [style]
- * reads it and without a sign: `0:17` for a pace, `1.5` for a speed.
+ * reads it and without a sign: `0:17` for a pace, `1.5` for a speed — or **null** when the two
+ * read the same.
  *
  * The difference of the two *displayed* figures rather than the displayed difference, so the row
  * does the arithmetic its reader would — `5:27` against `5:10` is `0:17`, whatever fraction of a
  * second each was rounded from. Which way the sign runs is the caller's to say: a faster pace is
  * a smaller one, and a faster speed a bigger one.
+ *
+ * Null rather than `0:00` for a record that beat the last by less than the figure is shown to: a
+ * `−0:00 /km` beside `5:00` above a previous `5:00` is an improvement the row cannot show, and
+ * drawing none is the honest reading of it.
  */
 fun formatPaceChange(
     previous: Long,
     current: Long,
     style: PaceStyle,
     unitSystem: UnitSystem,
-): String =
+): String? =
     when (style) {
         PaceStyle.SPEED -> {
-            val change = speedTenths(current, unitSystem) - speedTenths(previous, unitSystem)
-            formatDecimal(abs(change), SPEED_SCALE)
+            val change = abs(speedTenths(current, unitSystem) - speedTenths(previous, unitSystem))
+            formatDecimal(change, SPEED_SCALE).takeIf { change != 0L }
         }
 
         PaceStyle.PACE, PaceStyle.SWIM_PACE -> {
-            val change = secondsPer(previous, style, unitSystem) - secondsPer(current, style, unitSystem)
-            formatClockValue(abs(change))
+            val change = abs(secondsPer(previous, style, unitSystem) - secondsPer(current, style, unitSystem))
+            formatClockValue(change).takeIf { change != 0L }
         }
     }
 

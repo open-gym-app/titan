@@ -135,6 +135,8 @@ class FakeSummaryCatalogue(
 
     override fun getById(id: Long): Flow<Exercise?> = unsupported()
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = unsupported()
+
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> = unsupported()
 
     override fun getByEquipmentType(equipmentType: EquipmentType): Flow<List<Exercise>> = unsupported()

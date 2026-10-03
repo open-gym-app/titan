@@ -181,8 +181,8 @@ fun PersonalRecord.recordUnit(): String? =
 
 /**
  * How much this record beat the one before it, signed and with its unit — `+12 kg`, `+0:30`,
- * `−0:17 /km`, `+1.5 km/h` — or **null** when it beat nothing, or is a kind whose improvement is
- * not drawn.
+ * `−0:17 /km`, `+1.5 km/h` — or **null** when it beat nothing, is a kind whose improvement is
+ * not drawn, or is a pace that beat the last by less than a pace is shown to.
  *
  * One rendering for the two screens that draw it — the records list and Home's card — because
  * the sign is a rule about the kind and not about the screen: a pace beats by going down, so its
@@ -201,11 +201,13 @@ fun PersonalRecordEntry.formattedImprovement(): String? {
         val previous = previousPace ?: return null
         val current = record.pace ?: return null
         val unitSystem = LocalUnitSystem.current
-        val change = formatPaceChange(previous, current, record.paceStyle, unitSystem)
+        val change = formatPaceChange(previous, current, record.paceStyle, unitSystem) ?: return null
         val withUnit = stringResource(R.string.figure_with_unit, change, paceUnit(record.paceStyle, unitSystem))
         val sign = if (record.paceStyle == PaceStyle.SPEED) R.string.pr_improvement_up else R.string.pr_improvement_down
         return stringResource(sign, withUnit)
     }
+    // Null for a kind with no improvement figure — see `PersonalRecordEntry.improvement` — so
+    // `withValue` has already admitted every value that reaches it.
     val improvement = improvement ?: return null
     val asRecord = record.withValue(improvement) ?: return null
     return asRecord.formattedValue()?.let { stringResource(R.string.pr_improvement_up, it) }

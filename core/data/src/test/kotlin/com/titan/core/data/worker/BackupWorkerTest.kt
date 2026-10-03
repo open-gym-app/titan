@@ -60,7 +60,13 @@ class BackupWorkerTest : RoomTestBase() {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
-    private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
+    private val backup by lazy {
+        BackupRepositoryImpl(
+            db,
+            ApplicationProvider.getApplicationContext(),
+            Dispatchers.Unconfined,
+        )
+    }
     private val preferences = InMemoryUserPreferencesRepository()
     private val autoBackup = InMemoryAutoBackupRepository()
     private val files = AutoBackupFiles(context)

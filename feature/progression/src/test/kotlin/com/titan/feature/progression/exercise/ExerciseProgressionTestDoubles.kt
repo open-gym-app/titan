@@ -199,6 +199,8 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise>) : ExerciseRep
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.firstOrNull { it.id == id })
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = exercises.filter { it.id in ids }
+
     override fun getAll(): Flow<List<Exercise>> = unsupported()
 
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> = unsupported()

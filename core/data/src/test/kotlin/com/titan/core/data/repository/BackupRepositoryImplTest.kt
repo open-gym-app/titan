@@ -1,8 +1,10 @@
 package com.titan.core.data.repository
 
+import androidx.test.core.app.ApplicationProvider
 import com.titan.core.data.db.RoomTestBase
 import com.titan.core.data.db.dumpEverything
 import com.titan.core.data.db.dumpTable
+import com.titan.core.data.db.exercise
 import com.titan.core.data.db.seedEveryTable
 import com.titan.core.domain.backup.BackupConstraintException
 import com.titan.core.domain.backup.model.AchievementRow
@@ -31,6 +33,7 @@ import com.titan.core.domain.backup.model.WorkoutTemplateRow
 import com.titan.core.domain.backup.toPayload
 import com.titan.core.domain.model.UserPreferences
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -47,7 +50,13 @@ import org.junit.Test
  */
 class BackupRepositoryImplTest : RoomTestBase() {
 
-    private val repository by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
+    private val repository by lazy {
+        BackupRepositoryImpl(
+            db,
+            ApplicationProvider.getApplicationContext(),
+            Dispatchers.Unconfined,
+        )
+    }
 
     @Test
     fun `every table is counted, empty ones included`() =
@@ -190,6 +199,25 @@ class BackupRepositoryImplTest : RoomTestBase() {
             repository.replaceAll(document) { _, _ -> }
 
             assertEquals(listOf("PUSH"), db.dumpTable(BackupTable.TAG).map { it["name"] })
+        }
+
+    /**
+     * A backup taken before the pace tags were seeded carries its rides untagged, and a restore
+     * that took it at its word would read every ride's best as a pace per kilometre — see
+     * `DatabaseSeed.backfillPaceTags`.
+     */
+    @Test
+    fun `restoring a backup older than the pace tags tags its seeded rides`() =
+        runBlocking {
+            val ride = db.exerciseDao().insert(
+                exercise(name = "Bicycling, Stationary", exerciseType = "ENDURANCE", equipmentType = "MACHINE"),
+            )
+            val document = documentOfEverythingInTheDatabase()
+            assertTrue(document.tag.isEmpty())
+
+            repository.replaceAll(document) { _, _ -> }
+
+            assertEquals(listOf("SPEED"), db.exerciseDao().getTags(ride).first().map { it.name })
         }
 
     /** Reads every table out of the database as a document, which is what an export would write. */

@@ -169,9 +169,9 @@ interface PersonalRecordDao {
      * as a slower one. Integer arithmetic throughout, rounded half up by adding half the divisor
      * before SQLite's integer division, exactly as `paceOf` rounds in Kotlin; `duration` is at
      * most 864,000 s, so the product stays far inside a 64-bit integer. See
-     * `PersonalRecord.rankedFigure`, which makes the
-     * same choice for the row that is drawn. The two agree by inspection rather than by
-     * construction, which is a seam worth knowing about: a ninth kind has to be added in both.
+     * `PersonalRecord.rankedFigure`, which makes the same choice for the row that is drawn. The
+     * two agree by inspection rather than by construction, which is a seam worth knowing about: a
+     * ninth kind has to be added in both.
      *
      * ### Ordering, filtering and the index
      *
@@ -341,24 +341,21 @@ interface PersonalRecordDao {
      * A `Flow`, re-emitted when either table changes, so a user who tags their own exercise sees
      * its records re-read without the records table having moved.
      */
-    @Query(
-        """
-        SELECT et.exercise_id AS exercise_id, t.name AS tag_name
-        FROM exercise_tag et
-        INNER JOIN tag t ON t.id = et.tag_id
-        WHERE t.name IN (:tagNames)
-        """,
-    )
+    @Query(EXERCISE_TAGS_QUERY)
     fun observeExerciseTags(tagNames: List<String>): Flow<List<ExerciseTagNameRow>>
 
     /** [observeExerciseTags], once — for the paged read, which is a one-shot itself. */
-    @Query(
-        """
-        SELECT et.exercise_id AS exercise_id, t.name AS tag_name
-        FROM exercise_tag et
-        INNER JOIN tag t ON t.id = et.tag_id
-        WHERE t.name IN (:tagNames)
-        """,
-    )
+    @Query(EXERCISE_TAGS_QUERY)
     suspend fun getExerciseTags(tagNames: List<String>): List<ExerciseTagNameRow>
 }
+
+/**
+ * The read behind [PersonalRecordDao.observeExerciseTags] and [PersonalRecordDao.getExerciseTags]:
+ * one statement for the observed and the one-shot form, so the two cannot drift apart.
+ */
+private const val EXERCISE_TAGS_QUERY = """
+    SELECT et.exercise_id AS exercise_id, t.name AS tag_name
+    FROM exercise_tag et
+    INNER JOIN tag t ON t.id = et.tag_id
+    WHERE t.name IN (:tagNames)
+"""

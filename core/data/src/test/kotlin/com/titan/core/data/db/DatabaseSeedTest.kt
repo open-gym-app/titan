@@ -303,7 +303,57 @@ class DatabaseSeedTest {
         assertEquals(before, before.keys.associateWith { countRows(it) })
     }
 
+    // --- pace tag backfill ------------------------------------------------
+
+    @Test
+    fun `the pace tag backfill changes nothing over a freshly seeded catalogue`() {
+        val before = listOf("tag", "exercise_tag").associateWith { countRows(it) }
+
+        backfillPaceTags()
+
+        assertEquals(before, before.keys.associateWith { countRows(it) })
+    }
+
+    @Test
+    fun `the pace tag backfill gives a catalogue seeded without them the links the seed would have`() =
+        runBlocking {
+            val seeded = speedTagged()
+            // A database seeded before #225: no pace tags or links, and a tag of its own sitting
+            // on the id the seed would give SPEED today — so a backfill by id would link the
+            // rides to the wrong tag.
+            val writable = db.openHelper.writableDatabase
+            writable.execSQL(
+                "DELETE FROM exercise_tag WHERE tag_id IN (SELECT id FROM tag WHERE name IN ('SPEED', 'SWIM'))",
+            )
+            writable.execSQL("DELETE FROM tag WHERE name IN ('SPEED', 'SWIM')")
+            db.tagDao().insert(tag(name = "MINE"))
+            // A custom exercise with a seeded name: the seed never tagged one, and nor does this.
+            val custom = db.exerciseDao().insert(
+                exercise(name = "Skating", exerciseType = "ENDURANCE", machineBrand = "Mine").copy(isCustom = true),
+            )
+
+            backfillPaceTags()
+
+            assertEquals(seeded, speedTagged())
+            assertTrue(db.exerciseDao().getTags(custom).first().isEmpty())
+        }
+
     // --- helpers ----------------------------------------------------------
+
+    private fun backfillPaceTags() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        DatabaseSeed.backfillPaceTags(db.openHelper.writableDatabase, context.assets)
+    }
+
+    private fun speedTagged(): Set<String> =
+        distinctValues(
+            """
+            SELECT e.name FROM exercise e
+            INNER JOIN exercise_tag et ON et.exercise_id = e.id
+            INNER JOIN tag t ON t.id = et.tag_id
+            WHERE t.name = 'SPEED' AND e.is_custom = 0
+            """,
+        )
 
     private fun countRows(table: String): Int = count("SELECT COUNT(*) FROM $table")
 

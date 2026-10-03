@@ -24,17 +24,52 @@ internal object DatabaseSeed {
 
     const val ASSET_PATH = "seed/exercises.sql"
 
+    /**
+     * The `SPEED` and `SWIM` tags and their links, matched by name rather than id — see
+     * [backfillPaceTags]. Generated alongside [ASSET_PATH], from the same rule, in the same
+     * line-per-statement format.
+     */
+    const val PACE_TAGS_ASSET_PATH = "seed/pace_tags.sql"
+
     fun insertInto(
         db: SupportSQLiteDatabase,
         assets: AssetManager,
     ) {
-        // A partially applied catalogue would leave exercises without their
-        // muscle links, so the whole batch commits or none of it does. Room
-        // already runs onCreate inside a transaction; SQLite nests this one as
-        // a savepoint.
+        replay(db, assets, ASSET_PATH)
+    }
+
+    /**
+     * Gives a catalogue seeded before the pace tags existed the `SPEED` and `SWIM` rows
+     * [insertInto] would have written, so a ride's best reads as a speed rather than a pace per
+     * kilometre.
+     *
+     * [insertInto] only runs when a database is created, so it cannot reach a database that was
+     * created before those tags were part of the seed — or one that a restore has just filled
+     * from a backup taken on such a database. This runs on every open and at the end of every
+     * restore instead. It matches each tag by its unique name and each exercise by its seeded
+     * name, never by id, because an older database numbered its tags itself; custom exercises
+     * are left alone, as the seed leaves them. Every statement is `INSERT OR IGNORE`, so over a
+     * database that already has the rows this changes nothing.
+     */
+    fun backfillPaceTags(
+        db: SupportSQLiteDatabase,
+        assets: AssetManager,
+    ) {
+        replay(db, assets, PACE_TAGS_ASSET_PATH)
+    }
+
+    private fun replay(
+        db: SupportSQLiteDatabase,
+        assets: AssetManager,
+        path: String,
+    ) {
+        // A partially applied asset would leave exercises without their
+        // links, so each batch commits or none of it does. Room already runs
+        // onCreate - and a restore - inside a transaction; SQLite nests this
+        // one as a savepoint.
         db.beginTransaction()
         try {
-            assets.open(ASSET_PATH).bufferedReader().useLines { lines ->
+            assets.open(path).bufferedReader().useLines { lines ->
                 lines.map(String::trim)
                     .filter { it.isNotEmpty() && !it.startsWith("--") }
                     .forEach(db::execSQL)
