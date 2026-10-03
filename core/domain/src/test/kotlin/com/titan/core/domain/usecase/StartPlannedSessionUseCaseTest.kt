@@ -1,11 +1,14 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.SessionError
 import com.titan.core.domain.model.SessionExercise
 import com.titan.core.domain.model.SessionExerciseDraft
 import com.titan.core.domain.model.SessionPlan
 import com.titan.core.domain.model.SessionState
+import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.model.toSessionPlan
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -75,6 +78,32 @@ class StartPlannedSessionUseCaseTest {
                 listOf(null, 0, 0),
                 sessions.storedExercises(sessionId).map(SessionExercise::supersetGroup),
             )
+        }
+
+    @Test
+    fun `starting from a template lays down its planned holds and runs as targets`() =
+        runTest {
+            // `3 × 0:45` of a plank and a `5 km` run (#M7-17): the session opens with those
+            // figures already in the rows, unticked, the way a planned 80 kg is.
+            val templateId = templates.seed(
+                "Core and a run",
+                listOf(
+                    draft(exerciseId = 1L, sets = List(3) { PlannedSet(duration = 45) }),
+                    draft(exerciseId = 2L, sets = listOf(PlannedSet(distance = 500_000, duration = 1_800))),
+                ),
+            )
+            val plan = ApplyTemplateUseCase(templates)(templateId).getOrThrow().toSessionPlan()
+
+            val sessionId = startPlannedSession(plan).getOrThrow()
+
+            val sets = sessions.getSetsForSession(sessionId).first()
+            val (plank, run) = sessions.storedExercises(sessionId).map { exercise ->
+                sets.filter { it.sessionExerciseId == exercise.id }
+            }
+            assertEquals(listOf(45L, 45L, 45L), plank.map(WorkoutSet::duration))
+            assertEquals(listOf(500_000L), run.map(WorkoutSet::distance))
+            assertEquals(listOf(1_800L), run.map(WorkoutSet::duration))
+            assertTrue((plank + run).none(WorkoutSet::isCompleted))
         }
 
     @Test

@@ -35,10 +35,18 @@ data class ExerciseAttemptRow(
     val setCount: Int,
     @ColumnInfo(name = "total_volume")
     val totalVolume: Long,
+    @ColumnInfo(name = "timed_seconds")
+    val timedSeconds: Long,
+    @ColumnInfo(name = "total_distance")
+    val totalDistance: Long,
     @ColumnInfo(name = "first_set_at")
     val firstSetAt: Long,
     @ColumnInfo(name = "top_weight")
     val topSetWeight: Long?,
     @ColumnInfo(name = "top_reps")
     val topSetReps: Int?,
+    @ColumnInfo(name = "top_duration")
+    val topSetDuration: Long?,
+    @ColumnInfo(name = "top_distance")
+    val topSetDistance: Long?,
 )

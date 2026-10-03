@@ -7,6 +7,7 @@
     <string name="set_log_column_set">Serie</string>
     <string name="set_log_column_previous">Ant.</string>
     <string name="set_log_column_reps">Reps</string>
+    <string name="set_log_column_time">Tiempo</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the label's initial. -->
@@ -23,6 +24,9 @@
     <string name="set_log_position">%1$s, serie %2$d</string>
     <string name="set_log_weight_field">Peso, serie %1$d</string>
     <string name="set_log_reps_field">Repeticiones, serie %1$d</string>
+    <string name="set_log_duration_field">Tiempo, serie %1$d</string>
+    <string name="set_log_distance_field">Distancia en %2$s, serie %1$d</string>
+    <string name="set_log_added_weight_field">Peso añadido, serie %1$d</string>
     <string name="set_log_rpe_value">Esfuerzo percibido, serie %1$d, %2$s</string>
     <string name="set_log_rpe_none">Esfuerzo percibido, serie %1$d, sin indicar</string>
     <string name="set_log_previous_value">Anteriormente %1$s</string>
@@ -37,6 +41,11 @@
     </plurals>
     <string name="set_log_weight_and_reps_compact">%1$s×%2$d</string>
     <string name="set_log_reps_only_compact">×%1$d</string>
+
+    <string name="stopwatch_start">Iniciar cronómetro</string>
+    <string name="stopwatch_stop">Detener cronómetro</string>
+    <string name="stopwatch_start_description">Iniciar cronómetro, serie %1$d</string>
+    <string name="stopwatch_stop_description">Detener cronómetro, serie %1$d, %2$s transcurridos</string>
 
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
@@ -222,6 +231,8 @@
     <string name="stat_duration">Duración</string>
     <string name="stat_exercises">Ejercicios</string>
     <string name="stat_exercises_unit">hechos</string>
+    <string name="stat_time">Tiempo activo</string>
+    <string name="stat_distance">Distancia</string>
     <string name="stat_muscles">Músculos</string>
     <string name="stat_muscles_unit">trabajados</string>
     <string name="stat_description">%1$s, %2$s</string>

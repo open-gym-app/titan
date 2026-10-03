@@ -142,12 +142,37 @@ class SessionTotalsDaoTest : RoomTestBase() {
             assertEquals(1, db.workoutSetDao().getTotalsBySession().first().single().totalSets)
         }
 
+    @Test
+    fun `a session of timed sets sums its time and distance, and moves no volume`() =
+        runBlocking {
+            val runId = db.exerciseDao().insert(exercise(name = "Running, Outdoor"))
+            val plankId = db.exerciseDao().insert(exercise(name = "Plank"))
+            val sessionId = db.workoutSessionDao().insert(session(name = "Cardio", isInProgress = false))
+            val run = db.sessionExerciseDao().insert(sessionExercise(sessionId, runId, position = 0))
+            val plank = db.sessionExerciseDao().insert(sessionExercise(sessionId, plankId, position = 1))
+
+            // 1_634 s + 90 s + 75 s = 1_799 s, and 5 km = 500_000 cm. The unticked hold counts for
+            // nothing, as every other aggregate here has it.
+            logSet(run, 1, duration = 1_634, distance = 500_000)
+            logSet(plank, 1, duration = 90)
+            logSet(plank, 2, duration = 75)
+            logSet(plank, 3, duration = 60, isCompleted = false)
+
+            val totals = db.workoutSetDao().getTotalsBySession().first().single()
+            assertEquals(3, totals.totalSets)
+            assertEquals(0L, totals.totalVolume)
+            assertEquals(1_799L, totals.timedSeconds)
+            assertEquals(500_000L, totals.totalDistance)
+        }
+
     private suspend fun logSet(
         sessionExerciseId: Long,
         setNumber: Int,
         reps: Int? = null,
         weight: Long? = null,
         isCompleted: Boolean = true,
+        duration: Long? = null,
+        distance: Long? = null,
     ) = db.workoutSetDao().insert(
         workoutSet(
             sessionExerciseId = sessionExerciseId,
@@ -155,6 +180,6 @@ class SessionTotalsDaoTest : RoomTestBase() {
             isCompleted = isCompleted,
             reps = reps,
             weight = weight,
-        ),
+        ).copy(duration = duration, distance = distance),
     )
 }

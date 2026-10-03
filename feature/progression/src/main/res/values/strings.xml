@@ -114,6 +114,9 @@
          description opens a sentence with the same string. -->
     <string name="exercise_chart_estimate">1RM estimate</string>
     <string name="exercise_chart_volume">Volume per session</string>
+    <!-- The one chart a timed exercise draws, in place of the two it has no figures for. -->
+    <string name="exercise_chart_distance">Distance per session</string>
+    <string name="exercise_chart_time">Time per session</string>
 
     <!-- ── The recent-attempts table ─────────────────────────────────────────────── -->
 
@@ -122,6 +125,10 @@
     <string name="exercise_attempts_sets">Sets</string>
     <string name="exercise_attempts_top">Top</string>
     <string name="exercise_attempts_volume">Vol</string>
+    <!-- The last column of a timed exercise's table (#M7-17), in place of a volume it
+         does not have: the ground its sets covered, or for a hold how long they lasted. -->
+    <string name="exercise_attempts_time">Time</string>
+    <string name="exercise_attempts_distance">Dist</string>
     <!-- A session with no set worth quoting: cardio, a timed hold. -->
     <string name="exercise_attempts_missing" translatable="false">—</string>
     <!-- Drawn beside the top set of the session that broke a record. -->
@@ -135,6 +142,8 @@
          column, not a phrase. -->
     <string name="exercise_attempt_description">%1$s, %2$s, top set %3$s, volume %4$s</string>
     <string name="exercise_attempt_record_description">%1$s, %2$s, top set %3$s, personal record, volume %4$s</string>
+    <string name="exercise_attempt_timed_description">%1$s, %2$s, top set %3$s, total %4$s</string>
+    <string name="exercise_attempt_timed_record_description">%1$s, %2$s, top set %3$s, personal record, total %4$s</string>
 
     <!-- ── The chooser ───────────────────────────────────────────────────────────── -->
 

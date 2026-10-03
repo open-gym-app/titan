@@ -69,6 +69,23 @@ class PrDetectionUseCaseTest {
         }
 
     @Test
+    fun `a session of holds reaches the detector without breaking it, and claims no weight record`() =
+        runTest {
+            // #M7-17 only guarantees the timed set gets here safely: which records a hold can
+            // break is #225's question. A hold carries no reps and no distance, so none of the
+            // dimension-keyed bests has a candidate — and an empty candidate list must be a
+            // "no record", not a forced read of a missing value.
+            val sessionId = startSession(exerciseId = 40L)
+            addCardioSet(sessionId, distance = null, duration = 90)
+            addCardioSet(sessionId, distance = null, duration = 75)
+
+            val created = detectPrs(sessionId)
+
+            assertTrue(created.none { it.type == PrType.MAX_WEIGHT || it.type == PrType.MAX_REPS })
+            assertTrue(created.none { it.type == PrType.MAX_DISTANCE || it.type == PrType.BEST_PACE })
+        }
+
+    @Test
     fun `a cardio set with a distance but no duration yields a distance record and no pace record`() =
         runTest {
             val exerciseId = 20L

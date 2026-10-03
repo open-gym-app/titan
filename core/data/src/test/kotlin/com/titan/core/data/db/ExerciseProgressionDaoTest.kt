@@ -259,6 +259,43 @@ class ExerciseProgressionDaoTest : RoomTestBase() {
             assertTrue(db.workoutSetDao().getTrainedExercises().first().isEmpty())
         }
 
+    @Test
+    fun `a run is quoted by its time and distance, and its top set is the furthest one`() =
+        runBlocking {
+            // #M7-17: a cardio attempt has no volume to quote, so the roll-up carries what it
+            // did instead — 1_634 + 1_500 = 3_134 s over 500_000 + 400_000 = 900_000 cm — and the
+            // set it is quoted by falls through weight and reps to distance.
+            val run = exerciseNamed("Running, Outdoor")
+            attempt(run, day = 0) {
+                set(it, 1, day = 0, weight = null, reps = null, duration = 1_500, distance = 400_000)
+                set(it, 2, day = 0, weight = null, reps = null, duration = 1_634, distance = 500_000)
+            }
+
+            val row = attempts(run).single()
+
+            assertEquals(0L, row.totalVolume)
+            assertEquals(3_134L, row.timedSeconds)
+            assertEquals(900_000L, row.totalDistance)
+            assertEquals(500_000L, row.topSetDistance)
+            assertEquals(1_634L, row.topSetDuration)
+            assertEquals(null, row.topSetWeight)
+        }
+
+    @Test
+    fun `a session of holds is quoted by its longest hold`() =
+        runBlocking {
+            val plank = exerciseNamed("Plank")
+            attempt(plank, day = 0) {
+                set(it, 1, day = 0, weight = null, reps = null, duration = 60)
+                set(it, 2, day = 0, weight = null, reps = null, duration = 90)
+            }
+
+            val row = attempts(plank).single()
+
+            assertEquals(150L, row.timedSeconds)
+            assertEquals(90L, row.topSetDuration)
+        }
+
     // --- Fixture ----------------------------------------------------------
 
     private suspend fun attempts(exerciseId: Long): List<ExerciseAttemptRow> =
@@ -300,6 +337,8 @@ class ExerciseProgressionDaoTest : RoomTestBase() {
         reps: Int?,
         setType: String = "NORMAL",
         isCompleted: Boolean = true,
+        duration: Long? = null,
+        distance: Long? = null,
     ) = db.workoutSetDao().insert(
         workoutSet(
             sessionExerciseId = sessionExerciseId,
@@ -309,6 +348,6 @@ class ExerciseProgressionDaoTest : RoomTestBase() {
             reps = reps,
             weight = weight,
             setType = setType,
-        ),
+        ).copy(duration = duration, distance = distance),
     )
 }

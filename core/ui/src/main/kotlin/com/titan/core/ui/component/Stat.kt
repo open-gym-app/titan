@@ -3,6 +3,7 @@ package com.titan.core.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -27,8 +28,11 @@ import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.SessionStats
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.R
+import com.titan.core.ui.format.distanceSuffix
 import com.titan.core.ui.format.formatAsElapsed
+import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatCount
+import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatVolumeValue
 import com.titan.core.ui.format.weightSuffix
 import com.titan.core.ui.theme.LocalUnitSystem
@@ -222,11 +226,13 @@ fun PrBadge(
 }
 
 /**
- * The three figures a finished session is summarised by, as a row of chips.
+ * The figures a session is summarised by, as a row of chips: duration, sets, volume — and the
+ * time and the distance of its timed sets where it has any (#M7-17).
  *
- * Takes [SessionStats] rather than three strings because that is what the domain hands the
- * caller and because the order — duration, sets, volume — is a decision this component gets
- * to make once instead of every list making it again.
+ * Takes [SessionStats] rather than strings because that is what the domain hands the caller and
+ * because the order is a decision this component gets to make once instead of every list making
+ * it again. The volume chip gives way to the timed ones on a session that lifted nothing — see
+ * [showsVolume] — and a row that grows past its width wraps rather than clipping a figure.
  *
  * @param showDuration false drops the first chip. For a caller whose own chrome already carries
  *   the clock — the active session, whose header ticks one directly above this row — where the
@@ -247,21 +253,12 @@ fun SessionStatChips(
     showDuration: Boolean = true,
     announces: Boolean = false,
 ) {
-    val duration = stats.durationSeconds.seconds.formatAsElapsed()
-    val sets = stringResource(
-        R.string.figure_with_unit,
-        formatCount(stats.totalSets),
-        pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
-    )
-    val volume = stringResource(
-        R.string.figure_with_unit,
-        formatVolumeValue(stats.totalVolume),
-        LocalUnitSystem.current.weightSuffix,
-    )
-    val spoken = listOfNotNull(duration.takeIf { showDuration }, sets, volume)
+    val chips = statChips(stats, showDuration)
+    val spoken = chips
+        .map { (value, label) -> if (label == null) value else stringResource(R.string.figure_with_unit, value, label) }
         .joinToString(stringResource(R.string.exercise_meta_separator))
 
-    Row(
+    FlowRow(
         modifier = if (announces) {
             modifier.clearAndSetSemantics {
                 liveRegion = LiveRegionMode.Polite
@@ -271,30 +268,42 @@ fun SessionStatChips(
             modifier
         },
         horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
     ) {
-        if (showDuration) {
-            StatChip(value = duration)
-        }
-        StatChip(
-            value = formatCount(stats.totalSets),
-            label = pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
-        )
-        StatChip(
-            value = formatVolumeValue(stats.totalVolume),
-            label = LocalUnitSystem.current.weightSuffix,
-        )
+        chips.forEach { (value, label) -> StatChip(value = value, label = label) }
     }
 }
 
+/** The chips [SessionStatChips] draws, as figure-and-label pairs, in order. */
+@Composable
+private fun statChips(
+    stats: SessionStats,
+    showDuration: Boolean,
+): List<Pair<String, String?>> =
+    listOfNotNull(
+        (stats.durationSeconds.seconds.formatAsElapsed() to null).takeIf { showDuration },
+        formatCount(stats.totalSets) to pluralStringResource(R.plurals.stat_sets_short, stats.totalSets),
+        (formatVolumeValue(stats.totalVolume) to LocalUnitSystem.current.weightSuffix)
+            .takeIf { showsVolume(stats.totalVolume, stats.timedSeconds, stats.totalDistance) },
+        stats.totalDistance.takeIf { it > 0 }?.let { distance ->
+            formatDistanceValue(distance) to distanceSuffix(distance, LocalUnitSystem.current)
+        },
+        stats.timedSeconds.takeIf { it > 0 }?.let { formatClockValue(it) to null },
+    )
+
 /**
- * The same figures as a four-up grid of tiles: the shape the session summary opens with.
+ * The same figures as a grid of tiles, two to a row: the shape the session summary opens with.
  *
  * Two columns rather than four, because a 360dp screen minus its margins gives each tile
  * 160dp and a five-digit volume in `numericLarge` needs most of it.
  *
+ * The timed sets' time and distance join the grid where the session has any (#M7-17), and the
+ * volume tile gives way where it would read zero beside them — see [showsVolume]. A count of
+ * tiles that comes out odd leaves the last one the whole row rather than a hole beside it,
+ * because a grid with a hole in it reads as a figure that failed to load.
+ *
  * @param musclesWorked how many muscle groups the session touched, or **null** to draw the
- *   duration in that slot instead. Four tiles either way, because a grid with a hole in it is
- *   not a grid — this chooses which of the five figures the fourth tile carries.
+ *   duration in that slot instead. This chooses which of two figures the second tile carries.
  *
  *   The two callers differ in what their header already says. A session summary heads itself
  *   with `10:14 → 11:06 · 52:14`, so a duration tile under it is the same number twice and the
@@ -309,50 +318,98 @@ fun SessionStatGrid(
     modifier: Modifier = Modifier,
     musclesWorked: Int? = null,
 ) {
-    val unitSuffix = LocalUnitSystem.current.weightSuffix
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
-            StatTile(
-                label = stringResource(R.string.stat_volume),
-                value = formatVolumeValue(stats.totalVolume),
-                unit = unitSuffix,
-                modifier = Modifier.weight(1f),
-            )
+    val unitSystem = LocalUnitSystem.current
+    val tiles = buildList<@Composable (Modifier) -> Unit> {
+        if (showsVolume(stats.totalVolume, stats.timedSeconds, stats.totalDistance)) {
+            add { tile ->
+                StatTile(
+                    label = stringResource(R.string.stat_volume),
+                    value = formatVolumeValue(stats.totalVolume),
+                    unit = unitSystem.weightSuffix,
+                    modifier = tile,
+                )
+            }
+        }
+        if (stats.totalDistance > 0) {
+            add { tile ->
+                StatTile(
+                    label = stringResource(R.string.stat_distance),
+                    value = formatDistanceValue(stats.totalDistance, unitSystem),
+                    unit = distanceSuffix(stats.totalDistance, unitSystem),
+                    modifier = tile,
+                )
+            }
+        }
+        if (stats.timedSeconds > 0) {
+            add { tile ->
+                StatTile(
+                    label = stringResource(R.string.stat_time),
+                    value = formatClockValue(stats.timedSeconds),
+                    modifier = tile,
+                )
+            }
+        }
+        add { tile ->
             if (musclesWorked == null) {
                 StatTile(
                     label = stringResource(R.string.stat_duration),
                     value = stats.durationSeconds.seconds.formatAsElapsed(),
-                    modifier = Modifier.weight(1f),
+                    modifier = tile,
                 )
             } else {
                 StatTile(
                     label = stringResource(R.string.stat_muscles),
                     value = formatCount(musclesWorked),
                     unit = stringResource(R.string.stat_muscles_unit),
-                    modifier = Modifier.weight(1f),
+                    modifier = tile,
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
+        add { tile ->
             StatTile(
                 label = stringResource(R.string.stat_sets),
                 value = formatCount(stats.totalSets),
                 unit = stringResource(R.string.stat_sets_unit),
-                modifier = Modifier.weight(1f),
+                modifier = tile,
             )
+        }
+        add { tile ->
             StatTile(
                 label = stringResource(R.string.stat_exercises),
                 value = formatCount(stats.exerciseBreakdown.size),
                 unit = stringResource(R.string.stat_exercises_unit),
-                modifier = Modifier.weight(1f),
+                modifier = tile,
             )
         }
     }
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
+    ) {
+        tiles.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md)) {
+                row.forEach { tile -> tile(Modifier.weight(1f)) }
+            }
+        }
+    }
 }
+
+/**
+ * Whether a session's volume is worth quoting beside its other figures.
+ *
+ * Always, except for a session whose sets lifted nothing *and* that has a time or a distance to
+ * quote instead: a run is not a session that moved 0 kg, and the zero beside its five
+ * kilometres is noise (#M7-17). A session with none of the three keeps its zero, which is the
+ * truth about a workout of unweighted, untimed sets. One rule for every surface that sums a
+ * session — this grid, the chips, a history row — so none of them quotes a zero the others
+ * leave out.
+ */
+internal fun showsVolume(
+    totalVolume: Long,
+    timedSeconds: Long,
+    totalDistance: Long,
+): Boolean = totalVolume > 0 || (timedSeconds <= 0 && totalDistance <= 0)
 
 // ─── Previews ───────────────────────────────────────────────────────────────────────────
 
@@ -403,6 +460,40 @@ fun SessionStatGridDarkPreview() {
                 PrBadge(type = PrType.MAX_WEIGHT)
                 StatChip(value = "12", label = "day streak", accented = true)
             }
+        }
+    }
+}
+
+/** A run: no volume to quote, and the distance and the time in its place (#M7-17). */
+private val PREVIEW_CARDIO_STATS = SessionStats(
+    totalSets = 1,
+    totalVolume = 0,
+    durationSeconds = 2_040,
+    exerciseBreakdown = listOf(
+        ExerciseStats(
+            sessionExerciseId = 1L,
+            totalSets = 1,
+            totalVolume = 0,
+            timedSeconds = 1_634,
+            totalDistance = 500_000,
+        ),
+    ),
+    timedSeconds = 1_634,
+    totalDistance = 500_000,
+)
+
+@Preview(name = "Stats - a cardio session", widthDp = 360)
+@Composable
+fun SessionStatGridCardioPreview() {
+    TitanTheme(theme = ThemePreference.LIGHT) {
+        Column(
+            modifier = Modifier
+                .background(MaterialTheme.colorScheme.background)
+                .padding(TitanTheme.spacing.screen),
+            verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.section),
+        ) {
+            SessionStatGrid(stats = PREVIEW_CARDIO_STATS, modifier = Modifier.fillMaxWidth())
+            SessionStatChips(stats = PREVIEW_CARDIO_STATS)
         }
     }
 }

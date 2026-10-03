@@ -35,6 +35,27 @@ private fun set(
 class SessionStatsCalculatorTest {
 
     @Test
+    fun `a session of timed sets sums its time and its distance, and moves no volume`() {
+        val run = set(sessionExerciseId = 1, reps = null, weight = null).copy(duration = 1_634, distance = 500_000)
+        val plank = set(sessionExerciseId = 2, reps = null, weight = null).copy(duration = 90)
+        val unticked = set(sessionExerciseId = 2, reps = null, weight = null, isCompleted = false).copy(duration = 60)
+
+        val stats = SessionStatsCalculator.calculate(listOf(run, plank, unticked), startedAt = 0, endedAt = 0)
+
+        assertEquals(2, stats.totalSets)
+        assertEquals(0L, stats.totalVolume)
+        assertEquals(1_724L, stats.timedSeconds)
+        assertEquals(500_000L, stats.totalDistance)
+        assertEquals(
+            listOf(
+                ExerciseStats(1, totalSets = 1, totalVolume = 0, timedSeconds = 1_634, totalDistance = 500_000),
+                ExerciseStats(2, totalSets = 1, totalVolume = 0, timedSeconds = 90, totalDistance = 0),
+            ),
+            stats.exerciseBreakdown,
+        )
+    }
+
+    @Test
     fun `aggregates across multiple exercises`() {
         val sets = listOf(
             set(sessionExerciseId = 1, reps = 10, weight = 100 * KG),

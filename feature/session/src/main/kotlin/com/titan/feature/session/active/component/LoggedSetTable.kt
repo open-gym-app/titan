@@ -9,11 +9,13 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.ui.R
 import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.SetLogHeader
 import com.titan.core.ui.component.SetLogRow
 import com.titan.core.ui.component.SwipeToDelete
+import com.titan.core.ui.format.DistanceUnit
 import com.titan.feature.session.active.ActiveSessionEvent
 import com.titan.feature.session.active.LoggedSet
 
@@ -85,6 +87,9 @@ import com.titan.feature.session.active.LoggedSet
  *   values stay on screen, because they are still the user's copy of them.
  * @param showPrevious whether the previous-set column is drawn — the caller's answer from
  *   `setTableFitsPrevious`, shared with the entry row under this table so the grid holds.
+ * @param exerciseType how the exercise is logged, which decides the two value columns of the
+ *   header and of every row — shared with the entry row for the same reason.
+ * @param distanceUnit the unit a distance column is typed and read in.
  */
 @Composable
 fun LoggedSetTable(
@@ -95,9 +100,11 @@ fun LoggedSetTable(
     togglingSetIds: Set<Long> = emptySet(),
     enabled: Boolean = true,
     showPrevious: Boolean = true,
+    exerciseType: ExerciseType = ExerciseType.STRENGTH,
+    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SetLogHeader(showPrevious = showPrevious)
+        SetLogHeader(showPrevious = showPrevious, exerciseType = exerciseType, distanceUnit = distanceUnit)
 
         sets.forEachIndexed { index, set ->
             HairlineDivider()
@@ -147,6 +154,8 @@ fun LoggedSetTable(
                         enabled = enabled && !set.isSaving,
                         canComplete = enabled && set.id !in togglingSetIds && set.canComplete,
                         showPrevious = showPrevious,
+                        exerciseType = exerciseType,
+                        distanceUnit = distanceUnit,
                     )
                 }
             }
@@ -169,6 +178,8 @@ private fun LoggedSetRow(
     enabled: Boolean,
     canComplete: Boolean,
     showPrevious: Boolean,
+    exerciseType: ExerciseType,
+    distanceUnit: DistanceUnit,
 ) {
     SetLogRow(
         setNumber = setNumber,
@@ -180,6 +191,16 @@ private fun LoggedSetRow(
         onRepsChange = {
             onEvent(ActiveSessionEvent.SetEditRepsChanged(sessionExerciseId, set.id, it))
         },
+        exerciseType = exerciseType,
+        duration = set.entry.duration,
+        onDurationChange = {
+            onEvent(ActiveSessionEvent.SetEditDurationChanged(sessionExerciseId, set.id, it))
+        },
+        distance = set.entry.distance,
+        onDistanceChange = {
+            onEvent(ActiveSessionEvent.SetEditDistanceChanged(sessionExerciseId, set.id, it))
+        },
+        distanceUnit = distanceUnit,
         onCompletedChange = {
             onEvent(
                 ActiveSessionEvent.SetCompletionToggled(

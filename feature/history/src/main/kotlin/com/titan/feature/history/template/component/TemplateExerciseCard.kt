@@ -254,7 +254,11 @@ private fun PlanTable(
     val invalid = stringResource(R.string.template_field_invalid)
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        PlannedSetHeader(weightUnit = unitSystem.weightSuffix)
+        PlannedSetHeader(
+            weightUnit = unitSystem.weightSuffix,
+            exerciseType = row.exerciseType,
+            distanceUnit = row.distanceUnit,
+        )
 
         row.sets.forEachIndexed { index, set ->
             HairlineDivider()
@@ -271,6 +275,14 @@ private fun PlanTable(
                         reps = set.reps,
                         onWeightChange = { onSetFieldChange(set.key, TemplateSetField.WEIGHT, it) },
                         onRepsChange = { onSetFieldChange(set.key, TemplateSetField.REPS, it) },
+                        // A hold plans its time and its added weight, a run its distance and its
+                        // time — the same two fields the session will draw (#M7-17).
+                        exerciseType = row.exerciseType,
+                        duration = set.duration,
+                        onDurationChange = { onSetFieldChange(set.key, TemplateSetField.DURATION, it) },
+                        distance = set.distance,
+                        onDistanceChange = { onSetFieldChange(set.key, TemplateSetField.DISTANCE, it) },
+                        distanceUnit = row.distanceUnit,
                         setType = set.setType,
                         onSetTypeChange = { onSetTypeChange(set.key, it) },
                         error = invalid.takeIf { set.errors.isNotEmpty() },

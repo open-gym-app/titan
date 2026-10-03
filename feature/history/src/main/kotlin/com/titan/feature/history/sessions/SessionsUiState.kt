@@ -241,6 +241,9 @@ data class SessionMonth(
  *   [com.titan.core.domain.model.SessionTotals].
  * @param totalSets completed sets. Zero for a session with none, which is what a row for an
  *   abandoned session shows.
+ * @param timedSeconds how long its timed sets lasted, summed — what a run's row quotes in place
+ *   of the zero volume it has (#M7-17). See [com.titan.core.domain.model.SessionTotals].
+ * @param totalDistance the ground those sets covered, in centimetres.
  * @param hasRecord whether a personal record was set here. See [SessionsViewModel] for how
  *   that is decided, and what it cannot yet see.
  * @param isToday whether the session started today, which draws its date rail in the accent.
@@ -253,6 +256,8 @@ data class HistorySession(
     val duration: Duration,
     val totalSets: Int,
     val totalVolume: Long,
+    val timedSeconds: Long = 0,
+    val totalDistance: Long = 0,
     val hasRecord: Boolean = false,
     val isToday: Boolean = false,
 )

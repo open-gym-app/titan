@@ -16,7 +16,9 @@ import androidx.room.PrimaryKey
  * shape `workout_set` already has, which is what makes applying a template a copy
  * rather than a translation.
  *
- * Canonical storage units, per PERSISTENCE.md: [weight] in milligrams. There is no
+ * Canonical storage units, per PERSISTENCE.md: [weight] in milligrams, [duration] in
+ * seconds and [distance] in centimetres — the units `workout_set` stores them in, so a
+ * planned hold or run is copied into the session without a conversion. There is no
  * `rpe` and no `rest_after` — a plan does not record how hard a set felt, and rest
  * belongs to `template_exercise`.
  *
@@ -61,4 +63,10 @@ data class TemplateSetEntity(
     /** Milligrams, per [WorkoutSetEntity.weight]. */
     @ColumnInfo(name = "weight")
     val weight: Long? = null,
+    /** Seconds, per [WorkoutSetEntity.duration]. What a hold or a timed effort is planned in. */
+    @ColumnInfo(name = "duration")
+    val duration: Long? = null,
+    /** Centimetres, per [WorkoutSetEntity.distance]. */
+    @ColumnInfo(name = "distance")
+    val distance: Long? = null,
 )

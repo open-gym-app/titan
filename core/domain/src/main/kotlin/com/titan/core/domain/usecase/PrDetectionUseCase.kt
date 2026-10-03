@@ -186,19 +186,37 @@ class PrDetectionUseCase(
             },
         )
 
+    /*
+     * Each of these reads a dimension a set may not carry — a hold has no reps, a bench press no
+     * distance — so each is "the best of the sets that have one", and a set without it is not a
+     * candidate rather than a zero. Paired up front rather than filtered and then forced, so a
+     * timed set reaching a weight record is skipped by construction instead of by a `!!` that
+     * happens to be guarded today.
+     */
+
     private fun bestByWeight(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.filter { (it.weight ?: 0L) > 0L }.maxByOrNull { it.weight!! }
+        sets.mapNotNull { set -> set.weight?.takeIf { it > 0L }?.let { set to it } }
+            .maxByOrNull { (_, weight) -> weight }
+            ?.first
 
     private fun bestByReps(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.filter { (it.reps ?: 0) > 0 }.maxByOrNull { it.reps!! }
+        sets.mapNotNull { set -> set.reps?.takeIf { it > 0 }?.let { set to it } }
+            .maxByOrNull { (_, reps) -> reps }
+            ?.first
 
     private fun bestByDistance(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.filter { (it.distance ?: 0L) > 0L }.maxByOrNull { it.distance!! }
+        sets.mapNotNull { set -> set.distance?.takeIf { it > 0L }?.let { set to it } }
+            .maxByOrNull { (_, distance) -> distance }
+            ?.first
 
     private fun bestByPace(sets: List<WorkoutSet>): WorkoutSet? =
-        sets
-            .filter { (it.distance ?: 0L) > 0L && (it.duration ?: 0L) > 0L }
-            .minByOrNull { it.duration!!.toDouble() / it.distance!! }
+        sets.mapNotNull { set ->
+            val distance = set.distance?.takeIf { it > 0L } ?: return@mapNotNull null
+            val duration = set.duration?.takeIf { it > 0L } ?: return@mapNotNull null
+            set to duration.toDouble() / distance
+        }
+            .minByOrNull { (_, secondsPerCentimetre) -> secondsPerCentimetre }
+            ?.first
 
     /**
      * The session's total volume for this exercise's sets, anchored to the last of them —

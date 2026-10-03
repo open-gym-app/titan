@@ -88,6 +88,8 @@ class SessionRepositoryImpl @Inject constructor(
                 row.sessionId to SessionTotals(
                     totalSets = row.totalSets,
                     totalVolume = row.totalVolume,
+                    timedSeconds = row.timedSeconds,
+                    totalDistance = row.totalDistance,
                 )
             }
         }

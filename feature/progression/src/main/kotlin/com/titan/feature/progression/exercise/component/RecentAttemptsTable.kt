@@ -22,8 +22,11 @@ import com.titan.core.domain.model.ExerciseAttempt
 import com.titan.core.ui.component.Eyebrow
 import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.TitanCard
+import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatCount
 import com.titan.core.ui.format.formatDayAndMonth
+import com.titan.core.ui.format.formatDistance
+import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatSet
 import com.titan.core.ui.format.formatSetCompact
 import com.titan.core.ui.format.formatVolume
@@ -65,6 +68,14 @@ import com.titan.core.ui.R as CoreR
  * @param recordSessionId the attempt that broke a record, drawn in the accent with a star, or
  *   **null** when none did. One row at most: the mark means *this one*, and a record is only
  *   ever new in the most recent attempt on screen.
+ *
+ * ### A timed exercise has no volume column
+ *
+ * A run or a plank moves nothing, so a column of zero volumes would be the whole table saying
+ * nothing happened (#M7-17). Where every attempt on screen is volume-less and timed, the last
+ * column is what the attempts *did* instead — see [AttemptMeasure] — and the top set reads as the
+ * time it was quoted by. Decided once for the table rather than per row, so the header over the
+ * column is true of every cell under it.
  */
 @Composable
 fun RecentAttemptsTable(
@@ -72,13 +83,14 @@ fun RecentAttemptsTable(
     modifier: Modifier = Modifier,
     recordSessionId: Long? = null,
 ) {
+    val total = AttemptMeasure.of(attempts)
     TitanCard(modifier = modifier.fillMaxWidth()) {
-        AttemptHeader()
+        AttemptHeader(total = total)
         attempts.forEach { attempt ->
             // Before each row rather than after it, so the table closes on a row and not on a
             // rule drawn just inside the card's own border.
             HairlineDivider()
-            AttemptRow(attempt = attempt, isRecord = attempt.sessionId == recordSessionId)
+            AttemptRow(attempt = attempt, isRecord = attempt.sessionId == recordSessionId, total = total)
         }
     }
 }
@@ -91,7 +103,7 @@ fun RecentAttemptsTable(
  * `ChartAxisLabels` makes about a chart's months.
  */
 @Composable
-private fun AttemptHeader() {
+private fun AttemptHeader(total: AttemptMeasure) {
     AttemptGrid(
         modifier = Modifier.clearAndSetSemantics { },
         verticalPadding = TitanTheme.spacing.md,
@@ -99,7 +111,16 @@ private fun AttemptHeader() {
         HeaderCell(text = stringResource(R.string.exercise_attempts_date), weight = DATE_WEIGHT)
         HeaderCell(text = stringResource(R.string.exercise_attempts_sets), weight = SETS_WEIGHT)
         HeaderCell(text = stringResource(R.string.exercise_attempts_top), weight = TOP_SET_WEIGHT)
-        HeaderCell(text = stringResource(R.string.exercise_attempts_volume), weight = VOLUME_WEIGHT)
+        HeaderCell(
+            text = stringResource(
+                when (total) {
+                    AttemptMeasure.VOLUME -> R.string.exercise_attempts_volume
+                    AttemptMeasure.DISTANCE -> R.string.exercise_attempts_distance
+                    AttemptMeasure.TIME -> R.string.exercise_attempts_time
+                },
+            ),
+            weight = VOLUME_WEIGHT,
+        )
     }
 }
 
@@ -108,19 +129,31 @@ private fun AttemptHeader() {
 private fun AttemptRow(
     attempt: ExerciseAttempt,
     isRecord: Boolean,
+    total: AttemptMeasure,
 ) {
     val date = formatDayAndMonth(attempt.finishedAt)
     val missing = stringResource(R.string.exercise_attempts_missing)
     val glyph = stringResource(R.string.exercise_attempts_record_glyph)
-    val topSetCell = formatSetCompact(attempt.topSet?.weight, attempt.topSet?.reps) ?: missing
-    val topSetSpoken = formatSet(attempt.topSet?.weight, attempt.topSet?.reps) ?: missing
+    val top = attempt.topSet
+    val topSetCell = formatSetCompact(top?.weight, top?.reps, top?.duration, top?.distance) ?: missing
+    val topSetSpoken = formatSet(top?.weight, top?.reps, top?.duration, top?.distance) ?: missing
+    val (totalCell, totalSpoken) = when (total) {
+        AttemptMeasure.VOLUME -> formatVolumeValue(attempt.volume) to formatVolume(attempt.volume)
+        AttemptMeasure.DISTANCE -> formatDistanceValue(attempt.distance) to formatDistance(attempt.distance)
+        AttemptMeasure.TIME -> formatClockValue(attempt.timedSeconds).let { it to it }
+    }
 
     val spoken = stringResource(
-        if (isRecord) R.string.exercise_attempt_record_description else R.string.exercise_attempt_description,
+        when {
+            total != AttemptMeasure.VOLUME && isRecord -> R.string.exercise_attempt_timed_record_description
+            total != AttemptMeasure.VOLUME -> R.string.exercise_attempt_timed_description
+            isRecord -> R.string.exercise_attempt_record_description
+            else -> R.string.exercise_attempt_description
+        },
         date,
         pluralStringResource(R.plurals.exercise_attempts_set_count, attempt.sets, attempt.sets),
         topSetSpoken,
-        formatVolume(attempt.volume),
+        totalSpoken,
     )
 
     AttemptGrid(modifier = Modifier.clearAndSetSemantics { contentDescription = spoken }) {
@@ -143,7 +176,7 @@ private fun AttemptRow(
             },
             fontWeight = if (isRecord) FontWeight.SemiBold else FontWeight.Normal,
         )
-        Cell(text = formatVolumeValue(attempt.volume), weight = VOLUME_WEIGHT)
+        Cell(text = totalCell, weight = VOLUME_WEIGHT)
     }
 }
 

@@ -15,7 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 /**
- * The one line a set is written on, in the four shapes a set can take.
+ * The one line a set is written on, in every shape a set can take.
  *
  * A composable rather than a plain function, and therefore a composable test: the unit comes
  * from `LocalUnitSystem` and the "×" from the resources, which is the whole reason this is not
@@ -93,13 +93,65 @@ class SetFormatTest {
             assertFalse(composeTestRule.onRoot().printToString().contains("Text"))
         }
 
+    // ─── Timed sets (#M7-17) ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a run reads as its distance and its time, never as a dash by a dash`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = null, reps = null, duration = 1_634L, distance = 500_000L)
+
+            composeTestRule.onNodeWithText("5 km · 27:14").assertIsDisplayed()
+        }
+
+    @Test
+    fun `a hold reads as its time`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = null, reps = null, duration = 90L)
+
+            composeTestRule.onNodeWithText("1:30").assertIsDisplayed()
+        }
+
+    @Test
+    fun `a weighted hold reads as its time and the load added to it`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = 10_000_000L, reps = null, duration = 90L)
+
+            composeTestRule.onNodeWithText("1:30 · +10 kg").assertIsDisplayed()
+        }
+
+    @Test
+    fun `a set with reps is a set of reps, whatever else it carries`() =
+        withLocale(Locale.UK) {
+            setLine(weightMilligrams = 80_000_000L, reps = 5, duration = 40L)
+
+            composeTestRule.onNodeWithText("80 kg × 5").assertIsDisplayed()
+        }
+
+    @Test
+    fun `the compact form of a timed set is its time, so a column compares like with like`() =
+        withLocale(Locale.UK) {
+            compactLine(weightMilligrams = null, reps = null, duration = 1_634L, distance = 500_000L)
+
+            composeTestRule.onNodeWithText("27:14").assertIsDisplayed()
+        }
+
+    @Test
+    fun `the compact form of a distance alone is the distance`() =
+        withLocale(Locale.UK) {
+            compactLine(weightMilligrams = null, reps = null, distance = 500_000L)
+
+            composeTestRule.onNodeWithText("5").assertIsDisplayed()
+        }
+
     private fun setLine(
         weightMilligrams: Long?,
         reps: Int?,
+        duration: Long? = null,
+        distance: Long? = null,
     ) {
         composeTestRule.setContent {
             TitanTheme {
-                formatSet(weightMilligrams, reps)?.let { Text(text = it) }
+                formatSet(weightMilligrams, reps, duration, distance)?.let { Text(text = it) }
             }
         }
     }
@@ -107,10 +159,12 @@ class SetFormatTest {
     private fun compactLine(
         weightMilligrams: Long?,
         reps: Int?,
+        duration: Long? = null,
+        distance: Long? = null,
     ) {
         composeTestRule.setContent {
             TitanTheme {
-                formatSetCompact(weightMilligrams, reps)?.let { Text(text = it) }
+                formatSetCompact(weightMilligrams, reps, duration, distance)?.let { Text(text = it) }
             }
         }
     }

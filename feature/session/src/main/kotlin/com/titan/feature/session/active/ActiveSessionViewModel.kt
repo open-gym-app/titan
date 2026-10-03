@@ -40,6 +40,7 @@ import com.titan.core.domain.timer.RestSkipRequests
 import com.titan.core.domain.timer.RestTimerController
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
+import com.titan.core.domain.timer.StopwatchSnapshot
 import com.titan.core.domain.usecase.AddPlannedSetsUseCase
 import com.titan.core.domain.usecase.AddSessionExercisesUseCase
 import com.titan.core.domain.usecase.DeleteSetUseCase
@@ -65,7 +66,15 @@ import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
+import com.titan.core.ui.format.BareClockNumber
+import com.titan.core.ui.format.DistanceUnit
+import com.titan.core.ui.format.bareClockNumber
+import com.titan.core.ui.format.distanceEntryUnit
+import com.titan.core.ui.format.formatClockValue
+import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatWeightValue
+import com.titan.core.ui.format.parseClockSeconds
+import com.titan.core.ui.format.parseDistanceCentimetres
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.core.ui.state.savedScreenState
 import com.titan.feature.session.SessionProgressionHandoff
@@ -81,6 +90,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -97,6 +107,7 @@ import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
 /**
@@ -191,7 +202,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val idleSessionMonitor: IdleSessionMonitor,
     restSkipRequests: RestSkipRequests,
     private val clock: Clock,
-    timeSource: TimeSource,
+    private val timeSource: TimeSource,
 ) : ViewModel() {
 
     private val sessionId: Long = savedStateHandle.toRoute<ActiveSessionDestination>().sessionId
@@ -654,7 +665,8 @@ class ActiveSessionViewModel @Inject constructor(
             onLayoutEvent(event) || onRestEvent(event)
 
     /**
-     * The six events that only change the row being typed, handled together.
+     * The events that only change the row being typed, handled together — the stopwatch among
+     * them, since what it changes in the end is the time field.
      *
      * Split off [onEvent] because they are one concern with one effect — edit the entry,
      * re-validate, save the draft — and leaving them inline made a `when` that branched fifteen
@@ -669,6 +681,16 @@ class ActiveSessionViewModel @Inject constructor(
 
             is ActiveSessionEvent.RepsChanged ->
                 editEntry(event.sessionExerciseId) { it.copy(reps = event.text) }
+
+            is ActiveSessionEvent.DurationChanged ->
+                editEntry(event.sessionExerciseId) { it.copy(duration = event.text) }
+
+            is ActiveSessionEvent.DistanceChanged ->
+                editEntry(event.sessionExerciseId) { it.copy(distance = event.text) }
+
+            is ActiveSessionEvent.StopwatchStarted -> startStopwatch(event.sessionExerciseId)
+
+            is ActiveSessionEvent.StopwatchStopped -> stopStopwatch(event.sessionExerciseId)
 
             is ActiveSessionEvent.RpeChanged ->
                 editEntry(event.sessionExerciseId) { it.copy(rpe = event.rpe) }
@@ -745,7 +767,7 @@ class ActiveSessionViewModel @Inject constructor(
             val edited = change(current.entryFor(sessionExerciseId))
             current.copy(
                 entries = current.entries + (
-                    sessionExerciseId to edited.copy(error = validate(edited))
+                    sessionExerciseId to edited.copy(error = validate(edited, unitsOf(sessionExerciseId)))
                     ),
                 message = null,
             )
@@ -761,17 +783,26 @@ class ActiveSessionViewModel @Inject constructor(
      * that is empty is neither — it is a field the user has not reached yet — so it is not an
      * error until the set is submitted.
      */
-    private fun validate(entry: SetEntry): SetEntryError? {
+    private fun validate(
+        entry: SetEntry,
+        units: EntryUnits,
+    ): SetEntryError? {
         val weight = weightField(entry.weight)
         if (weight.isMalformed) return SetEntryError.WeightNotANumber
         val reps = repsField(entry.reps)
         if (reps.isMalformed) return SetEntryError.RepsNotANumber
+        val duration = durationField(entry.duration, units)
+        if (duration.isMalformed) return SetEntryError.DurationNotATime
+        val distance = distanceField(entry.distance, units)
+        if (distance.isMalformed) return SetEntryError.DistanceNotANumber
 
         val candidate = WorkoutSet(
             sessionExerciseId = 0,
             setNumber = 1,
             reps = reps.value,
             weight = weight.value,
+            duration = duration.value,
+            distance = distance.value,
             rpe = entry.rpe,
             setType = entry.setType,
             completedAt = 0,
@@ -797,6 +828,40 @@ class ActiveSessionViewModel @Inject constructor(
             text.isBlank() -> Field.absent()
             else -> Field.of(text.trim().toIntOrNull())
         }
+
+    /** The time field read as seconds, a bare number counted the way the exercise is timed. */
+    private fun durationField(
+        text: String,
+        units: EntryUnits,
+    ): Field<Long> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(parseClockSeconds(text, units.bareClockNumber))
+        }
+
+    /** The distance field read as centimetres, in the unit its exercise is typed in. */
+    private fun distanceField(
+        text: String,
+        units: EntryUnits,
+    ): Field<Long> =
+        when {
+            text.isBlank() -> Field.absent()
+            else -> Field.of(parseDistanceCentimetres(text, units.distanceUnit))
+        }
+
+    /**
+     * The units one exercise's fields are typed in: the distance unit its rows are labelled with,
+     * and what a bare number in its time field counts.
+     *
+     * Read off the catalogue at the moment of parsing rather than remembered, for the reason
+     * [unitSystem] is read synchronously: the label the user is typing against and the parse of
+     * what they typed have to be the same answer, and both come from here. See
+     * [SessionExerciseRow.distanceUnit].
+     */
+    private fun unitsOf(sessionExerciseId: Long): EntryUnits {
+        val exercise = exerciseRow(sessionExerciseId)?.let { catalogue.value?.exercises?.get(it.exerciseId) }
+        return EntryUnits.of(exercise, unitSystem.value)
+    }
 
     /**
      * Writes one exercise's entry as a set.
@@ -828,9 +893,12 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { it.copy(loggingExerciseIds = it.loggingExerciseIds + sessionExerciseId) }
 
         viewModelScope.launch {
+            val units = unitsOf(sessionExerciseId)
             val draft = ActiveSet(
                 reps = repsField(entry.reps).value,
                 weight = weightField(entry.weight).value,
+                duration = durationField(entry.duration, units).value,
+                distance = distanceField(entry.distance, units).value,
                 rpe = entry.rpe,
                 setType = entry.setType,
                 notes = entry.notes?.trim()?.ifEmpty { null },
@@ -883,6 +951,101 @@ class ActiveSessionViewModel @Inject constructor(
         }
     }
 
+    // ─── The hold stopwatch ─────────────────────────────────────────────────────────────
+
+    /**
+     * Where the stopwatch started, on [timeSource], or null when nothing is being timed.
+     *
+     * The live half of the stopwatch, beside the [ScreenState.stopwatch] snapshot the draft
+     * carries. Read on an elapsed-realtime source — the one the rest countdown runs on, and for
+     * the same reason: `TimeSource.Monotonic` stops while the device sleeps, which is the whole of
+     * a plank held with the phone face down on the floor. Not in [ScreenState] because nothing
+     * draws it; what is drawn is the reading taken from it in [clockedAt].
+     *
+     * A rotation keeps it, because this object outlives the activity. A process death does not,
+     * and is what the snapshot is for: [restoreDraft] puts a mark back as far in the past as the
+     * snapshot's wall clock says the hold began.
+     */
+    private var stopwatchMark: TimeMark? = null
+
+    /**
+     * Starts timing a hold on one exercise's next set (#M7-17).
+     *
+     * One stopwatch per workout. A second start, on any exercise, is ignored while one runs — the
+     * control is drawn inert for it, so reaching here is an event dispatched a frame before that —
+     * and so is a start over a paused or closing session, for [editEntry]'s reason: what the
+     * stopwatch writes in the end is that exercise's entry, which a paused session does not take.
+     *
+     * Saved straight away, not on the debounce: a hold is exactly the kind of thing a phone on the
+     * floor is killed in the middle of.
+     */
+    private fun startStopwatch(sessionExerciseId: Long) {
+        val state = screenState.value
+        if (state.isBusy || state.pausedAt != null || state.stopwatch != null) return
+        if (exerciseRow(sessionExerciseId) == null) return
+
+        stopwatchMark = timeSource.markNow()
+        screenState.update {
+            it.copy(stopwatch = StopwatchSnapshot(sessionExerciseId, clock.nowMillis()), message = null)
+        }
+        saveDraft()
+    }
+
+    /**
+     * Stops the hold and writes what it read into the exercise's time field, as text.
+     *
+     * Through [editEntry], so the figure is validated and drafted exactly as if it had been typed —
+     * a hold stopped inside its first second reads `0:00`, which `SetValidator` refuses by name,
+     * rather than being quietly rounded up into a set that lasted a second. The tick is untouched:
+     * see [ActiveSessionEvent.StopwatchStopped].
+     *
+     * Whole seconds, truncated, matching how the reading is drawn: the field says what the
+     * stopwatch showed the moment it was stopped, not a second more.
+     */
+    private fun stopStopwatch(sessionExerciseId: Long) {
+        // Held over a pause rather than stopped by one: the figure is written through
+        // [editEntry], which a paused session refuses, and a stop that cleared the clock without
+        // writing it would lose the hold. The control is inert while paused for the same reason.
+        if (screenState.value.isBusy || screenState.value.pausedAt != null) return
+        val running = screenState.value.stopwatch?.takeIf { it.sessionExerciseId == sessionExerciseId } ?: return
+        val held = elapsedOf(running, clock.nowMillis())
+
+        stopwatchMark = null
+        screenState.update { it.copy(stopwatch = null) }
+        editEntry(sessionExerciseId) { it.copy(duration = formatClockValue(held.inWholeSeconds)) }
+        saveDraft()
+    }
+
+    /**
+     * How long [running] has been going, read off the live mark where there is one and off the
+     * snapshot's wall clock where there is not — the moment between a restore and its mark being
+     * put back.
+     */
+    private fun elapsedOf(
+        running: StopwatchSnapshot,
+        now: Long,
+    ): Duration = stopwatchMark?.elapsedNow()?.coerceAtLeast(Duration.ZERO) ?: running.elapsedAt(now)
+
+    /**
+     * The stopwatch as the screen draws it at [now], or null when nothing is being timed.
+     *
+     * Read in [build] as well as in [clockedAt], which is what moves it: without the first, a start
+     * or a stop would assemble a state equal to the last one, and the control would only change
+     * on the next tick of the clock.
+     */
+    private fun ScreenState.stopwatchAt(now: Long): RunningStopwatch? =
+        stopwatch?.let { RunningStopwatch(it.sessionExerciseId, elapsedOf(it, now)) }
+
+    /**
+     * Drops the stopwatch if it is timing [sessionExerciseId], which has just left the workout or
+     * been swapped for another movement: the hold it was timing is not one anybody is doing now.
+     */
+    private fun ScreenState.withoutStopwatchOn(sessionExerciseId: Long): ScreenState {
+        if (stopwatch?.sessionExerciseId != sessionExerciseId) return this
+        stopwatchMark = null
+        return copy(stopwatch = null)
+    }
+
     // ─── Correcting a set that is already logged ────────────────────────────────────────
 
     /**
@@ -904,6 +1067,12 @@ class ActiveSessionViewModel @Inject constructor(
 
             is ActiveSessionEvent.SetEditRepsChanged ->
                 typeIntoSet(event.setId) { it.copy(reps = event.text) }
+
+            is ActiveSessionEvent.SetEditDurationChanged ->
+                typeIntoSet(event.setId) { it.copy(duration = event.text) }
+
+            is ActiveSessionEvent.SetEditDistanceChanged ->
+                typeIntoSet(event.setId) { it.copy(distance = event.text) }
 
             // Picked, not typed, so there is nothing to leave the row to finish — see
             // [ActiveSessionEvent.SetEditRpeChanged]. The change and the write are one event.
@@ -956,11 +1125,12 @@ class ActiveSessionViewModel @Inject constructor(
         change: (SetEntry) -> SetEntry,
     ) {
         val stored = loaded.value?.setById(setId) ?: return
+        val units = unitsOf(stored.sessionExerciseId)
 
         screenState.update { state ->
-            val edited = change(state.setEdits[setId] ?: stored.toEntry(unitSystem.value))
+            val edited = change(state.setEdits[setId] ?: stored.toEntry(unitSystem.value, units))
             state.copy(
-                setEdits = state.setEdits + (setId to edited.copy(error = validate(edited))),
+                setEdits = state.setEdits + (setId to edited.copy(error = validate(edited, units))),
                 message = null,
             )
         }
@@ -985,7 +1155,7 @@ class ActiveSessionViewModel @Inject constructor(
      *   silently undo a correction the moment they looked away from a typo.
      *
      * The values that are not on screen travel with it. `EditSetUseCase` replaces every dimension
-     * of the set from what it is handed, so the draft is built from the *stored* row with the four
+     * of the set from what it is handed, so the draft is built from the *stored* row with the
      * edited fields laid over it — anything else would quietly clear the note the user typed when
      * they logged it, and the rest a set can carry.
      *
@@ -1052,9 +1222,12 @@ class ActiveSessionViewModel @Inject constructor(
     ) {
         val entry = screenState.value.setEdits[setId] ?: return
         val target = editTarget(sessionExerciseId, setId, entry) ?: return
+        val units = unitsOf(sessionExerciseId)
         val draft = target.stored.toActiveSet().copy(
             weight = weightField(entry.weight).value,
             reps = repsField(entry.reps).value,
+            duration = durationField(entry.duration, units).value,
+            distance = distanceField(entry.distance, units).value,
             rpe = entry.rpe,
             setType = entry.setType,
         )
@@ -1791,7 +1964,7 @@ class ActiveSessionViewModel @Inject constructor(
             removeExercise(sessionExerciseId)
                 .onSuccess {
                     screenState.update {
-                        it.copy(
+                        it.withoutStopwatchOn(sessionExerciseId).copy(
                             entries = it.entries - sessionExerciseId,
                             removingExerciseIds = it.removingExerciseIds - sessionExerciseId,
                         )
@@ -1876,7 +2049,7 @@ class ActiveSessionViewModel @Inject constructor(
             swapExercise(sessionExerciseId, exerciseId)
                 .onSuccess {
                     screenState.update {
-                        it.copy(
+                        it.withoutStopwatchOn(sessionExerciseId).copy(
                             swappingExerciseId = null,
                             entries = it.entries - sessionExerciseId,
                         )
@@ -2214,6 +2387,13 @@ class ActiveSessionViewModel @Inject constructor(
     private suspend fun restoreDraft() {
         val draft = inProgressSessionRepository.load()?.takeIf { it.sessionId == sessionId }
             ?: return
+        // The workout and the catalogue, before anything is read back against them. A half-typed
+        // set is formatted back into the unit its exercise is typed in — a swim's 400 m is `400`
+        // in a field labelled in metres, and `0.4` in one that assumed kilometres — and the
+        // stopwatch is only restored onto an exercise still in the workout. Both questions are
+        // about rows that arrive on their own reads, which the screen opening does not wait for.
+        loaded.filterNotNull().first()
+        catalogue.filterNotNull().first()
 
         // One entry per exercise that was mid-set, from the trailing incomplete set the draft
         // format carries for exactly this. An exercise whose last set is completed was not being
@@ -2229,8 +2409,19 @@ class ActiveSessionViewModel @Inject constructor(
                 ?.takeIf { !it.isCompleted && it.id == null }
                 ?: return@mapNotNull null
             val id = exercise.sessionExerciseId ?: return@mapNotNull null
-            id to typed.toEntry(unitSystem.value)
+            id to typed.toEntry(unitSystem.value, unitsOf(id))
         }.toMap()
+
+        // The hold that was being timed when the process went, if its exercise is still in the
+        // workout. Its mark is put back as far in the past as the wall clock says the hold began,
+        // so the reading carries on from where it was rather than from zero — and a stopwatch this
+        // process already started is newer than the draft, the rule the entries follow.
+        val restoredStopwatch = draft.stopwatch
+            ?.takeIf { screenState.value.stopwatch == null }
+            ?.takeIf { exerciseRow(it.sessionExerciseId) != null }
+        if (restoredStopwatch != null) {
+            stopwatchMark = timeSource.markNow() - restoredStopwatch.elapsedAt(clock.nowMillis())
+        }
 
         // A rest already running is one this process started, and it is newer than anything on
         // disk. The screen goes interactive on `reattach`'s first emission, which is before this
@@ -2268,6 +2459,7 @@ class ActiveSessionViewModel @Inject constructor(
                 // is already running, which is the sheet the countdown above put up.
                 isRestSheetOpen = if (live) state.isRestSheetOpen else resting,
                 restExerciseId = if (live) state.restExerciseId else restedExerciseId,
+                stopwatch = state.stopwatch ?: restoredStopwatch,
             )
         }
         captureRest()
@@ -2376,6 +2568,7 @@ class ActiveSessionViewModel @Inject constructor(
             exercises = loaded.value?.draftExercises(
                 entries = state.entries,
                 unitSystem = unitSystem.value,
+                catalogue = catalogue.value,
             ).orEmpty(),
             // The exercise the rest belongs to, and zero when there is no rest.
             //
@@ -2391,6 +2584,7 @@ class ActiveSessionViewModel @Inject constructor(
                 ?.takeIf { it >= 0 }
                 ?: 0,
             restTimer = state.restSnapshot,
+            stopwatch = state.stopwatch,
         )
 
         // Best-effort: the draft is a snapshot of a screen, and a save that fails costs the
@@ -2434,6 +2628,7 @@ class ActiveSessionViewModel @Inject constructor(
             // without anything having to remember to lower a flag — and what stops a sheet
             // being restored over a rest that ended while the process was dead.
             isRestSheetOpen = screen.isRestSheetOpen && screen.rest.isLive,
+            stopwatch = screen.stopwatchAt(now),
             message = screen.message,
         )
 
@@ -2479,7 +2674,7 @@ class ActiveSessionViewModel @Inject constructor(
             restTarget = screen.restExerciseId
                 ?.takeIf { screen.rest.isLive }
                 ?.let { loaded.setsOf(it).lastOrNull() }
-                ?.let { RestTarget(weight = it.weight, reps = it.reps) },
+                ?.toRestTarget(),
             warmup = advice.suggestion.warmupCard(catalogue, loaded, screen),
             cooldown = advice.suggestion.cooldownCard(loaded, screen),
             isLoading = false,
@@ -2553,7 +2748,7 @@ class ActiveSessionViewModel @Inject constructor(
     /**
      * The state with its clocks read at [now], and every other figure left as assembled.
      *
-     * The two fields a second changes, and they are not the same arithmetic: the header shows
+     * The fields a second changes, and they are not the same arithmetic: the header shows
      * time spent *working out*, which is wall clock less every paused stretch, and the stats
      * carry the raw window the session has been open for. Both are cheap, which is the whole
      * point of folding them on here rather than rebuilding the state around them.
@@ -2569,6 +2764,10 @@ class ActiveSessionViewModel @Inject constructor(
 
         return copy(
             header = header.copy(elapsed = screen.elapsedAt(now, header.startedAt)),
+            // The hold's reading, on the same beat as the header's clock and for the same
+            // reason: a second is all that changes it, and rebuilding the workout to move it would
+            // be the arithmetic [assembled] keeps off the tick.
+            stopwatch = screen.stopwatchAt(now),
             stats = stats?.copy(
                 durationSeconds = SessionStatsCalculator.durationSeconds(header.startedAt, now),
             ),
@@ -2703,6 +2902,11 @@ private data class ScreenState(
      * while the warm-up is written would be a control disabled by an unrelated write.
      */
     val addingMobility: Set<MobilityKind> = emptySet(),
+    /**
+     * The hold being timed, as the start instant the draft carries (#M7-17), or null. The live
+     * reading is the ViewModel's — see `ActiveSessionViewModel.stopwatchMark`.
+     */
+    val stopwatch: StopwatchSnapshot? = null,
     val message: ActiveSessionMessage? = null,
 ) {
 
@@ -2856,6 +3060,8 @@ private class Loaded(
 
         return ordered.mapIndexed { index, exercise ->
             val history = previous[exercise.exerciseId]
+            val catalogued = catalogue.exercises[exercise.exerciseId]
+            val units = EntryUnits.of(catalogued, unitSystem)
             // Today's table and last time's, walked in step. A running count rather than a row
             // index, because the two lists do not line up by position: warm-ups are left out of
             // the reference (see `SessionRepository.getPreviousSets`) and skipped over on this
@@ -2872,7 +3078,7 @@ private class Loaded(
                 // The type as *shown* rather than as stored, so a row retyped as a warm-up
                 // gives up its reference the moment the menu is answered rather than when the
                 // correction lands.
-                val shown = typed ?: set.toEntry(unitSystem)
+                val shown = typed ?: set.toEntry(unitSystem, units)
                 val isWarmUp = shown.setType == SetType.WARMUP
                 val reference = if (isWarmUp) null else history?.getOrNull(working)
                 if (!isWarmUp) working++
@@ -2888,15 +3094,14 @@ private class Loaded(
                     // template left blank arms its tick on the keystroke rather than on the
                     // write. Un-ticking is never refused, so a completed row can always be
                     // pressed. See [LoggedSet.canComplete].
-                    canComplete = set.isCompleted ||
-                        shown.records(catalogue.exercises[exercise.exerciseId]?.type),
+                    canComplete = set.isCompleted || shown.records(catalogued?.type),
                 )
             }
 
             SessionExerciseRow(
                 sessionExerciseId = exercise.id,
                 position = index,
-                exercise = catalogue.exercises[exercise.exerciseId],
+                exercise = catalogued,
                 muscleGroups = catalogue.muscleLinks[exercise.exerciseId].orEmpty(),
                 record = catalogue.records[exercise.exerciseId],
                 supersetLabel = labels[index],
@@ -2918,6 +3123,7 @@ private class Loaded(
                 // Keyed by catalogue id like the history, and for the same reason: it is a fact
                 // about the exercise, and two slots holding the same one get the same answer.
                 target = targets[exercise.exerciseId],
+                distanceUnit = units.distanceUnit,
             )
         }
     }
@@ -2973,10 +3179,12 @@ private class Loaded(
     fun draftExercises(
         entries: Map<Long, SetEntry>,
         unitSystem: UnitSystem,
+        catalogue: Catalogue?,
     ): List<ActiveExercise> =
         ordered.map { exercise ->
             val logged = setsOf(exercise.id).map(WorkoutSet::toActiveSet)
-            val typed = entries[exercise.id]?.toActiveSets(unitSystem).orEmpty()
+            val units = EntryUnits.of(catalogue?.exercises?.get(exercise.exerciseId), unitSystem)
+            val typed = entries[exercise.id]?.toActiveSets(unitSystem, units).orEmpty()
             ActiveExercise(
                 exerciseId = exercise.exerciseId,
                 sessionExerciseId = exercise.id,
@@ -3030,19 +3238,26 @@ private fun Throwable.toEntryError(): SetEntryError? =
  * and a draft carrying an empty placeholder would restore a workout with a blank row appended
  * to the exercise every time it was saved.
  */
-private fun SetEntry.toActiveSets(unitSystem: UnitSystem): List<ActiveSet> {
+private fun SetEntry.toActiveSets(
+    unitSystem: UnitSystem,
+    units: EntryUnits,
+): List<ActiveSet> {
     val weightValue = weight.takeIf { it.isNotBlank() }?.let { parseWeightMilligrams(it, unitSystem) }
     val repsValue = reps.takeIf { it.isNotBlank() }?.trim()?.toIntOrNull()
+    val durationValue = duration.takeIf { it.isNotBlank() }?.let { parseClockSeconds(it, units.bareClockNumber) }
+    val distanceValue = distance.takeIf { it.isNotBlank() }?.let { parseDistanceCentimetres(it, units.distanceUnit) }
     val note = notes?.trim()?.ifEmpty { null }
 
     // Nothing typed at all: the draft gets no set rather than an empty placeholder, which would
     // otherwise restore a workout with a blank row appended to the exercise every time it saved.
-    if (listOfNotNull(weightValue, repsValue, rpe, note).isEmpty()) return emptyList()
+    if (listOfNotNull(weightValue, repsValue, durationValue, distanceValue, rpe, note).isEmpty()) return emptyList()
 
     return listOf(
         ActiveSet(
             reps = repsValue,
             weight = weightValue,
+            duration = durationValue,
+            distance = distanceValue,
             rpe = rpe,
             setType = setType,
             isCompleted = false,
@@ -3063,10 +3278,15 @@ private fun SetEntry.toActiveSets(unitSystem: UnitSystem): List<ActiveSet> {
  * instead is travel through the write untouched, off the stored row — see [ActiveSessionViewModel]'s
  * commit path.
  */
-private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry =
+private fun WorkoutSet.toEntry(
+    unitSystem: UnitSystem,
+    units: EntryUnits,
+): SetEntry =
     SetEntry(
         weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
         reps = reps?.toString().orEmpty(),
+        duration = duration?.let(::formatClockValue).orEmpty(),
+        distance = distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
         rpe = rpe,
         setType = setType,
     )
@@ -3074,28 +3294,37 @@ private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry =
 /**
  * Whether this correction says the same thing as the set it was read from.
  *
- * The four dimensions a row can change, compared as *values* rather than as text: `70` and
- * `70.0` are the same weight, and a lifter who tabbed through a field without altering it has
- * made no correction to write.
+ * The six dimensions a row can change, compared as *values* rather than as text: `70` and
+ * `70.0` are the same weight, `1:30` and `90` the same hold, and a lifter who tabbed through a
+ * field without altering it has made no correction to write.
  */
 private fun ActiveSet.matches(stored: WorkoutSet): Boolean =
     weight == stored.weight &&
         reps == stored.reps &&
+        duration == stored.duration &&
+        distance == stored.distance &&
         rpe == stored.rpe &&
         setType == stored.setType
 
-/** The same four dimensions, against a correction rather than against a stored row. */
+/** The same six dimensions, against a correction rather than against a stored row. */
 private fun ActiveSet.matches(other: ActiveSet): Boolean =
     weight == other.weight &&
         reps == other.reps &&
+        duration == other.duration &&
+        distance == other.distance &&
         rpe == other.rpe &&
         setType == other.setType
 
 /** A restored half-typed set as the fields it was typed into. */
-private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry =
+private fun ActiveSet.toEntry(
+    unitSystem: UnitSystem,
+    units: EntryUnits,
+): SetEntry =
     SetEntry(
         weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
         reps = reps?.toString().orEmpty(),
+        duration = duration?.let(::formatClockValue).orEmpty(),
+        distance = distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
         rpe = rpe,
         setType = setType,
         notes = notes,
@@ -3104,11 +3333,38 @@ private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry =
 /**
  * A set from an earlier session as the reference the `PREV` column draws.
  *
- * Only the two dimensions that column has room for. What is dropped is not lost — the set is
- * still whole on the history screen — and carrying its rating or its note into a 52dp cell
- * would be carrying it nowhere.
+ * Only the dimensions a set is *measured* in — the weight and reps of a lift, the time and
+ * distance of a run or a hold — and the cell picks the one it has room for. What is dropped is
+ * not lost — the set is still whole on the history screen — and carrying its rating or its note
+ * into a 52dp cell would be carrying it nowhere.
  */
-private fun WorkoutSet.toPreviousSet(): PreviousSet = PreviousSet(weight = weight, reps = reps)
+private fun WorkoutSet.toPreviousSet(): PreviousSet =
+    PreviousSet(weight = weight, reps = reps, duration = duration, distance = distance)
+
+/**
+ * The units one exercise's fields are typed and read in: which distance unit its rows are
+ * labelled with, and what a bare number in its time field counts. See
+ * `ActiveSessionViewModel.unitsOf`.
+ */
+private data class EntryUnits(
+    val distanceUnit: DistanceUnit,
+    val bareClockNumber: BareClockNumber,
+) {
+    companion object {
+        fun of(
+            exercise: Exercise?,
+            unitSystem: UnitSystem,
+        ): EntryUnits =
+            EntryUnits(
+                distanceUnit = unitSystem.distanceEntryUnit(exercise),
+                bareClockNumber = exercise?.type.bareClockNumber,
+            )
+    }
+}
+
+/** The set a rest follows, as what the next one is expected to be — see [RestTarget]. */
+private fun WorkoutSet.toRestTarget(): RestTarget =
+    RestTarget(weight = weight, reps = reps, duration = duration, distance = distance)
 
 /** A stored set as the draft's own, which is the same values without the row's identity. */
 private fun WorkoutSet.toActiveSet(): ActiveSet =

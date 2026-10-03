@@ -19,6 +19,7 @@ import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -423,23 +424,95 @@ class ActiveSessionScreenTest {
         scrollToText("Complete set 3").assertIsNotEnabled()
     }
 
+    // ─── Timed exercises (#M7-17) ─────────────────────────────────────────────────────────
+
     @Test
-    fun `an exercise logged by duration says so instead of offering a tick that cannot work`() {
-        // A plank's completed set has to record a duration, and this row is a weight and a rep
-        // count. Every set logged against it would come back refused, so neither the tick nor
-        // the button is live and the card says why.
+    fun `a plank draws a time field and a stopwatch, and no rep field`() {
+        setScreen(state(exercises = listOf(plankRow())))
+
+        scrollToDescription("Time, set 1").assertIsDisplayed()
+        scrollToDescription("Added weight, set 1").assertIsDisplayed()
+        scrollToDescription("Start timer, set 1").assertIsDisplayed().assertIsEnabled()
+        composeTestRule.onAllNodesWithContentDescription("Reps, set 1").assertCountEquals(0)
+    }
+
+    @Test
+    fun `typing a hold's time reports it, and a typed time arms the tick`() {
+        setScreen(state(exercises = listOf(plankRow(entry = SetEntry(duration = "1:30")))))
+
+        scrollToField("Time, set 1", "1:30").performTextReplacement("1:45")
+
+        assertEquals(ActiveSessionEvent.DurationChanged(BENCH_ROW, "1:45"), events.last())
+        scrollToText("Complete set 1").assertIsEnabled()
+        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsEnabled()
+    }
+
+    @Test
+    fun `a hold with no time yet leaves the tick inert`() {
+        setScreen(state(exercises = listOf(plankRow(entry = SetEntry(weight = "10")))))
+
+        scrollToText("Complete set 1").assertIsNotEnabled()
+        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the stopwatch starts on a tap`() {
+        setScreen(state(exercises = listOf(plankRow())))
+        scrollToDescription("Start timer, set 1").performClick()
+        assertEquals(ActiveSessionEvent.StopwatchStarted(BENCH_ROW), events.last())
+    }
+
+    @Test
+    fun `a running stopwatch shows its reading and the control that stops it`() {
+        setScreen(
+            state(exercises = listOf(plankRow())).copy(stopwatch = RunningStopwatch(BENCH_ROW, 47.seconds)),
+        )
+
+        // The figure is drawn and not spoken on its own — the stop control says it, once, which
+        // is when it matters. See `HoldStopwatch`.
+        scrollToDescription("Stop timer, set 1, 0:47 elapsed")
+            .assertIsDisplayed()
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        assertEquals(ActiveSessionEvent.StopwatchStopped(BENCH_ROW), events.last())
+    }
+
+    @Test
+    fun `a hold timed on another exercise leaves this one's stopwatch inert`() {
+        setScreen(
+            state(exercises = listOf(plankRow())).copy(stopwatch = RunningStopwatch(INCLINE_ROW, 12.seconds)),
+        )
+
+        scrollToDescription("Start timer, set 1").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a run draws distance and time, a logged run reads back in them, and it has no stopwatch`() {
+        val run = benchRow(
+            sets = listOf(LoggedSet(id = 1L, entry = SetEntry(distance = "5", duration = "27:14"), isCompleted = true)),
+            entry = SetEntry(duration = "30:00"),
+        ).copy(exercise = BENCH.copy(name = "Running, Outdoor", type = ExerciseType.ENDURANCE))
+        setScreen(state(exercises = listOf(run)))
+
+        scrollToField("Distance in km, set 1", "5").assertIsDisplayed()
+        scrollToField("Time, set 1", "27:14").assertIsDisplayed()
+        scrollToDescription("Distance in km, set 2").assertIsDisplayed()
+        // A time alone is a complete run.
+        scrollToText("Complete set 2").assertIsEnabled()
+        composeTestRule.onAllNodesWithContentDescription("Start timer, set 2").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a malformed time is refused in the screen's own words`() {
         setScreen(
             state(
                 exercises = listOf(
-                    benchRow(sets = emptyList(), entry = SetEntry(weight = "0", reps = "60"))
-                        .copy(exercise = BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                    plankRow(entry = SetEntry(duration = "1.5", error = SetEntryError.DurationNotATime)),
                 ),
             ),
         )
 
-        scrollTo(hasText("Timed exercise", substring = true)).assertIsDisplayed()
-        scrollToText("Complete set 1").assertIsNotEnabled()
-        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsNotEnabled()
+        scrollToText("That time is not a time — type it as 1:30 or 1:05:30").assertIsDisplayed()
     }
 
     @Test
@@ -1753,6 +1826,13 @@ class ActiveSessionScreenTest {
             isRestSheetOpen = true,
             restTarget = RestTarget(weight = 80_000_000L, reps = 5),
         )
+
+    /** The bench's slot holding a plank instead, with nothing logged against it yet. */
+    private fun plankRow(entry: SetEntry = SetEntry()) =
+        benchRow(
+            sets = emptyList(),
+            entry = entry,
+        ).copy(exercise = BENCH.copy(name = "Plank", type = ExerciseType.ISOMETRIC))
 
     /** The bench press, first in the workout, two sets in. */
     private fun benchRow(

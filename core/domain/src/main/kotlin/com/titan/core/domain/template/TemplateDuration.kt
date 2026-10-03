@@ -1,6 +1,7 @@
 package com.titan.core.domain.template
 
 import com.titan.core.domain.model.PlannedExercise
+import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.superset.Supersets
 import kotlin.time.Duration
@@ -22,7 +23,7 @@ import kotlin.time.Duration.Companion.seconds
  * For each exercise, in position order:
  *
  * ```
- * work = sets × WORK_PER_SET
+ * work = Σ over its sets (the set's planned duration, or WORK_PER_SET when it has none)
  * rest = sets × (the exercise's restDuration, or defaultRest when it has none)
  * ```
  *
@@ -31,11 +32,18 @@ import kotlin.time.Duration.Companion.seconds
  * the length of its [PlannedExercise.sets]; an exercise that plans none is not
  * performed and costs nothing.
  *
- * The sets are counted rather than read: a warm-up and a drop set are both a set that
- * takes about as long as the next one, and pricing them apart would need a
- * per-set-type measurement nothing collects. What the list buys the estimate is that
- * it no longer has to guess a count for an exercise whose plan says nothing — a plan
- * that says nothing now plans nothing.
+ * A set's *type* is not read: a warm-up and a drop set are both a set that takes about
+ * as long as the next one, and pricing them apart would need a per-set-type
+ * measurement nothing collects. What the list buys the estimate is that it no longer
+ * has to guess a count for an exercise whose plan says nothing — a plan that says
+ * nothing now plans nothing.
+ *
+ * A set's planned *duration* is read, because it is the one figure that says how long
+ * the set takes rather than what it lifts. A 30-minute ride priced at [WORK_PER_SET]
+ * would put a cardio template at under two minutes, and `3 × 1:30` of a plank is four
+ * and a half minutes of holding, not a rep tempo. A non-positive duration — which only
+ * an import can write — falls back to the allowance rather than pricing the set at
+ * nothing.
  *
  * A superset changes only the rest: its members are performed back to back with the
  * rest taken after the group, so a member that is not the last of its group
@@ -106,7 +114,7 @@ object TemplateDuration {
         var trailingRest = Duration.ZERO
 
         performed.forEachIndexed { index, exercise ->
-            total += WORK_PER_SET * exercise.sets.size
+            total += exercise.sets.fold(Duration.ZERO) { work, set -> work + workOf(set) }
             if (Supersets.isRestDueAfter(grouping, index)) {
                 val rest = exercise.restDuration
                     ?.seconds
@@ -119,6 +127,9 @@ object TemplateDuration {
 
         return total - trailingRest
     }
+
+    /** How long one planned set occupies, rest excluded. See the class note. */
+    private fun workOf(set: PlannedSet): Duration = set.duration?.takeIf { it > 0 }?.seconds ?: WORK_PER_SET
 
     /**
      * How many times a rest is taken after the exercise at [last], which is a standalone

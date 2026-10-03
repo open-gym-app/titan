@@ -27,6 +27,33 @@ sealed interface ActiveSessionEvent {
         val text: String,
     ) : ActiveSessionEvent
 
+    /** The time field of a timed exercise changed (#M7-17). Text: `1:30` is a keystroke away from `1:3`. */
+    data class DurationChanged(
+        val sessionExerciseId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /** The distance field of an endurance exercise changed, in the exercise's own unit. */
+    data class DistanceChanged(
+        val sessionExerciseId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /**
+     * Start timing a hold on this exercise's next set.
+     *
+     * Ignored while another hold is being timed — there is one stopwatch per workout, because a
+     * lifter holds one plank at a time — and over a paused or closing session.
+     */
+    data class StopwatchStarted(val sessionExerciseId: Long) : ActiveSessionEvent
+
+    /**
+     * Stop the hold, and put what the stopwatch read into the exercise's time field as text, as if
+     * it had been typed. The set is not logged: that is still the tick — see
+     * `HoldStopwatch` for why stopping a clock is not deciding a set happened.
+     */
+    data class StopwatchStopped(val sessionExerciseId: Long) : ActiveSessionEvent
+
     /**
      * The rating changed, or was cleared with null.
      *
@@ -72,7 +99,7 @@ sealed interface ActiveSessionEvent {
      * no editor to open or to close. What used to be "the open row" is now as many half-typed
      * corrections as the user has started, which is at most one per row and usually none.
      *
-     * The four that carry values do not write. What writes is [SetEditCommitted], raised when
+     * The six that carry values do not write. What writes is [SetEditCommitted], raised when
      * the row is left — the two picked off a menu are the exception and say why below.
      */
 
@@ -85,6 +112,20 @@ sealed interface ActiveSessionEvent {
 
     /** A logged row's rep field changed. */
     data class SetEditRepsChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /** A logged row's time field changed. */
+    data class SetEditDurationChanged(
+        val sessionExerciseId: Long,
+        val setId: Long,
+        val text: String,
+    ) : ActiveSessionEvent
+
+    /** A logged row's distance field changed. */
+    data class SetEditDistanceChanged(
         val sessionExerciseId: Long,
         val setId: Long,
         val text: String,

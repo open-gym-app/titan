@@ -231,7 +231,9 @@ interface WorkoutSetDao {
      *
      * Sets with no `weight` or no `reps` (cardio, timed holds) contribute zero volume rather
      * than dropping their session from the result: a session of nothing but running has a
-     * set count worth showing and a volume of zero, which is the truth about it.
+     * set count worth showing and a volume of zero, which is the truth about it. What such a
+     * session *did* is the other two sums — the time its sets were held or run for, and the
+     * ground they covered — so a history row for a run has a figure to quote.
      *
      * A session with no completed sets produces no row at all. `GROUP BY` has nothing to
      * group for it, and the alternative — an outer join from `workout_session` — would be a
@@ -243,7 +245,9 @@ interface WorkoutSetDao {
         SELECT
             se.session_id AS session_id,
             COUNT(*) AS total_sets,
-            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume
+            SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
+            SUM(COALESCE(ws.duration, 0)) AS timed_seconds,
+            SUM(COALESCE(ws.distance, 0)) AS total_distance
         FROM workout_set ws
         INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
         WHERE ws.is_completed = 1
@@ -500,7 +504,13 @@ interface WorkoutSetDao {
      *
      * A bodyweight or timed attempt has no weight to rank on, so the ordering falls through to
      * reps and the row comes back with a null `top_weight` — which the caller renders as
-     * `× 12` rather than as a lift.
+     * `× 12` rather than as a lift. A timed attempt has no reps either, so it falls through
+     * once more: the furthest set, and then the longest — a run is quoted by the run that
+     * covered the most ground, a hold by the hold that lasted. Which of those is the *best*
+     * effort (a faster 5 km is better than a slower one) is a records question, and #225's.
+     *
+     * The time and distance sums are what an attempt with no volume is quoted by instead —
+     * see `ExerciseAttempt`.
      */
     @Query(
         """
@@ -510,6 +520,8 @@ interface WorkoutSetDao {
                 s.completed_at AS finished_at,
                 COUNT(*) AS set_count,
                 SUM(COALESCE(ws.weight, 0) * COALESCE(ws.reps, 0)) AS total_volume,
+                SUM(COALESCE(ws.duration, 0)) AS timed_seconds,
+                SUM(COALESCE(ws.distance, 0)) AS total_distance,
                 MIN(ws.completed_at) AS first_set_at
             FROM workout_set ws
             INNER JOIN session_exercise se ON ws.session_exercise_id = se.id
@@ -528,9 +540,13 @@ interface WorkoutSetDao {
             attempt.finished_at AS finished_at,
             attempt.set_count AS set_count,
             attempt.total_volume AS total_volume,
+            attempt.timed_seconds AS timed_seconds,
+            attempt.total_distance AS total_distance,
             attempt.first_set_at AS first_set_at,
             top.weight AS top_weight,
-            top.reps AS top_reps
+            top.reps AS top_reps,
+            top.duration AS top_duration,
+            top.distance AS top_distance
         FROM attempt
         LEFT JOIN workout_set top ON top.id = (
             SELECT candidate.id
@@ -543,6 +559,8 @@ interface WorkoutSetDao {
             ORDER BY
                 COALESCE(candidate.weight, 0) DESC,
                 COALESCE(candidate.reps, 0) DESC,
+                COALESCE(candidate.distance, 0) DESC,
+                COALESCE(candidate.duration, 0) DESC,
                 candidate.id ASC
             LIMIT 1
         )

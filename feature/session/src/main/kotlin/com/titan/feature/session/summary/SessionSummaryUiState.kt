@@ -198,7 +198,12 @@ data class SummaryRecord(
  *   no reps at all — a timed hold, a distance.
  * @param highestReps the most reps in any of them, or null on the same condition.
  * @param topWeight the heaviest load, in milligrams, or null for a bodyweight or cardio
- *   exercise. Null draws nothing rather than `0 kg`, which is a weight nobody lifted.
+ *   exercise. Null draws nothing rather than `0 kg`, which is a weight nobody lifted. On a hold,
+ *   the heaviest load added to it.
+ * @param timedSeconds how long the completed sets lasted, summed, in seconds — what a hold or a
+ *   run is quoted by where it has no reps to range over (#M7-17). Zero for a lift.
+ * @param distance how far they went, summed, in centimetres. Zero for anything that covered no
+ *   ground.
  * @param record the personal record this session set on this exercise, or null. Drives the
  *   `PR` badge on the row — the second place a record is called out, after its own card,
  *   because the card answers "what did I beat" and the row answers "which of these was it".
@@ -212,6 +217,8 @@ data class SummaryExerciseRow(
     val highestReps: Int?,
     val topWeight: Long?,
     val record: PersonalRecord? = null,
+    val timedSeconds: Long = 0,
+    val distance: Long = 0,
 )
 
 /**

@@ -24,7 +24,13 @@ import com.titan.core.domain.usecase.UpdateTemplateUseCase
 import com.titan.core.domain.validation.SetValidator
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
+import com.titan.core.ui.format.bareClockNumber
+import com.titan.core.ui.format.distanceEntryUnit
+import com.titan.core.ui.format.formatClockValue
+import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatWeightValue
+import com.titan.core.ui.format.parseClockSeconds
+import com.titan.core.ui.format.parseDistanceCentimetres
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.core.ui.state.savedScreenState
 import com.titan.feature.history.navigation.NEW_TEMPLATE
@@ -266,6 +272,7 @@ class TemplateEditorViewModel @Inject constructor(
                     key = exercise.id,
                     exerciseId = exercise.exerciseId,
                     sets = exercise.sets.map { planned ->
+                        val distanceUnit = unitSystem.distanceEntryUnit(catalogue[exercise.exerciseId])
                         TemplateDraftSet(
                             key = nextSetKey++,
                             setType = planned.setType,
@@ -273,6 +280,8 @@ class TemplateEditorViewModel @Inject constructor(
                                 ?.let { formatWeightValue(it, unitSystem) }
                                 .orEmpty(),
                             reps = planned.reps?.toString().orEmpty(),
+                            duration = planned.duration?.let(::formatClockValue).orEmpty(),
+                            distance = planned.distance?.let { formatDistanceValue(it, distanceUnit) }.orEmpty(),
                         )
                     },
                     supersetGroup = exercise.supersetGroup,
@@ -795,7 +804,7 @@ class TemplateEditorViewModel @Inject constructor(
         if (isNew) {
             createTemplate(
                 name = draft.name,
-                exercises = draft.toDrafts(unitSystem),
+                exercises = draft.toDrafts(unitSystem, editorState.value.catalogue),
                 category = draft.category,
                 icon = draft.icon,
             )
@@ -803,7 +812,7 @@ class TemplateEditorViewModel @Inject constructor(
             updateTemplate(
                 templateId = templateId,
                 name = draft.name,
-                exercises = draft.toDrafts(unitSystem),
+                exercises = draft.toDrafts(unitSystem, editorState.value.catalogue),
                 category = draft.category,
                 icon = draft.icon,
             )
@@ -871,19 +880,24 @@ class TemplateEditorViewModel @Inject constructor(
             name = draft.name,
             category = draft.category,
             exercises = draft.exercises.mapIndexed { index, row ->
+                val exercise = state.catalogue[row.exerciseId]
+                val distanceUnit = unitSystem.distanceEntryUnit(exercise)
                 TemplateExerciseRow(
                     key = row.key,
                     exerciseId = row.exerciseId,
-                    exercise = state.catalogue[row.exerciseId],
+                    exercise = exercise,
                     sets = row.sets.map { set ->
                         TemplateSetRow(
                             key = set.key,
                             setType = set.setType,
                             weight = set.weight,
                             reps = set.reps,
-                            errors = set.errors(unitSystem),
+                            duration = set.duration,
+                            distance = set.distance,
+                            errors = set.errors(unitSystem, exercise),
                         )
                     },
+                    distanceUnit = distanceUnit,
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
                     supersetGroupName = groupNames[index],
@@ -892,7 +906,7 @@ class TemplateEditorViewModel @Inject constructor(
                 )
             },
             estimatedDuration = TemplateDuration.estimate(
-                exercises = draft.toDrafts(unitSystem),
+                exercises = draft.toDrafts(unitSystem, state.catalogue),
                 defaultRest = defaultRest,
             ),
             unitSystem = unitSystem,
@@ -992,7 +1006,7 @@ private sealed interface PickRequest {
     data class Swap(val key: Long) : PickRequest
 }
 
-/** The set with one of its two figures replaced. */
+/** The set with one of its figures replaced. */
 private fun TemplateDraftSet.withField(
     field: TemplateSetField,
     text: String,
@@ -1000,6 +1014,8 @@ private fun TemplateDraftSet.withField(
     when (field) {
         TemplateSetField.WEIGHT -> copy(weight = text)
         TemplateSetField.REPS -> copy(reps = text)
+        TemplateSetField.DURATION -> copy(duration = text)
+        TemplateSetField.DISTANCE -> copy(distance = text)
     }
 
 /**
@@ -1027,7 +1043,10 @@ private fun TemplateDraftExercise.withSetAdded(key: Long): TemplateDraftExercise
  * logged set to: a template whose sets a session could not log is a plan the user would meet a
  * refusal in the middle of.
  */
-private fun TemplateDraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetField> =
+private fun TemplateDraftSet.errors(
+    unitSystem: UnitSystem,
+    exercise: Exercise?,
+): Set<TemplateSetField> =
     buildSet {
         if (!reps.isValidCount(REP_COUNT_RANGE)) add(TemplateSetField.REPS)
 
@@ -1035,6 +1054,20 @@ private fun TemplateDraftSet.errors(unitSystem: UnitSystem): Set<TemplateSetFiel
             val milligrams = parseWeightMilligrams(weight, unitSystem)
             if (milligrams == null || milligrams !in SetValidator.WEIGHT_MIN_MG..SetValidator.WEIGHT_MAX_MG) {
                 add(TemplateSetField.WEIGHT)
+            }
+        }
+
+        if (duration.isNotBlank()) {
+            val seconds = parseClockSeconds(duration, exercise?.type.bareClockNumber)
+            if (seconds == null || seconds !in SetValidator.DURATION_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS) {
+                add(TemplateSetField.DURATION)
+            }
+        }
+
+        if (distance.isNotBlank()) {
+            val centimetres = parseDistanceCentimetres(distance, unitSystem.distanceEntryUnit(exercise))
+            if (centimetres == null || centimetres !in SetValidator.DISTANCE_MIN_CM..SetValidator.DISTANCE_MAX_CM) {
+                add(TemplateSetField.DISTANCE)
             }
         }
     }
@@ -1045,9 +1078,18 @@ private fun String.isValidCount(range: LongRange): Boolean = isBlank() || toLong
 /** [SetValidator]'s own bounds on a logged set's reps, as the range this field is held to. */
 private val REP_COUNT_RANGE = SetValidator.REPS_MIN.toLong()..SetValidator.REPS_MAX.toLong()
 
-/** The plan as the drafts a write takes, with every figure parsed and the blanks left null. */
-private fun TemplateDraft.toDrafts(unitSystem: UnitSystem): List<TemplateExerciseDraft> =
+/**
+ * The plan as the drafts a write takes, with every figure parsed and the blanks left null.
+ *
+ * [catalogue] is what a time and a distance are parsed against: a bare `30` is half an hour of
+ * running and thirty seconds of plank, and `400` is metres in a pool and kilometres nowhere.
+ */
+private fun TemplateDraft.toDrafts(
+    unitSystem: UnitSystem,
+    catalogue: Map<Long, Exercise>,
+): List<TemplateExerciseDraft> =
     exercises.map { row ->
+        val exercise = catalogue[row.exerciseId]
         TemplateExerciseDraft(
             exerciseId = row.exerciseId,
             sets = row.sets.map { set ->
@@ -1056,6 +1098,10 @@ private fun TemplateDraft.toDrafts(unitSystem: UnitSystem): List<TemplateExercis
                     reps = set.reps.toIntOrNull(),
                     weight = set.weight.takeIf { it.isNotBlank() }
                         ?.let { parseWeightMilligrams(it, unitSystem) },
+                    duration = set.duration.takeIf { it.isNotBlank() }
+                        ?.let { parseClockSeconds(it, exercise?.type.bareClockNumber) },
+                    distance = set.distance.takeIf { it.isNotBlank() }
+                        ?.let { parseDistanceCentimetres(it, unitSystem.distanceEntryUnit(exercise)) },
                 )
             },
             restDuration = row.restDuration,

@@ -2,8 +2,10 @@ package com.titan.core.ui.format
 
 import android.icu.util.Measure
 import android.icu.util.MeasureUnit
+import com.titan.core.domain.model.ExerciseType
 import kotlin.math.absoluteValue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Durations, as a clock reads them.
@@ -193,3 +195,94 @@ private class ClockFields(duration: Duration) {
     val minutes = (totalSeconds / SECONDS_PER_MINUTE) % MINUTES_PER_HOUR
     val hours = totalSeconds / SECONDS_PER_HOUR
 }
+
+/*
+ * ─── A time typed into a field ──────────────────────────────────────────────────────────
+ *
+ * The inverse of [formatAsClock], for the time field a hold or a run is logged in (#M7-17).
+ * Kept beside it because the two have to agree: a stored 90 seconds is put back into the
+ * field as `1:30`, and `1:30` has to parse back to 90, or a set corrected and left untouched
+ * would drift on its way through the field.
+ */
+
+/**
+ * What a bare number typed into a time field counts — `45` in a plank's field is forty-five
+ * seconds, and `30` in a run's is half an hour.
+ *
+ * The one decision a time field makes on the user's behalf, and it is made by the *exercise*
+ * rather than guessed from the digits: a hold is measured in seconds and an endurance effort
+ * in minutes, and a field that read `30` as thirty seconds of running would store a set
+ * nobody did. Anything with a separator in it says which field each number is and needs no
+ * help.
+ */
+enum class BareClockNumber(internal val seconds: Long) {
+    SECONDS(seconds = 1),
+    MINUTES(seconds = SECONDS_PER_MINUTE.toLong()),
+}
+
+/**
+ * A typed time back into whole seconds, or **null** when [text] is not a time.
+ *
+ * Accepts `M:SS`, `H:MM:SS` and a bare number of [bareNumber]s. The colon may also be typed as
+ * a full stop or a comma, because the decimal pad a phone offers a number field has one of
+ * those and no colon: `1.30` is a minute and a half.
+ *
+ * **The fields after the first are exactly two digits and under sixty**, which is what makes
+ * that substitution safe. `1.5` would otherwise be a minute and five seconds to this parser and
+ * a minute and a half to the lifter who typed it; refusing it puts a message under the row
+ * instead of a set nobody did into the table. The first field is unbounded — `90:00` is an
+ * hour and a half, and nobody should have to convert it to type it.
+ *
+ * Digits are read in any script, because [formatAsClock] writes them in the formatting
+ * locale's and the field it fills is parsed back through here.
+ *
+ * As with [parseWeightMilligrams], null means *malformed* and range is left to
+ * `SetValidator`, which is the one that can say which bound was missed — `0:00` parses, and is
+ * refused there as a set that was not performed.
+ */
+fun parseClockSeconds(
+    text: String,
+    bareNumber: BareClockNumber = BareClockNumber.SECONDS,
+): Long? {
+    val fields = text.trim().split(':', '.', ',')
+    if (fields.any { !it.isClockDigits() }) return null
+
+    if (fields.size > MAX_CLOCK_FIELDS) return null
+
+    val numbers = fields.map { field -> field.fold(0L) { total, digit -> total * DECIMAL + digit.digitToInt() } }
+    // Every field after the leading one is a two-digit count of something sixty make one of.
+    val trailing = fields.drop(1)
+    if (trailing.any { it.length != 2 } || numbers.drop(1).any { it >= SECONDS_PER_MINUTE }) return null
+
+    // A bare number is counted in what the exercise says; with separators, each field is sixty
+    // of the one after it — `H:MM:SS` and `M:SS` are the same fold.
+    return if (numbers.size == 1) {
+        numbers.single() * bareNumber.seconds
+    } else {
+        numbers.fold(0L) { total, field -> total * SECONDS_PER_MINUTE + field }
+    }
+}
+
+/** [seconds] as the text a time field holds: `1:30`, `27:14`, `1:05:30`. */
+fun formatClockValue(seconds: Long): String = seconds.seconds.formatAsClock()
+
+/**
+ * Whether this is one field of a typed time: at least one digit, nothing else, and few enough
+ * of them that the arithmetic above cannot overflow. Nine digits is thirty years of seconds,
+ * which `SetValidator` refuses by name long before.
+ */
+private fun String.isClockDigits(): Boolean = length in 1..MAX_CLOCK_FIELD_DIGITS && all(Char::isDigit)
+
+private const val MAX_CLOCK_FIELD_DIGITS = 9
+
+/** Hours, minutes and seconds: the most fields a typed time has. */
+private const val MAX_CLOCK_FIELDS = 3
+private const val DECIMAL = 10L
+
+/**
+ * What a bare number in the time field of an exercise logged this way counts — see
+ * [BareClockNumber]. Minutes for an endurance effort, seconds for anything else: a hold, and an
+ * exercise deleted from the library, whose time field is a stopwatch's at most.
+ */
+val ExerciseType?.bareClockNumber: BareClockNumber
+    get() = if (this == ExerciseType.ENDURANCE) BareClockNumber.MINUTES else BareClockNumber.SECONDS

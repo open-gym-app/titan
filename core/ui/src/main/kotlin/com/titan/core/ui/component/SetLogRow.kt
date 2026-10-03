@@ -43,13 +43,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ActiveSet
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.LoadSuggestion
 import com.titan.core.domain.model.PastPerformance
 import com.titan.core.domain.model.SetType
@@ -57,6 +57,7 @@ import com.titan.core.domain.model.SuggestionReason
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.ui.R
+import com.titan.core.ui.format.DistanceUnit
 import com.titan.core.ui.format.formatRpe
 import com.titan.core.ui.format.formatSet
 import com.titan.core.ui.format.formatSetCompact
@@ -136,6 +137,20 @@ import com.titan.core.ui.theme.TitanTheme
  *   never a set until the lifter says so.
  * @param onFillTarget put [target]'s figures into the fields. Required with a target, since
  *   the line is a button; ignored without one.
+ * @param exerciseType how the exercise is logged, which decides the two value fields (#M7-17):
+ *   weight and reps for [ExerciseType.STRENGTH], distance and time for
+ *   [ExerciseType.ENDURANCE], time and an added weight for [ExerciseType.ISOMETRIC]. Two fields
+ *   whatever the mode, in the same two cells, so a table of runs lines up under a table of
+ *   presses and every grid constant below holds for all three. See [SetValueFields].
+ * @param duration the time field's contents, `M:SS` or `H:MM:SS` — text, for [weight]'s reason.
+ *   Drawn only by the timed modes.
+ * @param distance the distance field's contents, in [distanceUnit]. Drawn only by
+ *   [ExerciseType.ENDURANCE].
+ * @param distanceUnit the unit the distance field is typed in — kilometres for a run, metres for
+ *   a swim. The caller's choice rather than the ambient system's, because it is also the unit the
+ *   caller parses with; see `distanceEntryUnit`.
+ * @param footer drawn under the row, below the target line — the hold stopwatch, on the row a
+ *   hold is typed into. Null for nothing.
  * @param onCommit the fields have been left: focus has gone from the row altogether, or the
  *   keyboard's DONE was pressed. Null for a row whose text is not written until something else
  *   says so — the entry row, whose tick is that something.
@@ -156,6 +171,12 @@ fun SetLogRow(
     onRepsChange: (String) -> Unit,
     onCompletedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    exerciseType: ExerciseType = ExerciseType.STRENGTH,
+    duration: String = "",
+    onDurationChange: (String) -> Unit = {},
+    distance: String = "",
+    onDistanceChange: (String) -> Unit = {},
+    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
     setType: SetType = SetType.NORMAL,
     onSetTypeChange: ((SetType) -> Unit)? = null,
     rpe: Int? = null,
@@ -169,6 +190,7 @@ fun SetLogRow(
     canComplete: Boolean = true,
     target: LoadSuggestion? = null,
     onFillTarget: (() -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
     onCommit: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
@@ -186,20 +208,27 @@ fun SetLogRow(
         isActive = isActive,
         isCompleted = isCompleted,
         error = error,
-        footer = target?.let { suggestion ->
+        footer = if (target == null && footer == null) {
+            null
+        } else {
             {
-                SetTargetLine(
-                    target = suggestion,
-                    onFill = onFillTarget ?: {},
-                    // The line sits on the row's own ground, and the entry row's is the tint:
-                    // its ink is the one the contrast test holds against that tint.
-                    color = if (isActive) {
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    enabled = enabled && onFillTarget != null,
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.xs)) {
+                    if (target != null) {
+                        SetTargetLine(
+                            target = target,
+                            onFill = onFillTarget ?: {},
+                            // The line sits on the row's own ground, and the entry row's is the
+                            // tint: its ink is the one the contrast test holds against that tint.
+                            color = if (isActive) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                            enabled = enabled && onFillTarget != null,
+                        )
+                    }
+                    footer?.invoke()
+                }
             }
         },
     ) {
@@ -212,30 +241,23 @@ fun SetLogRow(
         )
         PreviousCell(previous = previous, showPrevious = showPrevious)
 
-        TitanValueField(
-            value = weight,
-            onValueChange = onWeightChange,
-            description = stringResource(R.string.set_log_weight_field, setNumber),
-            keyboardType = KeyboardType.Decimal,
+        SetValueFields(
+            exerciseType = exerciseType,
+            setNumber = setNumber,
+            values = SetFieldValues(weight = weight, reps = reps, duration = duration, distance = distance),
+            onWeightChange = onWeightChange,
+            onRepsChange = onRepsChange,
+            onDurationChange = onDurationChange,
+            onDistanceChange = onDistanceChange,
+            distanceUnit = distanceUnit,
             enabled = enabled,
             error = error,
-            // The figure without its unit, since the column's header carries that — and in
+            // The figures without their unit, since the column's header carries that — and in
             // the form the field will hold once it is typed, so the tap and the keystroke
-            // produce the same text.
-            placeholder = target?.weight?.let { formatWeightValue(it) },
+            // produce the same text. Only a strength set has a target: see `NextLoadEngine`.
+            weightPlaceholder = target?.weight?.let { formatWeightValue(it) },
+            repsPlaceholder = target?.reps?.toString(),
             onDone = onDone,
-            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
-        )
-        TitanValueField(
-            value = reps,
-            onValueChange = onRepsChange,
-            description = stringResource(R.string.set_log_reps_field, setNumber),
-            keyboardType = KeyboardType.Number,
-            enabled = enabled,
-            error = error,
-            placeholder = target?.reps?.toString(),
-            onDone = onDone,
-            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
 
         RpeValueCell(
@@ -280,8 +302,7 @@ fun LoggedSetRow(
     LoggedSetRow(
         setNumber = setNumber,
         setType = set.setType,
-        weight = set.weight,
-        reps = set.reps,
+        performed = formatSet(set.weight, set.reps, set.duration, set.distance),
         rpe = set.rpe,
         isCompleted = set.isCompleted,
         previous = previous,
@@ -304,8 +325,7 @@ fun LoggedSetRow(
     LoggedSetRow(
         setNumber = setNumber,
         setType = set.setType,
-        weight = set.weight,
-        reps = set.reps,
+        performed = formatSet(set.weight, set.reps, set.duration, set.distance),
         rpe = set.rpe,
         isCompleted = set.isCompleted,
         previous = previous,
@@ -336,11 +356,15 @@ fun LoggedSetRow(
  * @param showPrevious must match what the rows under it were given, since nothing here can
  *   check: a header that keeps a column the rows dropped is labels sitting over the wrong
  *   cells. [setTableFitsPrevious] is the one answer both should take.
+ * @param exerciseType and [distanceUnit] must match the rows' for the same reason: they decide
+ *   which two value columns there are — `KG REPS`, `KM TIME` or `TIME KG`. See [SetValueFields].
  */
 @Composable
 fun SetLogHeader(
     modifier: Modifier = Modifier,
     showPrevious: Boolean = true,
+    exerciseType: ExerciseType = ExerciseType.STRENGTH,
+    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
     val weightUnit = LocalUnitSystem.current.weightSuffix
 
@@ -366,16 +390,7 @@ fun SetLogHeader(
                 modifier = Modifier.width(PREVIOUS_COLUMN_WIDTH),
             )
         }
-        Eyebrow(
-            text = weightUnit,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
-        )
-        Eyebrow(
-            text = stringResource(R.string.set_log_column_reps),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
-        )
+        SetValueLabels(exerciseType = exerciseType, weightUnit = weightUnit, distanceUnit = distanceUnit)
         Eyebrow(
             text = stringResource(R.string.set_log_column_rpe),
             textAlign = TextAlign.Center,
@@ -558,9 +573,9 @@ internal fun PreviousCell(
 ) {
     if (!showPrevious) return
     val placeholder = stringResource(R.string.set_log_previous_none)
-    val compact = previous?.let { formatSetCompact(it.weight, it.reps) }
+    val compact = previous?.let { formatSetCompact(it.weight, it.reps, it.duration, it.distance) }
     val spoken = previous
-        ?.let { formatSet(it.weight, it.reps) }
+        ?.let { formatSet(it.weight, it.reps, it.duration, it.distance) }
         ?.let { stringResource(R.string.set_log_previous_value, it) }
 
     Text(
@@ -679,8 +694,7 @@ internal fun CompletionToggle(
 private fun LoggedSetRow(
     setNumber: Int,
     setType: SetType,
-    weight: Long?,
-    reps: Int?,
+    performed: String?,
     rpe: Int?,
     isCompleted: Boolean,
     previous: PreviousSet?,
@@ -690,7 +704,7 @@ private fun LoggedSetRow(
 ) {
     // The dash is this row's answer to an empty set rather than the formatter's: a table has
     // columns to keep lined up, and a sentence quoting the same set would want the clause gone.
-    val performed = formatSet(weight, reps) ?: stringResource(R.string.set_log_rpe_unset)
+    val shown = performed ?: stringResource(R.string.set_log_rpe_unset)
 
     SetRowFrame(
         modifier = modifier,
@@ -709,7 +723,7 @@ private fun LoggedSetRow(
             SetIndexCell(setNumber = setNumber, setType = setType, isActive = false)
             PreviousCell(previous = previous, showPrevious = showPrevious)
             Text(
-                text = performed,
+                text = shown,
                 style = TitanTheme.typography.numeric,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
@@ -780,13 +794,21 @@ private fun Modifier.commitOnFocusLoss(onCommit: (() -> Unit)?): Modifier {
  * and no weight, and a set logged in a dimension this table has no column for has neither. A
  * value with neither draws as though there were no history at all, which is what it amounts to.
  *
+ * A timed set carries its time and its distance instead (#M7-17), so a plank's previous column
+ * reads `1:30` rather than a dash: last time was a set, and the column comparing against it has
+ * something to say. Which figure the narrow cell keeps is `formatSetCompact`'s rule.
+ *
  * @param weight in milligrams, the canonical unit.
  * @param reps how many, or null for a set that recorded none.
+ * @param duration in seconds, or null for a set that was not timed.
+ * @param distance in centimetres, or null for a set that covered no ground.
  */
 @Immutable
 data class PreviousSet(
     val weight: Long?,
     val reps: Int?,
+    val duration: Long? = null,
+    val distance: Long? = null,
 )
 
 // ─── The grid ───────────────────────────────────────────────────────────────────────────
@@ -952,6 +974,67 @@ fun SetLogCorrectionPreview() {
 fun SetLogCorrectionDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
         CorrectableTable()
+    }
+}
+
+@Preview(name = "Set log - a hold", widthDp = 360)
+@Composable
+fun SetLogHoldPreview() {
+    TitanTheme(theme = ThemePreference.LIGHT) {
+        TimedTable(exerciseType = ExerciseType.ISOMETRIC)
+    }
+}
+
+@Preview(name = "Set log - a run, dark", widthDp = 360)
+@Composable
+fun SetLogRunDarkPreview() {
+    TitanTheme(theme = ThemePreference.DARK) {
+        TimedTable(exerciseType = ExerciseType.ENDURANCE)
+    }
+}
+
+/**
+ * A timed exercise's table (#M7-17): a logged set, then the row being typed — a hold's time and
+ * its added weight, or a run's distance and time — with the stopwatch under a hold's.
+ */
+@Composable
+private fun TimedTable(exerciseType: ExerciseType) {
+    val isHold = exerciseType == ExerciseType.ISOMETRIC
+    TitanCard(modifier = Modifier.fillMaxWidth().padding(TitanTheme.spacing.screen)) {
+        SetLogHeader(exerciseType = exerciseType)
+        HairlineDivider()
+        LoggedSetRow(
+            setNumber = 1,
+            set = if (isHold) {
+                ActiveSet(duration = 90, weight = 10_000_000, isCompleted = true, completedAt = 1)
+            } else {
+                ActiveSet(duration = 1_634, distance = 500_000, rpe = 70, isCompleted = true, completedAt = 1)
+            },
+            previous = if (isHold) PreviousSet(weight = null, reps = null, duration = 75) else null,
+            onCompletedChange = {},
+        )
+        HairlineDivider()
+        SetLogRow(
+            setNumber = 2,
+            weight = "",
+            reps = "",
+            onWeightChange = {},
+            onRepsChange = {},
+            onCompletedChange = {},
+            exerciseType = exerciseType,
+            duration = if (isHold) "" else "26:50",
+            distance = if (isHold) "" else "5",
+            onSetTypeChange = {},
+            onRpeChange = {},
+            previous = if (isHold) PreviousSet(weight = null, reps = null, duration = 80) else null,
+            isActive = true,
+            canComplete = !isHold,
+            footer = if (isHold) {
+                { HoldStopwatch(setNumber = 2, elapsed = null, onStart = {}, onStop = {}) }
+            } else {
+                null
+            },
+        )
     }
 }
 

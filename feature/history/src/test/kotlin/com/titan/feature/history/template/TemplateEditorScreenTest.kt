@@ -3,6 +3,7 @@ package com.titan.feature.history.template
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -10,6 +11,7 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
 import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.ui.theme.TitanTheme
@@ -70,6 +73,37 @@ class TemplateEditorScreenTest {
 
         assertEquals(
             listOf(TemplateEditorEvent.SetFieldChanged(1L, 12L, TemplateSetField.REPS, "18")),
+            events,
+        )
+    }
+
+    @Test
+    fun `a timed exercise is planned in the fields its session will draw`() {
+        // #M7-17: a plank plans its time and its added weight, a run its distance and its time —
+        // and neither offers a rep field it has no use for.
+        val plank = row(4L, "Plank", sets = listOf(set(41L, duration = "0:45"), set(42L, duration = "0:45")))
+            .copy(exercise = Exercise(id = 4L, name = "Plank", type = ExerciseType.ISOMETRIC))
+        val run = row(5L, "Running, Outdoor", sets = listOf(set(51L, distance = "5", duration = "30:00")))
+            .copy(exercise = Exercise(id = 5L, name = "Running, Outdoor", type = ExerciseType.ENDURANCE))
+        setContent(populated().copy(exercises = listOf(plank, run)))
+
+        composeTestRule.onNode(hasContentDescription("Time, set 1") and hasText("0:45")).assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Added weight, set 2").assertIsDisplayed()
+        scrollTo(hasContentDescription("Distance in km, set 1") and hasText("5")).assertIsDisplayed()
+        scrollTo(hasContentDescription("Time, set 1") and hasText("30:00")).assertIsDisplayed()
+        composeTestRule.onAllNodesWithContentDescription("Reps, set 1").assertCountEquals(0)
+    }
+
+    @Test
+    fun `typing a planned time reports it as the time figure`() {
+        val plank = row(4L, "Plank", sets = listOf(set(41L)))
+            .copy(exercise = Exercise(id = 4L, name = "Plank", type = ExerciseType.ISOMETRIC))
+        setContent(populated().copy(exercises = listOf(plank)))
+
+        composeTestRule.onNodeWithContentDescription("Time, set 1").performTextInput("45")
+
+        assertEquals(
+            listOf(TemplateEditorEvent.SetFieldChanged(4L, 41L, TemplateSetField.DURATION, "45")),
             events,
         )
     }
@@ -391,7 +425,17 @@ class TemplateEditorScreenTest {
         weight: String = "",
         reps: String = "",
         errors: Set<TemplateSetField> = emptySet(),
-    ) = TemplateSetRow(key = key, setType = setType, weight = weight, reps = reps, errors = errors)
+        duration: String = "",
+        distance: String = "",
+    ) = TemplateSetRow(
+        key = key,
+        setType = setType,
+        weight = weight,
+        reps = reps,
+        duration = duration,
+        distance = distance,
+        errors = errors,
+    )
 
     private fun row(
         key: Long,

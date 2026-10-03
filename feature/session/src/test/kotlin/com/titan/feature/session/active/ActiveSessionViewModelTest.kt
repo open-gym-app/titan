@@ -16,6 +16,7 @@ import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
+import com.titan.core.domain.timer.StopwatchSnapshot
 import com.titan.core.domain.usecase.AddPlannedSetsUseCase
 import com.titan.core.domain.usecase.AddSessionExercisesUseCase
 import com.titan.core.domain.usecase.DeleteSetUseCase
@@ -37,6 +38,7 @@ import com.titan.core.domain.usecase.SuggestWarmupUseCase
 import com.titan.core.domain.usecase.SwapSessionExerciseUseCase
 import com.titan.core.domain.usecase.UnlinkSupersetUseCase
 import com.titan.core.domain.validation.SetValidator
+import com.titan.core.ui.format.DistanceUnit
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.feature.session.SessionProgressionHandoff
@@ -335,31 +337,295 @@ class ActiveSessionViewModelTest {
             assertTrue(store.logged.isEmpty())
         }
 
-    @Test
-    fun `an exercise logged by duration cannot take a set here, and says so rather than refusing one`() =
-        runTest {
-            // A plank records a duration, and this screen's entry row is a weight and a rep
-            // count — so every set logged against it would be refused by `SetValidator`. The
-            // tick is not live for it at all: the alternative is a control that looks ready on
-            // every set of the exercise and fails on every press of it.
-            val store = pushDayStore()
-            val viewModel = viewModel(
-                store = store,
-                catalogue = FakeExerciseCatalogue(
-                    exercises = listOf(BENCH.copy(type = ExerciseType.ISOMETRIC)),
-                ),
-            )
+    // ─── Timed exercises (#M7-17) ─────────────────────────────────────────────────────────
 
-            viewModel.enter(weight = "80", reps = "5")
+    @Test
+    fun `a plank logged as 1 30 stores ninety seconds and ticks the set`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.enterTimed(duration = "1:30")
+            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            val logged = store.logged.single()
+            assertEquals(90L, logged.duration)
+            assertNull(logged.reps)
+            assertTrue(logged.isCompleted)
+        }
+
+    @Test
+    fun `a hold carries the weight added to it`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.onEvent(ActiveSessionEvent.WeightChanged(BENCH_ROW, "10"))
+            viewModel.enterTimed(duration = "0:45")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(45L, store.logged.single().duration)
+            assertEquals(10_000_000L, store.logged.single().weight)
+        }
+
+    @Test
+    fun `a run of 5 km in 27 14 stores centimetres and seconds`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.enterTimed(distance = "5", duration = "27:14")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            val logged = store.logged.single()
+            assertEquals(500_000L, logged.distance)
+            assertEquals(1_634L, logged.duration)
+        }
+
+    @Test
+    fun `a run logged by time alone is accepted, as SetValidator allows`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.enterTimed(duration = "30:00")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(1_800L, store.logged.single().duration)
+            assertNull(store.logged.single().distance)
+        }
+
+    @Test
+    fun `a run with a distance and no time is not loggable yet, and is not an error either`() =
+        runTest {
+            // SetValidator asks a completed endurance set for its time: the distance is optional,
+            // and the time is not. Half way through typing is not a mistake, though.
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.enterTimed(distance = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
             assertTrue(store.logged.isEmpty())
-            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).isLoggedByDuration)
             assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
-            // Nothing the user typed is wrong, so nothing is marked as wrong. What is typed
-            // stays put, as it does through any other refusal.
             assertNull(viewModel.uiState.value.entryOf(BENCH_ROW).error)
-            assertEquals("80", viewModel.uiState.value.entryOf(BENCH_ROW).weight)
+        }
+
+    @Test
+    fun `a swim is typed in metres rather than kilometres`() =
+        runTest {
+            val store = pushDayStore()
+            val swim = BENCH.copy(name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
+            val viewModel = viewModel(store = store, catalogue = FakeExerciseCatalogue(exercises = listOf(swim)))
+
+            viewModel.enterTimed(distance = "400", duration = "8:00")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(DistanceUnit.METRE, viewModel.uiState.value.rowOf(BENCH_ROW).distanceUnit)
+            assertEquals(40_000L, store.logged.single().distance)
+        }
+
+    @Test
+    fun `a bare number is seconds on a hold and minutes on a run`() =
+        runTest {
+            val holdStore = pushDayStore()
+            val hold = viewModel(store = holdStore, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+            hold.enterTimed(duration = "45")
+            hold.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            val runStore = pushDayStore()
+            val run = viewModel(store = runStore, catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+            run.enterTimed(duration = "30")
+            run.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(45L, holdStore.logged.single().duration)
+            assertEquals(1_800L, runStore.logged.single().duration)
+        }
+
+    @Test
+    fun `negative - a time that is not a time is said under the row and never written`() =
+        runTest {
+            // `1.5` is a minute and a half to the lifter and a minute and five seconds to a lax
+            // parser; refusing it is the only answer that cannot store a set nobody did.
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.enterTimed(duration = "1.5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(SetEntryError.DurationNotATime, viewModel.uiState.value.entryOf(BENCH_ROW).error)
+            assertTrue(store.logged.isEmpty())
+        }
+
+    @Test
+    fun `negative - a distance that is not a number is said under the row`() =
+        runTest {
+            val viewModel = viewModel(catalogue = timedCatalogue(ExerciseType.ENDURANCE))
+
+            viewModel.enterTimed(distance = "far", duration = "20:00")
+
+            assertEquals(SetEntryError.DistanceNotANumber, viewModel.uiState.value.entryOf(BENCH_ROW).error)
+            assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).canLogEntry)
+        }
+
+    @Test
+    fun `a logged hold reads back as its time, and its previous set is a time too`() =
+        runTest {
+            val store = pushDayStore(
+                sets = listOf(timedSet(id = 1L, setNumber = 1, duration = 90L)),
+            )
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            val row = viewModel.uiState.value.rowOf(BENCH_ROW)
+            assertEquals("1:30", row.sets.single().entry.duration)
+            // Logged and complete: its tick can come off, and it has nothing to refuse.
+            assertTrue(row.sets.single().canComplete)
+            // The next-load engine has nothing to say about a hold: no target, not an empty one.
+            assertNull(row.target)
+        }
+
+    @Test
+    fun `a logged hold is corrected by typing a new time over it`() =
+        runTest {
+            val store = pushDayStore(sets = listOf(timedSet(id = 1L, setNumber = 1, duration = 90L)))
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.onEvent(ActiveSessionEvent.SetEditDurationChanged(BENCH_ROW, setId = 1L, text = "1:45"))
+            viewModel.onEvent(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 1L))
+
+            assertEquals(105L, store.stored.single { it.id == 1L }.duration)
+        }
+
+    @Test
+    fun `a planned hold that has no time yet cannot be ticked until one is typed`() =
+        runTest {
+            val store = pushDayStore(
+                sets = listOf(timedSet(id = 1L, setNumber = 1, duration = null, isCompleted = false)),
+            )
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+            assertFalse(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().canComplete)
+
+            viewModel.onEvent(ActiveSessionEvent.SetEditDurationChanged(BENCH_ROW, setId = 1L, text = "0:45"))
+
+            assertTrue(viewModel.uiState.value.rowOf(BENCH_ROW).sets.single().canComplete)
+        }
+
+    @Test
+    fun `the stopwatch fills the time field when it is stopped, and the tick still logs the set`() =
+        runTest {
+            val store = pushDayStore()
+            val viewModel = viewModel(store = store, catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+            advanceRestTo(47.seconds)
+            assertEquals(RunningStopwatch(BENCH_ROW, 47.seconds), viewModel.uiState.value.stopwatch)
+
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStopped(BENCH_ROW))
+
+            assertNull(viewModel.uiState.value.stopwatch)
+            assertEquals("0:47", viewModel.uiState.value.entryOf(BENCH_ROW).duration)
+            // Stopping a clock is not deciding the set happened.
+            assertTrue(store.logged.isEmpty())
+
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            assertEquals(47L, store.logged.single().duration)
+        }
+
+    @Test
+    fun `there is one stopwatch per workout`() =
+        runTest {
+            val both = FakeExerciseCatalogue(
+                exercises = listOf(
+                    BENCH.copy(type = ExerciseType.ISOMETRIC),
+                    INCLINE.copy(type = ExerciseType.ISOMETRIC),
+                ),
+            )
+            val viewModel = viewModel(catalogue = both)
+
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(INCLINE_ROW))
+
+            assertEquals(BENCH_ROW, viewModel.uiState.value.stopwatch?.sessionExerciseId)
+            // And the other exercise's stop is not this one's.
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStopped(INCLINE_ROW))
+            assertEquals(BENCH_ROW, viewModel.uiState.value.stopwatch?.sessionExerciseId)
+        }
+
+    @Test
+    fun `the stopwatch is written into the draft the moment it starts`() =
+        runTest {
+            val viewModel = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+
+            assertEquals(StopwatchSnapshot(BENCH_ROW, STARTED_AT), drafts.stored?.stopwatch)
+        }
+
+    @Test
+    fun `the stopwatch survives a process death with its elapsed time intact`() =
+        runTest {
+            val catalogue = timedCatalogue(ExerciseType.ISOMETRIC)
+            val before = viewModel(catalogue = catalogue)
+            before.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+            // The process goes, and thirty seconds of plank go by on the wall clock.
+            clock.advance(30_000)
+
+            val restored = viewModel(catalogue = catalogue, drafts = FakeDraftStore(drafts.stored))
+
+            assertEquals(RunningStopwatch(BENCH_ROW, 30.seconds), restored.uiState.value.stopwatch)
+            restored.onEvent(ActiveSessionEvent.StopwatchStopped(BENCH_ROW))
+            assertEquals("0:30", restored.uiState.value.entryOf(BENCH_ROW).duration)
+        }
+
+    @Test
+    fun `a stopwatch on an exercise that has left the workout is not restored`() =
+        runTest {
+            val draft = ActiveSession(
+                sessionId = ACTIVE_SESSION_ID,
+                startedAt = STARTED_AT,
+                stopwatch = StopwatchSnapshot(sessionExerciseId = 42L, startedAt = STARTED_AT),
+            )
+
+            val restored = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC), drafts = FakeDraftStore(draft))
+
+            assertNull(restored.uiState.value.stopwatch)
+        }
+
+    @Test
+    fun `negative - a paused workout starts no stopwatch`() =
+        runTest {
+            val viewModel = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+            viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+
+            assertNull(viewModel.uiState.value.stopwatch)
+        }
+
+    @Test
+    fun `a half-typed time survives a process death through the draft`() =
+        runTest {
+            val catalogue = timedCatalogue(ExerciseType.ENDURANCE)
+            val before = viewModel(catalogue = catalogue)
+            before.enterTimed(distance = "5", duration = "27:14")
+
+            val restored = viewModel(catalogue = catalogue, drafts = FakeDraftStore(drafts.stored))
+
+            val entry = restored.uiState.value.entryOf(BENCH_ROW)
+            assertEquals("27:14", entry.duration)
+            assertEquals("5", entry.distance)
+        }
+
+    @Test
+    fun `the rest after a timed set says what the next set is in time`() =
+        runTest {
+            val viewModel = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+
+            viewModel.enterTimed(duration = "1:30")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(90L, viewModel.uiState.value.restTarget?.duration)
         }
 
     @Test
@@ -2979,6 +3245,35 @@ class ActiveSessionViewModelTest {
         onEvent(ActiveSessionEvent.RepsChanged(sessionExerciseId, reps))
         scheduler.advanceTimeBy(DRAFT_SETTLED)
     }
+
+    /** Types a timed exercise's fields — see [enter] for why the typing then stops. */
+    private fun ActiveSessionViewModel.enterTimed(
+        duration: String = "",
+        distance: String = "",
+        sessionExerciseId: Long = BENCH_ROW,
+    ) {
+        if (distance.isNotEmpty()) onEvent(ActiveSessionEvent.DistanceChanged(sessionExerciseId, distance))
+        if (duration.isNotEmpty()) onEvent(ActiveSessionEvent.DurationChanged(sessionExerciseId, duration))
+        scheduler.advanceTimeBy(DRAFT_SETTLED)
+    }
+
+    /** The bench, re-catalogued as an exercise logged by time: a plank's mode, or a run's. */
+    private fun timedCatalogue(type: ExerciseType) = FakeExerciseCatalogue(exercises = listOf(BENCH.copy(type = type)))
+
+    /** A set of a timed exercise under the bench's slot: a time, and no weight or reps. */
+    private fun timedSet(
+        id: Long,
+        setNumber: Int,
+        duration: Long?,
+        isCompleted: Boolean = true,
+    ) = loggedSet(
+        id = id,
+        sessionExerciseId = BENCH_ROW,
+        setNumber = setNumber,
+        reps = null,
+        weight = null,
+        isCompleted = isCompleted,
+    ).copy(duration = duration)
 
     /** A stored set's weight as the table draws it, so a renumbering reads as sets rather
      *  than as milligrams. */

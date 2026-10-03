@@ -40,6 +40,10 @@ object SessionStatsCalculator {
                     sessionExerciseId = sessionExerciseId,
                     totalSets = exerciseSets.size,
                     totalVolume = VolumeCalculator.totalVolume(exerciseSets),
+                    // A missing duration or distance is zero, the way a missing weight is for
+                    // volume: a set of curls is a real set that covered no ground.
+                    timedSeconds = exerciseSets.sumOf { it.duration ?: 0L },
+                    totalDistance = exerciseSets.sumOf { it.distance ?: 0L },
                 )
             }
 
@@ -48,6 +52,8 @@ object SessionStatsCalculator {
             totalVolume = breakdown.sumOf(ExerciseStats::totalVolume),
             durationSeconds = durationSeconds(startedAt, endedAt),
             exerciseBreakdown = breakdown,
+            timedSeconds = breakdown.sumOf(ExerciseStats::timedSeconds),
+            totalDistance = breakdown.sumOf(ExerciseStats::totalDistance),
         )
     }
 

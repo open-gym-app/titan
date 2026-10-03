@@ -58,6 +58,8 @@ internal object PlannedSets {
                 setNumber = from + index,
                 reps = set.reps,
                 weight = set.weight,
+                duration = set.duration,
+                distance = set.distance,
                 setType = set.setType,
                 completedAt = UNPERFORMED,
                 isCompleted = false,

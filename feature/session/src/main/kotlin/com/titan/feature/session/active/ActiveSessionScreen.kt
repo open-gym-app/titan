@@ -535,7 +535,7 @@ private fun RestSheet(
             onTogglePause = { onEvent(ActiveSessionEvent.RestPauseToggled) },
             // What the set that ends this rest is expected to be. Formatted here rather than in
             // the ViewModel because the unit is the ambient one and the "×" is a word.
-            nextSet = state.restTarget?.let { formatSet(it.weight, it.reps) },
+            nextSet = state.restTarget?.let { formatSet(it.weight, it.reps, it.duration, it.distance) },
         )
     }
 }
@@ -676,6 +676,7 @@ private fun SessionBody(
                             // which is a frame behind while an order is being written.
                             position = index,
                             onEvent = onEvent,
+                            stopwatch = state.stopwatch,
                             onRemove = {
                                 onEvent(ActiveSessionEvent.ExerciseRemoved(row.sessionExerciseId))
                             },

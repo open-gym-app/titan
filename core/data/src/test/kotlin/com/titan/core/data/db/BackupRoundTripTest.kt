@@ -103,6 +103,26 @@ class BackupRoundTripTest : RoomTestBase() {
             assertEquals(FINISHED_AT.toString(), performed["completed_at"])
         }
 
+    /** A template's planned holds and runs come back with their time and distance (#M7-17). */
+    @Test
+    fun `a planned time and distance survive an export and an import`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpTable(BackupTable.TEMPLATE_SET)
+            val document = exportToText()
+
+            wipeEverything()
+            import(source(document)).toList()
+
+            assertEquals(before, db.dumpTable(BackupTable.TEMPLATE_SET))
+            val run = db.dumpTable(BackupTable.TEMPLATE_SET).first { it["id"] == "4" }
+            assertEquals("1800", run["duration"])
+            assertEquals("500000", run["distance"])
+            val hold = db.dumpTable(BackupTable.TEMPLATE_SET).first { it["id"] == "3" }
+            assertEquals("45", hold["duration"])
+            assertEquals(null, hold["distance"])
+        }
+
     /** Null is not blank, and a restore must not normalise it into one. */
     @Test
     fun `a null column comes back null rather than defaulted`() =

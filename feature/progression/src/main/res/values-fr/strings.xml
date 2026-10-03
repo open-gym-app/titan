@@ -92,6 +92,8 @@
 
     <string name="exercise_chart_estimate">Estimation du 1RM</string>
     <string name="exercise_chart_volume">Volume par séance</string>
+    <string name="exercise_chart_distance">Distance par séance</string>
+    <string name="exercise_chart_time">Temps par séance</string>
 
     <!-- ── The recent-attempts table ─────────────────────────────────────────────── -->
 
@@ -100,6 +102,8 @@
     <string name="exercise_attempts_sets">Séries</string>
     <string name="exercise_attempts_top">Max</string>
     <string name="exercise_attempts_volume">Vol.</string>
+    <string name="exercise_attempts_time">Temps</string>
+    <string name="exercise_attempts_distance">Dist.</string>
     <plurals name="exercise_attempts_set_count">
         <item quantity="one">%1$d série</item>
         <item quantity="many">%1$d séries</item>
@@ -107,6 +111,8 @@
     </plurals>
     <string name="exercise_attempt_description">%1$s, %2$s, meilleure série %3$s, volume %4$s</string>
     <string name="exercise_attempt_record_description">%1$s, %2$s, meilleure série %3$s, record personnel, volume %4$s</string>
+    <string name="exercise_attempt_timed_description">%1$s, %2$s, meilleure série %3$s, total %4$s</string>
+    <string name="exercise_attempt_timed_record_description">%1$s, %2$s, meilleure série %3$s, record personnel, total %4$s</string>
 
     <!-- ── The chooser ───────────────────────────────────────────────────────────── -->
 

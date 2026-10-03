@@ -3,6 +3,7 @@ package com.titan.core.domain.model
 import com.titan.core.domain.superset.Supersets
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
+import com.titan.core.domain.timer.StopwatchSnapshot
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -54,6 +55,13 @@ import kotlin.time.Duration.Companion.milliseconds
  *   measures how long they have been standing still, which it does not. A caller that
  *   wants the countdown held over a pause pauses the timer itself, and the draft then
  *   carries [RestTimerSnapshot.Paused], whose remainder does not go stale.
+ * @property stopwatch the hold being timed, or null when nothing is (#M7-17). Kept here for the
+ *   reason [restTimer] is: it is a clock the user started, and coming back from a process death
+ *   to a plank that had silently stopped counting would lose the one figure the set is logged
+ *   in. A start instant rather than an elapsed time — see [StopwatchSnapshot]. Its
+ *   `sessionExerciseId` names a row of [exercises]; a snapshot naming one no longer in the
+ *   workout is dropped on restore rather than refused here, since a draft is not worth losing
+ *   over a stopwatch.
  */
 @Serializable
 data class ActiveSession(
@@ -64,6 +72,7 @@ data class ActiveSession(
     val exercises: List<ActiveExercise> = emptyList(),
     val currentExerciseIndex: Int = 0,
     val restTimer: RestTimerSnapshot = RestTimerSnapshot.Idle,
+    val stopwatch: StopwatchSnapshot? = null,
 ) {
     init {
         require(sessionId > 0) { "a draft belongs to a session row, was $sessionId" }

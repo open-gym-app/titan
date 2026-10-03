@@ -24,9 +24,15 @@ package com.titan.core.domain.model
  *   [WeeklyVolume]'s reading of the same table.
  * @property volume `weight × reps` over those sets, in milligram-reps. Zero is a real value —
  *   a timed hold or a run is an attempt that moved nothing.
+ * @property timedSeconds the sets' `duration` summed, in seconds. What a timed attempt is
+ *   quoted by where [volume] has nothing to say: the table reads `4:30` for three holds of a
+ *   minute and a half rather than a zero volume.
+ * @property distance the sets' `distance` summed, in centimetres.
  * @property topSet the heaviest set of the attempt, ties going to the one that got more reps
- *   out of the weight. **Null** for an attempt with no set worth quoting, which in practice
- *   means one made entirely of sets carrying neither a weight nor a rep count.
+ *   out of the weight, then the one that went further, then the one that lasted longer.
+ *   **Null** for an attempt with no set worth quoting, which in practice means one made
+ *   entirely of sets carrying none of the four figures — a set the write path refuses, so
+ *   only an import can produce one.
  * @property firstSetAt the earliest set stamp of the attempt, epoch millis. What decides
  *   whether a record was set *here*: a record carries its own set's stamp rather than the
  *   session's, so [finishedAt] cannot answer it — see [ExerciseProgression.newRecords].
@@ -36,21 +42,28 @@ data class ExerciseAttempt(
     val finishedAt: Long,
     val sets: Int,
     val volume: Long,
+    val timedSeconds: Long = 0,
+    val distance: Long = 0,
     val topSet: AttemptSet?,
     val firstSetAt: Long,
 )
 
 /**
- * The set an attempt is quoted by: `80 kg × 5`, `× 12`.
+ * The set an attempt is quoted by: `80 kg × 5`, `× 12`, `5 km · 27:14`, `1:30`.
  *
- * A pair rather than two nullable fields on [ExerciseAttempt] because they are one fact and
+ * One value rather than nullable fields on [ExerciseAttempt] because they are one fact and
  * are read together everywhere — the table's `TOP` cell, and the one-rep-max estimate, which
- * needs both or neither.
+ * needs a weight and reps or neither.
  *
- * @property weight milligrams, or **null** for a bodyweight movement.
+ * @property weight milligrams, or **null** for a bodyweight movement. On a hold, the load
+ *   added to it.
  * @property reps how many, or **null** for a set measured by time or distance.
+ * @property duration seconds, or **null** for a set not measured in time.
+ * @property distance centimetres, or **null** for a set that covered no ground.
  */
 data class AttemptSet(
     val weight: Long?,
     val reps: Int?,
+    val duration: Long? = null,
+    val distance: Long? = null,
 )

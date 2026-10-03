@@ -67,8 +67,8 @@
 
     <string name="active_weight_not_a_number">Ce poids n’est pas un nombre</string>
     <string name="active_reps_not_a_number">Ce nombre de répétitions n’est pas un nombre</string>
-
-    <string name="active_logged_by_duration">Exercice chronométré. Ses séries se mesurent en durée, ce que cet écran ne sait pas encore saisir — remplacez-le ou retirez-le pour continuer.</string>
+    <string name="active_duration_not_a_time">Cette durée n’est pas une durée — saisissez-la sous la forme 1:30 ou 1:05:30</string>
+    <string name="active_distance_not_a_number">Cette distance n’est pas un nombre</string>
 
     <string name="active_add_exercises">Ajouter d’autres exercices</string>
     <string name="active_remove_exercise">Retirer %1$s de cette séance</string>

@@ -13,7 +13,11 @@ import com.titan.core.ui.chart.ChartDefaults
 import com.titan.core.ui.chart.ChartEntry
 import com.titan.core.ui.chart.ChartScale
 import com.titan.core.ui.component.TitanBadge
+import com.titan.core.ui.format.distanceUnitFor
+import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatDayAndMonth
+import com.titan.core.ui.format.formatDistance
+import com.titan.core.ui.format.formatDistanceValue
 import com.titan.core.ui.format.formatEstimate
 import com.titan.core.ui.format.formatEstimateValue
 import com.titan.core.ui.format.formatMonthAbbreviation
@@ -44,6 +48,12 @@ import com.titan.feature.progression.R
  * across the sessions it can be estimated from rather than a line that collapses to the floor
  * on the ones it cannot. See [ExerciseProgression.estimates].
  *
+ * ### A timed exercise is charted by what it did
+ *
+ * A run or a hold has no one-rep max and no volume, so both cards would be empty or a row of
+ * zeroes (#M7-17). For such an exercise — see [AttemptMeasure] — the projection card goes, and
+ * the bars are the ground each session covered, or how long its holds lasted.
+ *
  * ### The formatting happens here
  *
  * The domain carries milligrams and epoch millis; this turns them into what the user reads,
@@ -69,9 +79,14 @@ fun ExerciseTrendCards(
     modifier: Modifier = Modifier,
 ) {
     val estimateLabel = stringResource(R.string.exercise_chart_estimate)
-    val volumeLabel = stringResource(R.string.exercise_chart_volume)
     val unitSystem = LocalUnitSystem.current
     val unitSuffix = unitSystem.weightSuffix
+    val measure = AttemptMeasure.of(progression.attempts)
+
+    if (measure != AttemptMeasure.VOLUME) {
+        TimedTrendCard(progression = progression, measure = measure, modifier = modifier)
+        return
+    }
 
     Column(
         modifier = modifier,
@@ -95,13 +110,55 @@ fun ExerciseTrendCards(
         )
 
         ChartCard(
-            label = volumeLabel,
+            label = stringResource(R.string.exercise_chart_volume),
             entries = progression.attempts.map { it.chartEntry() },
             scale = ChartScale.BAR,
             formatValue = { milligrams -> formatVolumeValue(milligrams.toLong(), unitSystem) },
             trailing = { TitanBadge(text = unitSuffix) },
         )
     }
+}
+
+/**
+ * The one chart a timed exercise draws: distance or time per session, as bars against zero.
+ *
+ * The distance is read in one unit for the whole chart — the one the longest session reads best
+ * in — because a rail of `400 m` gridlines under a bar labelled `1.2 km` is two scales on one
+ * axis. The time needs no unit badge: `27:14` says what it is.
+ */
+@Composable
+private fun TimedTrendCard(
+    progression: ExerciseProgression,
+    measure: AttemptMeasure,
+    modifier: Modifier = Modifier,
+) {
+    val unitSystem = LocalUnitSystem.current
+    val distanceUnit = unitSystem.distanceUnitFor(progression.attempts.maxOfOrNull { it.distance } ?: 0)
+    val isDistance = measure == AttemptMeasure.DISTANCE
+
+    ChartCard(
+        label = stringResource(if (isDistance) R.string.exercise_chart_distance else R.string.exercise_chart_time),
+        entries = progression.attempts.map { attempt ->
+            val value = if (isDistance) attempt.distance else attempt.timedSeconds
+            ChartEntry(
+                value = value.toFloat(),
+                label = formatMonthAbbreviation(localDateOf(attempt.finishedAt)),
+                formattedValue = if (isDistance) formatDistance(value, distanceUnit) else formatClockValue(value),
+                caption = formatDayAndMonth(attempt.finishedAt),
+            )
+        },
+        scale = ChartScale.BAR,
+        height = ChartDefaults.TALL_HEIGHT,
+        formatValue = { value ->
+            if (isDistance) formatDistanceValue(value.toLong(), distanceUnit) else formatClockValue(value.toLong())
+        },
+        trailing = if (isDistance) {
+            { TitanBadge(text = distanceUnit.suffix) }
+        } else {
+            null
+        },
+        modifier = modifier,
+    )
 }
 
 /**

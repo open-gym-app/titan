@@ -15,6 +15,7 @@ import com.titan.core.domain.validation.SetDimension
 import com.titan.core.domain.validation.SetValidator
 import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.SessionProgress
+import com.titan.core.ui.format.DistanceUnit
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
@@ -116,6 +117,10 @@ import kotlin.time.Duration
  *   this workout trains. Null rather than an empty card, so the page asks one question.
  * @param cooldown the same card below the last exercise. Two fields rather than a pair, because
  *   they are shown in two places and go away independently.
+ * @param stopwatch the hold being timed, or **null** when none is (#M7-17). One for the whole
+ *   screen rather than one per exercise, because a lifter holds one plank at a time — so every
+ *   other hold's control goes inert while it runs. Its reading moves once a second with the
+ *   header's clock, and for the same reason: see `ActiveSessionViewModel.clockedAt`.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -146,6 +151,7 @@ data class ActiveSessionUiState(
     val restTarget: RestTarget? = null,
     val warmup: MobilityCard? = null,
     val cooldown: MobilityCard? = null,
+    val stopwatch: RunningStopwatch? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -209,11 +215,29 @@ data class ActiveSessionUiState(
  *
  * @param weight in milligrams, matching `WorkoutSet.weight`, or null for a bodyweight set.
  * @param reps how many, or null for a set that recorded none.
+ * @param duration in seconds, or null for a set that was not timed — a hold's or a run's next
+ *   set is "do that again" as much as a press's is.
+ * @param distance in centimetres, or null for a set that covered no ground.
  */
 @Immutable
 data class RestTarget(
     val weight: Long?,
     val reps: Int?,
+    val duration: Long? = null,
+    val distance: Long? = null,
+)
+
+/**
+ * The hold stopwatch as the screen draws it: which exercise's next set it is timing, and what it
+ * reads now.
+ *
+ * The draft carries the start instant instead — see `StopwatchSnapshot` — because a reading is
+ * stale the moment it is written. This is the reading, and it is never written anywhere.
+ */
+@Immutable
+data class RunningStopwatch(
+    val sessionExerciseId: Long,
+    val elapsed: Duration,
 )
 
 /**
@@ -339,6 +363,10 @@ data class ActiveSessionHeader(
  *   and empty cells, and the two must not be drawn the same way. False also covers an exercise
  *   whose whole history is warm-ups, which is never having performed it — see
  *   `SessionRepository.getPreviousSets`.
+ * @param distanceUnit the unit this exercise's distances are typed and read in: kilometres or
+ *   miles for a run, metres or yards for a swim (#M7-17). Decided here rather than at the field,
+ *   because the ViewModel parses with it — a field labelled in one unit and parsed in another is
+ *   a set logged a thousand times too long. See `distanceEntryUnit`.
  * @param target what the next-load engine says the next set should be (#M7-16), or null where
  *   it has nothing to say — no history, timed work, an exercise since deleted. One per
  *   exercise rather than per row, because the rule reads the last *performance* and answers
@@ -363,7 +391,17 @@ data class SessionExerciseRow(
     val entryPrevious: PreviousSet? = null,
     val hasHistory: Boolean = false,
     val target: LoadSuggestion? = null,
+    val distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
+
+    /**
+     * How a set of this exercise is logged, which decides the two fields its rows draw.
+     *
+     * An exercise deleted from the library since the session started has no mode left to read,
+     * and draws the strength row it most likely was — the same fallback the write path makes,
+     * which checks such a set against the bounds alone.
+     */
+    val exerciseType: ExerciseType get() = exercise?.type ?: ExerciseType.STRENGTH
 
     /** How many sets sit under it, performed or not, which is what the table draws. */
     val setCount: Int get() = sets.size
@@ -390,17 +428,6 @@ data class SessionExerciseRow(
      * moment it is pressed — see [records].
      */
     val canLogEntry: Boolean get() = entry.canLog && entry.records(exercise?.type)
-
-    /**
-     * Whether this exercise's sets are measured in time rather than in reps.
-     *
-     * The one dead end on this screen worth saying out loud: the entry row is a weight and a rep
-     * count, so there is nowhere to put the duration a completed set of it has to record, and
-     * every set logged against it would be refused. The card says so rather than leaving a tick
-     * that does nothing.
-     */
-    val isLoggedByDuration: Boolean
-        get() = exercise?.type?.let(SetValidator::requiredDimension) == SetDimension.DURATION
 }
 
 /**
@@ -420,8 +447,10 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
     when (exerciseType?.let(SetValidator::requiredDimension)) {
         SetDimension.REPS -> reps.isNotBlank()
 
-        // Nothing the user can type on this screen fills this in. See [SessionExerciseRow.isLoggedByDuration].
-        SetDimension.DURATION -> false
+        // The time field, which the row draws for every exercise logged this way — typed, or
+        // filled in by the stopwatch. A distance alone is not enough: `SetValidator` asks a
+        // completed run for its time and leaves its distance optional.
+        SetDimension.DURATION -> duration.isNotBlank()
 
         null -> true
     }
@@ -447,8 +476,13 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
  * which carries the *parsed* value: a half-typed `8.` is not something `ActiveSet` can hold,
  * and inventing an encoding for it would be a format decision made for a keystroke.
  *
- * @param weight the weight field, in the ambient unit system's unit.
+ * @param weight the weight field, in the ambient unit system's unit. On a hold, the load added
+ *   to it.
  * @param reps the rep field.
+ * @param duration the time field (#M7-17): `M:SS`, `H:MM:SS`, or a bare number — see
+ *   `parseClockSeconds`. Only drawn for an exercise logged by time.
+ * @param distance the distance field, in the exercise's own distance unit — see
+ *   [SessionExerciseRow.distanceUnit]. Only drawn for an endurance exercise.
  * @param rpe the stored rating (× 10), or null for a set not yet rated.
  * @param setType what kind of set this is. Carries over from the previous set of the same
  *   exercise — a lifter logging a warm-up is usually about to log another.
@@ -469,6 +503,8 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
 data class SetEntry(
     val weight: String = "",
     val reps: String = "",
+    val duration: String = "",
+    val distance: String = "",
     val rpe: Int? = null,
     val setType: SetType = SetType.NORMAL,
     val notes: String? = null,
@@ -485,7 +521,11 @@ data class SetEntry(
      * Not the whole of whether the tick is live: which dimension the set *has* to record is the
      * exercise's, not the entry's, so the screen asks [SessionExerciseRow.canLogEntry].
      */
-    val canLog: Boolean get() = error == null && (weight.isNotBlank() || reps.isNotBlank())
+    val canLog: Boolean get() = error == null && hasFigure
+
+    /** Whether any of the four figures has been typed into. */
+    private val hasFigure: Boolean
+        get() = weight.isNotBlank() || reps.isNotBlank() || duration.isNotBlank() || distance.isNotBlank()
 
     /**
      * Whether the user has begun this set, which is what brings out the controls under the row.
@@ -495,7 +535,7 @@ data class SetEntry(
      * be a layout that flickered under the thumb.
      */
     val isStarted: Boolean
-        get() = weight.isNotBlank() || reps.isNotBlank() || rpe != null || notes != null
+        get() = hasFigure || rpe != null || notes != null
 }
 
 /**
@@ -676,7 +716,7 @@ enum class ActiveSessionMessage {
 /**
  * Why the entry as typed cannot be logged.
  *
- * Two of the three are the screen's own words and are resolved from its resources; the third is
+ * All but one are the screen's own words and are resolved from its resources; the last is
  * `SetValidator`'s, which names the field, its bound and the value it saw, and is shown as it
  * stands — a message this screen paraphrased would be a second copy of a rule that lives in the
  * domain.
@@ -691,6 +731,14 @@ sealed interface SetEntryError {
     /** The rep field holds something that is not a number. */
     @Serializable
     data object RepsNotANumber : SetEntryError
+
+    /** The time field holds something that is not a time — `1.5`, `abc`, `1:75`. */
+    @Serializable
+    data object DurationNotATime : SetEntryError
+
+    /** The distance field holds something that is not a number. */
+    @Serializable
+    data object DistanceNotANumber : SetEntryError
 
     /** The values parsed and the domain refused them. [reason] is the validator's wording. */
     @Serializable

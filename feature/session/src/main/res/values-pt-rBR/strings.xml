@@ -67,8 +67,8 @@
 
     <string name="active_weight_not_a_number">Essa carga não é um número</string>
     <string name="active_reps_not_a_number">Esse número de repetições não é um número</string>
-
-    <string name="active_logged_by_duration">Exercício por tempo. As séries são registradas por duração, o que esta tela ainda não consegue inserir: troque ou remova o exercício para continuar.</string>
+    <string name="active_duration_not_a_time">Esse tempo não é um tempo: digite como 1:30 ou 1:05:30</string>
+    <string name="active_distance_not_a_number">Essa distância não é um número</string>
 
     <string name="active_add_exercises">Adicionar mais exercícios</string>
     <string name="active_remove_exercise">Remover %1$s deste treino</string>

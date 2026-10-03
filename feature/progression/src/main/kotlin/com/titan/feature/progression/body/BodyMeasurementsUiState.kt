@@ -79,8 +79,9 @@ data class BodyMeasurementsUiState(
      * cumulative volume can only be compared against another period's sum.
      */
     val weightChange: Long? = weights
+        .mapNotNull(BodyMeasurement::weight)
         .takeIf { it.size >= MIN_TREND_READINGS }
-        ?.let { readings -> readings.last().weight!! - readings.first().weight!! }
+        ?.let { readings -> readings.last() - readings.first() }
 
     /**
      * Whether the user has logged nothing at all, ever.

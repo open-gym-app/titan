@@ -289,6 +289,39 @@ class TemplateDurationTest {
      * [TemplateDuration.estimate] with the user's configured default rest, which the
      * function requires and most cases here do not vary.
      */
+    // ─── Timed sets (#M7-17) ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a planned hold takes as long as it is planned for, not a rep tempo`() {
+        val plank = exercise(sets = 0, rest = 30).copy(sets = List(3) { PlannedSet(duration = 45) })
+
+        assertEquals(45.seconds * 3 + 30.seconds * 2, estimate(listOf(plank)))
+    }
+
+    @Test
+    fun `a planned run is its own length`() {
+        val run = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(duration = 1_800, distance = 500_000)))
+
+        assertEquals(30.minutes, estimate(listOf(run)))
+    }
+
+    @Test
+    fun `a set with no planned time keeps the allowance, beside one that has one`() {
+        val mixed = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(reps = 8), PlannedSet(duration = 120)))
+
+        assertEquals(work + 120.seconds + 60.seconds, estimate(listOf(mixed)))
+    }
+
+    @Test
+    fun `negative - a non-positive planned time falls back to the allowance rather than to nothing`() {
+        val imported = exercise(
+            sets = 0,
+            rest = 60,
+        ).copy(sets = listOf(PlannedSet(duration = 0), PlannedSet(duration = -5)))
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(imported)))
+    }
+
     private fun estimate(
         exercises: List<PlannedExercise>,
         rest: Duration = defaultRest,
@@ -303,8 +336,8 @@ class TemplateDurationTest {
         exerciseId = 1,
         position = 0,
         supersetGroup = group,
-        // The estimate counts the sets rather than reading them, so what is in them does not
-        // matter here — only how many there are. See `TemplateDuration`.
+        // Sets with no planned time, so each is priced at the allowance — only how many there
+        // are matters here. The planned-time cases build their own. See `TemplateDuration`.
         sets = List(sets) { PlannedSet() },
         restDuration = rest,
     )
