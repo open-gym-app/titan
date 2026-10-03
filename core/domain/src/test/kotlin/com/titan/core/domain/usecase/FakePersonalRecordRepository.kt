@@ -107,6 +107,13 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
                 .sortedByDescending(PersonalRecord::achievedAt)
         }
 
+    /** Unsupported: this fake holds no sessions to say which set belongs to which. */
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("this fake holds no sessions")
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        throw UnsupportedOperationException("this fake holds no sessions")
+
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
             rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->

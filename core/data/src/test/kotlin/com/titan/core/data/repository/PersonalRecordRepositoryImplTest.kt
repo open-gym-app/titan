@@ -25,7 +25,8 @@ import org.junit.Test
  * The behaviour under test is entirely in the query — which of an exercise's records is *the*
  * one — so a mocked DAO would assert nothing but that the class calls the method it obviously
  * calls. Records are written straight through the DAO rather than through the PR engine,
- * which does not exist yet (#30); the repository does not care where a row came from.
+ * so each case can lay out exactly the rows it is about; the repository does not care where a
+ * row came from.
  */
 class PersonalRecordRepositoryImplTest : RoomTestBase() {
 
@@ -239,6 +240,75 @@ class PersonalRecordRepositoryImplTest : RoomTestBase() {
             val (bench, _) = seedSet("Bench Press")
 
             assertTrue(repository.getRecordsForExercise(bench).first().isEmpty())
+        }
+
+    /** One set of [exerciseId] performed at [position] in [sessionId], for records to hang off. */
+    private suspend fun setIn(
+        sessionId: Long,
+        exerciseId: Long,
+        position: Int,
+    ): Long {
+        val sessionExerciseId = db.sessionExerciseDao().insert(
+            sessionExercise(sessionId = sessionId, exerciseId = exerciseId, position = position),
+        )
+        return db.workoutSetDao().insert(workoutSet(sessionExerciseId = sessionExerciseId, setNumber = 1))
+    }
+
+    @Test
+    fun `a faster row over the same distance is this session's record although the headline is not`() =
+        runBlocking {
+            // 5 km in 6:30, then 5 km in 6:15. The second ties the first on distance and is
+            // shorter on time, so only its pace beat anything — and the exercise's headline stays
+            // the first session's distance.
+            val rowing = db.exerciseDao().insert(exercise(name = "Rowing, Stationary"))
+            val first = db.workoutSessionDao().insert(session())
+            val second = db.workoutSessionDao().insert(session())
+            val firstSet = setIn(first, rowing, position = 0)
+            val secondSet = setIn(second, rowing, position = 0)
+            record(rowing, firstSet, PrType.MAX_DISTANCE, achievedAt = 100, distance = 500_000)
+            record(rowing, firstSet, PrType.BEST_PACE, achievedAt = 100, distance = 500_000, duration = 390)
+            record(rowing, firstSet, PrType.MAX_DURATION, achievedAt = 100, duration = 390)
+            record(rowing, secondSet, PrType.BEST_PACE, achievedAt = 200, distance = 500_000, duration = 375)
+
+            assertEquals(firstSet, repository.getHeadlineRecords().first().getValue(rowing).workoutSetId)
+            val setHere = repository.getRecordsForSession(second).first()
+            assertEquals(listOf(PrType.BEST_PACE), setHere.map(PersonalRecord::type))
+            assertEquals(375L, setHere.single().duration)
+            assertEquals(setOf(first, second), repository.observeSessionsWithRecords().first())
+        }
+
+    @Test
+    fun `a session's records come in the order it performed its exercises, each led by its headline kind`() =
+        runBlocking {
+            val bench = db.exerciseDao().insert(exercise(name = "Bench Press"))
+            val rowing = db.exerciseDao().insert(exercise(name = "Rowing, Stationary"))
+            val sessionId = db.workoutSessionDao().insert(session())
+            val rowingSet = setIn(sessionId, rowing, position = 0)
+            val benchSet = setIn(sessionId, bench, position = 1)
+            // Inserted out of every order the read promises, so only the query can put them right.
+            record(bench, benchSet, PrType.MAX_VOLUME, achievedAt = 300, weight = 1_000_000_000)
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 300, weight = 100_000_000)
+            record(rowing, rowingSet, PrType.MAX_DURATION, achievedAt = 100, duration = 390)
+            record(rowing, rowingSet, PrType.MAX_DISTANCE, achievedAt = 100, distance = 500_000)
+
+            val records = repository.getRecordsForSession(sessionId).first()
+
+            assertEquals(
+                listOf(PrType.MAX_DISTANCE, PrType.MAX_DURATION, PrType.MAX_WEIGHT, PrType.MAX_VOLUME),
+                records.map(PersonalRecord::type),
+            )
+        }
+
+    @Test
+    fun `a session that set nothing has no records and no badge`() =
+        runBlocking {
+            val (bench, benchSet) = seedSet("Bench Press")
+            record(bench, benchSet, PrType.MAX_WEIGHT, achievedAt = 100, weight = 80_000_000)
+            val idle = db.workoutSessionDao().insert(session())
+            setIn(idle, bench, position = 0)
+
+            assertTrue(repository.getRecordsForSession(idle).first().isEmpty())
+            assertTrue(idle !in repository.observeSessionsWithRecords().first())
         }
 
     @Test

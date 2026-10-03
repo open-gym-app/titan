@@ -152,16 +152,18 @@ class SessionsViewModelTest {
     // ─── The PR badge ───────────────────────────────────────────────────────────────────
 
     @Test
-    fun `a record achieved inside a session's window badges that session and no other`() =
+    fun `a session that set a record is badged and no other is`() =
         runTest {
-            val target = loggedSession(1, APRIL_28, name = "Push", duration = 60.minutes)
-            sessions.setSessions(listOf(target, loggedSession(2, APRIL_10, name = "Legs")))
-
-            val viewModel = viewModel(
-                records = FakePersonalRecordStore(
-                    mapOf(7L to recordAt(exerciseId = 7, achievedAt = target.createdAt + 1_000)),
+            sessions.setSessions(
+                listOf(
+                    loggedSession(1, APRIL_28, name = "Push", duration = 60.minutes),
+                    loggedSession(2, APRIL_10, name = "Legs"),
                 ),
             )
+
+            // Which sessions set one is the store's to say — by the sets the records were read
+            // off, whatever kind they are and whether or not a later one has beaten them since.
+            val viewModel = viewModel(records = FakePersonalRecordStore(sessionsWithRecords = setOf(1L)))
             val rows = viewModel.uiState.value.months.flatMap { it.sessions }
 
             assertTrue(rows.first { it.id == 1L }.hasRecord)
@@ -169,24 +171,7 @@ class SessionsViewModelTest {
         }
 
     @Test
-    fun `a record achieved between two sessions badges neither`() =
-        runTest {
-            val session = loggedSession(1, APRIL_28, duration = 30.minutes)
-            sessions.setSessions(listOf(session))
-
-            val viewModel = viewModel(
-                records = FakePersonalRecordStore(
-                    // An hour after it finished — a record whose set belongs to a session this
-                    // list no longer holds, or to none at all.
-                    mapOf(7L to recordAt(exerciseId = 7, achievedAt = session.completedAt!! + 3_600_000)),
-                ),
-            )
-
-            assertFalse(viewModel.uiState.value.months.single().sessions.single().hasRecord)
-        }
-
-    @Test
-    fun `no records means no badges, which is every install until the engine lands`() =
+    fun `no records means no badges`() =
         runTest {
             sessions.setSessions(listOf(loggedSession(1, APRIL_28)))
 

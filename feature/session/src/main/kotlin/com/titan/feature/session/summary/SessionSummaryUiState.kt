@@ -204,7 +204,8 @@ data class SummaryRecord(
  *   run is quoted by where it has no reps to range over (#M7-17). Zero for a lift.
  * @param distance how far they went, summed, in centimetres. Zero for anything that covered no
  *   ground.
- * @param record the personal record this session set on this exercise, or null. Drives the
+ * @param record the record worth naming among those this session set on this row — the first in
+ *   headline order — or null. Drives the
  *   `PR` badge on the row — the second place a record is called out, after its own card,
  *   because the card answers "what did I beat" and the row answers "which of these was it".
  */

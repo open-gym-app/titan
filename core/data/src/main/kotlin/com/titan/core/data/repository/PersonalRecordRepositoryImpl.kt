@@ -60,6 +60,15 @@ class PersonalRecordRepositoryImpl @Inject constructor(
             rows.mapNotNull { toDomainOrNull(it, styles) }
         }
 
+    /** In the DAO's order, with unreadable rows dropped for the reason [getHeadlineRecords] gives. */
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        combine(personalRecordDao.getBySession(sessionId), observePaceStyles()) { rows, styles ->
+            rows.mapNotNull { toDomainOrNull(it, styles) }
+        }
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        personalRecordDao.observeSessionIdsWithRecords().map(List<Long>::toSet)
+
     /**
      * Counted in SQLite over every row, including ones this build's mapper could not read: a
      * record broken on a newer version is still a record broken, and dropping it here would

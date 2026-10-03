@@ -172,15 +172,25 @@ class FakeSummaryCatalogue(
 }
 
 /**
- * The records the PR engine (#30) writes.
+ * The records the PR engine writes, as the two screens in this feature read them.
  *
- * One per exercise, which is all [getHeadlineRecords] exposes — see the note on the recap's
- * ViewModel for what that costs and when it stops costing it. Nothing in this feature writes
- * a record, so [insertIfBetter] has no caller to satisfy here.
+ * The workout reads [headline] — the mark each exercise is worked against — and the recap reads
+ * [bySession], the records each session's sets set, which a test lays out in the order the store
+ * promises. Nothing in this feature writes a record, so [insertIfBetter] has no caller to satisfy
+ * here.
  */
-class FakeRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
+class FakeRecordStore(
+    private val headline: Map<Long, PersonalRecord> = emptyMap(),
+    private val bySession: Map<Long, List<PersonalRecord>> = emptyMap(),
+) : PersonalRecordRepository {
 
-    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(headline)
+
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        MutableStateFlow(bySession[sessionId].orEmpty())
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        throw UnsupportedOperationException("no test here badges sessions")
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 

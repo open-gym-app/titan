@@ -174,6 +174,10 @@ private class FakeRecordStore(private val all: List<PersonalRecordEntry>) : Pers
 
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
 
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = flowOf(emptySet())
+
     override suspend fun count(): Int = all.size
 
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =

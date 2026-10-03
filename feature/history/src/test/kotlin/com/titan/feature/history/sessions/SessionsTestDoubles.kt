@@ -109,9 +109,18 @@ class FakeSessionStore(sessions: List<WorkoutSession>? = emptyList()) : SessionR
     private fun unsupported(): Nothing = throw UnsupportedOperationException("the sessions browser only reads")
 }
 
-/** The records the PR engine (#30) writes. Nothing here writes one, so [insertIfBetter] is unsupported. */
-class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = emptyMap()) : PersonalRecordRepository {
-    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = MutableStateFlow(records)
+/**
+ * The records the PR engine writes, as far as the session list reads them: which sessions set one.
+ * Nothing here writes a record, so [insertIfBetter] is unsupported.
+ */
+class FakePersonalRecordStore(private val sessionsWithRecords: Set<Long> = emptySet()) : PersonalRecordRepository {
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = MutableStateFlow(sessionsWithRecords)
+
+    override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
+        throw UnsupportedOperationException("the list badges sessions, not exercises")
+
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("the list badges sessions; the recap lists their records")
 
     override suspend fun count(): Int = throw UnsupportedOperationException("no test here counts records")
 
@@ -137,20 +146,6 @@ class FakePersonalRecordStore(private val records: Map<Long, PersonalRecord> = e
 
     override fun observeRecordCount(): Flow<Int> = flowOf(0)
 }
-
-/** A record of the only kind that matters here: one achieved at a known instant. */
-fun recordAt(
-    exerciseId: Long,
-    achievedAt: Long,
-): PersonalRecord =
-    PersonalRecord(
-        id = exerciseId,
-        exerciseId = exerciseId,
-        workoutSetId = exerciseId,
-        type = PrType.MAX_WEIGHT,
-        weight = 100_000_000,
-        achievedAt = achievedAt,
-    )
 
 /**
  * The saved templates, in memory, with the writes the tab's row actions make.

@@ -60,16 +60,11 @@ import kotlin.time.Duration.Companion.seconds
  * ### Which records count as "set during this session"
  *
  * A [PersonalRecord] points at the `workout_set` row it was read off, so the records this
- * session set are the ones whose `workoutSetId` is one of this session's sets. That is
- * derived here rather than queried, because the PR engine (#30) has not landed and
- * `PersonalRecordRepository` exposes exactly one read — the headline record per exercise.
- *
- * Two consequences worth naming, both of which go when #30 does:
- *
- * - **at most one record per exercise surfaces**, so a session that set both a heaviest and a
- *   most-reps on the bench shows the heaviest and says nothing about the other;
- * - until the engine writes anything the table is empty, so the section is simply absent —
- *   which is what #27 asks for, rather than blocking on #30.
+ * session set are the ones whose set belongs to it — read as such, through
+ * `PersonalRecordRepository.getRecordsForSession`, and every kind of them. Not a filter over the
+ * headline record per exercise: that headline is one record across every session, so a second
+ * 5 km row that tied the first on distance but beat it on pace would set a record the recap
+ * never showed.
  *
  * ### Why there is no clock
  *
@@ -143,9 +138,10 @@ class SessionSummaryViewModel @Inject constructor(
     private val screenState = savedStateHandle.savedScreenState(viewModelScope) { ScreenState() }
 
     /**
-     * The session itself: the row, its exercises and every set logged against it.
+     * The session itself: the row, its exercises, every set logged against it and the records
+     * those sets earned.
      *
-     * Three reads combined into one value rather than three arms of the outer combine, so the
+     * Four reads combined into one value rather than three arms of the outer combine, so the
      * arithmetic has a single object to be a pure function of — and so `null` means one thing,
      * "no read has come back yet", instead of three flags that can disagree about it.
      *
@@ -157,14 +153,15 @@ class SessionSummaryViewModel @Inject constructor(
         sessionRepository.getById(destination.sessionId),
         sessionRepository.getExercises(destination.sessionId),
         sessionRepository.getSetsForSession(destination.sessionId),
-    ) { session, exercises, sets ->
-        Loaded(session = session, exercises = exercises, sets = sets)
+        personalRecordRepository.getRecordsForSession(destination.sessionId),
+    ) { session, exercises, sets, records ->
+        Loaded(session = session, exercises = exercises, sets = sets, records = records)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     /**
      * The catalogue-wide reads the recap resolves its rows against.
      *
-     * All three are bulk reads keyed by exercise id, which is what keeps a per-row lookup from
+     * Both are bulk reads keyed by exercise id, which is what keeps a per-row lookup from
      * being a per-row query: a session has a handful of exercises, but the alternative is a
      * `Flow` per exercise to combine, re-subscribed whenever the session's exercise list moves.
      *
@@ -178,12 +175,10 @@ class SessionSummaryViewModel @Inject constructor(
     private val catalogue: StateFlow<Catalogue?> = combine(
         exerciseRepository.getAll(),
         exerciseRepository.getAllMuscleGroupLinks(),
-        personalRecordRepository.getHeadlineRecords(),
-    ) { exercises, links, records ->
+    ) { exercises, links ->
         Catalogue(
             exercises = exercises.associateBy(Exercise::id),
             muscleLinks = links,
-            headlineRecords = records,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
@@ -191,8 +186,8 @@ class SessionSummaryViewModel @Inject constructor(
      * Everything the recap draws that is a function of what was *read*.
      *
      * Its own flow rather than an arm of the state's combine, because it is the expensive
-     * half: grouping the sets, attributing volume across every muscle link, scanning the
-     * headline records. Combined with [screenState] it would run again on every keystroke in
+     * half: grouping the sets, attributing volume across every muscle link, matching the
+     * records to the rows they were set on. Combined with [screenState] it would run again on every keystroke in
      * the note field — the note is a character of local state, and re-attributing a session's
      * muscles to record one is arithmetic nobody asked for, on the main dispatcher.
      */
@@ -485,7 +480,7 @@ class SessionSummaryViewModel @Inject constructor(
         val session = loaded.session
             ?: return SessionSummaryUiState(mode = mode, isLoading = false)
 
-        val records = loaded.recordsSetHere(catalogue.headlineRecords)
+        val records = loaded.records
         val muscles = loaded.muscleBreakdown(catalogue.muscleLinks)
 
         return SessionSummaryUiState(
@@ -512,10 +507,7 @@ class SessionSummaryViewModel @Inject constructor(
             ),
             primaryMuscles = muscles.primary,
             secondaryMuscles = muscles.secondary,
-            exercises = loaded.breakdown(
-                names = catalogue.exercises,
-                recordsByExercise = records.associateBy(PersonalRecord::exerciseId),
-            ),
+            exercises = loaded.breakdown(names = catalogue.exercises),
             celebration = celebration,
             streakSave = streakSave,
             notes = session.notes,
@@ -570,15 +562,14 @@ private data class ScreenState(
         )
 }
 
-/** The three catalogue-wide reads, as one value. */
+/** The two catalogue-wide reads, as one value. */
 private data class Catalogue(
     val exercises: Map<Long, Exercise> = emptyMap(),
     val muscleLinks: Map<Long, List<ExerciseMuscleGroupLink>> = emptyMap(),
-    val headlineRecords: Map<Long, PersonalRecord> = emptyMap(),
 )
 
 /**
- * The session as it was read: the row, its exercises and its sets.
+ * The session as it was read: the row, its exercises, its sets and the records they set.
  *
  * A type of its own rather than a `Triple`, because everything the recap shows is derived from
  * all three of these together — and the derivations below are what keep that arithmetic out of
@@ -591,6 +582,7 @@ private class Loaded(
     val session: WorkoutSession?,
     val exercises: List<SessionExercise>,
     val sets: List<WorkoutSet>,
+    val records: List<PersonalRecord>,
 ) {
 
     /**
@@ -623,30 +615,16 @@ private class Loaded(
     }
 
     /**
-     * The records whose set belongs to this session.
-     *
-     * See the ViewModel's own note for why this is a filter over the headline records rather
-     * than a query, and what that costs until #30 lands.
-     */
-    fun recordsSetHere(headline: Map<Long, PersonalRecord>): List<PersonalRecord> {
-        if (headline.isEmpty()) return emptyList()
-        val setIds = sets.mapTo(HashSet(sets.size), WorkoutSet::id)
-        return headline.values.filter { it.workoutSetId in setIds }
-    }
-
-    /**
-     * The per-exercise rows, with each exercise's record where it set one.
+     * The per-exercise rows, each with the first record its own sets set, if any.
      *
      * The record is matched to the row by the *set* it was read off and not by the exercise
      * alone: `session_exercise` is unique on `(session_id, position)` rather than on the
      * exercise, so a session that opened and closed on the bench is two rows of the same
      * exercise — and only one of them contains the set that beat anything. Keyed by exercise
-     * alone, both would wear the badge.
+     * alone, both would wear the badge. *First* in [records]' order, which within an exercise is
+     * the headline order, so a row that set several names the one a lifter would quote.
      */
-    fun breakdown(
-        names: Map<Long, Exercise>,
-        recordsByExercise: Map<Long, PersonalRecord>,
-    ): List<SummaryExerciseRow> =
+    fun breakdown(names: Map<Long, Exercise>): List<SummaryExerciseRow> =
         performed.map { (exercise, performedSets) ->
             val reps = performedSets.mapNotNull(WorkoutSet::reps)
             SummaryExerciseRow(
@@ -658,8 +636,7 @@ private class Loaded(
                 topWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
                 timedSeconds = TimedWorkCalculator.totalDuration(performedSets),
                 distance = TimedWorkCalculator.totalDistance(performedSets),
-                record = recordsByExercise[exercise.exerciseId]
-                    ?.takeIf { record -> performedSets.any { it.id == record.workoutSetId } },
+                record = records.firstOrNull { record -> performedSets.any { it.id == record.workoutSetId } },
             )
         }
 

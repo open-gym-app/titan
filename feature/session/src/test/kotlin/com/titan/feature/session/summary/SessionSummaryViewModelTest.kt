@@ -229,7 +229,7 @@ class SessionSummaryViewModelTest {
         runTest {
             val state = viewModel(
                 sets = pushDaySets(),
-                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
+                records = listOf(record(exerciseId = BENCH.id, workoutSetId = 2)),
             ).uiState.value
 
             assertEquals(1, state.records.size)
@@ -239,17 +239,21 @@ class SessionSummaryViewModelTest {
         }
 
     @Test
-    fun `a record set in some other session is not this session's`() =
+    fun `every kind of record the session set is reported, and the row names the first`() =
         runTest {
-            // The record points at the set it was read off, which is what tells the two apart —
-            // an all-time best on the bench is not something this workout achieved.
+            // A second 5 km that tied the first on distance and beat it on pace has set a
+            // record, although the exercise's headline is still the first one's distance. And a
+            // bench session that beat its weight and its volume has set two.
             val state = viewModel(
                 sets = pushDaySets(),
-                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = NO_SUCH_SET)),
+                records = listOf(
+                    record(exerciseId = BENCH.id, workoutSetId = 2, type = PrType.MAX_WEIGHT),
+                    record(exerciseId = BENCH.id, workoutSetId = 3, type = PrType.MAX_VOLUME),
+                ),
             ).uiState.value
 
-            assertTrue(state.records.isEmpty())
-            assertNull(state.exercises.first().record)
+            assertEquals(listOf(PrType.MAX_WEIGHT, PrType.MAX_VOLUME), state.records.map { it.record.type })
+            assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
         }
 
     @Test
@@ -263,7 +267,7 @@ class SessionSummaryViewModelTest {
                     sessionExercise(id = 3, exerciseId = BENCH.id, position = 2),
                 sets = pushDaySets() +
                     workoutSet(id = 6, sessionExerciseId = 3, setNumber = 1, reps = 8, weight = 65_000_000),
-                records = mapOf(BENCH.id to record(exerciseId = BENCH.id, workoutSetId = 2)),
+                records = listOf(record(exerciseId = BENCH.id, workoutSetId = 2)),
             ).uiState.value
 
             assertEquals(PrType.MAX_WEIGHT, state.exercises.first().record?.type)
@@ -871,7 +875,7 @@ class SessionSummaryViewModelTest {
         store: FakeSummarySessionStore =
             FakeSummarySessionStore(session = session, exercises = exercises, sets = sets),
         catalogue: FakeSummaryCatalogue = this@SessionSummaryViewModelTest.catalogue,
-        records: Map<Long, PersonalRecord> = emptyMap(),
+        records: List<PersonalRecord> = emptyList(),
         historical: Boolean = false,
         savedState: SavedStateHandle =
             SavedStateHandle(mapOf("sessionId" to SESSION_ID, "historical" to historical)),
@@ -880,7 +884,7 @@ class SessionSummaryViewModelTest {
             savedStateHandle = savedState,
             sessionRepository = store,
             exerciseRepository = catalogue,
-            personalRecordRepository = FakeRecordStore(records),
+            personalRecordRepository = FakeRecordStore(bySession = mapOf(SESSION_ID to records)),
             createTemplate = CreateTemplateUseCase(templates),
             renameSession = RenameSessionUseCase(store),
             progressionHandoff = progressionHandoff,

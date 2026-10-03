@@ -270,8 +270,8 @@ interface PersonalRecordDao {
      * One record per exercise — the one worth putting on a list row.
      *
      * A row has space for a single figure and an exercise accumulates records of several
-     * kinds off the same sets, so something has to choose. The order below is what a lifter
-     * would quote: what you lifted, then what you lifted it for, then how far, how fast and
+     * kinds off the same sets, so something has to choose. The order — [HEADLINE_RANK] — is
+     * what a lifter would quote: what you lifted, then what you lifted it for, then how far, how fast and
      * how long — a hold's longest time before the load it was held with, which is the record
      * a plank is known by — and only then the two derived figures — an estimated 1RM is
      * arithmetic over a set that already has a `MAX_WEIGHT` record, and a volume record is a
@@ -281,10 +281,6 @@ interface PersonalRecordDao {
      *
      * Ties inside a kind go to the most recent, which is also the best: a record of a given
      * kind is only written when it beats the one before it.
-     *
-     * The `pr_type` names are spelled out because that is what the column holds — the
-     * persisted form of `PrType`, pinned by the domain's `PersistedEnumTest`, not an
-     * incidental rendering of it.
      *
      * ### Why the query is shaped the way it is
      *
@@ -307,19 +303,7 @@ interface PersonalRecordDao {
             SELECT (
                 SELECT candidate.id FROM personal_record candidate
                 WHERE candidate.exercise_id = present.exercise_id
-                ORDER BY
-                    CASE candidate.pr_type
-                        WHEN 'MAX_WEIGHT' THEN 0
-                        WHEN 'MAX_REPS' THEN 1
-                        WHEN 'MAX_DISTANCE' THEN 2
-                        WHEN 'BEST_PACE' THEN 3
-                        WHEN 'MAX_DURATION' THEN 4
-                        WHEN 'MAX_WEIGHTED_HOLD' THEN 5
-                        WHEN 'ESTIMATED_1RM' THEN 6
-                        WHEN 'MAX_VOLUME' THEN 7
-                        ELSE 8
-                    END ASC,
-                    candidate.achieved_at DESC
+                ORDER BY $HEADLINE_RANK ASC, candidate.achieved_at DESC
                 LIMIT 1
             )
             FROM (SELECT DISTINCT exercise_id FROM personal_record) present
@@ -327,6 +311,49 @@ interface PersonalRecordDao {
         """,
     )
     fun getHeadlineRecords(): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * Every record [sessionId]'s sets earned, in the order the session performed its exercises
+     * and, within one exercise, in [getHeadlineRecords]'s order of preference.
+     *
+     * The session recap's read. A record points at the set it was read off, so the records a
+     * session set are the ones whose set belongs to it — a join rather than a window on
+     * `achieved_at`, so nothing depends on two sessions never overlapping in time. Every kind and
+     * not only the headline one: a second 5 km that ties the first on distance but beats it on
+     * pace has set a record, and the headline for that exercise is still the first one's
+     * distance.
+     *
+     * Served by the `session_id`, `session_exercise_id` and `workout_set_id` indexes, so the cost
+     * is the session's own sets and nothing else's. `INNER` joins, because a record whose set
+     * belongs to no session belongs to no session's recap either.
+     */
+    @Query(
+        """
+        SELECT personal_record.* FROM personal_record
+        INNER JOIN workout_set ON workout_set.id = personal_record.workout_set_id
+        INNER JOIN session_exercise ON session_exercise.id = workout_set.session_exercise_id
+        WHERE session_exercise.session_id = :sessionId
+        ORDER BY session_exercise.position ASC, $HEADLINE_RANK ASC, personal_record.id ASC
+        """,
+    )
+    fun getBySession(sessionId: Long): Flow<List<PersonalRecordEntity>>
+
+    /**
+     * The id of every session that set at least one record, of any kind, ever.
+     *
+     * The session list's badge. Every record rather than the current bests, because a session
+     * that set a record still set it after a later one beat it — the badge says what happened in
+     * that workout, not what stands today. One read for the whole list rather than one per row,
+     * and a few hundred ids at most on a long history.
+     */
+    @Query(
+        """
+        SELECT DISTINCT session_exercise.session_id FROM personal_record
+        INNER JOIN workout_set ON workout_set.id = personal_record.workout_set_id
+        INNER JOIN session_exercise ON session_exercise.id = workout_set.session_exercise_id
+        """,
+    )
+    fun observeSessionIdsWithRecords(): Flow<List<Long>>
 
     /**
      * Every exercise carrying one of [tagNames], one row per exercise and tag.
@@ -358,4 +385,28 @@ private const val EXERCISE_TAGS_QUERY = """
     FROM exercise_tag et
     INNER JOIN tag t ON t.id = et.tag_id
     WHERE t.name IN (:tagNames)
+"""
+
+/**
+ * Which of an exercise's records is the one worth headlining, as a sort key — lower first. See
+ * [PersonalRecordDao.getHeadlineRecords] for the reasoning behind the order.
+ *
+ * One expression for every query that ranks records this way, so the headline a list row shows
+ * and the record a session recap leads with cannot disagree. `pr_type` is unqualified so the
+ * expression reads whichever `personal_record` the query sorts: every query using it has exactly
+ * one in its innermost scope. The names are spelled out because that is what the column holds —
+ * the persisted form of `PrType`, pinned by the domain's `PersistedEnumTest`.
+ */
+private const val HEADLINE_RANK = """
+    CASE pr_type
+        WHEN 'MAX_WEIGHT' THEN 0
+        WHEN 'MAX_REPS' THEN 1
+        WHEN 'MAX_DISTANCE' THEN 2
+        WHEN 'BEST_PACE' THEN 3
+        WHEN 'MAX_DURATION' THEN 4
+        WHEN 'MAX_WEIGHTED_HOLD' THEN 5
+        WHEN 'ESTIMATED_1RM' THEN 6
+        WHEN 'MAX_VOLUME' THEN 7
+        ELSE 8
+    END
 """

@@ -200,6 +200,8 @@ The aggregates in `WorkoutSetDao`, `WorkoutSessionDao` and `PersonalRecordDao` r
 | `PersonalRecordDao.getRecentRecords` | `personal_record(achieved_at)` |
 | `PersonalRecordDao.getByExercise` | `personal_record(exercise_id, achieved_at)` |
 | `PersonalRecordDao.getHeadlineRecords` | `personal_record(exercise_id, achieved_at)`, **and its query shape** - see below |
+| `PersonalRecordDao.getBySession` | `session_exercise(session_id)`, `workout_set(session_exercise_id)`, `personal_record(workout_set_id)` |
+| `PersonalRecordDao.observeSessionIdsWithRecords` | the `workout_set` and `session_exercise` primary keys, one lookup each per record |
 | `PersonalRecordDao.getRecordsPage` | `personal_record(achieved_at)` for the page, `(exercise_id, achieved_at)` for the improvement, **and its query shape** - see below |
 | `ExerciseDao.getAllMuscleGroupLinks` | `exercise_muscle_group(exercise_id, muscle_group_id)` (the composite primary key) |
 | `BodyMeasurementDao.getAll` / `getLatest` | `body_measurement(created_at)` |
