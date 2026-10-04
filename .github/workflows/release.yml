@@ -28,11 +28,12 @@ on:
         type: boolean
         default: true
 
-# One release per version at a time, and never cancelled: a run that is interrupted between
+# One release per version at a time (the tag's own name on both triggers — a push has `v1.2.3`,
+# a dispatch has `1.2.3`), and never cancelled: a run that is interrupted between
 # the Play upload and the GitHub Release would leave the two channels disagreeing about what
 # shipped, and the tag already exists for both.
 concurrency:
-  group: release-${{ inputs.version || github.ref_name }}
+  group: release-${{ inputs.version && format('v{0}', inputs.version) || github.ref_name }}
   cancel-in-progress: false
 
 permissions:
