@@ -42,9 +42,9 @@
     <string name="set_log_weight_field">Weight, set %1$d</string>
     <string name="set_log_reps_field">Reps, set %1$d</string>
     <!-- The fields a timed exercise is logged in (#M7-17). The distance names its unit,
-         because which one it is depends on the exercise — a run is typed in kilometres and a
-         swim in metres — and nothing else on the row would tell a screen reader. On a hold the
-         weight is what is added to the body, which is why it is not just "Weight". -->
+         because a figure like 0.4 means nothing without it and the header that says so is
+         hidden from a screen reader. On a hold the weight is what is added to the body, which
+         is why it is not just "Weight". -->
     <string name="set_log_duration_field">Time, set %1$d</string>
     <string name="set_log_distance_field">Distance in %2$s, set %1$d</string>
     <string name="set_log_added_weight_field">Added weight, set %1$d</string>

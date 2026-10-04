@@ -15,7 +15,6 @@ import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.SetLogHeader
 import com.titan.core.ui.component.SetLogRow
 import com.titan.core.ui.component.SwipeToDelete
-import com.titan.core.ui.format.DistanceUnit
 import com.titan.feature.session.active.ActiveSessionEvent
 import com.titan.feature.session.active.LoggedSet
 
@@ -89,7 +88,6 @@ import com.titan.feature.session.active.LoggedSet
  *   `setTableFitsPrevious`, shared with the entry row under this table so the grid holds.
  * @param exerciseType how the exercise is logged, which decides the two value columns of the
  *   header and of every row — shared with the entry row for the same reason.
- * @param distanceUnit the unit a distance column is typed and read in.
  */
 @Composable
 fun LoggedSetTable(
@@ -101,10 +99,9 @@ fun LoggedSetTable(
     enabled: Boolean = true,
     showPrevious: Boolean = true,
     exerciseType: ExerciseType = ExerciseType.STRENGTH,
-    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
-        SetLogHeader(showPrevious = showPrevious, exerciseType = exerciseType, distanceUnit = distanceUnit)
+        SetLogHeader(showPrevious = showPrevious, exerciseType = exerciseType)
 
         sets.forEachIndexed { index, set ->
             HairlineDivider()
@@ -155,7 +152,6 @@ fun LoggedSetTable(
                         canComplete = enabled && set.id !in togglingSetIds && set.canComplete,
                         showPrevious = showPrevious,
                         exerciseType = exerciseType,
-                        distanceUnit = distanceUnit,
                     )
                 }
             }
@@ -179,7 +175,6 @@ private fun LoggedSetRow(
     canComplete: Boolean,
     showPrevious: Boolean,
     exerciseType: ExerciseType,
-    distanceUnit: DistanceUnit,
 ) {
     SetLogRow(
         setNumber = setNumber,
@@ -200,7 +195,6 @@ private fun LoggedSetRow(
         onDistanceChange = {
             onEvent(ActiveSessionEvent.SetEditDistanceChanged(sessionExerciseId, set.id, it))
         },
-        distanceUnit = distanceUnit,
         onCompletedChange = {
             onEvent(
                 ActiveSessionEvent.SetCompletionToggled(

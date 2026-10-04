@@ -222,8 +222,8 @@ Text(
   same two cells, so a table of runs lines up under a table of presses and every grid constant
   holds for all three. A time is typed as `M:SS` or `H:MM:SS` — the decimal pad's full stop
   stands in for the colon — and parsed by `parseClockSeconds`; a distance is typed in the unit
-  `distanceEntryUnit` picks, kilometres or miles for a run and metres or yards for a swim, and the
-  caller parses with the same unit it labelled the field with. A caller has to pass the same
+  `distanceEntryUnit` picks — kilometres or miles, for every exercise, a pool length as `0.025` —
+  and the caller parses with the same unit it labelled the field with. A caller has to pass the same
   `showPrevious` to `SetLogRow`, `LoggedSetRow` and `SetLogHeader` or the labels stop sitting over
   the cells they name; `PlannedSetRow` has its own header (`PlannedSetHeader`) because it drops
   two columns a plan cannot fill in — the previous performance, and the rating.

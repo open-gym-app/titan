@@ -21,6 +21,7 @@ import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.stats.MuscleVolumeCalculator
 import com.titan.core.domain.stats.SessionStatsCalculator
+import com.titan.core.domain.stats.TimedWorkCalculator
 import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.ui.component.muscleContributions
@@ -655,8 +656,8 @@ private class Loaded(
                 lowestReps = reps.minOrNull(),
                 highestReps = reps.maxOrNull(),
                 topWeight = performedSets.mapNotNull(WorkoutSet::weight).maxOrNull(),
-                timedSeconds = performedSets.sumOf { it.duration ?: 0L },
-                distance = performedSets.sumOf { it.distance ?: 0L },
+                timedSeconds = TimedWorkCalculator.totalDuration(performedSets),
+                distance = TimedWorkCalculator.totalDistance(performedSets),
                 record = recordsByExercise[exercise.exerciseId]
                     ?.takeIf { record -> performedSets.any { it.id == record.workoutSetId } },
             )

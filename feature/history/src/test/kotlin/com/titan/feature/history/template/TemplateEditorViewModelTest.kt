@@ -11,7 +11,6 @@ import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.UpdateTemplateUseCase
-import com.titan.core.ui.format.DistanceUnit
 import com.titan.feature.history.afterProcessDeath
 import com.titan.feature.history.library.FakeExerciseRepository
 import com.titan.feature.history.navigation.NEW_TEMPLATE
@@ -823,7 +822,6 @@ class TemplateEditorViewModelTest {
             val (plank, run) = viewModel.uiState.value.exercises
             assertEquals(ExerciseType.ISOMETRIC, plank.exerciseType)
             assertEquals(listOf("0:45", "0:45", "0:45"), plank.sets.map(TemplateSetRow::duration))
-            assertEquals(DistanceUnit.KILOMETRE, run.distanceUnit)
             assertEquals("5", run.sets.single().distance)
             assertEquals("30:00", run.sets.single().duration)
             // The estimate reads the planned time rather than a rep tempo: three 45 s holds, each
@@ -878,18 +876,17 @@ class TemplateEditorViewModelTest {
         }
 
     @Test
-    fun `a swap carries a planned distance across into the new movement's unit`() =
+    fun `a swap carries a planned distance across as the same distance`() =
         runTest {
             val templates = templateStore(timedBody())
             val viewModel = viewModel(templates = templates)
 
-            // The run's `5` is kilometres. A swim's field is in metres, and re-reading the same
-            // text there would plan a five-metre swim.
+            // The run's `5` is kilometres, and so is the swim's: every distance field is typed in
+            // the same unit, so the text needs no re-expressing.
             viewModel.swap(KEY_FLY, SWIM.id)
 
             val swim = viewModel.uiState.value.exercises.last()
-            assertEquals(DistanceUnit.METRE, swim.distanceUnit)
-            assertEquals("5000", swim.sets.single().distance)
+            assertEquals("5", swim.sets.single().distance)
             assertEquals("30:00", swim.sets.single().duration)
             viewModel.onEvent(TemplateEditorEvent.SaveRequested)
             assertEquals(

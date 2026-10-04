@@ -110,12 +110,13 @@ import com.titan.core.ui.R as CoreR
  *   broken on this one.
  * @param togglingSetIds the logged sets of this exercise whose tick is being written, passed
  *   through to the table so those rows' ticks go inert.
- * @param holdElapsed what the workout's hold stopwatch reads, when it is timing *this* exercise,
- *   or null. Only this card's share of the stopwatch rather than the stopwatch itself: the reading
- *   moves once a second, and a parameter every card was handed would recompose every card of the
- *   workout on every one of those seconds.
+ * @param isHoldTimed the workout's hold stopwatch is timing *this* exercise.
  * @param isHoldTimedElsewhere the stopwatch is timing another exercise, which draws this card's
  *   start control inert — one plank at a time.
+ * @param holdElapsed what the stopwatch reads, or null while nothing is timed. A read rather than
+ *   a value, and only made inside the stopwatch of the card being timed: the reading moves once a
+ *   second, and a value handed to every card would recompose every card of the workout on every
+ *   one of those seconds — this way a second recomposes the one control that shows it.
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
@@ -136,8 +137,9 @@ fun SessionExerciseCard(
     onSwap: () -> Unit,
     modifier: Modifier = Modifier,
     togglingSetIds: Set<Long> = emptySet(),
-    holdElapsed: Duration? = null,
+    isHoldTimed: Boolean = false,
     isHoldTimedElsewhere: Boolean = false,
+    holdElapsed: () -> Duration? = { null },
     enabled: Boolean = true,
     isLogging: Boolean = false,
     isMovable: Boolean = false,
@@ -163,8 +165,9 @@ fun SessionExerciseCard(
                 onEvent = onEvent,
                 togglingSetIds = togglingSetIds,
                 enabled = enabled,
-                holdElapsed = holdElapsed,
+                isHoldTimed = isHoldTimed,
                 isHoldTimedElsewhere = isHoldTimedElsewhere,
+                holdElapsed = holdElapsed,
             )
 
             if (entry.isStarted) {
@@ -323,8 +326,9 @@ private fun SetTable(
     onEvent: (ActiveSessionEvent) -> Unit,
     togglingSetIds: Set<Long>,
     enabled: Boolean,
-    holdElapsed: Duration?,
+    isHoldTimed: Boolean,
     isHoldTimedElsewhere: Boolean,
+    holdElapsed: () -> Duration?,
 ) {
     val entry = row.entry
     val error = entry.error?.message()
@@ -345,7 +349,6 @@ private fun SetTable(
                 enabled = enabled,
                 showPrevious = showPrevious,
                 exerciseType = row.exerciseType,
-                distanceUnit = row.distanceUnit,
             )
             HairlineDivider()
 
@@ -364,7 +367,6 @@ private fun SetTable(
                 onDurationChange = { onEvent(ActiveSessionEvent.DurationChanged(exerciseId, it)) },
                 distance = entry.distance,
                 onDistanceChange = { onEvent(ActiveSessionEvent.DistanceChanged(exerciseId, it)) },
-                distanceUnit = row.distanceUnit,
                 // The row's own tick and the button under the table are the same action. Both are
                 // here because they answer different reaches: the tick is where a lifter's thumb
                 // already is after typing the reps, and the button is what the eye finds.
@@ -403,7 +405,8 @@ private fun SetTable(
                     {
                         HoldStopwatch(
                             setNumber = row.nextSetNumber,
-                            elapsed = holdElapsed,
+                            // Read here and nowhere above, so the tick recomposes this control.
+                            elapsed = if (isHoldTimed) holdElapsed() ?: Duration.ZERO else null,
                             onStart = { onEvent(ActiveSessionEvent.StopwatchStarted(exerciseId)) },
                             onStop = { onEvent(ActiveSessionEvent.StopwatchStopped(exerciseId)) },
                             // Inert while another hold is being timed: one plank at a time.

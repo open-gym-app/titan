@@ -24,9 +24,12 @@ import com.titan.core.domain.usecase.UpdateTemplateUseCase
 import com.titan.core.domain.validation.SetValidator
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
+import com.titan.core.ui.format.BareClockNumber
 import com.titan.core.ui.format.EntryUnits
+import com.titan.core.ui.format.bareClockNumber
+import com.titan.core.ui.format.distanceEntryUnit
 import com.titan.core.ui.format.formatClockValue
-import com.titan.core.ui.format.formatDistanceValue
+import com.titan.core.ui.format.formatDistanceEntry
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseClockSeconds
 import com.titan.core.ui.format.parseDistanceCentimetres
@@ -267,7 +270,6 @@ class TemplateEditorViewModel @Inject constructor(
             icon = template.icon,
             unitSystem = unitSystem,
             exercises = exercises.map { exercise ->
-                val units = EntryUnits.of(catalogue[exercise.exerciseId], unitSystem)
                 TemplateDraftExercise(
                     key = exercise.id,
                     exerciseId = exercise.exerciseId,
@@ -280,7 +282,12 @@ class TemplateEditorViewModel @Inject constructor(
                                 .orEmpty(),
                             reps = planned.reps?.toString().orEmpty(),
                             duration = planned.duration?.let(::formatClockValue).orEmpty(),
-                            distance = planned.distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
+                            distance = planned.distance?.let {
+                                formatDistanceEntry(
+                                    it,
+                                    unitSystem.distanceEntryUnit,
+                                )
+                            }.orEmpty(),
                         )
                     },
                     supersetGroup = exercise.supersetGroup,
@@ -758,8 +765,8 @@ class TemplateEditorViewModel @Inject constructor(
                         draft.mapRow(key) { row ->
                             row.swappedTo(
                                 exerciseId = exerciseId,
-                                from = EntryUnits.of(catalogue[row.exerciseId], unitSystem),
-                                to = EntryUnits.of(catalogue[exerciseId], unitSystem),
+                                from = catalogue[row.exerciseId]?.type.bareClockNumber,
+                                to = catalogue[exerciseId]?.type.bareClockNumber,
                             )
                         }
                     } else {
@@ -928,7 +935,6 @@ class TemplateEditorViewModel @Inject constructor(
                             errors = set.errors(unitSystem, units),
                         )
                     },
-                    distanceUnit = units.distanceUnit,
                     supersetGroup = row.supersetGroup,
                     supersetLabel = labels[index],
                     supersetGroupName = groupNames[index],
@@ -1139,16 +1145,17 @@ private fun TemplateDraft.toDrafts(
     }
 
 /**
- * The row with its movement replaced by [exerciseId], each set's time and distance re-expressed
- * from the units the old movement's fields were typed in ([from]) into the new one's ([to]).
+ * The row with its movement replaced by [exerciseId], each set's time re-expressed from what a
+ * bare number counted on the old movement ([from]) to the full clock form, so it means the same
+ * time on the new one ([to]). Distances need nothing: every exercise types them in the same unit.
  *
  * Text that does not parse under [from] is carried as it stands — it is already flagged under
  * the row, and guessing at it would be worse than leaving it for the user to fix.
  */
 private fun TemplateDraftExercise.swappedTo(
     exerciseId: Long,
-    from: EntryUnits,
-    to: EntryUnits,
+    from: BareClockNumber,
+    to: BareClockNumber,
 ): TemplateDraftExercise =
     copy(
         exerciseId = exerciseId,
@@ -1157,12 +1164,9 @@ private fun TemplateDraftExercise.swappedTo(
         } else {
             sets.map { set ->
                 set.copy(
-                    duration = parseClockSeconds(set.duration, from.bareClockNumber)
+                    duration = parseClockSeconds(set.duration, from)
                         ?.let(::formatClockValue)
                         ?: set.duration,
-                    distance = parseDistanceCentimetres(set.distance, from.distanceUnit)
-                        ?.let { formatDistanceValue(it, to.distanceUnit) }
-                        ?: set.distance,
                 )
             }
         },

@@ -67,8 +67,9 @@ import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.supersetGroupNames
 import com.titan.core.ui.component.supersetLabels
 import com.titan.core.ui.format.EntryUnits
+import com.titan.core.ui.format.distanceEntryUnit
 import com.titan.core.ui.format.formatClockValue
-import com.titan.core.ui.format.formatDistanceValue
+import com.titan.core.ui.format.formatDistanceEntry
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseClockSeconds
 import com.titan.core.ui.format.parseDistanceCentimetres
@@ -365,7 +366,7 @@ class ActiveSessionViewModel @Inject constructor(
      * the screen is — which is what "cached in the ViewModel for the session's life" comes to.
      * It is keyed off [loaded] only through the *set* of exercise ids: a set logged, a rename or
      * a reorder re-emits `loaded` and changes nothing here, and a keystroke never reaches this
-     * at all, because it is folded in downstream in [assembled] rather than recomputed there.
+     * at all, because it is folded in downstream in [uiState] rather than recomputed there.
      * What does restart the read is the workout changing shape — an exercise added, swapped or
      * removed — since that is a new question.
      *
@@ -452,13 +453,13 @@ class ActiveSessionViewModel @Inject constructor(
     private val unitSystem = MutableStateFlow(UnitSystem.METRIC)
 
     /**
-     * A heartbeat, once a second, so the elapsed clock is redrawn while nothing else changes.
+     * A heartbeat, once a second, so the clocks are redrawn while nothing else changes.
      *
-     * It carries no value — the reading is taken inside [build], from the injected [Clock] —
+     * It carries no value — the reading is taken inside [clocks], from the injected [Clock] —
      * because a timestamp emitted here would be the one the *tick* happened at, and every other
-     * thing that rebuilds the state (a set logged, a pause, an exercise opened) would then draw
-     * a clock up to a second stale. Taking it at assembly time makes the header right on every
-     * rebuild and leaves this flow with one job: making sure a rebuild happens at all.
+     * thing that re-reads the clocks (a pause, a stopwatch started) would then draw them up to a
+     * second stale. Taking it at read time makes them right on every read and leaves this flow
+     * with one job: making sure a read happens at all.
      *
      * It ticks only while something is collecting the state — `WhileSubscribed` — so a
      * backgrounded workout is not waking the process once a second to recompute a number nobody
@@ -476,7 +477,7 @@ class ActiveSessionViewModel @Inject constructor(
      * The two things this screen works out from *outside* its own rows, as one value: what the
      * next set of each exercise should be, and what to warm up and stretch with.
      *
-     * Paired rather than combined separately because [assembled] is already at `combine`'s five
+     * Paired rather than combined separately because [uiState] is already at `combine`'s five
      * typed arguments, and a sixth would drop it into the untyped `Array<Any?>` overload — five
      * casts in the place the whole screen is built. They belong together anyway: both are advice
      * about the workout rather than a reading of it.
@@ -491,10 +492,10 @@ class ActiveSessionViewModel @Inject constructor(
      * The tick is not one of its inputs. Assembling this runs the row pipeline over every
      * exercise and rolls `SessionStatsCalculator` over every set, and none of that changes
      * because a second has passed — a workout with two hundred sets in it would redo all of
-     * that arithmetic sixty times a minute to move one clock. What the tick changes is folded
-     * on afterwards, in [uiState].
+     * that arithmetic sixty times a minute, and hand every card on the screen a new state, to
+     * move one clock. What the tick changes is [clocks].
      */
-    private val assembled: StateFlow<ActiveSessionUiState> = combine(
+    val uiState: StateFlow<ActiveSessionUiState> = combine(
         loaded,
         catalogue,
         screenState,
@@ -511,16 +512,27 @@ class ActiveSessionViewModel @Inject constructor(
         initialValue = ActiveSessionUiState(),
     )
 
-    /** The assembled state with its clocks moved on, once a second, and nothing else redone. */
-    val uiState: StateFlow<ActiveSessionUiState> = combine(
-        assembled,
+    /**
+     * The workout clock, the hold stopwatch and the rest countdown, read once a second — see
+     * [SessionClocks] for why they are not part of [uiState].
+     *
+     * Re-read on every change to [screenState] as well as on the tick, because that is where a
+     * pause and a stopwatch's start and stop land, and a readout that waited for the next beat to
+     * notice one would be up to a second behind the control that caused it. The rest comes
+     * straight off the controller, which ticks it on its own deadline. A screen with no header has
+     * no workout clock to read — the session is still loading, or it is gone — and reads zero.
+     */
+    val clocks: StateFlow<SessionClocks> = combine(
+        uiState.map { it.header?.startedAt }.distinctUntilChanged(),
+        screenState,
+        restTimer.state,
         tick,
-    ) { state, _ ->
-        state.clockedAt(clock.nowMillis(), screenState.value)
+    ) { startedAt, screen, rest, _ ->
+        (startedAt?.let { screen.clocksAt(clock.nowMillis(), it) } ?: SessionClocks()).copy(rest = rest)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-        initialValue = ActiveSessionUiState(),
+        initialValue = SessionClocks(),
     )
 
     init {
@@ -555,13 +567,14 @@ class ActiveSessionViewModel @Inject constructor(
                 screenState.update { it.copy(setEdits = emptyMap()) }
             }
         }
-        // The countdown, published into the screen's state so the sheet and the header's pill
-        // are drawn from the same value. Only the transitions are written down — the snapshot
-        // the draft carries is a *deadline*, which a tick does not move — so this does not put
-        // the store under a write a second. See [captureRest].
+        // The countdown's transitions. Only whether a rest is live goes into the screen's state —
+        // the sheet and the "up next" line hang on it — and a tick does not change that, so the
+        // workout is not rebuilt once a second for as long as a rest runs: the remainder itself
+        // is read in [clocks]. Nor is a tick written down: the snapshot the draft carries is a
+        // *deadline*, which a tick does not move. See [captureRest].
         viewModelScope.launch {
             restTimer.state.collect { rest ->
-                screenState.update { it.copy(rest = rest) }
+                screenState.update { it.copy(isRestLive = rest.isLive) }
                 // The one transition nothing commanded: a rest that simply ran out. Everything
                 // else that lands here is captured by the command that caused it.
                 if (rest is RestTimerState.Finished) captureRest()
@@ -957,7 +970,7 @@ class ActiveSessionViewModel @Inject constructor(
      * carries. Read on an elapsed-realtime source — the one the rest countdown runs on, and for
      * the same reason: `TimeSource.Monotonic` stops while the device sleeps, which is the whole of
      * a plank held with the phone face down on the floor. Not in [ScreenState] because nothing
-     * draws it; what is drawn is the reading taken from it in [clockedAt].
+     * draws it; what is drawn is the reading taken from it in [clocksAt].
      *
      * A rotation keeps it, because this object outlives the activity. A process death does not,
      * and is what the snapshot is for: [restoreDraft] puts a mark back as far in the past as the
@@ -1025,16 +1038,6 @@ class ActiveSessionViewModel @Inject constructor(
         running: StopwatchSnapshot,
         now: Long,
     ): Duration = stopwatchMark?.elapsedNow()?.coerceAtLeast(Duration.ZERO) ?: running.elapsedAt(now)
-
-    /**
-     * The stopwatch as the screen draws it at [now], or null when nothing is being timed.
-     *
-     * Read in [build] as well as in [clockedAt], which is what moves it: without the first, a start
-     * or a stop would assemble a state equal to the last one, and the control would only change
-     * on the next tick of the clock.
-     */
-    private fun ScreenState.stopwatchAt(now: Long): RunningStopwatch? =
-        stopwatch?.let { RunningStopwatch(it.sessionExerciseId, elapsedOf(it, now)) }
 
     /**
      * Drops the stopwatch if it is timing [sessionExerciseId], which has just left the workout or
@@ -1128,7 +1131,7 @@ class ActiveSessionViewModel @Inject constructor(
         val units = unitsOf(stored.sessionExerciseId)
 
         screenState.update { state ->
-            val edited = change(state.setEdits[setId] ?: stored.toEntry(unitSystem.value, units))
+            val edited = change(state.setEdits[setId] ?: stored.toEntry(unitSystem.value))
             state.copy(
                 setEdits = state.setEdits + (setId to edited.copy(error = validate(edited, units))),
                 message = null,
@@ -1667,12 +1670,12 @@ class ActiveSessionViewModel @Inject constructor(
      * deadline of a rest that is counting down does not change as it counts, so a draft written
      * once at the start of it is still right ninety seconds later.
      *
-     * The reading is taken from the controller rather than from [ScreenState.rest], and taken
-     * *now*: a command publishes its new state before it returns, so this sees the exact
-     * remainder — including the fraction of a second the last tick has not caught up with —
-     * while the copy in the screen's state is at most one tick behind. Deriving the deadline
-     * from that copy would push it out by up to a second every time the draft was written, and
-     * the draft is written on every keystroke.
+     * The reading is taken from the controller rather than from [clocks], and taken *now*: a
+     * command publishes its new state before it returns, so this sees the exact remainder —
+     * including the fraction of a second the last tick has not caught up with — while the copy
+     * on screen is at most one tick behind. Deriving the deadline from that copy would push it
+     * out by up to a second every time the draft was written, and the draft is written on every
+     * keystroke.
      */
     private fun captureRest() {
         val snapshot = RestTimerSnapshot.of(restTimer.state.value, clock.nowMillis())
@@ -2387,13 +2390,10 @@ class ActiveSessionViewModel @Inject constructor(
     private suspend fun restoreDraft() {
         val draft = inProgressSessionRepository.load()?.takeIf { it.sessionId == sessionId }
             ?: return
-        // The workout and the catalogue, before anything is read back against them. A half-typed
-        // set is formatted back into the unit its exercise is typed in — a swim's 400 m is `400`
-        // in a field labelled in metres, and `0.4` in one that assumed kilometres — and the
-        // stopwatch is only restored onto an exercise still in the workout. Both questions are
-        // about rows that arrive on their own reads, which the screen opening does not wait for.
+        // The workout, before anything is read back against it: the stopwatch is only restored
+        // onto an exercise still in it, and the exercises arrive on their own read, which the
+        // screen opening does not wait for.
         loaded.filterNotNull().first()
-        catalogue.filterNotNull().first()
 
         // One entry per exercise that was mid-set, from the trailing incomplete set the draft
         // format carries for exactly this. An exercise whose last set is completed was not being
@@ -2409,7 +2409,7 @@ class ActiveSessionViewModel @Inject constructor(
                 ?.takeIf { !it.isCompleted && it.id == null }
                 ?: return@mapNotNull null
             val id = exercise.sessionExerciseId ?: return@mapNotNull null
-            id to typed.toEntry(unitSystem.value, unitsOf(id))
+            id to typed.toEntry(unitSystem.value)
         }.toMap()
 
         // The hold that was being timed when the process went, if its exercise is still in the
@@ -2621,14 +2621,13 @@ class ActiveSessionViewModel @Inject constructor(
             finishedSessionId = screen.finishedSessionId,
             isDiscarded = screen.isDiscarded,
             deletedSet = screen.deletedSet,
-            rest = screen.rest,
             // The flag says the sheet was raised and not since dismissed; whether there is
             // anything to *look* at is the timer's answer. Reading them together here is what
             // makes the sheet come down of its own accord when the countdown reaches zero,
             // without anything having to remember to lower a flag — and what stops a sheet
             // being restored over a rest that ended while the process was dead.
-            isRestSheetOpen = screen.isRestSheetOpen && screen.rest.isLive,
-            stopwatch = screen.stopwatchAt(now),
+            isRestSheetOpen = screen.isRestSheetOpen && screen.isRestLive,
+            timedExerciseId = screen.stopwatch?.sessionExerciseId,
             message = screen.message,
         )
 
@@ -2648,7 +2647,6 @@ class ActiveSessionViewModel @Inject constructor(
             header = ActiveSessionHeader(
                 name = session.name,
                 startedAt = session.createdAt,
-                elapsed = screen.elapsedAt(now, session.createdAt),
                 progress = SessionProgress(
                     // "Done" is at least one *completed* set, which is the rule
                     // `SessionStats.exerciseBreakdown` applies four lines below over the same
@@ -2672,7 +2670,7 @@ class ActiveSessionViewModel @Inject constructor(
             // Derived from the store on every rebuild rather than captured when the rest
             // started, so a set corrected mid-rest corrects what the sheet says is coming.
             restTarget = screen.restExerciseId
-                ?.takeIf { screen.rest.isLive }
+                ?.takeIf { screen.isRestLive }
                 ?.let { loaded.setsOf(it).lastOrNull() }
                 ?.toRestTarget(),
             warmup = advice.suggestion.warmupCard(catalogue, loaded, screen),
@@ -2746,33 +2744,20 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * The state with its clocks read at [now], and every other figure left as assembled.
+     * The two clocks read at [now], for a session that began at [startedAt].
      *
-     * The fields a second changes, and they are not the same arithmetic: the header shows
-     * time spent *working out*, which is wall clock less every paused stretch, and the stats
-     * carry the raw window the session has been open for. Both are cheap, which is the whole
-     * point of folding them on here rather than rebuilding the state around them.
-     *
-     * A screen with no header has nothing running to draw — the session is still loading, or it
-     * is gone — and comes back untouched.
+     * Not the same arithmetic: the workout clock is time spent *working out*, which is wall clock
+     * less every paused stretch, and the stopwatch is the live mark where there is one — see
+     * [elapsedOf]. Both are cheap, which is why they can be read every second at all.
      */
-    private fun ActiveSessionUiState.clockedAt(
+    private fun ScreenState.clocksAt(
         now: Long,
-        screen: ScreenState,
-    ): ActiveSessionUiState {
-        val header = header ?: return this
-
-        return copy(
-            header = header.copy(elapsed = screen.elapsedAt(now, header.startedAt)),
-            // The hold's reading, on the same beat as the header's clock and for the same
-            // reason: a second is all that changes it, and rebuilding the workout to move it would
-            // be the arithmetic [assembled] keeps off the tick.
-            stopwatch = screen.stopwatchAt(now),
-            stats = stats?.copy(
-                durationSeconds = SessionStatsCalculator.durationSeconds(header.startedAt, now),
-            ),
+        startedAt: Long,
+    ): SessionClocks =
+        SessionClocks(
+            elapsed = elapsedAt(now, startedAt),
+            stopwatch = stopwatch?.let { elapsedOf(it, now) },
         )
-    }
 
     private companion object {
         /**
@@ -2839,8 +2824,9 @@ private data class TypedInput(
  *   has no business freezing the fields of set 3.
  * @param deletedSet the set behind the offer to undo, held until the offer is taken or lapses.
  *   The store no longer has it, so this is the only copy — see [ActiveSessionUiState.deletedSet].
- * @param rest the countdown as the controller last published it, ticked into here so the whole
- *   screen is built from one value. Read-only from this side: what moves it is the controller.
+ * @param isRestLive whether the controller has a rest counting down or held — see `isLive`. Only
+ *   that, not the countdown: it changes when a rest starts and ends, where the remainder changes
+ *   every second and is read in `clocks` instead.
  * @param restSnapshot the same rest as the *deadline* the draft carries, which is a different
  *   type on purpose — see `RestTimerSnapshot`. Updated on the transitions and never on a tick.
  * @param restExerciseId the exercise the current rest follows, or null when nothing is resting.
@@ -2855,7 +2841,7 @@ private data class ScreenState(
     val savingSetIds: Set<Long> = emptySet(),
     val isDeletingSet: Boolean = false,
     val deletedSet: WorkoutSet? = null,
-    val rest: RestTimerState = RestTimerState.Idle,
+    val isRestLive: Boolean = false,
     val restSnapshot: RestTimerSnapshot = RestTimerSnapshot.Idle,
     val restExerciseId: Long? = null,
     /**
@@ -3061,7 +3047,6 @@ private class Loaded(
         return ordered.mapIndexed { index, exercise ->
             val history = previous[exercise.exerciseId]
             val catalogued = catalogue.exercises[exercise.exerciseId]
-            val units = EntryUnits.of(catalogued, unitSystem)
             // Today's table and last time's, walked in step. A running count rather than a row
             // index, because the two lists do not line up by position: warm-ups are left out of
             // the reference (see `SessionRepository.getPreviousSets`) and skipped over on this
@@ -3078,7 +3063,7 @@ private class Loaded(
                 // The type as *shown* rather than as stored, so a row retyped as a warm-up
                 // gives up its reference the moment the menu is answered rather than when the
                 // correction lands.
-                val shown = typed ?: set.toEntry(unitSystem, units)
+                val shown = typed ?: set.toEntry(unitSystem)
                 val isWarmUp = shown.setType == SetType.WARMUP
                 val reference = if (isWarmUp) null else history?.getOrNull(working)
                 if (!isWarmUp) working++
@@ -3123,7 +3108,6 @@ private class Loaded(
                 // Keyed by catalogue id like the history, and for the same reason: it is a fact
                 // about the exercise, and two slots holding the same one get the same answer.
                 target = targets[exercise.exerciseId],
-                distanceUnit = units.distanceUnit,
             )
         }
     }
@@ -3278,15 +3262,12 @@ private fun SetEntry.toActiveSets(
  * instead is travel through the write untouched, off the stored row — see [ActiveSessionViewModel]'s
  * commit path.
  */
-private fun WorkoutSet.toEntry(
-    unitSystem: UnitSystem,
-    units: EntryUnits,
-): SetEntry =
+private fun WorkoutSet.toEntry(unitSystem: UnitSystem): SetEntry =
     SetEntry(
         weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
         reps = reps?.toString().orEmpty(),
         duration = duration?.let(::formatClockValue).orEmpty(),
-        distance = distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
+        distance = distance?.let { formatDistanceEntry(it, unitSystem.distanceEntryUnit) }.orEmpty(),
         rpe = rpe,
         setType = setType,
     )
@@ -3316,15 +3297,12 @@ private fun ActiveSet.matches(other: ActiveSet): Boolean =
         setType == other.setType
 
 /** A restored half-typed set as the fields it was typed into. */
-private fun ActiveSet.toEntry(
-    unitSystem: UnitSystem,
-    units: EntryUnits,
-): SetEntry =
+private fun ActiveSet.toEntry(unitSystem: UnitSystem): SetEntry =
     SetEntry(
         weight = weight?.let { formatWeightValue(it, unitSystem) }.orEmpty(),
         reps = reps?.toString().orEmpty(),
         duration = duration?.let(::formatClockValue).orEmpty(),
-        distance = distance?.let { formatDistanceValue(it, units.distanceUnit) }.orEmpty(),
+        distance = distance?.let { formatDistanceEntry(it, unitSystem.distanceEntryUnit) }.orEmpty(),
         rpe = rpe,
         setType = setType,
         notes = notes,

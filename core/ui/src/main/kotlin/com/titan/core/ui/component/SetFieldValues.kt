@@ -127,9 +127,8 @@ internal fun RowScope.SetValueFields(
             TitanValueField(
                 value = values.distance,
                 onValueChange = onDistanceChange,
-                // The unit is spoken because it is not the ambient one: a run is typed in
-                // kilometres and a swim in metres, and the header saying so is hidden from
-                // a screen reader.
+                // The unit is spoken because a pool length typed as `0.025` means nothing
+                // without it, and the header saying so is hidden from a screen reader.
                 description = stringResource(R.string.set_log_distance_field, setNumber, distanceUnit.suffix),
                 keyboardType = KeyboardType.Decimal,
                 enabled = enabled,

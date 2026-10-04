@@ -4,9 +4,7 @@ import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.UnitSystem
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -85,25 +83,35 @@ class ClockEntryTest {
         }
 
     @Test
-    fun `a run is typed in the long unit and a swim in the short one`() {
+    fun `every exercise types its distance in the system's long unit`() {
         val run = Exercise(name = "Running, Outdoor", type = ExerciseType.ENDURANCE)
         val swim = Exercise(name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
-        val aqua = Exercise(name = "Aqua Jogging", type = ExerciseType.ENDURANCE)
 
-        assertFalse(run.isSwim)
-        assertTrue(swim.isSwim)
-        assertTrue(aqua.isSwim)
-        assertEquals(DistanceUnit.KILOMETRE, UnitSystem.METRIC.distanceEntryUnit(run))
-        assertEquals(DistanceUnit.METRE, UnitSystem.METRIC.distanceEntryUnit(swim))
-        assertEquals(DistanceUnit.MILE, UnitSystem.IMPERIAL.distanceEntryUnit(run))
-        assertEquals(DistanceUnit.YARD, UnitSystem.IMPERIAL.distanceEntryUnit(swim))
-        assertEquals(DistanceUnit.KILOMETRE, UnitSystem.METRIC.distanceEntryUnit(null as Exercise?))
+        assertEquals(DistanceUnit.KILOMETRE, UnitSystem.METRIC.distanceEntryUnit)
+        assertEquals(DistanceUnit.MILE, UnitSystem.IMPERIAL.distanceEntryUnit)
+        listOf(run, swim, null).forEach { exercise ->
+            assertEquals(DistanceUnit.KILOMETRE, EntryUnits.of(exercise, UnitSystem.METRIC).distanceUnit)
+            assertEquals(DistanceUnit.MILE, EntryUnits.of(exercise, UnitSystem.IMPERIAL).distanceUnit)
+        }
     }
 
     @Test
     fun `5 km typed into a run's field is half a million centimetres`() =
         withLocale(Locale.UK) {
             assertEquals(500_000L, parseDistanceCentimetres("5", DistanceUnit.KILOMETRE))
-            assertEquals(40_000L, parseDistanceCentimetres("400", DistanceUnit.METRE))
+        }
+
+    @Test
+    fun `a pool length typed in kilometres or miles keeps its metre or yard`() =
+        withLocale(Locale.UK) {
+            // A readout's two decimals would store 25 m as 30 m and 50 yd as 0.03 mi, 53 yd.
+            assertEquals(2_500L, parseDistanceCentimetres("0.025", DistanceUnit.KILOMETRE))
+            assertEquals("0.025", formatDistanceEntry(2_500L, DistanceUnit.KILOMETRE))
+            assertEquals(4_828L, parseDistanceCentimetres("0.03", DistanceUnit.MILE))
+            assertEquals(4_506L, parseDistanceCentimetres("0.028", DistanceUnit.MILE))
+            listOf(2_500L, 40_000L, 520_000L, 4_219_500L).forEach { centimetres ->
+                val typed = formatDistanceEntry(centimetres, DistanceUnit.KILOMETRE)
+                assertEquals(typed, centimetres, parseDistanceCentimetres(typed, DistanceUnit.KILOMETRE))
+            }
         }
 }

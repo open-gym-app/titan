@@ -28,11 +28,41 @@ enum class DistanceUnit(
      * 5.25 km run does not collapse to 5 km.
      */
     internal val fractionDigits: Int,
+
+    /**
+     * How many decimals a distance *typed* in this unit keeps — about a metre or a yard, in
+     * every unit.
+     *
+     * Finer than [fractionDigits] for the long units, because every distance is typed in one of
+     * those (see [distanceEntryUnit]) and a 25 m pool length is `0.025 km`: at a readout's two
+     * decimals it would be stored as 30 m.
+     */
+    internal val entryFractionDigits: Int,
 ) {
-    METRE(centimetres = 100.0, measureUnit = MeasureUnit.METER, fractionDigits = 0),
-    KILOMETRE(centimetres = 100_000.0, measureUnit = MeasureUnit.KILOMETER, fractionDigits = 2),
-    YARD(centimetres = 91.44, measureUnit = MeasureUnit.YARD, fractionDigits = 0),
-    MILE(centimetres = 160_934.4, measureUnit = MeasureUnit.MILE, fractionDigits = 2),
+    METRE(
+        centimetres = 100.0,
+        measureUnit = MeasureUnit.METER,
+        fractionDigits = 0,
+        entryFractionDigits = 0,
+    ),
+    KILOMETRE(
+        centimetres = 100_000.0,
+        measureUnit = MeasureUnit.KILOMETER,
+        fractionDigits = 2,
+        entryFractionDigits = 3,
+    ),
+    YARD(
+        centimetres = 91.44,
+        measureUnit = MeasureUnit.YARD,
+        fractionDigits = 0,
+        entryFractionDigits = 0,
+    ),
+    MILE(
+        centimetres = 160_934.4,
+        measureUnit = MeasureUnit.MILE,
+        fractionDigits = 2,
+        entryFractionDigits = 3,
+    ),
     ;
 
     /**
@@ -93,51 +123,30 @@ private fun Long.readsUnder(
 private const val MILE_THRESHOLD = 0.5
 
 /**
- * The unit a distance is *typed* in on this system: kilometres or miles, or metres or yards for
- * an exercise measured in pool lengths (#M7-17).
+ * The unit every distance is *typed* in on this system: kilometres or miles (#M7-17).
  *
- * One unit per field rather than [distanceUnitFor]'s per-value choice, because a field has to
+ * One unit per system rather than [distanceUnitFor]'s per-value choice, because a field has to
  * say which unit it is in before anything has been typed — its label, its parse and the way a
  * stored distance is put back into it all have to be the same choice, or `5` is five kilometres
- * to the lifter and five metres to the parser. The two ends of the system's range are the two
- * answers: a run is typed in the long unit, and a swim in the short one, because `0.4` for a
- * 400 m swim is a figure nobody types.
+ * to the lifter and five metres to the parser.
  *
- * @param shortDistances whether the exercise is measured in pool lengths — see [isSwim].
+ * And one unit for every exercise, a swim or a row as much as a run. A per-exercise unit has to
+ * be decided from something, and nothing on an exercise says how far its sets go — a name
+ * heuristic gets a custom or translated exercise wrong silently, a thousandfold. The long unit
+ * typed to [DistanceUnit.entryFractionDigits] takes a pool length as exactly as a marathon.
  */
-fun UnitSystem.distanceEntryUnit(shortDistances: Boolean): DistanceUnit =
-    when (this) {
-        UnitSystem.METRIC -> if (shortDistances) DistanceUnit.METRE else DistanceUnit.KILOMETRE
-        UnitSystem.IMPERIAL -> if (shortDistances) DistanceUnit.YARD else DistanceUnit.MILE
+val UnitSystem.distanceEntryUnit: DistanceUnit
+    get() = when (this) {
+        UnitSystem.METRIC -> DistanceUnit.KILOMETRE
+        UnitSystem.IMPERIAL -> DistanceUnit.MILE
     }
 
-/** The unit [exercise]'s distances are typed in on this system. Null types in the long unit. */
-fun UnitSystem.distanceEntryUnit(exercise: Exercise?): DistanceUnit = distanceEntryUnit(exercise?.isSwim == true)
-
 /**
- * Whether this exercise is swum, and so measured in pool lengths rather than kilometres.
+ * The units one exercise's set fields are parsed in (#M7-17): the system's distance unit, and
+ * what a bare number in its time field counts for the exercise's mode.
  *
- * **Read off the name**, because nothing else says so. The catalogue has no column for it — a
- * swim is `ENDURANCE` and `CARDIO` like a run — and adding one for the sake of a field's unit
- * would be a schema change to answer a display question. The seed names every swim the way
- * upstream names its variants (`Swimming, Freestyle`, `Swimming, Kick Set`) and the pool's one
- * other movement `Aqua Jogging`, so the two stems are the whole of it. A user's own exercise
- * named in another language falls back to the long unit, which costs a decimal point and not a
- * wrong figure: the parse and the display are the same unit either way.
- */
-val Exercise.isSwim: Boolean get() = SWIM_STEMS.any { name.contains(it, ignoreCase = true) }
-
-/** The name fragments [isSwim] recognises. */
-private val SWIM_STEMS = listOf("swim", "aqua")
-
-/**
- * The units one exercise's set fields are typed and read in (#M7-17): the distance unit its rows
- * are labelled with, and what a bare number in its time field counts.
- *
- * One value for both, resolved in one place, because every screen that labels a field and every
- * one that parses it has to give the same answer — a field labelled in metres and parsed in
- * kilometres is a set logged a thousand times too long. See [distanceEntryUnit] and
- * [bareClockNumber].
+ * One value for both, resolved in one place, so every parse and every re-format of a field
+ * asks the same question the same way. See [distanceEntryUnit] and [bareClockNumber].
  */
 data class EntryUnits(
     val distanceUnit: DistanceUnit,
@@ -150,7 +159,7 @@ data class EntryUnits(
             unitSystem: UnitSystem,
         ): EntryUnits =
             EntryUnits(
-                distanceUnit = unitSystem.distanceEntryUnit(exercise),
+                distanceUnit = unitSystem.distanceEntryUnit,
                 bareClockNumber = exercise?.type.bareClockNumber,
             )
     }

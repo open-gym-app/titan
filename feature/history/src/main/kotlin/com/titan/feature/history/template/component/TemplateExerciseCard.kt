@@ -33,6 +33,7 @@ import com.titan.core.ui.component.PlannedSetRow
 import com.titan.core.ui.component.SupersetBadge
 import com.titan.core.ui.component.SwipeToDelete
 import com.titan.core.ui.component.TitanCard
+import com.titan.core.ui.format.distanceEntryUnit
 import com.titan.core.ui.format.weightSuffix
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.history.R
@@ -108,7 +109,7 @@ import com.titan.feature.history.template.TemplateSetField
  *   the grab glyph in front of its position. The gesture has nothing else on the page announcing
  *   it, and the one thing worse than an unannounced gesture is one announced where it does not
  *   work — a plan of one exercise has nothing to reorder.
- * @param unitSystem what the weight column is captioned and spoken in. Passed rather than read
+ * @param unitSystem what the weight and distance columns are captioned and spoken in. Passed rather than read
  *   off `LocalUnitSystem`, because it has to be the unit the draft was *formatted in and will be
  *   parsed back with* — see `TemplateEditorUiState.unitSystem`.
  * @param enabled false makes the whole card read-only — a write is out. The fields keep what
@@ -257,7 +258,7 @@ private fun PlanTable(
         PlannedSetHeader(
             weightUnit = unitSystem.weightSuffix,
             exerciseType = row.exerciseType,
-            distanceUnit = row.distanceUnit,
+            distanceUnit = unitSystem.distanceEntryUnit,
         )
 
         row.sets.forEachIndexed { index, set ->
@@ -282,7 +283,7 @@ private fun PlanTable(
                         onDurationChange = { onSetFieldChange(set.key, TemplateSetField.DURATION, it) },
                         distance = set.distance,
                         onDistanceChange = { onSetFieldChange(set.key, TemplateSetField.DISTANCE, it) },
-                        distanceUnit = row.distanceUnit,
+                        distanceUnit = unitSystem.distanceEntryUnit,
                         setType = set.setType,
                         onSetTypeChange = { onSetTypeChange(set.key, it) },
                         error = invalid.takeIf { set.errors.isNotEmpty() },

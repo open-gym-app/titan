@@ -15,7 +15,6 @@ import com.titan.core.domain.validation.SetDimension
 import com.titan.core.domain.validation.SetValidator
 import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.SessionProgress
-import com.titan.core.ui.format.DistanceUnit
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
@@ -35,12 +34,21 @@ import kotlin.time.Duration
  * a set for one of them cannot log the thing it claims to support. Both went away with the
  * concept: [exercises] is the whole workout, and every one of them takes sets.
  *
- * @param header the bar over everything: name, clock, progress. Null while the reads are
+ * ### Nothing in it moves on its own
+ *
+ * The workout clock, the hold stopwatch and the rest countdown move once a second, and they are
+ * not in here: they are [SessionClocks], on a flow of their own. Everything in this value changes
+ * because something *happened* — a set written, a field typed into, a rest started or ended — so
+ * a second passing rebuilds nothing but the readouts that draw a clock, and not every card of the
+ * workout with them.
+ *
+ * @param header the bar over everything: name and progress. Null while the reads are
  *   outstanding **and** for a session id that no longer resolves — told apart by [isLoading],
  *   the same split the recap makes.
  * @param stats the running figures, from `SessionStatsCalculator` over the sets on disk. They
  *   move the moment a set is written, because the sets are read as a `Flow` rather than counted
- *   into a local tally that would have to be kept in step.
+ *   into a local tally that would have to be kept in step. Its `durationSeconds` is the window
+ *   as of the last rebuild and is not drawn here — the header's clock is the one that moves.
  * @param exercises the workout in the order it is performed. Empty for a session started with
  *   nothing in it, which is legal.
  * @param nameDraft what is in the rename field, or **null** when the dialog is closed. Null is
@@ -100,14 +108,14 @@ import kotlin.time.Duration
  *   number it had. Carried in the state rather than pushed down a channel for the reason
  *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
  *   event would not.
- * @param rest the countdown between two sets, straight off `RestTimerController`. Not folded
- *   into [isRestSheetOpen] as one nullable, because they are two questions: the rest goes on
- *   running with the sheet swiped away, which is the whole of what the header's pill is for.
  * @param isRestSheetOpen whether the sheet is up over the workout. Raised by a set being marked
  *   done and lowered by the skip, the swipe and the countdown reaching zero — the last of those
  *   without the timer going idle, so that a rest slept through stays distinguishable from one
  *   the user called off. Never true over a rest that is not [com.titan.core.domain.timer.RestTimerState.Running]
- *   or `Paused`: the sheet is a thing to look at while time passes.
+ *   or `Paused`: the sheet is a thing to look at while time passes. The countdown itself is
+ *   [SessionClocks.rest], and is not folded in here as one nullable, because they are two
+ *   questions: the rest goes on running with the sheet swiped away, which is the whole of what
+ *   the header's pill is for.
  * @param restTarget what the next set is expected to be, shown on the sheet so the rest is
  *   worth watching rather than waiting out. Null where nothing has been logged to predict it
  *   from. Carried as quantities rather than as `80 kg × 5`, because the unit is the ambient
@@ -117,10 +125,10 @@ import kotlin.time.Duration
  *   this workout trains. Null rather than an empty card, so the page asks one question.
  * @param cooldown the same card below the last exercise. Two fields rather than a pair, because
  *   they are shown in two places and go away independently.
- * @param stopwatch the hold being timed, or **null** when none is (#M7-17). One for the whole
- *   screen rather than one per exercise, because a lifter holds one plank at a time — so every
- *   other hold's control goes inert while it runs. Its reading moves once a second with the
- *   header's clock, and for the same reason: see `ActiveSessionViewModel.clockedAt`.
+ * @param timedExerciseId the exercise whose hold is being timed, or **null** when none is
+ *   (#M7-17). One for the whole screen rather than one per exercise, because a lifter holds one
+ *   plank at a time — so every other hold's control goes inert while it runs. Only *which*
+ *   exercise: what the stopwatch reads is [SessionClocks.stopwatch], which moves every second.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -146,12 +154,11 @@ data class ActiveSessionUiState(
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
     val deletedSet: WorkoutSet? = null,
-    val rest: RestTimerState = RestTimerState.Idle,
     val isRestSheetOpen: Boolean = false,
     val restTarget: RestTarget? = null,
     val warmup: MobilityCard? = null,
     val cooldown: MobilityCard? = null,
-    val stopwatch: RunningStopwatch? = null,
+    val timedExerciseId: Long? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -228,16 +235,33 @@ data class RestTarget(
 )
 
 /**
- * The hold stopwatch as the screen draws it: which exercise's next set it is timing, and what it
- * reads now.
+ * The readings on the active session that move once a second: how long the workout has been
+ * going, how long the hold being timed has lasted, and how much of the rest is left.
  *
- * The draft carries the start instant instead — see `StopwatchSnapshot` — because a reading is
- * stale the moment it is written. This is the reading, and it is never written anywhere.
+ * Apart from [ActiveSessionUiState] so that a second passing is not a new screen state. Every
+ * card of the workout is drawn from that state, and a clock folded into it would hand all of them
+ * a new value sixty times a minute to move a few numbers. The screen reads these only in the
+ * places that draw them — the header, the timed card's stopwatch, the rest sheet and the alert
+ * that rings when the rest runs out — so those are all a second recomposes.
+ *
+ * Readings rather than instants, and never written anywhere: the draft carries the start instants
+ * instead — see `StopwatchSnapshot` — because a reading is stale the moment it is written.
+ *
+ * @param elapsed time actually spent working out — wall clock less every paused stretch, from
+ *   `ActiveSession.elapsedAt`. Frozen while the session is paused.
+ * @param stopwatch what the hold stopwatch reads, or **null** while nothing is being timed. Which
+ *   exercise it is timing is [ActiveSessionUiState.timedExerciseId], which only changes when it
+ *   starts or stops.
+ * @param rest the countdown between two sets, straight off `RestTimerController`. Whether one is
+ *   live at all — what the sheet and the "up next" line hang on — is decided when it starts and
+ *   ends, and is [ActiveSessionUiState.isRestSheetOpen]'s and [ActiveSessionUiState.restTarget]'s
+ *   to say.
  */
 @Immutable
-data class RunningStopwatch(
-    val sessionExerciseId: Long,
-    val elapsed: Duration,
+data class SessionClocks(
+    val elapsed: Duration = Duration.ZERO,
+    val stopwatch: Duration? = null,
+    val rest: RestTimerState = RestTimerState.Idle,
 )
 
 /**
@@ -301,7 +325,8 @@ data class MobilityMovement(
 )
 
 /**
- * The bar over the workout: what it is, and how long it has been going.
+ * The bar over the workout: what it is, and how far through it the lifter is. How long it has
+ * been going is [SessionClocks.elapsed], which moves on its own.
  *
  * @param name what the user called it, or **null** for a session started empty and never named.
  *   Not collapsed to a default here, matching `SummaryHeader`: the screen falls back to the
@@ -309,16 +334,12 @@ data class MobilityMovement(
  *   from a session somebody genuinely called that.
  * @param startedAt epoch millis UTC, the session's `createdAt`. Carried so the screen can build
  *   that fallback title without a second read.
- * @param elapsed time actually spent working out — wall clock less every paused stretch, from
- *   `ActiveSession.elapsedAt`. Recomputed once a second while the session runs and frozen while
- *   it is paused.
  * @param progress how many exercises have a logged set against them, out of the whole workout.
  */
 @Immutable
 data class ActiveSessionHeader(
     val name: String?,
     val startedAt: Long,
-    val elapsed: Duration,
     val progress: SessionProgress,
 )
 
@@ -363,10 +384,6 @@ data class ActiveSessionHeader(
  *   and empty cells, and the two must not be drawn the same way. False also covers an exercise
  *   whose whole history is warm-ups, which is never having performed it — see
  *   `SessionRepository.getPreviousSets`.
- * @param distanceUnit the unit this exercise's distances are typed and read in: kilometres or
- *   miles for a run, metres or yards for a swim (#M7-17). Decided here rather than at the field,
- *   because the ViewModel parses with it — a field labelled in one unit and parsed in another is
- *   a set logged a thousand times too long. See `distanceEntryUnit`.
  * @param target what the next-load engine says the next set should be (#M7-16), or null where
  *   it has nothing to say — no history, timed work, an exercise since deleted. One per
  *   exercise rather than per row, because the rule reads the last *performance* and answers
@@ -391,7 +408,6 @@ data class SessionExerciseRow(
     val entryPrevious: PreviousSet? = null,
     val hasHistory: Boolean = false,
     val target: LoadSuggestion? = null,
-    val distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
 
     /**
@@ -481,8 +497,8 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
  * @param reps the rep field.
  * @param duration the time field (#M7-17): `M:SS`, `H:MM:SS`, or a bare number — see
  *   `parseClockSeconds`. Only drawn for an exercise logged by time.
- * @param distance the distance field, in the exercise's own distance unit — see
- *   [SessionExerciseRow.distanceUnit]. Only drawn for an endurance exercise.
+ * @param distance the distance field, in the unit system's `distanceEntryUnit` — kilometres or
+ *   miles, for every exercise. Only drawn for an endurance exercise.
  * @param rpe the stored rating (× 10), or null for a set not yet rated.
  * @param setType what kind of set this is. Carries over from the previous set of the same
  *   exercise — a lifter logging a warm-up is usually about to log another.

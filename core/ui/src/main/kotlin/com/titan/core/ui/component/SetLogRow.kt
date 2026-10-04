@@ -58,6 +58,7 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.ui.R
 import com.titan.core.ui.format.DistanceUnit
+import com.titan.core.ui.format.distanceEntryUnit
 import com.titan.core.ui.format.formatRpe
 import com.titan.core.ui.format.formatSet
 import com.titan.core.ui.format.formatSetCompact
@@ -146,9 +147,8 @@ import com.titan.core.ui.theme.TitanTheme
  *   Drawn only by the timed modes.
  * @param distance the distance field's contents, in [distanceUnit]. Drawn only by
  *   [ExerciseType.ENDURANCE].
- * @param distanceUnit the unit the distance field is typed in — kilometres for a run, metres for
- *   a swim. The caller's choice rather than the ambient system's, because it is also the unit the
- *   caller parses with; see `distanceEntryUnit`.
+ * @param distanceUnit the unit the distance field is typed in: the ambient system's
+ *   `distanceEntryUnit`, the one the caller parses with, as [weight] is typed in its weight unit.
  * @param footer drawn under the row, below the target line — the hold stopwatch, on the row a
  *   hold is typed into. Null for nothing.
  * @param onCommit the fields have been left: focus has gone from the row altogether, or the
@@ -176,7 +176,7 @@ fun SetLogRow(
     onDurationChange: (String) -> Unit = {},
     distance: String = "",
     onDistanceChange: (String) -> Unit = {},
-    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
+    distanceUnit: DistanceUnit = LocalUnitSystem.current.distanceEntryUnit,
     setType: SetType = SetType.NORMAL,
     onSetTypeChange: ((SetType) -> Unit)? = null,
     rpe: Int? = null,
@@ -364,7 +364,7 @@ fun SetLogHeader(
     modifier: Modifier = Modifier,
     showPrevious: Boolean = true,
     exerciseType: ExerciseType = ExerciseType.STRENGTH,
-    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
+    distanceUnit: DistanceUnit = LocalUnitSystem.current.distanceEntryUnit,
 ) {
     val weightUnit = LocalUnitSystem.current.weightSuffix
 

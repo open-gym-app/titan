@@ -8,7 +8,6 @@ import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateSummary
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.WorkoutTemplate
-import com.titan.core.ui.format.DistanceUnit
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration
 
@@ -147,8 +146,6 @@ data class TemplateEditorUiState(
  *   digits, which a slice on the first digit reads as an empty name.
  * @param isLinkedToNext whether this exercise and the one after it are one superset — what the
  *   join between the two cards draws.
- * @param distanceUnit the unit its distances are typed in — kilometres for a run, metres for a
- *   swim. The ViewModel's choice, because it parses with it; see `distanceEntryUnit`.
  */
 @Immutable
 data class TemplateExerciseRow(
@@ -160,7 +157,6 @@ data class TemplateExerciseRow(
     val supersetLabel: String? = null,
     val supersetGroupName: String? = null,
     val isLinkedToNext: Boolean = false,
-    val distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
 
     /**
@@ -190,7 +186,7 @@ data class TemplateExerciseRow(
  * @param weight in the ambient unit system's unit, like every weight field in the app.
  * @param reps how many.
  * @param duration the time, `M:SS` or `H:MM:SS`.
- * @param distance the distance, in [TemplateExerciseRow.distanceUnit].
+ * @param distance the distance, in the draft's `distanceEntryUnit`.
  * @param errors which of the figures holds something that cannot be stored.
  */
 @Immutable

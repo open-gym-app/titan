@@ -38,7 +38,6 @@ import com.titan.core.domain.usecase.SuggestWarmupUseCase
 import com.titan.core.domain.usecase.SwapSessionExerciseUseCase
 import com.titan.core.domain.usecase.UnlinkSupersetUseCase
 import com.titan.core.domain.validation.SetValidator
-import com.titan.core.ui.format.DistanceUnit
 import com.titan.core.ui.format.formatWeightValue
 import com.titan.core.ui.format.parseWeightMilligrams
 import com.titan.feature.session.SessionProgressionHandoff
@@ -64,6 +63,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -413,17 +413,16 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
-    fun `a swim is typed in metres rather than kilometres`() =
+    fun `a swim is typed in kilometres like every other distance`() =
         runTest {
             val store = pushDayStore()
             val swim = BENCH.copy(name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
             val viewModel = viewModel(store = store, catalogue = FakeExerciseCatalogue(exercises = listOf(swim)))
 
-            viewModel.enterTimed(distance = "400", duration = "8:00")
+            viewModel.enterTimed(distance = "0.425", duration = "8:00")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
-            assertEquals(DistanceUnit.METRE, viewModel.uiState.value.rowOf(BENCH_ROW).distanceUnit)
-            assertEquals(40_000L, store.logged.single().distance)
+            assertEquals(42_500L, store.logged.single().distance)
         }
 
     @Test
@@ -519,17 +518,36 @@ class ActiveSessionViewModelTest {
 
             viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
             advanceRestTo(47.seconds)
-            assertEquals(RunningStopwatch(BENCH_ROW, 47.seconds), viewModel.uiState.value.stopwatch)
+            assertEquals(BENCH_ROW, viewModel.uiState.value.timedExerciseId)
+            assertEquals(47.seconds, viewModel.clocks.value.stopwatch)
 
             viewModel.onEvent(ActiveSessionEvent.StopwatchStopped(BENCH_ROW))
 
-            assertNull(viewModel.uiState.value.stopwatch)
+            assertNull(viewModel.uiState.value.timedExerciseId)
+            assertNull(viewModel.clocks.value.stopwatch)
             assertEquals("0:47", viewModel.uiState.value.entryOf(BENCH_ROW).duration)
             // Stopping a clock is not deciding the set happened.
             assertTrue(store.logged.isEmpty())
 
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
             assertEquals(47L, store.logged.single().duration)
+        }
+
+    @Test
+    fun `a second passing moves the clocks and leaves the screen state alone`() =
+        runTest {
+            val viewModel = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC))
+            viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
+            val before = viewModel.uiState.value
+
+            clock.advance(5_000)
+            advanceRestTo(5.seconds)
+
+            // Every card is drawn from the screen state, so a clock folded into it would hand all
+            // of them a new value every second. See `SessionClocks`.
+            assertSame(before, viewModel.uiState.value)
+            assertEquals(5.seconds, viewModel.clocks.value.stopwatch)
+            assertEquals(5.seconds, viewModel.clocks.value.elapsed)
         }
 
     @Test
@@ -546,10 +564,10 @@ class ActiveSessionViewModelTest {
             viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
             viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(INCLINE_ROW))
 
-            assertEquals(BENCH_ROW, viewModel.uiState.value.stopwatch?.sessionExerciseId)
+            assertEquals(BENCH_ROW, viewModel.uiState.value.timedExerciseId)
             // And the other exercise's stop is not this one's.
             viewModel.onEvent(ActiveSessionEvent.StopwatchStopped(INCLINE_ROW))
-            assertEquals(BENCH_ROW, viewModel.uiState.value.stopwatch?.sessionExerciseId)
+            assertEquals(BENCH_ROW, viewModel.uiState.value.timedExerciseId)
         }
 
     @Test
@@ -573,7 +591,8 @@ class ActiveSessionViewModelTest {
 
             val restored = viewModel(catalogue = catalogue, drafts = FakeDraftStore(drafts.stored))
 
-            assertEquals(RunningStopwatch(BENCH_ROW, 30.seconds), restored.uiState.value.stopwatch)
+            assertEquals(BENCH_ROW, restored.uiState.value.timedExerciseId)
+            assertEquals(30.seconds, restored.clocks.value.stopwatch)
             restored.onEvent(ActiveSessionEvent.StopwatchStopped(BENCH_ROW))
             assertEquals("0:30", restored.uiState.value.entryOf(BENCH_ROW).duration)
         }
@@ -589,7 +608,8 @@ class ActiveSessionViewModelTest {
 
             val restored = viewModel(catalogue = timedCatalogue(ExerciseType.ISOMETRIC), drafts = FakeDraftStore(draft))
 
-            assertNull(restored.uiState.value.stopwatch)
+            assertNull(restored.uiState.value.timedExerciseId)
+            assertNull(restored.clocks.value.stopwatch)
         }
 
     @Test
@@ -600,7 +620,7 @@ class ActiveSessionViewModelTest {
 
             viewModel.onEvent(ActiveSessionEvent.StopwatchStarted(BENCH_ROW))
 
-            assertNull(viewModel.uiState.value.stopwatch)
+            assertNull(viewModel.uiState.value.timedExerciseId)
         }
 
     @Test
@@ -1950,7 +1970,7 @@ class ActiveSessionViewModelTest {
         runTest {
             clock.advance(23.minutes.inWholeMilliseconds + 14.seconds.inWholeMilliseconds)
 
-            assertEquals(23.minutes + 14.seconds, viewModel().uiState.value.header?.elapsed)
+            assertEquals(23.minutes + 14.seconds, viewModel().clocks.value.elapsed)
         }
 
     @Test
@@ -1964,7 +1984,7 @@ class ActiveSessionViewModelTest {
             clock.advance(10.minutes.inWholeMilliseconds)
 
             assertTrue(viewModel.uiState.value.isPaused)
-            assertEquals(1.minutes, viewModel.uiState.value.header?.elapsed)
+            assertEquals(1.minutes, viewModel.clocks.value.elapsed)
         }
 
     @Test
@@ -1978,7 +1998,7 @@ class ActiveSessionViewModelTest {
             viewModel.onEvent(ActiveSessionEvent.PauseToggled)
 
             assertFalse(viewModel.uiState.value.isPaused)
-            assertEquals(1.minutes, viewModel.uiState.value.header?.elapsed)
+            assertEquals(1.minutes, viewModel.clocks.value.elapsed)
         }
 
     @Test
@@ -1996,7 +2016,7 @@ class ActiveSessionViewModelTest {
             )
 
             assertTrue(restored.uiState.value.isPaused)
-            assertEquals(1.minutes, restored.uiState.value.header?.elapsed)
+            assertEquals(1.minutes, restored.clocks.value.elapsed)
         }
 
     @Test
@@ -2031,7 +2051,7 @@ class ActiveSessionViewModelTest {
 
             assertFalse(restored.uiState.value.isPaused)
             assertTrue(state.current is SessionState.Active)
-            assertEquals(1.minutes, restored.uiState.value.header?.elapsed)
+            assertEquals(1.minutes, restored.clocks.value.elapsed)
         }
 
     @Test
@@ -2094,6 +2114,23 @@ class ActiveSessionViewModelTest {
      */
 
     @Test
+    fun `a rest counting down moves the clocks and leaves the screen state alone`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            advanceRestTo(1.seconds)
+            val before = viewModel.uiState.value
+
+            advanceRestTo(30.seconds)
+
+            // A tick is not a transition: the sheet and "up next" are as they were, and rebuilding
+            // every row of the workout to say so would be thirty rebuilds for nothing.
+            assertSame(before, viewModel.uiState.value)
+            assertEquals(RestTimerState.Running(59.seconds, 90.seconds), viewModel.clocks.value.rest)
+        }
+
+    @Test
     fun `logging a set starts the rest and raises the sheet`() =
         runTest {
             val viewModel = viewModel()
@@ -2101,7 +2138,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
-            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
             assertTrue(viewModel.uiState.value.isRestSheetOpen)
         }
 
@@ -2114,7 +2151,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
-            assertEquals(RestTimerState.Running(3.minutes, 3.minutes), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(3.minutes, 3.minutes), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2128,7 +2165,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
-            assertEquals(RestTimerState.Running(150.seconds, 150.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(150.seconds, 150.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2153,7 +2190,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "30", reps = "12", sessionExerciseId = INCLINE_ROW)
             viewModel.onEvent(ActiveSessionEvent.SetLogged(INCLINE_ROW))
 
-            assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
         }
 
@@ -2179,7 +2216,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "20", reps = "15", sessionExerciseId = FLY_ROW)
             viewModel.onEvent(ActiveSessionEvent.SetLogged(FLY_ROW))
 
-            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2192,13 +2229,13 @@ class ActiveSessionViewModelTest {
             )
 
             // An un-tick is a correction to a row logged some time ago, not the end of a set.
-            assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
 
             viewModel.onEvent(
                 ActiveSessionEvent.SetCompletionToggled(BENCH_ROW, setId = 2L, isCompleted = true),
             )
 
-            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2213,7 +2250,7 @@ class ActiveSessionViewModelTest {
 
             // 60 left of 90 became 75 left of 90: the bar moves back by what was added and by
             // nothing else, which is what keeping the total is for.
-            assertEquals(RestTimerState.Running(75.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(75.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2227,11 +2264,11 @@ class ActiveSessionViewModelTest {
             viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
             testScheduler.advanceTimeBy(5.minutes)
 
-            assertEquals(RestTimerState.Paused(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Paused(60.seconds, 90.seconds), viewModel.clocks.value.rest)
 
             viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
 
-            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2245,7 +2282,7 @@ class ActiveSessionViewModelTest {
 
             // Idle rather than finished: a rest that was dismissed is not one that was rested
             // through, and nothing should ring for it.
-            assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
             assertEquals(RestTimerSnapshot.Idle, drafts.stored?.restTimer)
         }
@@ -2259,7 +2296,7 @@ class ActiveSessionViewModelTest {
 
             testScheduler.advanceTimeBy(91.seconds)
 
-            assertEquals(RestTimerState.Finished, viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Finished, viewModel.clocks.value.rest)
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
             // Finished, not idle: what happened is a rest that ended, and the draft has to be able
             // to say which of the two it was.
@@ -2277,12 +2314,12 @@ class ActiveSessionViewModelTest {
             advanceRestTo(30.seconds)
 
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
-            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
 
             viewModel.onEvent(ActiveSessionEvent.RestSheetRequested)
 
             assertTrue(viewModel.uiState.value.isRestSheetOpen)
-            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     // --- the workout nobody is working out ----------------------------------
@@ -2516,7 +2553,7 @@ class ActiveSessionViewModelTest {
 
             skipRequests.skip(ACTIVE_SESSION_ID)
 
-            assertEquals(RestTimerState.Idle, viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
             assertNull(backgroundRest.current)
         }
@@ -2531,7 +2568,7 @@ class ActiveSessionViewModelTest {
 
             skipRequests.skip(ACTIVE_SESSION_ID + 1)
 
-            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.uiState.value.rest)
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2576,7 +2613,7 @@ class ActiveSessionViewModelTest {
 
             val restored = viewModel(drafts = FakeDraftStore(draft))
 
-            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), restored.uiState.value.rest)
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), restored.clocks.value.rest)
             // Straight back up: a rest is the one thing on this screen that went on happening while
             // the app was not running.
             assertTrue(restored.uiState.value.isRestSheetOpen)
@@ -2593,7 +2630,7 @@ class ActiveSessionViewModelTest {
             // Finished rather than a countdown owing time: `RestTimerState.Running` cannot hold a
             // non-positive remainder, and a sheet over a rest that ended nine minutes ago would be
             // the screen asking the user to wait for something that is already over.
-            assertEquals(RestTimerState.Finished, restored.uiState.value.rest)
+            assertEquals(RestTimerState.Finished, restored.clocks.value.rest)
             assertFalse(restored.uiState.value.isRestSheetOpen)
         }
 
@@ -2609,7 +2646,7 @@ class ActiveSessionViewModelTest {
 
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
-            val started = viewModel.uiState.value.rest
+            val started = viewModel.clocks.value.rest
 
             gated.releaseLoad()
             runCurrent()
@@ -2617,7 +2654,7 @@ class ActiveSessionViewModelTest {
             // A fresh 90 of 90, not the draft's 60 of 90. The one the user is watching wins: a
             // restore landing on top of it would cancel the countdown and take its sheet down.
             assertEquals(RestTimerState.Running(90.seconds, 90.seconds), started)
-            assertEquals(started, viewModel.uiState.value.rest)
+            assertEquals(started, viewModel.clocks.value.rest)
             assertTrue(viewModel.uiState.value.isRestSheetOpen)
         }
 
@@ -3814,6 +3851,9 @@ class ActiveSessionViewModelTest {
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
             viewModel.uiState.collect { }
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.clocks.collect { }
         }
         return viewModel
     }
