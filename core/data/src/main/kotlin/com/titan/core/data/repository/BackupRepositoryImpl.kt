@@ -1,9 +1,7 @@
 package com.titan.core.data.repository
 
-import android.content.Context
 import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
-import com.titan.core.data.db.DatabaseSeed
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.di.IoDispatcher
 import com.titan.core.data.mapper.toEntity
@@ -13,7 +11,6 @@ import com.titan.core.domain.backup.model.BackupRow
 import com.titan.core.domain.backup.model.BackupTable
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.repository.BackupRepository
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -45,16 +42,6 @@ import javax.inject.Singleton
  * `ExportSchemaTest`, which reads the exported schema and asserts [BackupTable] lists exactly
  * what `TitanDatabase` declares.
  *
- * ### One thing is added to the file: the pace tags its catalogue predates
- *
- * A backup taken before the `SPEED` and `SWIM` tags were seeded carries a catalogue without
- * them, and restoring it as it stands would bring back every ride's best as a pace per kilometre
- * on a device that had been reading it as a speed. So the restore ends with
- * [DatabaseSeed.backfillPaceTags], inside the same transaction. That is not the seed replay the
- * section above rules out: it adds no exercise, only links between the file's own seeded
- * exercises and the tags this build reads them by, and it writes nothing at all over a file with
- * none of those exercises — or one that already has the links.
- *
  * ### Order, not `defer_foreign_keys`
  *
  * Foreign keys stay enforced for the whole restore. Deletes run in [BackupTable.DELETE_ORDER] —
@@ -74,7 +61,6 @@ import javax.inject.Singleton
 @Singleton
 class BackupRepositoryImpl @Inject constructor(
     private val database: TitanDatabase,
-    @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : BackupRepository {
 
@@ -160,7 +146,6 @@ class BackupRepositoryImpl @Inject constructor(
                 database.withTransaction {
                     deleteEverything()
                     insertEverything(document, Insertion(onTableWritten))
-                    DatabaseSeed.backfillPaceTags(database.openHelper.writableDatabase, context.assets)
                 }
             } catch (failure: SQLiteException) {
                 // The transaction has already rolled back by the time this is reached, so the

@@ -1,6 +1,5 @@
 package com.titan.core.data.db
 
-import androidx.test.core.app.ApplicationProvider
 import com.titan.core.data.mapper.ExerciseMapper
 import com.titan.core.data.mapper.MuscleGroupLinkMapper
 import com.titan.core.data.mapper.PersonalRecordMapper
@@ -66,13 +65,7 @@ import java.time.Instant
  */
 class BackupIdempotencyTest : RoomTestBase() {
 
-    private val backup by lazy {
-        BackupRepositoryImpl(
-            db,
-            ApplicationProvider.getApplicationContext(),
-            Dispatchers.Unconfined,
-        )
-    }
+    private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
     private val preferences = InMemoryUserPreferencesRepository()
 
     private val export by lazy {

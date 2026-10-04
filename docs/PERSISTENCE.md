@@ -51,12 +51,11 @@ The database is deliberately **not** built with `fallbackToDestructiveMigration`
 
 ## Seed data
 
-The baseline exercise library is **generated, not hand-written**. `tools/seed/generate_seed.py` reads the public-domain [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) dataset, pinned by commit in `tools/seed/source.lock`, and emits three assets:
+The baseline exercise library is **generated, not hand-written**. `tools/seed/generate_seed.py` reads the public-domain [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) dataset, pinned by commit in `tools/seed/source.lock`, and emits two assets:
 
 | Asset | Contents |
 | --- | --- |
 | `core/data/src/main/assets/seed/exercises.sql` | 17 muscle groups, 9 system tags, 873 exercises, 2 574 muscle links, 1 722 tag links |
-| `core/data/src/main/assets/seed/pace_tags.sql` | The `SPEED` / `SWIM` tags and their links again, matched by name, for a database seeded without them |
 | `core/data/src/main/assets/seed/images/*.webp` | One 400 px photo per exercise, ~8 MB total, referenced by `exercise.icon` |
 
 | Command | Effect |
@@ -66,8 +65,6 @@ The baseline exercise library is **generated, not hand-written**. `tools/seed/ge
 | `make seed-check` | Fail if the committed assets are stale (runs in CI) |
 
 `exercises.sql` is replayed verbatim by `DatabaseSeed.insertInto`. Its format is deliberately parser-free - **every line is blank, a `--` comment, or one complete statement** - which is why instruction paragraphs are re-joined with `char(10)` concatenation instead of embedding raw newlines. Anything editing the generator must preserve that invariant. Every statement is `INSERT OR IGNORE`, so a replay over a populated database is a no-op; `DatabaseSeedTest` asserts this.
-
-`exercises.sql` only runs when a database is created, so a catalogue change it carries never reaches a database created before it - or one restored from a backup taken on such a database. `pace_tags.sql` closes that gap for the pace tags: `DatabaseSeed.backfillPaceTags` replays it on every open and at the end of every restore. It matches tags and exercises by name rather than id, skips custom exercises, and writes a tag only where a seeded exercise will carry it, so over an up-to-date database, or a restored file with none of those exercises, it changes nothing. A later catalogue change of the same kind needs the same treatment, while version 1 is unshipped; after that, a migration.
 
 Exercise, muscle-group and tag ids are **written explicitly** by the generated SQL rather than autoincremented, because the link rows have to reference them. They therefore follow the ordering of `MUSCLE_GROUPS` / `SYSTEM_TAGS` in the generator and the upstream slug sort for exercises: reordering either constant renumbers rows, so the regenerated SQL must be committed with the change.
 

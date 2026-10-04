@@ -19,9 +19,6 @@ package com.titan.core.domain.model
  * Rowing is a [SPEED] on purpose, although rowers often quote a split per 500 m: a fourth style
  * for one movement would be a fourth unit to format, compare and translate, and km/h is the
  * reading a rower's best shares with every other machine in the gym.
- *
- * A database seeded before these tags existed, or restored from a backup taken on one, gets them
- * from `DatabaseSeed.backfillPaceTags` rather than reading every ride as a pace per kilometre.
  */
 enum class PaceStyle {
     /** Time per kilometre or per mile: `5:27 /km`. */

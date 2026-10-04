@@ -53,7 +53,6 @@ object DatabaseModule {
             .addCallback(TitanDatabase.foreignKeysCallback)
             .addCallback(TitanDatabase.singleRowProgressCallback)
             .addCallback(TitanDatabase.seedCallback(context.assets))
-            .addCallback(TitanDatabase.paceTagBackfillCallback(context.assets))
             .addMigrations(*TitanDatabase.MIGRATIONS)
             .build()
 
