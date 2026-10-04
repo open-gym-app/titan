@@ -1,9 +1,9 @@
 package com.titan.app
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.w3c.dom.Document
 import org.w3c.dom.Element
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
@@ -11,11 +11,13 @@ import javax.xml.parsers.DocumentBuilderFactory
 /**
  * The app's promise to open no network connection, asserted against the files that ship it (#48).
  *
- * Two locks hold it: no module requests `android.permission.INTERNET`, and
- * `network_security_config.xml` trusts no certificate authority and refuses cleartext, so a
- * dependency that opens a socket anyway fails on its first request. Either one loosening is a
- * deliberate decision that belongs in a reviewed change to this test, not a side effect of a
- * library upgrade or a copied snippet.
+ * Two locks hold it. The first is the INTERNET permission: no manifest in the tree requests it,
+ * and the app manifest strips it from every library's manifest at merge time, because a
+ * dependency that declares it would otherwise grant it with no diff here. The second is
+ * `network_security_config.xml`, which trusts no certificate authority and refuses cleartext, so
+ * a socket opened anyway fails on its first request. Either one loosening is a deliberate
+ * decision that belongs in a reviewed change to this test, not a side effect of a library upgrade
+ * or a copied snippet.
  *
  * Read off disk as `BackupRulesTest` does, with the module directory as the working directory.
  */
@@ -26,48 +28,76 @@ class NetworkPolicyTest {
         val application = parse("src/main/AndroidManifest.xml").elements("application").single()
 
         assertEquals("@xml/network_security_config", application.getAttribute("android:networkSecurityConfig"))
-        assertTrue(
+        assertFalse(
             "usesCleartextTraffic must stay absent: the config owns that decision",
-            !application.hasAttribute("android:usesCleartextTraffic"),
+            application.hasAttribute("android:usesCleartextTraffic"),
         )
     }
 
+    /**
+     * Checked across the whole file rather than on `base-config` alone: a `<certificates>` under
+     * `debug-overrides` or a `domain-config` trusts an authority just as well, and only in the
+     * build it was written for.
+     */
     @Test
     fun `network security config refuses cleartext and trusts no authority`() {
-        val base = parse("src/main/res/xml/network_security_config.xml").elements("base-config").single()
+        val config = parse("src/main/res/xml/network_security_config.xml")
+        val base = config.elements("base-config").single()
 
         assertEquals("false", base.getAttribute("cleartextTrafficPermitted"))
-        val anchors = base.elements("trust-anchors").single()
-        assertEquals("trust-anchors must be empty", 0, anchors.elements("certificates").size)
-        assertTrue(
-            "no domain may be carved out of the block",
-            parse("src/main/res/xml/network_security_config.xml").elements("domain-config").isEmpty(),
-        )
+        assertEquals("trust-anchors must be present to replace the system set", 1, base.elements("trust-anchors").size)
+        assertTrue("no authority may be trusted anywhere", config.elements("certificates").isEmpty())
+        assertTrue("no domain may be carved out of the block", config.elements("domain-config").isEmpty())
     }
 
     @Test
+    fun `the app manifest strips internet from every dependency`() {
+        val removed = parse("src/main/AndroidManifest.xml").elements("uses-permission").filter {
+            it.getAttribute("android:name") == INTERNET && it.getAttribute("tools:node") == "remove"
+        }
+
+        assertEquals(1, removed.size)
+    }
+
+    /**
+     * Every source set, not only `main`: a build type's manifest merges over `main` and outranks
+     * its `tools:node="remove"`, so INTERNET requested in `src/debug` would reach that build.
+     */
+    @Test
     fun `no module requests the internet permission`() {
-        val manifests = File("..").walkTopDown()
-            .onEnter { it.name != "build" && it.name != ".git" && it.name != ".gradle" }
-            .filter { it.name == "AndroidManifest.xml" && it.parentFile.name == "main" }
+        val root = File("..").canonicalFile
+        val manifests = root.walkTopDown()
+            .onEnter { it == root || (it.name != "build" && !it.name.startsWith(".")) }
+            .filter { it.name == "AndroidManifest.xml" && it.parentFile.parentFile?.name == "src" }
             .toList()
 
         assertTrue("expected to find the project's manifests", manifests.size > 1)
         val offenders = manifests.filter { manifest ->
             parse(manifest.path).elements("uses-permission").any {
-                it.getAttribute("android:name") == "android.permission.INTERNET"
+                it.getAttribute("android:name") == INTERNET && it.getAttribute("tools:node") != "remove"
             }
         }
         assertEquals("manifests requesting INTERNET: $offenders", emptyList<File>(), offenders)
     }
 
-    private fun parse(path: String): Document =
-        DocumentBuilderFactory.newInstance().apply { isNamespaceAware = false }
-            .newDocumentBuilder().parse(File(path))
+    private fun parse(path: String): Element {
+        val file = File(path)
+        assertTrue("missing: ${file.absolutePath}", file.isFile)
+        // Namespace-unaware so the `android:` and `tools:` attributes read by the names they are
+        // written under.
+        return DocumentBuilderFactory.newInstance()
+            .also { it.isNamespaceAware = false }
+            .newDocumentBuilder()
+            .parse(file)
+            .documentElement
+    }
 
-    private fun Document.elements(tag: String): List<Element> =
-        getElementsByTagName(tag).let { found -> (0 until found.length).map { found.item(it) as Element } }
+    private fun Element.elements(tagName: String): List<Element> =
+        getElementsByTagName(tagName).let { nodes ->
+            (0 until nodes.length).mapNotNull { nodes.item(it) as? Element }
+        }
 
-    private fun Element.elements(tag: String): List<Element> =
-        getElementsByTagName(tag).let { found -> (0 until found.length).map { found.item(it) as Element } }
+    private companion object {
+        const val INTERNET = "android.permission.INTERNET"
+    }
 }
