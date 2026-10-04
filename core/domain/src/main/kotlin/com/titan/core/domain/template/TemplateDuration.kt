@@ -5,6 +5,8 @@ import com.titan.core.domain.model.PlannedExercise
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.superset.Supersets
+import com.titan.core.domain.validation.SetDimension
+import com.titan.core.domain.validation.SetValidator
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -131,7 +133,11 @@ object TemplateDuration {
         var trailingRest = Duration.ZERO
 
         performed.forEachIndexed { index, exercise ->
-            val readsDuration = exerciseTypes[exercise.exerciseId] != ExerciseType.STRENGTH
+            // No catalogue entry at all (the exercise was deleted from the library) still
+            // reads the planned time: see "a planned time is priced for an exercise the
+            // catalogue no longer has" — only a *known* strength type excludes it.
+            val type = exerciseTypes[exercise.exerciseId]
+            val readsDuration = type == null || SetValidator.requiredDimension(type) == SetDimension.DURATION
             total += exercise.sets.fold(Duration.ZERO) { work, set -> work + workOf(set, readsDuration) }
             if (Supersets.isRestDueAfter(grouping, index)) {
                 val rest = exercise.restDuration
