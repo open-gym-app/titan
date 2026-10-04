@@ -52,7 +52,8 @@ import kotlin.time.Duration
  *   yet — see [QuestSummary], which is absent rather than zeroed for the same reason [week] is.
  * @param templates the saved templates the quick-start strip offers, already ordered and cut
  *   to the handful that fit — most recently trained from first, see [HomeViewModel]. Empty
- *   draws no strip, which is what a user who has never saved one sees.
+ *   draws no strip, which is what a user who has deleted every template, the defaults a fresh
+ *   install starts with (#213) included, sees.
  * @param recentRecord the last personal record the user broke, with what it beat, or **null**
  *   for somebody who has broken none. Carried as the domain's own row rather than reduced to
  *   strings here: every figure on it is formatted against the ambient unit system, which a

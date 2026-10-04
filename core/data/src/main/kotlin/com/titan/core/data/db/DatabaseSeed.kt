@@ -7,6 +7,7 @@ import android.content.res.Resources
 import android.database.sqlite.SQLiteDatabase
 import android.util.Log
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.titan.core.data.db.projection.SeededExerciseKeyRow
 import com.titan.core.data.mapper.TemplateExerciseMapper
 
 /**
@@ -81,8 +82,9 @@ internal object DatabaseSeed {
         resources: Resources,
     ) {
         val mapper = TemplateExerciseMapper()
+        val resolve = DefaultTemplates.resolverOver(db.seededExercises(DefaultTemplates.exerciseNames))
         for (spec in DefaultTemplates.all) {
-            val drafts = spec.toDrafts { key -> db.seededExerciseId(key) }
+            val drafts = spec.toDrafts(resolve)
             if (drafts == null) {
                 Log.w(LOG_TAG, "Skipped a default template: an exercise it names is not in the catalogue")
                 continue
@@ -128,20 +130,27 @@ internal object DatabaseSeed {
         }
     }
 
-    /** The seeded row [key] names, or null when the catalogue has none. */
-    private fun SupportSQLiteDatabase.seededExerciseId(key: SeedExerciseKey): Long? =
-        query(SEEDED_EXERCISE_ID_SQL, arrayOf(key.name, key.equipmentType.name)).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getLong(0) else null
-        }
-
     /**
-     * The seed's unique key, and only seeded rows: the unique index on
-     * `(name, equipment_type, machine_brand)` does not stop a custom exercise sharing a name
-     * and an equipment type with a seeded one when neither has a brand, because SQLite treats
-     * two NULLs as distinct.
+     * The seeded exercises called any of [names], in one read rather than one per reference —
+     * the same rows, by the same predicate, that `ExerciseDao.getSeededByName` returns to the
+     * restore row, so the seed and a restore resolve a default to the same exercise.
+     *
+     * Seeded rows only: the unique index on `(name, equipment_type, machine_brand)` does not
+     * stop a custom exercise sharing a name and an equipment type with a seeded one when
+     * neither has a brand, because SQLite treats two NULLs as distinct.
      */
-    private const val SEEDED_EXERCISE_ID_SQL =
-        "SELECT id FROM exercise WHERE name = ? AND equipment_type = ? AND machine_brand IS NULL AND is_custom = 0"
+    private fun SupportSQLiteDatabase.seededExercises(names: Collection<String>): List<SeededExerciseKeyRow> {
+        val placeholders = names.joinToString(separator = ",") { "?" }
+        val sql = "SELECT id, name, equipment_type FROM exercise " +
+            "WHERE name IN ($placeholders) AND machine_brand IS NULL AND is_custom = 0"
+        return query(sql, names.toTypedArray()).use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    add(SeededExerciseKeyRow(cursor.getLong(0), cursor.getString(1), cursor.getString(2)))
+                }
+            }
+        }
+    }
 
     private fun replayCatalogue(
         db: SupportSQLiteDatabase,

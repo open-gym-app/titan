@@ -1,6 +1,6 @@
 package com.titan.core.domain.usecase
 
-import com.titan.core.domain.model.DefaultTemplate
+import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.TemplateError
 import com.titan.core.domain.model.WorkoutTemplate
 import com.titan.core.domain.repository.DefaultTemplateCatalogue
@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.map
  * Puts back the default templates the user has deleted, and leaves the rest alone.
  *
  * The defaults are ordinary templates once seeded — nothing marks a row as one — so "missing"
- * can only be decided by name: a default is missing when no template carries its name in the
- * device's current language, compared trimmed and case-insensitively, the same comparison
+ * can only be decided by name: a default is missing when no template carries its name in any
+ * language the app ships, compared trimmed and case-insensitively, the same comparison
  * [CreateTemplateUseCase] refuses a duplicate by. That makes the rule simple to state and to
  * predict from the template list:
  *
@@ -23,6 +23,11 @@ import kotlinx.coroutines.flow.map
  *   rename is theirs; the original is what they asked for by restoring.
  * - **A case-only rename is not a rename.** "legs" is the "Legs" the user already has, and
  *   creating a second would be refused as a duplicate anyway.
+ * - **A change of language is not a deletion.** "Legs", seeded on an English phone, is still
+ *   the Legs default on a French one. Matching only the current language's "Jambes" would call
+ *   every default deleted and restore a French copy beside each English one.
+ *
+ * A default that is missing comes back under its name in the current language.
  *
  * Each default goes through [CreateTemplateUseCase], the path every template takes, so a
  * definition that fails validation surfaces as its [TemplateError] rather than as a row the
@@ -35,11 +40,17 @@ class RestoreDefaultTemplatesUseCase(
 ) {
 
     /**
-     * The defaults that restoring would add, in the order the app defines them, re-emitted
-     * whenever a template is written. Empty when every default is present.
+     * The names of the defaults that restoring would add, in the order the app defines them,
+     * re-emitted whenever a template is written. Empty when every default is present.
+     *
+     * Names only, from [DefaultTemplateCatalogue.getNames]: the list is decided again on every
+     * write, and a restore of several defaults is several writes, so resolving every default's
+     * exercises against the database each time would be work the answer never uses.
      */
-    fun observeMissing(): Flow<List<DefaultTemplate>> =
-        templateRepository.getAll().map { existing -> catalogue.getAll().missingFrom(existing) }
+    fun observeMissing(): Flow<List<DefaultTemplateName>> =
+        templateRepository.getAll().map { existing ->
+            catalogue.getNames().filterNot { it.isTakenIn(existing) }
+        }
 
     /**
      * Creates every missing default, returning how many were added — zero when none were
@@ -49,10 +60,11 @@ class RestoreDefaultTemplatesUseCase(
      * complete template written in its own transaction, and a retry skips them by name.
      */
     suspend operator fun invoke(): Result<Int> {
-        val missing = catalogue.getAll().missingFrom(templateRepository.getAll().first())
+        val existing = templateRepository.getAll().first()
+        val missing = catalogue.getAll().filterNot { it.name.isTakenIn(existing) }
         for (default in missing) {
             createTemplate(
-                name = default.name,
+                name = default.name.current,
                 exercises = default.exercises,
                 category = default.category,
             ).onFailure { return Result.failure(it) }
@@ -63,9 +75,9 @@ class RestoreDefaultTemplatesUseCase(
     // `equals(ignoreCase)` rather than a lowered set, so this is character for character the
     // comparison the duplicate check in `validateTemplate` makes: a default this calls missing
     // is one that [CreateTemplateUseCase] will not then refuse as taken.
-    private fun List<DefaultTemplate>.missingFrom(existing: List<WorkoutTemplate>): List<DefaultTemplate> =
-        filterNot { default ->
-            val name = default.name.trim()
+    private fun DefaultTemplateName.isTakenIn(existing: List<WorkoutTemplate>): Boolean =
+        everyLanguage.any { candidate ->
+            val name = candidate.trim()
             existing.any { it.name.equals(name, ignoreCase = true) }
         }
 }

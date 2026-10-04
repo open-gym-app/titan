@@ -369,10 +369,11 @@ class DatabaseSeedTest {
 
             assertEquals(DefaultTemplates.all.size, defaults.size)
             for (default in defaults) {
-                val template = checkNotNull(stored[default.name]) { "${default.name} was not seeded" }
+                val name = default.name.current
+                val template = checkNotNull(stored[name]) { "$name was not seeded" }
                 assertEquals(default.category, template.category)
                 assertEquals(
-                    default.name,
+                    name,
                     default.exercises.map { listOf(it.exerciseId, it.sets, it.restDuration, it.supersetGroup) },
                     repository.getExercises(template.id).first()
                         .map { listOf(it.exerciseId, it.sets, it.restDuration, it.supersetGroup) },

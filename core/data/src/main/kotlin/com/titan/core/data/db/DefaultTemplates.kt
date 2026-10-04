@@ -2,6 +2,7 @@ package com.titan.core.data.db
 
 import androidx.annotation.StringRes
 import com.titan.core.data.R
+import com.titan.core.data.db.projection.SeededExerciseKeyRow
 import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.EquipmentType.BARBELL
 import com.titan.core.domain.model.EquipmentType.BODYWEIGHT
@@ -188,6 +189,20 @@ internal object DefaultTemplates {
             hold("Spinal Stretch", OTHER, sets = 2)
         },
     )
+
+    /** Every exercise name the defaults reference, for the one read that resolves them all. */
+    val exerciseNames: Set<String>
+        get() = all.flatMapTo(mutableSetOf()) { spec -> spec.exercises.map { it.key.name } }
+
+    /**
+     * A lookup from a default's reference to the seeded row it names, over [rows] — what the
+     * seed and `DefaultTemplateCatalogueImpl` both resolve [DefaultTemplateSpec.toDrafts] with,
+     * so the two cannot drift on which row a reference means.
+     */
+    fun resolverOver(rows: List<SeededExerciseKeyRow>): (SeedExerciseKey) -> Long? {
+        val ids = rows.associate { (it.name to it.equipmentType) to it.id }
+        return { key -> ids[key.name to key.equipmentType.name] }
+    }
 
     private fun template(
         @StringRes nameRes: Int,

@@ -19,7 +19,10 @@ import com.titan.feature.settings.R
  * three they deleted, and "Legs, Push, Swim" does not.
  *
  * @param missing the names of the defaults that would be added, in the order the app defines
- *   them. Never empty: the row that opens this is disabled when nothing is missing.
+ *   them. The row that opens this is disabled when nothing is missing, but the dialog can still
+ *   be up with an empty list: it is saved across process death and drawn before the first read
+ *   of the template list arrives, and the defaults can come back some other way while it is
+ *   open. It then says there is nothing to restore rather than "Adds 0 templates".
  */
 @Composable
 fun RestoreTemplatesDialog(
@@ -41,12 +44,16 @@ fun RestoreTemplatesDialog(
         },
         text = {
             Text(
-                text = pluralStringResource(
-                    R.plurals.settings_restore_templates_dialog_body,
-                    missing.size,
-                    missing.size,
-                    names,
-                ),
+                text = if (missing.isEmpty()) {
+                    stringResource(R.string.settings_restore_templates_none_missing)
+                } else {
+                    pluralStringResource(
+                        R.plurals.settings_restore_templates_dialog_body,
+                        missing.size,
+                        missing.size,
+                        names,
+                    )
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
         },

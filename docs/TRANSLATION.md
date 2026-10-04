@@ -30,6 +30,13 @@ commentary, so a diff against `values/` lines up and the *why* of each string is
   setting reads, from the directories that exist — so the setting can never offer a language
   the resources do not carry. `res/resources.properties` names `values/` as `en-US` for it.
 
+One place in the code needs the list as well: `SHIPPED_LANGUAGES` in
+`DefaultTemplateCatalogueImpl`. A default template counts as deleted only when no template
+carries its name in *any* shipped language, so one seeded in English is still recognised after
+the phone switches to French. A language added without it would make every default seeded in
+that language look deleted after a switch away from it. `DefaultTemplateCatalogueImplTest`
+fails until the list matches `:core:data`'s `values-*` directories.
+
 ### Which Portuguese
 
 **Brazilian, with no generic `values-pt`.** Brazil is the overwhelming majority of

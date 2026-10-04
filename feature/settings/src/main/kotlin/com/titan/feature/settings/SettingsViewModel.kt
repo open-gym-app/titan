@@ -3,7 +3,7 @@ package com.titan.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.titan.core.domain.model.DefaultTemplate
+import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.ThemePreference
@@ -18,6 +18,7 @@ import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
@@ -110,7 +111,7 @@ class SettingsViewModel @Inject constructor(
             dialog = screen.dialog,
             isDeleting = screen.isDeleting,
             message = screen.message,
-            missingDefaultTemplates = missingTemplates.map(DefaultTemplate::name),
+            missingDefaultTemplates = missingTemplates.map(DefaultTemplateName::current),
             notificationPermission = NotificationPermissionState.of(
                 allowed = screen.notificationsAllowed,
                 runtimePermissionRequired = notificationPermission.isRuntimePermissionRequired,
@@ -287,6 +288,9 @@ class SettingsViewModel @Inject constructor(
 
     private fun dismissDialog() = screenState.update { it.copy(dialog = null) }
 
+    /** The restore in flight, if any — see [restoreMissingTemplates]. */
+    private var restoreJob: Job? = null
+
     /**
      * Puts back the deleted default templates and says how many came back.
      *
@@ -295,10 +299,16 @@ class SettingsViewModel @Inject constructor(
      * the outcome. The count is the use case's, not the dialog's — it re-reads what is missing
      * when it runs, so a dialog left open while the defaults came back some other way (a wipe
      * in another task, an import) reports zero rather than a count that did not happen.
+     *
+     * One restore at a time. A second confirm can arrive before the dialog has left the
+     * composition — a double tap — and two restores running together would both read the same
+     * defaults as missing and race each other through a duplicate-name check that is
+     * check-then-act, adding a default twice or reporting a failure that did not happen.
      */
     private fun restoreMissingTemplates() {
         dismissDialog()
-        viewModelScope.launch {
+        if (restoreJob?.isActive == true) return
+        restoreJob = viewModelScope.launch {
             // Two ways to fail: a default the use case refused comes back as a failed result,
             // a store that could not be written is thrown. They are one event to the user.
             val message = try {

@@ -2,6 +2,7 @@ package com.titan.feature.settings
 
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.DefaultTemplate
+import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
@@ -192,11 +193,20 @@ class FakeTemplateRepository(vararg names: String) : TemplateRepository {
 class FakeDefaultTemplateCatalogue(vararg names: String) : DefaultTemplateCatalogue {
 
     private val defaults = names.map { name ->
-        DefaultTemplate(name, TemplateCategory.GENERAL, listOf(TemplateExerciseDraft(exerciseId = 1L)))
+        DefaultTemplate(
+            name = DefaultTemplateName(name),
+            category = TemplateCategory.GENERAL,
+            exercises = listOf(TemplateExerciseDraft(exerciseId = 1L)),
+        )
     }
 
-    /** When set, [getAll] throws it — a catalogue that cannot be read. */
+    /** When set, both reads throw it — a catalogue that cannot be read. */
     var readFailure: Throwable? = null
+
+    override fun getNames(): List<DefaultTemplateName> {
+        readFailure?.let { throw it }
+        return defaults.map { it.name }
+    }
 
     override suspend fun getAll(): List<DefaultTemplate> {
         readFailure?.let { throw it }

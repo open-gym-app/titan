@@ -203,7 +203,7 @@ class BackupRoundTripTest : RoomTestBase() {
             assertTrue(db.dumpTable(BackupTable.TAG).none { it["name"] == "added later" })
         }
 
-    /** A fresh install exports an empty document, and it has to restore onto a populated device. */
+    /** A device with every row deleted exports an empty document, and it has to restore onto a populated one. */
     @Test
     fun `importing an empty document empties the database`() =
         runBlocking {
