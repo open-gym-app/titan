@@ -1,17 +1,25 @@
 package com.titan.feature.progression.records
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertContentDescriptionContains
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToKey
 import androidx.paging.LoadState
 import androidx.paging.LoadStates
 import androidx.paging.PagingData
+import com.titan.core.domain.model.PaceStyle
+import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PersonalRecordEntry
 import com.titan.core.domain.model.PrType
+import com.titan.core.domain.model.paceOf
 import com.titan.core.ui.theme.TitanTheme
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Assert.assertEquals
@@ -87,16 +95,57 @@ class PersonalRecordsScreenTest {
     }
 
     @Test
-    fun `every record type has a chip, including the cardio ones`() {
+    fun `every record type has a chip, including the timed ones`() {
         setContent(PersonalRecordsUiState(totalRecords = 4, isLoading = false))
 
-        // Six kinds plus ALL. A record with no chip to find it under is a record the user cannot
-        // reach, which is why the wireframe's four are not enough.
+        // Eight kinds plus ALL. A record with no chip to find it under is a record the user cannot
+        // reach, which is why the wireframe's four are not enough. The row scrolls, so each chip
+        // is scrolled to by its key — the kind's name — before it is looked for.
         // Case-insensitively: the chip uppercases what it is given, as an eyebrow does.
-        listOf("Heaviest", "Most reps", "Most volume", "1RM", "Furthest", "Best pace").forEach { label ->
+        composeTestRule.onNodeWithText("All", ignoreCase = true).assertIsDisplayed()
+        // The one list that scrolls sideways: the records under it scroll down.
+        val chips = composeTestRule.onNode(
+            hasScrollToKeyAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange),
+        )
+        mapOf(
+            PrType.MAX_WEIGHT to "Heaviest",
+            PrType.MAX_REPS to "Most reps",
+            PrType.MAX_VOLUME to "Most volume",
+            PrType.ESTIMATED_1RM to "1RM",
+            PrType.MAX_DISTANCE to "Furthest",
+            // The chip covers runs and rides alike, so it is neither "Best pace" nor "Top speed".
+            PrType.BEST_PACE to "Fastest",
+            PrType.MAX_DURATION to "Longest",
+            PrType.MAX_WEIGHTED_HOLD to "Weighted hold",
+        ).forEach { (type, label) ->
+            chips.performScrollToKey(type.name)
             composeTestRule.onNodeWithText(label, ignoreCase = true).assertIsDisplayed()
         }
-        composeTestRule.onNodeWithText("All", ignoreCase = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a timed record reads in its exercise's own terms, and improves by its pace`() {
+        setContent(
+            state = PersonalRecordsUiState(totalRecords = 3, isLoading = false),
+            entries = timedEntries(),
+        )
+
+        // A run's pace beat the last one by seventeen seconds a kilometre — a minus, because a
+        // pace beats by going down — though the run that set it was twice as long.
+        composeTestRule
+            .onNodeWithContentDescription("Running, Outdoor, Best pace, 5:10 /km", substring = true)
+            .assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Running, Outdoor", substring = true)
+            .assertContentDescriptionContains("\u22120:17 /km", substring = true)
+        // The same kind on a ride is its top speed, and nothing on the row is a pace.
+        composeTestRule
+            .onNodeWithContentDescription("Bicycling, Top speed, 30.0 km/h", substring = true)
+            .assertIsDisplayed()
+        // A weighted hold is its two parts, never the product.
+        composeTestRule
+            .onNodeWithContentDescription("Plank, Weighted hold, 1:30 · +20 kg", substring = true)
+            .assertIsDisplayed()
     }
 
     @Test
@@ -193,6 +242,45 @@ class PersonalRecordsScreenTest {
         composeTestRule
             .onNodeWithContentDescription("Bench press, Heaviest, 92 kg, Apr 21, New, +12 kg")
             .assertIsDisplayed()
+    }
+
+    /** A run, a ride and a hold, each the newest of its kind (#225). */
+    private fun timedEntries(): List<PersonalRecordEntry> {
+        fun entry(
+            id: Long,
+            name: String,
+            record: PersonalRecord,
+            previous: Long?,
+        ) = PersonalRecordEntry(
+            record = record.copy(id = id, exerciseId = id, workoutSetId = id, achievedAt = 1_776_729_600_000L),
+            exerciseName = name,
+            previousValue = previous,
+            isRecent = true,
+        )
+        val blank = PersonalRecord(exerciseId = 0, workoutSetId = 0, type = PrType.BEST_PACE, achievedAt = 0)
+        return listOf(
+            // 10 km at 5:10 /km, after 5 km at 5:27 /km.
+            entry(
+                id = 11,
+                name = "Running, Outdoor",
+                record = blank.copy(distance = 1_000_000, duration = 3_100),
+                previous = paceOf(durationSeconds = 1_634, distanceCentimetres = 500_000),
+            ),
+            // 40 km in 1:20:00, read as a speed.
+            entry(
+                id = 12,
+                name = "Bicycling",
+                record = blank.copy(distance = 4_000_000, duration = 4_800, paceStyle = PaceStyle.SPEED),
+                previous = null,
+            ),
+            // 20 kg held for a minute and a half.
+            entry(
+                id = 13,
+                name = "Plank",
+                record = blank.copy(type = PrType.MAX_WEIGHTED_HOLD, weight = 20_000_000L * 90, duration = 90),
+                previous = null,
+            ),
+        )
     }
 
     private fun setContent(

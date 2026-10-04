@@ -12,6 +12,16 @@ import kotlinx.coroutines.flow.Flow
 interface ExerciseRepository {
     fun getAll(): Flow<List<Exercise>>
     fun getById(id: Long): Flow<Exercise?>
+
+    /**
+     * Every exercise in [ids] that the catalogue still holds, in one read.
+     *
+     * The batch form of [getById], for a caller that needs a handful of exercises once rather
+     * than one observed: `PrDetectionUseCase` reads the type of every exercise a finished session
+     * touched, and asking [getById] for each is a query apiece in the finish path. An id the
+     * catalogue no longer holds is simply absent, and the order is unspecified.
+     */
+    suspend fun getByIds(ids: Collection<Long>): List<Exercise>
     fun getByType(type: ExerciseType): Flow<List<Exercise>>
     fun getByEquipmentType(equipmentType: EquipmentType): Flow<List<Exercise>>
     fun searchByPartialName(query: String): Flow<List<Exercise>>
@@ -57,7 +67,7 @@ interface ExerciseRepository {
      * The one read [com.titan.core.domain.usecase.SuggestWarmupUseCase] makes of the catalogue,
      * and it is deliberately not three: the exercises, their primary links and the `DYNAMIC` tag
      * are one question — "what could this session warm up with" — and asking it as three Flows
-     * would combine 873 rows, 2,574 links and 1,717 tag rows to arrive at the 184 that matter.
+     * would combine 873 rows, 2,574 links and 1,722 tag rows to arrive at the 184 that matter.
      *
      * Ordered by name, and an exercise appears once however many prime movers it has. An exercise
      * of one of those disciplines with no primary link at all is absent rather than empty, as it

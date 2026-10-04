@@ -3,7 +3,6 @@ package com.titan.feature.history.sessions
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.SessionTotals
 import com.titan.core.domain.model.TemplateError
 import com.titan.core.domain.model.TemplateSummary
@@ -66,19 +65,12 @@ import kotlin.time.Duration.Companion.seconds
  *
  * ### Which records put a badge on a row
  *
- * A [PersonalRecord] is stamped with when it was achieved, so the records a session set are
- * the ones whose `achievedAt` falls inside its window. That is derived here rather than
- * queried, because the PR engine (#30) has not landed and `PersonalRecordRepository` exposes
- * exactly one read — the best record per exercise. Two consequences, both of which go when
- * #30 does, and both of which the session summary shares:
- *
- * - **a record that has since been beaten leaves no badge**, because only the current best
- *   is readable, so an old session that set one shows nothing;
- * - until the engine writes anything the table is empty and no row is badged, which is what
- *   #24 asks for rather than blocking on #30.
- *
- * Sessions do not overlap in time — the lifecycle use cases allow one at a time — so a
- * record's instant belongs to at most one of them and there is no ambiguity to resolve.
+ * A record points at the set it was read off, so a session is badged when any of its sets set
+ * one — of any kind, and whether or not it has since been beaten, since the badge says what
+ * happened in that workout rather than what stands today. One read of every such session's id,
+ * `PersonalRecordRepository.observeSessionsWithRecords`, rather than a filter over the current
+ * best per exercise, which would leave unbadged a session that set a record the headline does
+ * not show — a faster 5 km that tied the last one on distance.
  */
 @HiltViewModel
 /*
@@ -121,9 +113,9 @@ class SessionsViewModel @Inject constructor(
     private val history: StateFlow<History> = combine(
         sessionRepository.getAll(),
         sessionRepository.getTotals(),
-        personalRecordRepository.getHeadlineRecords(),
-    ) { sessions, totals, records ->
-        History(sessions = sessions, totals = totals, records = records)
+        personalRecordRepository.observeSessionsWithRecords(),
+    ) { sessions, totals, recordSessionIds ->
+        History(sessions = sessions, totals = totals, recordSessionIds = recordSessionIds)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), History())
 
     /**
@@ -496,7 +488,7 @@ class SessionsViewModel @Inject constructor(
         val rows = logged.map { session ->
             session.toRow(
                 totals = history.totals[session.id],
-                records = history.recordInstants,
+                hasRecord = session.id in history.recordSessionIds,
                 today = today,
             )
         }
@@ -557,20 +549,8 @@ class SessionsViewModel @Inject constructor(
     private data class History(
         val sessions: List<WorkoutSession>? = null,
         val totals: Map<Long, SessionTotals> = emptyMap(),
-        val records: Map<Long, PersonalRecord> = emptyMap(),
-    ) {
-
-        /**
-         * When every readable record was achieved, sorted, so a session can ask whether one
-         * falls in its window with a binary search rather than a scan.
-         *
-         * Computed once per emission of the reads rather than per session: the alternative is
-         * a scan of every record for every row, which on a full catalogue and a long history
-         * is the kind of arithmetic that happens on the main dispatcher and is noticed.
-         */
-        val recordInstants: LongArray =
-            records.values.map(PersonalRecord::achievedAt).sorted().toLongArray()
-    }
+        val recordSessionIds: Set<Long> = emptySet(),
+    )
 
     private companion object {
         /** The other screens' number, for the same reasons. */
@@ -592,7 +572,7 @@ class SessionsViewModel @Inject constructor(
  */
 private fun WorkoutSession.toRow(
     totals: SessionTotals?,
-    records: LongArray,
+    hasRecord: Boolean,
     today: LocalDate,
 ): HistoryRow {
     val finishedAt = completedAt ?: lastActiveAt
@@ -612,7 +592,7 @@ private fun WorkoutSession.toRow(
             totalVolume = totals?.totalVolume ?: 0,
             timedSeconds = totals?.timedSeconds ?: 0,
             totalDistance = totals?.totalDistance ?: 0,
-            hasRecord = records.hasValueIn(createdAt, finishedAt),
+            hasRecord = hasRecord,
             isToday = startedOn == today,
         ),
     )
@@ -711,29 +691,6 @@ private fun loadOf(
     volume: Long,
     heaviest: Long,
 ): TrainingLoad = if (heaviest > 0 && volume * 2 >= heaviest) TrainingLoad.HEAVY else TrainingLoad.LIGHT
-
-/**
- * Whether this sorted array holds a value inside `[start, end]`.
- *
- * A binary search for the first element not below [start], then one comparison. The scan it
- * replaces is O(records) per session, and both grow: the records with the catalogue, the
- * sessions with every workout the user logs.
- */
-private fun LongArray.hasValueIn(
-    start: Long,
-    end: Long,
-): Boolean {
-    if (isEmpty()) return false
-
-    var low = 0
-    var high = size
-    while (low < high) {
-        val middle = (low + high) ushr 1
-        if (this[middle] < start) low = middle + 1 else high = middle
-    }
-
-    return low < size && this[low] <= end
-}
 
 /**
  * Whether a write is already out for this action.

@@ -198,6 +198,8 @@ private fun entry(id: Long) =
 private object UnusedRecordStore : PersonalRecordRepository {
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = flowOf(emptyMap())
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = flowOf(emptySet())
     override suspend fun count(): Int = 0
     override fun observeRecordCount(): Flow<Int> = flowOf(0)
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =

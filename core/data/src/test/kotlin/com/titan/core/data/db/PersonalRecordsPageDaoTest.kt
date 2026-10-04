@@ -1,5 +1,6 @@
 package com.titan.core.data.db
 
+import com.titan.core.domain.model.paceOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -152,6 +153,60 @@ class PersonalRecordsPageDaoTest : RoomTestBase() {
             // ...and the higher id is the one that improved on the lower, not the other way round.
             assertEquals(5, squatRows.first().previousValue?.toInt())
             assertNull(squatRows.last().previousValue)
+        }
+
+    @Test
+    fun `a best pace improves on the previous pace, not on the previous time`() =
+        runTest {
+            // 5 km in 27:14, then 10 km in 51:40: the second took nearly twice as long, and is the
+            // faster run. Comparing durations would report the record as 24:26 worse.
+            db.personalRecordDao().insert(
+                personalRecord(
+                    squatId,
+                    lastSetId,
+                    "BEST_PACE",
+                    achievedAt = 6_000,
+                ).copy(distance = 500_000, duration = 1_634),
+            )
+            db.personalRecordDao().insert(
+                personalRecord(
+                    squatId,
+                    lastSetId,
+                    "BEST_PACE",
+                    achievedAt = 7_000,
+                ).copy(distance = 1_000_000, duration = 3_100),
+            )
+
+            val newest = dao.getRecordsPage(type = "BEST_PACE", limit = 1, offset = 0).single()
+
+            // Whole nanoseconds per centimetre, rounded in SQL exactly as `paceOf` rounds in Kotlin.
+            assertEquals(paceOf(durationSeconds = 1_634, distanceCentimetres = 500_000), newest.previousValue)
+            assertEquals(3_268_000L, newest.previousValue)
+        }
+
+    @Test
+    fun `a duration and a weighted hold improve on their own figures`() =
+        runTest {
+            db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_DURATION", achievedAt = 6_000).copy(duration = 120),
+            )
+            db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_DURATION", achievedAt = 7_000).copy(duration = 150),
+            )
+            db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_WEIGHTED_HOLD", achievedAt = 6_000)
+                    .copy(weight = 10_000_000L * 60, duration = 60),
+            )
+            db.personalRecordDao().insert(
+                personalRecord(squatId, lastSetId, "MAX_WEIGHTED_HOLD", achievedAt = 7_000)
+                    .copy(weight = 20_000_000L * 60, duration = 60),
+            )
+
+            assertEquals(120L, dao.getRecordsPage(type = "MAX_DURATION", limit = 1, offset = 0).single().previousValue)
+            assertEquals(
+                10_000_000L * 60,
+                dao.getRecordsPage(type = "MAX_WEIGHTED_HOLD", limit = 1, offset = 0).single().previousValue,
+            )
         }
 
     @Test

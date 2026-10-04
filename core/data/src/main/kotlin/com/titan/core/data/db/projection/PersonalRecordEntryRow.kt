@@ -10,8 +10,9 @@ import androidx.room.Embedded
  * already turns a `PersonalRecordEntity` into a domain record is the one used here too — a second
  * hand-written mapping of nine columns is a second place a renamed column has to be noticed.
  *
- * @property previousValue the figure the record beat, in the kind's own unit, or **null** when it
- *   is the first of its kind for that exercise. Looked up per returned row, over the whole table
+ * @property previousValue the figure the record beat, in the kind's own unit — whole nanoseconds
+ *   per centimetre for a `BEST_PACE`, see `paceOf` — or **null** when it is the first of its kind
+ *   for that exercise. Looked up per returned row, over the whole table
  *   rather than over the page — see `PersonalRecordDao.getRecordsPage`, where the reason the
  *   lookup is one indexed seek and not a scan is set out.
  * @property exerciseName the exercise's name, or **null** when it has been removed from the

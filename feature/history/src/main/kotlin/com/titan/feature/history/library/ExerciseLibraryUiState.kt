@@ -96,8 +96,8 @@ data class ExerciseSection(
  * muscle links and the records arrive as maps over the whole catalogue and a row that reached
  * into them would be a lookup inside a `LazyColumn` item — repeated on every scroll pass.
  *
- * @param record the one record worth showing, or null. Null is the ordinary case until the PR
- *   engine (#30) lands, and the row simply omits the figure.
+ * @param record the one record worth showing, or null for an exercise nobody has set one on
+ *   yet — most of the catalogue, for most users — and the row simply omits the figure.
  */
 @Immutable
 data class LibraryExercise(

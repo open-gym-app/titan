@@ -190,7 +190,7 @@ Text(
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
   | `TitanTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
-  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles | `PrType` / `PersonalRecord` |
+  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`, `5:27 /km`, `30.0 km/h`, `1:30 · +20 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles. A best pace is drawn in its exercise's `PaceStyle` — a pace, a swim's pace per 100, or a speed — which the repository fills in on every record it reads. `PersonalRecordEntry.formattedImprovement` is what it beat, signed (`+12 kg`, `−0:17 /km`) | the record's label (`PersonalRecord.label()`) / `PersonalRecord` |
   | `PersonalRecordRow` | the same record as a row of its own: the kind as an eyebrow, the date under it, the figure in the accent on the end, with slots for a badge beside the kind and a line under the figure. The list form of `PrValue`, shared by the exercise's bests and the records list | the three pieces already formatted, plus the sentence the whole row is read as |
   | `TitanSearchField` | the in-place search box, with its clear button | the query, hoisted |
   | `TitanFilterChip` / `TitanFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
@@ -295,7 +295,7 @@ Text(
 
   | File | Labels |
   | --- | --- |
-  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()`, `TemplateCategory.label()` |
+  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()` (a kind on its own, as a filter names it: `Fastest`) and `PersonalRecord.label()` (a record, as its exercise reads it: `Best pace`, `Top speed`), `MuscleGroup.displayName()`, `TemplateCategory.label()` |
   | `component/ExerciseLabels.kt` | `EquipmentType.labelOrNull()`, `ExerciseType.label()` / `trackedLabel()`, `MechanicType.label()`, `DifficultyLevel.label()`, `Discipline.label()` |
   | `component/PreferenceLabels.kt` | `ThemePreference.label()` / `detailOrNull()`, `UnitSystem.label()` / `detail()`, `TrainingGoal.label()` / `detail()` |
 
@@ -320,6 +320,7 @@ Text(
   | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
+  | Pace or speed | whole nanoseconds per centimetre (`paceOf`: a best pace's duration over its distance, never a `Double`) | `formatPaceFigure` and `paceUnit` (`5:27` `/km`, `1:45` `/100 m`, `30.0` `km/h`, by `PaceStyle`), `formatPaceChange` (the difference of two, as shown) — integer arithmetic throughout, through `DistanceUnit`'s exact tenths of a millimetre | — (computed, never typed) |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsTotal` (a period's worth, `32h`), `formatAsEstimate` (`~55m`) | — |
   | Date and time | epoch millis UTC | `formatSessionDate` (`Tue, Apr 28, 2026`), `formatDayAndMonth` (`Apr 28`, a table's date column), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
   | A bare count | an `Int` or a `Long` | `formatCount` (`12`, `2,140`) | — |
@@ -655,6 +656,7 @@ ever needs the same shape, reach for `TitanDialog` rather than `AlertDialog` fro
 
 - **One concern per PR** - keep scope tight so the diff stays readable.
 - **CI must be green** before requesting a review (lint, tests, build, coverage).
+- **Reword what your PR makes untrue.** A comment, doc or string that still waits on an issue the PR closes (`until #54`) should say what the code does now. `make issue-refs-check PR=<number>` lists them.
 - **1 approval required** to merge.
 - **Squash & merge** - all commits on the branch are squashed into one on `main`. The squash commit message must follow the Conventional Commits format above.
 - Delete the branch after merging.

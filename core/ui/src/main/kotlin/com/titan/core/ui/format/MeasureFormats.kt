@@ -63,6 +63,16 @@ internal fun formatMeasure(
         .format(Measure(value.withoutNegativeZero(maxFractionDigits), unit))
 
 /**
+ * A whole [value] of [unit], as one string in the formatting locale: `100 m`, `100 yd`.
+ *
+ * [formatMeasure] for a count that is an integer to begin with, so it reaches CLDR as one.
+ */
+internal fun formatWholeMeasure(
+    value: Long,
+    unit: MeasureUnit,
+): String = measureFormat(FormatWidth.SHORT, maxFractionDigits = 0).format(Measure(value, unit))
+
+/**
  * What [unit] is called next to a number, with no number in front of it: `kg`, `lb`, `cm`,
  * `po`.
  *

@@ -189,6 +189,12 @@ class FakeRecordStore(private var tally: RecordTally = RecordTally(records = 0, 
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> =
         throw UnsupportedOperationException("the hub reads no single exercise's records")
 
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("the hub reads no single session's records")
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        throw UnsupportedOperationException("the hub badges no sessions")
+
     override suspend fun insertIfBetter(
         exerciseId: Long,
         type: PrType,

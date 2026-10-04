@@ -245,6 +245,10 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Plus loin</string>
     <string name="pr_best_pace">Meilleure allure</string>
+    <string name="pr_top_speed">Vitesse max</string>
+    <string name="pr_fastest">Plus rapide</string>
+    <string name="pr_max_duration">Plus long</string>
+    <string name="pr_max_weighted_hold">Maintien lesté</string>
     <string name="pr_description">PR %1$s, record personnel</string>
     <string name="pr_description_short">PR, record personnel</string>
     <plurals name="pr_unit_reps">

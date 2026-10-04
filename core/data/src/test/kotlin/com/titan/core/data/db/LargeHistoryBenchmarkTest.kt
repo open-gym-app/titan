@@ -192,6 +192,16 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
             assertUnder("getAllMuscleGroupLinks", STRESS_BUDGET_MS) {
                 db.exerciseDao().getAllMuscleGroupLinks().first()
             }
+
+            // The session recap's records and the session list's badges. The first is bounded by
+            // one session's sets; the second joins every record to its session, so like the
+            // headline it grows with `personal_record`.
+            assertUnder("getBySession", STRESS_BUDGET_MS) {
+                db.personalRecordDao().getBySession(history.sessionIds.last()).first()
+            }
+            assertUnder("observeSessionIdsWithRecords", STRESS_BUDGET_MS) {
+                db.personalRecordDao().observeSessionIdsWithRecords().first()
+            }
         }
 
     /**

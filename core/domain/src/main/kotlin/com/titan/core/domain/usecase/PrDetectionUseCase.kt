@@ -1,11 +1,15 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.model.paceOf
+import com.titan.core.domain.model.rankedFigure
 import com.titan.core.domain.pr.OneRepMaxCalculator
+import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
@@ -37,13 +41,26 @@ import kotlin.math.roundToLong
  * fall short of what the pair achieved together. [SetType.WARMUP] sets are excluded before
  * grouping, the same rule [SessionRepository.getPreviousSets] applies to its own reference
  * figure and for the same reason: a warm-up is chosen to be easy, so a record built off one
- * would not be a record of anything the lifter actually tried to do. Every [PrType] is then
- * tried against that group; a type with no eligible set (no cardio logged, say) is silently
- * skipped rather than producing an empty or zeroed row.
+ * would not be a record of anything the lifter actually tried to do. Every [PrType] the
+ * exercise's [ExerciseType] admits is then tried against that group — see below — and a type
+ * with no eligible set (a run logged by time alone has no distance) is silently skipped rather
+ * than producing an empty or zeroed row.
  *
- * "Better" is a strict comparison against whatever [PersonalRecordRepository.insertIfBetter]
- * finds on file — bigger for
- * every type except [PrType.BEST_PACE], where a lower pace wins. Strict, not
+ * ### The exercise decides which kinds are in play, not the set
+ *
+ * [PrType.eligibleFor] gates the candidates on how the exercise is logged: the four lifting
+ * kinds for a strength exercise, distance, pace and time for an endurance one, time and loaded
+ * time for a hold. A set's figures alone cannot say this, because `SetValidator` lets a set carry
+ * dimensions its mode does not ask for — a squat with a duration recorded must not earn
+ * [PrType.MAX_DURATION], and the plate on a weighted plank must not earn [PrType.MAX_WEIGHT]. An
+ * exercise the catalogue no longer holds is read as [ExerciseType.STRENGTH], the same fallback
+ * the catalogue's own mapper gives a type it cannot read.
+ *
+ * "Better" is a strict comparison of each record's [rankedFigure] against whatever
+ * [PersonalRecordRepository.insertIfBetter] finds on file — bigger for every type except
+ * [PrType.BEST_PACE], where a lower pace wins, and a pace is whole nanoseconds per centimetre
+ * whatever the distance (see `paceOf`), so a 10 km run is judged against a 5 km one by how fast
+ * each went. Every figure is an integer, so no comparison here is approximate. Strict, not
  * greater-or-equal, which is what makes this idempotent for free: re-running the same
  * session finds the same candidate value it found last time, that value is no longer
  * *strictly* better than the record it already wrote, and nothing new is inserted. The same
@@ -56,8 +73,10 @@ import kotlin.math.roundToLong
  *
  * ### Where a candidate's value comes from
  *
- * Five of the six types are a `maxByOrNull`/`minByOrNull` over the group's own sets. The
- * sixth, [PrType.MAX_VOLUME], is a session property rather than a set's — see
+ * Every type but one is a `maxByOrNull`/`minByOrNull` over the group's own sets — the
+ * [PrType.MAX_WEIGHTED_HOLD] one over each hold's added load times its seconds, stored as that
+ * product in `weight` beside the seconds in `duration`, the way [PersonalRecord] documents. The
+ * exception, [PrType.MAX_VOLUME], is a session property rather than a set's — see
  * [VolumeCalculator.totalVolume] — so its `workout_set_id` anchor is the group's *last*
  * completed set rather than the one set that "achieved" a sum several sets contributed to.
  *
@@ -68,6 +87,7 @@ import kotlin.math.roundToLong
  */
 class PrDetectionUseCase(
     private val sessionRepository: SessionRepository,
+    private val exerciseRepository: ExerciseRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val userPreferencesRepository: UserPreferencesRepository,
 ) {
@@ -100,19 +120,25 @@ class PrDetectionUseCase(
             .associate { it.id to it.exerciseId }
         val formula = userPreferencesRepository.observe().first().oneRepMaxFormula
 
-        performed
-            .groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
-            .forEach { (exerciseId, sets) -> detect(exerciseId, sets, formula, into) }
+        val setsByExercise = performed.groupBy { exerciseIdBySessionExercise.getValue(it.sessionExerciseId) }
+        // One read for every exercise the session touched, rather than one per exercise.
+        val typeByExercise = exerciseRepository.getByIds(setsByExercise.keys).associate { it.id to it.type }
+        setsByExercise.forEach { (exerciseId, sets) ->
+            val type = typeByExercise[exerciseId] ?: ExerciseType.STRENGTH
+            detect(exerciseId, type, sets, formula, into)
+        }
         return into
     }
 
     private suspend fun detect(
         exerciseId: Long,
+        type: ExerciseType,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
         into: MutableList<PersonalRecord>,
     ) {
-        candidates(exerciseId, sets, formula).forEach { candidate ->
+        val eligible = PrType.eligibleFor(type)
+        candidates(exerciseId, sets, formula).filter { it.type in eligible }.forEach { candidate ->
             val written = personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
                 isBetter(candidate, current)
             }
@@ -120,71 +146,47 @@ class PrDetectionUseCase(
         }
     }
 
-    /** Every [PrType] [sets] has an eligible candidate for, one each at most. */
+    /**
+     * Every [PrType] [sets] has a candidate for, one each at most, before the exercise's type has
+     * had its say — see [detect], which keeps only the kinds [PrType.eligibleFor] admits. Built
+     * whole and then filtered rather than built per type, so each kind's rule stays one entry
+     * here however many exercise types it is shared between.
+     */
     private fun candidates(
         exerciseId: Long,
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
     ): List<PersonalRecord> =
         listOfNotNull(
-            bestByWeight(sets)?.let { set ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = set.id,
-                    type = PrType.MAX_WEIGHT,
-                    weight = set.weight,
-                    achievedAt = set.completedAt,
-                )
-            },
-            bestByReps(sets)?.let { set ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = set.id,
-                    type = PrType.MAX_REPS,
-                    reps = set.reps,
-                    achievedAt = set.completedAt,
-                )
-            },
-            bestByDistance(sets)?.let { set ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = set.id,
-                    type = PrType.MAX_DISTANCE,
-                    distance = set.distance,
-                    achievedAt = set.completedAt,
-                )
-            },
+            bestByWeight(sets)?.let { it.recordOf(exerciseId, PrType.MAX_WEIGHT).copy(weight = it.weight) },
+            bestByReps(sets)?.let { it.recordOf(exerciseId, PrType.MAX_REPS).copy(reps = it.reps) },
+            bestByDistance(sets)?.let { it.recordOf(exerciseId, PrType.MAX_DISTANCE).copy(distance = it.distance) },
             // Requires both a distance and a duration, per the class doc: a set carrying only a
             // distance yields no pace to compare.
-            bestByPace(sets)?.let { set ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = set.id,
-                    type = PrType.BEST_PACE,
-                    distance = set.distance,
-                    duration = set.duration,
-                    achievedAt = set.completedAt,
-                )
+            bestByPace(sets)?.let {
+                it.recordOf(exerciseId, PrType.BEST_PACE).copy(distance = it.distance, duration = it.duration)
+            },
+            bestByDuration(sets)?.let { it.recordOf(exerciseId, PrType.MAX_DURATION).copy(duration = it.duration) },
+            bestWeightedHold(sets)?.let { (set, loadSeconds) ->
+                set.recordOf(exerciseId, PrType.MAX_WEIGHTED_HOLD).copy(weight = loadSeconds, duration = set.duration)
             },
             bestVolume(sets)?.let { (anchor, volume) ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = anchor.id,
-                    type = PrType.MAX_VOLUME,
-                    weight = volume,
-                    achievedAt = anchor.completedAt,
-                )
+                anchor.recordOf(exerciseId, PrType.MAX_VOLUME).copy(weight = volume)
             },
             bestEstimated1Rm(sets, formula)?.let { (set, estimate) ->
-                PersonalRecord(
-                    exerciseId = exerciseId,
-                    workoutSetId = set.id,
-                    type = PrType.ESTIMATED_1RM,
-                    estimated1Rm = estimate,
-                    achievedAt = set.completedAt,
-                )
+                set.recordOf(exerciseId, PrType.ESTIMATED_1RM).copy(estimated1Rm = estimate)
             },
         )
+
+    /**
+     * A [type] record of [exerciseId] read off this set, with none of its figures filled in yet —
+     * each candidate above copies in the ones its kind is about, and leaves the rest null.
+     */
+    private fun WorkoutSet.recordOf(
+        exerciseId: Long,
+        type: PrType,
+    ): PersonalRecord =
+        PersonalRecord(exerciseId = exerciseId, workoutSetId = id, type = type, achievedAt = completedAt)
 
     /*
      * Each of these reads a dimension a set may not carry — a hold has no reps, a bench press no
@@ -202,13 +204,28 @@ class PrDetectionUseCase(
     private fun bestByDistance(sets: List<WorkoutSet>): WorkoutSet? =
         sets.highest { set -> set.distance?.takeIf { it > 0L } }
 
-    /** The fewest seconds per centimetre: the lower the pace figure, the faster the set. */
+    /**
+     * The fewest nanoseconds per centimetre: the lower the pace figure, the faster the set. In
+     * whole numbers, through the same [paceOf] the record is ranked on afterwards.
+     */
     private fun bestByPace(sets: List<WorkoutSet>): WorkoutSet? =
-        sets.lowest { set ->
-            val distance = set.distance?.takeIf { it > 0L } ?: return@lowest null
-            val duration = set.duration?.takeIf { it > 0L } ?: return@lowest null
-            duration.toDouble() / distance
-        }
+        sets.lowest { set -> paceOf(set.duration, set.distance) }
+
+    private fun bestByDuration(sets: List<WorkoutSet>): WorkoutSet? =
+        sets.highest { set -> set.duration?.takeIf { it > 0L } }
+
+    /**
+     * The hold with the most load-seconds, and that product — milligrams added times seconds held.
+     * A hold with no load is not a candidate: it is a [PrType.MAX_DURATION], not a weighted one.
+     */
+    private fun bestWeightedHold(sets: List<WorkoutSet>): Pair<WorkoutSet, Long>? =
+        sets
+            .mapNotNull { set ->
+                val load = set.weight?.takeIf { it > 0L } ?: return@mapNotNull null
+                val seconds = set.duration?.takeIf { it > 0L } ?: return@mapNotNull null
+                set to load * seconds
+            }
+            .maxByOrNull { it.second }
 
     /** The set with the greatest [measure], among the sets that have one; ties go to the first. */
     private inline fun <T : Comparable<T>> List<WorkoutSet>.highest(measure: (WorkoutSet) -> T?): WorkoutSet? =
@@ -252,28 +269,14 @@ class PrDetectionUseCase(
         current: PersonalRecord?,
     ): Boolean {
         current ?: return true
-        // Which way "better" runs is [PrType]'s to say, not this file's: the records list asks
-        // the same question when it works out how much a record improved on the one before it,
-        // and two copies of the rule are two things that can disagree.
-        return if (candidate.type.higherIsBetter) {
-            metric(candidate) > metric(current)
-        } else {
-            pace(candidate) < pace(current)
-        }
-    }
-
-    private fun metric(record: PersonalRecord): Long =
-        when (record.type) {
-            PrType.MAX_WEIGHT, PrType.MAX_VOLUME -> record.weight
-            PrType.MAX_REPS -> record.reps?.toLong()
-            PrType.MAX_DISTANCE -> record.distance
-            PrType.ESTIMATED_1RM -> record.estimated1Rm
-            PrType.BEST_PACE -> error("BEST_PACE is compared by pace(), not metric()")
-        } ?: error("a ${record.type} candidate must carry the figure it is compared on")
-
-    private fun pace(record: PersonalRecord): Double {
-        val duration = record.duration ?: error("a BEST_PACE candidate must carry a duration")
-        val distance = record.distance ?: error("a BEST_PACE candidate must carry a distance")
-        return duration.toDouble() / distance
+        // Which way "better" runs is [PrType]'s to say, and which figure is compared is
+        // `rankedFigure`'s, not this file's: the records list asks both questions when it works
+        // out how much a record improved on the one before it, and two copies of a rule are two
+        // things that can disagree.
+        val candidateFigure = candidate.rankedFigure
+            ?: error("a ${candidate.type} candidate must carry the figure it is compared on")
+        // A row on file that has lost its figure is beaten by any real one, as no row would be.
+        val currentFigure = current.rankedFigure ?: return true
+        return if (candidate.type.higherIsBetter) candidateFigure > currentFigure else candidateFigure < currentFigure
     }
 }

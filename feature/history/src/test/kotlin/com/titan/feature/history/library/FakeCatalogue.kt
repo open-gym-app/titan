@@ -89,6 +89,8 @@ class FakeExerciseRepository(
 
     override fun getById(id: Long): Flow<Exercise?> = exercises.map { all -> all.firstOrNull { it.id == id } }
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = exercises.value.filter { it.id in ids }
+
     override fun getByType(type: ExerciseType): Flow<List<Exercise>> =
         exercises.map { all -> all.filter { it.type == type } }
 
@@ -180,6 +182,12 @@ class FakePersonalRecordRepository(records: Map<Long, PersonalRecord> = emptyMap
         records.map { held ->
             held.values.filter { it.exerciseId == exerciseId }.sortedByDescending { it.achievedAt }
         }
+
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("no test here reads one session's records")
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        throw UnsupportedOperationException("no test here badges sessions")
 
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> =
         throw UnsupportedOperationException("no test here tallies records over a period")

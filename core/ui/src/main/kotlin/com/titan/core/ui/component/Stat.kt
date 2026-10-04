@@ -24,6 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ExerciseStats
+import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.SessionStats
 import com.titan.core.domain.model.ThemePreference
@@ -200,22 +201,26 @@ fun StatChip(
  *
  * The accent, always. A PR is the one thing on a summary the user came back to see, and it
  * is why the rest of the screen is neutral.
+ *
+ * @param kind what the record is of — [PersonalRecord.label] for a record in hand, which names a
+ *   ride's best `Top speed` where the bare [PrType.label] could only say `Fastest` — or null for
+ *   the bare `PR`.
  */
 @Composable
 fun PrBadge(
     modifier: Modifier = Modifier,
-    type: PrType? = null,
+    kind: String? = null,
 ) {
     val badge = stringResource(R.string.pr_badge)
-    val text = if (type == null) badge else stringResource(R.string.badge_with_qualifier, badge, type.label())
+    val text = if (kind == null) badge else stringResource(R.string.badge_with_qualifier, badge, kind)
     // "P R dot one R M" is what TalkBack makes of the drawn text. The description opens with
     // the letters — "PR" is what a lifter says, and a label that starts with the drawn text is
     // one Voice Access matches and Accessibility Scanner accepts — and then says the words the
     // abbreviation stands for, which is the whole reason a badge may abbreviate.
-    val spoken = if (type == null) {
+    val spoken = if (kind == null) {
         stringResource(R.string.pr_description_short)
     } else {
-        stringResource(R.string.pr_description, type.label())
+        stringResource(R.string.pr_description, kind)
     }
 
     TitanBadge(
@@ -436,7 +441,7 @@ fun SessionStatGridPreview() {
             SessionStatChips(stats = PREVIEW_STATS)
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm)) {
                 PrBadge()
-                PrBadge(type = PrType.ESTIMATED_1RM)
+                PrBadge(kind = PrType.ESTIMATED_1RM.label())
                 StatChip(value = "12", label = "day streak", accented = true)
             }
         }
@@ -457,7 +462,7 @@ fun SessionStatGridDarkPreview() {
             SessionStatChips(stats = PREVIEW_STATS)
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm)) {
                 PrBadge()
-                PrBadge(type = PrType.MAX_WEIGHT)
+                PrBadge(kind = PrType.MAX_WEIGHT.label())
                 StatChip(value = "12", label = "day streak", accented = true)
             }
         }

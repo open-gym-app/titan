@@ -1,11 +1,15 @@
 package com.titan.core.data.db
 
+import com.titan.core.data.mapper.ExerciseMapper
+import com.titan.core.data.mapper.MuscleGroupLinkMapper
 import com.titan.core.data.mapper.PersonalRecordMapper
 import com.titan.core.data.mapper.SessionExerciseMapper
 import com.titan.core.data.mapper.SessionMapper
+import com.titan.core.data.mapper.TagMapper
 import com.titan.core.data.mapper.WorkoutSetMapper
 import com.titan.core.data.repository.BackupRepositoryImpl
 import com.titan.core.data.repository.CollectedItemRepositoryImpl
+import com.titan.core.data.repository.ExerciseRepositoryImpl
 import com.titan.core.data.repository.GamificationRepositoryImpl
 import com.titan.core.data.repository.PersonalRecordRepositoryImpl
 import com.titan.core.data.repository.ProgressionRepositoryImpl
@@ -118,6 +122,14 @@ class BackupIdempotencyTest : RoomTestBase() {
         SessionCompletionPipeline(
             detectPersonalRecords = PrDetectionUseCase(
                 sessionRepository = sessions,
+                // The real catalogue, so a set is judged by its exercise's own logging mode.
+                exerciseRepository = ExerciseRepositoryImpl(
+                    exerciseDao = db.exerciseDao(),
+                    muscleGroupDao = db.muscleGroupDao(),
+                    exerciseMapper = ExerciseMapper(),
+                    tagMapper = TagMapper(),
+                    muscleGroupLinkMapper = MuscleGroupLinkMapper(),
+                ),
                 personalRecordRepository = records,
                 userPreferencesRepository = preferences,
             ),

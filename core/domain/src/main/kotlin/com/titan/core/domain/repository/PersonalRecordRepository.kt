@@ -54,6 +54,24 @@ interface PersonalRecordRepository {
     fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>>
 
     /**
+     * Every record [sessionId] set — every kind, not only the headline one — in the order the
+     * session performed its exercises, and within one exercise in [getHeadlineRecords]'s order
+     * of preference, so the first record of an exercise is the one worth naming on its row.
+     *
+     * The session recap's read. A record belongs to a session through the set it was read off.
+     * Not a filter over [getHeadlineRecords]: an exercise keeps one headline across every
+     * session, so a run that beat its pace without beating its distance would set a record the
+     * headline never shows.
+     */
+    fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>>
+
+    /**
+     * The id of every session that set at least one record, of any kind, including records
+     * later beaten — a session that set one still did. The session list's badge.
+     */
+    fun observeSessionsWithRecords(): Flow<Set<Long>>
+
+    /**
      * How many records the user has ever broken, counted per record and not per session.
      *
      * Every row, across every exercise and [PrType] — a session that beat its weight, rep and

@@ -97,6 +97,10 @@ class FakeRecordReads : PersonalRecordRepository {
 
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
 
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = flowOf(emptyList())
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = flowOf(emptySet())
+
     override fun observeRecordCount(): Flow<Int> = flowOf(0)
 
     override suspend fun count(): Int = 0

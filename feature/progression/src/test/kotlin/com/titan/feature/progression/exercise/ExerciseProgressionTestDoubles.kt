@@ -170,6 +170,10 @@ class FakeExerciseRecordStore : PersonalRecordRepository {
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = unsupported()
 
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = unsupported()
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = unsupported()
+
     override suspend fun count(): Int = unsupported()
 
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> = unsupported()
@@ -198,6 +202,8 @@ class FakeExerciseRecordStore : PersonalRecordRepository {
 class FakeExerciseCatalogue(private val exercises: List<Exercise>) : ExerciseRepository {
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.firstOrNull { it.id == id })
+
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = exercises.filter { it.id in ids }
 
     override fun getAll(): Flow<List<Exercise>> = unsupported()
 

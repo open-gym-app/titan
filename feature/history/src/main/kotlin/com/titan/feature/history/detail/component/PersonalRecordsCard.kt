@@ -57,7 +57,7 @@ private fun RecordRow(
     record: PersonalRecord,
     modifier: Modifier = Modifier,
 ) {
-    val kind = record.type.label()
+    val kind = record.label()
     val value = record.formattedValue()
     val date = formatDayAndMonth(record.achievedAt)
 

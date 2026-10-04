@@ -516,7 +516,7 @@ private fun RecordToBeat(
     modifier: Modifier = Modifier,
 ) {
     val value = record.formattedValue() ?: return
-    val kind = record.type.label()
+    val kind = record.label()
     val text = stringResource(R.string.active_record_to_beat, kind, value)
     val spoken = stringResource(CoreR.string.pr_value_description, kind, value)
 

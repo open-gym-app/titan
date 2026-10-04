@@ -53,6 +53,27 @@ internal fun formatNumber(
 ): String = numberFormat(maxFractionDigits, grouping).format(value.withoutNegativeZero(maxFractionDigits))
 
 /**
+ * A fixed-point figure — [unscaled] with [scale] digits after the point — as text in the device's
+ * formatting locale, with exactly [scale] decimals: `300` at scale 1 is `30.0`, or `30,0`.
+ *
+ * The counterpart of [formatNumber] for a figure that is computed in whole numbers and never
+ * becomes a `Double` on its way to the screen — a speed is worked out in tenths of a kilometre an
+ * hour and handed over as those tenths, so there is no binary fraction for the formatter to round.
+ * ICU formats a `BigDecimal` exactly, digit for digit.
+ *
+ * The decimals are kept even when they are zero, because the figure is read as an instrument
+ * reading on purpose: a speed is `30.0 km/h` beside `28.5 km/h`, and a column of them that
+ * dropped the decimal on the round one would not line up.
+ */
+internal fun formatDecimal(
+    unscaled: Long,
+    scale: Int,
+): String =
+    numberFormat(maxFractionDigits = scale)
+        .apply { minimumFractionDigits = scale }
+        .format(BigDecimal.valueOf(unscaled, scale))
+
+/**
  * The formatter every number in this package is rendered through, and the one
  * `MeasureFormats.kt` hands to `MeasureFormat` so a unit's number is written the way a bare
  * one is.

@@ -216,6 +216,8 @@ class FakeExerciseCatalogue(private val exercises: List<Exercise> = emptyList())
 
     override fun getById(id: Long): Flow<Exercise?> = MutableStateFlow(exercises.find { it.id == id })
 
+    override suspend fun getByIds(ids: Collection<Long>): List<Exercise> = exercises.filter { it.id in ids }
+
     override fun getAll(): Flow<List<Exercise>> = MutableStateFlow(exercises)
 
     override fun getAllMuscleGroupLinks(): Flow<Map<Long, List<ExerciseMuscleGroupLink>>> = unsupported()
@@ -398,6 +400,8 @@ class FakeRecordStore(records: List<PersonalRecordEntry> = emptyList()) : Person
 
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = unsupported()
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = unsupported()
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = unsupported()
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = unsupported()
     override fun getRecordTally(days: ClosedRange<LocalDate>): Flow<RecordTally> = unsupported()
     override suspend fun count(): Int = unsupported()
     override suspend fun insertIfBetter(
@@ -550,6 +554,10 @@ class FakeQuestRecords : PersonalRecordRepository {
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> = unused()
 
     override fun getRecordsForExercise(exerciseId: Long): Flow<List<PersonalRecord>> = unused()
+
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> = unused()
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> = unused()
 
     override suspend fun count(): Int = unused()
 

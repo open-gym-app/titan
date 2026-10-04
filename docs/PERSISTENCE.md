@@ -55,7 +55,7 @@ The baseline exercise library is **generated, not hand-written**. `tools/seed/ge
 
 | Asset | Contents |
 | --- | --- |
-| `core/data/src/main/assets/seed/exercises.sql` | 17 muscle groups, 6 system tags, 873 exercises, 2 574 muscle links, 1 630 tag links |
+| `core/data/src/main/assets/seed/exercises.sql` | 17 muscle groups, 9 system tags, 873 exercises, 2 574 muscle links, 1 722 tag links |
 | `core/data/src/main/assets/seed/images/*.webp` | One 400 px photo per exercise, ~8 MB total, referenced by `exercise.icon` |
 
 | Command | Effect |
@@ -80,7 +80,7 @@ Exercise, muscle-group and tag ids are **written explicitly** by the generated S
 | `is_unilateral` | *derived* | Inferred from name markers (`One-Arm`, `Single-Leg`, `Alternating`, …); no marker means the `false` default, never a guess |
 | `icon` | `images[0]` | Asset-relative path to the bundled WebP |
 | `exercise_muscle_group` | `primaryMuscles`, `secondaryMuscles` | Exactly one `is_primary` row per exercise, enforced by the generator and by `DatabaseSeedTest` |
-| `exercise_tag` | `force`, `mechanic` | Links to the seeded `PUSH`/`PULL`/`STATIC` and `COMPOUND`/`ISOLATION` system tags |
+| `exercise_tag` | `force`, `mechanic`, `category`, `name` | Links to the seeded `PUSH`/`PULL`/`STATIC` and `COMPOUND`/`ISOLATION` system tags; `DYNAMIC` for the stretches and plyometrics that travel (#214); `SPEED` for the cardio rides, rows and skates and `SWIM` for the swims, read off the name - how a best pace is shown (#225) |
 
 Every upstream field is imported except the second of each exercise's two photos. `machine_brand`, `default_rest` and `notes` stay NULL rather than being fabricated: all three belong to the user, not the catalogue.
 
@@ -132,7 +132,7 @@ Other invariants:
 | --- | --- | --- |
 | `exercise` | `(name, equipment_type, machine_brand)` unique | Keeps PRs separate per machine brand. SQLite treats NULLs as distinct, so rows with a NULL brand do **not** collide with each other |
 | `muscle_group` | `name` unique | 17 seeded values |
-| `tag` | `name` unique | 6 seeded system tags, plus user tags |
+| `tag` | `name` unique | 9 seeded system tags, plus user tags |
 | `session_exercise` | `(session_id, position)` unique | Reordering must not transiently duplicate a position - `SessionExerciseDao.rewriteLayout` parks every row it is about to move at a negative position first, in one transaction, so no intermediate state has two exercises on one |
 | `template_exercise` | `(template_id, position)` unique | Same |
 | `template_set` | `(template_exercise_id, set_number)` unique | Numbered from 1. Unique here where `workout_set` is not, because a template's body is replaced wholesale rather than renumbered in place |
@@ -197,6 +197,8 @@ The aggregates in `WorkoutSetDao`, `WorkoutSessionDao` and `PersonalRecordDao` r
 | `PersonalRecordDao.getRecentRecords` | `personal_record(achieved_at)` |
 | `PersonalRecordDao.getByExercise` | `personal_record(exercise_id, achieved_at)` |
 | `PersonalRecordDao.getHeadlineRecords` | `personal_record(exercise_id, achieved_at)`, **and its query shape** - see below |
+| `PersonalRecordDao.getBySession` | `session_exercise(session_id)`, `workout_set(session_exercise_id)`, `personal_record(workout_set_id)` |
+| `PersonalRecordDao.observeSessionIdsWithRecords` | the `workout_set` and `session_exercise` primary keys, one lookup each per record |
 | `PersonalRecordDao.getRecordsPage` | `personal_record(achieved_at)` for the page, `(exercise_id, achieved_at)` for the improvement, **and its query shape** - see below |
 | `ExerciseDao.getAllMuscleGroupLinks` | `exercise_muscle_group(exercise_id, muscle_group_id)` (the composite primary key) |
 | `BodyMeasurementDao.getAll` / `getLatest` | `body_measurement(created_at)` |
@@ -356,4 +358,4 @@ The format itself is specified in [export-schema.md](export-schema.md); what bel
 - Restoring by replacing the database file is only safe when the file's version is one the app can migrate; prefer a row-level import that goes through Room.
 - Enum-like columns, set bounds, dense set numbering, the superset rules and `body_measurement`'s all-null rule are the domain's invariants and not the schema's, so an importer has to decide what to do about them. What this app's importer decides is to **preserve them verbatim** and refuse only what SQLite itself would refuse - a value from a newer version is a record rather than a corruption, exactly as the `achievement` and `collected_item` bullets require. That decision is argued in [export-schema.md](export-schema.md), not here.
 
-**"Match on natural keys and remap ids" is a rule about a *merge*, and this app's import does not merge.** It wipes every table and re-inserts the document, so the file's ids are the only ids afterwards and every foreign key in it still resolves to the row it was written against; remapping would buy nothing and would need a conflict rule per table. The same goes for the reference data: the 17 muscle groups and 6 system tags are carried in the file and restored from it rather than resolved by name against the target install, because the seed is *not* replayed during an import - replaying it would leave every seeded row the file does not contain still in the table. A future consumer that does merge - a sync - is back under the original rule, which is why it is stated rather than deleted.
+**"Match on natural keys and remap ids" is a rule about a *merge*, and this app's import does not merge.** It wipes every table and re-inserts the document, so the file's ids are the only ids afterwards and every foreign key in it still resolves to the row it was written against; remapping would buy nothing and would need a conflict rule per table. The same goes for the reference data: the 17 muscle groups and 9 system tags are carried in the file and restored from it rather than resolved by name against the target install, because the seed is *not* replayed during an import - replaying it would leave every seeded row the file does not contain still in the table. A future consumer that does merge - a sync - is back under the original rule, which is why it is stated rather than deleted.

@@ -4,6 +4,7 @@ import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.domain.model.PersonalRecordEntry
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.RecordTally
+import com.titan.core.domain.model.rankedFigure
 import com.titan.core.domain.repository.PersonalRecordRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -106,6 +107,13 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
                 .sortedByDescending(PersonalRecord::achievedAt)
         }
 
+    /** Unsupported: this fake holds no sessions to say which set belongs to which. */
+    override fun getRecordsForSession(sessionId: Long): Flow<List<PersonalRecord>> =
+        throw UnsupportedOperationException("this fake holds no sessions")
+
+    override fun observeSessionsWithRecords(): Flow<Set<Long>> =
+        throw UnsupportedOperationException("this fake holds no sessions")
+
     override fun getHeadlineRecords(): Flow<Map<Long, PersonalRecord>> =
         records.map { rows ->
             rows.groupBy(PersonalRecord::exerciseId).mapValues { (_, group) ->
@@ -176,8 +184,8 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
 
     /**
      * The figure [record] beat: the previous row of its exercise and type, read through the
-     * same `when` [PersonalRecordEntry.value] uses so the two cannot disagree about which
-     * column a kind's figure lives in.
+     * same [rankedFigure] the engine compares on, so the two cannot disagree about which column
+     * a kind's figure lives in — or that a pace is a ratio rather than a column.
      */
     private fun previousValueOf(record: PersonalRecord): Long? =
         records.value
@@ -187,11 +195,7 @@ class FakePersonalRecordRepository : PersonalRecordRepository {
                     it.achievedAt < record.achievedAt
             }
             .maxByOrNull(PersonalRecord::achievedAt)
-            ?.let { previous -> previous.asEntry().value }
-
-    /** A record as a bare row, so its own figure can be read through the model's `when`. */
-    private fun PersonalRecord.asEntry() =
-        PersonalRecordEntry(record = this, exerciseName = null, previousValue = null, isRecent = false)
+            ?.rankedFigure
 }
 
 /** What a day is, in the milliseconds a record's `achievedAt` is stored in. */

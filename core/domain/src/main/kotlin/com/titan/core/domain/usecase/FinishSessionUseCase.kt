@@ -75,11 +75,10 @@ import java.time.Instant
  * Holding a lifecycle mutex across a call into the notification system would serialise every
  * later transition behind an IPC for no gain.
  *
- * @param completeSession the cascade, or **null** to close sessions out without one. Null is
- *   not a test seam: [com.titan.core.domain.repository.GamificationRepository] has no
- *   implementation until #35 lands, so there is nothing for DI to build a pipeline out of yet
- *   and the app wires this without one — which is exactly the behaviour it has today. The
- *   binding becomes non-optional when there is something to bind.
+ * @param completeSession the cascade, or **null** to close sessions out without one. The app
+ *   always passes one — `SessionUseCaseModule` binds it non-optionally, since a workout that
+ *   silently pays nothing is the failure this would otherwise hide. Null is for the tests of the
+ *   lifecycle itself, which are about the session row and not about what finishing it earns.
  * @param announce what says the payoff out loud, or **null** to close sessions out silently.
  *   Null for the same reason [completeSession] is: a caller with no cascade has no progression
  *   to announce, and one that does not care to announce should not have to supply a no-op.

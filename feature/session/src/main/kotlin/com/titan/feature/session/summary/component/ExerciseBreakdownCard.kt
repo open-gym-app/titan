@@ -117,7 +117,7 @@ private fun ExerciseRow(
                 // The record's second appearance, after its own card. The card answers "what
                 // did I beat"; this answers "which of these was it", which is the question a
                 // reader has while looking at the list.
-                if (row.record != null) PrBadge(type = row.record.type)
+                if (row.record != null) PrBadge(kind = row.record.label())
             }
             if (meta != null) {
                 Text(
@@ -203,7 +203,7 @@ private fun SummaryExerciseRow.spokenDescription(
         spokenReps(),
         *timedParts().toTypedArray(),
         topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) },
-        record?.let { stringResource(CoreR.string.pr_description, it.type.label()) },
+        record?.let { stringResource(CoreR.string.pr_description, it.label()) },
     ).joinToString(stringResource(CoreR.string.spoken_separator))
 
 /** `8 to 10 reps`, or `10 reps`, or nothing for an exercise that logs none. */

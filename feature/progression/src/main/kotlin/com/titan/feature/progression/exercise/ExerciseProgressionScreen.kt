@@ -30,6 +30,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseProgression
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.EmptyState
 import com.titan.core.ui.component.Eyebrow
@@ -274,7 +275,10 @@ private fun Readings(
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.section)) {
-        ExerciseRecordCards(progression = progression)
+        ExerciseRecordCards(
+            progression = progression,
+            exerciseType = state.exercise?.type ?: ExerciseType.STRENGTH,
+        )
 
         when (state.emptiness) {
             ExerciseEmptiness.QUIET_PERIOD -> EmptyState(

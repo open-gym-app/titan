@@ -185,8 +185,6 @@
 
     <!-- Marks records set in the most recently finished session. -->
     <string name="records_new_badge">New</string>
-    <!-- How much a record beat the one before it. %1$s carries its own unit. -->
-    <string name="records_improvement">+%1$s</string>
     <!-- A record whose exercise has been removed from the catalogue since. The record still
          stands, so the row is drawn with this rather than dropped. -->
     <string name="records_unknown_exercise">Removed exercise</string>

@@ -3,6 +3,7 @@ package com.titan.core.domain.usecase
 import com.titan.core.domain.gamification.Achievements
 import com.titan.core.domain.gamification.DropRates
 import com.titan.core.domain.gamification.DropTableEvaluator
+import com.titan.core.domain.integration.FakeExerciseRepository
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.FinishOrigin
 import com.titan.core.domain.model.SessionError
@@ -43,7 +44,14 @@ class FinishSessionUseCaseTest {
      * same one with and without something listening for its result.
      */
     private val cascade = SessionCompletionPipeline(
-        detectPersonalRecords = PrDetectionUseCase(sessions, personalRecords, FakeUserPreferencesRepository()),
+        detectPersonalRecords = PrDetectionUseCase(
+            sessionRepository = sessions,
+            // Empty: an exercise the catalogue does not hold is judged as a lift, which is what
+            // every set in this suite is.
+            exerciseRepository = FakeExerciseRepository(),
+            personalRecordRepository = personalRecords,
+            userPreferencesRepository = FakeUserPreferencesRepository(),
+        ),
         awardXp = awardXp,
         triggerAchievements = AchievementTriggerUseCase(gamification, awardXp),
         // Over an empty catalogue: this suite is about finishing a session, not about what a
