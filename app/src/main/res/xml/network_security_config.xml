@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      The app opens no sockets and holds no INTERNET permission (#48). This is the second lock on
+      that door: an empty trust-anchors list means no certificate authority is trusted, so a
+      library that starts speaking TLS later fails on its first request instead of quietly
+      shipping data, and cleartext is refused outright. Opening a connection on purpose is a
+      change to this file and to the permission list together, reviewed as one.
+    -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors />
+    </base-config>
+</network-security-config>
