@@ -22,7 +22,9 @@ import com.titan.core.ui.component.HairlineDivider
 import com.titan.core.ui.component.PrBadge
 import com.titan.core.ui.component.TitanCard
 import com.titan.core.ui.component.label
+import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatCount
+import com.titan.core.ui.format.formatDistance
 import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
@@ -130,26 +132,42 @@ private fun ExerciseRow(
 }
 
 /**
- * `4 × 8-10 · 80 kg max`, or the half of it the exercise has.
+ * `4 × 8-10 · 80 kg max`, `1 set · 5 km · 27:14`, or the part of it the exercise has.
  *
- * Both halves are optional and for different reasons. A timed hold or a distance logs no reps,
- * so there is no range to show; a bodyweight or cardio exercise carries no weight, and `0 kg`
- * is a load nobody lifted. An exercise with neither — a set of pull-ups logged as done and
- * nothing else — draws no line at all rather than a bare set count with two separators around
- * it.
+ * Every part is optional and for different reasons. A timed hold or a distance logs no reps,
+ * so there is no range to show — it is quoted by its set count, the ground it covered and how
+ * long it lasted instead (#M7-17); a bodyweight or cardio exercise carries no weight, and
+ * `0 kg` is a load nobody lifted. An exercise with none of it — a set of pull-ups logged as done
+ * and nothing else — draws no line at all rather than a bare set count with two separators
+ * around it.
  */
 @Composable
 @ReadOnlyComposable
 private fun SummaryExerciseRow.metaLine(): String? {
     val sets = repRange()?.let { stringResource(R.string.summary_exercise_sets, setCount, it) }
+    val timed = timedParts()
+    val counted = when {
+        sets != null -> listOf(sets)
+
+        timed.isNotEmpty() ->
+            listOf(pluralStringResource(R.plurals.summary_exercise_description_sets, setCount, setCount)) + timed
+
+        else -> emptyList()
+    }
     val top = topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) }
 
-    return when {
-        sets != null && top != null -> stringResource(R.string.summary_exercise_meta, sets, top)
-        sets != null -> sets
-        else -> top
-    }
+    return (counted + listOfNotNull(top))
+        .reduceOrNull { line, part -> stringResource(R.string.summary_exercise_meta, line, part) }
 }
+
+/** `5 km`, `27:14` — the distance and the time, each where there is any, for a timed exercise. */
+@Composable
+@ReadOnlyComposable
+private fun SummaryExerciseRow.timedParts(): List<String> =
+    listOfNotNull(
+        distance.takeIf { it > 0 }?.let { formatDistance(it) },
+        timedSeconds.takeIf { it > 0 }?.let(::formatClockValue),
+    )
 
 /** `8-10`, or `10` when every set hit the same number, or null for an exercise with no reps. */
 @Composable
@@ -183,6 +201,7 @@ private fun SummaryExerciseRow.spokenDescription(
         stringResource(R.string.summary_exercise_description_position, position, name),
         pluralStringResource(R.plurals.summary_exercise_description_sets, setCount, setCount),
         spokenReps(),
+        *timedParts().toTypedArray(),
         topWeight?.let { stringResource(R.string.summary_exercise_top_weight, formatWeight(it)) },
         record?.let { stringResource(CoreR.string.pr_description, it.type.label()) },
     ).joinToString(stringResource(CoreR.string.spoken_separator))

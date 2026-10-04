@@ -3,6 +3,7 @@ package com.titan.core.data.repository
 import com.titan.core.data.db.dao.WorkoutSessionDao
 import com.titan.core.data.db.dao.WorkoutSetDao
 import com.titan.core.data.db.entity.WorkoutSetEntity
+import com.titan.core.data.db.projection.ExerciseAttemptRow
 import com.titan.core.data.mapper.WorkoutSetMapper
 import com.titan.core.domain.model.AttemptSet
 import com.titan.core.domain.model.ExerciseAttempt
@@ -109,9 +110,9 @@ class ProgressionRepositoryImpl @Inject constructor(
     /**
      * The attempts, straight from the roll-up.
      *
-     * The only shaping is the top set: two nullable columns become one nullable [AttemptSet],
-     * and a row carrying neither a weight nor a rep count becomes **null** rather than a pair
-     * of nulls — see [AttemptSet], whose two callers both need the pair or neither of it.
+     * The only shaping is the top set: four nullable columns become one nullable [AttemptSet],
+     * and a row carrying none of them becomes **null** rather than a set of nulls — see
+     * [AttemptSet], whose callers need a set to quote or nothing at all.
      */
     override fun getExerciseAttempts(
         exerciseId: Long,
@@ -128,7 +129,9 @@ class ProgressionRepositoryImpl @Inject constructor(
                     finishedAt = row.finishedAt,
                     sets = row.setCount,
                     volume = row.totalVolume,
-                    topSet = topSetOf(row.topSetWeight, row.topSetReps),
+                    timedSeconds = row.timedSeconds,
+                    distance = row.totalDistance,
+                    topSet = row.topSet(),
                     firstSetAt = row.firstSetAt,
                 )
             }
@@ -170,8 +173,10 @@ class ProgressionRepositoryImpl @Inject constructor(
         }
 
     /** A top set worth quoting, or null when the row carries nothing to quote it by. */
-    private fun topSetOf(
-        weight: Long?,
-        reps: Int?,
-    ): AttemptSet? = if (weight == null && reps == null) null else AttemptSet(weight = weight, reps = reps)
+    private fun ExerciseAttemptRow.topSet(): AttemptSet? =
+        AttemptSet(weight = topSetWeight, reps = topSetReps, duration = topSetDuration, distance = topSetDistance)
+            .takeIf { it != NOTHING_TO_QUOTE }
 }
+
+/** A top set with none of its four figures — what a row with no set worth quoting reads as. */
+private val NOTHING_TO_QUOTE = AttemptSet(weight = null, reps = null, duration = null, distance = null)

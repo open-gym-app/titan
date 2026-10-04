@@ -84,6 +84,8 @@ internal fun HistoryList(
                     duration = session.duration,
                     totalSets = session.totalSets,
                     totalVolume = session.totalVolume,
+                    timedSeconds = session.timedSeconds,
+                    totalDistance = session.totalDistance,
                     hasRecord = session.hasRecord,
                     isToday = session.isToday,
                     // Left to the compiler: under strong skipping a lambda over stable captures

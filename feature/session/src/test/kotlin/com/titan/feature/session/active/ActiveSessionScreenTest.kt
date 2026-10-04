@@ -19,6 +19,7 @@ import androidx.compose.ui.test.SemanticsMatcher.Companion.expectValue
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -423,23 +424,115 @@ class ActiveSessionScreenTest {
         scrollToText("Complete set 3").assertIsNotEnabled()
     }
 
+    // ─── Timed exercises (#M7-17) ─────────────────────────────────────────────────────────
+
     @Test
-    fun `an exercise logged by duration says so instead of offering a tick that cannot work`() {
-        // A plank's completed set has to record a duration, and this row is a weight and a rep
-        // count. Every set logged against it would come back refused, so neither the tick nor
-        // the button is live and the card says why.
+    fun `a plank draws a time field and a stopwatch, and no rep field`() {
+        setScreen(state(exercises = listOf(plankRow())))
+
+        scrollToDescription("Time, set 1").assertIsDisplayed()
+        scrollToDescription("Added weight, set 1").assertIsDisplayed()
+        scrollToDescription("Start timer, set 1").assertIsDisplayed().assertIsEnabled()
+        composeTestRule.onAllNodesWithContentDescription("Reps, set 1").assertCountEquals(0)
+    }
+
+    @Test
+    fun `typing a hold's time reports it, and a typed time arms the tick`() {
+        setScreen(state(exercises = listOf(plankRow(entry = SetEntry(duration = "1:30")))))
+
+        scrollToField("Time, set 1", "1:30").performTextReplacement("1:45")
+
+        assertEquals(ActiveSessionEvent.DurationChanged(BENCH_ROW, "1:45"), events.last())
+        scrollToText("Complete set 1").assertIsEnabled()
+        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsEnabled()
+    }
+
+    @Test
+    fun `a hold with no time yet leaves the tick inert`() {
+        setScreen(state(exercises = listOf(plankRow(entry = SetEntry(weight = "10")))))
+
+        scrollToText("Complete set 1").assertIsNotEnabled()
+        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the stopwatch starts on a tap`() {
+        setScreen(state(exercises = listOf(plankRow())))
+        scrollToDescription("Start timer, set 1").performClick()
+        assertEquals(ActiveSessionEvent.StopwatchStarted(BENCH_ROW), events.last())
+    }
+
+    @Test
+    fun `a running stopwatch shows its reading and the control that stops it`() {
+        setScreen(
+            state(exercises = listOf(plankRow())).copy(timedExerciseId = BENCH_ROW),
+            clocks = SessionClocks(stopwatch = 47.seconds),
+        )
+
+        // The figure is drawn and not spoken on its own — the stop control says it, once, which
+        // is when it matters. See `HoldStopwatch`.
+        scrollToDescription("Stop timer, set 1, 0:47 elapsed")
+            .assertIsDisplayed()
+            .assertHeightIsAtLeast(48.dp)
+            .performClick()
+        assertEquals(ActiveSessionEvent.StopwatchStopped(BENCH_ROW), events.last())
+    }
+
+    @Test
+    fun `a second passing redraws the stopwatch and the header with the state untouched`() {
+        // The clocks are read where they are drawn rather than handed down in the state — see
+        // `SessionClocks` — so they have to move without the state they sit beside moving.
+        var clocks by mutableStateOf(SessionClocks(elapsed = 10.minutes, stopwatch = 47.seconds))
+        val state = state(exercises = listOf(plankRow())).copy(timedExerciseId = BENCH_ROW)
+        composeTestRule.setContent {
+            TitanTheme {
+                ActiveSessionScreen(state = state, onEvent = events::add, clocks = { clocks })
+            }
+        }
+
+        clocks = SessionClocks(elapsed = 10.minutes + 1.seconds, stopwatch = 48.seconds)
+
+        scrollToDescription("Stop timer, set 1, 0:48 elapsed").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Elapsed 0:10:01", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun `a hold timed on another exercise leaves this one's stopwatch inert`() {
+        setScreen(
+            state(exercises = listOf(plankRow())).copy(timedExerciseId = INCLINE_ROW),
+            clocks = SessionClocks(stopwatch = 12.seconds),
+        )
+
+        scrollToDescription("Start timer, set 1").assertIsNotEnabled()
+    }
+
+    @Test
+    fun `a run draws distance and time, a logged run reads back in them, and it has no stopwatch`() {
+        val run = benchRow(
+            sets = listOf(LoggedSet(id = 1L, entry = SetEntry(distance = "5", duration = "27:14"), isCompleted = true)),
+            entry = SetEntry(duration = "30:00"),
+        ).copy(exercise = BENCH.copy(name = "Running, Outdoor", type = ExerciseType.ENDURANCE))
+        setScreen(state(exercises = listOf(run)))
+
+        scrollToField("Distance in km, set 1", "5").assertIsDisplayed()
+        scrollToField("Time, set 1", "27:14").assertIsDisplayed()
+        scrollToDescription("Distance in km, set 2").assertIsDisplayed()
+        // A time alone is a complete run.
+        scrollToText("Complete set 2").assertIsEnabled()
+        composeTestRule.onAllNodesWithContentDescription("Start timer, set 2").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a malformed time is refused in the screen's own words`() {
         setScreen(
             state(
                 exercises = listOf(
-                    benchRow(sets = emptyList(), entry = SetEntry(weight = "0", reps = "60"))
-                        .copy(exercise = BENCH.copy(type = ExerciseType.ISOMETRIC)),
+                    plankRow(entry = SetEntry(duration = "1.5", error = SetEntryError.DurationNotATime)),
                 ),
             ),
         )
 
-        scrollTo(hasText("Timed exercise", substring = true)).assertIsDisplayed()
-        scrollToText("Complete set 1").assertIsNotEnabled()
-        composeTestRule.onNode(tick(setNumber = 1, completed = false)).assertIsNotEnabled()
+        scrollToText("That time is not a time — type it as 1.30 or 1.05.30").assertIsDisplayed()
     }
 
     @Test
@@ -1372,7 +1465,7 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the rest sheet shows the countdown and the set that ends it`() {
-        setScreen(resting())
+        setScreen(resting(), clocks = restingClocks())
 
         // Twice over: the sheet's figure and the header's pill behind it, which have to be the
         // same reading — two clocks for one rest, one of them rounded the other way, is the bug
@@ -1384,7 +1477,7 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the sheet's controls move the countdown, and its button ends it`() {
-        setScreen(resting())
+        setScreen(resting(), clocks = restingClocks())
 
         composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds").invoke()
         composeTestRule.onNodeWithContentDescription("Shorten the rest by 15 seconds").invoke()
@@ -1402,7 +1495,7 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `dismissing the sheet asks for it to be hidden, and not for the rest to end`() {
-        setScreen(resting())
+        setScreen(resting(), clocks = restingClocks())
 
         // The scrim, which is what a tap outside the sheet and a swipe down both land on.
         composeTestRule.onNodeWithContentDescription("Close sheet").invoke()
@@ -1414,19 +1507,40 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `the sheet waits for its countdown rather than opening on a zeroed clock`() {
+        // The flag is the screen state's and the countdown the clocks', on two flows, so a rest
+        // that has just started can raise the one a frame before the other arrives.
+        val clocks = mutableStateOf(SessionClocks())
+        composeTestRule.setContent {
+            TitanTheme {
+                ActiveSessionScreen(state = resting(), onEvent = events::add, clocks = { clocks.value })
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds").assertDoesNotExist()
+
+        clocks.value = restingClocks()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds").assertExists()
+    }
+
+    @Test
     fun `a rest that ends takes the sheet off screen, and does not strand it there`() {
         // The sheet is not dropped straight out of composition any more — it is asked to hide
         // and stays composed until the animation is done, which is what makes a skip and an
         // expiry slide down instead of blinking out. This is the other half of that: a hide
         // that never completed would leave a panel sitting over the workout for good.
         val state = mutableStateOf(resting())
+        val clocks = mutableStateOf(restingClocks())
         composeTestRule.setContent {
             TitanTheme {
-                ActiveSessionScreen(state = state.value, onEvent = events::add)
+                ActiveSessionScreen(state = state.value, onEvent = events::add, clocks = { clocks.value })
             }
         }
 
-        state.value = state.value.copy(rest = RestTimerState.Finished, isRestSheetOpen = false)
+        state.value = state.value.copy(isRestSheetOpen = false)
+        clocks.value = clocks.value.copy(rest = RestTimerState.Finished)
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithContentDescription("Extend the rest by 15 seconds")
@@ -1435,7 +1549,7 @@ class ActiveSessionScreenTest {
 
     @Test
     fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
-        setScreen(resting().copy(isRestSheetOpen = false))
+        setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
 
         // With the sheet away the pill is the live region, and a live region says the
         // quarter-minute — "1:30", not "1:23" — because what it says is what it announces every
@@ -1583,13 +1697,14 @@ class ActiveSessionScreenTest {
         state: ActiveSessionUiState,
         fontScale: Float = 1f,
         widthDp: Int? = null,
+        clocks: SessionClocks = SessionClocks(elapsed = 23.minutes + 14.seconds),
     ) {
         composeTestRule.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                 TitanTheme {
                     Box(modifier = if (widthDp != null) Modifier.width(widthDp.dp) else Modifier) {
-                        ActiveSessionScreen(state = state, onEvent = events::add)
+                        ActiveSessionScreen(state = state, onEvent = events::add, clocks = { clocks })
                     }
                 }
             }
@@ -1633,7 +1748,6 @@ class ActiveSessionScreenTest {
         header: ActiveSessionHeader? = ActiveSessionHeader(
             name = "Push day · Upper",
             startedAt = STARTED_AT,
-            elapsed = 23.minutes + 14.seconds,
             progress = SessionProgress.of(completed = 1, total = 3),
         ),
     ) = ActiveSessionUiState(
@@ -1746,13 +1860,26 @@ class ActiveSessionScreenTest {
     private fun SemanticsNodeInteraction.invoke(): SemanticsNodeInteraction =
         performSemanticsAction(SemanticsActions.OnClick)
 
-    /** The push day, mid-rest, with the sheet up over it. */
+    /** The push day, mid-rest, with the sheet up over it. The countdown is [restingClocks]. */
     private fun resting() =
         state().copy(
-            rest = RestTimerState.Running(remaining = 83.seconds, total = 2.minutes),
             isRestSheetOpen = true,
             restTarget = RestTarget(weight = 80_000_000L, reps = 5),
         )
+
+    /** The countdown [resting] is in the middle of, read beside it as the screen reads it. */
+    private fun restingClocks() =
+        SessionClocks(
+            elapsed = 23.minutes + 14.seconds,
+            rest = RestTimerState.Running(remaining = 83.seconds, total = 2.minutes),
+        )
+
+    /** The bench's slot holding a plank instead, with nothing logged against it yet. */
+    private fun plankRow(entry: SetEntry = SetEntry()) =
+        benchRow(
+            sets = emptyList(),
+            entry = entry,
+        ).copy(exercise = BENCH.copy(name = "Plank", type = ExerciseType.ISOMETRIC))
 
     /** The bench press, first in the workout, two sets in. */
     private fun benchRow(

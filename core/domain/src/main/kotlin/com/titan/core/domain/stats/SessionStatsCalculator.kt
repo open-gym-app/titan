@@ -40,6 +40,8 @@ object SessionStatsCalculator {
                     sessionExerciseId = sessionExerciseId,
                     totalSets = exerciseSets.size,
                     totalVolume = VolumeCalculator.totalVolume(exerciseSets),
+                    timedSeconds = TimedWorkCalculator.totalDuration(exerciseSets),
+                    totalDistance = TimedWorkCalculator.totalDistance(exerciseSets),
                 )
             }
 
@@ -48,18 +50,13 @@ object SessionStatsCalculator {
             totalVolume = breakdown.sumOf(ExerciseStats::totalVolume),
             durationSeconds = durationSeconds(startedAt, endedAt),
             exerciseBreakdown = breakdown,
+            timedSeconds = breakdown.sumOf(ExerciseStats::timedSeconds),
+            totalDistance = breakdown.sumOf(ExerciseStats::totalDistance),
         )
     }
 
-    /**
-     * How long the window `[startedAt, endedAt]` is, in whole seconds.
-     *
-     * Exposed because a live session's clock moves once a second while its sets do not, and a
-     * caller that redrew the clock by re-running [calculate] would roll every set of the workout
-     * up again to change one number. It answers that caller with the arithmetic [calculate]
-     * itself uses, rather than leaving the same expression written out in two places to drift.
-     */
-    fun durationSeconds(
+    /** How long the window `[startedAt, endedAt]` is, in whole seconds. */
+    private fun durationSeconds(
         startedAt: Long,
         endedAt: Long,
     ): Long = (endedAt - startedAt).coerceAtLeast(0) / MILLIS_PER_SECOND

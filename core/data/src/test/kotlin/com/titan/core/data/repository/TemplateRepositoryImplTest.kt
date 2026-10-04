@@ -79,6 +79,27 @@ class TemplateRepositoryImplTest : RoomTestBase() {
         }
 
     @Test
+    fun `a timed plan survives the round trip with its times and distances`() =
+        runBlocking {
+            // `3 × 0:45` of a plank and a `5 km` run (#M7-17), written into `template_set` and
+            // read back as the same plan.
+            val plank = catalogueExercise("Plank")
+            val run = catalogueExercise("Running, Outdoor")
+            val holds = List(3) { PlannedSet(duration = 45) }
+            val runs = listOf(PlannedSet(duration = 1_800, distance = 500_000))
+
+            val id = repository.insert(
+                WorkoutTemplate(name = "Core and a run"),
+                listOf(
+                    TemplateExerciseDraft(exerciseId = plank, sets = holds),
+                    TemplateExerciseDraft(exerciseId = run, sets = runs),
+                ),
+            )
+
+            assertEquals(listOf(holds, runs), repository.getExercises(id).first().map { it.sets })
+        }
+
+    @Test
     fun `replacing a template replaces the sets its exercises planned`() =
         runBlocking {
             val bench = catalogueExercise("Bench")

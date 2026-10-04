@@ -158,7 +158,8 @@ Text(
 
   | Component | Draws | Takes |
   | --- | --- | --- |
-  | `SetLogRow` | a set as a row of fields — weight, reps, RPE, set type, tick, inline validation, and what the same set did last time. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, plus an optional `onCommit` and an optional `PreviousSet` |
+  | `SetLogRow` | a set as a row of fields — two value fields chosen by the exercise's logging mode (weight and reps, distance and time, or a hold's time and added weight), RPE, set type, tick, inline validation, and what the same set did last time. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, an `ExerciseType` and a `DistanceUnit`, plus an optional `onCommit`, an optional `PreviousSet` and an optional `footer` |
+  | `HoldStopwatch` | the start/stop control under a hold's entry row, and its reading while it runs. Stopping it fills the time field; it never logs the set | the set number and the elapsed `Duration`, or null when stopped |
   | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
   | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
   | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
@@ -170,7 +171,7 @@ Text(
   | `TemplateCategoryPicker` | the six answers to "what does this train", `None` among them | a `TemplateCategory?` |
   | `ChipSection` | an eyebrow over a wrapping row of chips — a closed vocabulary shown whole rather than scrolled | a label and the chips |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
-  | `SetLogHeader` | the column labels above either of the above | — |
+  | `SetLogHeader` | the column labels above either of the above — `KG REPS`, `KM TIME` or `TIME KG` | the same `ExerciseType` and `DistanceUnit` the rows were given |
   | `SetTargetLine` | what the next set should be and why — `Target 82.5 kg × 8 · +2.5 kg` over the rule in a sentence — as one button that fills the entry row's fields. `SetLogRow` draws it under the row and the same figures as the fields' placeholders when handed a `target`; `formattedFigures` and `reasonText` are the two strings on their own, for the exercise detail's card | `LoadSuggestion` |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
@@ -215,7 +216,14 @@ Text(
   `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
   typed, the set that is a record, and the set that has not happened yet — and they share their
   column grid, which is the point of the component: the weight a template plans and the weight it
-  becomes are the same cell, at the same width, in the same order. A caller has to pass the same
+  becomes are the same cell, at the same width, in the same order. **Which two value cells the
+  grid holds is the exercise's logging mode** (`SetValueFields`): weight and reps for `STRENGTH`,
+  distance and time for `ENDURANCE`, time and an added weight for `ISOMETRIC`. Always two, in the
+  same two cells, so a table of runs lines up under a table of presses and every grid constant
+  holds for all three. A time is typed as `M:SS` or `H:MM:SS` — the decimal pad's full stop
+  stands in for the colon — and parsed by `parseClockSeconds`; a distance is typed in the unit
+  `distanceEntryUnit` picks — kilometres or miles, for every exercise, a pool length as `0.025` —
+  and the caller parses with the same unit it labelled the field with. A caller has to pass the same
   `showPrevious` to `SetLogRow`, `LoggedSetRow` and `SetLogHeader` or the labels stop sitting over
   the cells they name; `PlannedSetRow` has its own header (`PlannedSetHeader`) because it drops
   two columns a plan cannot fill in — the previous performance, and the rating.

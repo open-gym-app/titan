@@ -7,6 +7,7 @@
     <string name="set_log_column_set">Série</string>
     <string name="set_log_column_previous">Ant.</string>
     <string name="set_log_column_reps">Reps</string>
+    <string name="set_log_column_time">Tempo</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the label's initial. -->
@@ -23,6 +24,9 @@
     <string name="set_log_position">%1$s, série %2$d</string>
     <string name="set_log_weight_field">Carga, série %1$d</string>
     <string name="set_log_reps_field">Repetições, série %1$d</string>
+    <string name="set_log_duration_field">Tempo, série %1$d</string>
+    <string name="set_log_distance_field">Distância em %2$s, série %1$d</string>
+    <string name="set_log_added_weight_field">Peso adicional, série %1$d</string>
     <string name="set_log_rpe_value">Esforço percebido, série %1$d, %2$s</string>
     <string name="set_log_rpe_none">Esforço percebido, série %1$d, não informado</string>
     <string name="set_log_previous_value">Anteriormente %1$s</string>
@@ -37,6 +41,11 @@
     </plurals>
     <string name="set_log_weight_and_reps_compact">%1$s×%2$d</string>
     <string name="set_log_reps_only_compact">×%1$d</string>
+
+    <string name="stopwatch_start">Iniciar cronômetro</string>
+    <string name="stopwatch_stop">Parar cronômetro</string>
+    <string name="stopwatch_start_description">Iniciar cronômetro, série %1$d</string>
+    <string name="stopwatch_stop_description">Parar cronômetro, série %1$d, %2$s decorridos</string>
 
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
@@ -222,6 +231,8 @@
     <string name="stat_duration">Duração</string>
     <string name="stat_exercises">Exercícios</string>
     <string name="stat_exercises_unit">feitos</string>
+    <string name="stat_time">Tempo ativo</string>
+    <string name="stat_distance">Distância</string>
     <string name="stat_muscles">Músculos</string>
     <string name="stat_muscles_unit">trabalhados</string>
     <string name="stat_description">%1$s, %2$s</string>

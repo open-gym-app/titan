@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,6 +52,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.LoadSuggestion
 import com.titan.core.domain.model.MILLIGRAMS_PER_KILOGRAM
 import com.titan.core.domain.model.PastPerformance
@@ -86,7 +88,6 @@ import com.titan.feature.session.active.component.CollapsedExerciseRow
 import com.titan.feature.session.active.component.MobilitySuggestionCard
 import com.titan.feature.session.active.component.SessionExerciseCard
 import kotlinx.coroutines.flow.first
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -120,6 +121,9 @@ fun ActiveSessionRoute(
     viewModel: ActiveSessionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    // Handed down as a read rather than a value, so a second passing recomposes the two places
+    // that draw a clock and not this whole destination — see [SessionClocks].
+    val clocks by viewModel.clocks.collectAsStateWithLifecycle()
 
     // Whether anybody is looking at the workout, which is the one thing the idle nudge depends
     // on: a session with its screen in front of the user is not an abandoned session, and one
@@ -186,6 +190,7 @@ fun ActiveSessionRoute(
 
     ActiveSessionScreen(
         state = state,
+        clocks = { clocks },
         onEvent = { event ->
             // Recorded on the way past rather than handled: the ViewModel has nothing to do with
             // either of these, and what they change is which question the picker is about to
@@ -277,6 +282,7 @@ fun ActiveSessionScreen(
     state: ActiveSessionUiState,
     onEvent: (ActiveSessionEvent) -> Unit,
     modifier: Modifier = Modifier,
+    clocks: () -> SessionClocks = { SessionClocks() },
     onPickExercises: (replacing: Boolean) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
@@ -386,13 +392,14 @@ fun ActiveSessionScreen(
         topBar = {
             SessionHeaderBar(
                 name = state.header.title(),
-                elapsed = state.header?.elapsed ?: Duration.ZERO,
+                // Read here, inside the bar's own slot, so the tick recomposes the bar and only it.
+                elapsed = clocks().elapsed,
                 progress = state.header?.progress ?: SessionProgress(),
                 isPaused = state.isPaused,
                 // The countdown, and the way back into a sheet that has been swiped away. It
                 // is the only thing on this screen that changes on its own, so it lives on the
                 // one surface that is never scrolled off.
-                restTimer = state.rest,
+                restTimer = clocks().rest,
                 onRestTimerClick = { onEvent(ActiveSessionEvent.RestSheetRequested) },
                 // The pill reads the rest out only while it is the only readout: with the
                 // sheet up, the sheet's own eyebrow is the live region, and two windows
@@ -424,6 +431,7 @@ fun ActiveSessionScreen(
 
             else -> SessionBody(
                 state = state,
+                clocks = clocks,
                 exercises = exercises,
                 reorder = reorder,
                 canReorder = canReorder,
@@ -449,9 +457,9 @@ fun ActiveSessionScreen(
     // deliberately not on a rest restored as finished, nor on one that was skipped. See
     // `RestExpiryAlert`, which draws nothing and is here rather than inside the sheet because
     // the sheet is the half the user swipes away.
-    RestExpiryAlert(state = state.rest)
+    RestAlert(rest = { clocks().rest })
 
-    RestSheet(state = state, onEvent = onEvent)
+    RestSheet(state = state, rest = { clocks().rest }, onEvent = onEvent)
 
     if (state.confirmingDiscard) {
         DiscardSessionDialog(
@@ -461,6 +469,17 @@ fun ActiveSessionScreen(
             isDiscarding = state.isDiscarding,
         )
     }
+}
+
+/**
+ * [RestExpiryAlert] over the countdown [rest] reads, in a scope of its own.
+ *
+ * A function only so the read has somewhere to happen: made in [ActiveSessionScreen]'s body, it
+ * would recompose the whole screen on every tick of a rest — see [SessionClocks].
+ */
+@Composable
+private fun RestAlert(rest: () -> RestTimerState) {
+    RestExpiryAlert(state = rest())
 }
 
 /**
@@ -484,9 +503,10 @@ fun ActiveSessionScreen(
  *
  * A countdown that reaches zero takes the sheet with it — the rest is finished, and the answer
  * to "what now" is the workout, not a panel saying it is done. Whether the sheet is up is
- * `isRestSheetOpen`'s answer and nothing else's: it is only true over a rest that is still
- * live, and it survives a process restart, which a `SheetState` could not. See
- * `ActiveSessionViewModel.build`.
+ * `isRestSheetOpen`'s answer: it is only true over a rest that is still live, and it survives a
+ * process restart, which a `SheetState` could not. See `ActiveSessionViewModel.build`. The one
+ * thing added here is waiting for the countdown itself, which arrives separately and can be a
+ * frame behind the flag.
  *
  * What this *does* own is the way down. Material animates a swipe out itself and calls
  * `onDismissRequest` afterwards, but the two commonest endings — the skip button and the
@@ -500,15 +520,26 @@ fun ActiveSessionScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 private fun RestSheet(
     state: ActiveSessionUiState,
+    rest: () -> RestTimerState,
     onEvent: (ActiveSessionEvent) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
+
+    // The flag and the countdown come down two flows — see [SessionClocks] — and a rest that has
+    // just started can raise the flag a frame before its countdown reaches [rest]. Opened on
+    // both, so the sheet never slides in showing a zeroed clock. Derived, so this scope hears
+    // when a rest goes live or stops being live, and not each of its seconds.
+    val isRestLive by remember(rest) {
+        derivedStateOf { rest().let { it is RestTimerState.Running || it is RestTimerState.Paused } }
+    }
+    val isOpen = state.isRestSheetOpen && isRestLive
+
     // Composed while the sheet is up *or* on its way down, which is the one thing the screen
     // state cannot say: it went false the moment the rest ended.
-    var onScreen by remember { mutableStateOf(state.isRestSheetOpen) }
+    var onScreen by remember { mutableStateOf(isOpen) }
 
-    LaunchedEffect(state.isRestSheetOpen) {
-        if (state.isRestSheetOpen) {
+    LaunchedEffect(isOpen) {
+        if (isOpen) {
             onScreen = true
         } else if (onScreen) {
             // Best-effort: a sheet asked to hide before it has been laid out has nothing to
@@ -529,13 +560,15 @@ private fun RestSheet(
         dragHandle = { SheetDragHandle() },
     ) {
         RestTimerSheet(
-            state = state.rest,
+            // Read inside the sheet's own content, so a tick of the countdown redraws the sheet
+            // and not the workout under it — see [SessionClocks].
+            state = rest(),
             onAdjust = { onEvent(ActiveSessionEvent.RestAdjusted(it)) },
             onSkip = { onEvent(ActiveSessionEvent.RestSkipped) },
             onTogglePause = { onEvent(ActiveSessionEvent.RestPauseToggled) },
             // What the set that ends this rest is expected to be. Formatted here rather than in
             // the ViewModel because the unit is the ambient one and the "×" is a word.
-            nextSet = state.restTarget?.let { formatSet(it.weight, it.reps) },
+            nextSet = state.restTarget?.let { formatSet(it.weight, it.reps, it.duration, it.distance) },
         )
     }
 }
@@ -551,6 +584,7 @@ private fun RestSheet(
 @Suppress("CyclomaticComplexMethod")
 private fun SessionBody(
     state: ActiveSessionUiState,
+    clocks: () -> SessionClocks,
     exercises: List<SessionExerciseRow>,
     reorder: ReorderState,
     canReorder: Boolean,
@@ -676,6 +710,12 @@ private fun SessionBody(
                             // which is a frame behind while an order is being written.
                             position = index,
                             onEvent = onEvent,
+                            // Which card is being timed changes on a start or a stop; what it reads
+                            // changes every second, and is read inside that card's stopwatch alone.
+                            isHoldTimed = state.timedExerciseId == row.sessionExerciseId,
+                            isHoldTimedElsewhere = state.timedExerciseId
+                                ?.let { it != row.sessionExerciseId } == true,
+                            holdElapsed = { clocks().stopwatch },
                             onRemove = {
                                 onEvent(ActiveSessionEvent.ExerciseRemoved(row.sessionExerciseId))
                             },
@@ -883,7 +923,7 @@ private fun ActiveSessionMessage.labelRes(): Int = when (this) {
 @Composable
 fun ActiveSessionScreenPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        ActiveSessionScreen(state = previewState(), onEvent = {})
+        ActiveSessionScreen(state = previewState(), onEvent = {}, clocks = ::previewClocks)
     }
 }
 
@@ -899,7 +939,7 @@ fun ActiveSessionScreenPreview() {
 @Composable
 fun ActiveSessionScreenLargeFontPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        ActiveSessionScreen(state = previewState(), onEvent = {})
+        ActiveSessionScreen(state = previewState(), onEvent = {}, clocks = ::previewClocks)
     }
 }
 
@@ -907,7 +947,7 @@ fun ActiveSessionScreenLargeFontPreview() {
 @Composable
 fun ActiveSessionScreenDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) {
-        ActiveSessionScreen(state = previewState(), onEvent = {})
+        ActiveSessionScreen(state = previewState(), onEvent = {}, clocks = ::previewClocks)
     }
 }
 
@@ -927,6 +967,7 @@ fun ActiveSessionScreenNoSetsPreview() {
                 message = ActiveSessionMessage.NO_SETS_LOGGED,
             ),
             onEvent = {},
+            clocks = ::previewClocks,
         )
     }
 }
@@ -959,6 +1000,7 @@ fun ActiveSessionScreenEditingPreview() {
                 },
             ),
             onEvent = {},
+            clocks = ::previewClocks,
         )
     }
 }
@@ -971,11 +1013,11 @@ fun ActiveSessionScreenRestingPreview() {
         // pill exists for. The sheet itself is a window of its own and does not render in a
         // preview; `RestTimerSheet`'s own previews in `:core:ui` are where its body is drawn.
         ActiveSessionScreen(
-            state = previewState().copy(
-                rest = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
-                restTarget = RestTarget(weight = 80_000_000L, reps = 5),
-            ),
+            state = previewState().copy(restTarget = RestTarget(weight = 80_000_000L, reps = 5)),
             onEvent = {},
+            clocks = {
+                previewClocks().copy(rest = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds))
+            },
         )
     }
 }
@@ -1012,6 +1054,7 @@ fun ActiveSessionScreenSuggestionsPreview() {
                 ),
             ),
             onEvent = {},
+            clocks = ::previewClocks,
         )
     }
 }
@@ -1020,9 +1063,37 @@ fun ActiveSessionScreenSuggestionsPreview() {
 @Composable
 fun ActiveSessionScreenPausedPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        ActiveSessionScreen(state = previewState().copy(isPaused = true), onEvent = {})
+        ActiveSessionScreen(state = previewState().copy(isPaused = true), onEvent = {}, clocks = ::previewClocks)
     }
 }
+
+/**
+ * A workout of timed exercises: a plank one hold in, with the stopwatch under the hold being
+ * typed, and a run not started yet — the two other shapes an exercise card takes (#M7-17).
+ */
+@Preview(name = "Active session - a hold and a run", showBackground = true, heightDp = 1000)
+@Composable
+fun ActiveSessionScreenTimedPreview() {
+    TitanTheme(theme = ThemePreference.LIGHT) {
+        ActiveSessionScreen(state = previewTimedState(), onEvent = {}, clocks = ::previewClocks)
+    }
+}
+
+/** The same workout with the plank being held: the stopwatch reading, and its stop control. */
+@Preview(name = "Active session - timing a hold, dark", showBackground = true, heightDp = 1000)
+@Composable
+fun ActiveSessionScreenTimingDarkPreview() {
+    TitanTheme(theme = ThemePreference.DARK) {
+        ActiveSessionScreen(
+            state = previewTimedState().copy(timedExerciseId = 5L),
+            onEvent = {},
+            clocks = { previewClocks().copy(stopwatch = 47.seconds) },
+        )
+    }
+}
+
+/** What the header's clock reads in every preview. */
+private fun previewClocks() = SessionClocks(elapsed = 23.minutes + 14.seconds)
 
 /** A push day, three exercises in, with its two accessories run as a superset. */
 private fun previewState(): ActiveSessionUiState =
@@ -1030,7 +1101,6 @@ private fun previewState(): ActiveSessionUiState =
         header = ActiveSessionHeader(
             name = "Push day · Upper",
             startedAt = 1_700_000_000_000L,
-            elapsed = 23.minutes + 14.seconds,
             progress = SessionProgress.of(completed = 2, total = 4),
         ),
         stats = SessionStats(
@@ -1041,6 +1111,48 @@ private fun previewState(): ActiveSessionUiState =
         ),
         exercises = previewExercises(),
         isLoading = false,
+    )
+
+/** A core and conditioning day: a plank with one hold logged, and a run. */
+private fun previewTimedState(): ActiveSessionUiState =
+    previewState().copy(
+        header = ActiveSessionHeader(
+            name = "Core · Cardio",
+            startedAt = 1_700_000_000_000L,
+            progress = SessionProgress.of(completed = 1, total = 2),
+        ),
+        stats = SessionStats(
+            totalSets = 1,
+            totalVolume = 0,
+            durationSeconds = 1_394,
+            exerciseBreakdown = emptyList(),
+            timedSeconds = 75,
+        ),
+        exercises = listOf(
+            SessionExerciseRow(
+                sessionExerciseId = 5L,
+                position = 0,
+                exercise = Exercise(id = 5L, name = "Plank", type = ExerciseType.ISOMETRIC),
+                sets = listOf(
+                    LoggedSet(
+                        id = 501L,
+                        entry = SetEntry(duration = "1:15"),
+                        isCompleted = true,
+                        previous = PreviousSet(weight = null, reps = null, duration = 60),
+                    ),
+                ),
+                entryPrevious = PreviousSet(weight = null, reps = null, duration = 60),
+                hasHistory = true,
+            ),
+            SessionExerciseRow(
+                sessionExerciseId = 6L,
+                position = 1,
+                exercise = Exercise(id = 6L, name = "Running, Treadmill", type = ExerciseType.ENDURANCE),
+                entry = SetEntry(distance = "5", duration = "27:30"),
+                entryPrevious = PreviousSet(weight = null, reps = null, duration = 1_710, distance = 500_000),
+                hasHistory = true,
+            ),
+        ),
     )
 
 /**

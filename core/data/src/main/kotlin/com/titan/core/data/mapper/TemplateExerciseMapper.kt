@@ -80,6 +80,8 @@ class TemplateExerciseMapper @Inject constructor() {
                         setType = set.setType.name,
                         reps = set.reps,
                         weight = set.weight,
+                        duration = set.duration,
+                        distance = set.distance,
                     )
                 },
             )
@@ -97,5 +99,7 @@ class TemplateExerciseMapper @Inject constructor() {
             setType = decodeEnum<SetType>(entity.setType) ?: SetType.NORMAL,
             reps = entity.reps,
             weight = entity.weight,
+            duration = entity.duration,
+            distance = entity.distance,
         )
 }

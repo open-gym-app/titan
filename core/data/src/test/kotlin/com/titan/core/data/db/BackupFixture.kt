@@ -81,6 +81,10 @@ private suspend fun TitanDatabase.seedTemplates() {
         listOf(
             TemplateSetEntity(id = 1, templateExerciseId = 1, setNumber = 1, reps = 5, weight = 60_000_000),
             TemplateSetEntity(id = 2, templateExerciseId = 1, setNumber = 2, setType = "DROP", reps = 8),
+            // A planned hold and a planned run (#M7-17), so the two columns a timed plan is
+            // written in have something to lose on the way through a backup.
+            TemplateSetEntity(id = 3, templateExerciseId = 1, setNumber = 3, duration = 45),
+            TemplateSetEntity(id = 4, templateExerciseId = 1, setNumber = 4, duration = 1_800, distance = 500_000),
         ),
     )
 }

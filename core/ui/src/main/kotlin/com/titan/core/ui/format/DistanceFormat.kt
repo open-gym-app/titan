@@ -67,11 +67,21 @@ fun formatDistance(centimetres: Long): String = formatDistance(centimetres, Loca
 fun formatDistanceValue(centimetres: Long): String = formatDistanceValue(centimetres, LocalUnitSystem.current)
 
 /**
+ * A stored distance as it is put back into a field typed in [unit]: a number with no unit, to
+ * [DistanceUnit.entryFractionDigits] rather than a readout's decimals, so a 25 m pool length
+ * comes back as `0.025` km and not as the `0.03` a readout would round it to.
+ */
+fun formatDistanceEntry(
+    centimetres: Long,
+    unit: DistanceUnit,
+): String = formatNumber(centimetres / unit.centimetres, unit.entryFractionDigits)
+
+/**
  * A user's typed distance back into storage: [text] read as [unit], as centimetres, or
  * null when it is not a number.
  *
- * The inverse of [formatDistanceValue] for the same [unit]. Which is why the typed value is
- * rounded to what that unit displays before it is scaled: [DistanceUnit.METRE] and
+ * The inverse of [formatDistanceEntry] for the same [unit]. Which is why the typed value is
+ * rounded to what that unit's field shows before it is scaled: [DistanceUnit.METRE] and
  * [DistanceUnit.YARD] carry no decimals, so a field showing whole metres that took `25.5`
  * literally would store 2550 cm, show it back as `26`, and store 2600 cm the next time it was
  * saved untouched. A field is a fixed point or it drifts a step per edit.
@@ -84,5 +94,5 @@ fun parseDistanceCentimetres(
     unit: DistanceUnit,
 ): Long? =
     parseNumber(text)
-        ?.roundToFractionDigits(unit.fractionDigits)
+        ?.roundToFractionDigits(unit.entryFractionDigits)
         ?.let { (it * unit.centimetres).roundToLong() }

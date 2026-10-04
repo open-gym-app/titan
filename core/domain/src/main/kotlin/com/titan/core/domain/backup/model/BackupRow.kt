@@ -130,6 +130,8 @@ data class TemplateSetRow(
     @SerialName("set_type") val setType: String = "NORMAL",
     @SerialName("reps") val reps: Int? = null,
     @SerialName("weight") val weight: Long? = null,
+    @SerialName("duration") val duration: Long? = null,
+    @SerialName("distance") val distance: Long? = null,
 ) : BackupRow
 
 /**

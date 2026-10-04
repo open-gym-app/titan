@@ -3,8 +3,8 @@ package com.titan.core.domain.model
 import kotlinx.serialization.Serializable
 
 /**
- * One set as a plan says it should be performed: what kind of set it is, and the two
- * figures a lifter reads off it.
+ * One set as a plan says it should be performed: what kind of set it is, and the figures
+ * a lifter reads off it.
  *
  * ### Why a plan holds a *list* of these rather than three numbers
  *
@@ -44,7 +44,24 @@ import kotlinx.serialization.Serializable
  *   answer and the ordinary one for a set somebody has added but not priced yet — the
  *   session opens it as an empty field rather than as a target.
  * @property weight in milligrams, matching [WorkoutSet.weight], or null for a set
- *   planned without one — bodyweight work, or a figure the lifter decides on the day.
+ *   planned without one — bodyweight work, or a figure the lifter decides on the day. On a
+ *   hold it is the *added* load, the plate on the back during a plank.
+ * @property duration in seconds, matching [WorkoutSet.duration], or null. What a timed set
+ *   is planned in — `3 × 0:45` of a plank, a 30-minute ride — and the one figure a plan of
+ *   an [ExerciseType.ENDURANCE] or [ExerciseType.ISOMETRIC] exercise is usually written
+ *   in. Nullable for the reason [reps] is: a plan may decline to say.
+ * @property distance in centimetres, matching [WorkoutSet.distance], or null. A `5 km`
+ *   run, a `400 m` swim. Never required, matching `SetValidator`: a ride planned by time
+ *   alone is a complete plan.
+ *
+ * ### Which figures a set carries is the exercise's question, not this type's
+ *
+ * Nothing here says a strength set has no duration or a hold no reps. The logging mode is
+ * the exercise's ([Exercise.type]), and it is the editor and the session that decide which
+ * fields to *draw* from it; a plan imported with a stray duration on a bench press is not
+ * malformed, it is a figure nobody will be shown. Keeping all four here rather than a
+ * sealed type per mode is what lets an exercise be swapped in a plan without the sets on
+ * it having to be rebuilt.
  *
  * `@Serializable` because a planned set travels inside [SessionPlan] and [TemplateDraft], both
  * of which are written down while the user is still deciding — see #183.
@@ -54,4 +71,6 @@ data class PlannedSet(
     val setType: SetType = SetType.NORMAL,
     val reps: Int? = null,
     val weight: Long? = null,
+    val duration: Long? = null,
+    val distance: Long? = null,
 )

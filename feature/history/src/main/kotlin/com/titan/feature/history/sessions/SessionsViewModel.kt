@@ -610,6 +610,8 @@ private fun WorkoutSession.toRow(
             duration = (finishedAt - createdAt).coerceAtLeast(0).milliseconds,
             totalSets = totals?.totalSets ?: 0,
             totalVolume = totals?.totalVolume ?: 0,
+            timedSeconds = totals?.timedSeconds ?: 0,
+            totalDistance = totals?.totalDistance ?: 0,
             hasRecord = records.hasValueIn(createdAt, finishedAt),
             isToday = startedOn == today,
         ),

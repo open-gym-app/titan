@@ -75,6 +75,11 @@ data class TemplateDraftExercise(
  *   half-typed number is not a number, and a field that parsed on every keystroke would delete
  *   the character somebody was in the middle of.
  * @param reps what is in the other box, on the same terms.
+ * @param duration the time box of a timed exercise (#M7-17), `M:SS` or `H:MM:SS`, on the same
+ *   terms.
+ * @param distance the distance box of an endurance exercise, in the unit that exercise's
+ *   distances are typed in — kilometres or miles for a run, metres or yards for a swim — on the
+ *   same terms.
  */
 @Serializable
 data class TemplateDraftSet(
@@ -82,4 +87,6 @@ data class TemplateDraftSet(
     val setType: SetType = SetType.NORMAL,
     val weight: String = "",
     val reps: String = "",
+    val duration: String = "",
+    val distance: String = "",
 )

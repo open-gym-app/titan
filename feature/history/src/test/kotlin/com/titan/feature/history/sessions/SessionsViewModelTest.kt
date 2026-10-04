@@ -11,6 +11,7 @@ import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
 import com.titan.core.domain.usecase.UpdateTemplateUseCase
 import com.titan.core.ui.component.TrainingLoad
 import com.titan.feature.history.afterProcessDeath
+import com.titan.feature.history.library.FakeExerciseRepository
 import com.titan.feature.history.plate.FakeUserPreferencesRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -681,6 +682,7 @@ class SessionsViewModelTest {
             getTemplateSummaries = GetTemplateSummariesUseCase(
                 templateRepository = templates,
                 userPreferencesRepository = FakeUserPreferencesRepository(),
+                exerciseRepository = FakeExerciseRepository(),
             ),
             templateRepository = templates,
             createTemplate = CreateTemplateUseCase(templates),

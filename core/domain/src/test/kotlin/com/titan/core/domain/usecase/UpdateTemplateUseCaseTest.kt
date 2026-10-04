@@ -220,5 +220,10 @@ class UpdateTemplateUseCaseTest {
 
     /** What a screen would render for the stored template, read back from its rows. */
     private fun estimatedDuration(id: Long) =
-        TemplateDuration.estimate(templates.storedExercises(id), UserPreferences.DEFAULT_REST_DURATION)
+        TemplateDuration.estimate(
+            exercises = templates.storedExercises(id),
+            defaultRest = UserPreferences.DEFAULT_REST_DURATION,
+            // No set here plans a time, so the types would not change the figure.
+            exerciseTypes = emptyMap(),
+        )
 }

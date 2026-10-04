@@ -44,6 +44,8 @@ fun TemplateSetEntity.toRow(): TemplateSetRow =
         setType = setType,
         reps = reps,
         weight = weight,
+        duration = duration,
+        distance = distance,
     )
 
 fun TemplateSetRow.toEntity(): TemplateSetEntity =
@@ -54,4 +56,6 @@ fun TemplateSetRow.toEntity(): TemplateSetEntity =
         setType = setType,
         reps = reps,
         weight = weight,
+        duration = duration,
+        distance = distance,
     )

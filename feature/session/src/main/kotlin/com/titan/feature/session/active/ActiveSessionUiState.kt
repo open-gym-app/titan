@@ -34,12 +34,21 @@ import kotlin.time.Duration
  * a set for one of them cannot log the thing it claims to support. Both went away with the
  * concept: [exercises] is the whole workout, and every one of them takes sets.
  *
- * @param header the bar over everything: name, clock, progress. Null while the reads are
+ * ### Nothing in it moves on its own
+ *
+ * The workout clock, the hold stopwatch and the rest countdown move once a second, and they are
+ * not in here: they are [SessionClocks], on a flow of their own. Everything in this value changes
+ * because something *happened* — a set written, a field typed into, a rest started or ended — so
+ * a second passing rebuilds nothing but the readouts that draw a clock, and not every card of the
+ * workout with them.
+ *
+ * @param header the bar over everything: name and progress. Null while the reads are
  *   outstanding **and** for a session id that no longer resolves — told apart by [isLoading],
  *   the same split the recap makes.
  * @param stats the running figures, from `SessionStatsCalculator` over the sets on disk. They
  *   move the moment a set is written, because the sets are read as a `Flow` rather than counted
- *   into a local tally that would have to be kept in step.
+ *   into a local tally that would have to be kept in step. Its `durationSeconds` is the window
+ *   as of the last rebuild and is not drawn here — the header's clock is the one that moves.
  * @param exercises the workout in the order it is performed. Empty for a session started with
  *   nothing in it, which is legal.
  * @param nameDraft what is in the rename field, or **null** when the dialog is closed. Null is
@@ -99,14 +108,14 @@ import kotlin.time.Duration
  *   number it had. Carried in the state rather than pushed down a channel for the reason
  *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
  *   event would not.
- * @param rest the countdown between two sets, straight off `RestTimerController`. Not folded
- *   into [isRestSheetOpen] as one nullable, because they are two questions: the rest goes on
- *   running with the sheet swiped away, which is the whole of what the header's pill is for.
  * @param isRestSheetOpen whether the sheet is up over the workout. Raised by a set being marked
  *   done and lowered by the skip, the swipe and the countdown reaching zero — the last of those
  *   without the timer going idle, so that a rest slept through stays distinguishable from one
  *   the user called off. Never true over a rest that is not [com.titan.core.domain.timer.RestTimerState.Running]
- *   or `Paused`: the sheet is a thing to look at while time passes.
+ *   or `Paused`: the sheet is a thing to look at while time passes. The countdown itself is
+ *   [SessionClocks.rest], and is not folded in here as one nullable, because they are two
+ *   questions: the rest goes on running with the sheet swiped away, which is the whole of what
+ *   the header's pill is for.
  * @param restTarget what the next set is expected to be, shown on the sheet so the rest is
  *   worth watching rather than waiting out. Null where nothing has been logged to predict it
  *   from. Carried as quantities rather than as `80 kg × 5`, because the unit is the ambient
@@ -116,6 +125,10 @@ import kotlin.time.Duration
  *   this workout trains. Null rather than an empty card, so the page asks one question.
  * @param cooldown the same card below the last exercise. Two fields rather than a pair, because
  *   they are shown in two places and go away independently.
+ * @param timedExerciseId the exercise whose hold is being timed, or **null** when none is
+ *   (#M7-17). One for the whole screen rather than one per exercise, because a lifter holds one
+ *   plank at a time — so every other hold's control goes inert while it runs. Only *which*
+ *   exercise: what the stopwatch reads is [SessionClocks.stopwatch], which moves every second.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
  * @param message something that happened and needs saying once.
@@ -141,11 +154,11 @@ data class ActiveSessionUiState(
     val finishedSessionId: Long? = null,
     val isDiscarded: Boolean = false,
     val deletedSet: WorkoutSet? = null,
-    val rest: RestTimerState = RestTimerState.Idle,
     val isRestSheetOpen: Boolean = false,
     val restTarget: RestTarget? = null,
     val warmup: MobilityCard? = null,
     val cooldown: MobilityCard? = null,
+    val timedExerciseId: Long? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
@@ -209,11 +222,46 @@ data class ActiveSessionUiState(
  *
  * @param weight in milligrams, matching `WorkoutSet.weight`, or null for a bodyweight set.
  * @param reps how many, or null for a set that recorded none.
+ * @param duration in seconds, or null for a set that was not timed — a hold's or a run's next
+ *   set is "do that again" as much as a press's is.
+ * @param distance in centimetres, or null for a set that covered no ground.
  */
 @Immutable
 data class RestTarget(
     val weight: Long?,
     val reps: Int?,
+    val duration: Long? = null,
+    val distance: Long? = null,
+)
+
+/**
+ * The readings on the active session that move once a second: how long the workout has been
+ * going, how long the hold being timed has lasted, and how much of the rest is left.
+ *
+ * Apart from [ActiveSessionUiState] so that a second passing is not a new screen state. Every
+ * card of the workout is drawn from that state, and a clock folded into it would hand all of them
+ * a new value sixty times a minute to move a few numbers. The screen reads these only in the
+ * places that draw them — the header, the timed card's stopwatch, the rest sheet and the alert
+ * that rings when the rest runs out — so those are all a second recomposes.
+ *
+ * Readings rather than instants, and never written anywhere: the draft carries the start instants
+ * instead — see `StopwatchSnapshot` — because a reading is stale the moment it is written.
+ *
+ * @param elapsed time actually spent working out — wall clock less every paused stretch, from
+ *   `ActiveSession.elapsedAt`. Frozen while the session is paused.
+ * @param stopwatch what the hold stopwatch reads, or **null** while nothing is being timed. Which
+ *   exercise it is timing is [ActiveSessionUiState.timedExerciseId], which only changes when it
+ *   starts or stops.
+ * @param rest the countdown between two sets, straight off `RestTimerController`. Whether one is
+ *   live at all — what the sheet and the "up next" line hang on — is decided when it starts and
+ *   ends, and is [ActiveSessionUiState.isRestSheetOpen]'s and [ActiveSessionUiState.restTarget]'s
+ *   to say.
+ */
+@Immutable
+data class SessionClocks(
+    val elapsed: Duration = Duration.ZERO,
+    val stopwatch: Duration? = null,
+    val rest: RestTimerState = RestTimerState.Idle,
 )
 
 /**
@@ -277,7 +325,8 @@ data class MobilityMovement(
 )
 
 /**
- * The bar over the workout: what it is, and how long it has been going.
+ * The bar over the workout: what it is, and how far through it the lifter is. How long it has
+ * been going is [SessionClocks.elapsed], which moves on its own.
  *
  * @param name what the user called it, or **null** for a session started empty and never named.
  *   Not collapsed to a default here, matching `SummaryHeader`: the screen falls back to the
@@ -285,16 +334,12 @@ data class MobilityMovement(
  *   from a session somebody genuinely called that.
  * @param startedAt epoch millis UTC, the session's `createdAt`. Carried so the screen can build
  *   that fallback title without a second read.
- * @param elapsed time actually spent working out — wall clock less every paused stretch, from
- *   `ActiveSession.elapsedAt`. Recomputed once a second while the session runs and frozen while
- *   it is paused.
  * @param progress how many exercises have a logged set against them, out of the whole workout.
  */
 @Immutable
 data class ActiveSessionHeader(
     val name: String?,
     val startedAt: Long,
-    val elapsed: Duration,
     val progress: SessionProgress,
 )
 
@@ -365,6 +410,15 @@ data class SessionExerciseRow(
     val target: LoadSuggestion? = null,
 ) {
 
+    /**
+     * How a set of this exercise is logged, which decides the two fields its rows draw.
+     *
+     * An exercise deleted from the library since the session started has no mode left to read,
+     * and draws the strength row it most likely was — the same fallback the write path makes,
+     * which checks such a set against the bounds alone.
+     */
+    val exerciseType: ExerciseType get() = exercise?.type ?: ExerciseType.STRENGTH
+
     /** How many sets sit under it, performed or not, which is what the table draws. */
     val setCount: Int get() = sets.size
 
@@ -390,17 +444,6 @@ data class SessionExerciseRow(
      * moment it is pressed — see [records].
      */
     val canLogEntry: Boolean get() = entry.canLog && entry.records(exercise?.type)
-
-    /**
-     * Whether this exercise's sets are measured in time rather than in reps.
-     *
-     * The one dead end on this screen worth saying out loud: the entry row is a weight and a rep
-     * count, so there is nowhere to put the duration a completed set of it has to record, and
-     * every set logged against it would be refused. The card says so rather than leaving a tick
-     * that does nothing.
-     */
-    val isLoggedByDuration: Boolean
-        get() = exercise?.type?.let(SetValidator::requiredDimension) == SetDimension.DURATION
 }
 
 /**
@@ -420,8 +463,10 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
     when (exerciseType?.let(SetValidator::requiredDimension)) {
         SetDimension.REPS -> reps.isNotBlank()
 
-        // Nothing the user can type on this screen fills this in. See [SessionExerciseRow.isLoggedByDuration].
-        SetDimension.DURATION -> false
+        // The time field, which the row draws for every exercise logged this way — typed, or
+        // filled in by the stopwatch. A distance alone is not enough: `SetValidator` asks a
+        // completed run for its time and leaves its distance optional.
+        SetDimension.DURATION -> duration.isNotBlank()
 
         null -> true
     }
@@ -447,8 +492,13 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
  * which carries the *parsed* value: a half-typed `8.` is not something `ActiveSet` can hold,
  * and inventing an encoding for it would be a format decision made for a keystroke.
  *
- * @param weight the weight field, in the ambient unit system's unit.
+ * @param weight the weight field, in the ambient unit system's unit. On a hold, the load added
+ *   to it.
  * @param reps the rep field.
+ * @param duration the time field (#M7-17): `M:SS`, `H:MM:SS`, or a bare number — see
+ *   `parseClockSeconds`. Only drawn for an exercise logged by time.
+ * @param distance the distance field, in the unit system's `distanceEntryUnit` — kilometres or
+ *   miles, for every exercise. Only drawn for an endurance exercise.
  * @param rpe the stored rating (× 10), or null for a set not yet rated.
  * @param setType what kind of set this is. Carries over from the previous set of the same
  *   exercise — a lifter logging a warm-up is usually about to log another.
@@ -469,6 +519,8 @@ internal fun SetEntry.records(exerciseType: ExerciseType?): Boolean =
 data class SetEntry(
     val weight: String = "",
     val reps: String = "",
+    val duration: String = "",
+    val distance: String = "",
     val rpe: Int? = null,
     val setType: SetType = SetType.NORMAL,
     val notes: String? = null,
@@ -485,7 +537,11 @@ data class SetEntry(
      * Not the whole of whether the tick is live: which dimension the set *has* to record is the
      * exercise's, not the entry's, so the screen asks [SessionExerciseRow.canLogEntry].
      */
-    val canLog: Boolean get() = error == null && (weight.isNotBlank() || reps.isNotBlank())
+    val canLog: Boolean get() = error == null && hasFigure
+
+    /** Whether any of the four figures has been typed into. */
+    private val hasFigure: Boolean
+        get() = weight.isNotBlank() || reps.isNotBlank() || duration.isNotBlank() || distance.isNotBlank()
 
     /**
      * Whether the user has begun this set, which is what brings out the controls under the row.
@@ -495,7 +551,7 @@ data class SetEntry(
      * be a layout that flickered under the thumb.
      */
     val isStarted: Boolean
-        get() = weight.isNotBlank() || reps.isNotBlank() || rpe != null || notes != null
+        get() = hasFigure || rpe != null || notes != null
 }
 
 /**
@@ -676,7 +732,7 @@ enum class ActiveSessionMessage {
 /**
  * Why the entry as typed cannot be logged.
  *
- * Two of the three are the screen's own words and are resolved from its resources; the third is
+ * All but one are the screen's own words and are resolved from its resources; the last is
  * `SetValidator`'s, which names the field, its bound and the value it saw, and is shown as it
  * stands — a message this screen paraphrased would be a second copy of a rule that lives in the
  * domain.
@@ -691,6 +747,14 @@ sealed interface SetEntryError {
     /** The rep field holds something that is not a number. */
     @Serializable
     data object RepsNotANumber : SetEntryError
+
+    /** The time field holds something that is not a time — `1.5`, `abc`, `1:75`. */
+    @Serializable
+    data object DurationNotATime : SetEntryError
+
+    /** The distance field holds something that is not a number. */
+    @Serializable
+    data object DistanceNotANumber : SetEntryError
 
     /** The values parsed and the domain refused them. [reason] is the validator's wording. */
     @Serializable

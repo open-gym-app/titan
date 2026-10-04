@@ -1,7 +1,7 @@
 package com.titan.core.domain.model
 
 /**
- * The three facts about a planned exercise that decide how long it takes.
+ * The facts about a planned exercise that decide how long it takes.
  *
  * Implemented by [TemplateExercise] and [TemplateExerciseDraft] so
  * [com.titan.core.domain.template.TemplateDuration] can estimate a stored template
@@ -15,6 +15,13 @@ package com.titan.core.domain.model
  * [com.titan.core.domain.superset.Supersets] does.
  */
 interface PlannedExercise {
+
+    /**
+     * The catalogue exercise it plans. Read by the estimate for the exercise's type, which
+     * decides whether a set's planned duration is one the user can see — see
+     * [com.titan.core.domain.template.TemplateDuration].
+     */
+    val exerciseId: Long
 
     /**
      * The sets planned for it, in the order they are performed.

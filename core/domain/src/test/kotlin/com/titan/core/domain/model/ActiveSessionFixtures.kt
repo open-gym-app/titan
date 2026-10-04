@@ -1,6 +1,7 @@
 package com.titan.core.domain.model
 
 import com.titan.core.domain.timer.RestTimerSnapshot
+import com.titan.core.domain.timer.StopwatchSnapshot
 import kotlin.time.Duration.Companion.seconds
 
 /*
@@ -35,6 +36,7 @@ fun maximalSession(): ActiveSession =
         ),
         currentExerciseIndex = 1,
         restTimer = RestTimerSnapshot.Running(deadline = STARTED_AT + 700_000, total = 90.seconds),
+        stopwatch = StopwatchSnapshot(sessionExerciseId = 35, startedAt = STARTED_AT + 500_000),
     )
 
 /** Every field of a set populated and no field on its default. */

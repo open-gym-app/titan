@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "b47cf5dcfa7e6b2b5a468babaca8cef7",
+    "identityHash": "1cda3eceeebf1d224bdb2477356075e9",
     "entities": [
       {
         "tableName": "exercise",
@@ -498,7 +498,7 @@
       },
       {
         "tableName": "template_set",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_exercise_id` INTEGER NOT NULL, `set_number` INTEGER NOT NULL, `set_type` TEXT NOT NULL DEFAULT 'NORMAL', `reps` INTEGER, `weight` INTEGER, FOREIGN KEY(`template_exercise_id`) REFERENCES `template_exercise`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_exercise_id` INTEGER NOT NULL, `set_number` INTEGER NOT NULL, `set_type` TEXT NOT NULL DEFAULT 'NORMAL', `reps` INTEGER, `weight` INTEGER, `duration` INTEGER, `distance` INTEGER, FOREIGN KEY(`template_exercise_id`) REFERENCES `template_exercise`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -533,6 +533,16 @@
           {
             "fieldPath": "weight",
             "columnName": "weight",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "duration",
+            "columnName": "duration",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "distance",
+            "columnName": "distance",
             "affinity": "INTEGER"
           }
         ],
@@ -1415,7 +1425,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b47cf5dcfa7e6b2b5a468babaca8cef7')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1cda3eceeebf1d224bdb2477356075e9')"
     ]
   }
 }

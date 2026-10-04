@@ -10,14 +10,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.SetType
 import com.titan.core.ui.R
+import com.titan.core.ui.format.DistanceUnit
 import com.titan.core.ui.theme.TitanTheme
 
 /**
- * One set of a *plan*: `W | [40] [12]`.
+ * One set of a *plan*: `W | [40] [12]`, or `1 | [5] [27:00]` for a run.
  *
  * The template editor's row, and the third member of [SetLogRow]'s family — the row being
  * typed, the row that is a record, and this one, the row that has not happened yet. It lives
@@ -56,6 +57,11 @@ import com.titan.core.ui.theme.TitanTheme
  * @param weight the weight field's contents, in the ambient unit — text, not a number, for the
  *   reason [SetLogRow] gives at length.
  * @param reps the rep field's contents.
+ * @param exerciseType which two figures a set of the exercise is planned in — weight and reps,
+ *   distance and time, or a hold's time and its added weight — the same pair the workout's own
+ *   row draws (#M7-17). See [SetValueFields].
+ * @param duration the time field's contents, `M:SS` or `H:MM:SS`.
+ * @param distance the distance field's contents, in [distanceUnit].
  * @param error the reason the row cannot be planned, drawn under it. Null when it is fine. A
  *   blank field is never an error here: a plan is allowed to decline to say.
  * @param enabled false leaves the row readable and untouchable — a save is in flight.
@@ -68,6 +74,12 @@ fun PlannedSetRow(
     onWeightChange: (String) -> Unit,
     onRepsChange: (String) -> Unit,
     modifier: Modifier = Modifier,
+    exerciseType: ExerciseType = ExerciseType.STRENGTH,
+    duration: String = "",
+    onDurationChange: (String) -> Unit = {},
+    distance: String = "",
+    onDistanceChange: (String) -> Unit = {},
+    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
     setType: SetType = SetType.NORMAL,
     onSetTypeChange: ((SetType) -> Unit)? = null,
     error: String? = null,
@@ -89,23 +101,17 @@ fun PlannedSetRow(
             enabled = enabled,
         )
 
-        TitanValueField(
-            value = weight,
-            onValueChange = onWeightChange,
-            description = stringResource(R.string.set_log_weight_field, setNumber),
-            keyboardType = KeyboardType.Decimal,
+        SetValueFields(
+            exerciseType = exerciseType,
+            setNumber = setNumber,
+            values = SetFieldValues(weight = weight, reps = reps, duration = duration, distance = distance),
+            onWeightChange = onWeightChange,
+            onRepsChange = onRepsChange,
+            onDurationChange = onDurationChange,
+            onDistanceChange = onDistanceChange,
+            distanceUnit = distanceUnit,
             enabled = enabled,
             error = error,
-            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
-        )
-        TitanValueField(
-            value = reps,
-            onValueChange = onRepsChange,
-            description = stringResource(R.string.set_log_reps_field, setNumber),
-            keyboardType = KeyboardType.Number,
-            enabled = enabled,
-            error = error,
-            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
         )
     }
 }
@@ -127,11 +133,15 @@ fun PlannedSetRow(
  *
  * @param weightUnit the unit the weight column is typed in — the *draft's* unit, not the
  *   ambient one, since a template being edited is parsed back with the unit it was opened in.
+ * @param exerciseType and [distanceUnit] must match the rows', since they decide which two
+ *   value columns there are.
  */
 @Composable
 fun PlannedSetHeader(
     weightUnit: String,
     modifier: Modifier = Modifier,
+    exerciseType: ExerciseType = ExerciseType.STRENGTH,
+    distanceUnit: DistanceUnit = DistanceUnit.KILOMETRE,
 ) {
     Row(
         modifier = modifier
@@ -149,15 +159,6 @@ fun PlannedSetHeader(
                 .padding(end = INDEX_CLEARANCE)
                 .width(INDEX_COLUMN_WIDTH),
         )
-        Eyebrow(
-            text = weightUnit,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(WEIGHT_COLUMN_WEIGHT),
-        )
-        Eyebrow(
-            text = stringResource(R.string.set_log_column_reps),
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(REPS_COLUMN_WEIGHT),
-        )
+        SetValueLabels(exerciseType = exerciseType, weightUnit = weightUnit, distanceUnit = distanceUnit)
     }
 }

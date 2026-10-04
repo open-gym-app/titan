@@ -51,8 +51,9 @@ object ActiveSessionFormat {
      * The version stamped into every document [encode] writes and demanded by every
      * document [decode] reads.
      *
-     * Bump it when a change to [ActiveSession], [ActiveExercise], [ActiveSet] or
-     * [com.titan.core.domain.timer.RestTimerSnapshot] would make an existing draft
+     * Bump it when a change to [ActiveSession], [ActiveExercise], [ActiveSet],
+     * [com.titan.core.domain.timer.RestTimerSnapshot] or
+     * [com.titan.core.domain.timer.StopwatchSnapshot] would make an existing draft
      * decode into something other than what was saved — a renamed or retyped field, a
      * default that changes meaning. Adding a field with a default does not need a bump;
      * `ignoreUnknownKeys` and `encodeDefaults` already make that case survivable in

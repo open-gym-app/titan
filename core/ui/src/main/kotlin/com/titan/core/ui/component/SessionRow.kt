@@ -26,7 +26,9 @@ import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.R
 import com.titan.core.ui.format.formatAsLength
+import com.titan.core.ui.format.formatClockValue
 import com.titan.core.ui.format.formatDayOfMonth
+import com.titan.core.ui.format.formatDistance
 import com.titan.core.ui.format.formatSessionDate
 import com.titan.core.ui.format.formatTimeOfDay
 import com.titan.core.ui.format.formatVolume
@@ -74,6 +76,10 @@ import kotlin.time.Duration.Companion.minutes
  * @param duration how long the session ran, paused stretches included, matching
  *   [com.titan.core.domain.model.SessionSummary.durationMillis].
  * @param totalVolume milligram-reps, formatted in the ambient unit system.
+ * @param timedSeconds the session's timed sets summed — see
+ *   [com.titan.core.domain.model.SessionTotals.timedSeconds]. Drawn after the volume where it
+ *   is not zero, and in place of a zero volume, so a run's row says what the run was (#M7-17).
+ * @param totalDistance the ground those sets covered, in centimetres. Drawn the same way.
  * @param hasRecord whether a personal record was set here. The accent badge, and the only
  *   colour on the row.
  * @param isToday draws the rail in the accent. Passed rather than read off a clock in here:
@@ -90,12 +96,15 @@ fun SessionRow(
     totalSets: Int,
     totalVolume: Long,
     modifier: Modifier = Modifier,
+    timedSeconds: Long = 0,
+    totalDistance: Long = 0,
     hasRecord: Boolean = false,
     isToday: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     val title = name ?: formatTimeOfDay(startedAt)
-    val meta = sessionMeta(duration = duration, totalSets = totalSets, totalVolume = totalVolume)
+    val work = workFigures(totalVolume = totalVolume, timedSeconds = timedSeconds, totalDistance = totalDistance)
+    val meta = sessionMeta(duration = duration, totalSets = totalSets, work = work)
     // Resolved before the modifier chain: `clearAndSetSemantics` takes a plain lambda rather
     // than a composable one, so the strings cannot be read inside it.
     val description = sessionDescription(
@@ -103,7 +112,7 @@ fun SessionRow(
         startedAt = startedAt,
         duration = duration,
         totalSets = totalSets,
-        totalVolume = totalVolume,
+        work = work,
         hasRecord = hasRecord,
     )
 
@@ -194,19 +203,42 @@ private fun DateRail(
     }
 }
 
-/** `52m · 12 sets · 4,820 kg` — the three figures, in the order a lifter reads them. */
+/**
+ * `52m · 12 sets · 4,820 kg`, or `35m · 1 set · 5 km · 27:14` for a run — the figures in the
+ * order a lifter reads them.
+ */
 @Composable
 private fun sessionMeta(
     duration: Duration,
     totalSets: Int,
-    totalVolume: Long,
+    work: List<String>,
 ): String {
     val separator = stringResource(R.string.exercise_meta_separator)
     val sets = pluralStringResource(R.plurals.session_set_count, totalSets, totalSets)
 
-    return listOf(duration.formatAsLength(), sets, formatVolume(totalVolume))
-        .joinToString(separator)
+    return (listOf(duration.formatAsLength(), sets) + work).joinToString(separator)
 }
+
+/**
+ * What the session's sets did, as the figures that say so: the volume, the distance and the
+ * time, each where there is any of it.
+ *
+ * The volume is dropped only for a session that has a distance or a time to quote instead — a
+ * run is not a session that lifted 0 kg, and quoting the zero beside its five kilometres is the
+ * noise #M7-17 removes. A session with none of the three keeps its zero, which is the truth
+ * about a workout of unweighted, untimed sets.
+ */
+@Composable
+private fun workFigures(
+    totalVolume: Long,
+    timedSeconds: Long,
+    totalDistance: Long,
+): List<String> =
+    listOfNotNull(
+        formatVolume(totalVolume).takeIf { showsVolume(totalVolume, timedSeconds, totalDistance) },
+        totalDistance.takeIf { it > 0 }?.let { formatDistance(it) },
+        timedSeconds.takeIf { it > 0 }?.let(::formatClockValue),
+    )
 
 /** The whole row as one sentence, with the words the drawn row abbreviates. */
 @Composable
@@ -215,7 +247,7 @@ private fun sessionDescription(
     startedAt: Long,
     duration: Duration,
     totalSets: Int,
-    totalVolume: Long,
+    work: List<String>,
     hasRecord: Boolean,
 ): String {
     // The record straight after the name, where the badge is drawn: the row's first line reads
@@ -227,8 +259,7 @@ private fun sessionDescription(
         formatSessionDate(startedAt),
         duration.formatAsLength(),
         pluralStringResource(R.plurals.session_set_count_description, totalSets, totalSets),
-        formatVolume(totalVolume),
-    )
+    ) + work
 
     return parts.joinToString(stringResource(R.string.plate_list_separator))
 }

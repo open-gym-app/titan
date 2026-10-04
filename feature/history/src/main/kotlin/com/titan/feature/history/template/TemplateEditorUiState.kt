@@ -2,6 +2,7 @@ package com.titan.feature.history.template
 
 import androidx.compose.runtime.Immutable
 import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateSummary
@@ -158,6 +159,12 @@ data class TemplateExerciseRow(
     val isLinkedToNext: Boolean = false,
 ) {
 
+    /**
+     * How a set of this exercise is planned — the same two fields the workout's own row draws.
+     * An exercise gone from the catalogue plans as the strength row it most likely was.
+     */
+    val exerciseType: ExerciseType get() = exercise?.type ?: ExerciseType.STRENGTH
+
     /** Whether anything on this line was typed wrong, wherever on it. */
     val hasErrors: Boolean get() = sets.any { it.errors.isNotEmpty() }
 
@@ -170,14 +177,17 @@ data class TemplateExerciseRow(
  *
  * The counterpart of the workout screen's `LoggedSet`, minus everything a set that has not
  * happened cannot have: no id, no tick, no rating, no previous. What is left is what a plan
- * actually says — which kind of set it is, and the two figures.
+ * actually says — which kind of set it is, and its figures: weight and reps, or for a timed
+ * exercise its time and distance (#M7-17). All four are carried whichever two the row draws.
  *
  * @param key identity within its exercise, stable for the life of the draft, so a keystroke that
  *   lands after a set was inserted above still reaches the set it was typed into.
  * @param setType the warm-up, the working set, the drop set. The whole reason the plan is a list.
  * @param weight in the ambient unit system's unit, like every weight field in the app.
  * @param reps how many.
- * @param errors which of the two figures holds something that cannot be stored.
+ * @param duration the time, `M:SS` or `H:MM:SS`.
+ * @param distance the distance, in the draft's `distanceEntryUnit`.
+ * @param errors which of the figures holds something that cannot be stored.
  */
 @Immutable
 data class TemplateSetRow(
@@ -185,13 +195,17 @@ data class TemplateSetRow(
     val setType: SetType = SetType.NORMAL,
     val weight: String = "",
     val reps: String = "",
+    val duration: String = "",
+    val distance: String = "",
     val errors: Set<TemplateSetField> = emptySet(),
 )
 
-/** The two figures a planned set carries, as the thing an error is *about*. */
+/** The figures a planned set carries, as the thing an error is *about*. */
 enum class TemplateSetField {
     WEIGHT,
     REPS,
+    DURATION,
+    DISTANCE,
 }
 
 /**

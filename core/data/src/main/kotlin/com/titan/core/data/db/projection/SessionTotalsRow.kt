@@ -20,4 +20,8 @@ data class SessionTotalsRow(
     val totalSets: Int,
     @ColumnInfo(name = "total_volume")
     val totalVolume: Long,
+    @ColumnInfo(name = "timed_seconds")
+    val timedSeconds: Long,
+    @ColumnInfo(name = "total_distance")
+    val totalDistance: Long,
 )

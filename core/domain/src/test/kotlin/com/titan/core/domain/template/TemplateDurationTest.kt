@@ -1,5 +1,6 @@
 package com.titan.core.domain.template
 
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedExercise
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.TemplateExercise
@@ -285,14 +286,68 @@ class TemplateDurationTest {
         assertEquals(estimate(stored), estimate(drafts))
     }
 
+    // ─── Timed sets (#M7-17) ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a planned hold takes as long as it is planned for, not a rep tempo`() {
+        val plank = exercise(sets = 0, rest = 30).copy(sets = List(3) { PlannedSet(duration = 45) })
+
+        assertEquals(45.seconds * 3 + 30.seconds * 2, estimate(listOf(plank), types = typed(ExerciseType.ISOMETRIC)))
+    }
+
+    @Test
+    fun `a planned run is its own length`() {
+        val run = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(duration = 1_800, distance = 500_000)))
+
+        assertEquals(30.minutes, estimate(listOf(run), types = typed(ExerciseType.ENDURANCE)))
+    }
+
+    @Test
+    fun `a set with no planned time keeps the allowance, beside one that has one`() {
+        val mixed = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(reps = 8), PlannedSet(duration = 120)))
+
+        assertEquals(work + 120.seconds + 60.seconds, estimate(listOf(mixed)))
+    }
+
+    @Test
+    fun `negative - a non-positive planned time falls back to the allowance rather than to nothing`() {
+        val imported = exercise(
+            sets = 0,
+            rest = 60,
+        ).copy(sets = listOf(PlannedSet(duration = 0), PlannedSet(duration = -5)))
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(imported)))
+    }
+
+    @Test
+    fun `a strength set's planned time is not priced, because no field shows it`() {
+        // A 30-minute run slot swapped for bench press: the set keeps its time, in a field the
+        // strength row does not draw.
+        val swapped = exercise(sets = 0, rest = 60).copy(sets = List(2) { PlannedSet(duration = 1_800) })
+
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(swapped), types = typed(ExerciseType.STRENGTH)))
+    }
+
+    @Test
+    fun `a planned time is priced for an exercise the catalogue no longer has`() {
+        val orphan = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(duration = 120)))
+
+        assertEquals(120.seconds, estimate(listOf(orphan), types = emptyMap()))
+    }
+
     /**
-     * [TemplateDuration.estimate] with the user's configured default rest, which the
-     * function requires and most cases here do not vary.
+     * [TemplateDuration.estimate] with the user's configured default rest and no catalogue
+     * types, which the function requires and most cases here do not vary. Their sets plan no
+     * time, so the types would not change their figure.
      */
     private fun estimate(
         exercises: List<PlannedExercise>,
         rest: Duration = defaultRest,
-    ) = TemplateDuration.estimate(exercises, rest)
+        types: Map<Long, ExerciseType> = emptyMap(),
+    ) = TemplateDuration.estimate(exercises, rest, types)
+
+    /** The type of the one exercise id every case here plans. */
+    private fun typed(type: ExerciseType) = mapOf(1L to type)
 
     private fun exercise(
         sets: Int,
@@ -303,8 +358,8 @@ class TemplateDurationTest {
         exerciseId = 1,
         position = 0,
         supersetGroup = group,
-        // The estimate counts the sets rather than reading them, so what is in them does not
-        // matter here — only how many there are. See `TemplateDuration`.
+        // Sets with no planned time, so each is priced at the allowance — only how many there
+        // are matters here. The planned-time cases build their own. See `TemplateDuration`.
         sets = List(sets) { PlannedSet() },
         restDuration = rest,
     )

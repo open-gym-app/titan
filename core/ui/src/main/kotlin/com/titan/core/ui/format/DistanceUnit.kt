@@ -1,6 +1,7 @@
 package com.titan.core.ui.format
 
 import android.icu.util.MeasureUnit
+import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.UnitSystem
 
 /**
@@ -27,11 +28,41 @@ enum class DistanceUnit(
      * 5.25 km run does not collapse to 5 km.
      */
     internal val fractionDigits: Int,
+
+    /**
+     * How many decimals a distance *typed* in this unit keeps — about a metre or a yard, in
+     * every unit.
+     *
+     * Finer than [fractionDigits] for the long units, because every distance is typed in one of
+     * those (see [distanceEntryUnit]) and a 25 m pool length is `0.025 km`: at a readout's two
+     * decimals it would be stored as 30 m.
+     */
+    internal val entryFractionDigits: Int,
 ) {
-    METRE(centimetres = 100.0, measureUnit = MeasureUnit.METER, fractionDigits = 0),
-    KILOMETRE(centimetres = 100_000.0, measureUnit = MeasureUnit.KILOMETER, fractionDigits = 2),
-    YARD(centimetres = 91.44, measureUnit = MeasureUnit.YARD, fractionDigits = 0),
-    MILE(centimetres = 160_934.4, measureUnit = MeasureUnit.MILE, fractionDigits = 2),
+    METRE(
+        centimetres = 100.0,
+        measureUnit = MeasureUnit.METER,
+        fractionDigits = 0,
+        entryFractionDigits = 0,
+    ),
+    KILOMETRE(
+        centimetres = 100_000.0,
+        measureUnit = MeasureUnit.KILOMETER,
+        fractionDigits = 2,
+        entryFractionDigits = 3,
+    ),
+    YARD(
+        centimetres = 91.44,
+        measureUnit = MeasureUnit.YARD,
+        fractionDigits = 0,
+        entryFractionDigits = 0,
+    ),
+    MILE(
+        centimetres = 160_934.4,
+        measureUnit = MeasureUnit.MILE,
+        fractionDigits = 2,
+        entryFractionDigits = 3,
+    ),
     ;
 
     /**
@@ -90,3 +121,46 @@ private fun Long.readsUnder(
 
 /** The fraction of a mile under which a distance reads better in yards. */
 private const val MILE_THRESHOLD = 0.5
+
+/**
+ * The unit every distance is *typed* in on this system: kilometres or miles (#M7-17).
+ *
+ * One unit per system rather than [distanceUnitFor]'s per-value choice, because a field has to
+ * say which unit it is in before anything has been typed — its label, its parse and the way a
+ * stored distance is put back into it all have to be the same choice, or `5` is five kilometres
+ * to the lifter and five metres to the parser.
+ *
+ * And one unit for every exercise, a swim or a row as much as a run. A per-exercise unit has to
+ * be decided from something, and nothing on an exercise says how far its sets go — a name
+ * heuristic gets a custom or translated exercise wrong silently, a thousandfold. The long unit
+ * typed to [DistanceUnit.entryFractionDigits] takes a pool length as exactly as a marathon.
+ */
+val UnitSystem.distanceEntryUnit: DistanceUnit
+    get() = when (this) {
+        UnitSystem.METRIC -> DistanceUnit.KILOMETRE
+        UnitSystem.IMPERIAL -> DistanceUnit.MILE
+    }
+
+/**
+ * The units one exercise's set fields are parsed in (#M7-17): the system's distance unit, and
+ * what a bare number in its time field counts for the exercise's mode.
+ *
+ * One value for both, resolved in one place, so every parse and every re-format of a field
+ * asks the same question the same way. See [distanceEntryUnit] and [bareClockNumber].
+ */
+data class EntryUnits(
+    val distanceUnit: DistanceUnit,
+    val bareClockNumber: BareClockNumber,
+) {
+    companion object {
+        /** The units [exercise]'s fields take on [unitSystem]. A null exercise takes the fallbacks. */
+        fun of(
+            exercise: Exercise?,
+            unitSystem: UnitSystem,
+        ): EntryUnits =
+            EntryUnits(
+                distanceUnit = unitSystem.distanceEntryUnit,
+                bareClockNumber = exercise?.type.bareClockNumber,
+            )
+    }
+}

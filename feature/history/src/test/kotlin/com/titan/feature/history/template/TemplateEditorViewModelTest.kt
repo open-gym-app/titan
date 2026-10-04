@@ -2,6 +2,7 @@ package com.titan.feature.history.template
 
 import androidx.lifecycle.SavedStateHandle
 import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.TemplateCategory
@@ -35,6 +36,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -52,7 +54,7 @@ import kotlin.time.Duration.Companion.seconds
 @RunWith(RobolectricTestRunner::class)
 class TemplateEditorViewModelTest {
 
-    private val exercises = FakeExerciseRepository(exercises = listOf(BENCH, FLY, PUSHDOWN))
+    private val exercises = FakeExerciseRepository(exercises = listOf(BENCH, FLY, PUSHDOWN, PLANK, RUN, SWIM))
     private val drafts = FakeTemplateDraftRepository()
     private val preferences = FakeUserPreferencesRepository(
         UserPreferences(unitSystem = UnitSystem.METRIC, defaultRestDuration = 90.seconds),
@@ -810,6 +812,124 @@ class TemplateEditorViewModelTest {
             assertEquals(4, templates.exercisesOf(1).first().sets.size)
         }
 
+    // ─── Timed exercises (#M7-17) ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `a planned hold and run are seeded into the fields they are typed in`() =
+        runTest {
+            val viewModel = viewModel(exercises = timedBody())
+
+            val (plank, run) = viewModel.uiState.value.exercises
+            assertEquals(ExerciseType.ISOMETRIC, plank.exerciseType)
+            assertEquals(listOf("0:45", "0:45", "0:45"), plank.sets.map(TemplateSetRow::duration))
+            assertEquals("5", run.sets.single().distance)
+            assertEquals("30:00", run.sets.single().duration)
+            // The estimate reads the planned time rather than a rep tempo: three 45 s holds, each
+            // followed by the plank's own 30 s rest, and a 30 min run — with no rest after the run,
+            // which ends the workout.
+            assertEquals(45.seconds * 3 + 30.seconds * 3 + 30.minutes, viewModel.uiState.value.estimatedDuration)
+        }
+
+    @Test
+    fun `a planned time typed into the editor is saved as seconds`() =
+        runTest {
+            val templates = templateStore(timedBody())
+            val viewModel = viewModel(templates = templates)
+            val plank = viewModel.uiState.value.exercises.first()
+
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    plank.key,
+                    plank.sets.first().key,
+                    TemplateSetField.DURATION,
+                    "1:00",
+                ),
+            )
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+
+            assertTrue(viewModel.uiState.value.isSaved)
+            val saved = templates.exercisesOf(1)
+            assertEquals(listOf(60L, 45L, 45L), saved.first().sets.map(PlannedSet::duration))
+            assertEquals(PlannedSet(distance = 500_000, duration = 1_800), saved.last().sets.single())
+        }
+
+    @Test
+    fun `negative - a planned time that is not a time is marked and blocks the save`() =
+        runTest {
+            val viewModel = viewModel(exercises = timedBody())
+            val plank = viewModel.uiState.value.exercises.first()
+
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(
+                    plank.key,
+                    plank.sets.first().key,
+                    TemplateSetField.DURATION,
+                    "1.5",
+                ),
+            )
+
+            assertEquals(
+                setOf(TemplateSetField.DURATION),
+                viewModel.uiState.value.exercises.first().sets.first().errors,
+            )
+            assertFalse(viewModel.uiState.value.canSave)
+        }
+
+    @Test
+    fun `a swap carries a planned distance across as the same distance`() =
+        runTest {
+            val templates = templateStore(timedBody())
+            val viewModel = viewModel(templates = templates)
+
+            // The run's `5` is kilometres, and so is the swim's: every distance field is typed in
+            // the same unit, so the text needs no re-expressing.
+            viewModel.swap(KEY_FLY, SWIM.id)
+
+            val swim = viewModel.uiState.value.exercises.last()
+            assertEquals("5", swim.sets.single().distance)
+            assertEquals("30:00", swim.sets.single().duration)
+            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
+            assertEquals(
+                PlannedSet(distance = 500_000, duration = 1_800),
+                templates.exercisesOf(1).last().sets.single(),
+            )
+        }
+
+    @Test
+    fun `a swap carries a bare planned time across as the time it was`() =
+        runTest {
+            val viewModel = viewModel(exercises = timedBody())
+            val run = viewModel.uiState.value.exercises.last()
+
+            // A bare `20` in a run's field is twenty minutes; in a plank's it would be twenty seconds.
+            viewModel.onEvent(
+                TemplateEditorEvent.SetFieldChanged(run.key, run.sets.single().key, TemplateSetField.DURATION, "20"),
+            )
+            viewModel.swap(KEY_FLY, PLANK.id)
+
+            assertEquals("20:00", viewModel.uiState.value.exercises.last().sets.single().duration)
+        }
+
+    /** `3 × 0:45` of a plank and a `5 km` run, the issue's own example plan. */
+    private fun timedBody() =
+        listOf(
+            TemplateExercise(
+                id = KEY_BENCH,
+                templateId = 1,
+                exerciseId = PLANK.id,
+                position = 0,
+                sets = List(3) { PlannedSet(duration = 45) },
+                restDuration = 30,
+            ),
+            TemplateExercise(
+                id = KEY_FLY,
+                templateId = 1,
+                exerciseId = RUN.id,
+                position = 1,
+                sets = listOf(PlannedSet(distance = 500_000, duration = 1_800)),
+            ),
+        )
+
     /** A push day whose last two exercises are one superset, next to an unrelated template. */
     private fun templateStore(exercises: List<TemplateExercise> = pushDayBody()) =
         FakeTemplateStore(
@@ -1157,6 +1277,9 @@ class TemplateEditorViewModelTest {
         val BENCH = Exercise(id = 10, name = "Bench press")
         val FLY = Exercise(id = 11, name = "Cable fly")
         val PUSHDOWN = Exercise(id = 12, name = "Tricep pushdown")
+        val PLANK = Exercise(id = 13, name = "Plank", type = ExerciseType.ISOMETRIC)
+        val RUN = Exercise(id = 14, name = "Running, Outdoor", type = ExerciseType.ENDURANCE)
+        val SWIM = Exercise(id = 15, name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
 
         /** The stored `template_exercise` ids, which are the draft's keys. */
         const val KEY_BENCH = 100L

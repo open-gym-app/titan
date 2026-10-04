@@ -27,11 +27,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PersonalRecord
 import com.titan.core.ui.component.BadgeTone
 import com.titan.core.ui.component.DragHandle
 import com.titan.core.ui.component.Eyebrow
 import com.titan.core.ui.component.HairlineDivider
+import com.titan.core.ui.component.HoldStopwatch
 import com.titan.core.ui.component.SetLogRow
 import com.titan.core.ui.component.SupersetBadge
 import com.titan.core.ui.component.TitanBadge
@@ -45,6 +47,7 @@ import com.titan.feature.session.active.ActiveSessionEvent
 import com.titan.feature.session.active.SessionExerciseRow
 import com.titan.feature.session.active.SetEntry
 import com.titan.feature.session.active.SetEntryError
+import kotlin.time.Duration
 import com.titan.core.ui.R as CoreR
 
 /**
@@ -107,6 +110,13 @@ import com.titan.core.ui.R as CoreR
  *   broken on this one.
  * @param togglingSetIds the logged sets of this exercise whose tick is being written, passed
  *   through to the table so those rows' ticks go inert.
+ * @param isHoldTimed the workout's hold stopwatch is timing *this* exercise.
+ * @param isHoldTimedElsewhere the stopwatch is timing another exercise, which draws this card's
+ *   start control inert — one plank at a time.
+ * @param holdElapsed what the stopwatch reads, or null while nothing is timed. A read rather than
+ *   a value, and only made inside the stopwatch of the card being timed: the reading moves once a
+ *   second, and a value handed to every card would recompose every card of the workout on every
+ *   one of those seconds — this way a second recomposes the one control that shows it.
  * @param onRemove cut this exercise out of the workout — the machine is taken, or it was a
  *   mistake. Refused once sets have been logged against it, which the screen reports rather than
  *   confirms away; see `RemoveSessionExerciseUseCase`.
@@ -127,6 +137,9 @@ fun SessionExerciseCard(
     onSwap: () -> Unit,
     modifier: Modifier = Modifier,
     togglingSetIds: Set<Long> = emptySet(),
+    isHoldTimed: Boolean = false,
+    isHoldTimedElsewhere: Boolean = false,
+    holdElapsed: () -> Duration? = { null },
     enabled: Boolean = true,
     isLogging: Boolean = false,
     isMovable: Boolean = false,
@@ -152,18 +165,10 @@ fun SessionExerciseCard(
                 onEvent = onEvent,
                 togglingSetIds = togglingSetIds,
                 enabled = enabled,
+                isHoldTimed = isHoldTimed,
+                isHoldTimedElsewhere = isHoldTimedElsewhere,
+                holdElapsed = holdElapsed,
             )
-
-            // Said once, under the table, for an exercise this screen cannot log at all — see
-            // [SessionExerciseRow.isLoggedByDuration]. Not an entry error: nothing the user
-            // typed is wrong, and the row it would sit under is not the row at fault.
-            if (row.isLoggedByDuration) {
-                Text(
-                    text = stringResource(R.string.active_logged_by_duration),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
 
             if (entry.isStarted) {
                 SetNote(
@@ -321,9 +326,13 @@ private fun SetTable(
     onEvent: (ActiveSessionEvent) -> Unit,
     togglingSetIds: Set<Long>,
     enabled: Boolean,
+    isHoldTimed: Boolean,
+    isHoldTimedElsewhere: Boolean,
+    holdElapsed: () -> Duration?,
 ) {
     val entry = row.entry
     val error = entry.error?.message()
+    val exerciseId = row.sessionExerciseId
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         // One answer for the header and every row — a 320dp phone cannot carry the previous
@@ -339,6 +348,7 @@ private fun SetTable(
                 togglingSetIds = togglingSetIds,
                 enabled = enabled,
                 showPrevious = showPrevious,
+                exerciseType = row.exerciseType,
             )
             HairlineDivider()
 
@@ -350,6 +360,13 @@ private fun SetTable(
                     onEvent(ActiveSessionEvent.WeightChanged(row.sessionExerciseId, it))
                 },
                 onRepsChange = { onEvent(ActiveSessionEvent.RepsChanged(row.sessionExerciseId, it)) },
+                // Which two of the four fields are drawn is the exercise's logging mode: a run is
+                // a distance and a time, a plank a time and an added weight (#M7-17).
+                exerciseType = row.exerciseType,
+                duration = entry.duration,
+                onDurationChange = { onEvent(ActiveSessionEvent.DurationChanged(exerciseId, it)) },
+                distance = entry.distance,
+                onDistanceChange = { onEvent(ActiveSessionEvent.DistanceChanged(exerciseId, it)) },
                 // The row's own tick and the button under the table are the same action. Both are
                 // here because they answer different reaches: the tick is where a lifter's thumb
                 // already is after typing the reps, and the button is what the eye finds.
@@ -379,11 +396,26 @@ private fun SetTable(
                 target = row.target,
                 onFillTarget = { onEvent(ActiveSessionEvent.TargetFilled(row.sessionExerciseId)) },
                 // The fields stay live while the tick does not: a row with a weight in it and no
-                // reps yet is a set half typed, not a refused one, and an exercise logged by time
-                // is one this screen cannot write at all. Either way the tick would be pressed for
-                // a set `LogSetUseCase` refuses.
+                // reps yet — or a run's distance and no time — is a set half typed, not a refused
+                // one, and the tick would be pressed for a set `LogSetUseCase` refuses.
                 canComplete = row.canLogEntry,
                 showPrevious = showPrevious,
+                // Only a hold is timed by hand on the floor; a run's time comes off a watch.
+                footer = if (row.exerciseType == ExerciseType.ISOMETRIC) {
+                    {
+                        HoldStopwatch(
+                            setNumber = row.nextSetNumber,
+                            // Read here and nowhere above, so the tick recomposes this control.
+                            elapsed = if (isHoldTimed) holdElapsed() ?: Duration.ZERO else null,
+                            onStart = { onEvent(ActiveSessionEvent.StopwatchStarted(exerciseId)) },
+                            onStop = { onEvent(ActiveSessionEvent.StopwatchStopped(exerciseId)) },
+                            // Inert while another hold is being timed: one plank at a time.
+                            enabled = enabled && !isHoldTimedElsewhere,
+                        )
+                    }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -438,7 +470,7 @@ private fun SetNote(
 /**
  * The refusal, in words.
  *
- * Two of the three are this screen's own and come out of its resources; the third is
+ * All but one are this screen's own and come out of its resources; the last is
  * `SetValidator`'s, which already names the field, the bound and the value it saw. Paraphrasing
  * that one would be a second copy of a rule that lives in the domain.
  *
@@ -451,6 +483,8 @@ internal fun SetEntryError.message(): String =
     when (this) {
         SetEntryError.WeightNotANumber -> stringResource(R.string.active_weight_not_a_number)
         SetEntryError.RepsNotANumber -> stringResource(R.string.active_reps_not_a_number)
+        SetEntryError.DurationNotATime -> stringResource(R.string.active_duration_not_a_time)
+        SetEntryError.DistanceNotANumber -> stringResource(R.string.active_distance_not_a_number)
         is SetEntryError.Refused -> reason
     }
 

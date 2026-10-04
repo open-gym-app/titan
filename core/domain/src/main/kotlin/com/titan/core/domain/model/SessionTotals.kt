@@ -1,7 +1,7 @@
 package com.titan.core.domain.model
 
 /**
- * What one session added up to, as a *list* needs it: two figures and nothing else.
+ * What one session added up to, as a *list* needs it: a handful of figures and nothing else.
  *
  * The third of the three shapes a session's arithmetic comes in, and the only one that can
  * be read for every session at once:
@@ -22,10 +22,19 @@ package com.titan.core.domain.model
  * (`createdAt` to `completedAt`) and needs no set at all, so putting it in an aggregate over
  * the sets would be arithmetic done twice in two places.
  *
+ * The set durations are a different matter from the session's length, and are here: they
+ * are what a cardio session *did* — see [SessionStats.timedSeconds] — and a row for a run
+ * that quoted only its zero volume would be a row saying nothing happened.
+ *
  * @property totalSets completed sets across every exercise of the session.
  * @property totalVolume sum of `weight x reps` over those sets, in milligram-reps.
+ * @property timedSeconds sum of those sets' `duration`, in seconds. Zero for a session of
+ *   weights and reps.
+ * @property totalDistance sum of those sets' `distance`, in centimetres.
  */
 data class SessionTotals(
     val totalSets: Int,
     val totalVolume: Long,
+    val timedSeconds: Long = 0,
+    val totalDistance: Long = 0,
 )
