@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
  *
  * The interesting failure these guard against is drift. A `delay(1.seconds)` loop is
  * correct on paper and loses a little on every iteration in practice, and the loss is
- * invisible in a three-second test — so the cadence assertions run the full 90 seconds
+ * invisible in a three-second test — so the cadence assertions run the full three minutes
  * and compare against absolute instants, not against the previous tick.
  *
  * The state machine itself is covered in [RestTimerControllerTest].
@@ -49,7 +49,7 @@ class RestTimerAccuracyTest {
         }
 
     @Test
-    fun `a default rest finishes ninety seconds after it started`() =
+    fun `a default rest finishes three minutes after it started`() =
         runTest {
             val timer = restTimer()
             val recording = record(timer)
@@ -61,14 +61,14 @@ class RestTimerAccuracyTest {
             assertEquals(RestTimerState.Finished, timer.state.value)
             val elapsed = (recording.instantOf(RestTimerState.Finished) - startedAt).milliseconds
             assertTrue(
-                "a 90s rest finished after $elapsed, outside the +/-1s tolerance",
-                (elapsed - 90.seconds).absoluteValue <= 1.seconds,
+                "a 180s rest finished after $elapsed, outside the +/-1s tolerance",
+                (elapsed - 180.seconds).absoluteValue <= 1.seconds,
             )
-            assertEquals(90.seconds, elapsed) // deadline-based, so in fact exact
+            assertEquals(180.seconds, elapsed) // deadline-based, so in fact exact
         }
 
     @Test
-    fun `a ninety second rest counts every second down exactly once`() =
+    fun `a three minute default rest counts every second down exactly once`() =
         runTest {
             val timer = restTimer()
             val recording = record(timer)
@@ -77,11 +77,11 @@ class RestTimerAccuracyTest {
             runOutTheClock()
 
             val remaining = recording.states.filterIsInstance<RestTimerState.Running>().map { it.remaining }
-            assertEquals((90 downTo 1).map { it.seconds }, remaining)
+            assertEquals((180 downTo 1).map { it.seconds }, remaining)
         }
 
     @Test
-    fun `ticks do not drift over a ninety second run`() =
+    fun `ticks do not drift over a three minute run`() =
         runTest {
             val timer = restTimer()
             val recording = record(timer)
@@ -91,7 +91,7 @@ class RestTimerAccuracyTest {
             runOutTheClock()
 
             assertEquals(
-                (0 until 90).map { startedAt + it * 1_000L },
+                (0 until 180).map { startedAt + it * 1_000L },
                 recording.instantsOf { it is RestTimerState.Running },
             )
         }

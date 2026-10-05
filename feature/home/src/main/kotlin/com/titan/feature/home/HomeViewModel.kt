@@ -104,7 +104,7 @@ import kotlin.time.Duration.Companion.seconds
 @OptIn(ExperimentalCoroutinesApi::class)
 /*
  * Eleven constructor parameters, and every one is a graph edge: the sessions and their draft,
- * the catalogue the draft's exercise is named from, the templates the quick-start strip offers,
+ * the catalogue the draft's exercise is named from, the templates the quick-start list offers,
  * the two transitions the banner's Discard runs, the clock the banner is drawn against, the
  * three progression sources #110 added — the standing, the last record broken, and the volume
  * series — and the quest board #104 builds the dashboard card from. Bundling them behind a
@@ -494,22 +494,24 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * The templates the quick-start strip offers: the ones this user actually trains from,
+     * The templates the quick-start list offers: the ones this user actually trains from,
      * most recently started first.
      *
      * **Which handful, not just how many.** `TemplateRepository.getAll` is ordered by name, so
-     * taking the first six off it hands a user with twenty templates the same three A-names
+     * taking the first three off it hands a user with twenty templates the same three A-names
      * every morning and buries the split they are three days into. What a shortcut is for is
      * the rotation, and the rotation is legible without storing anything: a session started
      * from a template keeps its [WorkoutSession.templateId], and the sessions are already read
      * for the week above.
      *
-     * The sort is stable and templates nobody has trained from all rank alike, so those keep
-     * the name order they arrived in — which is the right order for a template that has no
-     * history to be ordered by, and the order a brand-new user sees for all of them.
+     * Templates nobody has trained from all rank alike, and those are ordered by id: oldest
+     * first, which for the seeded defaults is the order the app defines them in. Name order
+     * would be the wrong tie-break here, because it is the one a brand-new user sees for every
+     * template — with the defaults seeded, that is Abs, Arms and Back rather than the push,
+     * pull and legs split the defaults open with and the three slots are sized for.
      *
      * The cut happens here rather than in the screen because it is a decision about *which*
-     * templates, which is this class's to make; the strip draws what it is handed.
+     * templates, which is this class's to make; the list draws what it is handed.
      */
     private fun List<TemplateSummary>.quickStart(sessions: List<WorkoutSession>): List<TemplateSummary> {
         val lastStarted: Map<Long, Long> = sessions
@@ -517,8 +519,10 @@ class HomeViewModel @Inject constructor(
             .groupBy({ (templateId, _) -> templateId }, { (_, startedAt) -> startedAt })
             .mapValues { (_, startedAt) -> startedAt.max() }
 
-        return sortedByDescending { lastStarted[it.template.id] ?: NEVER_STARTED }
-            .take(QUICK_START_TEMPLATES)
+        return sortedWith(
+            compareByDescending<TemplateSummary> { lastStarted[it.template.id] ?: NEVER_STARTED }
+                .thenBy { it.template.id },
+        ).take(QUICK_START_TEMPLATES)
     }
 
     /** The day the screen is being assembled for, and everything read over it. */
@@ -613,13 +617,14 @@ class HomeViewModel @Inject constructor(
         val TICK = 1.seconds
 
         /**
-         * How many templates the quick-start strip offers.
+         * How many templates the quick-start list offers.
          *
-         * Six: enough to hold a lifter's whole rotation, few enough that the strip is a
-         * shortcut rather than a list. The way to *all* of them is the action above it, which
-         * opens the picker that is built for choosing.
+         * Three: a push/pull/legs rotation, which is the most a lifter is choosing between on
+         * a given morning, and few enough that the list is a shortcut rather than the whole
+         * catalogue pushing everything under it off the screen. The way to *all* of them is the
+         * list's last row, which opens the picker that is built for choosing.
          */
-        const val QUICK_START_TEMPLATES = 6
+        const val QUICK_START_TEMPLATES = 3
 
         /** Ranks below every real timestamp, so a template never trained from sorts last. */
         const val NEVER_STARTED = Long.MIN_VALUE

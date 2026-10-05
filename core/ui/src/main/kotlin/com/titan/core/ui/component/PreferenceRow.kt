@@ -95,6 +95,11 @@ fun PreferenceGroup(
  *   screen reader. Leaving the app is worth announcing before the tap, not after.
  * @param destructive paints the label in the error role. Reserved for the one row that
  *   destroys data — spending it on anything reversible makes it stop meaning anything.
+ * @param enabled false for an action that has nothing to act on right now — restoring default
+ *   templates when none are missing. The row stays where it is and says why in [supporting];
+ *   the label dims to the variant role as [PreferenceSoonRow]'s does, the chevron goes, and
+ *   `clickable(enabled = false)` is what puts "disabled" in the semantics tree for TalkBack.
+ *   Not for a feature that has not shipped, which is [PreferenceSoonRow]'s job.
  */
 @Composable
 fun PreferenceRow(
@@ -105,25 +110,32 @@ fun PreferenceRow(
     supporting: String? = null,
     external: Boolean = false,
     destructive: Boolean = false,
+    enabled: Boolean = true,
 ) {
     PreferenceRowLayout(
         label = label,
         value = value,
         supporting = supporting,
-        labelColor = if (destructive) {
-            MaterialTheme.colorScheme.error
-        } else {
-            MaterialTheme.colorScheme.onSurface
+        labelColor = when {
+            !enabled -> MaterialTheme.colorScheme.onSurfaceVariant
+            destructive -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.onSurface
         },
-        trailingIcon = if (external) {
-            Icons.AutoMirrored.Filled.OpenInNew
-        } else {
-            Icons.AutoMirrored.Filled.KeyboardArrowRight
+        trailingIcon = when {
+            !enabled -> null
+            external -> Icons.AutoMirrored.Filled.OpenInNew
+            else -> Icons.AutoMirrored.Filled.KeyboardArrowRight
         },
-        trailingIconDescription = if (external) stringResource(R.string.preference_opens_externally) else null,
+        trailingIconDescription = if (external && enabled) {
+            stringResource(
+                R.string.preference_opens_externally,
+            )
+        } else {
+            null
+        },
         valueIsState = true,
         modifier = modifier
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .semantics { if (value != null) stateDescription = value },
     )
 }

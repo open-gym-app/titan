@@ -91,6 +91,11 @@ words on every instance rather than whatever a reader infers from a flag:
 `PreferenceInfoRow` — the Settings "Font scale" row, the version — is not a control: it reads
 as text and offers no tap, asserted by `SettingsScreenTest` and `PreferenceRowTest`.
 
+A `PreferenceRow` with `enabled = false` — *Restore default templates* when none is missing —
+is announced as disabled, through `clickable(enabled = false)` rather than through dimming
+alone, and its supporting line says why it does nothing. Asserted by `PreferenceRowTest` and
+`SettingsScreenTest`.
+
 ### A control answers to the words drawn on it
 
 Every node that can be pressed has a spoken name that contains the text visible on it (WCAG

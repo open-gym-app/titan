@@ -11,8 +11,9 @@ import androidx.room.PrimaryKey
  * the `default_sets`, `default_reps` and `default_weight` columns that used to live here
  * could only describe identical sets, which is not a plan anybody trains from.
  *
- * `rest_duration` stays, because rest is a property of the exercise rather than of each
- * of its sets — see [com.titan.core.domain.model.PlannedSet].
+ * There is no rest column: the workout's timer runs the exercise's own `default_rest` or
+ * the user's setting, whatever the template says — see
+ * [com.titan.core.domain.timer.RestDurations].
  */
 @Entity(
     tableName = "template_exercise",
@@ -48,8 +49,6 @@ data class TemplateExerciseEntity(
     /** The superset this exercise is part of, or NULL when it stands alone. */
     @ColumnInfo(name = "superset_group")
     val supersetGroup: Int? = null,
-    @ColumnInfo(name = "rest_duration")
-    val restDuration: Long? = null,
     @ColumnInfo(name = "notes")
     val notes: String? = null,
 )

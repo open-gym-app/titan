@@ -209,13 +209,17 @@ data class UserPreferences(
         /**
          * The rest a set gets before the user has ever said otherwise.
          *
-         * This is *the* 90 seconds — it used to be a constant on `RestTimerController`,
-         * which meant a caller that forgot to read the preferences silently got the old
-         * default and the setting appeared not to work. The controller now takes a
-         * duration and has no opinion about it, so this is the only place the number
-         * lives.
+         * Three minutes: the rest a working set of a compound lift actually takes, and so
+         * the one a template's estimate has to price to come out near the session it
+         * becomes. A shorter default suits accessories and undersells everything else;
+         * an exercise that wants less carries its own `defaultRest`.
+         *
+         * It used to be a constant on `RestTimerController`, which meant a caller that
+         * forgot to read the preferences silently got the old default and the setting
+         * appeared not to work. The controller now takes a duration and has no opinion
+         * about it, so this is the only place the number lives.
          */
-        val DEFAULT_REST_DURATION: Duration = 90.seconds
+        val DEFAULT_REST_DURATION: Duration = 180.seconds
 
         /** An Olympic barbell, 20 kg, in milligrams. */
         const val DEFAULT_BAR_WEIGHT: Long = 20_000_000L

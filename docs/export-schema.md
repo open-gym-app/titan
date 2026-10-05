@@ -116,6 +116,10 @@ are recorded here so they are not re-litigated:
   device, and the unit system in particular changes how every stored weight is *read back*;
   applying it after the rows means the app re-formats once, at the end, rather than mid-write.
 
+**The default templates are user rows.** The ones seeded on first launch (#213) carry no marker
+and travel in `workout_template` like any template the user wrote. A file from a phone that
+deleted one restores without it, and one the user renamed comes back renamed.
+
 **Not exported:** the in-progress session draft (`InProgressSessionRepository`). An interrupted
 workout is device state, not history — importing one would drop the user into a live session
 that never happened on this phone. The rows it overlaps *are* exported, so nothing logged is

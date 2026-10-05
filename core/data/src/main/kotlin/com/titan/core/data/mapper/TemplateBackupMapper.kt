@@ -21,7 +21,6 @@ fun TemplateExerciseEntity.toRow(): TemplateExerciseRow =
         exerciseId = exerciseId,
         position = position,
         supersetGroup = supersetGroup,
-        restDuration = restDuration,
         notes = notes,
     )
 
@@ -32,7 +31,6 @@ fun TemplateExerciseRow.toEntity(): TemplateExerciseEntity =
         exerciseId = exerciseId,
         position = position,
         supersetGroup = supersetGroup,
-        restDuration = restDuration,
         notes = notes,
     )
 

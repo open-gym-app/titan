@@ -66,7 +66,7 @@ fun WeekSection(
 
         TitanCard {
             Column(
-                // The click sits *inside* the card, as [TemplateCard]'s does: on the modifier
+                // The click sits *inside* the card, as `TemplateRow`'s does: on the modifier
                 // handed to [TitanCard] it would be applied outside the `Surface`'s own clip
                 // and the ripple would be drawn square over a rounded card. Before the padding,
                 // so the whole card is the target and not the column of content in it.

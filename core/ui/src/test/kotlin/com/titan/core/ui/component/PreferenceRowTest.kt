@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -65,6 +66,30 @@ class PreferenceRowTest {
 
         composeTestRule.onNodeWithText("Font scale").assertHasNoClickAction()
         composeTestRule.onNodeWithText("System").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a disabled row announces itself as disabled and ignores the tap`() {
+        var clicks = 0
+        composeTestRule.setContent {
+            TitanTheme {
+                PreferenceRow(
+                    label = "Restore default templates",
+                    supporting = "Every default template is in your list",
+                    enabled = false,
+                    onClick = { clicks++ },
+                )
+            }
+        }
+
+        // Disabled in the semantics tree, which is what TalkBack says — not merely dimmed.
+        composeTestRule
+            .onNodeWithText("Restore default templates")
+            .assertIsNotEnabled()
+            .performClick()
+        composeTestRule.onNodeWithText("Every default template is in your list").assertIsDisplayed()
+
+        assertEquals(0, clicks)
     }
 
     @Test

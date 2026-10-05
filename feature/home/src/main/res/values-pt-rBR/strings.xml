@@ -46,6 +46,8 @@
     <string name="home_quick_start_blocked">Finalize ou descarte o treino acima antes de começar outro.</string>
     <string name="home_start_empty">Começar treino vazio</string>
     <string name="home_start_from_template">Começar a partir de um modelo</string>
+    <string name="home_templates_heading">Seus modelos</string>
+    <string name="home_all_templates">Ver todos os modelos</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 

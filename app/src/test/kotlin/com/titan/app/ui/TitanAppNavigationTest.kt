@@ -28,6 +28,7 @@ import com.titan.core.ui.theme.TitanTheme
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.HiltTestApplication
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
 import org.junit.Rule
@@ -107,6 +108,11 @@ class TitanAppNavigationTest {
     fun setUp() {
         hilt.inject()
         runBlocking {
+            // The default templates the database is created with (#213) are taken out first.
+            // This suite is about the graph, not about what a fresh install offers — that is
+            // `EndToEndJourneyTest`'s — and a template list of one keeps its row on screen and
+            // first on Home's list, where seventeen defaults would push it past both.
+            templates.getAll().first().forEach { templates.delete(it.id) }
             val benchPress = exercises.insert(Exercise(name = BENCH_PRESS))
             templates.insert(
                 template = WorkoutTemplate(name = TEMPLATE),
@@ -321,7 +327,7 @@ class TitanAppNavigationTest {
         // Home, and not the setup screen the picker was pushed over. That screen was never
         // drawn — the quick start opens the flow and the picker in one move — so surfacing it
         // on the way out shows the user somewhere they have not been, wearing Home's own
-        // quick-start action and template strip. Back would be going forwards.
+        // quick-start action and template list. Back would be going forwards.
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsDisplayed()
         composeTestRule.onNodeWithText(NEW_SESSION).assertDoesNotExist()
 
@@ -361,11 +367,11 @@ class TitanAppNavigationTest {
 
     @Test
     fun `a template on Home opens the flow on that template rather than on the list`() {
-        // The whole point of the quick-start strip: the template is already chosen, so the
+        // The whole point of the quick-start list: the template is already chosen, so the
         // step that chooses one is skipped and the user lands one tap from a workout. It is
-        // the review panel and not the workout itself — a card tapped by accident on a
-        // scrolling strip must not cost a session that has to be discarded.
-        // The strip is a Room read like every other list here, so the card is waited for
+        // the review panel and not the workout itself — a row tapped by accident while
+        // scrolling Home must not cost a session that has to be discarded.
+        // The list is a Room read like every other list here, so the row is waited for
         // rather than assumed.
         composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodes(templateRow()).fetchSemanticsNodes().isNotEmpty()
@@ -778,7 +784,7 @@ class TitanAppNavigationTest {
         // Home's ways into the session flow. The template action opens it on its list; the
         // empty-session action opens the picker over that list in one move, which is why the
         // second tap `openThePicker` used to need is gone.
-        const val START_FROM_TEMPLATE = "Start from template"
+        const val START_FROM_TEMPLATE = "See all templates"
         const val START_EMPTY = "START EMPTY SESSION"
 
         // The seeded session's name, and when it happened: midday UTC on a fixed day, so the

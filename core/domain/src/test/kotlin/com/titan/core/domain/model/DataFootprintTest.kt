@@ -7,8 +7,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * [DataFootprint]'s two claims: a fresh install reads as empty, and a count cannot be
- * negative.
+ * [DataFootprint]'s two claims: a footprint of all zeroes reads as empty, and a count cannot
+ * be negative.
  *
  * Both matter because of where the value is rendered. The delete-all dialog's wording turns
  * on [DataFootprint.isEmpty], and a footprint that mis-reported an empty database would tell

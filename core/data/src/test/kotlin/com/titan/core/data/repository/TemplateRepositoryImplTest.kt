@@ -43,7 +43,7 @@ class TemplateRepositoryImplTest : RoomTestBase() {
                 WorkoutTemplate(name = "Push Day", icon = "dumbbell"),
                 listOf(
                     TemplateExerciseDraft(exerciseId = squat, sets = List(5) { PlannedSet(reps = 5) }),
-                    TemplateExerciseDraft(exerciseId = bench, restDuration = 120, notes = "pause"),
+                    TemplateExerciseDraft(exerciseId = bench, notes = "pause"),
                 ),
             )
 
@@ -53,7 +53,7 @@ class TemplateRepositoryImplTest : RoomTestBase() {
             assertEquals("dumbbell", template?.icon)
             assertEquals(listOf(squat, bench), exercises.map { it.exerciseId })
             assertEquals(listOf(5, 0), exercises.map { it.sets.size })
-            assertEquals(listOf(null, 120L), exercises.map { it.restDuration })
+            assertEquals(listOf(null, "pause"), exercises.map { it.notes })
             assertTrue(exercises.all { it.templateId == id })
         }
 

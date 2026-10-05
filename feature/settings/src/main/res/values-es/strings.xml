@@ -33,6 +33,29 @@
     <string name="settings_warmup_suggestions">Sugerencias de calentamiento</string>
     <string name="settings_warmup_suggestions_detail">Proponer un calentamiento y una vuelta a la calma según los músculos que trabaja la sesión</string>
 
+    <string name="settings_restore_templates">Restaurar plantillas predeterminadas</string>
+    <string name="settings_restore_templates_none_missing">Todas las plantillas predeterminadas están en tu lista</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">Se puede recuperar %d plantilla predeterminada eliminada</item>
+        <item quantity="many">Se pueden recuperar %d plantillas predeterminadas eliminadas</item>
+        <item quantity="other">Se pueden recuperar %d plantillas predeterminadas eliminadas</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">¿Restaurar las plantillas predeterminadas?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Añade %1$d plantilla que eliminaste: %2$s</item>
+        <item quantity="many">Añade %1$d plantillas que eliminaste: %2$s</item>
+        <item quantity="other">Añade %1$d plantillas que eliminaste: %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restaurar</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d plantilla restaurada</item>
+        <item quantity="many">%d plantillas restauradas</item>
+        <item quantity="other">%d plantillas restauradas</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Nada que restaurar: todas las plantillas predeterminadas ya están</string>
+    <string name="settings_restore_templates_failed">No se pudieron restaurar las plantillas. Inténtalo de nuevo.</string>
+
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Copia de seguridad y restauración</string>
     <string name="settings_backup_detail">Exporta todo a un archivo, o sustituye lo de este dispositivo desde uno</string>

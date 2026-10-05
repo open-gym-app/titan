@@ -153,7 +153,7 @@ fun TitanNavHost(
     // has drawn a frame — see `NewSessionRoute`'s entry effect. The setup screen is therefore
     // never seen on the way in, but it is on the back stack, and backing out of the picker
     // used to reveal it: a screen the user has not visited, wearing Home's own quick-start
-    // action and template strip, which reads as the back gesture going *forwards*.
+    // action and template list, which reads as the back gesture going *forwards*.
     //
     // Held here because it is a fact about how the flow was entered, which is the one thing
     // `:app` knows and neither feature does. A flag rather than a route argument on the
@@ -204,7 +204,7 @@ fun TitanNavHost(
                 },
                 // The three ways into setup, which differ only in where the flow opens — see
                 // [NewSessionDestination]. `launchSingleTop` on all of them because the
-                // triggers are full-width buttons and a scrolling strip of cards: two taps
+                // triggers are full-width buttons and rows of a list: two taps
                 // dispatched before recomposition are two pushes of the same screen, and the
                 // first back press then looks like it did nothing.
                 onStartEmptySession = {
@@ -531,12 +531,12 @@ private fun NavHostController.openPlateCalculator(target: Long = NO_SUGGESTED_TA
  * Open the flow that sets a workout up, at the step the caller asked for.
  *
  * One function for every entry into it, because it is one destination: Home's two quick-start
- * actions and its template strip differ only in the arguments — see [NewSessionDestination].
+ * actions and its template list differ only in the arguments — see [NewSessionDestination].
  *
  * **`launchSingleTop` is not enough on its own here**, unlike everywhere else in this file: it
  * collapses a push only when the route *and its arguments* match the entry already on top, and
  * these differ by argument by design. Two taps dispatched before recomposition — two fingers
- * landing on two different cards of the quick-start strip — are therefore two setup screens,
+ * landing on two different rows of the quick-start list — are therefore two setup screens,
  * and the first back press looks like it did nothing. Popping any setup entry already on the
  * stack is what makes the flow single-instance whichever way it was opened, and it is a no-op
  * the ordinary time, when there is none.

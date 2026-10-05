@@ -31,6 +31,10 @@ import com.titan.core.domain.notification.NotificationPermissionState
  *   screen resumes, because it changes in system settings with the app not running. A switch
  *   that is on while this is [NotificationPermissionState.DENIED] is a switch that does
  *   nothing, and the group says so rather than looking healthy.
+ * @param missingDefaultTemplates the names of the default templates the user has deleted, in
+ *   the order the app defines them — what the restore row would put back. Empty when every
+ *   default is in the template list, and until the first read arrives: the row then reads as
+ *   having nothing to restore, which is the common case and the one a fresh install is in.
  * @param notificationPermissionRequest a one-shot: raise the system permission prompt. The
  *   ViewModel decides *when* to ask — the first time a notification is turned on — and the
  *   screen is the only thing that can actually ask, so the decision travels as state and is
@@ -43,6 +47,7 @@ data class SettingsUiState(
     val dialog: SettingsDialog? = null,
     val isDeleting: Boolean = false,
     val message: SettingsMessage? = null,
+    val missingDefaultTemplates: List<String> = emptyList(),
     val notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
     val notificationPermissionRequest: Boolean = false,
 )
@@ -63,6 +68,9 @@ enum class SettingsDialog {
     FITNESS_LEVEL,
     ONE_REP_MAX_FORMULA,
 
+    /** Putting back the default templates the user deleted — see `RestoreTemplatesDialog`. */
+    RESTORE_TEMPLATES,
+
     /** The destructive one. See `DeleteAllDataDialog` for why it is not a plain confirm. */
     DELETE_ALL,
 }
@@ -70,19 +78,33 @@ enum class SettingsDialog {
 /**
  * Something that happened and needs saying once.
  *
- * An enum rather than a string, so the ViewModel does not reach for a `Context` to build a
- * message and the screen keeps every user-visible word in its own resources. It is cleared by
- * [SettingsEvent.MessageShown] rather than by a timer, so a message cannot be shown twice by
- * a rotation that happens while the snackbar is up.
+ * A sealed type rather than a string, so the ViewModel does not reach for a `Context` to build
+ * a message and the screen keeps every user-visible word in its own resources. A sealed
+ * interface rather than an enum because one of them carries a count. It is cleared by
+ * [SettingsEvent.MessageShown] rather than by a timer, so a message cannot be shown twice by a
+ * rotation that happens while the snackbar is up.
  */
-enum class SettingsMessage {
+sealed interface SettingsMessage {
 
     /** A preference write failed. The control has already snapped back to the stored value. */
-    SAVE_FAILED,
+    data object SaveFailed : SettingsMessage
 
     /** The wipe finished. Worth confirming: the screen it leaves behind looks much the same. */
-    DELETE_SUCCEEDED,
+    data object DeleteSucceeded : SettingsMessage
 
     /** The wipe threw. Some stores may be empty and some may not — see `LocalDataRepository`. */
-    DELETE_FAILED,
+    data object DeleteFailed : SettingsMessage
+
+    /**
+     * [count] default templates are back in the template list. Said, because the list is on
+     * another screen and the row that did it only changes its supporting line. Zero when they
+     * had all come back some other way while the dialog was open.
+     */
+    data class TemplatesRestored(val count: Int) : SettingsMessage
+
+    /**
+     * Restoring threw, a default was refused, or one names an exercise the catalogue lacks.
+     * The ones added before it stay added.
+     */
+    data object RestoreFailed : SettingsMessage
 }

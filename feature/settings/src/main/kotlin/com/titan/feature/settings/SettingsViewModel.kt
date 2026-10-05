@@ -3,6 +3,7 @@ package com.titan.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.ThemePreference
@@ -13,11 +14,14 @@ import com.titan.core.domain.notification.NotificationPermissionState
 import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
+import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -45,7 +49,7 @@ import kotlin.time.Duration.Companion.seconds
  * `UserPreferencesRepository` throws [java.io.IOException] when the store cannot be written,
  * and its contract is explicit that swallowing that leaves the user looking at a control that
  * moved and did not save. Here the control does *not* move — it renders the stored value —
- * so the failure has to be said out loud, which is [SettingsMessage.SAVE_FAILED].
+ * so the failure has to be said out loud, which is [SettingsMessage.SaveFailed].
  *
  * Both [write] and the wipe catch [Throwable] rather than a type. The store is not the only
  * thing that can refuse a write — two of the setters validate their argument and throw
@@ -75,6 +79,7 @@ class SettingsViewModel @Inject constructor(
     private val localDataRepository: LocalDataRepository,
     private val notificationPermission: NotificationPermission,
     private val requestNotificationPermission: RequestNotificationPermissionUseCase,
+    private val restoreDefaultTemplates: RestoreDefaultTemplatesUseCase,
 ) : ViewModel() {
 
     /**
@@ -94,14 +99,19 @@ class SettingsViewModel @Inject constructor(
     val uiState: StateFlow<SettingsUiState> = combine(
         userPreferencesRepository.observe(),
         localDataRepository.observeFootprint(),
+        // An unreadable template list reads as nothing to restore rather than taking the whole
+        // screen's state down with it: the row disables itself, every other setting still works,
+        // and a restore that is actually confirmed reports its own failure.
+        restoreDefaultTemplates.observeMissing().catch { emit(emptyList()) },
         screenState,
-    ) { preferences, footprint, screen ->
+    ) { preferences, footprint, missingTemplates, screen ->
         SettingsUiState(
             preferences = preferences,
             footprint = footprint,
             dialog = screen.dialog,
             isDeleting = screen.isDeleting,
             message = screen.message,
+            missingDefaultTemplates = missingTemplates.map(DefaultTemplateName::current),
             notificationPermission = NotificationPermissionState.of(
                 allowed = screen.notificationsAllowed,
                 runtimePermissionRequired = notificationPermission.isRuntimePermissionRequired,
@@ -132,6 +142,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
             is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
             is SettingsEvent.Notification -> onNotificationEvent(event)
+            SettingsEvent.RestoreDefaultTemplatesConfirmed -> restoreMissingTemplates()
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
             SettingsEvent.MessageShown -> screenState.update { it.copy(message = null) }
         }
@@ -248,7 +259,7 @@ class SettingsViewModel @Inject constructor(
      *
      * In that order, and both unconditionally: the dialog is closed by *making a choice*, not
      * by the choice landing on disk, so a slow write does not leave the picker up looking
-     * unresponsive. If the write then fails the user gets [SettingsMessage.SAVE_FAILED] and
+     * unresponsive. If the write then fails the user gets [SettingsMessage.SaveFailed] and
      * the row still shows the stored value, which is the truth.
      */
     private fun writeAndDismiss(block: suspend () -> Unit) {
@@ -270,12 +281,49 @@ class SettingsViewModel @Inject constructor(
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
-                screenState.update { it.copy(message = SettingsMessage.SAVE_FAILED) }
+                screenState.update { it.copy(message = SettingsMessage.SaveFailed) }
             }
         }
     }
 
     private fun dismissDialog() = screenState.update { it.copy(dialog = null) }
+
+    /** The restore in flight, if any — see [restoreMissingTemplates]. */
+    private var restoreJob: Job? = null
+
+    /**
+     * Puts back the deleted default templates and says how many came back.
+     *
+     * The dialog closes on the tap, as a picker does: the restore is a handful of inserts, too
+     * quick to need the wipe's inert-while-running treatment, and the snackbar is what reports
+     * the outcome. The count is the use case's, not the dialog's — it re-reads what is missing
+     * when it runs, so a dialog left open while the defaults came back some other way (a wipe
+     * in another task, an import) reports zero rather than a count that did not happen.
+     *
+     * One restore at a time. A second confirm can arrive before the dialog has left the
+     * composition — a double tap — and two restores running together would both read the same
+     * defaults as missing and race each other through a duplicate-name check that is
+     * check-then-act, adding a default twice or reporting a failure that did not happen.
+     */
+    private fun restoreMissingTemplates() {
+        dismissDialog()
+        if (restoreJob?.isActive == true) return
+        restoreJob = viewModelScope.launch {
+            // Two ways to fail: a default the use case refused comes back as a failed result,
+            // a store that could not be written is thrown. They are one event to the user.
+            val message = try {
+                restoreDefaultTemplates().fold(
+                    onSuccess = { SettingsMessage.TemplatesRestored(it) },
+                    onFailure = { SettingsMessage.RestoreFailed },
+                )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Throwable) {
+                SettingsMessage.RestoreFailed
+            }
+            screenState.update { it.copy(message = message) }
+        }
+    }
 
     /**
      * Erases everything, with the dialog left up and inert until it is over.
@@ -292,11 +340,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val message = try {
                 localDataRepository.deleteAll()
-                SettingsMessage.DELETE_SUCCEEDED
+                SettingsMessage.DeleteSucceeded
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
-                SettingsMessage.DELETE_FAILED
+                SettingsMessage.DeleteFailed
             }
             screenState.update { it.copy(isDeleting = false, dialog = null, message = message) }
         }

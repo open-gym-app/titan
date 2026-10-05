@@ -66,14 +66,9 @@ class TemplateToSessionIntegrationTest {
                 draft(
                     exerciseId = Catalogue.benchPress.id,
                     sets = plannedSets(count = 5, reps = 5, weight = kg(80)),
-                    restDuration = 180L,
                     notes = "warm up first",
                 ),
-                draft(
-                    exerciseId = Catalogue.plank.id,
-                    sets = plannedSets(3),
-                    restDuration = 60L,
-                ),
+                draft(exerciseId = Catalogue.plank.id, sets = plannedSets(3)),
             ),
         ).getOrThrow().id
 

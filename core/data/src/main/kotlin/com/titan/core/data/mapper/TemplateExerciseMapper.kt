@@ -35,7 +35,6 @@ class TemplateExerciseMapper @Inject constructor() {
             position = row.exercise.position,
             supersetGroup = row.exercise.supersetGroup,
             sets = row.sets.sortedBy(TemplateSetEntity::setNumber).map(::toDomain),
-            restDuration = row.exercise.restDuration,
             notes = row.exercise.notes,
         )
 
@@ -69,7 +68,6 @@ class TemplateExerciseMapper @Inject constructor() {
                     exerciseId = draft.exerciseId,
                     position = position,
                     supersetGroup = draft.supersetGroup,
-                    restDuration = draft.restDuration,
                     notes = draft.notes,
                 ),
                 sets = draft.sets.mapIndexed { index, set ->

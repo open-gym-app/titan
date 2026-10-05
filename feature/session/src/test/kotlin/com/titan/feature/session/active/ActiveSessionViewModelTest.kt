@@ -110,7 +110,13 @@ class ActiveSessionViewModelTest {
 
     /** No records seeded: the mark-to-beat line is absent for an exercise with none. */
     private val personalRecords = FakeRecordStore()
-    private val settings = FakeSettings()
+
+    /**
+     * Ninety seconds of rest rather than the shipped default, pinned so the rest cases' figures
+     * — `1:30` counting down to `1:15`, a deadline 90 000 ms out — say what they test and do not
+     * move whenever the default does.
+     */
+    private val settings = FakeSettings(UserPreferences(defaultRestDuration = 90.seconds))
     private val catalogue = FakeExerciseCatalogue(exercises = listOf(BENCH, INCLINE, FLY, PUSHDOWN))
 
     /** No history seeded: the target under the entry row is absent for an exercise with none. */

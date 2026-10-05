@@ -77,9 +77,9 @@ private fun List<TemplateExerciseDraft>.withNormalizedSupersets(): List<Template
  * This is a check-then-act over a Flow read, so it is not a durable constraint — two
  * writes racing can both pass it. Nothing in the schema holds the invariant either:
  * `workout_template` has no unique index on `name`. The airtight version is
- * `CREATE UNIQUE INDEX ... ON workout_template(name COLLATE NOCASE)`, which belongs
- * with the persistence contract in M3-07; until then this is the only enforcement,
- * and it holds for the one-user-one-screen case it exists for.
+ * `CREATE UNIQUE INDEX ... ON workout_template(name COLLATE NOCASE)`, which the schema
+ * does not have, so this is the only enforcement: it holds for the one-user-one-screen
+ * case it exists for, and a caller that can fire twice has to serialise itself.
  */
 private suspend fun TemplateRepository.nameTaken(
     name: String,

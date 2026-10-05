@@ -1,17 +1,30 @@
 package com.titan.core.data.db
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.data.R
+import com.titan.core.data.mapper.TemplateExerciseMapper
+import com.titan.core.data.mapper.TemplateMapper
+import com.titan.core.data.repository.DefaultTemplateCatalogueImpl
+import com.titan.core.data.repository.TemplateRepositoryImpl
 import com.titan.core.domain.model.DifficultyLevel
 import com.titan.core.domain.model.Discipline
 import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.MechanicType
+import com.titan.core.domain.model.PlannedSet
+import com.titan.core.domain.model.SetType
+import com.titan.core.domain.model.TemplateCategory
+import com.titan.core.domain.model.TemplateExercise
+import com.titan.core.domain.superset.Supersets
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -19,6 +32,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.util.Locale
 
 /**
  * Verifies the onCreate seed populates the bundled exercise catalogue and the
@@ -43,7 +57,7 @@ class DatabaseSeedTest {
             .allowMainThreadQueries()
             .addCallback(TitanDatabase.foreignKeysCallback)
             .addCallback(TitanDatabase.singleRowProgressCallback)
-            .addCallback(TitanDatabase.seedCallback(context.assets))
+            .addCallback(TitanDatabase.seedCallback(context))
             .build()
     }
 
@@ -293,17 +307,178 @@ class DatabaseSeedTest {
     // --- idempotency ------------------------------------------------------
 
     @Test
-    fun `replaying the seed inserts no duplicates`() {
+    fun `replaying the seed inserts no duplicate catalogue rows`() {
+        // The catalogue only. The default templates are the seed's one step that is not
+        // idempotent, by design — see the section below.
         val before = listOf("exercise", "muscle_group", "tag", "exercise_muscle_group", "exercise_tag")
             .associateWith { countRows(it) }
 
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        DatabaseSeed.insertInto(db.openHelper.writableDatabase, context.assets)
+        DatabaseSeed.insertInto(db.openHelper.writableDatabase, context())
 
         assertEquals(before, before.keys.associateWith { countRows(it) })
     }
 
+    // --- default templates ------------------------------------------------
+
+    @Test
+    fun `a fresh database holds every default template, named in the device's language`() =
+        runBlocking {
+            val stored = templates().getAll().first()
+
+            // Seventeen, pinned, so a default that quietly fails to resolve fails here and not
+            // only in the reference check below. #213's table also lists a Run and a Swim; the
+            // catalogue has no outdoor run or freestyle swim to build them over, so they are
+            // not defined.
+            assertEquals(17, DefaultTemplates.all.size)
+            assertEquals(
+                DefaultTemplates.all.map { context().getString(it.nameRes) }.sorted(),
+                stored.map { it.name },
+            )
+            assertEquals(
+                TemplateCategory.HYPERTROPHY,
+                stored.single { it.name == "Legs" }.category,
+            )
+            // `icon` is left for the row's initial — see `TemplateRow`.
+            assertTrue(stored.all { it.icon == null })
+        }
+
+    @Test
+    fun `every exercise a default names resolves to one seeded exercise`() {
+        val unresolved = DefaultTemplates.all
+            .flatMap { it.exercises }
+            .map { it.key }
+            .distinct()
+            .filter { key ->
+                count(
+                    """
+                    SELECT COUNT(*) FROM exercise
+                    WHERE name = '${key.name.replace("'", "''")}' AND equipment_type = '${key.equipmentType.name}'
+                    AND machine_brand IS NULL AND is_custom = 0
+                    """,
+                ) != 1
+            }
+
+        assertEquals("every reference should resolve to exactly one row", emptyList<SeedExerciseKey>(), unresolved)
+    }
+
+    @Test
+    fun `every default is stored as the catalogue would create it`() =
+        runBlocking {
+            val repository = templates()
+            val stored = repository.getAll().first().associateBy { it.name }
+            val defaults = DefaultTemplateCatalogueImpl(context(), db.exerciseDao(), Dispatchers.Unconfined).getAll()
+
+            assertEquals(DefaultTemplates.all.size, defaults.size)
+            for (default in defaults) {
+                val name = default.name.current
+                val template = checkNotNull(stored[name]) { "$name was not seeded" }
+                assertEquals(default.category, template.category)
+                assertEquals(
+                    name,
+                    default.exercises.map { listOf(it.exerciseId, it.sets, it.supersetGroup) },
+                    repository.getExercises(template.id).first()
+                        .map { listOf(it.exerciseId, it.sets, it.supersetGroup) },
+                )
+            }
+        }
+
+    @Test
+    fun `the defaults plan the sets the issue lays out`() =
+        runBlocking {
+            // Reps only, and a weight on nothing: a default cannot know the user's loads.
+            assertEquals(listOf(4, 3, 3, 3, 3, 3), exercisesOf("Push").map { it.sets.size })
+            assertEquals(listOf(8, 10, 10, 15, 12, 10), exercisesOf("Push").map { it.sets.first().reps })
+            assertTrue(
+                templates().getAllExercises().first().flatMap { it.sets }.all { it.weight == null },
+            )
+
+            // Three supersets of two, each resting after the pair.
+            assertEquals(listOf(0, 0, 1, 1, 2, 2), exercisesOf("Arms").map { it.supersetGroup })
+
+            // One superset of five, four interval sets each.
+            val hiit = exercisesOf("HIIT")
+            assertEquals(List(5) { 0 }, hiit.map { it.supersetGroup })
+            assertTrue(hiit.all { exercise -> exercise.sets == List(4) { PlannedSet(setType = SetType.INTERVAL) } })
+
+            // A warm-up, five intervals and a steady piece, none of them with a figure planned.
+            assertEquals(
+                listOf(SetType.WARMUP) + List(5) { SetType.INTERVAL } + SetType.NORMAL,
+                exercisesOf("Row").single().sets.map { it.setType },
+            )
+            assertEquals(
+                listOf(PlannedSet(setType = SetType.WARMUP), PlannedSet()),
+                exercisesOf("Bike").single().sets,
+            )
+
+            // A hold plans no reps.
+            assertEquals(List(3) { PlannedSet() }, exercisesOf("Abs").first().sets)
+        }
+
+    @Test
+    fun `every default's supersets are in the form the template use cases store`() =
+        runBlocking {
+            for (spec in DefaultTemplates.all) {
+                val grouping = spec.exercises.map { it.supersetGroup }
+                assertEquals(grouping, Supersets.normalize(grouping))
+                assertTrue(Supersets.validate(grouping).reasonOrNull() == null)
+            }
+        }
+
+    @Test
+    fun `seeding a cleared database writes the defaults once, not twice`() =
+        runBlocking {
+            db.clearAllTables()
+
+            DatabaseSeed.insertInto(db.openHelper.writableDatabase, context())
+
+            assertEquals(DefaultTemplates.all.size, countRows("workout_template"))
+        }
+
+    @Test
+    fun `the defaults are named in the language the database is created in`() =
+        runBlocking {
+            db.clearAllTables()
+            val french = context().createConfigurationContext(
+                Configuration(context().resources.configuration).apply { setLocale(Locale.FRENCH) },
+            )
+
+            DatabaseSeed.insertInto(db.openHelper.writableDatabase, french)
+
+            val names = templates().getAll().first().map { it.name }
+            assertTrue(names.containsAll(listOf("Jambes", "Pectoraux", "Étirements et mobilité")))
+            assertTrue("Legs" !in names)
+            assertEquals(french.getString(R.string.default_template_legs), "Jambes")
+        }
+
+    @Test
+    fun `a custom exercise sharing a seeded name does not capture a default's reference`() =
+        runBlocking {
+            val seededSquat = exercisesOf("Legs").first().exerciseId
+            // The seeded row's name and equipment and no brand — which the unique index lets
+            // through, since SQLite treats two NULLs as distinct.
+            val custom = db.exerciseDao().insert(
+                exercise(name = "Barbell Squat", equipmentType = "BARBELL").copy(isCustom = true),
+            )
+            db.openHelper.writableDatabase.execSQL("DELETE FROM workout_template")
+
+            DatabaseSeed.insertDefaultTemplates(db.openHelper.writableDatabase, context().resources)
+
+            assertNotEquals(custom, exercisesOf("Legs").first().exerciseId)
+            assertEquals(seededSquat, exercisesOf("Legs").first().exerciseId)
+        }
+
     // --- helpers ----------------------------------------------------------
+
+    private fun context(): Context = ApplicationProvider.getApplicationContext()
+
+    private fun templates() =
+        TemplateRepositoryImpl(db.workoutTemplateDao(), TemplateMapper(), TemplateExerciseMapper())
+
+    private suspend fun exercisesOf(name: String): List<TemplateExercise> {
+        val repository = templates()
+        val template = repository.getAll().first().single { it.name == name }
+        return repository.getExercises(template.id).first()
+    }
 
     private fun countRows(table: String): Int = count("SELECT COUNT(*) FROM $table")
 

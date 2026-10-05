@@ -184,8 +184,7 @@ Text(
   | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
   | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
   | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
-  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip, with a slot for whatever the screen puts on the right | `TemplateSummary` |
-  | `TemplateCard` | the same template as a fixed-width card, for a strip that scrolls sideways. Shares the row's figures, so the two cannot disagree | `TemplateSummary` |
+  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~1h 15m` and category chip, with a slot for whatever the screen puts on the right. Dims and disarms when `enabled` is false | `TemplateSummary` |
   | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |

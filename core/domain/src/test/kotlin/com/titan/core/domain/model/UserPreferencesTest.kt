@@ -33,9 +33,9 @@ class UserPreferencesTest {
     }
 
     @Test
-    fun `a fresh install rests ninety seconds`() {
-        assertEquals(90.seconds, UserPreferences.DEFAULT_REST_DURATION)
-        assertEquals(90.seconds, UserPreferences().defaultRestDuration)
+    fun `a fresh install rests three minutes`() {
+        assertEquals(180.seconds, UserPreferences.DEFAULT_REST_DURATION)
+        assertEquals(180.seconds, UserPreferences().defaultRestDuration)
     }
 
     @Test

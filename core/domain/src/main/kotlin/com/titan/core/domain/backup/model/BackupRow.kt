@@ -109,7 +109,7 @@ data class WorkoutTemplateRow(
     @SerialName("icon") val icon: String? = null,
 ) : BackupRow
 
-/** A row of `template_exercise`: which movement, in what order, with how long a rest after it. */
+/** A row of `template_exercise`: which movement, in what order, and in which superset. */
 @Serializable
 data class TemplateExerciseRow(
     @SerialName("id") val id: Long,
@@ -117,7 +117,6 @@ data class TemplateExerciseRow(
     @SerialName("exercise_id") val exerciseId: Long,
     @SerialName("position") val position: Int,
     @SerialName("superset_group") val supersetGroup: Int? = null,
-    @SerialName("rest_duration") val restDuration: Long? = null,
     @SerialName("notes") val notes: String? = null,
 ) : BackupRow
 

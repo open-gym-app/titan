@@ -13,8 +13,12 @@ import com.titan.core.data.db.entity.TagEntity
 import com.titan.core.data.db.projection.CatalogueMuscleGroupLinkRow
 import com.titan.core.data.db.projection.ExerciseMuscleGroupLinkRow
 import com.titan.core.data.db.projection.MobilityExerciseRow
+import com.titan.core.data.db.projection.SeededExerciseKeyRow
 import kotlinx.coroutines.flow.Flow
 
+// One function per read or write over the catalogue. Splitting the interface to stay under the
+// count would scatter the exercise table's queries across DAOs for no reader's benefit.
+@Suppress("TooManyFunctions")
 @Dao
 interface ExerciseDao {
 
@@ -35,6 +39,26 @@ interface ExerciseDao {
 
     @Query("SELECT * FROM exercise WHERE id IN (:ids)")
     suspend fun getByIds(ids: Collection<Long>): List<ExerciseEntity>
+
+    /**
+     * The seeded exercises called any of [names], keyed the way the default templates name
+     * them: name and equipment, on a row with no machine brand.
+     *
+     * One read for a whole catalogue of references rather than one per exercise, for
+     * restoring the defaults from settings, which resolves every one of them in a single
+     * call. Custom exercises are excluded because the unique index does not keep one from
+     * sharing a seeded row's name and equipment when neither has a brand — SQLite treats two
+     * NULLs as distinct. A row with no equipment is excluded too: a default always names one,
+     * and the column is nullable, so an imported row without it would otherwise fail to map.
+     */
+    @Query(
+        """
+        SELECT id, name, equipment_type FROM exercise
+        WHERE name IN (:names) AND machine_brand IS NULL AND is_custom = 0
+            AND equipment_type IS NOT NULL
+        """,
+    )
+    suspend fun getSeededByName(names: Collection<String>): List<SeededExerciseKeyRow>
 
     @Query("SELECT * FROM exercise WHERE exercise_type = :type ORDER BY name ASC")
     fun getByType(type: String): Flow<List<ExerciseEntity>>

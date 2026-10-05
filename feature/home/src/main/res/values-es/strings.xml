@@ -46,6 +46,8 @@
     <string name="home_quick_start_blocked">Termina o descarta el entrenamiento de arriba antes de empezar otro.</string>
     <string name="home_start_empty">Empezar sesión vacía</string>
     <string name="home_start_from_template">Empezar desde plantilla</string>
+    <string name="home_templates_heading">Tus plantillas</string>
+    <string name="home_all_templates">Ver todas las plantillas</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 

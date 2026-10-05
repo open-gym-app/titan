@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.db.bodyMeasurement
 import com.titan.core.data.db.entity.ExerciseEntity
@@ -86,7 +87,7 @@ class LocalDataRepositoryImplTest {
             .allowMainThreadQueries()
             .addCallback(TitanDatabase.foreignKeysCallback)
             .addCallback(TitanDatabase.singleRowProgressCallback)
-            .addCallback(TitanDatabase.seedCallback(context.assets))
+            .addCallback(TitanDatabase.seedCallback(context))
             .build()
 
         storeScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -120,12 +121,12 @@ class LocalDataRepositoryImplTest {
     // --- footprint --------------------------------------------------------
 
     @Test
-    fun `a fresh install has a footprint of zero despite the seeded catalogue`() =
+    fun `a fresh install counts the default templates and nothing of the catalogue`() =
         runBlocking {
-            // The catalogue is thousands of rows and none of them are the user's, so a fresh
-            // install must read as "nothing to lose" rather than as a full device.
-            assertEquals(DataFootprint(), repository.observeFootprint().first())
-            assertTrue(repository.observeFootprint().first().isEmpty)
+            // The catalogue is thousands of rows and none of them are the user's. The default
+            // templates are counted: from the moment they are seeded they are ordinary
+            // templates, the user's to edit and delete, and the wipe takes them like any other.
+            assertEquals(DataFootprint(templates = DEFAULT_TEMPLATES), repository.observeFootprint().first())
         }
 
     @Test
@@ -137,7 +138,7 @@ class LocalDataRepositoryImplTest {
                 DataFootprint(
                     sessions = 1,
                     sets = 2,
-                    templates = 1,
+                    templates = DEFAULT_TEMPLATES + 1,
                     personalRecords = 1,
                     customExercises = 1,
                     bodyMeasurements = 1,
@@ -204,7 +205,24 @@ class LocalDataRepositoryImplTest {
 
             repository.deleteAll()
 
-            assertEquals(DataFootprint(), repository.observeFootprint().first())
+            // Only the defaults, put back by the re-seed, as on a fresh install.
+            assertEquals(DataFootprint(templates = DEFAULT_TEMPLATES), repository.observeFootprint().first())
+        }
+
+    @Test
+    fun `deleteAll brings back the default templates as a fresh install has them`() =
+        runBlocking {
+            val dao = db.workoutTemplateDao()
+            val defaults = dao.getAll().first().map { it.name }
+            // A default deleted, another renamed, and one of the user's own.
+            val all = dao.getAll().first()
+            dao.delete(all.first { it.name == "Legs" }.id)
+            dao.update(all.first { it.name == "Push" }.copy(name = "My push"))
+            dao.insert(template(name = "Mine"))
+
+            repository.deleteAll()
+
+            assertEquals(defaults, dao.getAll().first().map { it.name })
         }
 
     @Test
@@ -273,7 +291,8 @@ class LocalDataRepositoryImplTest {
             repository.deleteAll()
             repository.deleteAll()
 
-            assertEquals(DataFootprint(), repository.observeFootprint().first())
+            // The defaults once, not twice: the second wipe clears the first one's re-seed.
+            assertEquals(DataFootprint(templates = DEFAULT_TEMPLATES), repository.observeFootprint().first())
             assertEquals(UserPreferences(), userPreferencesRepository.observe().first())
         }
 
@@ -285,6 +304,9 @@ class LocalDataRepositoryImplTest {
         const val FIRST_SESSION_AT = 1_709_510_400_000L
 
         const val LATER_SESSION_AT = 1_788_600_000_000L
+
+        /** What the seed puts in `workout_template` before the user has done anything. */
+        val DEFAULT_TEMPLATES = DefaultTemplates.all.size
     }
 
     /** One row of every kind the footprint counts. */

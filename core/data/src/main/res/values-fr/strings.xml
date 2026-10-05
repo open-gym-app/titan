@@ -87,4 +87,22 @@
     <string name="progression_rarity_epic">Épique</string>
     <string name="progression_rarity_legendary">Légendaire</string>
 
+    <string name="default_template_push">Poussée</string>
+    <string name="default_template_pull">Tirage</string>
+    <string name="default_template_legs">Jambes</string>
+    <string name="default_template_chest">Pectoraux</string>
+    <string name="default_template_back">Dos</string>
+    <string name="default_template_shoulders">Épaules</string>
+    <string name="default_template_arms">Bras</string>
+    <string name="default_template_abs">Abdos</string>
+    <string name="default_template_upper_body">Haut du corps</string>
+    <string name="default_template_lower_body">Bas du corps</string>
+    <string name="default_template_full_body">Corps entier</string>
+    <string name="default_template_glutes">Fessiers</string>
+    <string name="default_template_bodyweight">Poids du corps</string>
+    <string name="default_template_hiit">HIIT</string>
+    <string name="default_template_bike">Vélo</string>
+    <string name="default_template_row">Rameur</string>
+    <string name="default_template_stretch">Étirements et mobilité</string>
+
 </resources>

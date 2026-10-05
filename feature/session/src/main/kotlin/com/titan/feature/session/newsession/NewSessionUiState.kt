@@ -15,8 +15,9 @@ import kotlin.time.Duration
  * means "I have not decided", not "take me one step back through the decision".
  *
  * @param templates the saved templates, with the figures a row shows. Empty is a real state
- *   and not a loading one — see [isLoading] — and the screen says so, since templates are
- *   authored from a finished session (#92) and a user who has never done that has none.
+ *   and not a loading one — see [isLoading] — and the screen says so. A fresh install starts
+ *   with the default templates (#213), so it is reached by deleting every template, defaults
+ *   included, rather than by never having saved one.
  * @param isLoading the template read has not come back yet. Distinct from "there are no
  *   templates", which is what would otherwise be drawn for the moment before the first
  *   emission — an empty state with a call to action is a poor thing to flash at somebody.

@@ -24,8 +24,6 @@ data class TemplateExerciseDraft(
     override val exerciseId: Long,
     /** What to perform, in order. Empty is a line that plans no sets — see [PlannedSet]. */
     override val sets: List<PlannedSet> = emptyList(),
-    /** Seconds, per [TemplateExercise.restDuration]. */
-    override val restDuration: Long? = null,
     val notes: String? = null,
     override val supersetGroup: Int? = null,
 ) : PlannedExercise

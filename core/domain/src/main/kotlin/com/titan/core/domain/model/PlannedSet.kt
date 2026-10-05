@@ -32,9 +32,9 @@ import kotlinx.serialization.Serializable
  * user's mouth, and a session started from that template would open with every set
  * already claiming to have felt like an RPE 8.
  *
- * **The rest.** Rest belongs to the exercise ([TemplateExercise.restDuration]), not to
- * each of its sets: it is one number a lifter sets once, and per-set rest would be a
- * column of identical figures for every template anybody actually writes.
+ * **The rest.** A plan carries none, per set or per exercise: the workout's timer runs on
+ * the exercise's own `defaultRest`, or the user's setting where it has none, whatever the
+ * template says — see [com.titan.core.domain.timer.RestDurations].
  *
  * @property setType what kind of set this is — the warm-up, the working sets and the
  *   drop set the old shape could not tell apart. Carried into the session as the set's

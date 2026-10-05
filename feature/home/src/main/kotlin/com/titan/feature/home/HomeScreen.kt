@@ -48,7 +48,7 @@ import kotlinx.coroutines.flow.filterNotNull
  *   this is a navigation and only a navigation.
  * @param onStartEmptySession the user wants a workout they will build as they go.
  * @param onStartFromTemplates the user wants to pick a template first.
- * @param onStartFromTemplate the user picked one from the quick-start strip.
+ * @param onStartFromTemplate the user picked one from the quick-start list.
  * @param onOpenSessions the week card was tapped: the user wants the sessions it is counting.
  * @param onOpenRecords the recent-PR card was tapped: the user wants every record, not the one.
  * @param onOpenStats the volume chart was tapped: the user wants the figures behind the shape.
@@ -91,8 +91,9 @@ fun HomeRoute(
  * The standing first, as a header rather than a card — see [LevelHeader]. Then a workout the
  * app is still holding open, which takes the accent, because a user who has one has exactly one
  * thing they want from this screen. Under it, the week and the streak beside it — the figures
- * that answer "am I keeping this up" without opening anything. Then the ways in: two actions,
- * and the templates as a strip for the case where the workout is already decided.
+ * that answer "am I keeping this up" without opening anything. Then the ways in: the empty
+ * session, and the user's own templates as a short list for the case where the workout is
+ * already decided.
  *
  * **The two progression cards come last, and that is where they belong.** The last record
  * broken and eight weeks of volume are what the user has *done*; everything above them is what

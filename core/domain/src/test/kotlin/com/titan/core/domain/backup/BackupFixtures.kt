@@ -60,7 +60,7 @@ fun sampleDocument(
         exerciseTag = listOf(ExerciseTagRow(exerciseId = 1, tagId = 1)),
         workoutTemplate = listOf(WorkoutTemplateRow(id = 1, name = "Push Day", category = "STRENGTH")),
         templateExercise = listOf(
-            TemplateExerciseRow(id = 1, templateId = 1, exerciseId = 1, position = 0, restDuration = 120),
+            TemplateExerciseRow(id = 1, templateId = 1, exerciseId = 1, position = 0, notes = "Pause on the chest."),
         ),
         templateSet = listOf(
             TemplateSetRow(id = 1, templateExerciseId = 1, setNumber = 1, reps = 5, weight = 60_000_000),

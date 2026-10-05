@@ -96,7 +96,6 @@ class TemplateDraftFormatTest {
                         TemplateDraftSet(key = 2, weight = "185", reps = "5"),
                     ),
                     supersetGroup = 0,
-                    restDuration = 120,
                     notes = "Pause on the chest.",
                 ),
                 TemplateDraftExercise(key = -1, exerciseId = 11),

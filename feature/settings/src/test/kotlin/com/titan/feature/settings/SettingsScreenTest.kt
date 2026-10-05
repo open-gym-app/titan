@@ -515,6 +515,71 @@ class SettingsScreenTest {
         composeTestRule.onAllNodesWithText("BLOCKED").assertCountEquals(0)
     }
 
+    // --- restoring the default templates ----------------------------------
+
+    @Test
+    fun `the restore row counts what is missing and asks for its dialog`() {
+        setContent(missingDefaultTemplates = listOf("Legs", "Push", "HIIT"))
+
+        composeTestRule.onNodeWithText("3 deleted defaults can be added back").performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("Restore default templates").assertIsEnabled().performClick()
+
+        assertEquals(listOf(SettingsEvent.DialogRequested(SettingsDialog.RESTORE_TEMPLATES)), events)
+    }
+
+    @Test
+    fun `with nothing missing the restore row is disabled and says why`() {
+        setContent(missingDefaultTemplates = emptyList())
+
+        composeTestRule.onNodeWithText("Every default template is in your list").performScrollTo().assertIsDisplayed()
+        // Disabled in the semantics tree, which is what TalkBack announces — not merely dimmed.
+        composeTestRule.onNodeWithText("Restore default templates").assertIsNotEnabled().performClick()
+
+        assertEquals(emptyList<SettingsEvent>(), events)
+    }
+
+    @Test
+    fun `the restore dialog names the count and the templates it adds`() {
+        setContent(dialog = SettingsDialog.RESTORE_TEMPLATES, missingDefaultTemplates = listOf("Legs", "Push", "HIIT"))
+
+        composeTestRule.onNodeWithText("Adds 3 templates you deleted: Legs, Push, HIIT").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Restore").performClick()
+        composeTestRule.onNodeWithText("Cancel").performClick()
+
+        assertEquals(
+            listOf(SettingsEvent.RestoreDefaultTemplatesConfirmed, SettingsEvent.DialogDismissed),
+            events,
+        )
+    }
+
+    @Test
+    fun `the restore dialog agrees with a single template`() {
+        setContent(dialog = SettingsDialog.RESTORE_TEMPLATES, missingDefaultTemplates = listOf("Legs"))
+
+        composeTestRule.onNodeWithText("Adds 1 template you deleted: Legs").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a finished restore is reported with its count`() {
+        setContent(message = SettingsMessage.TemplatesRestored(3))
+
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText("3 templates restored").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertTrue(SettingsEvent.MessageShown in events)
+    }
+
+    @Test
+    fun `a restore that found nothing to add says so rather than counting zero`() {
+        setContent(message = SettingsMessage.TemplatesRestored(0))
+
+        composeTestRule.waitUntil {
+            composeTestRule.onAllNodesWithText("Nothing to restore: every default template is already there")
+                .fetchSemanticsNodes()
+                .isNotEmpty()
+        }
+    }
+
     // --- the destructive path ---------------------------------------------
 
     @Test
@@ -651,6 +716,8 @@ class SettingsScreenTest {
         isDeleting: Boolean = false,
         appVersion: String = "1.0",
         notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
+        missingDefaultTemplates: List<String> = emptyList(),
+        message: SettingsMessage? = null,
     ) {
         composeTestRule.setContent {
             TitanTheme {
@@ -661,6 +728,8 @@ class SettingsScreenTest {
                         dialog = dialog,
                         isDeleting = isDeleting,
                         notificationPermission = notificationPermission,
+                        missingDefaultTemplates = missingDefaultTemplates,
+                        message = message,
                     ),
                     appVersion = appVersion,
                     onEvent = events::add,

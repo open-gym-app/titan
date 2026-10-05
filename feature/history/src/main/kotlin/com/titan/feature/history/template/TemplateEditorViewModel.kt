@@ -161,8 +161,8 @@ class TemplateEditorViewModel @Inject constructor(
      * Both are read once, with the template — see the note on the class. `defaultRest` is not a
      * display value: it is what [TemplateDuration] charges an exercise with no rest of its own,
      * so an estimate computed without it would be the shipped default's estimate on the phone of
-     * a user who has changed theirs. This screen plans no rest, so it is what almost every
-     * exercise is charged — see [TemplateDraftExercise.restDuration] for the ones that are not.
+     * a user who has changed theirs. A plan carries no rest, so it is what every exercise without
+     * a `defaultRest` of its own is charged — see `RestDurations`.
      */
     private var unitSystem: UnitSystem = UnitSystem.METRIC
     private var defaultRest: Duration = Duration.ZERO
@@ -291,9 +291,7 @@ class TemplateEditorViewModel @Inject constructor(
                         )
                     },
                     supersetGroup = exercise.supersetGroup,
-                    // Neither of these is edited here, and neither is dropped, for the reason
-                    // `icon` is kept.
-                    restDuration = exercise.restDuration,
+                    // Not edited here, and not dropped, for the reason `icon` is kept.
                     notes = exercise.notes,
                 )
             },
@@ -876,18 +874,12 @@ class TemplateEditorViewModel @Inject constructor(
     private fun estimate(
         draft: TemplateDraft,
         catalogue: Map<Long, Exercise>,
-    ): Duration {
-        // Only the draft's own exercises, not the whole catalogue: this runs on every keystroke.
-        val exerciseTypes = draft.exercises
-            .mapNotNull { row -> catalogue[row.exerciseId]?.let { row.exerciseId to it.type } }
-            .toMap()
-
-        return TemplateDuration.estimate(
+    ): Duration =
+        TemplateDuration.estimate(
             exercises = draft.toDrafts(unitSystem, catalogue),
             defaultRest = defaultRest,
-            exerciseTypes = exerciseTypes,
+            catalogue = catalogue,
         )
-    }
 
     /**
      * Assemble the screen from the draft, resolving names and re-deriving everything derived.
@@ -1138,7 +1130,6 @@ private fun TemplateDraft.toDrafts(
                         ?.let { parseDistanceCentimetres(it, units.distanceUnit) },
                 )
             },
-            restDuration = row.restDuration,
             notes = row.notes,
             supersetGroup = row.supersetGroup,
         )

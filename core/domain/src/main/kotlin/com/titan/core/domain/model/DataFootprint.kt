@@ -15,13 +15,16 @@ package com.titan.core.domain.model
  * happens to live in the same database — a thousand rows nobody would miss and everybody
  * would notice the absence of — so counting it here would inflate every figure in the
  * dialog with something the wipe restores anyway. [customExercises] is the exception,
- * because an exercise the user typed in is theirs.
+ * because an exercise the user typed in is theirs. The default templates seeded with the
+ * catalogue are counted in [templates]: from the moment they are written they are ordinary
+ * templates, the user's to edit and delete, so a fresh install's footprint is those and
+ * nothing else.
  *
  * ### Zero is a real answer
  *
- * A fresh install has a footprint of all zeroes rather than nothing to show, so the caller
- * never has to decide what to render "before the counts arrive": there is always a value,
- * and it is the truth about an empty database.
+ * A database with nothing of the user's in it has a footprint of all zeroes rather than
+ * nothing to show, so the caller never has to decide what to render "before the counts
+ * arrive": there is always a value, and it is the truth about an empty database.
  */
 data class DataFootprint(
     /** Logged workouts, finished or still in progress. */

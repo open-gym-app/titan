@@ -68,7 +68,6 @@ class TemplateMappersTest {
                 exerciseId = 14,
                 position = 1,
                 supersetGroup = 0,
-                restDuration = 120,
                 notes = "pause at the bottom",
             ),
             sets = listOf(
@@ -94,7 +93,6 @@ class TemplateMappersTest {
                 PlannedSet(setType = SetType.WARMUP, reps = 12, weight = 40_000_000),
                 PlannedSet(reps = 8, weight = 60_000_000),
             ),
-            restDuration = 120,
             notes = "pause at the bottom",
         )
         assertEquals(expected, exerciseMapper.toDomain(row))
@@ -135,7 +133,6 @@ class TemplateMappersTest {
                 PlannedSet(reps = 8, weight = 60_000_000),
                 PlannedSet(setType = SetType.DROP_SET, reps = 10, weight = 30_000_000),
             ),
-            restDuration = 120,
             notes = "pause at the bottom",
             supersetGroup = 0,
         )
@@ -144,7 +141,6 @@ class TemplateMappersTest {
 
         assertEquals(draft.exerciseId, row.exercise.exerciseId)
         assertEquals(draft.supersetGroup, row.exercise.supersetGroup)
-        assertEquals(draft.restDuration, row.exercise.restDuration)
         assertEquals(draft.notes, row.exercise.notes)
         assertEquals(listOf("WARMUP", "NORMAL", "DROP_SET"), row.sets.map { it.setType })
         assertEquals(listOf(12, 8, 10), row.sets.map { it.reps })
