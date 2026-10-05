@@ -433,7 +433,7 @@ Each Hilt module lives in a `di/` package inside the Gradle module that owns the
 
 | Scope | Component | Use for |
 | --- | --- | --- |
-| `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, network clients, repositories |
+| `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, DataStore, repositories |
 | `@ViewModelScoped` | `ViewModelComponent` | Dependencies shared across a single ViewModel's injection graph but recreated per screen |
 | *(none)* | any | Cheap, stateless objects (e.g. mappers) - a fresh instance per injection site is fine, don't over-scope |
 
