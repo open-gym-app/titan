@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "1cda3eceeebf1d224bdb2477356075e9",
+    "identityHash": "7962f122c6106bf41ba4852f3f3bb48b",
     "entities": [
       {
         "tableName": "exercise",
@@ -393,7 +393,7 @@
       },
       {
         "tableName": "template_exercise",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `rest_duration` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `template_id` INTEGER NOT NULL, `exercise_id` INTEGER NOT NULL, `position` INTEGER NOT NULL, `superset_group` INTEGER, `notes` TEXT, FOREIGN KEY(`template_id`) REFERENCES `workout_template`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`exercise_id`) REFERENCES `exercise`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT )",
         "fields": [
           {
             "fieldPath": "id",
@@ -422,11 +422,6 @@
           {
             "fieldPath": "supersetGroup",
             "columnName": "superset_group",
-            "affinity": "INTEGER"
-          },
-          {
-            "fieldPath": "restDuration",
-            "columnName": "rest_duration",
             "affinity": "INTEGER"
           },
           {
@@ -1425,7 +1420,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1cda3eceeebf1d224bdb2477356075e9')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7962f122c6106bf41ba4852f3f3bb48b')"
     ]
   }
 }

@@ -18,7 +18,7 @@ interface PlannedExercise {
 
     /**
      * The catalogue exercise it plans. Read by the estimate for the exercise's type, which
-     * decides whether a set's planned duration is one the user can see — see
+     * decides whether a set's planned duration is one the user can see, and for its rest — see
      * [com.titan.core.domain.template.TemplateDuration].
      */
     val exerciseId: Long
@@ -34,9 +34,6 @@ interface PlannedExercise {
      * is what an exercise the user has added but not priced looks like.
      */
     val sets: List<PlannedSet>
-
-    /** Seconds of rest after a set of this exercise, or null to take the caller's default. */
-    val restDuration: Long?
 
     /** The superset this exercise belongs to, or null when it stands alone. */
     val supersetGroup: Int?

@@ -75,7 +75,9 @@ private suspend fun TitanDatabase.seedTemplates() {
     val dao = backupDao()
     dao.insertTemplates(listOf(template(name = "Push Day", category = "STRENGTH").copy(id = 1, icon = "push.webp")))
     dao.insertTemplateExercises(
-        listOf(templateExercise(templateId = 1, exerciseId = 1, position = 0).copy(id = 1, restDuration = 120)),
+        listOf(
+            templateExercise(templateId = 1, exerciseId = 1, position = 0).copy(id = 1, notes = "Pause on the chest."),
+        ),
     )
     dao.insertTemplateSets(
         listOf(

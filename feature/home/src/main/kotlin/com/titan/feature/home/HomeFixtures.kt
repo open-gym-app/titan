@@ -131,12 +131,11 @@ internal val PREVIEW_VOLUME: List<WeeklyVolume> = listOf(
 /** How many weeks [PREVIEW_VOLUME] covers — the same eight the card asks for. */
 private const val PREVIEW_VOLUME_WEEKS = 8
 
-/** Four saved templates, in the order the strip draws them. */
+/** Three saved templates — as many as the list holds — in the order it draws them. */
 private val PREVIEW_TEMPLATES: List<TemplateSummary> = listOf(
-    previewTemplate(1L, "Push Day", 8, 55.minutes, TemplateCategory.STRENGTH),
-    previewTemplate(2L, "Pull Day", 7, 50.minutes, TemplateCategory.STRENGTH),
-    previewTemplate(3L, "Leg Day · Heavy", 6, 62.minutes, TemplateCategory.HYPERTROPHY),
-    previewTemplate(4L, "HIIT Cardio", 3, 28.minutes, TemplateCategory.ENDURANCE),
+    previewTemplate(1L, "Push Day", 8, 77.minutes, TemplateCategory.STRENGTH),
+    previewTemplate(2L, "Pull Day", 7, 68.minutes, TemplateCategory.STRENGTH),
+    previewTemplate(3L, "Leg Day · Heavy", 6, 60.minutes, TemplateCategory.HYPERTROPHY),
 )
 
 /** A settled Home with every card on it — the state #110 asks the tests to cover first. */

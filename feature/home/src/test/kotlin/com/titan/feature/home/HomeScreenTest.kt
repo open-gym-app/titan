@@ -175,34 +175,57 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `the template action reports it`() {
+    fun `the saved templates are listed under a heading that says whose they are`() {
         setContent(state())
 
-        composeTestRule.onNodeWithText("Start from template").performClick()
+        composeTestRule.onNodeWithText("YOUR TEMPLATES").performScrollTo().assertIsDisplayed()
+        composeTestRule
+            .onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes, Strength")
+            .assertExists()
+        // The list's last row is the way to all of them, so the separate action is not drawn.
+        composeTestRule.onNodeWithText("Start from template").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the list's last row opens every template`() {
+        setContent(state())
+
+        composeTestRule.onNodeWithText("See all templates").performScrollTo().performClick()
 
         assertEquals(1, openedTemplates)
     }
 
     @Test
-    fun `a quick-start card reports which template it is`() {
+    fun `with no templates the template action stands in for the list`() {
+        setContent(state().copy(templates = emptyList()))
+
+        composeTestRule.onNodeWithText("YOUR TEMPLATES").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Start from template").performScrollTo().performClick()
+
+        assertEquals(1, openedTemplates)
+    }
+
+    @Test
+    fun `a template row reports which template it is`() {
         setContent(state())
 
         composeTestRule
             .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .performScrollTo()
             .performClick()
 
         assertEquals(listOf(2L), startedFromTemplate)
     }
 
     @Test
-    fun `a workout already open takes both ways into a new one out of service`() {
+    fun `a workout already open takes every way into a new one out of service`() {
         setContent(state(resume = RUNNING))
 
         // The flow behind them refuses to start a second session — `ResumeSessionDialog` —
         // and Home knows that before the tap rather than a screen later.
         composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsNotEnabled()
-        composeTestRule.onNodeWithText("Start from template").assertIsNotEnabled()
-        // The strip below them goes the same way, or it becomes the one live control left
+        composeTestRule.onNodeWithText("See all templates").assertIsNotEnabled()
+        // The template rows go the same way, or one becomes the one live control left
         // leading into a refusal.
         composeTestRule
             .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
@@ -218,11 +241,14 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `nothing open leaves them both live`() {
+    fun `nothing open leaves them all live`() {
         setContent(state(resume = null))
 
         composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsEnabled()
-        composeTestRule.onNodeWithText("Start from template").assertIsEnabled()
+        composeTestRule.onNodeWithText("See all templates").assertIsEnabled()
+        composeTestRule
+            .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .assertIsEnabled()
     }
 
     // ─── The empty screen ───────────────────────────────────────────────────────────────

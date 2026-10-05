@@ -88,7 +88,7 @@ class UserPreferencesRepositoryImplTest {
 
             assertEquals(UnitSystem.METRIC, preferences.unitSystem)
             assertEquals(ThemePreference.SYSTEM, preferences.theme)
-            assertEquals(90.seconds, preferences.defaultRestDuration)
+            assertEquals(180.seconds, preferences.defaultRestDuration)
             assertEquals(20_000_000L, preferences.barWeight)
             assertEquals(TrainingGoal.STRENGTH, preferences.trainingGoal)
             assertEquals(FitnessLevel.BEGINNER, preferences.fitnessLevel)
@@ -416,7 +416,7 @@ class UserPreferencesRepositoryImplTest {
             }
 
             val preferences = repository.observe().first()
-            assertEquals(90.seconds, preferences.defaultRestDuration)
+            assertEquals(180.seconds, preferences.defaultRestDuration)
             assertEquals(20_000_000L, preferences.barWeight)
         }
 

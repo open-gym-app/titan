@@ -36,6 +36,7 @@ import com.titan.core.domain.superset.Supersets
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.timer.BackgroundRest
 import com.titan.core.domain.timer.BackgroundRestTimer
+import com.titan.core.domain.timer.RestDurations
 import com.titan.core.domain.timer.RestSkipRequests
 import com.titan.core.domain.timer.RestTimerController
 import com.titan.core.domain.timer.RestTimerSnapshot
@@ -1597,10 +1598,8 @@ class ActiveSessionViewModel @Inject constructor(
      *
      * ### How long
      *
-     * The exercise's own `defaultRest` if it carries one, and the user's setting otherwise. In
-     * seconds, per PERSISTENCE.md's units table. A stored rest of zero or less is treated as no
-     * opinion rather than as an instant rest: the column is the user's to fill in and a zero in
-     * it is far likelier to be an empty answer than a request for no rest at all.
+     * [RestDurations.of]: the exercise's own `defaultRest` if it carries one, and the user's
+     * setting otherwise — the same rule a template's estimate prices the rest with.
      */
     private fun startRest(
         sessionExerciseId: Long,
@@ -1640,11 +1639,7 @@ class ActiveSessionViewModel @Inject constructor(
         if (index < 0) return null
         if (!Supersets.isRestDueAfter(ordered.map(SessionExercise::supersetGroup), index)) return null
 
-        return catalogue.value?.exercises?.get(ordered[index].exerciseId)
-            ?.defaultRest
-            ?.takeIf { it > 0 }
-            ?.seconds
-            ?: defaultRest
+        return RestDurations.of(catalogue.value?.exercises?.get(ordered[index].exerciseId), defaultRest)
     }
 
     /**

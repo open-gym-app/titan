@@ -54,7 +54,6 @@ class ApplyTemplateUseCaseTest {
                     draft(
                         exerciseId = 3L,
                         sets = plannedSets(count = 5, reps = 5, weight = 100_000L),
-                        restDuration = 180L,
                         notes = "warm up first",
                     ),
                 ),
@@ -66,7 +65,6 @@ class ApplyTemplateUseCaseTest {
             assertEquals(5, applied.sets.size)
             assertEquals(listOf(5, 5, 5, 5, 5), applied.sets.map { it.reps })
             assertEquals(listOf(100_000L), applied.sets.map { it.weight }.distinct())
-            assertEquals(180L, applied.restDuration)
             assertEquals("warm up first", applied.notes)
         }
 

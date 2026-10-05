@@ -223,7 +223,8 @@ class UpdateTemplateUseCaseTest {
         TemplateDuration.estimate(
             exercises = templates.storedExercises(id),
             defaultRest = UserPreferences.DEFAULT_REST_DURATION,
-            // No set here plans a time, so the types would not change the figure.
-            exerciseTypes = emptyMap(),
+            // No set here plans a time and no exercise a rest of its own, so the catalogue would
+            // not change the figure.
+            catalogue = emptyMap(),
         )
 }

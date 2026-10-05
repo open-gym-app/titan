@@ -50,9 +50,9 @@ import kotlin.time.Duration
  *   know, and it pushes the one thing they need — the way into a workout — down the screen.
  * @param quests what is left to clear this week, or **null** for a user with nothing to show
  *   yet — see [QuestSummary], which is absent rather than zeroed for the same reason [week] is.
- * @param templates the saved templates the quick-start strip offers, already ordered and cut
+ * @param templates the saved templates the quick-start list offers, already ordered and cut
  *   to the handful that fit — most recently trained from first, see [HomeViewModel]. Empty
- *   draws no strip, which is what a user who has deleted every template, the defaults a fresh
+ *   draws no list, which is what a user who has deleted every template, the defaults a fresh
  *   install starts with (#213) included, sees.
  * @param recentRecord the last personal record the user broke, with what it beat, or **null**
  *   for somebody who has broken none. Carried as the domain's own row rather than reduced to

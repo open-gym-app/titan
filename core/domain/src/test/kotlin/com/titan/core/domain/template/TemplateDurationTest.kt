@@ -1,5 +1,6 @@
 package com.titan.core.domain.template
 
+import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedExercise
 import com.titan.core.domain.model.PlannedSet
@@ -14,13 +15,19 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * The estimate is arithmetic, so the assertions are written as the arithmetic rather
- * than as a figure: `4 * (45 + 60)` says which rule produced the number, where `420`
+ * than as a figure: `4 * (30 + 60)` says which rule produced the number, where `360`
  * would only say that this run agreed with the last one.
+ *
+ * A case's `rest` is the catalogue exercise's own `defaultRest` — the only per-exercise rest
+ * the workout's timer runs, and so the only one the estimate prices.
  */
 class TemplateDurationTest {
 
     private val work = TemplateDuration.WORK_PER_SET
     private val defaultRest = UserPreferences.DEFAULT_REST_DURATION
+
+    /** The catalogue every case's exercises are registered in, one entry per [exercise] call. */
+    private val catalogue = mutableMapOf<Long, Exercise>()
 
     @Test
     fun `a template with no exercises takes no time`() {
@@ -36,7 +43,7 @@ class TemplateDurationTest {
     }
 
     @Test
-    fun `each exercise carries its own rest`() {
+    fun `each exercise rests as long as its catalogue entry says`() {
         val estimate = estimate(
             listOf(exercise(sets = 2, rest = 180), exercise(sets = 3, rest = 30)),
         )
@@ -72,12 +79,18 @@ class TemplateDurationTest {
     }
 
     @Test
-    fun `the wireframe's eight-exercise template lands under an hour`() {
-        val estimate = estimate(List(8) { exercise(sets = 3, rest = null) })
+    fun `a typical six-exercise template on the default rest takes an hour`() {
+        val estimate = estimate(List(6) { exercise(sets = 3, rest = null) })
 
-        // 24 sets of work, and 23 rests: the 24th is the end of the workout.
-        assertEquals(work * 24 + defaultRest * 23, estimate)
-        assertEquals(52.5.minutes, estimate)
+        // 18 sets of work, and 17 rests: the 18th is the end of the workout.
+        assertEquals(work * 18 + defaultRest * 17, estimate)
+        assertEquals(60.minutes, estimate)
+    }
+
+    @Test
+    fun `the shipped allowances are thirty seconds a set and three minutes a rest`() {
+        assertEquals(30.seconds, work)
+        assertEquals(3.minutes, defaultRest)
     }
 
     @Test
@@ -216,12 +229,14 @@ class TemplateDurationTest {
      */
 
     @Test
-    fun `a negative rest is read as no rest at all`() {
+    fun `a non-positive exercise rest is no opinion, and the default is taken`() {
+        // The timer reads it the same way — see `RestDurations` — and the estimate has to
+        // price the rest the timer will run.
         val estimate = estimate(
-            listOf(exercise(sets = 2, rest = -90), exercise(sets = 2, rest = 60)),
+            listOf(exercise(sets = 2, rest = -90), exercise(sets = 2, rest = 0), exercise(sets = 2, rest = 60)),
         )
 
-        assertEquals(work * 4 + 60.seconds, estimate)
+        assertEquals(work * 6 + defaultRest * 4 + 60.seconds, estimate)
     }
 
     @Test
@@ -247,30 +262,33 @@ class TemplateDurationTest {
     }
 
     @Test
-    fun `shortening a rest shortens the estimate`() {
-        val before = listOf(exercise(sets = 3, rest = 120), exercise(sets = 3, rest = 120))
-        val after = before.map { it.copy(restDuration = 60) }
+    fun `shortening an exercise's rest shortens the estimate`() {
+        val plan = listOf(exercise(sets = 3, rest = 120), exercise(sets = 3, rest = 120))
+        val before = estimate(plan)
 
-        assertEquals(60.seconds * 5, estimate(before) - estimate(after))
+        plan.forEach { catalogue[it.exerciseId] = catalogue.getValue(it.exerciseId).copy(defaultRest = 60) }
+
+        assertEquals(60.seconds * 5, before - estimate(plan))
+    }
+
+    @Test
+    fun `changing the default rest moves every exercise without one of its own`() {
+        val plan = listOf(exercise(sets = 3, rest = null), exercise(sets = 3, rest = 45))
+
+        val longer = estimate(plan, rest = 4.minutes) - estimate(plan, rest = 2.minutes)
+
+        // The first exercise's three rests move; the second keeps its own 45 seconds.
+        assertEquals(2.minutes * 3, longer)
     }
 
     @Test
     fun `a draft estimates the same as the row it becomes`() {
-        val drafts = listOf(
-            TemplateExerciseDraft(
-                exerciseId = 1,
-                sets = List(3) { PlannedSet() },
-                restDuration = 60,
-                supersetGroup = 0,
-            ),
-            TemplateExerciseDraft(
-                exerciseId = 2,
-                sets = List(3) { PlannedSet() },
-                restDuration = 60,
-                supersetGroup = 0,
-            ),
-            TemplateExerciseDraft(exerciseId = 3, sets = List(4) { PlannedSet() }, restDuration = null),
-        )
+        val first = exercise(sets = 3, rest = 60, group = 0)
+        val second = exercise(sets = 3, rest = 60, group = 0)
+        val third = exercise(sets = 4, rest = null)
+        val drafts = listOf(first, second, third).map { row ->
+            TemplateExerciseDraft(exerciseId = row.exerciseId, sets = row.sets, supersetGroup = row.supersetGroup)
+        }
         val stored = drafts.mapIndexed { position, draft ->
             TemplateExercise(
                 id = position + 1L,
@@ -279,7 +297,6 @@ class TemplateDurationTest {
                 position = position,
                 supersetGroup = draft.supersetGroup,
                 sets = draft.sets,
-                restDuration = draft.restDuration,
             )
         }
 
@@ -290,31 +307,32 @@ class TemplateDurationTest {
 
     @Test
     fun `a planned hold takes as long as it is planned for, not a rep tempo`() {
-        val plank = exercise(sets = 0, rest = 30).copy(sets = List(3) { PlannedSet(duration = 45) })
+        val plank = exercise(sets = 0, rest = 30, type = ExerciseType.ISOMETRIC)
+            .copy(sets = List(3) { PlannedSet(duration = 45) })
 
-        assertEquals(45.seconds * 3 + 30.seconds * 2, estimate(listOf(plank), types = typed(ExerciseType.ISOMETRIC)))
+        assertEquals(45.seconds * 3 + 30.seconds * 2, estimate(listOf(plank)))
     }
 
     @Test
     fun `a planned run is its own length`() {
-        val run = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(duration = 1_800, distance = 500_000)))
+        val run = exercise(sets = 0, rest = 60, type = ExerciseType.ENDURANCE)
+            .copy(sets = listOf(PlannedSet(duration = 1_800, distance = 500_000)))
 
-        assertEquals(30.minutes, estimate(listOf(run), types = typed(ExerciseType.ENDURANCE)))
+        assertEquals(30.minutes, estimate(listOf(run)))
     }
 
     @Test
     fun `a set with no planned time keeps the allowance, beside one that has one`() {
-        val mixed = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(reps = 8), PlannedSet(duration = 120)))
+        val mixed = exercise(sets = 0, rest = 60, type = ExerciseType.ISOMETRIC)
+            .copy(sets = listOf(PlannedSet(reps = 8), PlannedSet(duration = 120)))
 
         assertEquals(work + 120.seconds + 60.seconds, estimate(listOf(mixed)))
     }
 
     @Test
     fun `negative - a non-positive planned time falls back to the allowance rather than to nothing`() {
-        val imported = exercise(
-            sets = 0,
-            rest = 60,
-        ).copy(sets = listOf(PlannedSet(duration = 0), PlannedSet(duration = -5)))
+        val imported = exercise(sets = 0, rest = 60, type = ExerciseType.ISOMETRIC)
+            .copy(sets = listOf(PlannedSet(duration = 0), PlannedSet(duration = -5)))
 
         assertEquals(work * 2 + 60.seconds, estimate(listOf(imported)))
     }
@@ -323,44 +341,57 @@ class TemplateDurationTest {
     fun `a strength set's planned time is not priced, because no field shows it`() {
         // A 30-minute run slot swapped for bench press: the set keeps its time, in a field the
         // strength row does not draw.
-        val swapped = exercise(sets = 0, rest = 60).copy(sets = List(2) { PlannedSet(duration = 1_800) })
+        val swapped = exercise(sets = 0, rest = 60, type = ExerciseType.STRENGTH)
+            .copy(sets = List(2) { PlannedSet(duration = 1_800) })
 
-        assertEquals(work * 2 + 60.seconds, estimate(listOf(swapped), types = typed(ExerciseType.STRENGTH)))
+        assertEquals(work * 2 + 60.seconds, estimate(listOf(swapped)))
     }
 
     @Test
     fun `a planned time is priced for an exercise the catalogue no longer has`() {
-        val orphan = exercise(sets = 0, rest = 60).copy(sets = listOf(PlannedSet(duration = 120)))
+        val orphan = exercise(sets = 0).copy(sets = listOf(PlannedSet(duration = 120)))
+        catalogue.remove(orphan.exerciseId)
 
-        assertEquals(120.seconds, estimate(listOf(orphan), types = emptyMap()))
+        assertEquals(120.seconds, estimate(listOf(orphan)))
+    }
+
+    @Test
+    fun `an exercise the catalogue no longer has rests for the default`() {
+        val orphan = exercise(sets = 2, rest = 30)
+        catalogue.remove(orphan.exerciseId)
+
+        assertEquals(work * 2 + defaultRest, estimate(listOf(orphan)))
     }
 
     /**
-     * [TemplateDuration.estimate] with the user's configured default rest and no catalogue
-     * types, which the function requires and most cases here do not vary. Their sets plan no
-     * time, so the types would not change their figure.
+     * [TemplateDuration.estimate] with the user's configured default rest, over [catalogue] —
+     * which the function requires and most cases here do not vary.
      */
     private fun estimate(
         exercises: List<PlannedExercise>,
         rest: Duration = defaultRest,
-        types: Map<Long, ExerciseType> = emptyMap(),
-    ) = TemplateDuration.estimate(exercises, rest, types)
+    ) = TemplateDuration.estimate(exercises, rest, catalogue)
 
-    /** The type of the one exercise id every case here plans. */
-    private fun typed(type: ExerciseType) = mapOf(1L to type)
-
+    /**
+     * A planned exercise over a catalogue entry of its own, whose `defaultRest` is [rest]. A
+     * fresh id each call, so two exercises in one case rest independently.
+     */
     private fun exercise(
         sets: Int,
         rest: Long? = null,
         group: Int? = null,
-    ) = TemplateExercise(
-        templateId = 1,
-        exerciseId = 1,
-        position = 0,
-        supersetGroup = group,
-        // Sets with no planned time, so each is priced at the allowance — only how many there
-        // are matters here. The planned-time cases build their own. See `TemplateDuration`.
-        sets = List(sets) { PlannedSet() },
-        restDuration = rest,
-    )
+        type: ExerciseType = ExerciseType.STRENGTH,
+    ): TemplateExercise {
+        val id = catalogue.size + 1L
+        catalogue[id] = Exercise(id = id, name = "Exercise $id", type = type, defaultRest = rest)
+        return TemplateExercise(
+            templateId = 1,
+            exerciseId = id,
+            position = 0,
+            supersetGroup = group,
+            // Sets with no planned time, so each is priced at the allowance — only how many there
+            // are matters here. The planned-time cases build their own. See `TemplateDuration`.
+            sets = List(sets) { PlannedSet() },
+        )
+    }
 }

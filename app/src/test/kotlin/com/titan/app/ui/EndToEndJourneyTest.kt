@@ -566,7 +566,7 @@ class EndToEndJourneyTest {
         const val DONE = "Done"
 
         // Home's two ways into the flow: onto the template list, and straight onto the picker.
-        const val START_FROM_TEMPLATE = "Start from template"
+        const val START_FROM_TEMPLATE = "See all templates"
         const val START_EMPTY = "START EMPTY SESSION"
         const val RESUME = "RESUME"
         const val START_WORKOUT = "Start workout"

@@ -73,7 +73,7 @@ class CreateTemplateUseCaseTest {
         }
 
     @Test
-    fun `creating keeps the plan and the rest between its sets`() =
+    fun `creating keeps the plan and its notes`() =
         runTest {
             val created = createTemplate(
                 "Leg day",
@@ -81,7 +81,6 @@ class CreateTemplateUseCaseTest {
                     draft(
                         exerciseId = 3L,
                         sets = plannedSets(count = 4, reps = 8, weight = 60_000L),
-                        restDuration = 120L,
                         notes = "belt on",
                     ),
                 ),
@@ -90,7 +89,6 @@ class CreateTemplateUseCaseTest {
             val stored = templates.storedExercises(created.id).single()
             assertEquals(4, stored.sets.size)
             assertEquals(listOf(8, 8, 8, 8), stored.sets.map { it.reps })
-            assertEquals(120L, stored.restDuration)
             assertEquals("belt on", stored.notes)
         }
 

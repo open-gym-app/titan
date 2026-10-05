@@ -27,7 +27,6 @@ internal fun List<TemplateExercise>.toDrafts(): List<TemplateExerciseDraft> =
             // The plan carries over whole. A duplicate that kept the exercises and dropped what they
             // planned would be a copy of the template's table of contents.
             sets = exercise.sets,
-            restDuration = exercise.restDuration,
             notes = exercise.notes,
             supersetGroup = exercise.supersetGroup,
         )

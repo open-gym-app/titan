@@ -349,21 +349,21 @@ class HomeViewModelTest {
     // ─── Quick start ────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the quick-start strip holds the templates, cut to what fits`() =
+    fun `the quick-start list holds the templates, cut to what fits`() =
         runTest {
             val home = viewModel(templates = eightTemplates()).uiState.value
 
-            assertEquals(6, home.templates.size)
+            assertEquals(3, home.templates.size)
             // Nothing has been trained from, so nothing outranks anything and the name order the
             // repository promises is what is left.
             assertEquals("Template 1", home.templates.first().template.name)
         }
 
     @Test
-    fun `the strip leads with the templates most recently trained from`() =
+    fun `the list leads with the templates most recently trained from`() =
         runTest {
-            // The finding the alphabetical cut hid: a user with more templates than the strip holds
-            // saw the first six names for ever, and never their own rotation.
+            // The finding the alphabetical cut hid: a user with more templates than the list holds
+            // saw the first few names for ever, and never their own rotation.
             sessions.setSessions(
                 listOf(
                     loggedSession(1, LAST_SATURDAY, templateId = 8L),
@@ -374,7 +374,7 @@ class HomeViewModelTest {
             val home = viewModel(templates = eightTemplates()).uiState.value
 
             assertEquals(
-                listOf("Template 7", "Template 8") + (1..4).map { "Template $it" },
+                listOf("Template 7", "Template 8", "Template 1"),
                 home.templates.map { it.template.name },
             )
         }
@@ -707,7 +707,7 @@ class HomeViewModelTest {
         isRecent = true,
     )
 
-    /** Eight saved templates, `Template 1` to `Template 8` — two more than the strip holds. */
+    /** Eight saved templates, `Template 1` to `Template 8` — five more than the list holds. */
     private fun eightTemplates(): FakeTemplateStore {
         val saved = (1..8).map { template(it.toLong(), "Template $it") }
         return FakeTemplateStore(

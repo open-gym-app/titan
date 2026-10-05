@@ -37,7 +37,8 @@ import com.titan.core.domain.model.TemplateExerciseDraft
  *
  * Reps only. A default cannot know the user's weights, and the session fills the weight in
  * from history once there is some. Holds, stretches and cardio plan no figure at all — a
- * `PlannedSet()` the user logs a time or a distance into. Rest is per exercise, in seconds.
+ * `PlannedSet()` the user logs a time or a distance into. No rest: the workout's timer runs the
+ * exercise's own or the user's, whatever a template says — see `RestDurations`.
  *
  * Every non-cardio exercise is a free-weight, cable or bodyweight movement, so a template works
  * in any gym; the four machines (leg press, lying leg curl, the two calf raises) are in any gym
@@ -58,7 +59,7 @@ internal object DefaultTemplates {
     private val INTERVAL = PlannedSet(setType = SetType.INTERVAL)
 
     val all: List<DefaultTemplateSpec> = listOf(
-        template(R.string.default_template_push, TemplateCategory.HYPERTROPHY, rest = 90) {
+        template(R.string.default_template_push, TemplateCategory.HYPERTROPHY) {
             lift("Barbell Bench Press - Medium Grip", BARBELL, sets = 4, reps = 8)
             lift("Barbell Shoulder Press", BARBELL, sets = 3, reps = 10)
             lift("Incline Dumbbell Press", DUMBBELL, sets = 3, reps = 10)
@@ -66,38 +67,38 @@ internal object DefaultTemplates {
             lift("Triceps Pushdown - Rope Attachment", CABLE, sets = 3, reps = 12)
             lift("Dips - Triceps Version", BODYWEIGHT, sets = 3, reps = 10)
         },
-        template(R.string.default_template_pull, TemplateCategory.HYPERTROPHY, rest = 90) {
-            lift("Barbell Deadlift", BARBELL, sets = 3, reps = 5, rest = 180)
+        template(R.string.default_template_pull, TemplateCategory.HYPERTROPHY) {
+            lift("Barbell Deadlift", BARBELL, sets = 3, reps = 5)
             lift("Pullups", BODYWEIGHT, sets = 3, reps = 8)
             lift("Bent Over Barbell Row", BARBELL, sets = 3, reps = 10)
             lift("Seated Cable Rows", CABLE, sets = 3, reps = 12)
             lift("Face Pull", CABLE, sets = 3, reps = 15)
             lift("Barbell Curl", BARBELL, sets = 3, reps = 12)
         },
-        template(R.string.default_template_legs, TemplateCategory.HYPERTROPHY, rest = 90) {
-            lift("Barbell Squat", BARBELL, sets = 4, reps = 8, rest = 150)
+        template(R.string.default_template_legs, TemplateCategory.HYPERTROPHY) {
+            lift("Barbell Squat", BARBELL, sets = 4, reps = 8)
             lift("Romanian Deadlift", BARBELL, sets = 3, reps = 10)
             lift("Leg Press", MACHINE, sets = 3, reps = 12)
             lift("Dumbbell Lunges", DUMBBELL, sets = 3, reps = 12)
             lift("Lying Leg Curls", MACHINE, sets = 3, reps = 12)
             lift("Standing Calf Raises", MACHINE, sets = 4, reps = 15)
         },
-        template(R.string.default_template_chest, TemplateCategory.HYPERTROPHY, rest = 90) {
+        template(R.string.default_template_chest, TemplateCategory.HYPERTROPHY) {
             lift("Barbell Bench Press - Medium Grip", BARBELL, sets = 4, reps = 8)
             lift("Incline Dumbbell Press", DUMBBELL, sets = 3, reps = 10)
             lift("Dumbbell Flyes", DUMBBELL, sets = 3, reps = 12)
             lift("Cable Crossover", CABLE, sets = 3, reps = 15)
             lift("Pushups", BODYWEIGHT, sets = 3, reps = 15)
         },
-        template(R.string.default_template_back, TemplateCategory.HYPERTROPHY, rest = 90) {
-            lift("Barbell Deadlift", BARBELL, sets = 3, reps = 5, rest = 180)
+        template(R.string.default_template_back, TemplateCategory.HYPERTROPHY) {
+            lift("Barbell Deadlift", BARBELL, sets = 3, reps = 5)
             lift("Wide-Grip Lat Pulldown", CABLE, sets = 3, reps = 10)
             lift("Bent Over Barbell Row", BARBELL, sets = 3, reps = 10)
             lift("One-Arm Dumbbell Row", DUMBBELL, sets = 3, reps = 12)
             lift("Straight-Arm Pulldown", CABLE, sets = 3, reps = 15)
             lift("Hyperextensions (Back Extensions)", OTHER, sets = 3, reps = 15)
         },
-        template(R.string.default_template_shoulders, TemplateCategory.HYPERTROPHY, rest = 75) {
+        template(R.string.default_template_shoulders, TemplateCategory.HYPERTROPHY) {
             lift("Barbell Shoulder Press", BARBELL, sets = 4, reps = 8)
             lift("Side Lateral Raise", DUMBBELL, sets = 4, reps = 15)
             lift("Front Dumbbell Raise", DUMBBELL, sets = 3, reps = 12)
@@ -106,7 +107,7 @@ internal object DefaultTemplates {
             lift("Dumbbell Shrug", DUMBBELL, sets = 3, reps = 12)
         },
         // Three supersets: a curl and a triceps movement in each pair, rest after the pair.
-        template(R.string.default_template_arms, TemplateCategory.HYPERTROPHY, rest = 60) {
+        template(R.string.default_template_arms, TemplateCategory.HYPERTROPHY) {
             lift("Barbell Curl", BARBELL, sets = 3, reps = 10, superset = 0)
             lift("EZ-Bar Skullcrusher", EZ_CURL_BAR, sets = 3, reps = 10, superset = 0)
             lift("Hammer Curls", DUMBBELL, sets = 3, reps = 12, superset = 1)
@@ -114,7 +115,7 @@ internal object DefaultTemplates {
             lift("Incline Dumbbell Curl", DUMBBELL, sets = 3, reps = 12, superset = 2)
             lift("Standing Dumbbell Triceps Extension", DUMBBELL, sets = 3, reps = 12, superset = 2)
         },
-        template(R.string.default_template_abs, TemplateCategory.GENERAL, rest = 45) {
+        template(R.string.default_template_abs, TemplateCategory.GENERAL) {
             hold("Plank", BODYWEIGHT, sets = 3)
             lift("Crunches", BODYWEIGHT, sets = 3, reps = 20)
             lift("Hanging Leg Raise", BODYWEIGHT, sets = 3, reps = 12)
@@ -122,7 +123,7 @@ internal object DefaultTemplates {
             lift("Dead Bug", BODYWEIGHT, sets = 3, reps = 10)
             hold("Side Bridge", BODYWEIGHT, sets = 3)
         },
-        template(R.string.default_template_upper_body, TemplateCategory.STRENGTH, rest = 120) {
+        template(R.string.default_template_upper_body, TemplateCategory.STRENGTH) {
             lift("Barbell Bench Press - Medium Grip", BARBELL, sets = 4, reps = 6)
             lift("Bent Over Barbell Row", BARBELL, sets = 4, reps = 6)
             lift("Standing Military Press", BARBELL, sets = 3, reps = 8)
@@ -130,24 +131,23 @@ internal object DefaultTemplates {
             lift("Dumbbell Bicep Curl", DUMBBELL, sets = 3, reps = 12)
             lift("Triceps Pushdown", CABLE, sets = 3, reps = 12)
         },
-        template(R.string.default_template_lower_body, TemplateCategory.STRENGTH, rest = 120) {
-            lift("Barbell Squat", BARBELL, sets = 4, reps = 6, rest = 180)
+        template(R.string.default_template_lower_body, TemplateCategory.STRENGTH) {
+            lift("Barbell Squat", BARBELL, sets = 4, reps = 6)
             lift("Romanian Deadlift", BARBELL, sets = 3, reps = 8)
             lift("Leg Press", MACHINE, sets = 3, reps = 10)
             lift("Lying Leg Curls", MACHINE, sets = 3, reps = 12)
             lift("Barbell Hip Thrust", BARBELL, sets = 3, reps = 10)
             lift("Seated Calf Raise", MACHINE, sets = 3, reps = 15)
         },
-        // The lifts rest long, as a strength session does; the plank closing it does not.
-        template(R.string.default_template_full_body, TemplateCategory.STRENGTH, rest = 180) {
+        template(R.string.default_template_full_body, TemplateCategory.STRENGTH) {
             lift("Barbell Squat", BARBELL, sets = 3, reps = 5)
             lift("Barbell Bench Press - Medium Grip", BARBELL, sets = 3, reps = 5)
             lift("Bent Over Barbell Row", BARBELL, sets = 3, reps = 5)
             lift("Standing Military Press", BARBELL, sets = 3, reps = 8)
             lift("Barbell Deadlift", BARBELL, sets = 1, reps = 5)
-            hold("Plank", BODYWEIGHT, sets = 3, rest = 60)
+            hold("Plank", BODYWEIGHT, sets = 3)
         },
-        template(R.string.default_template_glutes, TemplateCategory.HYPERTROPHY, rest = 90) {
+        template(R.string.default_template_glutes, TemplateCategory.HYPERTROPHY) {
             lift("Barbell Hip Thrust", BARBELL, sets = 4, reps = 10)
             lift("Romanian Deadlift", BARBELL, sets = 3, reps = 10)
             lift("Bodyweight Walking Lunge", OTHER, sets = 3, reps = 12)
@@ -155,7 +155,7 @@ internal object DefaultTemplates {
             lift("Glute Kickback", BODYWEIGHT, sets = 3, reps = 15)
             lift("Goblet Squat", KETTLEBELL, sets = 3, reps = 12)
         },
-        template(R.string.default_template_bodyweight, TemplateCategory.GENERAL, rest = 60) {
+        template(R.string.default_template_bodyweight, TemplateCategory.GENERAL) {
             lift("Bodyweight Squat", BODYWEIGHT, sets = 3, reps = 15)
             lift("Pushups", BODYWEIGHT, sets = 3, reps = 12)
             lift("Inverted Row", OTHER, sets = 3, reps = 10)
@@ -165,20 +165,20 @@ internal object DefaultTemplates {
             hold("Plank", BODYWEIGHT, sets = 3)
         },
         // One round of five, four times through: a single superset of interval sets.
-        template(R.string.default_template_hiit, TemplateCategory.ENDURANCE, rest = 60) {
+        template(R.string.default_template_hiit, TemplateCategory.ENDURANCE) {
             sets("Rope Jumping", OTHER, List(HIIT_ROUNDS) { INTERVAL }, superset = 0)
             sets("Freehand Jump Squat", BODYWEIGHT, List(HIIT_ROUNDS) { INTERVAL }, superset = 0)
             sets("Mountain Climbers", OTHER, List(HIIT_ROUNDS) { INTERVAL }, superset = 0)
             sets("Plyo Push-up", BODYWEIGHT, List(HIIT_ROUNDS) { INTERVAL }, superset = 0)
             sets("Front Box Jump", OTHER, List(HIIT_ROUNDS) { INTERVAL }, superset = 0)
         },
-        template(R.string.default_template_bike, TemplateCategory.ENDURANCE, rest = null) {
+        template(R.string.default_template_bike, TemplateCategory.ENDURANCE) {
             sets("Bicycling", OTHER, listOf(WARMUP, PlannedSet()))
         },
-        template(R.string.default_template_row, TemplateCategory.ENDURANCE, rest = null) {
+        template(R.string.default_template_row, TemplateCategory.ENDURANCE) {
             sets("Rowing, Stationary", MACHINE, listOf(WARMUP) + List(ROW_INTERVALS) { INTERVAL } + PlannedSet())
         },
-        template(R.string.default_template_stretch, TemplateCategory.MOBILITY, rest = 0) {
+        template(R.string.default_template_stretch, TemplateCategory.MOBILITY) {
             hold("Cat Stretch", OTHER, sets = 2)
             hold("Child's Pose", OTHER, sets = 2)
             hold("Kneeling Hip Flexor", OTHER, sets = 2)
@@ -207,12 +207,11 @@ internal object DefaultTemplates {
     private fun template(
         @StringRes nameRes: Int,
         category: TemplateCategory,
-        rest: Long?,
         exercises: DefaultTemplateBuilder.() -> Unit,
     ) = DefaultTemplateSpec(
         nameRes = nameRes,
         category = category,
-        exercises = DefaultTemplateBuilder(rest).apply(exercises).exercises.toList(),
+        exercises = DefaultTemplateBuilder().apply(exercises).exercises.toList(),
     )
 }
 
@@ -236,7 +235,6 @@ internal data class DefaultTemplateSpec(
             TemplateExerciseDraft(
                 exerciseId = resolve(exercise.key) ?: return null,
                 sets = exercise.sets,
-                restDuration = exercise.restDuration,
                 supersetGroup = exercise.supersetGroup,
             )
         }
@@ -252,7 +250,6 @@ internal data class DefaultTemplateSpec(
 internal data class DefaultExerciseSpec(
     val key: SeedExerciseKey,
     val sets: List<PlannedSet>,
-    val restDuration: Long?,
     val supersetGroup: Int?,
 )
 
@@ -265,8 +262,8 @@ internal data class SeedExerciseKey(
     val equipmentType: EquipmentType,
 )
 
-/** The receiver of [DefaultTemplates]' definitions, filling in the template's rest by default. */
-internal class DefaultTemplateBuilder(private val rest: Long?) {
+/** The receiver of [DefaultTemplates]' definitions. */
+internal class DefaultTemplateBuilder {
 
     val exercises = mutableListOf<DefaultExerciseSpec>()
 
@@ -276,29 +273,25 @@ internal class DefaultTemplateBuilder(private val rest: Long?) {
         equipment: EquipmentType,
         sets: Int,
         reps: Int,
-        rest: Long? = this.rest,
         superset: Int? = null,
-    ) = sets(name, equipment, List(sets) { PlannedSet(reps = reps) }, rest, superset)
+    ) = sets(name, equipment, List(sets) { PlannedSet(reps = reps) }, superset)
 
     /** [sets] sets with no figure planned: a hold or a stretch, timed on the day. */
     fun hold(
         name: String,
         equipment: EquipmentType,
         sets: Int,
-        rest: Long? = this.rest,
-    ) = sets(name, equipment, List(sets) { PlannedSet() }, rest, superset = null)
+    ) = sets(name, equipment, List(sets) { PlannedSet() }, superset = null)
 
     fun sets(
         name: String,
         equipment: EquipmentType,
         sets: List<PlannedSet>,
-        rest: Long? = this.rest,
         superset: Int? = null,
     ) {
         exercises += DefaultExerciseSpec(
             key = SeedExerciseKey(name, equipment),
             sets = sets,
-            restDuration = rest,
             supersetGroup = superset,
         )
     }

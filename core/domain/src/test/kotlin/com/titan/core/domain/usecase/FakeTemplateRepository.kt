@@ -114,7 +114,6 @@ class FakeTemplateRepository : TemplateRepository {
                 position = position,
                 supersetGroup = draft.supersetGroup,
                 sets = draft.sets,
-                restDuration = draft.restDuration,
                 notes = draft.notes,
             )
         }
@@ -146,14 +145,12 @@ class FakeTemplateRepository : TemplateRepository {
 fun draft(
     exerciseId: Long,
     sets: List<PlannedSet> = emptyList(),
-    restDuration: Long? = null,
     notes: String? = null,
     supersetGroup: Int? = null,
 ): TemplateExerciseDraft =
     TemplateExerciseDraft(
         exerciseId = exerciseId,
         sets = sets,
-        restDuration = restDuration,
         notes = notes,
         supersetGroup = supersetGroup,
     )

@@ -658,20 +658,6 @@ class TemplateEditorViewModelTest {
         }
 
     @Test
-    fun `a stored rest survives an edit that does not touch it`() =
-        runTest {
-            val templates = templateStore()
-            val viewModel = viewModel(templates = templates)
-
-            viewModel.onEvent(TemplateEditorEvent.SetAdded(KEY_BENCH))
-            viewModel.onEvent(TemplateEditorEvent.SaveRequested)
-
-            // `UpdateTemplateUseCase` rewrites every field it is given, so a draft that dropped this
-            // would clear it — silently repricing a template the user opened to add one set.
-            assertEquals(120L, templates.exercisesOf(1).first().restDuration)
-        }
-
-    @Test
     fun `saving a weight writes it back in milligrams, on the set it was typed into`() =
         runTest {
             val templates = templateStore()
@@ -919,7 +905,6 @@ class TemplateEditorViewModelTest {
                 exerciseId = PLANK.id,
                 position = 0,
                 sets = List(3) { PlannedSet(duration = 45) },
-                restDuration = 30,
             ),
             TemplateExercise(
                 id = KEY_FLY,
@@ -948,10 +933,6 @@ class TemplateEditorViewModelTest {
                 exerciseId = BENCH.id,
                 position = 0,
                 sets = List(4) { PlannedSet(reps = 8, weight = 80_000_000) },
-                // The editor has never been able to set this and cannot now — it is here because
-                // templates written before the field was dropped still hold one, and a save has to
-                // hand it back. See `a stored rest survives an edit that does not touch it`.
-                restDuration = 120,
             ),
             TemplateExercise(
                 id = KEY_FLY,
@@ -1277,7 +1258,9 @@ class TemplateEditorViewModelTest {
         val BENCH = Exercise(id = 10, name = "Bench press")
         val FLY = Exercise(id = 11, name = "Cable fly")
         val PUSHDOWN = Exercise(id = 12, name = "Tricep pushdown")
-        val PLANK = Exercise(id = 13, name = "Plank", type = ExerciseType.ISOMETRIC)
+
+        /** Rests 30 seconds of its own, which the estimate prices over the user's default. */
+        val PLANK = Exercise(id = 13, name = "Plank", type = ExerciseType.ISOMETRIC, defaultRest = 30)
         val RUN = Exercise(id = 14, name = "Running, Outdoor", type = ExerciseType.ENDURANCE)
         val SWIM = Exercise(id = 15, name = "Swimming, Freestyle", type = ExerciseType.ENDURANCE)
 

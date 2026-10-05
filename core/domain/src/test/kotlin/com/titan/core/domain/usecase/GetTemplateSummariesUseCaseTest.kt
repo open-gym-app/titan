@@ -23,7 +23,8 @@ class GetTemplateSummariesUseCaseTest {
     private val catalogue = FakeExerciseRepository(
         listOf(
             Exercise(id = 1L, name = "Bench press", type = ExerciseType.STRENGTH),
-            Exercise(id = 2L, name = "Plank", type = ExerciseType.ISOMETRIC),
+            // A rest of its own, which the workout's timer runs instead of the user's default.
+            Exercise(id = 2L, name = "Plank", type = ExerciseType.ISOMETRIC, defaultRest = 45),
         ),
     )
     private val summaries = GetTemplateSummariesUseCase(templates, preferences, catalogue)
@@ -79,7 +80,7 @@ class GetTemplateSummariesUseCaseTest {
                 TemplateDuration.estimate(
                     exercises = templates.storedExercises(1L),
                     defaultRest = UserPreferences().defaultRestDuration,
-                    exerciseTypes = mapOf(1L to ExerciseType.STRENGTH, 2L to ExerciseType.ISOMETRIC),
+                    catalogue = catalogue.getAll().first().associateBy { it.id },
                 ),
                 summary.estimatedDuration,
             )
@@ -169,12 +170,27 @@ class GetTemplateSummariesUseCaseTest {
             // The same 30 seconds on both: the plank draws it as its time field, while the bench
             // press — a swapped-in slot — carries it hidden, so only the plank's is priced.
             val timed = List(2) { PlannedSet(duration = 30) }
-            templates.seed("Bench", listOf(draft(exerciseId = 1L, sets = timed, restDuration = 0)))
-            templates.seed("Plank", listOf(draft(exerciseId = 2L, sets = timed, restDuration = 0)))
+            templates.seed("Bench", listOf(draft(exerciseId = 1L, sets = timed)))
+            templates.seed("Plank", listOf(draft(exerciseId = 2L, sets = timed)))
 
             val (bench, plank) = summaries().first().map(TemplateSummary::estimatedDuration)
 
-            assertEquals(TemplateDuration.WORK_PER_SET * 2, bench)
-            assertEquals(60.seconds, plank)
+            assertEquals(TemplateDuration.WORK_PER_SET * 2 + UserPreferences.DEFAULT_REST_DURATION, bench)
+            assertEquals(30.seconds * 2 + 45.seconds, plank)
+        }
+
+    @Test
+    fun `summarising prices an exercise's own rest over the user's default`() =
+        runTest {
+            // The rest the workout's timer will run: the plank's own 45 seconds, and the user's
+            // setting for the bench press, which has none.
+            templates.seed("Bench", listOf(draft(exerciseId = 1L, sets = plannedSets(3))))
+            templates.seed("Plank", listOf(draft(exerciseId = 2L, sets = plannedSets(3))))
+            preferences.setDefaultRestDuration(240.seconds)
+
+            val (bench, plank) = summaries().first().map(TemplateSummary::estimatedDuration)
+
+            assertEquals(TemplateDuration.WORK_PER_SET * 3 + 240.seconds * 2, bench)
+            assertEquals(TemplateDuration.WORK_PER_SET * 3 + 45.seconds * 2, plank)
         }
 }

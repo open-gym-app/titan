@@ -1,10 +1,12 @@
 package com.titan.core.domain.template
 
+import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.PlannedExercise
 import com.titan.core.domain.model.PlannedSet
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.superset.Supersets
+import com.titan.core.domain.timer.RestDurations
 import com.titan.core.domain.validation.SetDimension
 import com.titan.core.domain.validation.SetValidator
 import kotlin.time.Duration
@@ -28,7 +30,7 @@ import kotlin.time.Duration.Companion.seconds
  * ```
  * work = Σ over its sets (the set's planned duration where its type shows one,
  *        or WORK_PER_SET)
- * rest = sets × (the exercise's restDuration, or defaultRest when it has none)
+ * rest = sets × RestDurations.of(the catalogue exercise, defaultRest)
  * ```
  *
  * summed over the template, **minus the last rest** — the one nobody stands around
@@ -58,6 +60,11 @@ import kotlin.time.Duration.Companion.seconds
  * whatever it carries. An exercise the caller has no type for — one gone from the
  * catalogue — has its duration read, since nothing says it is hidden.
  *
+ * The rest is **the rest the workout's timer will run**, decided by [RestDurations] — the
+ * exercise's own `defaultRest`, or the user's setting — and nothing the template says. A
+ * template carries no rest of its own: the timer never read one, and an estimate that priced a
+ * figure the session ignores promised a workout far shorter than the one it ran.
+ *
  * A superset changes only the rest: its members are performed back to back with the
  * rest taken after the group, so a member that is not the last of its group
  * contributes work and no rest at all ([Supersets.isRestDueAfter] is what decides
@@ -73,7 +80,7 @@ import kotlin.time.Duration.Companion.seconds
  * is why the wireframes render it with a `~`. It counts no walk to the rack, no
  * warm-up, no queue for the bench and no set that takes twice as long because the last
  * one was hard. [WORK_PER_SET] is one number for every movement — a set of curls and a
- * set of squats are not the same 45 seconds, but a per-exercise allowance would need a
+ * set of squats are not the same 30 seconds, but a per-exercise allowance would need a
  * per-exercise measurement nothing collects yet, and the error mostly cancels across a
  * whole session. Nothing schedules, bills or paces off this; the rest timer measures
  * rest itself, and [com.titan.core.domain.stats.SessionStatsCalculator] reports what
@@ -84,11 +91,12 @@ object TemplateDuration {
     /**
      * The time one working set is assumed to occupy, rest excluded.
      *
-     * 45 seconds: enough for eight to twelve reps plus the load and unload around them.
-     * With the 90-second default rest it puts a typical eight-exercise, three-set
-     * template just under an hour, which is the figure the wireframes were drawn to.
+     * 30 seconds: eight to twelve reps at a controlled tempo. Setting up the bar is
+     * already inside the rest that precedes the set, so it is not counted twice here.
+     * With the three-minute default rest it puts a typical six-exercise, three-set
+     * template a little over an hour.
      */
-    val WORK_PER_SET: Duration = 45.seconds
+    val WORK_PER_SET: Duration = 30.seconds
 
     /**
      * The estimate for [exercises], which must be **in position order** — the order a
@@ -98,24 +106,21 @@ object TemplateDuration {
      * rather than defaulted: it is the user's configured default
      * ([UserPreferences.defaultRestDuration]), and a parameter that filled itself in
      * would let a screen price every rest at the shipped constant for a user who has
-     * changed theirs, which reads as correct everywhere except on their phone. The
-     * catalogue's per-exercise `default_rest` is deliberately not consulted: the
-     * template row is the plan, and an estimate that quietly read a different number
-     * from a second table would not match the rest the session actually runs.
+     * changed theirs, which reads as correct everywhere except on their phone.
      *
-     * [exerciseTypes] is the catalogue's type for each exercise id, which decides whether
-     * a set's planned duration is read — see the class note. It is required for the same
-     * reason [defaultRest] is: a caller that left it out would price the hidden duration
-     * of every swapped slot.
+     * [catalogue] is the catalogue's entry for each exercise id — at least those
+     * [exercises] name. Its type decides whether a set's planned duration is read, and its
+     * `defaultRest` overrides [defaultRest]; see the class note. It is required for the same
+     * reason [defaultRest] is: a caller that left it out would price the hidden duration of
+     * every swapped slot and miss every exercise's own rest.
      *
      * An empty template estimates [Duration.ZERO], as does one whose exercises all plan
-     * no sets. A negative rest — which nothing writes, but an import can — contributes
-     * nothing rather than subtracting time.
+     * no sets. A non-positive [defaultRest] contributes nothing rather than subtracting time.
      */
     fun estimate(
         exercises: List<PlannedExercise>,
         defaultRest: Duration,
-        exerciseTypes: Map<Long, ExerciseType>,
+        catalogue: Map<Long, Exercise>,
     ): Duration {
         // An exercise planning no sets is not performed, so it is dropped before the
         // grouping is read rather than skipped inside the loop: a superset whose last
@@ -136,14 +141,12 @@ object TemplateDuration {
             // No catalogue entry at all (the exercise was deleted from the library) still
             // reads the planned time: see "a planned time is priced for an exercise the
             // catalogue no longer has" — only a *known* strength type excludes it.
-            val type = exerciseTypes[exercise.exerciseId]
+            val entry = catalogue[exercise.exerciseId]
+            val type = entry?.type
             val readsDuration = type == null || SetValidator.requiredDimension(type) == SetDimension.DURATION
             total += exercise.sets.fold(Duration.ZERO) { work, set -> work + workOf(set, readsDuration) }
             if (Supersets.isRestDueAfter(grouping, index)) {
-                val rest = exercise.restDuration
-                    ?.seconds
-                    ?.coerceAtLeast(Duration.ZERO)
-                    ?: fallbackRest
+                val rest = RestDurations.of(entry, fallbackRest)
                 total += rest * rounds(performed, grouping, index)
                 trailingRest = rest
             }

@@ -236,7 +236,6 @@ class FakeTemplateStore(
                 position = position,
                 supersetGroup = draft.supersetGroup,
                 sets = draft.sets,
-                restDuration = draft.restDuration,
                 notes = draft.notes,
             )
         }

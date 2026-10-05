@@ -531,12 +531,12 @@ private fun NavHostController.openPlateCalculator(target: Long = NO_SUGGESTED_TA
  * Open the flow that sets a workout up, at the step the caller asked for.
  *
  * One function for every entry into it, because it is one destination: Home's two quick-start
- * actions and its template strip differ only in the arguments — see [NewSessionDestination].
+ * actions and its template list differ only in the arguments — see [NewSessionDestination].
  *
  * **`launchSingleTop` is not enough on its own here**, unlike everywhere else in this file: it
  * collapses a push only when the route *and its arguments* match the entry already on top, and
  * these differ by argument by design. Two taps dispatched before recomposition — two fingers
- * landing on two different cards of the quick-start strip — are therefore two setup screens,
+ * landing on two different rows of the quick-start list — are therefore two setup screens,
  * and the first back press looks like it did nothing. Popping any setup entry already on the
  * stack is what makes the flow single-instance whichever way it was opened, and it is a no-op
  * the ordinary time, when there is none.

@@ -107,7 +107,6 @@ internal object DatabaseSeed {
                         put("exercise_id", exercise.exerciseId)
                         put("position", exercise.position)
                         put("superset_group", exercise.supersetGroup)
-                        put("rest_duration", exercise.restDuration)
                         put("notes", exercise.notes)
                     },
                 )

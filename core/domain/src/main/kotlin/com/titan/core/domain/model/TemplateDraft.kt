@@ -52,8 +52,6 @@ data class TemplateDraft(
  *   counts those down from -1 over the stored ids, and saving the keys is what lets a restored
  *   draft go on counting from where it left off rather than handing out one that is already
  *   taken.
- * @param restDuration seconds, per [TemplateExercise.restDuration]. Not edited by the editor and
- *   carried for [TemplateDraft.icon]'s reason.
  * @param notes not edited by the editor and carried for [TemplateDraft.icon]'s reason.
  */
 @Serializable
@@ -62,7 +60,6 @@ data class TemplateDraftExercise(
     val exerciseId: Long,
     val sets: List<TemplateDraftSet> = emptyList(),
     val supersetGroup: Int? = null,
-    val restDuration: Long? = null,
     val notes: String? = null,
 )
 

@@ -35,7 +35,7 @@ data object HomeDestination
  * @param onStartEmptySession a workout with nothing planned in it: the user will pick the
  *   exercises as they go.
  * @param onStartFromTemplates the user wants to choose a template first.
- * @param onStartFromTemplate a template was chosen already, from the quick-start strip.
+ * @param onStartFromTemplate a template was chosen already, from the quick-start list.
  *   Separate from [onStartFromTemplates] because it names a template and therefore skips the
  *   step that picks one — Home cannot know that the two land in the same flow, and does not
  *   need to.

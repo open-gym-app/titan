@@ -76,6 +76,12 @@
     <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
     <string name="home_start_empty">Start empty session</string>
     <string name="home_start_from_template">Start from template</string>
+    <!-- Heads the list of the user's own saved templates under the two actions, beside a bare
+         count of how many they have. "Your" is the point: it says these are templates that
+         already exist, not kinds of workout the app is offering to make. -->
+    <string name="home_templates_heading">Your templates</string>
+    <!-- The last row of that list, opening the picker with every template on it. -->
+    <string name="home_all_templates">See all templates</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 

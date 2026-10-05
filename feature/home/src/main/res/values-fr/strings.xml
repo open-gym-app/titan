@@ -46,6 +46,8 @@
     <string name="home_quick_start_blocked">Terminez ou abandonnez la séance ci-dessus avant d’en démarrer une autre.</string>
     <string name="home_start_empty">Démarrer une séance vide</string>
     <string name="home_start_from_template">Démarrer depuis un modèle</string>
+    <string name="home_templates_heading">Vos modèles</string>
+    <string name="home_all_templates">Voir tous les modèles</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 

@@ -374,9 +374,9 @@ class DatabaseSeedTest {
                 assertEquals(default.category, template.category)
                 assertEquals(
                     name,
-                    default.exercises.map { listOf(it.exerciseId, it.sets, it.restDuration, it.supersetGroup) },
+                    default.exercises.map { listOf(it.exerciseId, it.sets, it.supersetGroup) },
                     repository.getExercises(template.id).first()
-                        .map { listOf(it.exerciseId, it.sets, it.restDuration, it.supersetGroup) },
+                        .map { listOf(it.exerciseId, it.sets, it.supersetGroup) },
                 )
             }
         }
@@ -411,7 +411,6 @@ class DatabaseSeedTest {
 
             // A hold plans no reps.
             assertEquals(List(3) { PlannedSet() }, exercisesOf("Abs").first().sets)
-            assertEquals(listOf(0L), exercisesOf("Stretch & mobility").map { it.restDuration }.distinct())
         }
 
     @Test

@@ -18,6 +18,5 @@ data class TemplateExercise(
     val position: Int,
     override val supersetGroup: Int? = null,
     override val sets: List<PlannedSet> = emptyList(),
-    override val restDuration: Long? = null,
     val notes: String? = null,
 ) : PlannedExercise

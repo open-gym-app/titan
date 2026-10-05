@@ -117,7 +117,6 @@ class FakeTemplateStore : TemplateRepository {
                         position = position,
                         supersetGroup = draft.supersetGroup,
                         sets = draft.sets,
-                        restDuration = draft.restDuration,
                     )
                 }
                 )

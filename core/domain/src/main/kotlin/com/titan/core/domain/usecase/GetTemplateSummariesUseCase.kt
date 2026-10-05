@@ -48,12 +48,13 @@ class GetTemplateSummariesUseCase(
             templateRepository.getAll(),
             templateRepository.getAllExercises(),
             userPreferencesRepository.observe(),
-            // The catalogue's types, which decide whether a set's planned duration is shown and
-            // so whether the estimate reads it — see `TemplateDuration`.
+            // The catalogue: each exercise's type, which decides whether a set's planned duration
+            // is shown and so whether the estimate reads it, and its own rest — see
+            // `TemplateDuration`.
             exerciseRepository.getAll(),
         ) { templates, exercises, preferences, catalogue ->
             val byTemplate = exercises.groupBy(TemplateExercise::templateId)
-            val exerciseTypes = catalogue.associate { it.id to it.type }
+            val byId = catalogue.associateBy { it.id }
 
             templates.map { template ->
                 // Re-sorted rather than trusted, as `ApplyTemplateUseCase` does and for the
@@ -68,7 +69,7 @@ class GetTemplateSummariesUseCase(
                     estimatedDuration = TemplateDuration.estimate(
                         exercises = body,
                         defaultRest = preferences.defaultRestDuration,
-                        exerciseTypes = exerciseTypes,
+                        catalogue = byId,
                     ),
                 )
             }
