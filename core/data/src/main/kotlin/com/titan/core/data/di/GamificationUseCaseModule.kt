@@ -7,6 +7,7 @@ import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
 import com.titan.core.domain.usecase.LootRollUseCase
@@ -55,21 +56,28 @@ object GamificationUseCaseModule {
         )
 
     /**
-     * The clock and the catalogue are both left at their defaults, for the reason
-     * [provideAchievementTriggerUseCase] leaves the achievement catalogue at its own: which
-     * quests exist is a property of the app rather than of a build's wiring, and the real clock
-     * is what production runs on. A test constructs this directly with both pinned.
+     * The catalogue is left at its default, for the reason [provideAchievementTriggerUseCase]
+     * leaves the achievement catalogue at its own: which quests exist is a property of the app
+     * rather than of a build's wiring.
+     *
+     * The clock is the graph's, not the use case's default. The board decides which week and
+     * which month it is reporting, and the screens that draw it — Home and the quest log — read
+     * "today" from the same [ClockModule] binding for everything else they show. Left at
+     * [Clock.SYSTEM], a test that pins the graph's clock (the store screenshots do) would get a
+     * week strip from the pinned day over a quest board from the real one.
      */
     @Provides
     fun provideQuestProgressUseCase(
         progressionRepository: ProgressionRepository,
         personalRecordRepository: PersonalRecordRepository,
         questRepository: QuestRepository,
+        clock: Clock,
     ): QuestProgressUseCase =
         QuestProgressUseCase(
             progressionRepository = progressionRepository,
             personalRecordRepository = personalRecordRepository,
             questRepository = questRepository,
+            clock = clock,
         )
 
     @Provides

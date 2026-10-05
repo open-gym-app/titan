@@ -43,6 +43,7 @@ All data lives on your device. **No account required**, and no ads.
 - **Progression**: personal records, an estimated one-rep max, and per-exercise progression charts.
 - **Suggestions**: a next target for every set, and a warm-up and cool-down for the muscles a session trains. Nothing reaches your log until you accept it, and the warm-up cards can be switched off in Settings.
 - **Stats & history**: a calendar of past sessions and the trends behind them.
+- **Levels, quests and achievements**: XP for every workout, weekly and monthly quests, achievements and the odd collectible, all earned by training.
 - **Reminders**: a notification on the days and at the time you plan to train.
 - **Backup & restore**: export everything to a file, or restore a device from one. Nothing leaves the phone unless you send it somewhere yourself.
 - **Themes, units and locales**: light or dark, metric or imperial, and the app is available in English, French, Spanish and Portuguese.

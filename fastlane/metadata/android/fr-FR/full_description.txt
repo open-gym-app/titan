@@ -1,0 +1,33 @@
+Titan est un carnet d’entraînement qui tourne entièrement sur votre téléphone. Notez chaque série d’un geste, suivez un objectif que l’application calcule à partir de votre historique, et regardez vos mouvements progresser. Pas de compte, pas de cloud, pas de publicité.
+
+ENREGISTREZ VOS SÉANCES
+• Partez d’un modèle ou de zéro, et validez vos séries au fil de la séance : poids, répétitions et RPE, ou durée et distance pour le gainage et le cardio.
+• Un minuteur de repos qui continue de tourner en arrière-plan et vous prévient quand repartir.
+• Un calculateur de disques qui charge la barre avec les disques que vous possédez vraiment.
+• 17 modèles prêts dès le premier jour — poussée, tirage, jambes, haut et bas du corps, corps entier, HIIT, rameur, étirements et plus encore. Modifiez-les, renommez-les ou créez les vôtres.
+
+SACHEZ QUOI SOULEVER ENSUITE
+• Un objectif sur chaque série : garder la charge et ajouter une répétition, ou ajouter du poids quand vous l’avez mérité, selon votre objectif et votre niveau.
+• Un échauffement et un retour au calme pour les muscles travaillés. Rien n’entre dans votre carnet sans votre accord.
+
+SUIVEZ VOS PROGRÈS
+• Records personnels, 1RM estimé et courbe de progression pour chaque exercice.
+• Volume, séances par semaine et temps d’entraînement sur 7 jours, 30 jours, 90 jours, un an ou depuis le début.
+• Un calendrier de vos séances, et l’évolution de votre poids et de vos mensurations.
+• Des niveaux, des quêtes et des succès qui récompensent la régularité.
+
+PLUS DE 800 EXERCICES
+Une bibliothèque consultable, avec les muscles sollicités et la façon d’exécuter chaque mouvement. Ajoutez les vôtres.
+
+VOS DONNÉES RESTENT À VOUS
+• Titan n’a pas l’autorisation d’accéder à internet : rien ne peut quitter le téléphone, et l’application ne contient ni statistiques d’usage, ni rapport de plantage, ni publicité.
+• Sauvegardez tout dans un seul fichier et restaurez-le sur n’importe quel appareil, ou laissez Titan en écrire une copie chaque semaine.
+• Supprimez tout depuis les Paramètres, quand vous voulez.
+
+PENSÉ POUR TOUS
+• Thème clair ou sombre, système métrique ou impérial.
+• En français, anglais, espagnol et portugais.
+• Conçu et vérifié avec TalkBack, les grandes polices et l’usage à une main.
+• Des rappels d’entraînement les jours et à l’heure de votre choix.
+
+Titan est gratuit et open source, sous licence GNU GPL v3.0. La bibliothèque d’exercices provient du projet free-exercise-db.

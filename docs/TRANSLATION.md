@@ -248,6 +248,14 @@ visible way a translation reads as machine-made, and *tu* is what a European fil
 | dumbbell | **halter** | |
 | Health Connect | **Conexão Saúde** | Google's own Brazilian name for it; French *Santé Connect*, Spanish unchanged |
 
+## The store listing
+
+The Play listing is translated too, in `fastlane/metadata/android/` (see its README): a title,
+a short and a full description per language, and screenshots captured in each language from a
+demo dataset that was itself exported in that language, so the default templates carry their
+translated names. The copy is held to the glossary above like any string in the app, and quotes
+a screen by the title that screen has in that language.
+
 ## Checking a screen
 
 The parity check proves every key exists; it cannot see a French label that no longer fits
