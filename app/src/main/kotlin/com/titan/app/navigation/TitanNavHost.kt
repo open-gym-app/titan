@@ -153,7 +153,7 @@ fun TitanNavHost(
     // has drawn a frame — see `NewSessionRoute`'s entry effect. The setup screen is therefore
     // never seen on the way in, but it is on the back stack, and backing out of the picker
     // used to reveal it: a screen the user has not visited, wearing Home's own quick-start
-    // action and template strip, which reads as the back gesture going *forwards*.
+    // action and template list, which reads as the back gesture going *forwards*.
     //
     // Held here because it is a fact about how the flow was entered, which is the one thing
     // `:app` knows and neither feature does. A flag rather than a route argument on the
@@ -204,7 +204,7 @@ fun TitanNavHost(
                 },
                 // The three ways into setup, which differ only in where the flow opens — see
                 // [NewSessionDestination]. `launchSingleTop` on all of them because the
-                // triggers are full-width buttons and a scrolling strip of cards: two taps
+                // triggers are full-width buttons and rows of a list: two taps
                 // dispatched before recomposition are two pushes of the same screen, and the
                 // first back press then looks like it did nothing.
                 onStartEmptySession = {

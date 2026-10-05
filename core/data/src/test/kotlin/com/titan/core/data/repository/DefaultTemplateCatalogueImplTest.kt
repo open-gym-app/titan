@@ -6,6 +6,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.titan.core.data.R
 import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,7 +30,7 @@ class DefaultTemplateCatalogueImplTest {
     private val db = Room.inMemoryDatabaseBuilder(context, TitanDatabase::class.java)
         .allowMainThreadQueries()
         .build()
-    private val catalogue = DefaultTemplateCatalogueImpl(context, db.exerciseDao())
+    private val catalogue = DefaultTemplateCatalogueImpl(context, db.exerciseDao(), Dispatchers.Unconfined)
 
     @After
     fun tearDown() = db.close()
@@ -47,32 +49,35 @@ class DefaultTemplateCatalogueImplTest {
     }
 
     @Test
-    fun `a default is known by its name in every shipped language`() {
-        val index = DefaultTemplates.all.indexOfFirst { it.nameRes == R.string.default_template_legs }
-        val legs = catalogue.getNames()[index]
+    fun `a default is known by its name in every shipped language`() =
+        runBlocking {
+            val index = DefaultTemplates.all.indexOfFirst { it.nameRes == R.string.default_template_legs }
+            val legs = catalogue.getNames()[index]
 
-        assertEquals("Legs", legs.current)
-        assertEquals(setOf("Legs", "Jambes", "Piernas", "Pernas"), legs.everyLanguage)
-    }
-
-    @Test
-    fun `every default's names include the current one`() {
-        val names = catalogue.getNames()
-
-        assertEquals(DefaultTemplates.all.size, names.size)
-        assertTrue(names.all { it.current in it.everyLanguage })
-    }
+            assertEquals("Legs", legs.current)
+            assertEquals(setOf("Legs", "Jambes", "Piernas", "Pernas"), legs.everyLanguage)
+        }
 
     @Test
-    fun `no name belongs to two defaults`() {
-        // A translation that collided with another default's name would make deleting one of the
-        // two invisible to the restore, which would see the other and call it present.
-        val owners = catalogue.getNames()
-            .flatMapIndexed { index, name -> name.everyLanguage.map { it.trim().lowercase(Locale.ROOT) to index } }
-            .distinct()
-            .groupBy({ it.first }, { it.second })
-            .filterValues { it.size > 1 }
+    fun `every default's names include the current one`() =
+        runBlocking {
+            val names = catalogue.getNames()
 
-        assertEquals(emptyMap<String, List<Int>>(), owners)
-    }
+            assertEquals(DefaultTemplates.all.size, names.size)
+            assertTrue(names.all { it.current in it.everyLanguage })
+        }
+
+    @Test
+    fun `no name belongs to two defaults`() =
+        runBlocking {
+            // A translation that collided with another default's name would make deleting one of the
+            // two invisible to the restore, which would see the other and call it present.
+            val owners = catalogue.getNames()
+                .flatMapIndexed { index, name -> name.everyLanguage.map { it.trim().lowercase(Locale.ROOT) to index } }
+                .distinct()
+                .groupBy({ it.first }, { it.second })
+                .filterValues { it.size > 1 }
+
+            assertEquals(emptyMap<String, List<Int>>(), owners)
+        }
 }

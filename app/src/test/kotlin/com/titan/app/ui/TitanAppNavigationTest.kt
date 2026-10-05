@@ -111,7 +111,7 @@ class TitanAppNavigationTest {
             // The default templates the database is created with (#213) are taken out first.
             // This suite is about the graph, not about what a fresh install offers — that is
             // `EndToEndJourneyTest`'s — and a template list of one keeps its row on screen and
-            // first on Home's strip, where seventeen defaults would push it past both.
+            // first on Home's list, where seventeen defaults would push it past both.
             templates.getAll().first().forEach { templates.delete(it.id) }
             val benchPress = exercises.insert(Exercise(name = BENCH_PRESS))
             templates.insert(
@@ -327,7 +327,7 @@ class TitanAppNavigationTest {
         // Home, and not the setup screen the picker was pushed over. That screen was never
         // drawn — the quick start opens the flow and the picker in one move — so surfacing it
         // on the way out shows the user somewhere they have not been, wearing Home's own
-        // quick-start action and template strip. Back would be going forwards.
+        // quick-start action and template list. Back would be going forwards.
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertIsDisplayed()
         composeTestRule.onNodeWithText(NEW_SESSION).assertDoesNotExist()
 

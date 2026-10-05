@@ -191,8 +191,7 @@ internal object DefaultTemplates {
     )
 
     /** Every exercise name the defaults reference, for the one read that resolves them all. */
-    val exerciseNames: Set<String>
-        get() = all.flatMapTo(mutableSetOf()) { spec -> spec.exercises.map { it.key.name } }
+    val exerciseNames: Set<String> = all.flatMapTo(mutableSetOf()) { spec -> spec.exercises.map { it.key.name } }
 
     /**
      * A lookup from a default's reference to the seeded row it names, over [rows] — what the

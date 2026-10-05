@@ -203,7 +203,7 @@ class FakeDefaultTemplateCatalogue(vararg names: String) : DefaultTemplateCatalo
     /** When set, both reads throw it — a catalogue that cannot be read. */
     var readFailure: Throwable? = null
 
-    override fun getNames(): List<DefaultTemplateName> {
+    override suspend fun getNames(): List<DefaultTemplateName> {
         readFailure?.let { throw it }
         return defaults.map { it.name }
     }

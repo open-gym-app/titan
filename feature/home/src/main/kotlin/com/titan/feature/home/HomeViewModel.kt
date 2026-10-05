@@ -504,9 +504,11 @@ class HomeViewModel @Inject constructor(
      * from a template keeps its [WorkoutSession.templateId], and the sessions are already read
      * for the week above.
      *
-     * The sort is stable and templates nobody has trained from all rank alike, so those keep
-     * the name order they arrived in — which is the right order for a template that has no
-     * history to be ordered by, and the order a brand-new user sees for all of them.
+     * Templates nobody has trained from all rank alike, and those are ordered by id: oldest
+     * first, which for the seeded defaults is the order the app defines them in. Name order
+     * would be the wrong tie-break here, because it is the one a brand-new user sees for every
+     * template — with the defaults seeded, that is Abs, Arms and Back rather than the push,
+     * pull and legs split the defaults open with and the three slots are sized for.
      *
      * The cut happens here rather than in the screen because it is a decision about *which*
      * templates, which is this class's to make; the list draws what it is handed.
@@ -517,8 +519,10 @@ class HomeViewModel @Inject constructor(
             .groupBy({ (templateId, _) -> templateId }, { (_, startedAt) -> startedAt })
             .mapValues { (_, startedAt) -> startedAt.max() }
 
-        return sortedByDescending { lastStarted[it.template.id] ?: NEVER_STARTED }
-            .take(QUICK_START_TEMPLATES)
+        return sortedWith(
+            compareByDescending<TemplateSummary> { lastStarted[it.template.id] ?: NEVER_STARTED }
+                .thenBy { it.template.id },
+        ).take(QUICK_START_TEMPLATES)
     }
 
     /** The day the screen is being assembled for, and everything read over it. */

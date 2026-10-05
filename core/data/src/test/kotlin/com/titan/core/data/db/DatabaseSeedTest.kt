@@ -19,6 +19,7 @@ import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateExercise
 import com.titan.core.domain.superset.Supersets
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -365,7 +366,7 @@ class DatabaseSeedTest {
         runBlocking {
             val repository = templates()
             val stored = repository.getAll().first().associateBy { it.name }
-            val defaults = DefaultTemplateCatalogueImpl(context(), db.exerciseDao()).getAll()
+            val defaults = DefaultTemplateCatalogueImpl(context(), db.exerciseDao(), Dispatchers.Unconfined).getAll()
 
             assertEquals(DefaultTemplates.all.size, defaults.size)
             for (default in defaults) {

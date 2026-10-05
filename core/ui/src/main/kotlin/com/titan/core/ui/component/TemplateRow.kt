@@ -53,8 +53,8 @@ import kotlin.time.Duration.Companion.minutes
  *
  * Shared rather than owned by a screen because four of them render it — Home's quick start,
  * the new-session picker (#25), the templates tab (#24) and the template editor's header
- * (#92) — and the figures on it are the kind that drift: an exercise count that counts a superset as one
- * exercise on one screen and two on another is worse than no count.
+ * (#92) — and the figures on it are the kind that drift: an exercise count that counts a
+ * superset as one exercise on one screen and two on another is worse than no count.
  *
  * ### What the mark is
  *

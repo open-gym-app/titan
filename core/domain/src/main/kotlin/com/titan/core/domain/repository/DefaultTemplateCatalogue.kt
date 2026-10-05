@@ -18,9 +18,11 @@ interface DefaultTemplateCatalogue {
      * exercise — so without reading the database.
      *
      * Deciding which defaults are missing needs only their names, and it is decided again on
-     * every write to the template list; [getAll] is for the restore itself.
+     * every write to the template list; [getAll] is for the restore itself. Suspending because
+     * the names are string resources in several languages, and the first read of them is work
+     * an implementation should be free to keep off the thread that is drawing the screen.
      */
-    fun getNames(): List<DefaultTemplateName>
+    suspend fun getNames(): List<DefaultTemplateName>
 
     /**
      * Every default, in the order the app defines them, named as [getNames] names them and

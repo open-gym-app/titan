@@ -80,8 +80,8 @@ private const val GITHUB_URL = "https://github.com/open-gym-app/titan"
  *
  * A list, not a wheel or a number field: a rest is chosen once and is one of a handful of
  * values in practice. 30 seconds is an accessory superset, 180 is the default and what a
- * working set of a compound lift needs, 300 is what a heavy squat or a max single needs — the range covers the whole of what a
- * gym does without asking anyone to scroll a picker to it.
+ * working set of a compound lift needs, 300 is what a heavy squat or a max single needs — the
+ * range covers the whole of what a gym does without asking anyone to scroll a picker to it.
  */
 private val REST_DURATIONS: List<Duration> =
     listOf(30, 45, 60, 90, 120, 150, 180, 240, 300).map { it.seconds }

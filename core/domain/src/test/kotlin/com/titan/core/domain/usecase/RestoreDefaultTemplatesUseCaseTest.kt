@@ -145,6 +145,23 @@ class RestoreDefaultTemplatesUseCaseTest {
             assertEquals(0, templates.storedCount())
         }
 
+    @Test
+    fun `a missing default the catalogue cannot resolve is a failure, after the others are added`() =
+        runTest {
+            // After an import whose catalogue lacks an exercise Arms names: listed as missing,
+            // and left out of what can be written.
+            val defaults = listOf(default("Push", exerciseId = 1L), default("Arms", exerciseId = 3L))
+            val partial = RestoreDefaultTemplatesUseCase(
+                FakeDefaultTemplateCatalogue(defaults, resolved = defaults.take(1)),
+                templates,
+                CreateTemplateUseCase(templates),
+            )
+
+            assertEquals(listOf("Push", "Arms"), partial.observeMissing().first().map { it.current })
+            assertTrue(partial().isFailure)
+            assertEquals(listOf("Push"), templates.getAll().first().map { it.name })
+        }
+
     private fun default(
         name: String,
         exerciseId: Long,
@@ -171,9 +188,13 @@ class RestoreDefaultTemplatesUseCaseTest {
             ),
         )
 
-    private class FakeDefaultTemplateCatalogue(private val defaults: List<DefaultTemplate>) : DefaultTemplateCatalogue {
-        override fun getNames(): List<DefaultTemplateName> = defaults.map { it.name }
+    /** [resolved] is what [getAll] can write: every default unless a test leaves some out. */
+    private class FakeDefaultTemplateCatalogue(
+        private val defaults: List<DefaultTemplate>,
+        private val resolved: List<DefaultTemplate> = defaults,
+    ) : DefaultTemplateCatalogue {
+        override suspend fun getNames(): List<DefaultTemplateName> = defaults.map { it.name }
 
-        override suspend fun getAll(): List<DefaultTemplate> = defaults
+        override suspend fun getAll(): List<DefaultTemplate> = resolved
     }
 }

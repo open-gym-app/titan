@@ -58,6 +58,13 @@ class RestoreDefaultTemplatesUseCase(
      *
      * Stops at the first default that is refused. The ones created before it stay: each is a
      * complete template written in its own transaction, and a retry skips them by name.
+     *
+     * Fails, after creating the rest, when a missing default cannot be resolved against this
+     * database's catalogue. [DefaultTemplateCatalogue.getAll] leaves such a default out, but
+     * [observeMissing] lists it — it reads names only — so reporting success would tell the
+     * user every default is back while the row still offers the one that is not. An import is
+     * what makes this reachable: it replaces the catalogue with the file's, which need not hold
+     * every exercise this build's defaults name.
      */
     suspend operator fun invoke(): Result<Int> {
         val existing = templateRepository.getAll().first()
@@ -68,6 +75,11 @@ class RestoreDefaultTemplatesUseCase(
                 exercises = default.exercises,
                 category = default.category,
             ).onFailure { return Result.failure(it) }
+        }
+        val unresolved = catalogue.getNames().count { !it.isTakenIn(existing) } - missing.size
+        if (unresolved > 0) {
+            val reason = "$unresolved missing defaults name exercises not in the catalogue"
+            return Result.failure(IllegalStateException(reason))
         }
         return Result.success(missing.size)
     }

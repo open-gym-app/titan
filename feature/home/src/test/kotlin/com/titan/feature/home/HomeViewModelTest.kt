@@ -354,9 +354,26 @@ class HomeViewModelTest {
             val home = viewModel(templates = eightTemplates()).uiState.value
 
             assertEquals(3, home.templates.size)
-            // Nothing has been trained from, so nothing outranks anything and the name order the
-            // repository promises is what is left.
+            // Nothing has been trained from, so nothing outranks anything and the oldest leads.
             assertEquals("Template 1", home.templates.first().template.name)
+        }
+
+    @Test
+    fun `untrained templates are offered oldest first, not by name`() =
+        runTest {
+            // The seeded defaults open with a push/pull/legs split, which name order would bury
+            // under Abs and Arms. The repository hands them over by name; the ids keep the order
+            // they were defined in.
+            val saved = listOf(4L to "Abs", 5L to "Arms", 3L to "Legs", 2L to "Pull", 1L to "Push")
+                .map { (id, name) -> template(id, name) }
+            val store = FakeTemplateStore(
+                templates = saved.map { it.first },
+                exercises = saved.flatMap { it.second },
+            )
+
+            val home = viewModel(templates = store).uiState.value
+
+            assertEquals(listOf("Push", "Pull", "Legs"), home.templates.map { it.template.name })
         }
 
     @Test

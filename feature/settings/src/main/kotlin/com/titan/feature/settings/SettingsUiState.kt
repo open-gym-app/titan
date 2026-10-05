@@ -102,6 +102,9 @@ sealed interface SettingsMessage {
      */
     data class TemplatesRestored(val count: Int) : SettingsMessage
 
-    /** Restoring threw or a default was refused. The ones added before it stay added. */
+    /**
+     * Restoring threw, a default was refused, or one names an exercise the catalogue lacks.
+     * The ones added before it stay added.
+     */
     data object RestoreFailed : SettingsMessage
 }

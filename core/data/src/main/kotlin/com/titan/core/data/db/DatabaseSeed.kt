@@ -131,8 +131,8 @@ internal object DatabaseSeed {
 
     /**
      * The seeded exercises called any of [names], in one read rather than one per reference —
-     * the same rows, by the same predicate, that `ExerciseDao.getSeededByName` returns to the
-     * restore row, so the seed and a restore resolve a default to the same exercise.
+     * the same rows, by the same predicate, that `ExerciseDao.getSeededByName` returns to a
+     * restore from settings, so the seed and a restore resolve a default to the same exercise.
      *
      * Seeded rows only: the unique index on `(name, equipment_type, machine_brand)` does not
      * stop a custom exercise sharing a name and an equipment type with a seeded one when
@@ -141,7 +141,8 @@ internal object DatabaseSeed {
     private fun SupportSQLiteDatabase.seededExercises(names: Collection<String>): List<SeededExerciseKeyRow> {
         val placeholders = names.joinToString(separator = ",") { "?" }
         val sql = "SELECT id, name, equipment_type FROM exercise " +
-            "WHERE name IN ($placeholders) AND machine_brand IS NULL AND is_custom = 0"
+            "WHERE name IN ($placeholders) AND machine_brand IS NULL AND is_custom = 0 " +
+            "AND equipment_type IS NOT NULL"
         return query(sql, names.toTypedArray()).use { cursor ->
             buildList {
                 while (cursor.moveToNext()) {
@@ -155,20 +156,13 @@ internal object DatabaseSeed {
         db: SupportSQLiteDatabase,
         assets: AssetManager,
     ) {
-        // A partially applied catalogue would leave exercises without their
-        // muscle links, so the whole batch commits or none of it does. Room
-        // already runs onCreate inside a transaction; SQLite nests this one as
-        // a savepoint.
-        db.beginTransaction()
-        try {
-            assets.open(ASSET_PATH).bufferedReader().useLines { lines ->
-                lines.map(String::trim)
-                    .filter { it.isNotEmpty() && !it.startsWith("--") }
-                    .forEach(db::execSQL)
-            }
-            db.setTransactionSuccessful()
-        } finally {
-            db.endTransaction()
+        // No transaction of its own: [insertInto], the only caller, already holds the one that
+        // keeps a partially applied catalogue — exercises without their muscle links — from
+        // ever committing.
+        assets.open(ASSET_PATH).bufferedReader().useLines { lines ->
+            lines.map(String::trim)
+                .filter { it.isNotEmpty() && !it.startsWith("--") }
+                .forEach(db::execSQL)
         }
     }
 }
