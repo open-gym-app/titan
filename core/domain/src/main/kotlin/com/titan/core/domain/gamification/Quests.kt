@@ -33,14 +33,16 @@ import com.titan.core.domain.model.QuestPeriod
  *
  * ### The prices
  *
- * Read against [XpCalculator]: a session pays 25, a record 50, an achievement 100, and a level
- * costs 100. A weekly quest is therefore worth two to four sessions of showing up — enough to be
- * chased, not enough to make the training itself feel like the small half of the reward. A
- * monthly quest is worth two to three levels, which is the point of a month.
+ * Read against [XpCalculator]: a session pays 50 and its sets about as much again, a record 10,
+ * an achievement 100, and a level costs 600. A weekly quest is therefore worth one to two
+ * sessions of showing up — enough to be chased, not enough to make the training itself feel like
+ * the small half of the reward. A monthly quest is worth five or six sessions, which is the
+ * point of a month. Together the board pays about a third of what a year of training to the
+ * default goal earns, which is part of what `XpEconomyTest` adds up.
  *
  * The bounds are asserted rather than left to a reading of this paragraph: `QuestsTest` holds
  * weekly rewards above a session and at or below an achievement, monthly ones above every weekly
- * rung and worth at least two levels, and every ladder's harder rung above its easier one. A
+ * rung and worth at least five sessions, and every ladder's harder rung above its easier one. A
  * tuning pass that breaks the economy's shape fails there rather than shipping.
  *
  * The volume targets are the one pair not written as the number they compare against: a
@@ -50,7 +52,7 @@ import com.titan.core.domain.model.QuestPeriod
  * domain does not divide.
  *
  * **These values are starting defaults**, like [Achievements]' thresholds and
- * [StreakCalculator.STREAK_GRACE_HOURS]: nothing here has been validated against real usage. Each
+ * [StreakCalculator.MIN_PROTECTED_STREAK]: nothing here has been validated against real usage. Each
  * is named and read from nowhere else, so retuning one is an edit to a single line, and a test
  * that wants "one short of the target" asks the catalogue rather than restating the number.
  *

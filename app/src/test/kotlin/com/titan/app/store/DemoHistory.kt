@@ -28,8 +28,9 @@ import kotlin.random.Random
  *
  * ### Who the lifter is
  *
- * An intermediate on a push/pull/legs split three evenings a week, built entirely from the
- * default templates (#213) so the history and the template list agree: every session names the
+ * An intermediate on a push/pull/legs split three evenings a week — with the weekly goal set to
+ * three, as somebody planning three days would set it — built entirely from the default
+ * templates (#213) so the history and the template list agree: every session names the
  * template it was started from and lays its exercises out in that template's order, with the
  * template's number of sets. About one planned day in ten is missed. A weekly weigh-in drifts
  * down by a couple of kilograms, with a tape and a body-fat reading at the start of each month.
@@ -201,7 +202,7 @@ internal class DemoHistory(
         val sets = List(setCount) { index ->
             clock += lift.secondsPerSet * SECOND
             val completedAt = clock
-            clock += (lift.restSeconds + random.nextInt(-REST_JITTER_SECONDS, REST_JITTER_SECONDS)) * SECOND
+            clock += (lift.restSeconds + random.nextInt(-REST_JITTER_SECONDS, REST_JITTER_SECONDS + 1)) * SECOND
             WorkoutSet(
                 sessionExerciseId = sessionExerciseId,
                 setNumber = index + 1,
@@ -277,6 +278,9 @@ internal class DemoHistory(
         const val SESSION_COUNT = 60
 
         private val TRAINING_DAYS = setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)
+
+        /** The weekly goal the lifter sets: one session per planned day. */
+        val WEEKLY_GOAL = TRAINING_DAYS.size
         private const val SKIP_PROBABILITY = 0.1
         private const val MISS_ODDS = 8
         private const val SHORTFALL_ODDS = 5

@@ -138,7 +138,7 @@ interface GamificationRepository {
      * ### Why this exists at all
      *
      * Every other step of the cascade is idempotent by construction — PR detection compares
-     * *strictly* better and so beats nothing on a second pass, an already-counted day leaves
+     * *strictly* better and so beats nothing on a second pass, an already-counted session leaves
      * the streak [StreakResult.Unchanged], and an achievement's row is insert-if-absent. XP is
      * the one that is not: [addXp] banks what it is handed, deliberately (#33), so re-running
      * a finished session's events would pay for it twice. This is the fence that stops it, and
@@ -200,8 +200,8 @@ interface GamificationRepository {
      *
      * [advance] is handed the stored state and returns the whole of the next one, rather than
      * this repository deciding anything, so the rule stays in
-     * [com.titan.core.domain.gamification.StreakCalculator] — where the grace window, the
-     * same-day guarantee, the protection threshold and the monthly rollover are stated once
+     * [com.titan.core.domain.gamification.StreakCalculator] — where the weekly goal, the
+     * count-once anchor, the protection threshold and the monthly rollover are stated once
      * and can be retuned without a data-layer change. Implementations persist
      * [StreakUpdate.state] exactly as given and return the update unchanged; there is no
      * second rule on this side of the boundary to keep in step, which is what the previous

@@ -41,7 +41,7 @@ data class AchievementProgress(
     fun valueOf(metric: AchievementMetric): Int =
         when (metric) {
             AchievementMetric.SESSIONS_FINISHED -> sessionsFinished
-            AchievementMetric.STREAK_DAYS -> currentStreak
+            AchievementMetric.STREAK_WEEKS -> currentStreak
             AchievementMetric.RECORDS_BROKEN -> recordsBroken
         }
 }

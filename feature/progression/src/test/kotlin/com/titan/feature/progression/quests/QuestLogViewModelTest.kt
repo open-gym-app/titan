@@ -14,6 +14,7 @@ import com.titan.core.domain.model.UnlockedAchievement
 import com.titan.core.domain.model.UserProgress
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.QuestProgressUseCase
+import com.titan.feature.progression.exercise.FakeSettings
 import com.titan.feature.progression.stats.FakeProgressionStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -29,6 +30,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.time.Duration
 import java.time.Instant
 import java.time.YearMonth
 import java.time.ZoneOffset
@@ -64,6 +66,8 @@ class QuestLogViewModelTest {
 
     /** Pinned to [NOW] so the month the allowance is replenished for never moves under a run. */
     private val clock = Clock { NOW.toEpochMilli() }
+
+    private val settings = FakeSettings()
 
     // ─── The milestone count ────────────────────────────────────────────────────────────
 
@@ -238,16 +242,60 @@ class QuestLogViewModelTest {
     fun `a protection spent while the screen is open lowers the count`() =
         runTest {
             gamification.streak.value = StreakState(
-                protection = StreakProtection(remaining = 3, period = THIS_MONTH),
+                protection = StreakProtection(remaining = 1, period = THIS_MONTH),
             )
             val state = collect()
-            assertEquals(3, state().protection.remaining)
+            assertEquals(1, state().protection.remaining)
 
             gamification.streak.value = StreakState(
-                protection = StreakProtection(remaining = 2, period = THIS_MONTH),
+                protection = StreakProtection(remaining = 0, period = THIS_MONTH),
             )
 
-            assertEquals(2, state().protection.remaining)
+            assertEquals(0, state().protection.remaining)
+        }
+
+    // ─── The week against the goal ──────────────────────────────────────────────────────
+
+    @Test
+    fun `this week's sessions are drawn against the user's own goal`() =
+        runTest {
+            settings.setWeeklyWorkoutGoal(3)
+            gamification.streak.value = StreakState(lastCountedAt = YESTERDAY, weekSessions = 2)
+
+            val state = collect()
+
+            assertEquals(2, state().sessionsThisWeek)
+            assertEquals(3, state().weeklyGoal)
+        }
+
+    @Test
+    fun `a count from an earlier week is not this week's`() =
+        runTest {
+            gamification.streak.value = StreakState(lastCountedAt = LAST_WEEK, weekSessions = 4)
+
+            val state = collect()
+
+            assertEquals(0, state().sessionsThisWeek)
+        }
+
+    @Test
+    fun `a streak whose last week met its goal is still standing`() =
+        runTest {
+            gamification.progress.value = UserProgress(currentStreak = 5, lastCountedAt = LAST_WEEK, weekGoalMet = true)
+
+            assertTrue(collect()().isStreakLive)
+        }
+
+    @Test
+    fun `a streak whose last week fell short has lapsed`() =
+        runTest {
+            gamification.progress.value = UserProgress(
+                currentStreak = 5,
+                lastCountedAt = LAST_WEEK,
+                weekGoalMet = false,
+            )
+
+            assertFalse(collect()().isStreakLive)
         }
 
     // ─── Recent loot ────────────────────────────────────────────────────────────────────
@@ -322,6 +370,7 @@ class QuestLogViewModelTest {
                 personalRecordRepository = records,
                 questRepository = completions,
             ),
+            userPreferences = settings,
             clock = clock,
         )
         // Unconfined, so the collection starts eagerly rather than being queued: without a
@@ -349,6 +398,12 @@ class QuestLogViewModelTest {
 
         /** Mid-March 2026, so [THIS_MONTH] is a month the fixtures can be stamped against. */
         val NOW: Instant = YearMonth.of(2026, 3).atDay(14).atStartOfDay(ZoneOffset.UTC).toInstant()
+
+        /** The Friday before [NOW], a Saturday: the same week. */
+        val YESTERDAY: Instant = NOW.minus(Duration.ofDays(1))
+
+        /** A week before [NOW]: the week before. */
+        val LAST_WEEK: Instant = NOW.minus(Duration.ofDays(7))
 
         val THIS_MONTH: YearMonth = YearMonth.of(2026, 3)
     }

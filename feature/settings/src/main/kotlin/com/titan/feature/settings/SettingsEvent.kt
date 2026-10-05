@@ -56,6 +56,9 @@ sealed interface SettingsEvent {
 
     data class OneRepMaxFormulaSelected(val formula: OneRepMaxFormula) : SettingsEvent
 
+    /** A weekly workout goal was picked — how many sessions a week joins the streak. */
+    data class WeeklyGoalSelected(val goal: Int) : SettingsEvent
+
     /**
      * The warm-up suggestions switch was flipped (#214).
      *

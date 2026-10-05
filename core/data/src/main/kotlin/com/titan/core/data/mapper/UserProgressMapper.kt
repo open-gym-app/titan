@@ -24,4 +24,5 @@ fun UserProgressEntity.toDomain(): UserProgress =
         currentStreak = currentStreak,
         longestStreak = longestStreak,
         lastCountedAt = lastCountedAt?.let(Instant::ofEpochMilli),
+        weekGoalMet = weekGoalMet,
     )

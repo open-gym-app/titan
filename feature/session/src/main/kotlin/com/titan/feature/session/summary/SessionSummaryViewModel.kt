@@ -119,7 +119,8 @@ class SessionSummaryViewModel @Inject constructor(
     private val celebration: SummaryCelebration? = progression?.let(SummaryCelebration::from)
 
     /**
-     * Whether this session's missed day was paid for out of the streak-protection allowance.
+     * Whether the short week this session revealed was paid for out of the streak-protection
+     * allowance.
      *
      * Derived from the same taken value rather than from a second read, for the reason the
      * hand-off's doc gives: it is emptied by its first taker. Two independent `take` calls

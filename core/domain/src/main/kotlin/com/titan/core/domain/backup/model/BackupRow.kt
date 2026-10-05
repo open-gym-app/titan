@@ -258,6 +258,8 @@ data class UserProgressRow(
     @SerialName("current_streak") val currentStreak: Int,
     @SerialName("longest_streak") val longestStreak: Int,
     @SerialName("last_counted_at") val lastCountedAt: Long? = null,
+    @SerialName("week_sessions") val weekSessions: Int = 0,
+    @SerialName("week_goal_met") val weekGoalMet: Boolean = false,
     @SerialName("protection_remaining") val protectionRemaining: Int,
     @SerialName("protection_period") val protectionPeriod: String? = null,
     @SerialName("protection_consumed_at") val protectionConsumedAt: Long? = null,

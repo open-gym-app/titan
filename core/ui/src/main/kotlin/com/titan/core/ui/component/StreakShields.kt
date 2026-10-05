@@ -25,7 +25,7 @@ import com.titan.core.ui.theme.TitanTheme
 /**
  * What is left of a fixed monthly allowance, drawn as one mark per charge.
  *
- * Built for streak protection — three a month, spent automatically when a missed day would
+ * Built for streak protection — one a month, spent automatically when a short week would
  * otherwise break a streak worth keeping (see `StreakProtection`) — and it is the surface the
  * quest log and the just-finished recap both draw. Kept in `:core:ui` rather than in whichever
  * of them shipped first for exactly that reason.
@@ -36,7 +36,7 @@ import com.titan.core.ui.theme.TitanTheme
  * *tiny*, and three marks with one greyed out says "you have used one of your three" in the
  * time it takes to glance, without the reader parsing a fraction. It is the same argument
  * [StepProgress] makes for segments over a filled rail, applied to a resource rather than to a
- * position — and it is why this takes the two counts rather than a proportion: at three
+ * position — and it is why this takes the two counts rather than a proportion: at a handful of
  * charges, a percentage is a rounding of a number the user can see.
  *
  * The spent marks stay on screen rather than disappearing. A row that shrank as protections

@@ -49,12 +49,12 @@ class AndroidProgressionAnnouncerTest {
     @Test
     fun `a streak save names the streak it saved and what is left to spend`() =
         runTest {
-            announcer.announce(progression(streak = protectionSpent(days = 12, remaining = 2)), FROM_THE_SHADE)
+            announcer.announce(progression(streak = protectionSpent(weeks = 12, remaining = 0)), FROM_THE_SHADE)
 
             val note = notifier.showing
             assertEquals(NotificationKind.PROGRESSION, note?.kind)
             assertEquals("Streak protection used", note?.title)
-            assertEquals("Saved your 12-day streak. 2 protections left this month.", note?.body)
+            assertEquals("Saved your 12-week streak. 0 protections left this month.", note?.body)
         }
 
     @Test
@@ -62,9 +62,9 @@ class AndroidProgressionAnnouncerTest {
         runTest {
             // "1 protections left" is the failure a concatenated count always eventually
             // ships, and #41's languages have more categories than English does.
-            announcer.announce(progression(streak = protectionSpent(days = 1, remaining = 1)), FROM_THE_SHADE)
+            announcer.announce(progression(streak = protectionSpent(weeks = 2, remaining = 1)), FROM_THE_SHADE)
 
-            assertEquals("Saved your 1-day streak. 1 protection left this month.", notifier.showing?.body)
+            assertEquals("Saved your 2-week streak. 1 protection left this month.", notifier.showing?.body)
         }
 
     @Test
@@ -116,7 +116,7 @@ class AndroidProgressionAnnouncerTest {
         runTest {
             announcer.announce(
                 progression(
-                    streak = protectionSpent(days = 12, remaining = 2),
+                    streak = protectionSpent(weeks = 12, remaining = 0),
                     loot = Collectibles.PET_EGG,
                 ),
                 FROM_THE_SHADE,
@@ -128,7 +128,7 @@ class AndroidProgressionAnnouncerTest {
             assertEquals(1, notifier.posted.size)
             assertEquals("Streak saved, and loot found", notifier.showing?.title)
             assertEquals(
-                "Saved your 12-day streak. 2 protections left this month. You found a Pet egg · Rare.",
+                "Saved your 12-week streak. 0 protections left this month. You found a Pet egg · Rare.",
                 notifier.showing?.body,
             )
         }
@@ -150,7 +150,7 @@ class AndroidProgressionAnnouncerTest {
             // frame the finish returns, and a notification beside it is the app talking over
             // itself.
             announcer.announce(
-                progression(streak = protectionSpent(days = 12, remaining = 2)),
+                progression(streak = protectionSpent(weeks = 12, remaining = 0)),
                 FinishOrigin.WORKOUT_SCREEN,
             )
 
@@ -199,13 +199,13 @@ class AndroidProgressionAnnouncerTest {
     ) = SessionProgression(sessionId = SESSION_ID, streak = streak, lootDropped = loot)
 
     private fun protectionSpent(
-        days: Int,
+        weeks: Int,
         remaining: Int,
     ) = StreakUpdate(
-        result = StreakResult.Protected(protectionsRemaining = remaining),
+        result = StreakResult.Protected(newStreak = weeks, protectionsRemaining = remaining),
         state = StreakState(
-            currentStreak = days,
-            longestStreak = days,
+            currentStreak = weeks,
+            longestStreak = weeks,
             protection = StreakProtection(remaining = remaining),
         ),
     )

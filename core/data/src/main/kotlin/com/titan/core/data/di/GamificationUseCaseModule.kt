@@ -7,6 +7,7 @@ import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.QuestRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.AchievementTriggerUseCase
 import com.titan.core.domain.usecase.AwardXpUseCase
@@ -126,6 +127,7 @@ object GamificationUseCaseModule {
         sessionRepository: SessionRepository,
         personalRecordRepository: PersonalRecordRepository,
         gamificationRepository: GamificationRepository,
+        userPreferencesRepository: UserPreferencesRepository,
     ): SessionCompletionPipeline =
         SessionCompletionPipeline(
             detectPersonalRecords = detectPersonalRecords,
@@ -136,5 +138,6 @@ object GamificationUseCaseModule {
             sessionRepository = sessionRepository,
             personalRecordRepository = personalRecordRepository,
             gamificationRepository = gamificationRepository,
+            userPreferencesRepository = userPreferencesRepository,
         )
 }

@@ -109,20 +109,20 @@ class ReminderBroadcastsTest {
     @Test
     fun `a live streak is what the second line is about`() =
         runTest {
-            given(streak = StreakState(currentStreak = 12, lastCountedAt = YESTERDAY))
+            given(streak = StreakState(currentStreak = 12, lastCountedAt = YESTERDAY, weekGoalMet = true))
 
             broadcasts.handle(due())
 
-            assertEquals("12 day streak on the line. Keep it.", notifier.showing!!.body)
+            assertEquals("12-week streak on the line. Keep it.", notifier.showing!!.body)
         }
 
     @Test
     fun `a streak that has already lapsed is not mentioned`() =
         runTest {
             // The stored figure is only recomputed when a session finishes, so it still reads
-            // twelve for somebody who last trained in March. Telling them they are twelve days
+            // twelve for somebody who last trained in March. Telling them they are twelve weeks
             // deep is the one thing a streak must never do — see `StreakCalculator.isLive`.
-            given(streak = StreakState(currentStreak = 12, lastCountedAt = LAST_MONTH))
+            given(streak = StreakState(currentStreak = 12, lastCountedAt = LAST_MONTH, weekGoalMet = true))
 
             broadcasts.handle(due())
 
@@ -248,7 +248,10 @@ class ReminderBroadcastsTest {
     }
 
     private companion object {
-        /** A Monday evening. Nothing here depends on the date beyond the streak's freshness. */
+        /**
+         * A Monday evening, so [YESTERDAY] closed a week that met its goal. Nothing here depends
+         * on the date beyond the streak's freshness.
+         */
         val NOW: Long = Instant.parse("2026-04-27T18:00:00Z").toEpochMilli()
 
         val YESTERDAY: Instant = Instant.ofEpochMilli(NOW).minus(Duration.ofDays(1))
@@ -262,8 +265,8 @@ class ReminderBroadcastsTest {
             // finishing now would extend it. If `StreakCalculator` ever changes its mind about
             // either of these, the fixtures fail here rather than the assertions failing
             // somewhere that reads as a bug in the notification.
-            check(StreakCalculator.isLive(YESTERDAY, Instant.ofEpochMilli(NOW)))
-            check(!StreakCalculator.isLive(LAST_MONTH, Instant.ofEpochMilli(NOW)))
+            check(StreakCalculator.isLive(YESTERDAY, weekGoalMet = true, asOf = Instant.ofEpochMilli(NOW)))
+            check(!StreakCalculator.isLive(LAST_MONTH, weekGoalMet = true, asOf = Instant.ofEpochMilli(NOW)))
         }
     }
 }

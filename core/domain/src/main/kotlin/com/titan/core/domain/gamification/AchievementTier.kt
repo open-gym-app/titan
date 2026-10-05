@@ -38,10 +38,10 @@ enum class AchievementTier {
 /**
  * Which metal this milestone is worth, judged against every other milestone on its own metric.
  *
- * The rank is positional rather than absolute: a streak of seven days is the *first* rung of the
- * streak ladder and so is bronze, even though seven of anything is a larger number than the one
+ * The rank is positional rather than absolute: a streak of four weeks is the *first* rung of the
+ * streak ladder and so is bronze, even though four of anything is a larger number than the one
  * session that earns bronze on the session ladder. Comparing thresholds across metrics would be
- * comparing days with workouts, which is why the ladder is filtered to [Achievement.metric] first.
+ * comparing weeks with workouts, which is why the ladder is filtered to [Achievement.metric] first.
  *
  * A **ladder of one is bronze**, not gold. `first_record` is the only record milestone this build
  * ships, and calling it the top of its ladder would give a brand-new user a gold medal for their

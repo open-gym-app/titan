@@ -1,5 +1,6 @@
 package com.titan.core.domain.model
 
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.notification.NotificationPreferences
 import com.titan.core.domain.notification.ReminderPreferences
 import com.titan.core.domain.plate.PlateInventory
@@ -128,6 +129,16 @@ data class UserPreferences(
     val warmupSuggestions: Boolean = true,
 
     /**
+     * How many workouts a week the user means to do — the goal a week has to meet to join the
+     * streak. See [StreakCalculator], which is the only reader of it that decides anything.
+     *
+     * The user's own rather than a constant, because the right number is a property of their
+     * programme: a three-day split that hits every planned session should not lose its streak
+     * to a goal written for somebody training four times.
+     */
+    val weeklyWorkoutGoal: Int = StreakCalculator.DEFAULT_WEEKLY_GOAL,
+
+    /**
      * Whether the user has been through onboarding.
      *
      * The flag that makes first launch route to onboarding *exactly once*: it is the
@@ -175,6 +186,9 @@ data class UserPreferences(
         require(barWeight > 0) { "the bar weight must be positive, was $barWeight mg" }
         require(customIncrement == null || customIncrement > 0) {
             "the custom increment must be positive or absent, was $customIncrement mg"
+        }
+        require(weeklyWorkoutGoal in StreakCalculator.WEEKLY_GOAL_RANGE) {
+            "the weekly workout goal must be in ${StreakCalculator.WEEKLY_GOAL_RANGE}, was $weeklyWorkoutGoal"
         }
     }
 

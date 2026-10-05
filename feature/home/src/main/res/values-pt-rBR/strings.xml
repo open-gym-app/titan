@@ -34,9 +34,9 @@
         <item quantity="other">%1$d treinos</item>
     </plurals>
     <plurals name="home_week_streak">
-        <item quantity="one">Sequência de %1$d dia</item>
-        <item quantity="many">Sequência de %1$d dias</item>
-        <item quantity="other">Sequência de %1$d dias</item>
+        <item quantity="one">Sequência de %1$d semana</item>
+        <item quantity="many">Sequência de %1$d semanas</item>
+        <item quantity="other">Sequência de %1$d semanas</item>
     </plurals>
 
     <!-- ── Quick start ───────────────────────────────────────────────────────────── -->

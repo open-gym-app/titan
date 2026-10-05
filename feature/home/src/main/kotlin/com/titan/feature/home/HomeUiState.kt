@@ -41,7 +41,7 @@ import kotlin.time.Duration
  *
  * @param level the standing the header draws — the level, and how far into it the user is — or
  *   **null** for somebody who has never banked a point, whose header would otherwise read
- *   `LVL 1 · 0 / 100 XP` before they have done anything at all.
+ *   `LVL 1 · 0 / 600 XP` before they have done anything at all.
  * @param resume the workout the app is holding open, or **null** when there is none — which is
  *   the ordinary case and draws no banner at all.
  * @param week the seven days the user is in the middle of, or **null** for somebody who has
@@ -154,11 +154,11 @@ data class SessionPosition(
  *
  * @param days exactly seven, in the order the strip draws them.
  * @param sessionCount how many sessions were logged across those seven days.
- * @param streak consecutive days trained, or **null** when there is no streak to report. Null
- *   covers both a user who has never had one and a user whose last one has since lapsed: a
- *   stored streak is only recomputed when a session finishes, so the figure on the row says
- *   twelve for as long as nobody trains, and drawing it unasked would tell somebody who last
- *   trained in March that they are twelve days deep. Whether it is still running is
+ * @param streak consecutive weeks that met the weekly goal, or **null** when there is no streak
+ *   to report. Null covers both a user who has never had one and a user whose last one has
+ *   since lapsed: a stored streak is only recomputed when a session finishes, so the figure on
+ *   the row says twelve for as long as nobody trains, and drawing it unasked would tell somebody
+ *   who last trained in March that they are twelve weeks deep. Whether it is still running is
  *   [com.titan.core.domain.gamification.StreakCalculator.isLive]'s answer, taken when the
  *   screen is assembled — see [HomeViewModel].
  */

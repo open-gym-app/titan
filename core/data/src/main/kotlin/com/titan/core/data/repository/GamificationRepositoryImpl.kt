@@ -39,14 +39,14 @@ import javax.inject.Inject
  * one operation, which no split across layers could do.
  *
  * The streak goes further than the curve does: [updateStreak]'s transform returns the *whole*
- * of the next state rather than a verdict this class then applies, so the same-day anchor rule
- * and the protection allowance have no second statement here to drift from the first.
+ * of the next state rather than a verdict this class then applies, so the anchor rule, the
+ * weekly goal and the protection allowance have no second statement here to drift from the first.
  *
  * ### Instants are stored to the millisecond
  *
  * Every timestamp column is epoch milliseconds, so the sub-millisecond part of an [Instant] is
- * dropped on the way in. Nothing reads it back: the streak is judged in days and whole hours,
- * and an unlock is dated for display. The one column that is not a timestamp or a count is
+ * dropped on the way in. Nothing reads it back: the streak is judged in weeks, and an unlock is
+ * dated for display. The one column that is not a timestamp or a count is
  * `protection_period`, a `YYYY-MM` string — see [UserProgressEntity] for why a month is stored
  * as what it is rather than as a number.
  */
@@ -121,11 +121,11 @@ class GamificationRepositoryImpl @Inject constructor(
      *
      * There is no rule on this side. [advance] returns the whole of the next
      * [com.titan.core.domain.model.StreakState] — the streak, the best one ever held, the
-     * anchor the same-day guarantee is measured from and what is left of the protection
-     * allowance — and this persists it as given. That is the point of the shape:
-     * `StreakCalculator` is the one place any of it can be retuned, and the read it operates
-     * on and the write that follows are still one transaction, which no split across the two
-     * layers could give.
+     * anchor that keeps a session from counting twice, where the week in progress stands and
+     * what is left of the protection allowance — and this persists it as given. That is the
+     * point of the shape: `StreakCalculator` is the one place any of it can be retuned, and the
+     * read it operates on and the write that follows are still one transaction, which no split
+     * across the two layers could give.
      *
      * `longestStreak` moved into the domain with the rest of it. It used to be maintained
      * here, on the argument that only the store has seen the streaks that came before — but
@@ -164,6 +164,8 @@ private fun UserProgressEntity.toStreakState(): StreakState =
         currentStreak = currentStreak,
         longestStreak = longestStreak,
         lastCountedAt = lastCountedAt?.let(Instant::ofEpochMilli),
+        weekSessions = weekSessions,
+        weekGoalMet = weekGoalMet,
         protection = StreakProtection(
             remaining = protectionRemaining,
             period = protectionPeriod?.let(YearMonth::parse),
@@ -182,6 +184,8 @@ private fun UserProgressEntity.with(state: StreakState): UserProgressEntity =
         currentStreak = state.currentStreak,
         longestStreak = state.longestStreak,
         lastCountedAt = state.lastCountedAt?.toEpochMilli(),
+        weekSessions = state.weekSessions,
+        weekGoalMet = state.weekGoalMet,
         protectionRemaining = state.protection.remaining,
         protectionPeriod = state.protection.period?.toString(),
         protectionConsumedAt = state.protection.lastConsumedAt?.toEpochMilli(),

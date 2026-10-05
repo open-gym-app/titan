@@ -40,9 +40,9 @@
     <string name="reminder_title">Hora de entrenar</string>
     <string name="reminder_body">Regístralo. Solo cuenta si lo apuntas.</string>
     <plurals name="reminder_body_streak">
-        <item quantity="one">Racha de %1$d día en juego. Mantenla.</item>
-        <item quantity="many">Racha de %1$d días en juego. Mantenla.</item>
-        <item quantity="other">Racha de %1$d días en juego. Mantenla.</item>
+        <item quantity="one">Racha de %1$d semana en juego. Mantenla.</item>
+        <item quantity="many">Racha de %1$d semanas en juego. Mantenla.</item>
+        <item quantity="other">Racha de %1$d semanas en juego. Mantenla.</item>
     </plurals>
     <string name="reminder_action_start">Empezar</string>
 
@@ -57,9 +57,9 @@
     <string name="progression_notification_both">Racha salvada, y botín encontrado</string>
 
     <plurals name="progression_notification_streak_saved">
-        <item quantity="one">Tu racha de %1$d día está a salvo.</item>
-        <item quantity="many">Tu racha de %1$d días está a salvo.</item>
-        <item quantity="other">Tu racha de %1$d días está a salvo.</item>
+        <item quantity="one">Tu racha de %1$d semana está a salvo.</item>
+        <item quantity="many">Tu racha de %1$d semanas está a salvo.</item>
+        <item quantity="other">Tu racha de %1$d semanas está a salvo.</item>
     </plurals>
     <plurals name="progression_notification_protections_left">
         <item quantity="one">Queda %1$d protección este mes.</item>

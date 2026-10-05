@@ -4,7 +4,7 @@ package com.titan.core.domain.model
  * A streak as it stands after one finished session was applied to it.
  *
  * [StreakResult] says what the session *did*; it does not say what the streak now is, because
- * [StreakResult.Unchanged] carries no figure of its own and [StreakResult.streakAfter] needs
+ * [StreakResult.Counted] and [StreakResult.Unchanged] carry no figure of their own and [StreakResult.streakAfter] needs
  * the streak it was computed against to answer. Pairing the two is
  * [com.titan.core.domain.gamification.StreakCalculator.advance]'s job, and this is what it
  * answers with — the same value
@@ -24,10 +24,7 @@ data class StreakUpdate(
     val state: StreakState,
 ) {
 
-    /**
-     * The streak held after the session, always at least [StreakResult.FIRST_DAY] for a
-     * session that counted.
-     */
+    /** The streak held after the session, in weeks that met the goal. */
     val days: Int get() = state.currentStreak
 
     /**
@@ -41,8 +38,8 @@ data class StreakUpdate(
     val protectionsRemaining: Int get() = state.protection.remaining
 
     /**
-     * Whether this session's break was paid for out of the allowance — the fact the quest log
-     * (#104) reads and #39's notification announces.
+     * Whether this session's break was paid for out of the allowance — the fact the recap and
+     * #39's notification announce.
      */
     val protectionConsumed: Boolean get() = result is StreakResult.Protected
 }

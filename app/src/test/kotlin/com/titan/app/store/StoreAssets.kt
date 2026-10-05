@@ -25,7 +25,8 @@ internal object StoreAssets {
      * workout in the rotation — the one the active-session screenshot shows under way.
      *
      * Pinned rather than read, so a screenshot taken next year still says "two days ago" about
-     * the last workout instead of "a year ago", and the streak is still alive.
+     * the last workout instead of "a year ago", and the week strip and the streak still
+     * describe the week the demo ends in.
      */
     val DEMO_NOW: Long = LAST_TRAINING_DAY.plusDays(2).atTime(17, 40).toInstant(ZoneOffset.UTC).toEpochMilli()
 

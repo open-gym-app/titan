@@ -42,8 +42,14 @@ class GamificationPersistenceTest {
         const val DB_NAME = "gamification-persistence-test.db"
         val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
         val TUESDAY_EVENING: Instant = Instant.parse("2026-03-03T19:00:00Z")
-        val WEDNESDAY_EVENING: Instant = Instant.parse("2026-03-04T19:00:00Z")
-        val FRIDAY_EVENING: Instant = Instant.parse("2026-03-06T19:00:00Z")
+
+        /** Mondays of the weeks after [MONDAY_EVENING]'s. */
+        val SECOND_MONDAY: Instant = Instant.parse("2026-03-09T19:00:00Z")
+        val THIRD_MONDAY: Instant = Instant.parse("2026-03-16T19:00:00Z")
+        val FIFTH_MONDAY: Instant = Instant.parse("2026-03-30T19:00:00Z")
+
+        /** A goal of one, so every session that counts is a week met and the streak moves. */
+        const val GOAL = 1
     }
 
     private val context: Context = ApplicationProvider.getApplicationContext()
@@ -76,7 +82,7 @@ class GamificationPersistenceTest {
         runBlocking {
             val first = open()
             first.gamification().addXp(XpCalculator.XP_PER_LEVEL * 2 + 40, XpCalculator::levelForTotalXp)
-            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
+            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING, GOAL) }
             first.close()
 
             val reopened = open()
@@ -87,18 +93,20 @@ class GamificationPersistenceTest {
             assertEquals(XpCalculator.levelForTotalXp(XpCalculator.XP_PER_LEVEL * 2L + 40), stored?.currentLevel)
             assertEquals(1, stored?.currentStreak)
             assertEquals(MONDAY_EVENING.toEpochMilli(), stored?.lastCountedAt)
+            assertEquals(1, stored?.weekSessions)
+            assertEquals(true, stored?.weekGoalMet)
         }
 
     @Test
     fun `a streak carries on across a restart rather than starting over`() =
         runBlocking {
             val first = open()
-            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
+            first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING, GOAL) }
             first.close()
 
             val reopened = open()
             val update = reopened.gamification()
-                .updateStreak { state -> StreakCalculator.advance(state, TUESDAY_EVENING) }
+                .updateStreak { state -> StreakCalculator.advance(state, SECOND_MONDAY, GOAL) }
             reopened.close()
 
             assertEquals(2, update.days)
@@ -125,11 +133,11 @@ class GamificationPersistenceTest {
         runBlocking {
             val first = open()
             val gamification = first.gamification()
-            gamification.updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING) }
-            gamification.updateStreak { state -> StreakCalculator.advance(state, TUESDAY_EVENING) }
-            gamification.updateStreak { state -> StreakCalculator.advance(state, WEDNESDAY_EVENING) }
-            // The Thursday missed: one protection buys the streak back.
-            gamification.updateStreak { state -> StreakCalculator.advance(state, FRIDAY_EVENING) }
+            gamification.updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING, GOAL) }
+            gamification.updateStreak { state -> StreakCalculator.advance(state, SECOND_MONDAY, GOAL) }
+            gamification.updateStreak { state -> StreakCalculator.advance(state, THIRD_MONDAY, GOAL) }
+            // The week of the 23rd missed: one protection buys the streak back.
+            gamification.updateStreak { state -> StreakCalculator.advance(state, FIFTH_MONDAY, GOAL) }
             first.close()
 
             val reopened = open()
@@ -140,7 +148,7 @@ class GamificationPersistenceTest {
             // and a user could break a streak once a boot for free.
             assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, state.protection.remaining)
             assertEquals(YearMonth.of(2026, 3), state.protection.period)
-            assertEquals(FRIDAY_EVENING, state.protection.lastConsumedAt)
+            assertEquals(FIFTH_MONDAY, state.protection.lastConsumedAt)
             assertEquals(4, state.currentStreak)
         }
 
@@ -176,8 +184,9 @@ class GamificationPersistenceTest {
             val failure = runCatching {
                 reopened.openHelper.writableDatabase.execSQL(
                     "INSERT INTO user_progress " +
-                        "(id, total_xp, current_level, current_streak, longest_streak, protection_remaining) " +
-                        "VALUES (2, 0, 1, 0, 0, 3)",
+                        "(id, total_xp, current_level, current_streak, longest_streak, week_sessions, " +
+                        "week_goal_met, protection_remaining) " +
+                        "VALUES (2, 0, 1, 0, 0, 0, 0, 1)",
                 )
             }.exceptionOrNull()
             reopened.close()

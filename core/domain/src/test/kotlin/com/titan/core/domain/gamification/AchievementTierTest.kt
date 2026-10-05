@@ -21,8 +21,8 @@ class AchievementTierTest {
         assertEquals(AchievementTier.GOLD, Achievements.HUNDRED_SESSIONS.tier())
 
         // The streak ladder has two rungs, so it has no middle: bottom and top, bronze and gold.
-        assertEquals(AchievementTier.BRONZE, Achievements.SEVEN_DAY_STREAK.tier())
-        assertEquals(AchievementTier.GOLD, Achievements.THIRTY_DAY_STREAK.tier())
+        assertEquals(AchievementTier.BRONZE, Achievements.FOUR_WEEK_STREAK.tier())
+        assertEquals(AchievementTier.GOLD, Achievements.TWELVE_WEEK_STREAK.tier())
     }
 
     @Test
@@ -51,7 +51,7 @@ class AchievementTierTest {
     fun `a rung is ranked against its own metric and not against every threshold`() {
         // Seven days is a bigger number than one session and a smaller one than a hundred, and
         // neither comparison means anything: it is the first rung of the streak ladder.
-        assertEquals(AchievementTier.BRONZE, Achievements.SEVEN_DAY_STREAK.tier())
+        assertEquals(AchievementTier.BRONZE, Achievements.FOUR_WEEK_STREAK.tier())
     }
 
     @Test

@@ -1,270 +1,283 @@
 package com.titan.core.domain.gamification
 
+import com.titan.core.domain.model.StreakProtection
 import com.titan.core.domain.model.StreakResult
+import com.titan.core.domain.model.StreakState
+import com.titan.core.domain.model.StreakUpdate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.Duration
 import java.time.Instant
+import java.time.YearMonth
 
+/**
+ * The weekly rule — [StreakCalculator.advance] over sessions that never need the protection
+ * allowance, and [StreakCalculator.isLive].
+ *
+ * `StreakProtectionTest` pins what happens once a break is revealed and the allowance may pay
+ * for it; every break here is one the allowance cannot touch, because the streak is too short or
+ * there is nothing left to spend.
+ *
+ * The calendar is March 2026, whose Mondays are the 2nd, 9th, 16th, 23rd and 30th.
+ */
 class StreakCalculatorTest {
 
-    // ─── Opening a streak ───────────────────────────────────────────────────────────────
+    // ─── A week joins the streak on the session that meets its goal ─────────────────────
 
     @Test
-    fun `a first session opens a streak at one`() {
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = MONDAY_EVENING,
-            lastCountedAt = null,
-            currentStreak = 0,
+    fun `a first session ever counts towards its week without a streak yet`() {
+        val update = StreakCalculator.advance(StreakState(), at("2026-03-02"), weeklyGoal = 4)
+
+        assertEquals(StreakResult.Counted, update.result)
+        assertEquals(0, update.days)
+        assertEquals(1, update.state.weekSessions)
+        assertFalse(update.state.weekGoalMet)
+    }
+
+    @Test
+    fun `the session that reaches the goal adds the week to the streak`() {
+        val update = train(goal = 4, "2026-03-02", "2026-03-03", "2026-03-05", "2026-03-07")
+
+        assertEquals(StreakResult.Incremented(1), update.result)
+        assertEquals(1, update.days)
+        assertTrue(update.state.weekGoalMet)
+    }
+
+    @Test
+    fun `sessions past the goal count and add nothing`() {
+        val update = train(goal = 3, "2026-03-02", "2026-03-04", "2026-03-06", "2026-03-07")
+
+        assertEquals(StreakResult.Counted, update.result)
+        assertEquals(1, update.days)
+        assertEquals(4, update.state.weekSessions)
+    }
+
+    @Test
+    fun `two sessions on the same day are two workouts`() {
+        val update = StreakCalculator.advance(
+            train(goal = 2, "2026-03-02").state,
+            at("2026-03-02", hour = 20),
+            weeklyGoal = 2,
         )
 
-        assertEquals(StreakResult.Incremented(1), result)
+        assertEquals(StreakResult.Incremented(1), update.result)
     }
 
     @Test
-    fun `a stored streak with no session behind it starts over rather than continuing`() {
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = MONDAY_EVENING,
-            lastCountedAt = null,
-            currentStreak = 5,
+    fun `a goal of one is met by the session itself`() {
+        val update = StreakCalculator.advance(StreakState(), at("2026-03-02"), weeklyGoal = 1)
+
+        assertEquals(StreakResult.Incremented(1), update.result)
+    }
+
+    @Test
+    fun `consecutive weeks that meet the goal build the streak`() {
+        val update = train(
+            goal = 3,
+            "2026-03-02", "2026-03-04", "2026-03-06",
+            "2026-03-09", "2026-03-11", "2026-03-13",
+            "2026-03-16", "2026-03-18", "2026-03-20",
         )
 
-        assertEquals(StreakResult.Incremented(1), result)
-    }
-
-    // ─── Extending it ───────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `a session the next day extends the streak`() {
-        val result = finishedAfter(Duration.ofHours(20), currentStreak = 3)
-
-        assertEquals(StreakResult.Incremented(4), result)
+        assertEquals(StreakResult.Incremented(3), update.result)
+        assertEquals(3, update.state.longestStreak)
     }
 
     @Test
-    fun `the last moment of the grace period still extends the streak`() {
-        val result = finishedAfter(StreakCalculator.GRACE_PERIOD, currentStreak = 3)
+    fun `the week after a met week keeps the streak while it is in progress`() {
+        val update = train(goal = 3, "2026-03-02", "2026-03-04", "2026-03-06", "2026-03-09")
 
-        assertEquals(StreakResult.Incremented(4), result)
+        assertEquals(StreakResult.Counted, update.result)
+        assertEquals(1, update.days)
+        assertEquals(1, update.state.weekSessions)
     }
 
     @Test
-    fun `crossing midnight extends the streak, however few hours apart`() {
-        // 23:00 to 01:00 the next day: two hours, and a new day, so it counts.
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = Instant.parse("2026-03-03T01:00:00Z"),
-            lastCountedAt = Instant.parse("2026-03-02T23:00:00Z"),
-            currentStreak = 6,
-        )
+    fun `a Monday-to-Friday lifter meeting a goal of three never loses the streak to rest days`() {
+        // What the old 36-hour rule broke every week: Wednesday to Friday is fine, Friday to
+        // Monday is three days, and nothing was missed.
+        val update = train(goal = 3, "2026-03-06", "2026-03-09", "2026-03-11", "2026-03-13")
 
-        assertEquals(StreakResult.Incremented(7), result)
+        assertEquals(StreakResult.Incremented(1), update.result)
+    }
+
+    // ─── Weeks are Monday to Sunday, in UTC ─────────────────────────────────────────────
+
+    @Test
+    fun `Sunday night and Monday morning are different weeks`() {
+        val sunday = train(goal = 1, "2026-03-08")
+        val monday = StreakCalculator.advance(sunday.state, Instant.parse("2026-03-09T00:30:00Z"), weeklyGoal = 1)
+
+        assertEquals(StreakResult.Incremented(2), monday.result)
+    }
+
+    // ─── Breaking ───────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a week that fell short breaks the streak at the next session`() {
+        // A one-week streak, below the protection threshold, then two of three the week after.
+        val short = train(goal = 3, "2026-03-02", "2026-03-04", "2026-03-06", "2026-03-09", "2026-03-11")
+
+        val update = StreakCalculator.advance(short.state, at("2026-03-16"), weeklyGoal = 3)
+
+        assertEquals(StreakResult.Reset(newStreak = 0), update.result)
+        assertEquals(0, update.days)
+        assertEquals(1, update.state.weekSessions)
     }
 
     @Test
-    fun `consecutive days count however far past the window they fall`() {
-        // Counted at 02:00 on the Tuesday, trained again at 20:00 on the Wednesday: 42 hours
-        // apart, and not one day missed. The anchor sits at whatever hour its day was counted
-        // at, so a window measured from it is no answer here — the dates are.
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = Instant.parse("2026-03-04T20:00:00Z"),
-            lastCountedAt = Instant.parse("2026-03-03T02:00:00Z"),
-            currentStreak = 8,
-        )
+    fun `a week with no training at all breaks it too`() {
+        val met = train(goal = 1, "2026-03-02")
 
-        assertEquals(StreakResult.Incremented(9), result)
+        val update = StreakCalculator.advance(met.state, at("2026-03-16"), weeklyGoal = 1)
+
+        // Reset rather than Counted: the week of the 9th held nothing. The session in hand meets
+        // a goal of one on its own, so the next streak starts at one.
+        assertEquals(StreakResult.Reset(newStreak = 1), update.result)
     }
 
     @Test
-    fun `a skipped calendar day inside the window still extends the streak`() {
-        // Monday 23:00 to Wednesday 09:00 — nothing was trained on the Tuesday, and at 34
-        // hours the window never lapsed. The rolling window is the rule, not the dates.
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = Instant.parse("2026-03-04T09:00:00Z"),
-            lastCountedAt = Instant.parse("2026-03-02T23:00:00Z"),
-            currentStreak = 2,
-        )
+    fun `with no streak to lose a short week breaks nothing`() {
+        val update = train(goal = 4, "2026-03-02", "2026-03-16")
 
-        assertEquals(StreakResult.Incremented(3), result)
-    }
-
-    // ─── Breaking it ────────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `a millisecond past the grace period breaks the streak`() {
-        val result = finishedAfter(StreakCalculator.GRACE_PERIOD.plusMillis(1), currentStreak = 3)
-
-        assertEquals(StreakResult.Reset, result)
+        assertEquals(StreakResult.Counted, update.result)
+        assertEquals(1, update.state.weekSessions)
     }
 
     @Test
-    fun `two clear days off break the streak`() {
-        val result = finishedAfter(Duration.ofHours(60), currentStreak = 41)
+    fun `the best streak survives a break`() {
+        val built = train(goal = 1, "2026-03-02", "2026-03-09", "2026-03-16")
+        val noProtection = built.state.copy(protection = StreakProtection(remaining = 0, period = MARCH))
 
-        assertEquals(StreakResult.Reset, result)
+        val update = StreakCalculator.advance(noProtection, at("2026-03-30"), weeklyGoal = 1)
+
+        assertEquals(StreakResult.Reset(newStreak = 1), update.result)
+        assertEquals(3, update.state.longestStreak)
+    }
+
+    // ─── A session counts once ──────────────────────────────────────────────────────────
+
+    @Test
+    fun `the same session applied twice counts once`() {
+        val once = train(goal = 4, "2026-03-02")
+
+        val twice = StreakCalculator.advance(once.state, at("2026-03-02"), weeklyGoal = 4)
+
+        assertEquals(StreakResult.Unchanged, twice.result)
+        assertSame(once.state, twice.state)
     }
 
     @Test
-    fun `a day skipped past the window breaks the streak, consecutive dates or not`() {
-        // Tuesday 02:00 to Thursday 20:00: the Wednesday held no training and 66 hours is
-        // well past the window, so neither arm saves this one.
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = Instant.parse("2026-03-05T20:00:00Z"),
-            lastCountedAt = Instant.parse("2026-03-03T02:00:00Z"),
-            currentStreak = 8,
-        )
+    fun `a session finished before the last one counted changes nothing`() {
+        val counted = train(goal = 4, "2026-03-04")
 
-        assertEquals(StreakResult.Reset, result)
+        val backfill = StreakCalculator.advance(counted.state, at("2026-03-03"), weeklyGoal = 4)
+
+        assertEquals(StreakResult.Unchanged, backfill.result)
+        assertEquals(1, backfill.state.weekSessions)
+    }
+
+    // ─── The goal in force is the goal at the time ──────────────────────────────────────
+
+    @Test
+    fun `a goal lowered mid-week is met by the next session`() {
+        val twoOfFour = train(goal = 4, "2026-03-02", "2026-03-03")
+
+        val update = StreakCalculator.advance(twoOfFour.state, at("2026-03-04"), weeklyGoal = 2)
+
+        assertEquals(StreakResult.Incremented(1), update.result)
     }
 
     @Test
-    fun `a broken streak restarts at one rather than at zero`() {
-        assertEquals(1, StreakResult.Reset.newStreak)
-    }
+    fun `a goal raised after the week met it does not count the week twice`() {
+        val met = train(goal = 2, "2026-03-02", "2026-03-03")
 
-    // ─── Leaving it alone ───────────────────────────────────────────────────────────────
+        val update = StreakCalculator.advance(met.state, at("2026-03-04"), weeklyGoal = 3)
 
-    @Test
-    fun `a second session on the same day does not count twice`() {
-        val result = finishedAfter(Duration.ofHours(3), currentStreak = 4)
-
-        assertEquals(StreakResult.Unchanged, result)
+        assertEquals(StreakResult.Counted, update.result)
+        assertEquals(1, update.days)
     }
 
     @Test
-    fun `a whole day between two sessions on the same date is still one day`() {
-        val result = StreakCalculator.onSessionFinished(
-            finishedAt = Instant.parse("2026-03-02T23:30:00Z"),
-            lastCountedAt = Instant.parse("2026-03-02T00:30:00Z"),
-            currentStreak = 4,
-        )
-
-        assertEquals(StreakResult.Unchanged, result)
-    }
-
-    @Test
-    fun `a session finished before the last counted one changes nothing`() {
-        val result = finishedAfter(Duration.ofHours(-48), currentStreak = 9)
-
-        assertEquals(StreakResult.Unchanged, result)
-    }
-
-    // ─── What the caller stores ─────────────────────────────────────────────────────────
-
-    @Test
-    fun `an increment stores its new streak`() {
-        assertEquals(4, StreakResult.Incremented(4).streakAfter(currentStreak = 3))
-    }
-
-    @Test
-    fun `a reset stores one, whatever the streak was`() {
-        assertEquals(1, StreakResult.Reset.streakAfter(currentStreak = 41))
-    }
-
-    @Test
-    fun `an unchanged result stores the streak the user already had`() {
-        assertEquals(4, StreakResult.Unchanged.streakAfter(currentStreak = 4))
-    }
-
-    // ─── Is it still running? ───────────────────────────────────────────────────────────
-
-    @Test
-    fun `a streak counted today is still running`() {
-        assertTrue(
-            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(2))),
-        )
-    }
-
-    @Test
-    fun `a streak counted yesterday is still running, whatever the hour`() {
-        // The calendar arm, asked of a moment rather than of a session: somebody who trained
-        // at 19:00 yesterday has not lost anything by 09:00 today.
-        assertTrue(
-            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(14))),
-        )
-    }
-
-    @Test
-    fun `a streak inside the window is still running past the next calendar day`() {
-        // Monday 19:00 to Wednesday 06:00 is 35 hours: a day was skipped and the window has
-        // not closed, which is the case the grace period exists for.
-        assertTrue(
-            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(35))),
-        )
-    }
-
-    @Test
-    fun `a streak past the window has lapsed`() {
-        // Nothing has written to the row — a streak is only recomputed when a session
-        // finishes — so this is the whole of the difference between the stored figure and the
-        // truth. See UserProgress.currentStreak.
-        assertFalse(
-            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.plus(Duration.ofHours(37))),
-        )
-    }
-
-    @Test
-    fun `a user who has never counted a session has no streak running`() {
-        assertFalse(StreakCalculator.isLive(lastCountedAt = null, asOf = MONDAY_EVENING))
-    }
-
-    @Test
-    fun `a clock that has gone backwards does not cut a streak`() {
-        // A device whose clock jumped back says nothing about whether the streak lapsed, and
-        // taking a running streak away over it would be the app punishing a timezone change.
-        assertTrue(
-            StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = MONDAY_EVENING.minus(Duration.ofHours(4))),
-        )
-    }
-
-    @Test
-    fun `it lapses exactly where a session would stop extending it`() {
-        // The two questions are one rule — see `isLive`. This holds them to it at the boundary,
-        // which is the only place they could drift apart.
-        val lastMoment = MONDAY_EVENING.plus(StreakCalculator.GRACE_PERIOD).plus(Duration.ofDays(1))
-        val extends = StreakCalculator.onSessionFinished(
-            finishedAt = lastMoment,
-            lastCountedAt = MONDAY_EVENING,
-            currentStreak = 3,
-        ) != StreakResult.Reset
-
-        assertEquals(extends, StreakCalculator.isLive(lastCountedAt = MONDAY_EVENING, asOf = lastMoment))
-    }
-
-    // ─── The tuning dial ────────────────────────────────────────────────────────────────
-
-    @Test
-    fun `the grace period is the constant, not a second copy of it`() {
-        assertEquals(36L, StreakCalculator.STREAK_GRACE_HOURS)
-        assertEquals(Duration.ofHours(StreakCalculator.STREAK_GRACE_HOURS), StreakCalculator.GRACE_PERIOD)
-    }
-
-    @Test
-    fun `a negative streak is a corrupt row, not a streak to extend`() {
+    fun `negative - a goal outside the range is refused`() {
         assertThrows(IllegalArgumentException::class.java) {
-            StreakCalculator.onSessionFinished(
-                finishedAt = MONDAY_EVENING,
-                lastCountedAt = null,
-                currentStreak = -1,
-            )
+            StreakCalculator.advance(StreakState(), at("2026-03-02"), weeklyGoal = 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            StreakCalculator.advance(StreakState(), at("2026-03-02"), weeklyGoal = 8)
         }
     }
 
-    private fun finishedAfter(
-        gap: Duration,
-        currentStreak: Int,
-    ): StreakResult =
-        StreakCalculator.onSessionFinished(
-            finishedAt = MONDAY_EVENING.plus(gap),
-            lastCountedAt = MONDAY_EVENING,
-            currentStreak = currentStreak,
-        )
+    @Test
+    fun `negative - a negative streak is a corrupt row, not a state to extend`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            StreakCalculator.advance(StreakState(currentStreak = -1), at("2026-03-02"), weeklyGoal = 4)
+        }
+    }
+
+    // ─── Whether a stored streak is still standing ──────────────────────────────────────
+
+    @Test
+    fun `a user with no streak history has nothing live`() {
+        assertFalse(StreakCalculator.isLive(lastCountedAt = null, weekGoalMet = true, asOf = at("2026-03-02")))
+    }
+
+    @Test
+    fun `a streak stands for the rest of the week it was counted in, goal met or not`() {
+        assertTrue(StreakCalculator.isLive(at("2026-03-02"), weekGoalMet = false, asOf = at("2026-03-08", hour = 23)))
+    }
+
+    @Test
+    fun `a met week keeps the streak standing through the week after it`() {
+        assertTrue(StreakCalculator.isLive(at("2026-03-02"), weekGoalMet = true, asOf = at("2026-03-15", hour = 23)))
+    }
+
+    @Test
+    fun `a short week has lapsed the streak once it is over`() {
+        assertFalse(StreakCalculator.isLive(at("2026-03-02"), weekGoalMet = false, asOf = at("2026-03-09")))
+    }
+
+    @Test
+    fun `a week with no training lapses even a met one`() {
+        assertFalse(StreakCalculator.isLive(at("2026-03-02"), weekGoalMet = true, asOf = at("2026-03-16")))
+    }
+
+    @Test
+    fun `a clock behind the last counted session leaves the streak standing`() {
+        assertTrue(StreakCalculator.isLive(at("2026-03-16"), weekGoalMet = false, asOf = at("2026-03-02")))
+    }
+
+    // ─── This week's count ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `this week's count is the stored one while the anchor is this week`() {
+        assertEquals(3, StreakCalculator.sessionsThisWeek(at("2026-03-02"), weekSessions = 3, asOf = at("2026-03-06")))
+    }
+
+    @Test
+    fun `a week nothing has been counted in yet reads zero`() {
+        assertEquals(0, StreakCalculator.sessionsThisWeek(at("2026-03-02"), weekSessions = 3, asOf = at("2026-03-09")))
+        assertEquals(0, StreakCalculator.sessionsThisWeek(null, weekSessions = 0, asOf = at("2026-03-09")))
+    }
+
+    /** [days] applied in order from a fresh state, at 18:00 UTC each, against [goal]. */
+    private fun train(
+        goal: Int,
+        vararg days: String,
+    ): StreakUpdate =
+        days.fold(StreakUpdate(StreakResult.Unchanged, StreakState())) { previous, day ->
+            StreakCalculator.advance(previous.state, at(day), weeklyGoal = goal)
+        }
+
+    private fun at(
+        date: String,
+        hour: Int = 18,
+    ): Instant = Instant.parse("${date}T%02d:00:00Z".format(hour))
 
     private companion object {
-
-        /** A Monday, 19:00 UTC — far enough from midnight that a `± 3h` stays on the day. */
-        val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
+        val MARCH: YearMonth = YearMonth.of(2026, 3)
     }
 }

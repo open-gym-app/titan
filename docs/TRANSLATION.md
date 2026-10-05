@@ -166,7 +166,7 @@ different things on three screens. The choice is made here, once; every file is 
 | rep | **répétition**, *rép.* in a column | |
 | superset | **superset** | the word French gyms use; no translation is current |
 | PR, personal record | **record**, *record personnel* in full | the *PR* badge keeps its letters, as the drawn text a Voice Access user reads off it |
-| streak | **enchaînement**; *N jours d'affilée* for a counted one | **not *série*** — *série* is the set, and a French user would read *série de 5 jours* as five sets. *Enchaînement* is the noun (*Protection d'enchaînement*, *Enchaînement sauvé*); a count is phrased *d'affilée* (*5 jours d'affilée*), which is how French says it |
+| streak | **enchaînement**; *N semaines d'affilée* for a counted one | **not *série*** — *série* is the set, and a French user would read *série de 5 jours* as five sets. *Enchaînement* is the noun (*Protection d'enchaînement*, *Enchaînement sauvé*); a count is phrased *d'affilée* (*5 semaines d'affilée*), which is how French says it |
 | rest | **repos** | |
 | template | **modèle** | |
 | warm-up | **échauffement** | |

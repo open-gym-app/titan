@@ -45,8 +45,8 @@ class AchievementTriggerUseCaseTest {
                         xp = XpAward(
                             awarded = XpCalculator.XP_PER_ACHIEVEMENT,
                             totalXp = XpCalculator.XP_PER_ACHIEVEMENT.toLong(),
-                            previousLevel = 1,
-                            level = 2,
+                            previousLevel = XpCalculator.FIRST_LEVEL,
+                            level = XpCalculator.levelForTotalXp(XpCalculator.XP_PER_ACHIEVEMENT.toLong()),
                         ),
                     ),
                 ),
@@ -57,9 +57,9 @@ class AchievementTriggerUseCaseTest {
     @Test
     fun `a streak milestone unlocks off the streak alone`() =
         runTest {
-            val unlocks = trigger(progress(sessions = 0, streak = 7), FINISHED_AT)
+            val unlocks = trigger(progress(sessions = 0, streak = Achievements.FOUR_WEEK_STREAK.threshold), FINISHED_AT)
 
-            assertEquals(listOf(Achievements.SEVEN_DAY_STREAK), unlocks.map(AchievementUnlock::achievement))
+            assertEquals(listOf(Achievements.FOUR_WEEK_STREAK), unlocks.map(AchievementUnlock::achievement))
         }
 
     @Test
@@ -79,7 +79,7 @@ class AchievementTriggerUseCaseTest {
                 listOf(
                     Achievements.FIRST_SESSION,
                     Achievements.TEN_SESSIONS,
-                    Achievements.SEVEN_DAY_STREAK,
+                    Achievements.FOUR_WEEK_STREAK,
                     Achievements.FIRST_RECORD,
                 ),
                 unlocks.map(AchievementUnlock::achievement),

@@ -164,20 +164,20 @@ private const val PREVIEW_FINISHED_AT = 1_777_287_984_000L
  */
 internal fun previewCelebration(): SummaryCelebration =
     SummaryCelebration(
-        xpAwarded = 135,
+        xpAwarded = 180,
         sources = listOf(
             XpSource(kind = XpSourceKind.SETS, count = 12, xp = 60),
-            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
-            XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 50),
+            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 50),
+            XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 10),
             XpSource(kind = XpSourceKind.QUESTS, count = 1, xp = 60),
         ),
         levelBefore = 4,
         levelProgressBefore = 0.16f,
         level = 4,
         leveledUp = false,
-        levelProgress = 0.43f,
-        xpIntoLevel = 43,
-        xpForLevel = 100,
+        levelProgress = 0.46f,
+        xpIntoLevel = 276,
+        xpForLevel = 600,
         achievements = emptyList(),
         // The third session of the week, which is the ordinary way a quest is cleared — and
         // the case the card was added for, since before it the user was told only that
@@ -196,23 +196,23 @@ internal fun previewCelebration(): SummaryCelebration =
  */
 internal fun previewLevelUpCelebration(): SummaryCelebration =
     SummaryCelebration(
-        xpAwarded = 285,
+        xpAwarded = 240,
         sources = listOf(
             XpSource(kind = XpSourceKind.SETS, count = 14, xp = 70),
-            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 25),
-            XpSource(kind = XpSourceKind.RECORDS, count = 2, xp = 100),
+            XpSource(kind = XpSourceKind.SESSION, count = 1, xp = 50),
+            XpSource(kind = XpSourceKind.RECORDS, count = 2, xp = 20),
             XpSource(kind = XpSourceKind.ACHIEVEMENTS, count = 1, xp = 100),
         ),
         // Lands on an *ordinary* level, so this fixture exercises the quieter of the two
         // crossings. [previewMilestoneCelebration] is the loud one.
         levelBefore = 3,
-        levelProgressBefore = 0.27f,
+        levelProgressBefore = 0.72f,
         level = 4,
         leveledUp = true,
         levelProgress = 0.12f,
-        xpIntoLevel = 12,
-        xpForLevel = 100,
-        achievements = listOf(SummaryAchievement(id = "seven_day_streak", xp = 100)),
+        xpIntoLevel = 72,
+        xpForLevel = 600,
+        achievements = listOf(SummaryAchievement(id = "four_week_streak", xp = 100)),
         quests = emptyList(),
     )
 
@@ -228,17 +228,11 @@ internal fun previewMilestoneCelebration(): SummaryCelebration =
     previewLevelUpCelebration().copy(
         level = 5,
         levelProgress = 0.12f,
-        xpIntoLevel = 12,
+        xpIntoLevel = 72,
     )
 
 /**
- * A session that spent a streak protection: the streak stands at thirteen days and one of the
- * month's three is gone.
- *
- * The figures from the wireframe's own notification — twelve days saved, two protections left —
- * carried over so the card and the copy that inspired it say the same thing.
+ * A session that spent a streak protection: the streak stands at thirteen weeks and the month's
+ * one protection is gone — the only state a save can leave, with one a month.
  */
-internal fun previewStreakSave(): SummaryStreakSave = SummaryStreakSave(streakDays = 13, protectionsRemaining = 2)
-
-/** The same save with the month exhausted, which is the line the card has to say plainly. */
-internal fun previewLastStreakSave(): SummaryStreakSave = SummaryStreakSave(streakDays = 13, protectionsRemaining = 0)
+internal fun previewStreakSave(): SummaryStreakSave = SummaryStreakSave(streakWeeks = 13, protectionsRemaining = 0)

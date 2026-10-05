@@ -177,8 +177,16 @@ android {
                 // The store listing's generated assets (#46) — the demo exports under
                 // `tools/demo/` and the phone screenshots under `fastlane/` — belong to the
                 // repository, not to this module, and a unit test runs with the module
-                // directory as its working directory.
-                test.systemProperty("titan.rootDir", rootProject.projectDir.absolutePath)
+                // directory as its working directory. Passed as an argument provider rather
+                // than a system property, so the checkout's absolute path does not become part
+                // of the task's cache key and a second worktree can still reuse its results.
+                test.jvmArgumentProviders += RepositoryRoot(rootProject.projectDir)
+                // `DemoDatasetTest` checks the committed exports, so they are inputs: without
+                // this, an export changed on its own — a hand edit, a merge — leaves the task
+                // up to date and the check never runs.
+                test.inputs.files(rootProject.fileTree("tools/demo") { include("*.json") })
+                    .withPropertyName("demoExports")
+                    .withPathSensitivity(PathSensitivity.RELATIVE)
                 // `make demo-data` and `make store-screenshots` pass this to write those assets;
                 // without it `DemoDatasetTest` checks the committed exports instead, and
                 // `StoreScreenshotTest` does not run at all.
@@ -322,4 +330,16 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+}
+
+/**
+ * The repository root, handed to `:app`'s unit tests as `titan.rootDir` for the store listing's
+ * generated assets (see `StoreAssets`). Internal to the task's inputs: the path says where the
+ * checkout is, not what the tests do, and the files the tests read there are declared on their
+ * own.
+ */
+class RepositoryRoot(
+    @get:Internal val directory: File,
+) : CommandLineArgumentProvider {
+    override fun asArguments(): Iterable<String> = listOf("-Dtitan.rootDir=${directory.absolutePath}")
 }

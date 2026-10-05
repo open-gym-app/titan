@@ -196,6 +196,8 @@ class InMemoryUserPreferences : UserPreferencesRepository {
 
     override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
+    override suspend fun setWeeklyWorkoutGoal(goal: Int) = write { it.copy(weeklyWorkoutGoal = goal) }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }
 
     override suspend fun setNotificationEnabled(

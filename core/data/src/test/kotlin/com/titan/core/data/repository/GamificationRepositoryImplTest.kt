@@ -30,10 +30,13 @@ class GamificationRepositoryImplTest : RoomTestBase() {
 
     private companion object {
         val MONDAY_EVENING: Instant = Instant.parse("2026-03-02T19:00:00Z")
-        val TUESDAY_EVENING: Instant = Instant.parse("2026-03-03T19:00:00Z")
         val TUESDAY_LATER: Instant = Instant.parse("2026-03-03T21:30:00Z")
-        val WEDNESDAY_EVENING: Instant = Instant.parse("2026-03-04T19:00:00Z")
         val FRIDAY_EVENING: Instant = Instant.parse("2026-03-06T19:00:00Z")
+
+        /** Mondays of the weeks after [MONDAY_EVENING]'s; the week of the 23rd goes untrained. */
+        val SECOND_MONDAY: Instant = Instant.parse("2026-03-09T19:00:00Z")
+        val THIRD_MONDAY: Instant = Instant.parse("2026-03-16T19:00:00Z")
+        val FIFTH_MONDAY: Instant = Instant.parse("2026-03-30T19:00:00Z")
     }
 
     private val repository by lazy {
@@ -45,8 +48,12 @@ class GamificationRepositoryImplTest : RoomTestBase() {
         )
     }
 
-    /** Applies the real rule, which is what the contract hands in rather than deciding here. */
-    private suspend fun finish(at: Instant) = repository.updateStreak { state -> StreakCalculator.advance(state, at) }
+    /**
+     * Applies the real rule, which is what the contract hands in rather than deciding here, with
+     * a goal of one so that every session that counts is a week met.
+     */
+    private suspend fun finish(at: Instant) =
+        repository.updateStreak { state -> StreakCalculator.advance(state, at, weeklyGoal = 1) }
 
     private suspend fun award(delta: Int) = repository.addXp(delta, XpCalculator::levelForTotalXp)
 
@@ -187,80 +194,81 @@ class GamificationRepositoryImplTest : RoomTestBase() {
         runBlocking {
             val update = finish(MONDAY_EVENING)
 
-            assertEquals(StreakResult.Incremented(StreakResult.FIRST_DAY), update.result)
-            assertEquals(StreakResult.FIRST_DAY, update.days)
+            assertEquals(StreakResult.Incremented(1), update.result)
+            assertEquals(1, update.days)
             assertEquals(MONDAY_EVENING.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
         }
 
     @Test
-    fun `a session the next day extends the streak`() =
+    fun `a session the next week extends the streak`() =
         runBlocking {
             finish(MONDAY_EVENING)
 
-            val update = finish(TUESDAY_EVENING)
+            val update = finish(SECOND_MONDAY)
 
             assertEquals(StreakResult.Incremented(2), update.result)
             assertEquals(2, update.days)
         }
 
     @Test
-    fun `a second session the same day leaves the streak and its timestamp alone`() =
+    fun `a second session the same week counts without adding the week twice`() =
         runBlocking {
             finish(MONDAY_EVENING)
-            finish(TUESDAY_EVENING)
 
             val update = finish(TUESDAY_LATER)
 
-            assertEquals(StreakResult.Unchanged, update.result)
-            assertEquals(2, update.days)
-            // The whole of the same-day guarantee: the window stays measured from the first
-            // counted session of the day, so an evening workout does not push tomorrow's
-            // deadline out by two and a half hours.
-            assertEquals(TUESDAY_EVENING.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
+            assertEquals(StreakResult.Counted, update.result)
+            assertEquals(1, update.days)
+            val stored = db.userProgressDao().getOnce()
+            assertEquals(2, stored?.weekSessions)
+            assertEquals(true, stored?.weekGoalMet)
+            assertEquals(TUESDAY_LATER.toEpochMilli(), stored?.lastCountedAt)
         }
 
     @Test
-    fun `a lapse restarts the streak at day one and leaves the best one standing`() =
+    fun `a lapse restarts the streak and leaves the best one standing`() =
         runBlocking {
             finish(MONDAY_EVENING)
-            finish(TUESDAY_EVENING)
+            finish(SECOND_MONDAY)
 
-            val update = finish(FRIDAY_EVENING)
+            // The weeks of the 16th and the 23rd went untrained: a lapse, not a slip.
+            val update = finish(FIFTH_MONDAY)
 
-            assertEquals(StreakResult.Reset, update.result)
-            assertEquals(StreakResult.FIRST_DAY, update.days)
+            assertEquals(StreakResult.Reset(newStreak = 1), update.result)
+            assertEquals(1, update.days)
             assertEquals(2, db.userProgressDao().getOnce()?.longestStreak)
-            assertEquals(FRIDAY_EVENING.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
+            assertEquals(FIFTH_MONDAY.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
         }
 
     @Test
-    fun `a missed day is paid for out of the allowance, and the row says so`() =
+    fun `a missed week is paid for out of the allowance, and the row says so`() =
         runBlocking {
             finish(MONDAY_EVENING)
-            finish(TUESDAY_EVENING)
-            finish(WEDNESDAY_EVENING)
+            finish(SECOND_MONDAY)
+            finish(THIRD_MONDAY)
 
-            // The Thursday went untrained. The streak is three days old, so it is worth saving.
-            val update = finish(FRIDAY_EVENING)
+            // The week of the 23rd went untrained. The streak is three weeks old, so it is
+            // worth saving, and the session in hand meets its own week's goal.
+            val update = finish(FIFTH_MONDAY)
 
-            assertEquals(StreakResult.Protected(StreakProtection.MONTHLY_ALLOWANCE - 1), update.result)
+            assertEquals(StreakResult.Protected(newStreak = 4, protectionsRemaining = 0), update.result)
             assertEquals(4, update.days)
             val stored = db.userProgressDao().getOnce()
             assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, stored?.protectionRemaining)
             assertEquals("2026-03", stored?.protectionPeriod)
-            assertEquals(FRIDAY_EVENING.toEpochMilli(), stored?.protectionConsumedAt)
+            assertEquals(FIFTH_MONDAY.toEpochMilli(), stored?.protectionConsumedAt)
         }
 
     @Test
     fun `re-applying a protected session spends no second protection`() =
         runBlocking {
             finish(MONDAY_EVENING)
-            finish(TUESDAY_EVENING)
-            finish(WEDNESDAY_EVENING)
-            finish(FRIDAY_EVENING)
+            finish(SECOND_MONDAY)
+            finish(THIRD_MONDAY)
+            finish(FIFTH_MONDAY)
 
             // The cascade re-entered for the same workout — a crash-recovery boot, or a retry.
-            val again = finish(FRIDAY_EVENING)
+            val again = finish(FIFTH_MONDAY)
 
             assertEquals(StreakResult.Unchanged, again.result)
             assertEquals(4, again.days)
@@ -271,17 +279,19 @@ class GamificationRepositoryImplTest : RoomTestBase() {
     fun `the streak state is readable, allowance and all`() =
         runBlocking {
             finish(MONDAY_EVENING)
-            finish(TUESDAY_EVENING)
-            finish(WEDNESDAY_EVENING)
-            finish(FRIDAY_EVENING)
+            finish(SECOND_MONDAY)
+            finish(THIRD_MONDAY)
+            finish(FIFTH_MONDAY)
 
             val state = repository.observeStreak().first()
 
             assertEquals(4, state.currentStreak)
             assertEquals(4, state.longestStreak)
-            assertEquals(FRIDAY_EVENING, state.lastCountedAt)
+            assertEquals(FIFTH_MONDAY, state.lastCountedAt)
+            assertEquals(1, state.weekSessions)
+            assertTrue(state.weekGoalMet)
             assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, state.protection.remaining)
-            assertEquals(FRIDAY_EVENING, state.protection.lastConsumedAt)
+            assertEquals(FIFTH_MONDAY, state.protection.lastConsumedAt)
         }
 
     @Test
@@ -304,7 +314,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val stored = db.userProgressDao().getOnce()
 
             assertEquals((XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET).toLong(), stored?.totalXp)
-            assertEquals(StreakResult.FIRST_DAY, stored?.currentStreak)
+            assertEquals(1, stored?.currentStreak)
             assertEquals(MONDAY_EVENING.toEpochMilli(), stored?.lastCountedAt)
         }
 
@@ -335,7 +345,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
 
             assertEquals((XpCalculator.XP_PER_LEVEL * 3 + 40).toLong(), progress.totalXp)
             assertEquals(XpCalculator.FIRST_LEVEL + 3, progress.level)
-            assertEquals(StreakResult.FIRST_DAY, progress.currentStreak)
+            assertEquals(1, progress.currentStreak)
             assertEquals(MONDAY_EVENING, progress.lastCountedAt)
         }
 

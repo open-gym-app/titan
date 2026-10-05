@@ -133,6 +133,7 @@ class DemoDatasetTest {
             preferences.setOnboardingCompleted(true)
             preferences.setTrainingGoal(TrainingGoal.HYPERTROPHY)
             preferences.setFitnessLevel(FitnessLevel.INTERMEDIATE)
+            preferences.setWeeklyWorkoutGoal(DemoHistory.WEEKLY_GOAL)
 
             DemoHistory(
                 exercises = exercises,
@@ -193,6 +194,7 @@ class DemoDatasetTest {
             sessionRepository = sessions,
             personalRecordRepository = personalRecords,
             gamificationRepository = gamification,
+            userPreferencesRepository = preferences,
         )
 
     private suspend fun export(): String {

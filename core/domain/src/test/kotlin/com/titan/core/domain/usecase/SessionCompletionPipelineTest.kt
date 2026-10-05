@@ -19,6 +19,7 @@ import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.StreakResult
 import com.titan.core.domain.model.StreakState
 import com.titan.core.domain.model.StreakUpdate
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.model.XpAward
@@ -107,17 +108,19 @@ class SessionCompletionPipelineTest {
     @Test
     fun `a streak achievement is evaluated against the streak this session produced`() =
         runTest {
-            // Six days in, so the session under test is the seventh and the milestone is only
-            // reachable by a catalogue evaluated after the streak step, not before it.
-            gamification.seedStreak(days = 6, lastCountedAt = FINISHED_AT.minusSeconds(DAY_SECONDS))
+            // Three weeks in, the last of them the week before, so the session under test meets
+            // the fourth and the milestone is only reachable by a catalogue evaluated after the
+            // streak step, not before it.
+            val threshold = Achievements.FOUR_WEEK_STREAK.threshold
+            gamification.seedStreak(weeks = threshold - 1, lastCountedAt = FINISHED_AT.minusSeconds(WEEK_SECONDS))
             val sessionId = rig.finishSession()
 
             val progression = pipeline(sessionId, FINISHED_AT)
 
-            assertEquals(7, progression.streak?.days)
+            assertEquals(threshold, progression.streak?.days)
             assertTrue(
                 progression.achievementsUnlocked.map { it.achievement.id }
-                    .contains(Achievements.SEVEN_DAY_STREAK.id),
+                    .contains(Achievements.FOUR_WEEK_STREAK.id),
             )
         }
 
@@ -144,6 +147,8 @@ class SessionCompletionPipelineTest {
     @Test
     fun `the result reports the level-ups the awards observed, without a second read`() =
         runTest {
+            // A point short of level 2, so the session's first award is the crossing.
+            gamification.addXp(XpCalculator.XP_PER_LEVEL - 1, XpCalculator::levelForTotalXp)
             val sessionId = rig.finishSession()
 
             val progression = pipeline(sessionId, FINISHED_AT)
@@ -383,7 +388,7 @@ class SessionCompletionPipelineTest {
 
             assertEquals(StreakResult.Unchanged, second.streak?.result)
             assertEquals(1, second.streak?.days)
-            assertEquals(1, gamification.streakDays)
+            assertEquals(1, gamification.streakWeeks)
         }
 
     @Test
@@ -415,7 +420,7 @@ class SessionCompletionPipelineTest {
             val progression = pipeline(sessionId, FINISHED_AT)
 
             assertEquals(recordsWritten, records.inserted)
-            assertEquals(1, gamification.streakDays)
+            assertEquals(1, gamification.streakWeeks)
             assertEquals(
                 // The records survive and still count towards `first_record`, because the
                 // catalogue is evaluated against what the store holds rather than against what
@@ -453,20 +458,21 @@ class SessionCompletionPipelineTest {
         }
 
     @Test
-    fun `a second session on the same day counts once towards the streak`() =
+    fun `a second session in a week that met its goal does not count the week twice`() =
         runTest {
             val morning = rig.finishSession(exerciseId = 10L)
             pipeline(morning, FINISHED_AT)
-            // Two hours later, still the same UTC day — which is the zone the rule is read in.
+            // Two hours later, still the same UTC week — which is the zone the rule is read in.
             val laterThatDay = FINISHED_AT.plusSeconds(HOUR_SECONDS * 2)
             val evening = rig.finishSession(exerciseId = 20L, completedAt = laterThatDay)
 
             val progression = pipeline(evening, laterThatDay)
 
-            // A different session, so its own XP is paid — but a streak counts days shown up.
+            // A different session, so its own XP is paid and it counts towards the week — but
+            // the week is worth one to the streak however many sessions it holds.
             assertTrue(progression.xpAwarded > 0)
-            assertEquals(StreakResult.Unchanged, progression.streak?.result)
-            assertEquals(1, gamification.streakDays)
+            assertEquals(StreakResult.Counted, progression.streak?.result)
+            assertEquals(1, gamification.streakWeeks)
         }
 
     // ─── The quest step ─────────────────────────────────────────────────────────────────
@@ -645,7 +651,7 @@ class SessionCompletionPipelineTest {
             assertNull(progression.lootDropped)
             assertTrue("the earlier steps did not run", progression.recordsBroken.isNotEmpty())
             assertTrue("the session was not paid for", progression.xpAwarded > 0)
-            assertEquals(1, gamification.streakDays)
+            assertEquals(1, gamification.streakWeeks)
             assertEquals(2, progression.achievementsUnlocked.size)
         }
 
@@ -693,6 +699,10 @@ class SessionCompletionPipelineTest {
         val progression = FakeProgressionRepository()
         val inventory = FakeCollectedItemRepository()
 
+        // A goal of one, so every session that counts is a week that met its goal, and the
+        // streak moves on each one. The weekly rule itself is `StreakCalculatorTest`'s.
+        val preferences = FakeUserPreferencesRepository(UserPreferences(weeklyWorkoutGoal = 1))
+
         private val observedRecords: PersonalRecordRepository =
             journal?.let { JournallingRecords(records, it) } ?: records
         private val observedGamification: GamificationRepository =
@@ -706,7 +716,7 @@ class SessionCompletionPipelineTest {
             // every set in this suite is.
             exerciseRepository = FakeExerciseRepository(),
             personalRecordRepository = observedRecords,
-            userPreferencesRepository = FakeUserPreferencesRepository(),
+            userPreferencesRepository = preferences,
         )
 
         private val awardXp = AwardXpUseCase(observedGamification)
@@ -758,6 +768,7 @@ class SessionCompletionPipelineTest {
             sessionRepository = sessions,
             personalRecordRepository = observedRecords,
             gamificationRepository = observedGamification,
+            userPreferencesRepository = preferences,
         )
 
         /**
@@ -941,6 +952,7 @@ class SessionCompletionPipelineTest {
         )
 
         const val DAY_SECONDS = 24L * 60 * 60
+        const val WEEK_SECONDS = 7 * DAY_SECONDS
         const val HOUR_SECONDS = 60L * 60
 
         const val WORKING_WEIGHT = 100_000L

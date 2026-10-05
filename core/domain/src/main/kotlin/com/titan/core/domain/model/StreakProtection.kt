@@ -7,13 +7,14 @@ import java.time.YearMonth
  * The allowance that saves a streak the user would otherwise have broken, and what is left of
  * it this month.
  *
- * A streak is the one figure in the app that a single bad week destroys outright, and #34's
- * rule is deliberately unforgiving about it: past the grace window, a missed day zeroes a
- * count the user may have spent two months building. That is the right default — a streak
- * nothing can break is not a streak — and it is also the mechanic most likely to make somebody
- * stop opening the app, because a lost streak is unrecoverable and the loss lands on a day
- * they already feel bad about. Protection is the release valve, and it is *bounded* so the
- * streak still means something: three a month, spent automatically, never bankable.
+ * A streak is the one figure in the app that a single bad week destroys outright, and the rule in
+ * [com.titan.core.domain.gamification.StreakCalculator] is deliberately unforgiving about it: a
+ * week that falls short of the goal zeroes a count the user may have spent months building. That
+ * is the right default — a streak nothing can break is not a streak — and it is also the mechanic
+ * most likely to make somebody stop opening the app, because a lost streak is unrecoverable and
+ * the loss lands in a week they already feel bad about. Protection is the release valve, and it
+ * is *bounded* so the streak still means something: one a month, spent automatically, never
+ * bankable.
  *
  * ### Why the allowance is monthly, and what "monthly" means
  *
@@ -21,7 +22,7 @@ import java.time.YearMonth
  * — the same UTC day boundary the streak itself is judged in, with the same approximation
  * written down there. A rolling thirty-day window would be fairer and is not worth it: the
  * user has to be able to answer "how many do I have left" without the app explaining a window
- * to them, and "three a month" is a sentence that needs no explanation.
+ * to them, and "one a month" is a sentence that needs no explanation.
  *
  * Replenishment is **lazy** rather than scheduled — see [replenishedFor]. There is no job that
  * wakes at midnight on the first, because there does not need to be: nothing can spend a
@@ -29,8 +30,8 @@ import java.time.YearMonth
  * rollover first. A scheduled write would add a background task whose only job is to make a
  * number correct that is already correct whenever anybody looks at it.
  *
- * Unused protections do **not** carry over. Three saved days a month is a safety net; a year's
- * worth banked into thirty-six is a different app.
+ * Unused protections do **not** carry over. One saved week a month is a safety net; a year's
+ * worth banked into twelve is a different app.
  *
  * @property remaining how many are left in [period], never negative and never above
  *   [MONTHLY_ALLOWANCE] for a state that has been through [replenishedFor].
@@ -39,8 +40,8 @@ import java.time.YearMonth
  *   clock: a fresh state is full whatever month it is first read in, and the first
  *   [replenishedFor] stamps the month it was read in.
  * @property lastConsumedAt when a protection was last spent, or null if none ever has been.
- *   Carried for the surfaces rather than for the mechanic — the quest log (#104) draws "used
- *   2h ago" and #39's notification is written from the same fact. Idempotency does **not**
+ *   Carried for the surfaces rather than for the mechanic — the quest log (#104) and #39's
+ *   notification are written from the same fact. Idempotency does **not**
  *   rest on it; see [com.titan.core.domain.gamification.StreakCalculator.advance].
  */
 data class StreakProtection(
@@ -96,13 +97,13 @@ data class StreakProtection(
         /**
          * How many protections a month holds.
          *
-         * Three: enough that an ordinary bad week — one illness, one work trip, one day
-         * something came up — does not cost a streak, and few enough that a lifter who trains
-         * twice a week cannot hold a "daily" streak on protections alone. Like
-         * [com.titan.core.domain.gamification.StreakCalculator.STREAK_GRACE_HOURS] it is a
+         * One: a week a month is what an ordinary bad patch costs — an illness, a work trip —
+         * and more than that would let a lifter who meets their goal every other week hold a
+         * streak on protections alone, since a month has only four or five weeks to judge. Like
+         * [com.titan.core.domain.gamification.StreakCalculator.MIN_PROTECTED_STREAK] it is a
          * starting default that has not been validated against real usage, and retuning it is
          * an edit to this line.
          */
-        const val MONTHLY_ALLOWANCE = 3
+        const val MONTHLY_ALLOWANCE = 1
     }
 }

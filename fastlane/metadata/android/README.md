@@ -33,7 +33,7 @@ copy has a source in the app; check it again before changing a sentence:
   guarded by `NetworkPolicyTest`.
 - "17 ready-made templates": `DefaultTemplates.all`.
 - "more than 800 exercises": the bundled seed (873 rows when this was written).
-- The four time ranges, the next target and the warm-up: the Stats screen, #216 and #214.
+- The five time ranges, the next target and the warm-up: the Stats screen, #216 and #214.
 
 Plain text: Play renders a blank line as a paragraph break and shows `•` as written, and
 F-Droid does the same. Avoid HTML, which only Play understands.

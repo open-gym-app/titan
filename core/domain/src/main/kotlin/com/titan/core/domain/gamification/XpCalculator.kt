@@ -10,23 +10,30 @@ import com.titan.core.domain.model.XpEvent
  * without a database. [com.titan.core.domain.usecase.AwardXpUseCase] is what turns these
  * answers into a stored total.
  *
- * ### The values are starting defaults
+ * ### The values are tuned to a year
  *
- * The four award constants and [XP_PER_LEVEL] are first guesses, not validated against real
- * usage — flagged to product for tuning once there is any. Nothing reads a literal instead
- * of these, so tuning is an edit here and nowhere else; the relationships they encode are
- * the part worth arguing about: a set is the small, frequent drip, a session is worth five
- * sets, a record is worth two sessions, and an achievement is worth four sessions — so two
- * records, and a whole level on the curve below.
+ * The target is **level 100 after a year** of training to the default weekly goal — four
+ * sessions a week, every week — and `XpEconomyTest` pins it: a reference year built from these
+ * constants, the quest catalogue and the achievements a year reaches has to land there. Nothing
+ * reads a literal instead of these, so tuning is an edit here and nowhere else, and a retune that
+ * moves the year fails that test rather than shipping.
+ *
+ * The relationships are the part worth arguing about. Showing up is what pays: a set is the
+ * small, frequent drip, and a session is worth ten of them. A record is worth two sets — a bonus
+ * on top of the work rather than the bulk of it, because records are not evenly spread. A
+ * lifter's first sessions set a record for every exercise and every kind at once, and one set
+ * that is heavier for more reps beats four records in a single stroke; priced higher, records
+ * would make the level a measure of how new somebody is to the app rather than how much they
+ * have trained. An achievement, once in an install's life, is worth two sessions.
  *
  * ### A linear curve
  *
  * Level *n* costs the same additional XP as the level before it — `XP_PER_LEVEL × (n − 1)`
- * to reach level *n* at all, so level 1 is free, level 2 costs 100 and level 12 costs 1100.
+ * to reach level *n* at all, so level 1 is free, level 2 costs 600 and level 12 costs 6,600.
  * Not the exponential curve most XP systems use: this one is a training log rather than a
  * game with an endgame to pace people towards, and a curve that stretches means a lifter
  * who trains just as hard in year two sees their bar move slower for it. Linear keeps "a
- * session is a fifth of a level" true forever.
+ * session is about a third of a level" true forever.
  */
 object XpCalculator {
 
@@ -34,16 +41,16 @@ object XpCalculator {
     const val XP_PER_SET = 5
 
     /** Points for finishing a session — see [XpEvent.SessionFinished]. */
-    const val XP_PER_SESSION = 25
+    const val XP_PER_SESSION = 50
 
     /** Points for one broken personal record — see [XpEvent.PrBroken]. */
-    const val XP_PER_PR = 50
+    const val XP_PER_PR = 10
 
     /** Points for one unlocked achievement — see [XpEvent.AchievementUnlocked]. */
     const val XP_PER_ACHIEVEMENT = 100
 
     /** The cost of every level, the whole of the curve — see the class doc. */
-    const val XP_PER_LEVEL = 100
+    const val XP_PER_LEVEL = 600
 
     /** The level a user starts at, holding no XP at all. */
     const val FIRST_LEVEL = 1
@@ -79,8 +86,8 @@ object XpCalculator {
      * The level a lifetime total of [totalXp] points buys.
      *
      * [FIRST_LEVEL] at zero, one level up per [XP_PER_LEVEL] points thereafter, and a total
-     * sitting exactly on a threshold is already at the level it pays for: 100 points is
-     * level 2, 199 is still level 2, 200 is level 3.
+     * sitting exactly on a threshold is already at the level it pays for: 600 points is
+     * level 2, 1,199 is still level 2, 1,200 is level 3.
      *
      * @throws IllegalArgumentException if [totalXp] is negative. XP is only ever added —
      *   nothing in the app spends it — so a negative total is a corrupt row rather than a

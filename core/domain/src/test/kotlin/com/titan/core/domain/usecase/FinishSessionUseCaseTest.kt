@@ -12,6 +12,7 @@ import com.titan.core.domain.model.SessionProgressionStep
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.SessionSummary
 import com.titan.core.domain.model.StreakResult
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.ProgressionAnnouncer
 import com.titan.core.domain.random.RandomSource
 import com.titan.core.domain.repository.FakeInProgressSessionRepository
@@ -81,6 +82,8 @@ class FinishSessionUseCaseTest {
         sessionRepository = sessions,
         personalRecordRepository = personalRecords,
         gamificationRepository = gamification,
+        // A goal of one, so the finished session is a week met and the streak moves.
+        userPreferencesRepository = FakeUserPreferencesRepository(UserPreferences(weeklyWorkoutGoal = 1)),
     )
 
     /**

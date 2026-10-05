@@ -346,11 +346,11 @@ class SessionSummaryScreenTest {
         setContent(previewState(celebration = previewCelebration()))
 
         composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasContentDescription("135 experience points earned"))
+            .performScrollToNode(hasContentDescription("180 experience points earned"))
 
         // The total, and every source that paid into it. A screen that showed only the total
         // would satisfy "XP is displayed" and none of what the breakdown is for.
-        composeTestRule.onNodeWithContentDescription("135 experience points earned").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("180 experience points earned").assertIsDisplayed()
         composeTestRule.onNodeWithText("12 sets").assertIsDisplayed()
         composeTestRule.onNodeWithText("Finishing the session").assertIsDisplayed()
         composeTestRule.onNodeWithText("1 personal record").assertIsDisplayed()
@@ -371,11 +371,11 @@ class SessionSummaryScreenTest {
         setContent(previewState(celebration = previewCelebration()))
 
         composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasContentDescription("135 experience points earned"))
+            .performScrollToNode(hasContentDescription("180 experience points earned"))
 
         // The figure is drawn and the banner is not. Levelling up is a different event from
         // earning, and the two must not be readable as the same thing.
-        composeTestRule.onNodeWithContentDescription("135 experience points earned").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("180 experience points earned").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("LEVEL UP").assertCountEquals(0)
     }
 
@@ -384,11 +384,11 @@ class SessionSummaryScreenTest {
         setContent(previewState(celebration = previewLevelUpCelebration()))
 
         composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasText("A week-long streak"))
+            .performScrollToNode(hasText("A month-long streak"))
 
         // The name, not just the points it paid: the breakdown above already carries the
         // amount, and which milestone was earned is the part that is worth a section.
-        composeTestRule.onNodeWithText("A week-long streak").assertIsDisplayed()
+        composeTestRule.onNodeWithText("A month-long streak").assertIsDisplayed()
     }
 
     @Test
@@ -412,7 +412,7 @@ class SessionSummaryScreenTest {
         setContent(previewState(celebration = previewCelebration()))
 
         composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasContentDescription("135 experience points earned"))
+            .performScrollToNode(hasContentDescription("180 experience points earned"))
 
         // The points appear twice on this screen in two roles — a contribution to the total,
         // and a footnote to the thing that was earned. See `SummaryQuestsCard`.
@@ -441,38 +441,40 @@ class SessionSummaryScreenTest {
     fun `a saved streak says what survived and what it cost`() {
         setContent(previewState(celebration = previewCelebration(), streakSave = previewStreakSave()))
 
-        val headline = "A protection covered your missed day. Your streak stands at 13 days."
+        val headline = "A protection covered your short week. Your streak stands at 13 weeks."
         composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText(headline))
 
         composeTestRule.onNodeWithText(headline).assertIsDisplayed()
 
         // The cost, said once. The marks beside this line are cleared for exactly that reason.
-        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("2 LEFT THIS MONTH"))
-        composeTestRule.onNodeWithText("2 LEFT THIS MONTH").assertIsDisplayed()
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("NONE LEFT THIS MONTH"))
+        composeTestRule.onNodeWithText("NONE LEFT THIS MONTH").assertIsDisplayed()
     }
 
     @Test
     fun `the allowance line speaks the counts the silent marks are drawing`() {
-        setContent(previewState(celebration = previewCelebration(), streakSave = previewStreakSave()))
+        // Not a state a save can leave with one protection a month, but the card is drawn
+        // against the allowance rather than assuming its size.
+        setContent(previewState(streakSave = SummaryStreakSave(streakWeeks = 13, protectionsRemaining = 1)))
 
-        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("2 LEFT THIS MONTH"))
+        composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("1 LEFT THIS MONTH"))
 
         // Both counts and the word for what they are: the row of marks says none of it out
         // loud, so the line beside it has to. See `StreakSavedCard`.
-        composeTestRule.onNodeWithContentDescription("2 of 3 streak protections left this month")
+        composeTestRule.onNodeWithContentDescription("1 of 1 streak protection left this month")
             .assertIsDisplayed()
     }
 
     @Test
     fun `an exhausted allowance is said in words rather than as a zero`() {
-        setContent(previewState(streakSave = previewLastStreakSave()))
+        setContent(previewState(streakSave = previewStreakSave()))
 
         composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("NONE LEFT THIS MONTH"))
 
         composeTestRule.onNodeWithText("NONE LEFT THIS MONTH").assertIsDisplayed()
         composeTestRule.onAllNodesWithText("0 LEFT THIS MONTH").assertCountEquals(0)
         // And spoken with the allowance it is none of, for the same reason as above.
-        composeTestRule.onNodeWithContentDescription("None of your 3 streak protections are left this month")
+        composeTestRule.onNodeWithContentDescription("Your 1 streak protection is gone for this month")
             .assertIsDisplayed()
     }
 
@@ -517,8 +519,8 @@ class SessionSummaryScreenTest {
         }
 
         composeTestRule.onNode(hasScrollAction())
-            .performScrollToNode(hasContentDescription("285 experience points earned"))
-        composeTestRule.onNodeWithContentDescription("285 experience points earned").assertIsDisplayed()
+            .performScrollToNode(hasContentDescription("240 experience points earned"))
+        composeTestRule.onNodeWithContentDescription("240 experience points earned").assertIsDisplayed()
         composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
 
         // The level the user *ended* on, with no frame advanced. The fixture crosses a threshold

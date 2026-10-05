@@ -128,8 +128,8 @@ private fun SummaryAchievement.title(): String =
         "first_session" -> stringResource(R.string.achievement_first_session)
         "ten_sessions" -> stringResource(R.string.achievement_ten_sessions)
         "hundred_sessions" -> stringResource(R.string.achievement_hundred_sessions)
-        "seven_day_streak" -> stringResource(R.string.achievement_seven_day_streak)
-        "thirty_day_streak" -> stringResource(R.string.achievement_thirty_day_streak)
+        "four_week_streak" -> stringResource(R.string.achievement_four_week_streak)
+        "twelve_week_streak" -> stringResource(R.string.achievement_twelve_week_streak)
         "first_record" -> stringResource(R.string.achievement_first_record)
         else -> stringResource(R.string.achievement_unknown)
     }

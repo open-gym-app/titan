@@ -135,6 +135,9 @@ class UserPreferencesRepositoryImplTest {
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             assertEquals(OneRepMaxFormula.BRZYCKI, repository.observe().first().oneRepMaxFormula)
 
+            repository.setWeeklyWorkoutGoal(3)
+            assertEquals(3, repository.observe().first().weeklyWorkoutGoal)
+
             repository.setOnboardingCompleted(true)
             assertTrue(repository.observe().first().onboardingCompleted)
         }
@@ -413,11 +416,13 @@ class UserPreferencesRepositoryImplTest {
             store.edit {
                 it[longPreferencesKey("default_rest_duration_seconds")] = 0
                 it[longPreferencesKey("bar_weight_milligrams")] = -1
+                it[intPreferencesKey("weekly_workout_goal")] = 9
             }
 
             val preferences = repository.observe().first()
             assertEquals(180.seconds, preferences.defaultRestDuration)
             assertEquals(20_000_000L, preferences.barWeight)
+            assertEquals(UserPreferences().weeklyWorkoutGoal, preferences.weeklyWorkoutGoal)
         }
 
     @Test
@@ -431,6 +436,9 @@ class UserPreferencesRepositoryImplTest {
             }
             assertThrows(IllegalArgumentException::class.java) {
                 runBlocking { repository.setBarWeight(0) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setWeeklyWorkoutGoal(0) }
             }
             // Positive, and still not storable: seconds are the resolution, so this would go
             // in as zero and come back out as the default — a setting that did not take.

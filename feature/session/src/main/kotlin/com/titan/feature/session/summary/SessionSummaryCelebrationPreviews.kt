@@ -51,10 +51,9 @@ fun SessionSummaryScreenStreakSavedPreview() {
 }
 
 /*
- * The allowance exhausted, and no XP beside it.
+ * The save with no XP beside it.
  *
- * Both halves are deliberate. Zero remaining is the one state the card says in words rather
- * than in a count, and a save with no celebration above it is a real session — the streak step
+ * Deliberate: a save with no celebration above it is a real session — the streak step
  * is not fenced by the XP claim, so a re-entered cascade can report a protected day and nothing
  * else. It is also the only preview where this card is the first thing under the stat grid,
  * which is the layout worth having a reference for.
@@ -62,7 +61,7 @@ fun SessionSummaryScreenStreakSavedPreview() {
 @Preview(name = "Session summary - streak saved, none left", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable
 fun SessionSummaryScreenStreakSpentPreview() {
-    PreviewScreen(previewState(streakSave = previewLastStreakSave()), reducedMotion = true)
+    PreviewScreen(previewState(streakSave = previewStreakSave()), reducedMotion = true)
 }
 
 /*
@@ -94,7 +93,7 @@ private fun UnlockedCard() {
     Box(modifier = Modifier.padding(TitanTheme.spacing.screen)) {
         AchievementsUnlockedCard(
             achievements = listOf(
-                SummaryAchievement(id = "seven_day_streak", xp = 100),
+                SummaryAchievement(id = "four_week_streak", xp = 100),
                 SummaryAchievement(id = "hundred_sessions", xp = 100),
             ),
         )

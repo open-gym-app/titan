@@ -48,7 +48,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     /** The streak row, such as it is — the state the store persists between sessions. */
     private val streak = MutableStateFlow(StreakState())
 
-    val streakDays: Int get() = streak.value.currentStreak
+    val streakWeeks: Int get() = streak.value.currentStreak
 
     val lastCountedAt: Instant? get() = streak.value.lastCountedAt
 
@@ -68,7 +68,7 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
     /** Whether anything has ever been written — the difference between no row and a zeroed one. */
     private var written = false
 
-    /** The best [streakDays] ever reached, as the real row keeps it. */
+    /** The best [streakWeeks] ever reached, as the real row keeps it. */
     val longestStreak: Int get() = streak.value.longestStreak
 
     /**
@@ -128,9 +128,10 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
             UserProgress(
                 totalXp = totalXp,
                 level = currentLevel,
-                currentStreak = streakDays,
+                currentStreak = streakWeeks,
                 longestStreak = longestStreak,
                 lastCountedAt = lastCountedAt,
+                weekGoalMet = streak.value.weekGoalMet,
             )
         }
 
@@ -181,16 +182,21 @@ class FakeGamificationRepository(initialXp: Long = 0L) : GamificationRepository 
 
     override fun observeStreak(): Flow<StreakState> = streak.asStateFlow()
 
-    /** Seeds a streak already on file, as a user with history would have. */
+    /**
+     * Seeds a streak already on file, as a user with history would have: [weeks] met, the last of
+     * them the week [lastCountedAt] falls in.
+     */
     fun seedStreak(
-        days: Int,
+        weeks: Int,
         lastCountedAt: Instant,
         protection: StreakProtection = StreakProtection(),
     ) {
         streak.value = StreakState(
-            currentStreak = days,
-            longestStreak = days,
+            currentStreak = weeks,
+            longestStreak = weeks,
             lastCountedAt = lastCountedAt,
+            weekSessions = 1,
+            weekGoalMet = true,
             protection = protection,
         )
         written = true

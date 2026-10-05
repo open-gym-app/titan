@@ -342,11 +342,11 @@ class HomeScreenTest {
     fun `the header is one sentence, not a level and a bare proportion`() {
         setContent(state())
 
-        // `LVL 14` and `40 / 100 XP` are drawn — the reference images are the evidence for
+        // `LVL 14` and `240 / 600 XP` are drawn — the reference images are the evidence for
         // that — and neither is a node of its own: the header clears its subtree and is read
         // as one sentence, or a reader hears the same fact three times. See LevelHeader.
         composeTestRule
-            .onNodeWithContentDescription("Level 14, 60 points to the next level")
+            .onNodeWithContentDescription("Level 14, 360 points to the next level")
             .assertIsDisplayed()
     }
 
@@ -354,7 +354,7 @@ class HomeScreenTest {
     fun `nothing banked yet draws no header`() {
         setContent(state().copy(level = null))
 
-        // Not `LVL 1 · 0 / 100 XP` — see HomeUiState.level.
+        // Not `LVL 1 · 0 / 600 XP` — see HomeUiState.level.
         composeTestRule
             .onNodeWithContentDescription("point to the next level", substring = true)
             .assertDoesNotExist()
@@ -368,7 +368,7 @@ class HomeScreenTest {
         setContent(state())
 
         composeTestRule.onNodeWithText("3 sessions").assertIsDisplayed()
-        composeTestRule.onNodeWithText("12-day streak").assertIsDisplayed()
+        composeTestRule.onNodeWithText("12-week streak").assertIsDisplayed()
     }
 
     @Test
@@ -436,7 +436,7 @@ class HomeScreenTest {
         // empty, which is the rule the screen is built on.
         setContent(
             HomeUiState(
-                level = LevelState(level = 2, xpIntoLevel = 75, xpForLevel = 100),
+                level = LevelState(level = 2, xpIntoLevel = 450, xpForLevel = 600),
                 week = WeekState(days = WEEK, sessionCount = 3, streak = 3),
                 templates = TEMPLATES,
                 isLoading = false,
@@ -444,9 +444,9 @@ class HomeScreenTest {
         )
 
         composeTestRule
-            .onNodeWithContentDescription("Level 2, 25 points to the next level")
+            .onNodeWithContentDescription("Level 2, 150 points to the next level")
             .assertIsDisplayed()
-        composeTestRule.onNodeWithText("3-day streak").assertIsDisplayed()
+        composeTestRule.onNodeWithText("3-week streak").assertIsDisplayed()
         composeTestRule.onNodeWithText("RECENT PR").assertDoesNotExist()
         composeTestRule.onNodeWithText("VOLUME · LAST 8 WEEKS").assertDoesNotExist()
     }
@@ -482,7 +482,7 @@ class HomeScreenTest {
      */
     private fun state(resume: ResumeState? = null) =
         HomeUiState(
-            level = LevelState(level = 14, xpIntoLevel = 40, xpForLevel = 100),
+            level = LevelState(level = 14, xpIntoLevel = 240, xpForLevel = 600),
             resume = resume,
             week = WeekState(days = WEEK, sessionCount = 3, streak = 12),
             templates = TEMPLATES,

@@ -30,6 +30,14 @@
     <string name="settings_fitness_level">Fitness level</string>
     <string name="settings_one_rep_max_formula">1RM formula</string>
     <string name="settings_one_rep_max_formula_detail">How an estimated one-rep max is calculated</string>
+    <!-- The weekly workout goal: how many sessions a week has to hold to join the streak.
+         The plural is each option of its picker; the row itself shows the bare count. -->
+    <string name="settings_weekly_goal">Weekly goal</string>
+    <string name="settings_weekly_goal_detail">Workouts a week that keep your streak going</string>
+    <plurals name="settings_weekly_goal_value">
+        <item quantity="one">%1$d workout a week</item>
+        <item quantity="other">%1$d workouts a week</item>
+    </plurals>
     <!-- Switches the warm-up and cool-down cards on the active session screen (#214). On by
          default: the cards propose and never add, so the cost of showing them is a fold. -->
     <string name="settings_warmup_suggestions">Warm-up suggestions</string>

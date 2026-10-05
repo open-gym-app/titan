@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.printToString
+import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.RoborazziTaskType
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -24,14 +25,12 @@ import com.titan.core.domain.backup.model.ImportProgress
 import com.titan.core.domain.model.toSessionPlan
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.SessionRepository
-import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.ApplyTemplateUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.NextLoadUseCase
 import com.titan.core.domain.usecase.StartPlannedSessionUseCase
-import com.titan.core.domain.usecase.StartSessionUseCase
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.navigation.ExerciseProgressionDestination
 import com.titan.feature.session.navigation.ActiveSessionDestination
@@ -50,7 +49,9 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
 import org.junit.runner.RunWith
+import org.junit.runners.model.Statement
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -92,15 +93,36 @@ import com.titan.feature.session.R as SessionR
 @Config(application = HiltTestApplication::class)
 class StoreScreenshotTest {
 
+    /**
+     * Skips the test before anything else starts. An assumption in `@Before` would run only
+     * after the compose rule had launched the activity and Hilt had built its graph, which
+     * every `make test` would then pay four times over for tests that do nothing.
+     */
     @get:Rule(order = 0)
-    val hilt = HiltAndroidRule(this)
+    val onlyWhenRecording = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                assumeTrue("store screenshots are written by `make store-screenshots`", StoreAssets.isRecording)
+                base.evaluate()
+            }
+        }
+    }
 
     @get:Rule(order = 1)
+    val hilt = HiltAndroidRule(this)
+
+    @get:Rule(order = 2)
     val composeTestRule = createAndroidComposeRule<HiltTestActivity>()
+
+    /**
+     * What the graph's clock reads: [StoreAssets.DEMO_NOW], wound back only while the workout in
+     * progress is started — see [startTheNextWorkout].
+     */
+    private var now: Long = StoreAssets.DEMO_NOW
 
     @BindValue
     @JvmField
-    val clock: Clock = Clock { StoreAssets.DEMO_NOW }
+    val clock: Clock = Clock { now }
 
     @Inject lateinit var restore: ImportUseCase
 
@@ -110,9 +132,9 @@ class StoreScreenshotTest {
 
     @Inject lateinit var sessions: SessionRepository
 
-    @Inject lateinit var sessionState: SessionStateRepository
-
     @Inject lateinit var applyTemplate: ApplyTemplateUseCase
+
+    @Inject lateinit var startPlannedSession: StartPlannedSessionUseCase
 
     @Inject lateinit var nextLoad: NextLoadUseCase
 
@@ -122,7 +144,6 @@ class StoreScreenshotTest {
 
     @Before
     fun setUp() {
-        assumeTrue("store screenshots are written by `make store-screenshots`", StoreAssets.isRecording)
         // The demo's timestamps are UTC evenings; read in UTC, every screen shows the hour the
         // generator meant, wherever the machine running this happens to be.
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
@@ -223,6 +244,7 @@ class StoreScreenshotTest {
      *   loading state holds still long enough to pass for settled. Exercise names are the
      *   catalogue's, in English in every locale, which is what makes them a handle here.
      */
+    @OptIn(ExperimentalRoborazziApi::class)
     private fun shoot(
         directory: File,
         name: String,
@@ -275,9 +297,9 @@ class StoreScreenshotTest {
      * suggested for them. That is the state the screen is most itself in: work ticked off above,
      * and the next-target line (#216) on the set the screen offers next.
      *
-     * Started through the real use cases, but with their clock pinned to the demo's: the
-     * lifecycle use cases stamp rows with the wall clock rather than the graph's, and a workout
-     * that started "in the future" would draw a stopped clock.
+     * Started through the use cases the app runs, which stamp the session with the graph's
+     * clock: it is wound back by the time the workout has been under way for the start, and
+     * forward to the demo's "now" straight after, so the screen draws a clock that has run.
      */
     private suspend fun startTheNextWorkout(): Long {
         val context = composeTestRule.activity
@@ -287,12 +309,12 @@ class StoreScreenshotTest {
             )
         }
         val startedAt = StoreAssets.DEMO_NOW - WORKOUT_ELAPSED_MILLIS
-        val start = StartPlannedSessionUseCase(
-            startSession = StartSessionUseCase(sessions, sessionState, clock = { startedAt }),
-            sessionRepository = sessions,
-            sessionStateRepository = sessionState,
-        )
-        val sessionId = start(applyTemplate(pull.id).getOrThrow().toSessionPlan()).getOrThrow()
+        now = startedAt
+        val sessionId = try {
+            startPlannedSession(applyTemplate(pull.id).getOrThrow().toSessionPlan()).getOrThrow()
+        } finally {
+            now = StoreAssets.DEMO_NOW
+        }
 
         val first = sessions.getExercises(sessionId).first().minBy { it.position }
         val target = checkNotNull(nextLoad(first.exerciseId, sessionId).first()) { "the demo has no history for it" }

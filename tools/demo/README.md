@@ -17,8 +17,9 @@ screen.
 ## The lifter
 
 An intermediate on a push/pull/legs split, three evenings a week from May to the end of
-September 2026: 60 sessions from the default templates, about one planned day in ten missed,
-and a weekly weigh-in drifting down by a couple of kilograms. Loads and reps are whatever the
+September 2026, with the weekly workout goal set to three: 60 sessions from the default
+templates, about one planned day in ten missed — so the streak breaks now and then, and a
+protection saves it once — and a weekly weigh-in drifting down by a couple of kilograms. Loads and reps are whatever the
 app's next-target line suggested before each session, with the odd rep missed, so the
 progression is the app's own. Personal records, XP, quests, achievements and loot are not
 written by hand: the real post-session cascade derived them from the sets.
@@ -51,5 +52,5 @@ describe the files.
 
 Copy a file to the device and pick it in Settings › Backup & restore › Restore. The restore
 **replaces everything on the phone**. Set the device's date to 30 September 2026 first, or
-every dated screen will measure from the real date: the week strip empty, the streak gone, the
-last workout months ago.
+every dated screen will measure from the real date: the week strip empty, the streak lapsed,
+the quest board on another week, the last workout months ago.

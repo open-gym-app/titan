@@ -41,8 +41,8 @@ class AchievementsTest {
                 "first_session",
                 "ten_sessions",
                 "hundred_sessions",
-                "seven_day_streak",
-                "thirty_day_streak",
+                "four_week_streak",
+                "twelve_week_streak",
                 "first_record",
             ),
             Achievements.ALL.map(Achievement::id).toSet(),
@@ -134,7 +134,7 @@ class AchievementsTest {
     ): AchievementProgress =
         when (metric) {
             AchievementMetric.SESSIONS_FINISHED -> copy(sessionsFinished = value)
-            AchievementMetric.STREAK_DAYS -> copy(currentStreak = value)
+            AchievementMetric.STREAK_WEEKS -> copy(currentStreak = value)
             AchievementMetric.RECORDS_BROKEN -> copy(recordsBroken = value)
         }
 

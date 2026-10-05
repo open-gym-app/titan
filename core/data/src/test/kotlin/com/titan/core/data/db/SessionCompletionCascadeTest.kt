@@ -159,7 +159,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 muscleGroupLinkMapper = MuscleGroupLinkMapper(),
             ),
             personalRecordRepository = records,
-            userPreferencesRepository = DefaultPreferences,
+            userPreferencesRepository = CascadePreferences,
         )
     }
 
@@ -193,6 +193,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             sessionRepository = sessions,
             personalRecordRepository = records,
             gamificationRepository = gamification,
+            userPreferencesRepository = CascadePreferences,
         )
 
     /**
@@ -233,8 +234,8 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     @Test
     fun `the level the stored total buys is a level the user actually crossed`() =
         runBlocking {
-            // The fixture is built to cross several: a first session breaks every record type
-            // it has the columns for, and each is worth half a level on its own. A cascade that
+            // The fixture is built to cross one: a first session breaks every record type it has
+            // the columns for, unlocks two milestones and clears two quests. A cascade that
             // banked the total without recomputing the level would read as level 1 here.
             val sessionId = seedFinishedSession()
 
@@ -246,9 +247,9 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 (stored?.currentLevel ?: 0) > XpCalculator.FIRST_LEVEL,
             )
             // The one figure written out by hand rather than derived, as a check on the
-            // derivation: 25 for the session, 30 for six sets, 400 for eight records, 200 for
-            // two milestones and 380 for two quests is 1,035, which is ten whole levels and a
-            // third of the eleventh.
+            // derivation: 50 for the session, 30 for six sets, 80 for eight records, 200 for
+            // two milestones and 380 for two quests is 740, which is one whole level and a
+            // fifth of the second.
             assertEquals(EXPECTED_LEVEL, stored?.currentLevel)
         }
 
@@ -298,7 +299,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
         }
 
     @Test
-    fun `the streak opens at one, on the day the session finished`() =
+    fun `the streak opens at one, in the week the session finished`() =
         runBlocking {
             val sessionId = seedFinishedSession()
 
@@ -606,7 +607,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
          * everything else is a count times a constant, which would still agree with a level
          * computed the wrong way. A retune of the economy moves this by hand, on purpose.
          */
-        const val EXPECTED_LEVEL = 11
+        const val EXPECTED_LEVEL = 2
 
         /** Those two as the database returns them — see [storedAchievementIds]. */
         val UNLOCKED_AS_STORED = listOf(Achievements.FIRST_RECORD.id, Achievements.FIRST_SESSION.id)
@@ -629,16 +630,18 @@ class SessionCompletionCascadeTest : RoomTestBase() {
 }
 
 /**
- * The shipped defaults, read-only.
+ * The shipped defaults with a weekly goal of one, read-only.
  *
- * The cascade reads exactly one preference — [PrDetectionUseCase] asks for the 1RM formula —
- * and writes none, so a real DataStore here would be a file, a scope and a shutdown in service
- * of one constant. Every setter throws rather than returning quietly: a cascade that started
- * writing preferences should fail this suite loudly rather than have the write vanish.
+ * The cascade reads exactly two preferences — [PrDetectionUseCase] asks for the 1RM formula, the
+ * streak step for the weekly goal — and writes none, so a real DataStore here would be a file, a
+ * scope and a shutdown in service of two constants. The goal is one so that the single session
+ * each case finishes is a week met, and the streak has something to show for it. Every setter
+ * throws rather than returning quietly: a cascade that started writing preferences should fail
+ * this suite loudly rather than have the write vanish.
  */
-private object DefaultPreferences : UserPreferencesRepository {
+private object CascadePreferences : UserPreferencesRepository {
 
-    override fun observe(): Flow<UserPreferences> = flowOf(UserPreferences())
+    override fun observe(): Flow<UserPreferences> = flowOf(UserPreferences(weeklyWorkoutGoal = 1))
 
     override suspend fun setUnitSystem(unitSystem: UnitSystem) = readOnly()
 
@@ -666,6 +669,8 @@ private object DefaultPreferences : UserPreferencesRepository {
     override suspend fun setOneRepMaxFormula(formula: OneRepMaxFormula) = readOnly()
 
     override suspend fun setWarmupSuggestions(enabled: Boolean) = readOnly()
+
+    override suspend fun setWeeklyWorkoutGoal(goal: Int) = readOnly()
 
     override suspend fun clear() = readOnly()
 

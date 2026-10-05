@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "7962f122c6106bf41ba4852f3f3bb48b",
+    "identityHash": "334f825ab166afe8f9b9b5b79ca2b9fd",
     "entities": [
       {
         "tableName": "exercise",
@@ -1181,7 +1181,7 @@
       },
       {
         "tableName": "user_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `total_xp` INTEGER NOT NULL, `current_level` INTEGER NOT NULL, `current_streak` INTEGER NOT NULL, `longest_streak` INTEGER NOT NULL, `last_counted_at` INTEGER, `protection_remaining` INTEGER NOT NULL, `protection_period` TEXT, `protection_consumed_at` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `total_xp` INTEGER NOT NULL, `current_level` INTEGER NOT NULL, `current_streak` INTEGER NOT NULL, `longest_streak` INTEGER NOT NULL, `last_counted_at` INTEGER, `week_sessions` INTEGER NOT NULL, `week_goal_met` INTEGER NOT NULL, `protection_remaining` INTEGER NOT NULL, `protection_period` TEXT, `protection_consumed_at` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1217,6 +1217,18 @@
             "fieldPath": "lastCountedAt",
             "columnName": "last_counted_at",
             "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "weekSessions",
+            "columnName": "week_sessions",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "weekGoalMet",
+            "columnName": "week_goal_met",
+            "affinity": "INTEGER",
+            "notNull": true
           },
           {
             "fieldPath": "protectionRemaining",
@@ -1420,7 +1432,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7962f122c6106bf41ba4852f3f3bb48b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '334f825ab166afe8f9b9b5b79ca2b9fd')"
     ]
   }
 }

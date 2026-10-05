@@ -56,11 +56,11 @@
         <item quantity="one">%1$d session</item>
         <item quantity="other">%1$d sessions</item>
     </plurals>
-    <!-- Consecutive days trained, beside the week's count. Only ever drawn for a streak that
-         is still running — a lapsed one is absent, not zero. -->
+    <!-- Consecutive weeks that met the weekly goal, beside the week's count. Only ever drawn
+         for a streak that is still running — a lapsed one is absent, not zero. -->
     <plurals name="home_week_streak">
-        <item quantity="one">%1$d-day streak</item>
-        <item quantity="other">%1$d-day streak</item>
+        <item quantity="one">%1$d-week streak</item>
+        <item quantity="other">%1$d-week streak</item>
     </plurals>
 
     <!-- ── Quick start ───────────────────────────────────────────────────────────── -->

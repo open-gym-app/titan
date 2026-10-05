@@ -30,7 +30,7 @@ import com.titan.feature.home.WeekState
  * │  M   T   W   T   F   S   S              │
  * │  ▓   ░   ▓   ░   ░   ▓   ░              │
  * │ ─────────────────────────────────────── │
- * │ 3 sessions                 12-day streak│
+ * │ 3 sessions                12-week streak│
  * └─────────────────────────────────────────┘
  * ```
  *

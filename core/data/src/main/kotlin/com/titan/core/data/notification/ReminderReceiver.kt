@@ -156,7 +156,7 @@ class ReminderBroadcasts @Inject constructor(
      * The streak is the strongest thing the app can truthfully say at 18:00 on a Monday, and
      * it is said only while it is **live** — [StreakCalculator.isLive] is the same check the
      * home screen makes, and without it a reminder would tell somebody who last trained in
-     * March that they are twelve days deep. A user with no live streak gets the plain
+     * March that they are twelve weeks deep. A user with no live streak gets the plain
      * invitation, which is also what a fresh install gets.
      */
     private suspend fun body(active: WorkoutSession?): String {
@@ -178,5 +178,6 @@ class ReminderBroadcasts @Inject constructor(
 
     /** Whether this streak is still standing as of now, rather than as of when it was counted. */
     private fun StreakState.isLive(): Boolean =
-        currentStreak > 0 && StreakCalculator.isLive(lastCountedAt, Instant.ofEpochMilli(clock.nowMillis()))
+        currentStreak > 0 &&
+            StreakCalculator.isLive(lastCountedAt, weekGoalMet, asOf = Instant.ofEpochMilli(clock.nowMillis()))
 }

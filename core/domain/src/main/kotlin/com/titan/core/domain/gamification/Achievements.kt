@@ -14,14 +14,14 @@ import com.titan.core.domain.model.AchievementMetric
  * ### The initial six
  *
  * Two ladders and two firsts. The session ladder (1 / 10 / 100) rewards showing up at all,
- * then persisting, then persisting for a year or two; the streak ladder (7 / 30) rewards
+ * then persisting, then persisting for a year or two; the streak ladder (4 / 12 weeks) rewards
  * consistency, which the sessions count cannot see — a hundred sessions in bursts and a
  * hundred sessions a week apart are the same number and not the same habit. `first_record`
  * sits apart from both: it is the first time the *training* went somewhere, rather than the
  * first time the app was opened.
  *
  * **These values are starting defaults**, like #33's XP constants and
- * [StreakCalculator.STREAK_GRACE_HOURS], and for the same reason — nothing has been validated
+ * [StreakCalculator.DEFAULT_WEEKLY_GOAL], and for the same reason — nothing has been validated
  * against real usage yet. Each is named below and read from nowhere else, so retuning one is
  * an edit to a single line, and a test that wants "one short of the threshold" asks the
  * catalogue for the threshold rather than restating the number.
@@ -58,18 +58,18 @@ object Achievements {
         threshold = 100,
     )
 
-    /** A week's streak — seven sessions without letting the grace period lapse. */
-    val SEVEN_DAY_STREAK = Achievement(
-        id = "seven_day_streak",
-        metric = AchievementMetric.STREAK_DAYS,
-        threshold = 7,
+    /** A month's streak — four weeks in a row that met the weekly goal. */
+    val FOUR_WEEK_STREAK = Achievement(
+        id = "four_week_streak",
+        metric = AchievementMetric.STREAK_WEEKS,
+        threshold = 4,
     )
 
-    /** A month's streak, on the same rolling window — see [StreakCalculator]. */
-    val THIRTY_DAY_STREAK = Achievement(
-        id = "thirty_day_streak",
-        metric = AchievementMetric.STREAK_DAYS,
-        threshold = 30,
+    /** Three months of it: twelve weeks in a row that met the goal — see [StreakCalculator]. */
+    val TWELVE_WEEK_STREAK = Achievement(
+        id = "twelve_week_streak",
+        metric = AchievementMetric.STREAK_WEEKS,
+        threshold = 12,
     )
 
     /** Break a first personal record, of any [com.titan.core.domain.model.PrType]. */
@@ -88,8 +88,8 @@ object Achievements {
         FIRST_SESSION,
         TEN_SESSIONS,
         HUNDRED_SESSIONS,
-        SEVEN_DAY_STREAK,
-        THIRTY_DAY_STREAK,
+        FOUR_WEEK_STREAK,
+        TWELVE_WEEK_STREAK,
         FIRST_RECORD,
     )
 }

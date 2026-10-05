@@ -29,8 +29,9 @@ import java.time.ZoneOffset
 
 /** A lifter several months in: mid-level, a live streak, most of the board part-way done. */
 internal fun populatedQuestLog(): QuestLogUiState {
+    // Level 13 opens at 7,200 XP on the shipped curve; 7,440 is 240 points into it.
     val progress = UserProgress(
-        totalXp = 1_240,
+        totalXp = 7_440,
         level = 13,
         currentStreak = 6,
         longestStreak = 21,
@@ -50,9 +51,12 @@ internal fun populatedQuestLog(): QuestLogUiState {
         // The two the ladder's lower rungs would have unlocked, and the first record.
         achievementsUnlocked = 3,
         achievementsTotal = ACHIEVEMENT_TOTAL,
-        // One spent this month, which is the state worth drawing: a full allowance and an empty
-        // one are both uniform rows, and only a partly-spent one shows what the marks mean.
-        protection = StreakProtection(remaining = 2, period = FIXTURE_MONTH),
+        // Spent this month, which is the state worth drawing: it is the one where the line under
+        // the mark has something to warn about.
+        protection = StreakProtection(remaining = 0, period = FIXTURE_MONTH),
+        // Part-way through the week, which is where the line under the streak says the most.
+        sessionsThisWeek = 2,
+        weeklyGoal = 4,
         // One of each emphasis the row can take — a rare drop in the accent, two commoner ones
         // not — because that contrast is the whole of the section's design (see RecentLootCard).
         recentLoot = listOf(
@@ -97,9 +101,9 @@ internal fun emptyQuestLog(): QuestLogUiState {
  * ring rather than a full one carried over from the level before.
  */
 internal fun justLevelledUpQuestLog(): QuestLogUiState {
-    // Level 5 opens at 400 XP on the shipped curve; 405 is five points into it.
+    // Level 5 opens at 2,400 XP on the shipped curve; 2,405 is five points into it.
     val progress = UserProgress(
-        totalXp = 405,
+        totalXp = 2_405,
         level = 5,
         currentStreak = 3,
         longestStreak = 3,
@@ -118,7 +122,10 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
         ),
         achievementsUnlocked = 1,
         achievementsTotal = ACHIEVEMENT_TOTAL,
-        protection = StreakProtection(remaining = 3, period = FIXTURE_MONTH),
+        protection = StreakProtection(remaining = 1, period = FIXTURE_MONTH),
+        // The session that levelled them up also met the week's goal.
+        sessionsThisWeek = 3,
+        weeklyGoal = 3,
         // A single drop, which is the section at its shortest — a user a few weeks in.
         recentLoot = listOf(drop(Collectibles.WORN_WRISTBAND, daysAgo = 2)),
         isLoading = false,

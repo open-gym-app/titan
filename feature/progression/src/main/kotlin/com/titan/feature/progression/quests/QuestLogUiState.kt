@@ -2,6 +2,7 @@ package com.titan.feature.progression.quests
 
 import androidx.compose.runtime.Immutable
 import com.titan.core.domain.gamification.LevelTitle
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.CollectedItem
 import com.titan.core.domain.model.Collectible
 import com.titan.core.domain.model.QuestPeriod
@@ -13,7 +14,7 @@ import com.titan.core.domain.model.UserProgress
  * Everything the quest log draws.
  *
  * One state object rather than a stream, unlike the records list: every section here is a bounded
- * value — a level, seven quests, a milestone count, two streak figures — so there is nothing that
+ * value — a level, seven quests, a milestone count, a handful of streak figures — so there is nothing that
  * has to be paged and nothing that is a stream rather than a list.
  *
  * ### The zero state is the default, and it is a real state
@@ -45,12 +46,16 @@ import com.titan.core.domain.model.UserProgress
  *   describes it. Empty for a user who has never been dropped anything, which is a real state
  *   rather than a loading one — see [showsLoot], which is what decides whether the section is
  *   drawn at all.
- * @property isStreakLive whether [UserProgress.currentStreak] is **still running**, judged by the
+ * @property isStreakLive whether [UserProgress.currentStreak] is **still standing**, judged by the
  *   ViewModel against the clock — see [com.titan.core.domain.gamification.StreakCalculator.isLive].
  *   The stored count is only ever recomputed when a session finishes, so the row keeps its figure
- *   while the days pass; drawing it unasked tells a lifter who last trained in March that they are
- *   twelve days deep, which is the one thing a streak must never do. Defaulted to true because a
+ *   while the weeks pass; drawing it unasked tells a lifter who last trained in March that they are
+ *   twelve weeks deep, which is the one thing a streak must never do. Defaulted to true because a
  *   fixture or a preview states the streak it wants drawn rather than a moment to judge it at.
+ * @property sessionsThisWeek the workouts counted towards this week's goal so far — see
+ *   [com.titan.core.domain.gamification.StreakCalculator.sessionsThisWeek].
+ * @property weeklyGoal how many workouts this week needs to join the streak, as the user has it
+ *   set.
  * @property isLoading the first emission has not landed. What it gates is narrow — see
  *   [showsEmptyQuests] — because most of this screen is correct at its defaults.
  */
@@ -64,6 +69,8 @@ data class QuestLogUiState(
     val protection: StreakProtection = StreakProtection(),
     val recentLoot: List<LootDrop> = emptyList(),
     val isStreakLive: Boolean = true,
+    val sessionsThisWeek: Int = 0,
+    val weeklyGoal: Int = StreakCalculator.DEFAULT_WEEKLY_GOAL,
     val isLoading: Boolean = true,
 ) {
 
@@ -98,8 +105,8 @@ data class QuestLogUiState(
     /**
      * Whether the user is on their best-ever run.
      *
-     * Drawn rather than the two figures alone, because "5 days, best 5" reads as a coincidence
-     * and "5 days — your best yet" reads as the thing it is. False at zero: a user who has never
+     * Drawn rather than the two figures alone, because "5 weeks, best 5" reads as a coincidence
+     * and "5 weeks — your best yet" reads as the thing it is. False at zero: a user who has never
      * trained is not tying a record.
      *
      * A question about the *stored* run, so it says nothing about whether that run is still

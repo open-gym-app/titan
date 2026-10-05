@@ -312,22 +312,29 @@
 
     <!-- The streak. -->
     <string name="quest_log_streak_heading">Streak</string>
-    <plurals name="quest_log_streak_days">
-        <item quantity="one">%1$d day</item>
-        <item quantity="other">%1$d days</item>
+    <plurals name="quest_log_streak_weeks">
+        <item quantity="one">%1$d week</item>
+        <item quantity="other">%1$d weeks</item>
     </plurals>
     <plurals name="quest_log_streak_best">
-        <item quantity="one">Best: %1$d day</item>
-        <item quantity="other">Best: %1$d days</item>
+        <item quantity="one">Best: %1$d week</item>
+        <item quantity="other">Best: %1$d weeks</item>
     </plurals>
-    <!-- Shown instead of the best when the current run *is* the best: "5 days, best 5" reads as
+    <!-- Shown instead of the best when the current run *is* the best: "5 weeks, best 5" reads as
          a coincidence, this reads as the thing it is. -->
     <string name="quest_log_streak_personal_best">Your best yet</string>
     <string name="quest_log_streak_none">No streak yet</string>
-    <string name="quest_log_streak_none_body">Train today to start one.</string>
+    <string name="quest_log_streak_none_body">Meet your weekly goal to start one.</string>
+    <!-- This week against the weekly goal the streak is judged on. %1$d is the workouts
+         counted so far, %2$d the goal, which is also the count the plural agrees with. -->
+    <plurals name="quest_log_week_progress">
+        <item quantity="one">%1$d of %2$d workout this week</item>
+        <item quantity="other">%1$d of %2$d workouts this week</item>
+    </plurals>
+    <string name="quest_log_week_met">Weekly goal met</string>
 
     <!-- ─── Streak protection (#106) ──────────────────────────────────────────────────────
-         The monthly allowance that covers a missed day, drawn under the streak as marks plus
+         The monthly allowance that covers a short week, drawn under the streak as marks plus
          this line. Spent automatically, which is why the label says what they do rather than
          inviting the user to use one. -->
 
@@ -337,7 +344,7 @@
         <item quantity="other">%1$d left this month</item>
     </plurals>
     <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
-         in words: a user with none left is one bad day from losing the streak above. -->
+         in words: a user with none left is one short week from losing the streak above. -->
     <string name="quest_log_protection_none">None left this month</string>
     <!-- What a screen reader hears in place of the marks, which are the visible half of a
          sentence whose other half is the line beside them. %1$d is what is left, %2$d the
@@ -485,8 +492,8 @@
     <string name="achievement_first_session">First workout logged</string>
     <string name="achievement_ten_sessions">Ten workouts in</string>
     <string name="achievement_hundred_sessions">One hundred workouts</string>
-    <string name="achievement_seven_day_streak">A week-long streak</string>
-    <string name="achievement_thirty_day_streak">A month-long streak</string>
+    <string name="achievement_four_week_streak">A month-long streak</string>
+    <string name="achievement_twelve_week_streak">A three-month streak</string>
     <string name="achievement_first_record">First personal record</string>
     <string name="achievement_unknown">Achievement</string>
 
