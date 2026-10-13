@@ -162,7 +162,7 @@ Text(
   | `HoldStopwatch` | the start/stop control under a hold's entry row, and its reading while it runs. Stopping it fills the time field; it never logs the set | the set number and the elapsed `Duration`, or null when stopped |
   | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
   | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
-  | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
+  | `SwipeToDelete` | a row thrown away by dragging it two fifths of the way to the left, with the action a screen reader gets instead | what to delete, and what to call it |
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END, and — on a line of its own above the progress rail — the rest countdown as a pill and a bar | a name, an elapsed `Duration`, a `SessionProgress`, an optional `RestTimerState` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |

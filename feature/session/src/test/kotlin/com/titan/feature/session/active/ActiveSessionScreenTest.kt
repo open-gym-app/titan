@@ -801,12 +801,12 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `negative - a drag let go half way across a row deletes nothing`() {
+    fun `negative - a drag let go part way across a row deletes nothing`() {
         setScreen(state())
 
         scrollToDescription("Set type, set 2, Standard set").performTouchInput {
             down(centerRight)
-            moveBy(Offset(-HALF_WAY, 0f))
+            moveBy(Offset(-PART_WAY, 0f))
             up()
         }
         composeTestRule.waitForIdle()
@@ -1340,6 +1340,32 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithContentDescription("End the session").performClick()
 
         assertEquals(listOf(ActiveSessionEvent.FinishRequested), events)
+    }
+
+    @Test
+    fun `the end confirmation says what is saved and what is still to go`() {
+        setScreen(state().copy(confirmingFinish = true))
+
+        composeTestRule.onNodeWithText("End this workout?").assertIsDisplayed()
+        composeTestRule.onNodeWithText("2 logged sets will be saved.").assertIsDisplayed()
+    }
+
+    @Test
+    fun `confirming the end reports it`() {
+        setScreen(state().copy(confirmingFinish = true))
+
+        composeTestRule.onNodeWithText("End workout").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.FinishConfirmed), events)
+    }
+
+    @Test
+    fun `keeping training dismisses the end confirmation`() {
+        setScreen(state().copy(confirmingFinish = true))
+
+        composeTestRule.onNodeWithText("Keep training").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.FinishDismissed), events)
     }
 
     @Test
@@ -1964,7 +1990,7 @@ class ActiveSessionScreenTest {
         const val OFF_THE_SCREEN = 3_000f
 
         /** Short of `SwipeToDelete`'s commit fraction on any row this screen draws. */
-        const val HALF_WAY = 200f
+        const val PART_WAY = 80f
 
         const val BENCH_ROW = 1L
         const val INCLINE_ROW = 2L

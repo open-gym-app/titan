@@ -64,7 +64,7 @@ import com.titan.feature.session.active.LoggedSet
  * mistake every row can carry: the tick is how a set is written, so a set written by accident is
  * a tick pressed by accident, and the way back is the same control.
  *
- * **Dragging it off to the left** deletes it. A destructive action needs to be the *hardest*
+ * **Dragging it to the left** deletes it. A destructive action needs to be the *hardest*
  * gesture on the row rather than the one nearest the thumb, and it is still reversible: the undo
  * goes up in the bar for as long as the offer stands. It is a drag from the row's furniture — the
  * set number, the rating, the margins — because the two value cells are fields now and a drag

@@ -92,6 +92,8 @@ import kotlin.time.Duration
  *   Any of them in flight does stop the workout being *closed out* — see [canFinish] — because
  *   that is a race the row-level independence does not cover.
  * @param isFinishing the finish is in flight.
+ * @param confirmingFinish the question in front of END is up. Taken down the moment it is
+ *   answered either way: from there [isFinishing] is what holds the controls.
  * @param isDiscarding the discard has been confirmed and is in flight.
  * @param confirmingDiscard the discard confirmation is up. A flag rather than a nullable
  *   payload because there is nothing to carry — the question is about the session the screen is
@@ -149,6 +151,7 @@ data class ActiveSessionUiState(
     val loggingExerciseIds: Set<Long> = emptySet(),
     val togglingSetIds: Set<Long> = emptySet(),
     val isFinishing: Boolean = false,
+    val confirmingFinish: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,

@@ -152,6 +152,21 @@
     <string name="active_missing_title">This session is gone</string>
     <string name="active_missing_body">It was deleted or finished somewhere else. Nothing here can be logged against it.</string>
 
+    <!-- The question in front of END. The figures are in it so it can be answered without
+         closing it: what will be saved, and the exercises still to go — the usual sign the tap
+         was a mistake. -->
+    <string name="finish_session_title">End this workout?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d logged set will be saved.</item>
+        <item quantity="other">%1$d logged sets will be saved.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercise has nothing logged yet.</item>
+        <item quantity="other">%1$d exercises have nothing logged yet.</item>
+    </plurals>
+    <string name="finish_session_confirm">End workout</string>
+    <string name="finish_session_cancel">Keep training</string>
+
     <string name="active_error_no_sets">Log at least one set before finishing, or discard the workout.</string>
     <string name="active_error_finish">Could not finish the session. Nothing was saved and the workout is still running.</string>
     <string name="active_error_discard">Could not discard the session. It is still running.</string>

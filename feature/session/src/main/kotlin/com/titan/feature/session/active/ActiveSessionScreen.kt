@@ -85,6 +85,7 @@ import com.titan.core.ui.format.formatSet
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
 import com.titan.feature.session.active.component.CollapsedExerciseRow
+import com.titan.feature.session.active.component.FinishSessionDialog
 import com.titan.feature.session.active.component.MobilitySuggestionCard
 import com.titan.feature.session.active.component.SessionExerciseCard
 import kotlinx.coroutines.flow.first
@@ -271,7 +272,7 @@ fun ActiveSessionRoute(
  */
 @Composable
 /*
- * Over the complexity threshold, and it is the branching a screen this size has: two dialogs,
+ * Over the complexity threshold, and it is the branching a screen this size has: three dialogs,
  * four page states, a snackbar that is two different offers, and a list that changes shape while
  * an exercise is held. Every branch is a state the workout can genuinely be in, and pulling them
  * into helpers would move the `when` rather than remove it — see `SessionBody`, which is the
@@ -460,6 +461,17 @@ fun ActiveSessionScreen(
     RestAlert(rest = { clocks().rest })
 
     RestSheet(state = state, rest = { clocks().rest }, onEvent = onEvent)
+
+    if (state.confirmingFinish) {
+        val progress = state.header?.progress ?: SessionProgress()
+        FinishSessionDialog(
+            loggedSets = state.stats?.totalSets ?: 0,
+            untouchedExercises = progress.total - progress.completed,
+            onConfirm = { onEvent(ActiveSessionEvent.FinishConfirmed) },
+            onDismiss = { onEvent(ActiveSessionEvent.FinishDismissed) },
+            canConfirm = state.canFinish,
+        )
+    }
 
     if (state.confirmingDiscard) {
         DiscardSessionDialog(

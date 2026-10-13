@@ -365,8 +365,20 @@ sealed interface ActiveSessionEvent {
     /** Bring the sheet back up on a rest that is still going. */
     data object RestSheetRequested : ActiveSessionEvent
 
-    /** End the workout and go to the recap. */
+    /**
+     * END was tapped: ask whether to end the workout.
+     *
+     * Asked rather than done, because ending cannot be taken back and END is in the corner a
+     * thumb lands in by accident — see `FinishSessionDialog`. Over a workout with nothing ticked
+     * there is no question to ask, and this goes straight to the refusal.
+     */
     data object FinishRequested : ActiveSessionEvent
+
+    /** Yes, end it and go to the recap. */
+    data object FinishConfirmed : ActiveSessionEvent
+
+    /** No, keep training. */
+    data object FinishDismissed : ActiveSessionEvent
 
     /** Ask whether to throw the workout away. */
     data object DiscardRequested : ActiveSessionEvent

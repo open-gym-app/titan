@@ -94,6 +94,20 @@
     <string name="active_missing_title">Cette séance n’existe plus</string>
     <string name="active_missing_body">Elle a été supprimée ou terminée ailleurs. Plus rien ne peut y être enregistré.</string>
 
+    <string name="finish_session_title">Terminer cette séance ?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d série enregistrée sera sauvegardée.</item>
+        <item quantity="many">%1$d séries enregistrées seront sauvegardées.</item>
+        <item quantity="other">%1$d séries enregistrées seront sauvegardées.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercice n’a encore rien d’enregistré.</item>
+        <item quantity="many">%1$d exercices n’ont encore rien d’enregistré.</item>
+        <item quantity="other">%1$d exercices n’ont encore rien d’enregistré.</item>
+    </plurals>
+    <string name="finish_session_confirm">Terminer la séance</string>
+    <string name="finish_session_cancel">Continuer la séance</string>
+
     <string name="active_error_no_sets">Enregistrez au moins une série avant de terminer, ou abandonnez la séance.</string>
     <string name="active_error_finish">Impossible de terminer la séance. Rien n’a été enregistré et la séance est toujours en cours.</string>
     <string name="active_error_discard">Impossible d’abandonner la séance. Elle est toujours en cours.</string>

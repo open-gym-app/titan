@@ -629,7 +629,12 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.PauseToggled -> togglePause()
 
-            ActiveSessionEvent.FinishRequested -> finish()
+            ActiveSessionEvent.FinishRequested -> requestFinish()
+
+            ActiveSessionEvent.FinishConfirmed -> finish()
+
+            ActiveSessionEvent.FinishDismissed ->
+                screenState.update { it.copy(confirmingFinish = false) }
 
             ActiveSessionEvent.DiscardRequested ->
                 screenState.update { it.copy(confirmingDiscard = true) }
@@ -2220,6 +2225,22 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
+     * Puts the question up in front of END — or, over a workout with nothing ticked, skips it.
+     *
+     * `FinishSessionUseCase` refuses a session with no completed sets, so asking first would be
+     * a confirmation answered by a refusal. [finish] is called straight away instead, which is
+     * what puts `NO_SETS_LOGGED` on the page with the way past it.
+     */
+    private fun requestFinish() {
+        if (!screenState.value.canFinish) return
+        if ((uiState.value.stats?.totalSets ?: 0) == 0) {
+            finish()
+        } else {
+            screenState.update { it.copy(confirmingFinish = true, message = null) }
+        }
+    }
+
+    /**
      * Closes the workout out and reports the session to recap.
      *
      * A refusal for having logged nothing is shown inline and goes no further —
@@ -2242,7 +2263,7 @@ class ActiveSessionViewModel @Inject constructor(
         // drawn inert for the same reason; this is what stops the event dispatched just before
         // it was.
         if (!screenState.value.canFinish) return
-        screenState.update { it.copy(isFinishing = true, message = null) }
+        screenState.update { it.copy(isFinishing = true, confirmingFinish = false, message = null) }
 
         viewModelScope.launch {
             flushSetEdits()
@@ -2611,6 +2632,7 @@ class ActiveSessionViewModel @Inject constructor(
             loggingExerciseIds = screen.loggingExerciseIds,
             togglingSetIds = screen.togglingSetIds,
             isFinishing = screen.isFinishing,
+            confirmingFinish = screen.confirmingFinish,
             isDiscarding = screen.isDiscarding,
             confirmingDiscard = screen.confirmingDiscard,
             finishedSessionId = screen.finishedSessionId,
@@ -2863,6 +2885,7 @@ private data class ScreenState(
     val togglingSetIds: Set<Long> = emptySet(),
     val isPausing: Boolean = false,
     val isFinishing: Boolean = false,
+    val confirmingFinish: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,
