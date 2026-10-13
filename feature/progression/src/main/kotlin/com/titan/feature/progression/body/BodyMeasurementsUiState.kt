@@ -32,6 +32,9 @@ import com.titan.feature.progression.stats.StatsTimeframe
  *   inert, the shape `SessionSummaryUiState` uses for every write it keeps a field open across:
  *   the form is closed on success only, so without this the button is live for as long as the
  *   store takes and a second tap logs the measurement twice.
+ * @param deleted the entry behind the undo offer, held until the offer is taken or lapses. The
+ *   store no longer has it, so this is the only copy — and the offer is what makes a row thrown
+ *   away by a short drag a slip rather than a loss.
  */
 @Immutable
 data class BodyMeasurementsUiState(
@@ -41,6 +44,7 @@ data class BodyMeasurementsUiState(
     val window: List<BodyMeasurement> = emptyList(),
     val form: BodyMeasurement? = null,
     val isSaving: Boolean = false,
+    val deleted: BodyMeasurement? = null,
 ) {
 
     /**

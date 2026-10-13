@@ -47,11 +47,10 @@ import kotlin.math.roundToInt
  * ### Why the gesture is drawn here rather than taken from `SwipeToDismissBox`
  *
  * Material's box is the obvious answer and it commits on the wrong thing. It settles on distance
- * *or velocity*, so a quick horizontal flick a third of the way across deletes the row — which is
- * exactly the accident this is supposed to be immune to, and the reason its default threshold is
- * half the width rather than all of it. Here the only thing that commits is distance:
- * [COMMIT_FRACTION] of the row, released. A row let go short of that springs back, however fast it
- * was travelling.
+ * *or velocity*, so a quick horizontal flick a fraction of the way across deletes the row — which
+ * is exactly the accident this is supposed to be immune to, whatever its distance threshold is.
+ * Here the only thing that commits is distance: [COMMIT_FRACTION] of the row, released. A row let
+ * go short of that springs back, however fast it was travelling.
  *
  * The track under the finger says which side of that line the drag is on — the soft error
  * container while it would spring back, the full error tone once it would commit — so the

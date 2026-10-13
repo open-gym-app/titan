@@ -193,6 +193,8 @@
     <string name="body_history_part">%1$s %2$s</string>
     <string name="body_history_edit">Modifier l’entrée du %1$s</string>
     <string name="body_history_delete">Supprimer l’entrée du %1$s</string>
+    <string name="body_history_deleted">Entrée du %1$s supprimée</string>
+    <string name="body_history_undo">Annuler</string>
     <string name="body_history_empty_entry">Aucune mensuration</string>
 
     <!-- ── The form ─────────────────────────────────────────────────────────────── -->

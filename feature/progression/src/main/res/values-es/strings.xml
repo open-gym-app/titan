@@ -193,6 +193,8 @@
     <string name="body_history_part">%1$s %2$s</string>
     <string name="body_history_edit">Editar la entrada del %1$s</string>
     <string name="body_history_delete">Eliminar la entrada del %1$s</string>
+    <string name="body_history_deleted">Entrada del %1$s eliminada</string>
+    <string name="body_history_undo">Deshacer</string>
     <string name="body_history_empty_entry">Sin medidas</string>
 
     <!-- ── The form ─────────────────────────────────────────────────────────────── -->

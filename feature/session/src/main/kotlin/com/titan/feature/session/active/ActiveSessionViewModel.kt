@@ -2228,15 +2228,31 @@ class ActiveSessionViewModel @Inject constructor(
      * Puts the question up in front of END — or, over a workout with nothing ticked, skips it.
      *
      * `FinishSessionUseCase` refuses a session with no completed sets, so asking first would be
-     * a confirmation answered by a refusal. [finish] is called straight away instead, which is
-     * what puts `NO_SETS_LOGGED` on the page with the way past it.
+     * a confirmation answered by a refusal. The refusal is put on the page straight away
+     * instead, with the way past it.
+     *
+     * Put there directly rather than by calling [finish] and letting the use case refuse. The
+     * count is read off [uiState], which Room re-emits in its own time — a set whose write has
+     * just come back is not in it yet (see [log]) — so a zero here can be a workout with one set
+     * on disk. [finish] over that would close it out with no question asked, which is the stray
+     * tap this exists to catch; a refusal over it costs a second tap once the count catches up.
+     * Before the first read there is no count at all, and END does nothing until there is.
+     *
+     * Only an earlier refusal is taken down as the question goes up. Anything else in the bar is
+     * about something that already happened, and is left to finish being said.
      */
     private fun requestFinish() {
         if (!screenState.value.canFinish) return
-        if ((uiState.value.stats?.totalSets ?: 0) == 0) {
-            finish()
+        val loggedSets = uiState.value.stats?.totalSets ?: return
+        if (loggedSets == 0) {
+            screenState.update { it.copy(message = ActiveSessionMessage.NO_SETS_LOGGED) }
         } else {
-            screenState.update { it.copy(confirmingFinish = true, message = null) }
+            screenState.update {
+                it.copy(
+                    confirmingFinish = true,
+                    message = it.message.takeUnless { message -> message == ActiveSessionMessage.NO_SETS_LOGGED },
+                )
+            }
         }
     }
 
