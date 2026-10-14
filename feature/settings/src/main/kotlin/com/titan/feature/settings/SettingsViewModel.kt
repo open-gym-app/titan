@@ -3,6 +3,8 @@ package com.titan.feature.settings
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.health.HealthConnectControls
+import com.titan.core.domain.health.ImportFromHealthConnectUseCase
 import com.titan.core.domain.model.DefaultTemplateName
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
@@ -15,6 +17,7 @@ import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
+import com.titan.core.ui.health.HealthConnectController
 import com.titan.core.ui.state.savedScreenState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -80,7 +83,12 @@ class SettingsViewModel @Inject constructor(
     private val notificationPermission: NotificationPermission,
     private val requestNotificationPermission: RequestNotificationPermissionUseCase,
     private val restoreDefaultTemplates: RestoreDefaultTemplatesUseCase,
+    healthConnectControls: HealthConnectControls,
+    importFromHealthConnect: ImportFromHealthConnectUseCase,
 ) : ViewModel() {
+
+    /** The Health Connect switch and import, kept apart from [uiState]: it has its own lifecycle. */
+    val healthConnect = HealthConnectController(healthConnectControls, importFromHealthConnect, viewModelScope)
 
     /**
      * What the screen owns, as opposed to what the stores do.

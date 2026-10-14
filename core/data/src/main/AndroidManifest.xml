@@ -44,6 +44,23 @@
     -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+      Health Connect (#54), exercise sessions only — the two permissions behind the opt-in sync of
+      finished workouts. Declaring them asks for nothing: Health Connect shows its own dialog when
+      the user turns the sync on, after the app has said why (`HealthConnectRationale`), and until
+      then nothing is granted. The app manifest still strips INTERNET; Health Connect is on-device.
+    -->
+    <uses-permission android:name="android.permission.health.READ_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+
+    <!--
+      Package visibility for the Health Connect provider (Android 11+): without it the SDK cannot
+      see that Health Connect is installed and reports it unavailable.
+    -->
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <application>
 
         <!--

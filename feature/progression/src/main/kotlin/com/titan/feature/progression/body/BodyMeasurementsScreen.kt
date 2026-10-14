@@ -31,17 +31,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.EmptyState
 import com.titan.core.ui.component.SectionHeading
 import com.titan.core.ui.format.formatSessionDate
+import com.titan.core.ui.health.HealthConnectEvent
+import com.titan.core.ui.health.HealthConnectGroup
+import com.titan.core.ui.health.HealthConnectPermissionEffect
+import com.titan.core.ui.health.HealthConnectUiState
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
 import com.titan.feature.progression.body.component.BodyWeightCard
 import com.titan.feature.progression.body.component.CompositionTiles
-import com.titan.feature.progression.body.component.HealthConnectGroup
 import com.titan.feature.progression.body.component.MeasurementFormSheet
 import com.titan.feature.progression.body.component.MeasurementHistoryRow
 import com.titan.feature.progression.body.component.MeasurementsCard
@@ -61,11 +66,21 @@ fun BodyMeasurementsRoute(
     viewModel: BodyMeasurementsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val healthConnect by viewModel.healthConnect.state.collectAsStateWithLifecycle()
+
+    // Read again on every resume: the permission can be revoked, and Health Connect installed,
+    // in places this app cannot see.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.healthConnect.onEvent(HealthConnectEvent.Refresh)
+    }
+    HealthConnectPermissionEffect(healthConnect, viewModel.healthConnect::onEvent)
 
     BodyMeasurementsScreen(
         state = state,
         onEvent = viewModel::onEvent,
         onBack = onBack,
+        healthConnect = healthConnect,
+        onHealthConnectEvent = viewModel.healthConnect::onEvent,
         modifier = modifier,
     )
 }
@@ -103,6 +118,8 @@ fun BodyMeasurementsScreen(
     onEvent: (BodyMeasurementsEvent) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    healthConnect: HealthConnectUiState = HealthConnectUiState(),
+    onHealthConnectEvent: (HealthConnectEvent) -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     // The undo, which is what lets a row go on a short drag with no question asked — see
@@ -184,7 +201,13 @@ fun BodyMeasurementsScreen(
                 readings(state = state, onEvent = onEvent)
             }
 
-            item { HealthConnectGroup() }
+            item {
+                HealthConnectGroup(
+                    title = stringResource(R.string.body_health_connect_heading),
+                    state = healthConnect,
+                    onEvent = onHealthConnectEvent,
+                )
+            }
 
             if (state.history.isNotEmpty()) {
                 history(state = state, onEvent = onEvent)

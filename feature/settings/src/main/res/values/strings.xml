@@ -61,7 +61,6 @@
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>
     <string name="settings_backup_detail">Export everything to a file, or replace this device from one</string>
-    <string name="settings_health_connect">Health Connect</string>
     <string name="settings_delete_all">Delete all data</string>
     <string name="settings_delete_all_detail">Erases everything on this device. No undo.</string>
 

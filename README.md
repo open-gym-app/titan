@@ -54,7 +54,8 @@ The following are not in v1 and are not yet built. They show up disabled in Sett
 
 - **Marketplace**: sharing and downloading templates and challenges from other users.
 - **Gym map**: finding gyms and equipment nearby.
-- **Health Connect**: syncing body measurements with Android's Health Connect.
+
+Health Connect is available as an opt-in on devices that have it: finished workouts are written to Health Connect, and strength workouts from the last 30 days can be imported. It is off until you turn it on in Settings, and everything stays on the device.
 
 ## Getting started
 

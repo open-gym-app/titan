@@ -82,6 +82,9 @@ dependencies {
     // `ProcessLifecycleOwner`, the one thing that can tell an alarm firing in the background
     // from one firing while the user is looking at the app — see `AppForegroundState`.
     implementation(libs.androidx.lifecycle.process)
+    // `HealthConnectClient` and the record types, behind `HealthConnectGateway`. Only this
+    // module may import it — the domain sees a platform-neutral `HealthWorkout`.
+    implementation(libs.androidx.health.connect.client)
 
     // The weekly auto-backup (#181). The worker lives here rather than in `:feature:settings`
     // because it is I/O with no screen behind it — it runs while the app is not open — and

@@ -100,7 +100,36 @@
                 <data android:scheme="titan" android:host="session" />
                 <data android:scheme="titan" android:host="progression" />
             </intent-filter>
+
+            <!--
+              Health Connect asks an app that holds its permissions to explain itself, and
+              before Android 14 it does so through this action. Without a handler the "Learn
+              more" link in Health Connect's own permission screen goes nowhere. The app opens
+              as it normally would: the explanation is the dialog that comes before the prompt,
+              in Settings, and the rest is the privacy policy.
+            -->
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
         </activity>
+
+        <!--
+          The same, for Android 14 and above, where Health Connect is part of the system and
+          finds the screen through the permission-usage action instead. An alias rather than a
+          second filter on `MainActivity`: the system only sends this to a component that
+          demands `START_VIEW_PERMISSION_USAGE` of its caller, and putting that on the activity
+          itself would lock the launcher out of it.
+        -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
 
         <!--
           WorkManager, initialised on demand rather than at launch.

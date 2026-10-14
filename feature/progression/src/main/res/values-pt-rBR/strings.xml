@@ -183,8 +183,6 @@
     <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Conexão Saúde</string>
-    <string name="body_health_connect_label">Sincronizar com o Conexão Saúde</string>
-    <string name="body_health_connect_detail">Peso e gordura corporal, nos dois sentidos</string>
 
     <!-- ── The history ──────────────────────────────────────────────────────────── -->
 

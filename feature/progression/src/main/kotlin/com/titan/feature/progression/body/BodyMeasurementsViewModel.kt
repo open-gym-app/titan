@@ -3,11 +3,14 @@ package com.titan.feature.progression.body
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.health.HealthConnectControls
+import com.titan.core.domain.health.ImportFromHealthConnectUseCase
 import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.repository.BodyMeasurementRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.validation.BodyMeasurementValidator
 import com.titan.core.ui.format.localDateOf
+import com.titan.core.ui.health.HealthConnectController
 import com.titan.core.ui.state.savedScreenState
 import com.titan.feature.progression.stats.ProgressionTimeframe
 import com.titan.feature.progression.stats.StatsTimeframe
@@ -59,7 +62,12 @@ class BodyMeasurementsViewModel @Inject constructor(
     private val timeframe: ProgressionTimeframe,
     private val repository: BodyMeasurementRepository,
     private val clock: Clock,
+    healthConnectControls: HealthConnectControls,
+    importFromHealthConnect: ImportFromHealthConnectUseCase,
 ) : ViewModel() {
+
+    /** The Health Connect switch this screen shares with settings; both drive the one stored toggle. */
+    val healthConnect = HealthConnectController(healthConnectControls, importFromHealthConnect, viewModelScope)
 
     /**
      * The entry being logged or corrected, or null when the sheet is closed.

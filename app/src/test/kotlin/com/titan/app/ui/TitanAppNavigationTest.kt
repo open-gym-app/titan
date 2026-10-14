@@ -290,6 +290,7 @@ class TitanAppNavigationTest {
 
         logASet()
         composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        confirmEnd()
 
         // The recap is the end of the flow rather than a step of it — it is pushed as the flow
         // is popped — but it is still bar-less, because it is outside the tab scaffold. Waited
@@ -432,11 +433,19 @@ class TitanAppNavigationTest {
         composeTestRule.onNodeWithText(HISTORY).assertIsDisplayed()
     }
 
+    private fun confirmEnd() {
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(END_WORKOUT).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(END_WORKOUT).performClick()
+    }
+
     @Test
     fun `finishing the session flow returns to the tab scaffold`() {
         startAWorkout()
         logASet()
         composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        confirmEnd()
         composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
         }
@@ -792,6 +801,7 @@ class TitanAppNavigationTest {
         const val LOGGED_SESSION = "Logged session"
         const val LOGGED_AT = 1_777_377_600_000L
         const val LOGGED_DURATION_MILLIS = 3_120_000L
+        const val END_WORKOUT = "End workout"
         const val DONE = "Done"
 
         // The new-session flow: the seeded template, and the commit that ends setup.

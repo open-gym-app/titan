@@ -59,7 +59,6 @@
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup e restauração</string>
     <string name="settings_backup_detail">Exporte tudo para um arquivo, ou substitua este aparelho a partir de um</string>
-    <string name="settings_health_connect">Conexão Saúde</string>
     <string name="settings_delete_all">Excluir todos os dados</string>
     <string name="settings_delete_all_detail">Apaga tudo neste aparelho. Sem volta.</string>
 

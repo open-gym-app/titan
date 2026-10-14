@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.titan.core.domain.health.SyncToHealthConnectUseCase
 import com.titan.core.domain.model.ActiveExercise
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.ActiveSet
@@ -101,6 +102,7 @@ import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import javax.inject.Inject
 import kotlin.time.Duration
@@ -192,6 +194,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val pauseSession: PauseSessionUseCase,
     private val resumeSession: ResumeSessionUseCase,
     private val finishSession: FinishSessionUseCase,
+    private val syncToHealthConnect: SyncToHealthConnectUseCase,
     private val discardSession: DiscardSessionUseCase,
     nextLoad: NextLoadUseCase,
     suggestWarmup: SuggestWarmupUseCase,
@@ -2320,6 +2323,14 @@ class ActiveSessionViewModel @Inject constructor(
                     // `viewModelScope` with it — a coroutine started here and not yet run would
                     // be cancelled, leaving an alarm pending over a workout that is over.
                     runCatching { idleSessionMonitor.disarm() }
+                    // Awaited for the same reason, and bounded: for anyone who never opted in
+                    // this returns on its first read, and for anyone who did, a Health Connect
+                    // that is slow or gone must not hold the recap back. The workout is already
+                    // saved here — a failed write is a missing entry in the other app, which the
+                    // user can see there, not a reason to fail the finish.
+                    runCatching {
+                        withTimeout(HEALTH_SYNC_TIMEOUT_MS) { syncToHealthConnect(finished.summary.sessionId) }
+                    }
                     screenState.update {
                         it.copy(finishedSessionId = finished.summary.sessionId, isRestSheetOpen = false)
                     }
@@ -2793,6 +2804,9 @@ class ActiveSessionViewModel @Inject constructor(
         )
 
     private companion object {
+        /** The most the post-finish Health Connect write may hold the recap back. */
+        val HEALTH_SYNC_TIMEOUT_MS = 3.seconds.inWholeMilliseconds
+
         /**
          * Long enough to survive a rotation without re-reading the session, short enough that a
          * backgrounded screen is not holding database observers open. The other screens' number,

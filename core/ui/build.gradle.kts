@@ -31,4 +31,10 @@ dependencies {
     // navigation and the second through its own serialization plugin.
     api(libs.androidx.lifecycle.viewmodel.savedstate)
     api(libs.kotlinx.serialization.json)
+
+    // `HealthConnectPermissionEffect` raises the system prompt through the Activity Result API,
+    // with the contract Health Connect ships for it. Health Connect is on-device — the client
+    // talks to a system service, not to a network — so this adds no way out of the app.
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.health.connect.client)
 }

@@ -645,4 +645,24 @@
     <string name="time_picker_confirm">Save</string>
     <string name="time_picker_cancel">Cancel</string>
 
+    <!-- ── Health Connect ─────────────────────────────────────────────────────────── -->
+
+    <string name="health_connect_label">Sync with Health Connect</string>
+    <string name="health_connect_detail_off">Save finished workouts to Health Connect</string>
+    <string name="health_connect_detail_on">Finished workouts are saved to Health Connect</string>
+    <string name="health_connect_import_label">Import from Health Connect</string>
+    <string name="health_connect_import_detail">Bring in strength workouts from the last 30 days</string>
+    <string name="health_connect_importing">Importing…</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">Imported %d workout</item>
+        <item quantity="other">Imported %d workouts</item>
+    </plurals>
+    <string name="health_connect_nothing_new">Nothing new to import</string>
+    <string name="health_connect_denied">Permission wasn’t granted, so sync stays off. You can try again any time.</string>
+    <string name="health_connect_unreachable">Couldn’t reach Health Connect. Try again in a moment.</string>
+    <string name="health_connect_rationale_title">Connect to Health Connect?</string>
+    <string name="health_connect_rationale_body">Titan saves your finished workouts to Health Connect and can read strength workouts other apps have saved. It all stays on this device, and you can turn it off at any time.</string>
+    <string name="health_connect_rationale_continue">Continue</string>
+    <string name="health_connect_rationale_not_now">Not now</string>
+
 </resources>

@@ -59,7 +59,6 @@
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Copia de seguridad y restauración</string>
     <string name="settings_backup_detail">Exporta todo a un archivo, o sustituye lo de este dispositivo desde uno</string>
-    <string name="settings_health_connect">Health Connect</string>
     <string name="settings_delete_all">Eliminar todos los datos</string>
     <string name="settings_delete_all_detail">Borra todo lo de este dispositivo. Sin vuelta atrás.</string>
 

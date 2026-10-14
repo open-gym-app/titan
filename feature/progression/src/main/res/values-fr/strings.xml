@@ -183,8 +183,6 @@
     <!-- ── Health Connect, disabled until #54 ───────────────────────────────────── -->
 
     <string name="body_health_connect_heading">Santé Connect</string>
-    <string name="body_health_connect_label">Synchroniser avec Santé Connect</string>
-    <string name="body_health_connect_detail">Poids et masse grasse, dans les deux sens</string>
 
     <!-- ── The history ──────────────────────────────────────────────────────────── -->
 

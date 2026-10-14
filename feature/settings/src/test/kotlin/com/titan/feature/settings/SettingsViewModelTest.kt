@@ -16,6 +16,7 @@ import com.titan.core.domain.usecase.CreateTemplateUseCase
 import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreDefaultTemplatesUseCase
 import com.titan.feature.settings.afterProcessDeath
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -551,6 +552,8 @@ class SettingsViewModelTest {
         notificationPermission,
         RequestNotificationPermissionUseCase(preferences, notificationPermission),
         RestoreDefaultTemplatesUseCase(defaults, templates, CreateTemplateUseCase(templates)),
+        mockk(relaxed = true),
+        mockk(relaxed = true),
     )
 
     /** `WhileSubscribed` needs a subscriber, or the state never leaves its initial value. */

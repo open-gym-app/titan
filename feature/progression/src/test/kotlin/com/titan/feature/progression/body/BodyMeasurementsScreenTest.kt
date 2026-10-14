@@ -17,9 +17,13 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextReplacement
 import com.titan.core.domain.model.BodyMeasurement
+import com.titan.core.domain.model.HealthAvailability
+import com.titan.core.domain.model.HealthConnectStatus
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.ui.format.formatLengthValue
 import com.titan.core.ui.format.formatWeightValue
+import com.titan.core.ui.health.HealthConnectEvent
+import com.titan.core.ui.health.HealthConnectUiState
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.body.component.MeasurementForm
 import org.junit.Assert.assertEquals
@@ -53,6 +57,7 @@ class BodyMeasurementsScreenTest {
     val composeTestRule = createComposeRule()
 
     private val events = mutableListOf<BodyMeasurementsEvent>()
+    private val healthEvents = mutableListOf<HealthConnectEvent>()
     private val saved = mutableListOf<BodyMeasurement>()
 
     // ─── The populated screen ───────────────────────────────────────────────────────────
@@ -96,12 +101,19 @@ class BodyMeasurementsScreenTest {
     }
 
     @Test
-    fun `the Health Connect row is present and says it is not ready`() {
+    fun `the Health Connect group is absent where Health Connect is not available`() {
         show(populated())
 
-        // The information architecture ships now and the row is filled in when #54 lands — the
-        // settings screen's own arrangement, held to here through the same component.
-        scrollTo(hasText("Sync with Health Connect")).assertIsNotEnabled()
+        composeTestRule.onNodeWithText("Sync with Health Connect").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the Health Connect switch is offered where it is available and reports its toggle`() {
+        show(populated(), healthConnect = healthConnectState(enabled = false, permitted = false))
+
+        scrollTo(hasText("Sync with Health Connect")).performClick()
+
+        assertEquals(listOf<HealthConnectEvent>(HealthConnectEvent.SyncToggled(true)), healthEvents)
     }
 
     // ─── The empty screen ───────────────────────────────────────────────────────────────
@@ -119,12 +131,16 @@ class BodyMeasurementsScreenTest {
     }
 
     @Test
-    fun `the Health Connect row is drawn for a user with nothing logged too`() {
-        show(BodyMeasurementsUiState(isLoading = false))
+    fun `the Health Connect switch is drawn for a user with nothing logged too`() {
+        show(
+            BodyMeasurementsUiState(isLoading = false),
+            healthConnect = healthConnectState(enabled = true, permitted = true),
+        )
 
         // They are exactly the person deciding between typing measurements in and waiting for
         // the sync, which is the question the row answers.
         scrollTo(hasText("Sync with Health Connect")).assertIsDisplayed()
+        scrollTo(hasText("Import from Health Connect")).assertIsDisplayed()
     }
 
     // ─── The history ────────────────────────────────────────────────────────────────────
@@ -277,13 +293,27 @@ class BodyMeasurementsScreenTest {
     private fun show(
         state: BodyMeasurementsUiState,
         unitSystem: UnitSystem = UnitSystem.METRIC,
+        healthConnect: HealthConnectUiState = HealthConnectUiState(),
     ) {
         composeTestRule.setContent {
             TitanTheme(unitSystem = unitSystem) {
-                BodyMeasurementsScreen(state = state, onEvent = { events += it }, onBack = {})
+                BodyMeasurementsScreen(
+                    state = state,
+                    onEvent = { events += it },
+                    onBack = {},
+                    healthConnect = healthConnect,
+                    onHealthConnectEvent = { healthEvents += it },
+                )
             }
         }
     }
+
+    private fun healthConnectState(
+        enabled: Boolean,
+        permitted: Boolean,
+    ) = HealthConnectUiState(
+        status = HealthConnectStatus(HealthAvailability.AVAILABLE, enabled = enabled, permitted = permitted),
+    )
 
     private fun showForm(
         entry: BodyMeasurement,

@@ -417,4 +417,25 @@
     <string name="time_picker_confirm">Guardar</string>
     <string name="time_picker_cancel">Cancelar</string>
 
+    <!-- ── Health Connect ─────────────────────────────────────────────────────────── -->
+
+    <string name="health_connect_label">Sincronizar con Health Connect</string>
+    <string name="health_connect_detail_off">Guarda los entrenamientos terminados en Health Connect</string>
+    <string name="health_connect_detail_on">Los entrenamientos terminados se guardan en Health Connect</string>
+    <string name="health_connect_import_label">Importar desde Health Connect</string>
+    <string name="health_connect_import_detail">Trae los entrenamientos de fuerza de los últimos 30 días</string>
+    <string name="health_connect_importing">Importando…</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d entrenamiento importado</item>
+        <item quantity="many">%d entrenamientos importados</item>
+        <item quantity="other">%d entrenamientos importados</item>
+    </plurals>
+    <string name="health_connect_nothing_new">Nada nuevo que importar</string>
+    <string name="health_connect_denied">No se concedió el permiso, así que la sincronización sigue desactivada. Puedes intentarlo de nuevo cuando quieras.</string>
+    <string name="health_connect_unreachable">No se pudo conectar con Health Connect. Inténtalo de nuevo en un momento.</string>
+    <string name="health_connect_rationale_title">¿Conectar con Health Connect?</string>
+    <string name="health_connect_rationale_body">Titan guarda tus entrenamientos terminados en Health Connect y puede leer los entrenamientos de fuerza que hayan guardado otras apps. Todo se queda en este dispositivo y puedes desactivarlo cuando quieras.</string>
+    <string name="health_connect_rationale_continue">Continuar</string>
+    <string name="health_connect_rationale_not_now">Ahora no</string>
+
 </resources>

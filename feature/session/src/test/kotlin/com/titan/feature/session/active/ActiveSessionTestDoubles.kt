@@ -1,11 +1,16 @@
 package com.titan.feature.session.active
 
+import com.titan.core.domain.feature.FeatureToggles
+import com.titan.core.domain.feature.M8Feature
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.Discipline
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.ExerciseAttempt
 import com.titan.core.domain.model.ExerciseMuscleGroupLink
 import com.titan.core.domain.model.ExerciseType
+import com.titan.core.domain.model.HealthAvailability
+import com.titan.core.domain.model.HealthConnectException
+import com.titan.core.domain.model.HealthWorkout
 import com.titan.core.domain.model.MobilityExercise
 import com.titan.core.domain.model.MuscleGroup
 import com.titan.core.domain.model.MuscleTraining
@@ -19,6 +24,7 @@ import com.titan.core.domain.model.WeeklyTraining
 import com.titan.core.domain.model.WeeklyVolume
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.repository.HealthConnectGateway
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.SessionRepository
@@ -32,6 +38,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
@@ -618,3 +625,38 @@ private fun mobility(
     primaryMuscleGroupIds = setOf(primary.id),
     isDynamic = isDynamic,
 )
+
+/** Health Connect switched on or off, and nothing else about it. */
+class FakeHealthToggles(var enabled: Boolean = false) : FeatureToggles {
+
+    override fun observe(feature: M8Feature): Flow<Boolean> = flowOf(enabled)
+
+    override suspend fun isEnabled(feature: M8Feature): Boolean = enabled
+
+    override suspend fun setEnabled(
+        feature: M8Feature,
+        enabled: Boolean,
+    ) {
+        this.enabled = enabled
+    }
+}
+
+/** A Health Connect that is there and permitted, and remembers what it was asked to write. */
+class RecordingHealthGateway(var failWrites: Boolean = false) : HealthConnectGateway {
+
+    val written = mutableListOf<HealthWorkout>()
+
+    override fun availability(): HealthAvailability = HealthAvailability.AVAILABLE
+
+    override suspend fun hasPermissions(): Boolean = true
+
+    override suspend fun write(workout: HealthWorkout) {
+        if (failWrites) throw HealthConnectException("refused")
+        written += workout
+    }
+
+    override suspend fun readBetween(
+        sinceMillis: Long,
+        untilMillis: Long,
+    ): List<HealthWorkout> = emptyList()
+}

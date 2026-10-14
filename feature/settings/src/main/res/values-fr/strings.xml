@@ -59,7 +59,6 @@
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Sauvegarde &amp; restauration</string>
     <string name="settings_backup_detail">Exportez tout dans un fichier, ou remplacez cet appareil à partir d’un fichier</string>
-    <string name="settings_health_connect">Santé Connect</string>
     <string name="settings_delete_all">Supprimer toutes les données</string>
     <string name="settings_delete_all_detail">Efface tout sur cet appareil. Sans retour possible.</string>
 

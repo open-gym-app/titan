@@ -34,6 +34,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.FitnessLevel
@@ -59,6 +61,10 @@ import com.titan.core.ui.component.label
 import com.titan.core.ui.format.formatAsClock
 import com.titan.core.ui.format.formatReminderSchedule
 import com.titan.core.ui.format.formatWeight
+import com.titan.core.ui.health.HealthConnectEvent
+import com.titan.core.ui.health.HealthConnectPermissionEffect
+import com.titan.core.ui.health.HealthConnectRows
+import com.titan.core.ui.health.HealthConnectUiState
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.settings.component.BarWeightDialog
 import com.titan.feature.settings.component.ChoiceDialog
@@ -104,6 +110,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val healthConnect by viewModel.healthConnect.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
@@ -118,10 +125,19 @@ fun SettingsRoute(
         onRecheck = { viewModel.onEvent(SettingsEvent.Notification.PermissionRechecked) },
     )
 
+    // Read again on every resume: the permission can be revoked, and Health Connect installed,
+    // in places this app cannot see.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.healthConnect.onEvent(HealthConnectEvent.Refresh)
+    }
+    HealthConnectPermissionEffect(healthConnect, viewModel.healthConnect::onEvent)
+
     SettingsScreen(
         state = state,
         appVersion = appVersion,
         onEvent = viewModel::onEvent,
+        healthConnect = healthConnect,
+        onHealthConnectEvent = viewModel.healthConnect::onEvent,
         onBack = onBack,
         onOpenBackup = onOpenBackup,
         // Not hoisted to `:app`: opening a URL is not navigation, it leaves the app entirely,
@@ -158,6 +174,8 @@ fun SettingsScreen(
     onOpenReminders: () -> Unit,
     onOpenLicences: () -> Unit,
     modifier: Modifier = Modifier,
+    healthConnect: HealthConnectUiState = HealthConnectUiState(),
+    onHealthConnectEvent: (HealthConnectEvent) -> Unit = {},
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val message = state.message?.text()
@@ -196,7 +214,12 @@ fun SettingsScreen(
         ) {
             AppearanceGroup(state.preferences, onEvent)
             WorkoutGroup(state.preferences, state.missingDefaultTemplates, onEvent)
-            DataGroup(onEvent = onEvent, onOpenBackup = onOpenBackup)
+            DataGroup(
+                onEvent = onEvent,
+                onOpenBackup = onOpenBackup,
+                healthConnect = healthConnect,
+                onHealthConnectEvent = onHealthConnectEvent,
+            )
             NotificationsGroup(
                 preferences = state.preferences,
                 permission = state.notificationPermission,
@@ -318,6 +341,8 @@ private fun WorkoutGroup(
 private fun DataGroup(
     onEvent: (SettingsEvent) -> Unit,
     onOpenBackup: () -> Unit,
+    healthConnect: HealthConnectUiState,
+    onHealthConnectEvent: (HealthConnectEvent) -> Unit,
 ) {
     PreferenceGroup(title = stringResource(R.string.settings_group_data)) {
         // Was two disabled rows — "Backup & restore" and "Export JSON" — until #38. They are
@@ -329,8 +354,8 @@ private fun DataGroup(
             onClick = onOpenBackup,
         )
         HairlineDivider()
-        PreferenceSoonRow(label = stringResource(R.string.settings_health_connect))
-        HairlineDivider()
+        // Draws nothing, divider included, where Health Connect is not on the device.
+        HealthConnectRows(state = healthConnect, onEvent = onHealthConnectEvent, dividerAfter = true)
         // The one row in this group that is real, and the only destructive action in the app.
         PreferenceRow(
             label = stringResource(R.string.settings_delete_all),

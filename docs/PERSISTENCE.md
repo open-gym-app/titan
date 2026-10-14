@@ -346,6 +346,7 @@ What they exclude is the whole of the app's durable footprint:
 | --- | --- | --- |
 | The database and its journal sidecars | `databases/titan.db`, `-wal`, `-shm`, `-journal` | excluded by name |
 | The settings store | `files/datastore/user-preferences.preferences_pb` | the `datastore` directory is excluded |
+| The M8 feature switches (Health Connect on or off, and the other M8 kill-switches) | `files/datastore/feature-toggles.preferences_pb` | the `datastore` directory is excluded |
 | The in-progress draft and its scratch file | `files/in-progress-session.json`, `.json.tmp` | excluded by name |
 | The half-built template draft and its scratch file | `files/template-draft.json`, `.json.tmp` | excluded by name |
 | Exported and automatic backups | `backups/` under the external files directory, or under `files/` when there is no external volume | the directory is excluded in both domains |

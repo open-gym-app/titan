@@ -468,6 +468,8 @@ class EndToEndJourneyTest {
      */
     private fun finishTheWorkout() {
         composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        awaitText(END_WORKOUT)
+        composeTestRule.onNodeWithText(END_WORKOUT).performClick()
         awaitText(DONE)
     }
 
@@ -563,6 +565,7 @@ class EndToEndJourneyTest {
         const val TAB_HOME = "Home"
         const val TAB_SESSIONS = "Sessions"
         const val ACTIVE_SESSION = "End the session"
+        const val END_WORKOUT = "End workout"
         const val DONE = "Done"
 
         // Home's two ways into the flow: onto the template list, and straight onto the picker.

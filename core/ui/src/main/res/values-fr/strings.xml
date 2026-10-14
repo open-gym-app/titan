@@ -418,4 +418,25 @@
     <string name="time_picker_confirm">Enregistrer</string>
     <string name="time_picker_cancel">Annuler</string>
 
+    <!-- ── Health Connect ─────────────────────────────────────────────────────────── -->
+
+    <string name="health_connect_label">Synchroniser avec Santé Connect</string>
+    <string name="health_connect_detail_off">Enregistre les séances terminées dans Santé Connect</string>
+    <string name="health_connect_detail_on">Les séances terminées sont enregistrées dans Santé Connect</string>
+    <string name="health_connect_import_label">Importer depuis Santé Connect</string>
+    <string name="health_connect_import_detail">Récupère les séances de musculation des 30 derniers jours</string>
+    <string name="health_connect_importing">Importation…</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d séance importée</item>
+        <item quantity="many">%d séances importées</item>
+        <item quantity="other">%d séances importées</item>
+    </plurals>
+    <string name="health_connect_nothing_new">Rien de nouveau à importer</string>
+    <string name="health_connect_denied">L’autorisation n’a pas été accordée, la synchronisation reste donc désactivée. Vous pouvez réessayer à tout moment.</string>
+    <string name="health_connect_unreachable">Impossible de joindre Santé Connect. Réessayez dans un instant.</string>
+    <string name="health_connect_rationale_title">Se connecter à Santé Connect ?</string>
+    <string name="health_connect_rationale_body">Titan enregistre vos séances terminées dans Santé Connect et peut lire les séances de musculation enregistrées par d’autres applications. Tout reste sur cet appareil et vous pouvez le désactiver à tout moment.</string>
+    <string name="health_connect_rationale_continue">Continuer</string>
+    <string name="health_connect_rationale_not_now">Plus tard</string>
+
 </resources>

@@ -417,4 +417,25 @@
     <string name="time_picker_confirm">Salvar</string>
     <string name="time_picker_cancel">Cancelar</string>
 
+    <!-- ── Health Connect ─────────────────────────────────────────────────────────── -->
+
+    <string name="health_connect_label">Sincronizar com a Conexão Saúde</string>
+    <string name="health_connect_detail_off">Salva os treinos concluídos na Conexão Saúde</string>
+    <string name="health_connect_detail_on">Os treinos concluídos são salvos na Conexão Saúde</string>
+    <string name="health_connect_import_label">Importar da Conexão Saúde</string>
+    <string name="health_connect_import_detail">Traz os treinos de força dos últimos 30 dias</string>
+    <string name="health_connect_importing">Importando…</string>
+    <plurals name="health_connect_imported">
+        <item quantity="one">%d treino importado</item>
+        <item quantity="many">%d treinos importados</item>
+        <item quantity="other">%d treinos importados</item>
+    </plurals>
+    <string name="health_connect_nothing_new">Nada novo para importar</string>
+    <string name="health_connect_denied">A permissão não foi concedida, então a sincronização continua desativada. Você pode tentar de novo quando quiser.</string>
+    <string name="health_connect_unreachable">Não foi possível acessar a Conexão Saúde. Tente de novo em instantes.</string>
+    <string name="health_connect_rationale_title">Conectar à Conexão Saúde?</string>
+    <string name="health_connect_rationale_body">O Titan salva seus treinos concluídos na Conexão Saúde e pode ler os treinos de força salvos por outros apps. Tudo fica neste dispositivo e você pode desativar quando quiser.</string>
+    <string name="health_connect_rationale_continue">Continuar</string>
+    <string name="health_connect_rationale_not_now">Agora não</string>
+
 </resources>

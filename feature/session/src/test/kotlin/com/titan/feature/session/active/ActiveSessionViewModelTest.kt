@@ -1,6 +1,7 @@
 package com.titan.feature.session.active
 
 import androidx.lifecycle.SavedStateHandle
+import com.titan.core.domain.health.SyncToHealthConnectUseCase
 import com.titan.core.domain.model.ActiveExercise
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.ActiveSet
@@ -13,7 +14,9 @@ import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.SuggestionReason
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
+import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.domain.timer.StopwatchSnapshot
@@ -46,10 +49,13 @@ import com.titan.feature.session.newsession.FakeExerciseCatalogue
 import com.titan.feature.session.newsession.FakeSessionStateStore
 import com.titan.feature.session.newsession.FakeSettings
 import com.titan.feature.session.summary.FakeRecordStore
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.TestScope
@@ -2876,6 +2882,55 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `a finish writes the workout to health connect when the user has opted in`() =
+        runTest {
+            val gateway = RecordingHealthGateway()
+            val sessions = mockk<SessionRepository>()
+            every { sessions.getById(ACTIVE_SESSION_ID) } returns
+                flowOf(
+                    WorkoutSession(
+                        id = ACTIVE_SESSION_ID,
+                        name = "Push day",
+                        completedAt = STARTED_AT + 1_000,
+                        isInProgress = false,
+                        lastActiveAt = STARTED_AT + 1_000,
+                        createdAt = STARTED_AT,
+                        updatedAt = STARTED_AT + 1_000,
+                    ),
+                )
+            val viewModel = viewModel(
+                healthSync = SyncToHealthConnectUseCase(sessions, gateway, FakeHealthToggles(enabled = true)),
+            )
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            assertEquals(1, gateway.written.size)
+            assertEquals(ACTIVE_SESSION_ID, viewModel.uiState.value.finishedSessionId)
+        }
+
+    @Test
+    fun `a health connect that fails never stands in the way of the recap`() =
+        runTest {
+            val sessions = mockk<SessionRepository>()
+            every { sessions.getById(any()) } throws IllegalStateException("gone")
+            val viewModel = viewModel(
+                healthSync = SyncToHealthConnectUseCase(
+                    sessions,
+                    RecordingHealthGateway(failWrites = true),
+                    FakeHealthToggles(enabled = true),
+                ),
+            )
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            assertEquals(ACTIVE_SESSION_ID, viewModel.uiState.value.finishedSessionId)
+        }
+
+    @Test
     fun `ending the workout writes the correction the user never left the row to save`() =
         runTest {
             val store = benchStore()
@@ -3872,6 +3927,11 @@ class ActiveSessionViewModelTest {
         idleSession: FakeIdleSessionMonitor = this@ActiveSessionViewModelTest.idleSession,
         skipRequests: FakeRestSkipRequests = this@ActiveSessionViewModelTest.skipRequests,
         history: FakeProgressionStore = this@ActiveSessionViewModelTest.history,
+        healthSync: SyncToHealthConnectUseCase = SyncToHealthConnectUseCase(
+            mockk(),
+            RecordingHealthGateway(),
+            FakeHealthToggles(enabled = false),
+        ),
         savedState: SavedStateHandle = SavedStateHandle(mapOf("sessionId" to ACTIVE_SESSION_ID)),
     ): ActiveSessionViewModel {
         val lock = SessionLifecycleLock()
@@ -3898,6 +3958,7 @@ class ActiveSessionViewModelTest {
             pauseSession = PauseSessionUseCase(store, state, clock, lock),
             resumeSession = ResumeSessionUseCase(store, state, clock, lock),
             finishSession = FinishSessionUseCase(store, state, drafts, clock, lock),
+            syncToHealthConnect = healthSync,
             discardSession = DiscardSessionUseCase(store, state, drafts, lock),
             nextLoad = NextLoadUseCase(history, catalogue, settings),
             suggestWarmup = SuggestWarmupUseCase(catalogue, settings),

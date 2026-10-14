@@ -6,6 +6,7 @@ import com.titan.feature.progression.afterProcessDeath
 import com.titan.feature.progression.stats.FixedClock
 import com.titan.feature.progression.stats.ProgressionTimeframe
 import com.titan.feature.progression.stats.StatsTimeframe
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -408,6 +409,8 @@ class BodyMeasurementsViewModelTest {
             timeframe = timeframe,
             repository = store,
             clock = clock,
+            healthConnectControls = mockk(relaxed = true),
+            importFromHealthConnect = mockk(relaxed = true),
         )
         // Unconfined, so the first assembled value has arrived by the time the test reads it:
         // `stateIn(WhileSubscribed)` never starts without a collector, and a queued one would

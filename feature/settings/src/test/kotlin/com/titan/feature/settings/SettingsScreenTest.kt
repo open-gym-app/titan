@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.FitnessLevel
+import com.titan.core.domain.model.HealthAvailability
+import com.titan.core.domain.model.HealthConnectStatus
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
 import com.titan.core.domain.model.ThemePreference
@@ -30,6 +32,8 @@ import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.notification.NotificationPermissionState
 import com.titan.core.domain.notification.NotificationPreferences
 import com.titan.core.domain.notification.ReminderPreferences
+import com.titan.core.ui.health.HealthConnectEvent
+import com.titan.core.ui.health.HealthConnectUiState
 import com.titan.core.ui.theme.TitanTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -57,6 +61,7 @@ class SettingsScreenTest {
     val composeTestRule = createComposeRule()
 
     private val events = mutableListOf<SettingsEvent>()
+    private val healthEvents = mutableListOf<HealthConnectEvent>()
     private val openedLinks = mutableListOf<String>()
     private var notificationSettingsOpened = 0
     private var remindersOpened = 0
@@ -325,7 +330,6 @@ class SettingsScreenTest {
         // `assertIsNotEnabled` reads the semantics tree, which is what TalkBack reads. A row
         // that was only dimmed would pass a screenshot test and fail a blind user.
         listOf(
-            "Health Connect",
             // "Marketplace deals" is the last row left in the notifications group that has
             // nothing behind it — it is M8 (#52). Every other row there is a live switch.
             "Marketplace deals",
@@ -339,10 +343,57 @@ class SettingsScreenTest {
     fun `tapping a disabled row does nothing at all`() {
         setContent()
 
-        composeTestRule.onNodeWithText("Health Connect").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Donate").performScrollTo().performClick()
 
         assertEquals(emptyList<SettingsEvent>(), events)
     }
+
+    @Test
+    fun `health connect is not offered where it is not available`() {
+        setContent()
+
+        composeTestRule.onNodeWithText("Sync with Health Connect").assertDoesNotExist()
+    }
+
+    @Test
+    fun `the health connect switch reports its toggle and offers the import once on`() {
+        setContent(healthConnect = healthConnectState(enabled = false, permitted = false))
+
+        composeTestRule.onNodeWithText("Sync with Health Connect").performScrollTo().performClick()
+        composeTestRule.onNodeWithText("Import from Health Connect").assertDoesNotExist()
+
+        assertEquals(listOf<HealthConnectEvent>(HealthConnectEvent.SyncToggled(true)), healthEvents)
+    }
+
+    @Test
+    fun `an active health connect offers the import, and tapping it asks for one`() {
+        setContent(healthConnect = healthConnectState(enabled = true, permitted = true))
+
+        composeTestRule.onNodeWithText("Sync with Health Connect").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Import from Health Connect").performScrollTo().performClick()
+
+        assertEquals(listOf<HealthConnectEvent>(HealthConnectEvent.ImportTapped), healthEvents)
+    }
+
+    @Test
+    fun `the rationale comes before the permission prompt and can be declined`() {
+        setContent(
+            healthConnect = healthConnectState(enabled = false, permitted = false)
+                .copy(rationaleVisible = true),
+        )
+
+        composeTestRule.onNodeWithText("Connect to Health Connect?").assertExists()
+        composeTestRule.onNodeWithText("Not now").performClick()
+
+        assertEquals(listOf<HealthConnectEvent>(HealthConnectEvent.RationaleDismissed), healthEvents)
+    }
+
+    private fun healthConnectState(
+        enabled: Boolean,
+        permitted: Boolean,
+    ) = HealthConnectUiState(
+        status = HealthConnectStatus(HealthAvailability.AVAILABLE, enabled = enabled, permitted = permitted),
+    )
 
     /**
      * #38's first acceptance criterion, from the settings side: the row is a way in rather
@@ -718,6 +769,7 @@ class SettingsScreenTest {
         notificationPermission: NotificationPermissionState = NotificationPermissionState.GRANTED,
         missingDefaultTemplates: List<String> = emptyList(),
         message: SettingsMessage? = null,
+        healthConnect: HealthConnectUiState = HealthConnectUiState(),
     ) {
         composeTestRule.setContent {
             TitanTheme {
@@ -739,6 +791,8 @@ class SettingsScreenTest {
                     onOpenNotificationSettings = { notificationSettingsOpened++ },
                     onOpenReminders = { remindersOpened++ },
                     onOpenLicences = { licencesOpened++ },
+                    healthConnect = healthConnect,
+                    onHealthConnectEvent = healthEvents::add,
                 )
             }
         }
