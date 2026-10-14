@@ -8,6 +8,7 @@ import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.GymRow
+import com.titan.core.domain.backup.model.MarketplaceTemplateRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PlateStockPayload
@@ -106,6 +107,7 @@ fun sampleDocument(
             ),
         ),
         gym = sampleGyms(),
+        marketplaceTemplate = sampleMarketplace(),
     )
 
 private fun sampleAchievements() =
@@ -114,6 +116,36 @@ private fun sampleAchievements() =
         // A milestone this build has never heard of. PERSISTENCE.md says a restore must
         // preserve it, so no test may treat it as corrupt.
         AchievementRow(achievementId = "from_a_newer_version", unlockedAt = FINISHED_AT),
+    )
+
+private fun sampleMarketplace() =
+    listOf(
+        MarketplaceTemplateRow(
+            remoteId = "mp-push-pull-legs",
+            title = "Push Pull Legs",
+            author = "Alex",
+            description = "Classic three-day split.",
+            tags = listOf("chest", "legs"),
+            downloadCount = 4_200,
+            averageRating = 4.6,
+            durationMinutes = 60,
+            createdAt = STARTED_AT,
+            lastSeenAt = FINISHED_AT,
+            isHidden = false,
+        ),
+        MarketplaceTemplateRow(
+            remoteId = "mp-withdrawn",
+            title = "Withdrawn",
+            author = "",
+            description = "",
+            tags = emptyList(),
+            downloadCount = 0,
+            averageRating = 0.0,
+            durationMinutes = 20,
+            createdAt = STARTED_AT,
+            lastSeenAt = STARTED_AT,
+            isHidden = true,
+        ),
     )
 
 private fun sampleGyms() =

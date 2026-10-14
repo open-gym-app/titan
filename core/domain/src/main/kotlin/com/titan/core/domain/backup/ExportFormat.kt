@@ -11,6 +11,7 @@ import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.GymRow
 import com.titan.core.domain.backup.model.ImportError
+import com.titan.core.domain.backup.model.MarketplaceTemplateRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PreferencesPayload
@@ -114,6 +115,7 @@ object ExportFormat {
             is QuestCompletionRow -> json.encodeToString(QuestCompletionRow.serializer(), row)
             is CollectedItemRow -> json.encodeToString(CollectedItemRow.serializer(), row)
             is GymRow -> json.encodeToString(GymRow.serializer(), row)
+            is MarketplaceTemplateRow -> json.encodeToString(MarketplaceTemplateRow.serializer(), row)
         }
 
     /**

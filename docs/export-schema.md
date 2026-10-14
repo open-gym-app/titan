@@ -44,7 +44,8 @@ here that is not a change to those tests is a change nobody made.
   "achievement":           [ … ],
   "quest_completion":      [ … ],
   "collected_item":        [ … ],
-  "gym":                   [ … ]
+  "gym":                   [ … ],
+  "marketplace_template":  [ … ]
 }
 ```
 
@@ -213,7 +214,7 @@ can change in two taps.
 
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
-| 1 | unreleased | Initial format: 20 tables, plus `preferences` |
+| 1 | unreleased | Initial format: 21 tables, plus `preferences` |
 
 Refusing older files is the rule rather than an oversight. A v1 reader handed a v2 file cannot
 know which columns moved; a v2 reader handed a v1 file would have to invent the values v1 never
@@ -265,7 +266,7 @@ rather than read once into anything, and that a target-scale document decodes of
 
 ```sh
 jq empty export.json                                    # it parses
-jq 'keys_unsorted' export.json                          # the envelope, then the 20 tables
+jq 'keys_unsorted' export.json                          # the envelope, then the 21 tables
 jq '.workout_set | length' export.json                  # how many sets it carries
 jq '.schema_version' export.json                        # which reader will accept it
 jq '.workout_set[0] | keys_unsorted' export.json         # a row's columns, in the table's order

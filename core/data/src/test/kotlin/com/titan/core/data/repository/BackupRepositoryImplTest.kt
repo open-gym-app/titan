@@ -15,6 +15,7 @@ import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.GymRow
+import com.titan.core.domain.backup.model.MarketplaceTemplateRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PreferencesPayload
@@ -266,4 +267,5 @@ private fun ExportDocument.withRows(
         BackupTable.QUEST_COMPLETION -> copy(questCompletion = rows.filterIsInstance<QuestCompletionRow>())
         BackupTable.COLLECTED_ITEM -> copy(collectedItem = rows.filterIsInstance<CollectedItemRow>())
         BackupTable.GYM -> copy(gym = rows.filterIsInstance<GymRow>())
+        BackupTable.MARKETPLACE_TEMPLATE -> copy(marketplaceTemplate = rows.filterIsInstance<MarketplaceTemplateRow>())
     }

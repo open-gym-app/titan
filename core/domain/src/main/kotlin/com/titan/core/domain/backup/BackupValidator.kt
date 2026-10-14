@@ -173,6 +173,11 @@ object BackupValidator {
             )
             ?: unique(BackupTable.COLLECTED_ITEM, "id", document.collectedItem.map { it.id })
             ?: unique(BackupTable.GYM, "id", document.gym.map { it.id })
+            ?: unique(
+                BackupTable.MARKETPLACE_TEMPLATE,
+                "remote_id",
+                document.marketplaceTemplate.map { it.remoteId },
+            )
             ?: singleRowProgress(document.userProgress)
             ?: references(XP_CLAIM_TO_SESSION, sessions, document.sessionXpClaim.map { it.sessionId })
             ?: references(LOOT_CLAIM_TO_SESSION, sessions, document.sessionLootClaim.map { it.sessionId })

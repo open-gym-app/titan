@@ -86,6 +86,9 @@ enum class BackupTable(val tableName: String) {
 
     /** Points at nothing. The user's saved gyms. */
     GYM("gym"),
+
+    /** Points at nothing. Templates ingested from the bundled marketplace (M8-04). */
+    MARKETPLACE_TEMPLATE("marketplace_template"),
     ;
 
     companion object {

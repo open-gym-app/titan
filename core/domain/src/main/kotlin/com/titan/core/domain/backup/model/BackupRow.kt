@@ -331,3 +331,19 @@ data class GymRow(
     @SerialName("user_notes") val userNotes: String?,
     @SerialName("created_at") val createdAt: Long,
 ) : BackupRow
+
+/** One row of `marketplace_template`. [tags] is a JSON array, not the newline-joined column. */
+@Serializable
+data class MarketplaceTemplateRow(
+    @SerialName("remote_id") val remoteId: String,
+    @SerialName("title") val title: String,
+    @SerialName("author") val author: String,
+    @SerialName("description") val description: String,
+    @SerialName("tags") val tags: List<String>,
+    @SerialName("download_count") val downloadCount: Int,
+    @SerialName("average_rating") val averageRating: Double,
+    @SerialName("duration_minutes") val durationMinutes: Int,
+    @SerialName("created_at") val createdAt: Long,
+    @SerialName("last_seen_at") val lastSeenAt: Long,
+    @SerialName("is_hidden") val isHidden: Boolean,
+) : BackupRow

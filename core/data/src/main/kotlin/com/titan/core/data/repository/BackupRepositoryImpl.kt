@@ -136,6 +136,8 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.COLLECTED_ITEM -> dao.readCollectedItems(limit, offset).map { it.toRow() }
 
                 BackupTable.GYM -> dao.readGyms(limit, offset).map { it.toRow() }
+
+                BackupTable.MARKETPLACE_TEMPLATE -> dao.readMarketplaceTemplates(limit, offset).map { it.toRow() }
             }
         }
 
@@ -186,6 +188,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
                 BackupTable.COLLECTED_ITEM -> dao.deleteCollectedItems()
                 BackupTable.GYM -> dao.deleteGyms()
+                BackupTable.MARKETPLACE_TEMPLATE -> dao.deleteMarketplaceTemplates()
             }
         }
     }
@@ -247,6 +250,11 @@ class BackupRepositoryImpl @Inject constructor(
             dao::insertCollectedItems,
         ) { it.toEntity() }
         into.table(BackupTable.GYM, document.gym, dao::insertGyms) { it.toEntity() }
+        into.table(
+            BackupTable.MARKETPLACE_TEMPLATE,
+            document.marketplaceTemplate,
+            dao::insertMarketplaceTemplates,
+        ) { it.toEntity() }
     }
 
     /**

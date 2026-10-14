@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "remote_id": "mp-push-pull-legs",
+      "title": "Push Pull Legs",
+      "author": "Alex",
+      "description": "Classic three-day split for steady strength gains.",
+      "tags": [
+        "chest",
+        "back",
+        "legs",
+        "barbell"
+      ],
+      "download_count": 4200,
+      "average_rating": 4.6,
+      "duration_minutes": 60,
+      "created_at": 1700000000000
+    },
+    {
+      "remote_id": "mp-upper-body-dumbbell",
+      "title": "Upper Body Dumbbell Day",
+      "author": "Sam",
+      "description": "Home-friendly upper body session with a pair of dumbbells.",
+      "tags": [
+        "chest",
+        "shoulders",
+        "arms",
+        "dumbbell"
+      ],
+      "download_count": 900,
+      "average_rating": 4.4,
+      "duration_minutes": 45,
+      "created_at": 1710000000000
+    },
+    {
+      "remote_id": "mp-quick-core",
+      "title": "Ten Minute Core",
+      "author": "Jo",
+      "description": "Short bodyweight core finisher.",
+      "tags": [
+        "core",
+        "bodyweight"
+      ],
+      "download_count": 2500,
+      "average_rating": 4.2,
+      "duration_minutes": 10,
+      "created_at": 1715000000000
+    },
+    {
+      "remote_id": "mp-full-body-beginner",
+      "title": "Full Body Beginner",
+      "author": "Alex",
+      "description": "Three full-body sessions a week built on the big compound lifts.",
+      "tags": [
+        "full body",
+        "barbell",
+        "beginner"
+      ],
+      "download_count": 7800,
+      "average_rating": 4.7,
+      "duration_minutes": 50,
+      "created_at": 1690000000000
+    },
+    {
+      "remote_id": "mp-lower-body-strength",
+      "title": "Lower Body Strength",
+      "author": "Priya",
+      "description": "Squat-led leg day with accessories for hamstrings and calves.",
+      "tags": [
+        "legs",
+        "glutes",
+        "barbell"
+      ],
+      "download_count": 1600,
+      "average_rating": 4.5,
+      "duration_minutes": 55,
+      "created_at": 1720000000000
+    },
+    {
+      "remote_id": "mp-back-and-biceps",
+      "title": "Back and Biceps",
+      "author": "Sam",
+      "description": "Pull-focused session: rows, pull-downs and curls.",
+      "tags": [
+        "back",
+        "biceps",
+        "cable"
+      ],
+      "download_count": 1100,
+      "average_rating": 4.3,
+      "duration_minutes": 50,
+      "created_at": 1705000000000
+    },
+    {
+      "remote_id": "mp-kettlebell-conditioning",
+      "title": "Kettlebell Conditioning",
+      "author": "Jo",
+      "description": "Swings, cleans and carries for a short, sweaty finisher.",
+      "tags": [
+        "kettlebell",
+        "conditioning"
+      ],
+      "download_count": 640,
+      "average_rating": 4.1,
+      "duration_minutes": 25,
+      "created_at": 1725000000000
+    },
+    {
+      "remote_id": "mp-mobility-reset",
+      "title": "Mobility Reset",
+      "author": "Priya",
+      "description": "Gentle hips, shoulders and spine routine for rest days.",
+      "tags": [
+        "mobility",
+        "bodyweight"
+      ],
+      "download_count": 3100,
+      "average_rating": 4.8,
+      "duration_minutes": 20,
+      "created_at": 1698000000000
+    }
+  ]
+}

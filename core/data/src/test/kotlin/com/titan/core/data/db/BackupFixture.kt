@@ -5,6 +5,7 @@ import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
 import com.titan.core.data.db.entity.GymEntity
+import com.titan.core.data.db.entity.MarketplaceTemplateEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
@@ -193,6 +194,40 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
         ),
     )
     seedGyms(dao)
+    seedMarketplace(dao)
+}
+
+private suspend fun seedMarketplace(dao: BackupDao) {
+    dao.insertMarketplaceTemplates(
+        listOf(
+            MarketplaceTemplateEntity(
+                remoteId = "mp-push-pull-legs",
+                title = "Push Pull Legs",
+                author = "Alex",
+                description = "Classic three-day split.",
+                tags = "chest\nlegs",
+                downloadCount = 4_200,
+                averageRating = 4.6,
+                durationMinutes = 60,
+                createdAt = STARTED_AT,
+                lastSeenAt = FINISHED_AT,
+                isHidden = false,
+            ),
+            MarketplaceTemplateEntity(
+                remoteId = "mp-withdrawn",
+                title = "Withdrawn",
+                author = "",
+                description = "",
+                tags = "",
+                downloadCount = 0,
+                averageRating = 0.0,
+                durationMinutes = 20,
+                createdAt = STARTED_AT,
+                lastSeenAt = STARTED_AT,
+                isHidden = true,
+            ),
+        ),
+    )
 }
 
 private suspend fun seedGyms(dao: BackupDao) {

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "6740b88474ef9e9c3e1e9a8cd5a9dcb0",
+    "identityHash": "54ef154abd464dbd14f5320b96c82ea3",
     "entities": [
       {
         "tableName": "exercise",
@@ -1475,11 +1475,89 @@
             "id"
           ]
         }
+      },
+      {
+        "tableName": "marketplace_template",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`remote_id` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT NOT NULL, `description` TEXT NOT NULL, `tags` TEXT NOT NULL, `download_count` INTEGER NOT NULL, `average_rating` REAL NOT NULL, `duration_minutes` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `last_seen_at` INTEGER NOT NULL, `is_hidden` INTEGER NOT NULL, PRIMARY KEY(`remote_id`))",
+        "fields": [
+          {
+            "fieldPath": "remoteId",
+            "columnName": "remote_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "author",
+            "columnName": "author",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tags",
+            "columnName": "tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "downloadCount",
+            "columnName": "download_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "averageRating",
+            "columnName": "average_rating",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationMinutes",
+            "columnName": "duration_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAt",
+            "columnName": "last_seen_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isHidden",
+            "columnName": "is_hidden",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "remote_id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6740b88474ef9e9c3e1e9a8cd5a9dcb0')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '54ef154abd464dbd14f5320b96c82ea3')"
     ]
   }
 }

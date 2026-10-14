@@ -3,6 +3,7 @@ package com.titan.app
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.titan.core.data.marketplace.MarketplaceBootstrap
 import com.titan.core.data.notification.NotificationChannels
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
@@ -54,6 +55,9 @@ class TitanApplication :
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var marketplaceBootstrap: MarketplaceBootstrap
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -62,5 +66,6 @@ class TitanApplication :
     override fun onCreate() {
         super.onCreate()
         notificationChannels.register()
+        marketplaceBootstrap.start()
     }
 }

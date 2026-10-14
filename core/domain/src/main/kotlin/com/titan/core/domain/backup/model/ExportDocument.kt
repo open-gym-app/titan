@@ -69,6 +69,7 @@ data class ExportDocument(
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
     @SerialName("gym") val gym: List<GymRow> = emptyList(),
+    @SerialName("marketplace_template") val marketplaceTemplate: List<MarketplaceTemplateRow> = emptyList(),
 ) {
 
     /**
@@ -101,6 +102,7 @@ data class ExportDocument(
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
             BackupTable.GYM -> gym
+            BackupTable.MARKETPLACE_TEMPLATE -> marketplaceTemplate
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
