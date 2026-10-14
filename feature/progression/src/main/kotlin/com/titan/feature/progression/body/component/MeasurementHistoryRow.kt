@@ -49,9 +49,9 @@ import com.titan.feature.progression.R
  * so drawing it would be the same fact stated twice on a row that has to fit a phone.
  *
  * @param onEdit open the form on this entry.
- * @param onDelete remove it. Immediate, with no confirmation: a measurement is one line in a
- *   history and re-typing it is a ten-second job, where a dialog on every swipe is a tax on the
- *   user who mistyped one.
+ * @param onDelete remove it. Immediate, with no confirmation — a dialog on every swipe is a tax
+ *   on the user who mistyped one — and undoable instead: the screen offers the entry back, which
+ *   is what `SwipeToDelete`'s short drag leans on to keep a slip from costing a measurement.
  */
 @Composable
 fun MeasurementHistoryRow(

@@ -255,6 +255,10 @@
     <!-- What tapping and swiping a row do, said before the gesture rather than after it. -->
     <string name="body_history_edit">Edit the entry from %1$s</string>
     <string name="body_history_delete">Delete the entry from %1$s</string>
+    <!-- The undo offer after a row is swiped away. Names the entry by its date, which is what
+         the row was drawn under. -->
+    <string name="body_history_deleted">Entry from %1$s deleted</string>
+    <string name="body_history_undo">Undo</string>
     <!-- Only reachable for a row no version of this app can write: the validator refuses an
          entry that records nothing. -->
     <string name="body_history_empty_entry">No measurements</string>

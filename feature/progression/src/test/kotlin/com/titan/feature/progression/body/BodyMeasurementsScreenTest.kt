@@ -140,6 +140,18 @@ class BodyMeasurementsScreenTest {
     }
 
     @Test
+    fun `a row swiped away is offered back, and the undo reports it`() {
+        val state = populated()
+        show(state.copy(deleted = state.history.first()))
+
+        composeTestRule.onNodeWithText("deleted", substring = true).assertIsDisplayed()
+        composeTestRule.onNodeWithText("Undo").performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals(listOf(BodyMeasurementsEvent.DeleteUndone), events)
+    }
+
+    @Test
     fun `a weigh-in with nothing else on it reads as the one figure it holds`() {
         show(populated())
 

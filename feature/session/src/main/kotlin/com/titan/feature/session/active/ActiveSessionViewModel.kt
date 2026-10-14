@@ -629,7 +629,12 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.PauseToggled -> togglePause()
 
-            ActiveSessionEvent.FinishRequested -> finish()
+            ActiveSessionEvent.FinishRequested -> requestFinish()
+
+            ActiveSessionEvent.FinishConfirmed -> finish()
+
+            ActiveSessionEvent.FinishDismissed ->
+                screenState.update { it.copy(confirmingFinish = false) }
 
             ActiveSessionEvent.DiscardRequested ->
                 screenState.update { it.copy(confirmingDiscard = true) }
@@ -2220,6 +2225,38 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
+     * Puts the question up in front of END — or, over a workout with nothing ticked, skips it.
+     *
+     * `FinishSessionUseCase` refuses a session with no completed sets, so asking first would be
+     * a confirmation answered by a refusal. The refusal is put on the page straight away
+     * instead, with the way past it.
+     *
+     * Put there directly rather than by calling [finish] and letting the use case refuse. The
+     * count is read off [uiState], which Room re-emits in its own time — a set whose write has
+     * just come back is not in it yet (see [log]) — so a zero here can be a workout with one set
+     * on disk. [finish] over that would close it out with no question asked, which is the stray
+     * tap this exists to catch; a refusal over it costs a second tap once the count catches up.
+     * Before the first read there is no count at all, and END does nothing until there is.
+     *
+     * Only an earlier refusal is taken down as the question goes up. Anything else in the bar is
+     * about something that already happened, and is left to finish being said.
+     */
+    private fun requestFinish() {
+        if (!screenState.value.canFinish) return
+        val loggedSets = uiState.value.stats?.totalSets ?: return
+        if (loggedSets == 0) {
+            screenState.update { it.copy(message = ActiveSessionMessage.NO_SETS_LOGGED) }
+        } else {
+            screenState.update {
+                it.copy(
+                    confirmingFinish = true,
+                    message = it.message.takeUnless { message -> message == ActiveSessionMessage.NO_SETS_LOGGED },
+                )
+            }
+        }
+    }
+
+    /**
      * Closes the workout out and reports the session to recap.
      *
      * A refusal for having logged nothing is shown inline and goes no further —
@@ -2242,7 +2279,7 @@ class ActiveSessionViewModel @Inject constructor(
         // drawn inert for the same reason; this is what stops the event dispatched just before
         // it was.
         if (!screenState.value.canFinish) return
-        screenState.update { it.copy(isFinishing = true, message = null) }
+        screenState.update { it.copy(isFinishing = true, confirmingFinish = false, message = null) }
 
         viewModelScope.launch {
             flushSetEdits()
@@ -2611,6 +2648,7 @@ class ActiveSessionViewModel @Inject constructor(
             loggingExerciseIds = screen.loggingExerciseIds,
             togglingSetIds = screen.togglingSetIds,
             isFinishing = screen.isFinishing,
+            confirmingFinish = screen.confirmingFinish,
             isDiscarding = screen.isDiscarding,
             confirmingDiscard = screen.confirmingDiscard,
             finishedSessionId = screen.finishedSessionId,
@@ -2863,6 +2901,7 @@ private data class ScreenState(
     val togglingSetIds: Set<Long> = emptySet(),
     val isPausing: Boolean = false,
     val isFinishing: Boolean = false,
+    val confirmingFinish: Boolean = false,
     val isDiscarding: Boolean = false,
     val confirmingDiscard: Boolean = false,
     val finishedSessionId: Long? = null,

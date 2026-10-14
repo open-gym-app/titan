@@ -3,6 +3,7 @@ package com.titan.core.ui.component
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -48,12 +49,28 @@ class SwipeToDeleteTest {
     }
 
     @Test
-    fun `negative - a drag let go half way deletes nothing`() {
+    fun `a drag let go half way across deletes it`() {
+        swipeToDelete()
+
+        // Not the whole row: on a phone the row is the screen, and a thumb holding the phone
+        // cannot reach across it.
+        composeTestRule.onNodeWithTag(ROW).performTouchInput {
+            down(centerRight)
+            moveTo(center)
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        assertEquals(1, deletes)
+    }
+
+    @Test
+    fun `negative - a drag let go a quarter of the way deletes nothing`() {
         swipeToDelete()
 
         composeTestRule.onNodeWithTag(ROW).performTouchInput {
             down(centerRight)
-            moveTo(center)
+            moveTo(centerRight - Offset((right - left) / 4f, 0f))
             up()
         }
 

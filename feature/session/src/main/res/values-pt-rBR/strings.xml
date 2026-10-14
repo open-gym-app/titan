@@ -94,6 +94,20 @@
     <string name="active_missing_title">Este treino não existe mais</string>
     <string name="active_missing_body">Foi excluído ou finalizado em outro lugar. Nada aqui pode mais ser registrado nele.</string>
 
+    <string name="finish_session_title">Finalizar este treino?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d série registrada será salva.</item>
+        <item quantity="many">%1$d séries registradas serão salvas.</item>
+        <item quantity="other">%1$d séries registradas serão salvas.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercício ainda não tem nada registrado.</item>
+        <item quantity="many">%1$d exercícios ainda não têm nada registrado.</item>
+        <item quantity="other">%1$d exercícios ainda não têm nada registrado.</item>
+    </plurals>
+    <string name="finish_session_confirm">Finalizar treino</string>
+    <string name="finish_session_cancel">Continuar treinando</string>
+
     <string name="active_error_no_sets">Registre pelo menos uma série antes de finalizar, ou descarte o treino.</string>
     <string name="active_error_finish">Não foi possível finalizar o treino. Nada foi salvo e o treino continua em andamento.</string>
     <string name="active_error_discard">Não foi possível descartar o treino. Ele continua em andamento.</string>

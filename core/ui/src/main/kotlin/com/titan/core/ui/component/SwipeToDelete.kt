@@ -30,14 +30,14 @@ import com.titan.core.ui.theme.TitanTheme
 import kotlin.math.roundToInt
 
 /**
- * A row that is thrown away by dragging it clear off the screen, right to left.
+ * A row that is thrown away by dragging it a good way to the left and letting go.
  *
  * ### Why a gesture rather than a control
  *
  * Because of where the rows are. A logged set is a line in a table that is read at a glance
  * between sets, and the thing a lifter does to that table most often is *nothing* — a control on
  * every line of it is chrome on every line of it, and a destructive control on every line is one
- * that gets pressed by the thumb steadying the phone. A drag across the whole row cannot happen
+ * that gets pressed by the thumb steadying the phone. A long drag along the row is hard to make
  * by accident: it is one direction, one continuous movement, with the finger down the whole way.
  *
  * That is also why a drag the other way does nothing here. One direction means one outcome, and a
@@ -47,11 +47,10 @@ import kotlin.math.roundToInt
  * ### Why the gesture is drawn here rather than taken from `SwipeToDismissBox`
  *
  * Material's box is the obvious answer and it commits on the wrong thing. It settles on distance
- * *or velocity*, so a quick horizontal flick a third of the way across deletes the row — which is
- * exactly the accident this is supposed to be immune to, and the reason its default threshold is
- * half the width rather than all of it. Here the only thing that commits is distance:
- * [COMMIT_FRACTION] of the row, released. A row let go short of that springs back, however fast it
- * was travelling.
+ * *or velocity*, so a quick horizontal flick a fraction of the way across deletes the row — which
+ * is exactly the accident this is supposed to be immune to, whatever its distance threshold is.
+ * Here the only thing that commits is distance: [COMMIT_FRACTION] of the row, released. A row let
+ * go short of that springs back, however fast it was travelling.
  *
  * The track under the finger says which side of that line the drag is on — the soft error
  * container while it would spring back, the full error tone once it would commit — so the
@@ -179,10 +178,11 @@ private fun DeleteTrack(
 /**
  * How much of the row has to have gone before letting go deletes it.
  *
- * Not all of it, and not nearly all of it either. Two things are taken off the top of any drag:
- * the touch slop, which is spent before the row moves at all, and wherever on the row the finger
- * came down, which is never the last pixel of it. Nine tenths is past every accidental swipe — a
- * flick along a row, a mis-aimed scroll — while still being reachable by a thumb that started its
- * movement somewhere reasonable.
+ * Under half, because the row is as wide as the phone: a threshold near the far edge asks the
+ * thumb to cross the whole screen, which is a two-handed gesture on a phone held in one hand
+ * between sets. Two fifths is still well past a flick along the row or a mis-aimed scroll — and
+ * velocity never counts, so a fast short drag springs back however hard it was thrown. What makes
+ * the shorter distance safe is that the delete is undoable rather than confirmed (see [onDelete]),
+ * so the gesture only has to rule out the accident, not the change of mind.
  */
-private const val COMMIT_FRACTION = 0.9f
+private const val COMMIT_FRACTION = 0.4f

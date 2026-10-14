@@ -1201,7 +1201,7 @@ class ActiveSessionViewModelTest {
             val viewModel = viewModel(store = threeSetStore())
 
             viewModel.onEvent(ActiveSessionEvent.SetDeleted(BENCH_ROW, setId = 2L))
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             // The undo is a snackbar action, which going inert does not reach: it stays on screen
             // and pressable over a workout that is already over. `RestoreSetUseCase` refuses one, so
@@ -2368,7 +2368,7 @@ class ActiveSessionViewModelTest {
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
             viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
 
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             // Awaited inside the finish rather than launched beside it: the state update that
             // follows is what navigates away, and the pop takes `viewModelScope` with it.
@@ -2394,7 +2394,7 @@ class ActiveSessionViewModelTest {
             val viewModel = viewModel()
             viewModel.onEvent(ActiveSessionEvent.ScreenHidden)
 
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             assertEquals(ActiveSessionMessage.NO_SETS_LOGGED, viewModel.uiState.value.message)
             assertTrue(idleSession.isArmed)
@@ -2528,7 +2528,7 @@ class ActiveSessionViewModelTest {
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             // The note and the alarm outlive this process, so they have to be taken down by
             // name — a scope going away does not clear a notification.
@@ -2744,7 +2744,7 @@ class ActiveSessionViewModelTest {
             val viewModel = viewModel()
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             viewModel.onEvent(ActiveSessionEvent.ExercisesPicked(listOf(PUSHDOWN.id)))
 
@@ -2807,13 +2807,70 @@ class ActiveSessionViewModelTest {
     // ─── Finishing ──────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `finishing a session with sets reports the session to recap`() =
+    fun `ending asks first`() =
         runTest {
             val viewModel = viewModel()
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
 
             viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+            assertTrue(viewModel.uiState.value.confirmingFinish)
+            assertFalse(viewModel.uiState.value.isFinishing)
+            assertNull(viewModel.uiState.value.finishedSessionId)
+        }
+
+    @Test
+    fun `confirming the end finishes and takes the question down`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            assertFalse(viewModel.uiState.value.confirmingFinish)
+            assertEquals(ACTIVE_SESSION_ID, viewModel.uiState.value.finishedSessionId)
+        }
+
+    @Test
+    fun `keeping training leaves the workout running`() =
+        runTest {
+            val state = FakeSessionStateStore()
+            val viewModel = viewModel(state = state)
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishDismissed)
+
+            assertFalse(viewModel.uiState.value.confirmingFinish)
+            assertNull(viewModel.uiState.value.finishedSessionId)
+            assertTrue(state.current is SessionState.Active)
+        }
+
+    @Test
+    fun `with nothing logged END goes straight to the refusal rather than asking`() =
+        runTest {
+            // `FinishSessionUseCase` refuses this one anyway, and a question answered by a refusal
+            // is two interruptions for one answer.
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+
+            assertFalse(viewModel.uiState.value.confirmingFinish)
+            assertEquals(ActiveSessionMessage.NO_SETS_LOGGED, viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `finishing a session with sets reports the session to recap`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             assertEquals(ACTIVE_SESSION_ID, viewModel.uiState.value.finishedSessionId)
         }
@@ -2829,7 +2886,7 @@ class ActiveSessionViewModelTest {
             // Typed and not left: END is a button, and tapping one does not take focus off a field,
             // so nothing has asked for this correction to be written.
             viewModel.onEvent(ActiveSessionEvent.SetEditWeightChanged(BENCH_ROW, setId = 1L, text = "72.5"))
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             assertNull(
                 "the session is not closed out over a correction still going in",
@@ -2848,7 +2905,7 @@ class ActiveSessionViewModelTest {
         runTest {
             val viewModel = viewModel()
 
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             assertEquals(ActiveSessionMessage.NO_SETS_LOGGED, viewModel.uiState.value.message)
             assertNull(viewModel.uiState.value.finishedSessionId)
@@ -2887,7 +2944,7 @@ class ActiveSessionViewModelTest {
             val state = FakeSessionStateStore()
             val viewModel = viewModel(state = state)
 
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             assertTrue(state.current is SessionState.Active)
         }
@@ -2904,7 +2961,7 @@ class ActiveSessionViewModelTest {
             val viewModel = viewModel(state = state)
             viewModel.enter(weight = "80", reps = "5")
             viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
-            viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
 
             viewModel.onEvent(ActiveSessionEvent.PauseToggled)
 

@@ -325,6 +325,55 @@ class BodyMeasurementsViewModelTest {
             assertEquals(1, state().history.size)
         }
 
+    @Test
+    fun `a deleted entry is offered back, and taking the offer restores it`() =
+        runTest {
+            val doomed = measurementOn(TODAY, id = 1, weight = bodyKg(78))
+            store.insert(doomed)
+            val state = collect()
+
+            viewModel.onEvent(BodyMeasurementsEvent.Deleted(doomed.id))
+            advanceUntilIdle()
+            assertEquals(doomed, state().deleted)
+
+            viewModel.onEvent(BodyMeasurementsEvent.DeleteUndone)
+            advanceUntilIdle()
+
+            assertNull(state().deleted)
+            assertEquals(listOf(doomed.weight), state().history.map { it.weight })
+        }
+
+    @Test
+    fun `negative - pressing undo twice restores the entry once`() =
+        runTest {
+            val doomed = measurementOn(TODAY, id = 1, weight = bodyKg(78))
+            store.insert(doomed)
+            val state = collect()
+            viewModel.onEvent(BodyMeasurementsEvent.Deleted(doomed.id))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BodyMeasurementsEvent.DeleteUndone)
+            viewModel.onEvent(BodyMeasurementsEvent.DeleteUndone)
+            advanceUntilIdle()
+
+            assertEquals(1, state().history.size)
+        }
+
+    @Test
+    fun `an offer that lapses leaves the entry deleted`() =
+        runTest {
+            val doomed = measurementOn(TODAY, id = 1, weight = bodyKg(78))
+            store.insert(doomed)
+            val state = collect()
+            viewModel.onEvent(BodyMeasurementsEvent.Deleted(doomed.id))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BodyMeasurementsEvent.DeleteDismissed)
+
+            assertNull(state().deleted)
+            assertTrue(state().history.isEmpty())
+        }
+
     // ─── Process death (#183) ───────────────────────────────────────────────────────────
 
     @Test

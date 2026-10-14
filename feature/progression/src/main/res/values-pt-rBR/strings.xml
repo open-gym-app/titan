@@ -193,6 +193,8 @@
     <string name="body_history_part">%1$s %2$s</string>
     <string name="body_history_edit">Editar o registro de %1$s</string>
     <string name="body_history_delete">Excluir o registro de %1$s</string>
+    <string name="body_history_deleted">Registro de %1$s excluído</string>
+    <string name="body_history_undo">Desfazer</string>
     <string name="body_history_empty_entry">Sem medidas</string>
 
     <!-- ── The form ─────────────────────────────────────────────────────────────── -->

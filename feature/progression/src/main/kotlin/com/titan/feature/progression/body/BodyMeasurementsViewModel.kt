@@ -77,6 +77,9 @@ class BodyMeasurementsViewModel @Inject constructor(
     /** Whether [save]'s write is still in flight. See [BodyMeasurementsUiState.isSaving]. */
     private val saving = MutableStateFlow(false)
 
+    /** The entry behind the undo offer. See [BodyMeasurementsUiState.deleted]. */
+    private val deleted = MutableStateFlow<BodyMeasurement?>(null)
+
     init {
         // The timeframe is shared with the hub and the drill-down, and outlives the process
         // through this handle — see `ProgressionTimeframe.restoreThrough`.
@@ -88,7 +91,8 @@ class BodyMeasurementsViewModel @Inject constructor(
         repository.getAll(),
         form,
         saving,
-    ) { selected, history, open, isSaving ->
+        deleted,
+    ) { selected, history, open, isSaving, offered ->
         BodyMeasurementsUiState(
             timeframe = selected,
             isLoading = false,
@@ -96,6 +100,7 @@ class BodyMeasurementsViewModel @Inject constructor(
             window = history.inside(selected),
             form = open.entry,
             isSaving = isSaving,
+            deleted = offered,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -129,6 +134,10 @@ class BodyMeasurementsViewModel @Inject constructor(
             is BodyMeasurementsEvent.Saved -> save(event.measurement)
 
             is BodyMeasurementsEvent.Deleted -> delete(event.id)
+
+            BodyMeasurementsEvent.DeleteUndone -> undoDelete()
+
+            BodyMeasurementsEvent.DeleteDismissed -> deleted.value = null
         }
     }
 
@@ -212,9 +221,31 @@ class BodyMeasurementsViewModel @Inject constructor(
         }
     }
 
-    /** Removes the entry [id] names. */
+    /**
+     * Removes the entry [id] names, and offers it back.
+     *
+     * The entry is copied out of the history before the delete, because once the store has let
+     * go of it that copy is the only one the undo can put back. Offered only once the delete has
+     * gone through: an undo over a refused delete would insert a second copy of a row that is
+     * still there.
+     */
     private fun delete(id: Long) {
-        viewModelScope.launch { write { repository.delete(id) } }
+        val entry = uiState.value.history.firstOrNull { it.id == id }
+        viewModelScope.launch {
+            if (write { repository.delete(id) } != null && entry != null) deleted.value = entry
+        }
+    }
+
+    /**
+     * Puts the entry behind the undo offer back, under its own id and dates.
+     *
+     * The offer is taken down first, so a second press dispatched before the snackbar has gone
+     * finds nothing to restore rather than inserting the entry twice.
+     */
+    private fun undoDelete() {
+        val entry = deleted.value ?: return
+        deleted.value = null
+        viewModelScope.launch { write { repository.insert(entry) } }
     }
 
     /**

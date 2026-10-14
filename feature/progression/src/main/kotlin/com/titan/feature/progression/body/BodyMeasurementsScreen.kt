@@ -16,11 +16,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,6 +36,7 @@ import com.titan.core.domain.model.BodyMeasurement
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.component.EmptyState
 import com.titan.core.ui.component.SectionHeading
+import com.titan.core.ui.format.formatSessionDate
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.progression.R
 import com.titan.feature.progression.body.component.BodyWeightCard
@@ -96,10 +103,38 @@ fun BodyMeasurementsScreen(
     onEvent: (BodyMeasurementsEvent) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
+    // The undo, which is what lets a row go on a short drag with no question asked — see
+    // `SwipeToDelete`. Keyed on the entry's id, so a second row swiped away while the first
+    // offer is up replaces that offer rather than queueing behind it: two identical buttons in
+    // a row would mean two different entries. `Long` for the reason the workout's set undo is:
+    // this is the window in which a mistake can be taken back, not a notification.
+    val deletedText = state.deleted?.let {
+        stringResource(R.string.body_history_deleted, formatSessionDate(it.createdAt))
+    }
+    val undoLabel = stringResource(R.string.body_history_undo)
+
+    LaunchedEffect(state.deleted?.id) {
+        if (deletedText == null) return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        val result = snackbarHostState.showSnackbar(
+            message = deletedText,
+            actionLabel = undoLabel,
+            duration = SnackbarDuration.Long,
+        )
+        onEvent(
+            when (result) {
+                SnackbarResult.ActionPerformed -> BodyMeasurementsEvent.DeleteUndone
+                SnackbarResult.Dismissed -> BodyMeasurementsEvent.DeleteDismissed
+            },
+        )
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         // Outside the tab scaffold, like the other drill-downs, so the bar spends the system
         // bars' space and the body below it does not spend it again.
         contentWindowInsets = WindowInsets(left = 0, top = 0, right = 0, bottom = 0),

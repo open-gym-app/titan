@@ -7,7 +7,7 @@ import com.titan.feature.progression.stats.StatsTimeframe
  * What the user can do to the body screen.
  *
  * The first progression screen that **writes**. The other two are readouts, so their events
- * only change what is being read; four of the six below change the history itself, which is
+ * only change what is being read; three of the eight below change the history itself, which is
  * why this one has a form behind it at all.
  */
 sealed interface BodyMeasurementsEvent {
@@ -45,6 +45,17 @@ sealed interface BodyMeasurementsEvent {
      */
     data class Saved(val measurement: BodyMeasurement) : BodyMeasurementsEvent
 
-    /** A history row was swiped away. */
+    /**
+     * A history row was swiped away.
+     *
+     * Deleted at once and offered back rather than confirmed — see
+     * [com.titan.core.ui.component.SwipeToDelete], whose short drag leans on that undo.
+     */
     data class Deleted(val id: Long) : BodyMeasurementsEvent
+
+    /** The undo on the deletion's snackbar was pressed: put the entry back. */
+    data object DeleteUndone : BodyMeasurementsEvent
+
+    /** The deletion's snackbar went away without its undo being pressed. */
+    data object DeleteDismissed : BodyMeasurementsEvent
 }
