@@ -90,4 +90,16 @@ sealed interface XpEvent {
         val questId: String,
         val xp: Int,
     ) : XpEvent
+
+    /**
+     * The user's first check-in at any gym — once in a lifetime, not once per gym.
+     *
+     * Priced by a constant like the other fixed-value sources. That it happens only once is
+     * not this type's doing (see "One event per qualifying action" above): the emitter,
+     * [com.titan.core.domain.gym.GymXpHook], claims the milestone before emitting.
+     */
+    data object GymFirstCheckIn : XpEvent
+
+    /** The user's first gym review — once in a lifetime, fenced by [com.titan.core.domain.gym.GymXpHook]. */
+    data object GymFirstReview : XpEvent
 }

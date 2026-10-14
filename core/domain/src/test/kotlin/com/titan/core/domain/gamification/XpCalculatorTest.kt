@@ -107,12 +107,20 @@ class XpCalculatorTest {
     }
 
     @Test
+    fun `the first gym check-in and review are worth 50 and 30`() {
+        assertEquals(50, XpCalculator.xpFor(XpEvent.GymFirstCheckIn))
+        assertEquals(30, XpCalculator.xpFor(XpEvent.GymFirstReview))
+    }
+
+    @Test
     fun `every source is worth something`() {
         val events = listOf(
             XpEvent.SetLogged,
             XpEvent.SessionFinished,
             XpEvent.PrBroken(PrType.MAX_WEIGHT),
             XpEvent.AchievementUnlocked("first_pr"),
+            XpEvent.GymFirstCheckIn,
+            XpEvent.GymFirstReview,
         )
 
         assertEquals(emptyList<XpEvent>(), events.filter { XpCalculator.xpFor(it) <= 0 })

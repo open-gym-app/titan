@@ -42,6 +42,12 @@ object XpCalculator {
     /** Points for one unlocked achievement — see [XpEvent.AchievementUnlocked]. */
     const val XP_PER_ACHIEVEMENT = 100
 
+    /** Points for the first gym check-in ever — see [XpEvent.GymFirstCheckIn]. */
+    const val XP_PER_FIRST_GYM_CHECK_IN = 50
+
+    /** Points for the first gym review ever — see [XpEvent.GymFirstReview]. */
+    const val XP_PER_FIRST_GYM_REVIEW = 30
+
     /** The cost of every level, the whole of the curve — see the class doc. */
     const val XP_PER_LEVEL = 100
 
@@ -73,6 +79,10 @@ object XpCalculator {
             // rather than a property of the kind, so it arrives on the event; see
             // [XpEvent.QuestCompleted], which carries the argument.
             is XpEvent.QuestCompleted -> event.xp
+
+            XpEvent.GymFirstCheckIn -> XP_PER_FIRST_GYM_CHECK_IN
+
+            XpEvent.GymFirstReview -> XP_PER_FIRST_GYM_REVIEW
         }
 
     /**
