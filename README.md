@@ -86,6 +86,7 @@ Reference documentation lives in [`docs/`](docs/):
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md): module structure, dependency rules, navigation and dependency injection.
 - [PERSISTENCE.md](docs/PERSISTENCE.md): the database schema, its migration strategy and the storage assumptions built on it.
 - [ACCESSIBILITY.md](docs/ACCESSIBILITY.md): what the app promises TalkBack, large fonts and a thumb, how every build checks it, and the record of the last pass on a device.
+- [m8-rollout.md](docs/m8-rollout.md): the M8 kill-switches, their defaults, the staged rollout and the regression checklist.
 - [TRANSLATION.md](docs/TRANSLATION.md): the languages the app ships in, the check that keeps every translation in step with the English, and the glossary each one is held to.
 
 ## Contributing

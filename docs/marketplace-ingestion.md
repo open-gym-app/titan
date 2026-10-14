@@ -14,7 +14,7 @@ IngestionSource ──► MarketplaceIngestionStrategy.ingest() ──► Flow<I
      4. MarketplaceIngestionStore.reconcile()   one Room transaction: read, plan, write
 ```
 
-Everything before step 4 can fail without a write having happened, so a broken bundle cannot make the stored templates look absent. `MarketplaceBootstrap.start()` runs this once per launch from `TitanApplication`, in the background; a failure leaves the table as it was.
+Everything before step 4 can fail without a write having happened, so a broken bundle cannot make the stored templates look absent. `MarketplaceBootstrap.start()` runs this once per launch from `TitanApplication`, in the background, and only for a user who turned on `MARKETPLACE_INGESTION` (off by default; see [m8-rollout.md](m8-rollout.md)); a failure leaves the table as it was.
 
 ## Rules (all in `MarketplaceReconciler`)
 

@@ -2,6 +2,8 @@ package com.titan.core.data.marketplace
 
 import android.database.sqlite.SQLiteException
 import com.titan.core.data.di.IoDispatcher
+import com.titan.core.domain.feature.FeatureToggles
+import com.titan.core.domain.feature.M8Feature
 import com.titan.core.domain.marketplace.BundleFormatException
 import com.titan.core.domain.marketplace.IngestionSource
 import com.titan.core.domain.marketplace.MarketplaceIngestionStrategy
@@ -21,10 +23,14 @@ import javax.inject.Singleton
  *
  * Fire-and-forget: a failure leaves the table as it was and is not allowed to take the launch
  * with it. Nothing is read by the UI yet, so launch never waits on this.
+ *
+ * Behind [M8Feature.MARKETPLACE_INGESTION], off by default: a user who never opts in launches
+ * with no read of the bundle and no write to the table. See `docs/m8-rollout.md`.
  */
 @Singleton
 class MarketplaceBootstrap @Inject constructor(
     private val strategy: MarketplaceIngestionStrategy,
+    private val toggles: FeatureToggles,
     @IoDispatcher dispatcher: CoroutineDispatcher,
 ) {
 
@@ -33,6 +39,7 @@ class MarketplaceBootstrap @Inject constructor(
     fun start(): Job =
         scope.launch {
             try {
+                if (!toggles.isEnabled(M8Feature.MARKETPLACE_INGESTION)) return@launch
                 strategy.ingest(BUNDLED).collect()
             } catch (ignored: BundleFormatException) {
                 // The previous contents stand until the next launch.
