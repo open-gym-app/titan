@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.gamification.Achievements
+import com.titan.core.domain.gamification.tier
 import com.titan.core.domain.model.Achievement
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
@@ -107,10 +108,12 @@ class AchievementTriggerUseCase(
             if (!gamificationRepository.unlockAchievement(achievement.id, unlockedAt)) {
                 return@withContext null
             }
+            val tier = achievement.tier(catalogue)
             AchievementUnlock(
                 achievement = achievement,
+                tier = tier,
                 unlockedAt = unlockedAt,
-                xp = awardXp(XpEvent.AchievementUnlocked(achievement.id)),
+                xp = awardXp(XpEvent.AchievementUnlocked(achievement.id, tier)),
             )
         }
 }

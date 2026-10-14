@@ -1,7 +1,9 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.gamification.AchievementTier
 import com.titan.core.domain.gamification.Achievements
 import com.titan.core.domain.gamification.XpCalculator
+import com.titan.core.domain.gamification.tier
 import com.titan.core.domain.model.Achievement
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
@@ -41,12 +43,13 @@ class AchievementTriggerUseCaseTest {
                 listOf(
                     AchievementUnlock(
                         achievement = Achievements.FIRST_SESSION,
+                        tier = AchievementTier.BRONZE,
                         unlockedAt = FINISHED_AT,
                         xp = XpAward(
-                            awarded = XpCalculator.XP_PER_ACHIEVEMENT,
-                            totalXp = XpCalculator.XP_PER_ACHIEVEMENT.toLong(),
+                            awarded = XpCalculator.XP_PER_BRONZE_ACHIEVEMENT,
+                            totalXp = XpCalculator.XP_PER_BRONZE_ACHIEVEMENT.toLong(),
                             previousLevel = 1,
-                            level = 2,
+                            level = 1,
                         ),
                     ),
                 ),
@@ -84,7 +87,15 @@ class AchievementTriggerUseCaseTest {
                 ),
                 unlocks.map(AchievementUnlock::achievement),
             )
-            assertEquals(4 * XpCalculator.XP_PER_ACHIEVEMENT.toLong(), repository.totalXp)
+            assertEquals(
+                xpOf(
+                    Achievements.FIRST_SESSION,
+                    Achievements.TEN_SESSIONS,
+                    Achievements.SEVEN_DAY_STREAK,
+                    Achievements.FIRST_RECORD,
+                ),
+                repository.totalXp,
+            )
         }
 
     @Test
@@ -124,7 +135,7 @@ class AchievementTriggerUseCaseTest {
 
             trigger(progress(sessions = 1, streak = 1, records = 1), FINISHED_AT)
 
-            assertEquals(2 * XpCalculator.XP_PER_ACHIEVEMENT.toLong(), bankedAfterFirstRun)
+            assertEquals(xpOf(Achievements.FIRST_SESSION, Achievements.FIRST_RECORD), bankedAfterFirstRun)
             assertEquals(bankedAfterFirstRun, repository.totalXp)
             assertEquals(2, repository.awards.size)
         }
@@ -168,7 +179,7 @@ class AchievementTriggerUseCaseTest {
             cascade.join()
 
             assertEquals(mapOf("first_session" to FINISHED_AT), store.unlockedAchievements)
-            assertEquals(XpCalculator.XP_PER_ACHIEVEMENT.toLong(), store.totalXp)
+            assertEquals(xpOf(Achievements.FIRST_SESSION), store.totalXp)
         }
 
     @Test
@@ -192,7 +203,7 @@ class AchievementTriggerUseCaseTest {
                 listOf(Achievements.FIRST_SESSION, Achievements.TEN_SESSIONS),
                 unlocks.map(AchievementUnlock::achievement),
             )
-            assertEquals(2 * XpCalculator.XP_PER_ACHIEVEMENT.toLong(), store.totalXp)
+            assertEquals(xpOf(Achievements.FIRST_SESSION, Achievements.TEN_SESSIONS), store.totalXp)
         }
 
     // ─── The catalogue is what is evaluated ─────────────────────────────────────────────
@@ -215,6 +226,9 @@ class AchievementTriggerUseCaseTest {
 
             assertTrue(added in unlocks.map(AchievementUnlock::achievement))
         }
+
+    private fun xpOf(vararg achievements: Achievement): Long =
+        achievements.sumOf { XpCalculator.xpForAchievement(it.tier()).toLong() }
 
     private fun progress(
         sessions: Int = 0,

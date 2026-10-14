@@ -35,7 +35,7 @@ import com.titan.core.domain.model.XpEvent
  *   compared between two levels, because the awards are where the crossing was observed.
  * @property levelProgress how far into [level] the user now stands, `0f..1f`.
  * @property xpIntoLevel points banked toward the next level.
- * @property xpForLevel points a level costs — `XpCalculator.XP_PER_LEVEL`, carried so the
+ * @property xpForLevel points a level costs — `XpCalculator.xpToNextLevel`, carried so the
  *   screen's "43 / 100" needs no second import of the curve.
  * @property achievements what unlocked, in the order the cascade unlocked them.
  * @property quests what was cleared, in the order the cascade banked them. Named rather than
@@ -95,12 +95,12 @@ data class SummaryCelebration(
                 xpAwarded = awarded,
                 sources = sourcesOf(progression),
                 levelBefore = before,
-                levelProgressBefore = intoBefore.toFloat() / XpCalculator.XP_PER_LEVEL,
+                levelProgressBefore = intoBefore.toFloat() / XpCalculator.xpToNextLevel(before),
                 level = level,
                 leveledUp = progression.leveledUp,
-                levelProgress = into.toFloat() / XpCalculator.XP_PER_LEVEL,
+                levelProgress = into.toFloat() / XpCalculator.xpToNextLevel(level),
                 xpIntoLevel = into,
-                xpForLevel = XpCalculator.XP_PER_LEVEL,
+                xpForLevel = XpCalculator.xpToNextLevel(level),
                 achievements = progression.achievementsUnlocked.map {
                     SummaryAchievement(id = it.achievement.id, xp = it.xp.awarded)
                 },

@@ -429,14 +429,15 @@ class HomeViewModelTest {
     @Test
     fun `the standing becomes a level and the points banked into it`() =
         runTest {
-            // 1,340 points on a hundred-a-level curve: level 14, forty points in.
-            progress.setProgress(standing(totalXp = 1_340, level = 14))
+            // 1,340 points on the power curve: level 6 opens at 1,118 and level 7 at 1,470, so
+            // 222 points in to a bar 352 wide.
+            progress.setProgress(standing(totalXp = 1_340, level = 6))
 
             val level = requireNotNull(viewModel().uiState.value.level)
 
-            assertEquals(14, level.level)
-            assertEquals(40, level.xpIntoLevel)
-            assertEquals(100, level.xpForLevel)
+            assertEquals(6, level.level)
+            assertEquals(222, level.xpIntoLevel)
+            assertEquals(352, level.xpForLevel)
         }
 
     @Test
@@ -598,9 +599,9 @@ class HomeViewModelTest {
             val viewModel = viewModel()
             assertNull(viewModel.uiState.value.level)
 
-            progress.setProgress(standing(totalXp = 1_340, level = 14))
+            progress.setProgress(standing(totalXp = 1_340, level = 6))
 
-            assertEquals(14, viewModel.uiState.value.level?.level)
+            assertEquals(6, viewModel.uiState.value.level?.level)
         }
 
     @Test

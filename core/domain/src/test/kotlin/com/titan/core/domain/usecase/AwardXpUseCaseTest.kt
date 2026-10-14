@@ -1,5 +1,6 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.gamification.AchievementTier
 import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.XpAward
@@ -42,10 +43,13 @@ class AwardXpUseCaseTest {
         runTest {
             assertEquals(XpCalculator.XP_PER_SET, awardXp(XpEvent.SetLogged).awarded)
             assertEquals(XpCalculator.XP_PER_SESSION, awardXp(XpEvent.SessionFinished).awarded)
-            assertEquals(XpCalculator.XP_PER_PR, awardXp(XpEvent.PrBroken(PrType.MAX_WEIGHT)).awarded)
             assertEquals(
-                XpCalculator.XP_PER_ACHIEVEMENT,
-                awardXp(XpEvent.AchievementUnlocked("first_session")).awarded,
+                XpCalculator.xpForRecord(PrType.MAX_WEIGHT),
+                awardXp(XpEvent.PrBroken(PrType.MAX_WEIGHT)).awarded,
+            )
+            assertEquals(
+                XpCalculator.XP_PER_SILVER_ACHIEVEMENT,
+                awardXp(XpEvent.AchievementUnlocked("first_session", AchievementTier.SILVER)).awarded,
             )
         }
 
@@ -56,7 +60,9 @@ class AwardXpUseCaseTest {
         runTest {
             finishSession(sets = 10, prTypes = listOf(PrType.MAX_WEIGHT))
 
-            val expected = 10 * XpCalculator.XP_PER_SET + XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_PR
+            val expected = 10 * XpCalculator.XP_PER_SET +
+                XpCalculator.XP_PER_SESSION +
+                XpCalculator.xpForRecord(PrType.MAX_WEIGHT)
             assertEquals(expected.toLong(), repository.totalXp)
             assertEquals(12, repository.awards.size)
         }
@@ -64,8 +70,12 @@ class AwardXpUseCaseTest {
     @Test
     fun `only the event that crosses the threshold reports a level-up`() =
         runTest {
-            // 10 × 5 + 25 = 75 before the record, 125 after it: the record is the crossing.
-            val awards = finishSession(sets = 10, prTypes = listOf(PrType.MAX_WEIGHT))
+            // 60 + 10 × 2 + 15 = 95 before the record, 115 after it: the record is the crossing.
+            val awards = finishSession(
+                sets = 10,
+                prTypes = listOf(PrType.MAX_WEIGHT),
+                award = AwardXpUseCase(FakeGamificationRepository(initialXp = 60)),
+            )
 
             assertEquals(1, awards.count(XpAward::leveledUp))
             assertTrue(awards.last().leveledUp)
@@ -78,8 +88,11 @@ class AwardXpUseCaseTest {
         runTest {
             finishSession(sets = 3, prTypes = listOf(PrType.MAX_WEIGHT, PrType.MAX_REPS, PrType.ESTIMATED_1RM))
 
-            val prAwards = repository.awards.count { it.awarded == XpCalculator.XP_PER_PR }
-            assertEquals(3, prAwards)
+            val prAwards = repository.awards.map(XpAward::awarded).drop(3 + 1)
+            assertEquals(
+                listOf(PrType.MAX_WEIGHT, PrType.MAX_REPS, PrType.ESTIMATED_1RM).map(XpCalculator::xpForRecord),
+                prAwards,
+            )
         }
 
     // ─── Crossing thresholds ────────────────────────────────────────────────────────────
@@ -87,22 +100,24 @@ class AwardXpUseCaseTest {
     @Test
     fun `the award that lands exactly on a threshold is the one that levels up`() =
         runTest {
-            // Four achievements: 100, 200, 300, 400 — every one of them a crossing.
-            val awards = (1..4).map { awardXp(XpEvent.AchievementUnlocked("achievement_$it")) }
+            // 50 and a bronze achievement's 50 make exactly the 100 that level 2 costs.
+            val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 50))
 
-            assertEquals(listOf(2, 3, 4, 5), awards.map(XpAward::level))
-            assertTrue(awards.all(XpAward::leveledUp))
+            val award = started(XpEvent.AchievementUnlocked("first_session", AchievementTier.BRONZE))
+
+            assertEquals(100L, award.totalXp)
+            assertEquals(2, award.level)
+            assertTrue(award.leveledUp)
         }
 
     @Test
     fun `events on either side of a crossing report no level-up`() =
         runTest {
-            // 19 sets is 95, one short; the 20th crosses; the 21st is inside level 2.
-            val awards = (1..21).map { awardXp(XpEvent.SetLogged) }
+            // 98 is two short; the next set lands on 100 and crosses; the one after is inside level 2.
+            val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 96))
+            val awards = (1..3).map { started(XpEvent.SetLogged) }
 
-            assertFalse(awards[18].leveledUp)
-            assertTrue(awards[19].leveledUp)
-            assertFalse(awards[20].leveledUp)
+            assertEquals(listOf(false, true, false), awards.map(XpAward::leveledUp))
             assertEquals(2, awards.last().level)
         }
 
@@ -113,41 +128,55 @@ class AwardXpUseCaseTest {
 
             val award = started(XpEvent.PrBroken(PrType.MAX_VOLUME))
 
-            assertEquals(690L, award.totalXp)
-            assertEquals(7, award.previousLevel)
-            assertEquals(7, award.level)
+            assertEquals(650L, award.totalXp)
+            assertEquals(4, award.previousLevel)
+            assertEquals(4, award.level)
             assertFalse(award.leveledUp)
         }
 
     @Test
     fun `an award that starts mid-level still reports the crossing it caused`() =
         runTest {
-            // 195 is five short of level 3; the achievement lands on 295, over the threshold
-            // but not up to the next one — one crossing, from a total that was not on a
-            // boundary to start with.
-            val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 195))
+            // 270 is thirteen short of level 3 (283); the achievement lands on 370, over the
+            // threshold but not up to the next one (520) — one crossing, from a total that was
+            // not on a boundary to start with.
+            val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 270))
 
-            val award = started(XpEvent.AchievementUnlocked("thirty_day_streak"))
+            val award = started(XpEvent.AchievementUnlocked("thirty_day_streak", AchievementTier.SILVER))
 
-            assertEquals(295L, award.totalXp)
+            assertEquals(370L, award.totalXp)
             assertEquals(2, award.previousLevel)
             assertEquals(3, award.level)
             assertTrue(award.leveledUp)
         }
 
     @Test
-    fun `no single award can clear two thresholds under today's constants`() {
+    fun `a gold achievement on a fresh account clears two thresholds at once`() =
+        runTest {
+            val started = AwardXpUseCase(FakeGamificationRepository(initialXp = 99))
+
+            val award = started(XpEvent.AchievementUnlocked("thirty_day_streak", AchievementTier.GOLD))
+
+            assertEquals(349L, award.totalXp)
+            assertEquals(1, award.previousLevel)
+            assertEquals(3, award.level)
+            assertTrue(award.leveledUp)
+        }
+
+    @Test
+    fun `from level 4 on no award a session or a milestone pays can clear two thresholds`() {
         // What keeps `leveledUp` "one event per level gained" rather than merely "one event
-        // per crossing": the largest award is worth exactly one level, so no award can skip
-        // one. A retune that breaks this should break this test, not #27's celebration.
+        // per crossing" once the first few levels are behind the user: the largest award is
+        // worth less than the cost of any later level. A retune that breaks this should break
+        // this test, not the celebration.
         val largestAward = maxOf(
             XpCalculator.XP_PER_SET,
             XpCalculator.XP_PER_SESSION,
-            XpCalculator.XP_PER_PR,
-            XpCalculator.XP_PER_ACHIEVEMENT,
+            PrType.entries.maxOf(XpCalculator::xpForRecord),
+            AchievementTier.entries.maxOf(XpCalculator::xpForAchievement),
         )
 
-        assertTrue(largestAward <= XpCalculator.XP_PER_LEVEL)
+        assertTrue(largestAward < XpCalculator.xpToNextLevel(4))
     }
 
     // ─── No bundling, no deduplication ──────────────────────────────────────────────────
@@ -155,20 +184,21 @@ class AwardXpUseCaseTest {
     @Test
     fun `the same event twice is banked twice - deduplication is the emitter's job`() =
         runTest {
-            awardXp(XpEvent.AchievementUnlocked("first_session"))
-            awardXp(XpEvent.AchievementUnlocked("first_session"))
+            awardXp(XpEvent.AchievementUnlocked("first_session", AchievementTier.BRONZE))
+            awardXp(XpEvent.AchievementUnlocked("first_session", AchievementTier.BRONZE))
 
-            assertEquals(2 * XpCalculator.XP_PER_ACHIEVEMENT.toLong(), repository.totalXp)
+            assertEquals(2 * XpCalculator.XP_PER_BRONZE_ACHIEVEMENT.toLong(), repository.totalXp)
         }
 
     /** The events a finished session emits, in the order #145 will emit them. */
     private suspend fun finishSession(
         sets: Int,
         prTypes: List<PrType>,
+        award: AwardXpUseCase = awardXp,
     ): List<XpAward> =
         buildList {
-            repeat(sets) { add(awardXp(XpEvent.SetLogged)) }
-            add(awardXp(XpEvent.SessionFinished))
-            prTypes.forEach { add(awardXp(XpEvent.PrBroken(it))) }
+            repeat(sets) { add(award(XpEvent.SetLogged)) }
+            add(award(XpEvent.SessionFinished))
+            prTypes.forEach { add(award(XpEvent.PrBroken(it))) }
         }
 }

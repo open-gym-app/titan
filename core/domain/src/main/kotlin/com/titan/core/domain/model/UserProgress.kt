@@ -19,7 +19,7 @@ import java.time.Instant
  * [com.titan.core.domain.repository.GamificationRepository.addXp], which derives both from
  * [XpCalculator] in one operation precisely so they cannot disagree. Recomputing it here would
  * be a second answer to a question already answered, and the two would diverge the moment
- * `XP_PER_LEVEL` is retuned: the stored level is what the user was told they reached.
+ * the level curve is retuned: the stored level is what the user was told they reached.
  *
  * The *derived* figures below are a different matter. [xpIntoLevel] and [xpForNextLevel] are
  * arithmetic on [totalXp] against the curve, not stored facts, and they read the curve as it is

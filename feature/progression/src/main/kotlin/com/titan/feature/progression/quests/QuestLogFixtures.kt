@@ -30,7 +30,7 @@ import java.time.ZoneOffset
 /** A lifter several months in: mid-level, a live streak, most of the board part-way done. */
 internal fun populatedQuestLog(): QuestLogUiState {
     val progress = UserProgress(
-        totalXp = 1_240,
+        totalXp = 4_400,
         level = 13,
         currentStreak = 6,
         longestStreak = 21,
@@ -97,9 +97,9 @@ internal fun emptyQuestLog(): QuestLogUiState {
  * ring rather than a full one carried over from the level before.
  */
 internal fun justLevelledUpQuestLog(): QuestLogUiState {
-    // Level 5 opens at 400 XP on the shipped curve; 405 is five points into it.
+    // Level 5 opens at 800 XP on the shipped curve; 805 is five points into it.
     val progress = UserProgress(
-        totalXp = 405,
+        totalXp = 805,
         level = 5,
         currentStreak = 3,
         longestStreak = 3,

@@ -652,7 +652,7 @@ class SessionSummaryViewModelTest {
 
             val state = viewModel(sets = pushDaySets()).uiState.value
 
-            assertEquals(135, state.celebration?.xpAwarded)
+            assertEquals(59, state.celebration?.xpAwarded)
             // Taken, not read: a second collector — the same recap reopened from history —
             // must find nothing. See `SessionProgressionHandoff`.
             assertNull(progressionHandoff.take(SESSION_ID))
@@ -686,7 +686,7 @@ class SessionSummaryViewModelTest {
         runTest {
             progressionHandoff.offer(progression())
             val viewModel = viewModel(sets = pushDaySets())
-            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+            assertEquals(59, viewModel.uiState.value.celebration?.xpAwarded)
 
             // A note write re-runs the state builder. The hand-off is empty by then, so a
             // celebration collected inside that builder would vanish here — which is the whole
@@ -695,7 +695,7 @@ class SessionSummaryViewModelTest {
             viewModel.onEvent(SessionSummaryEvent.NoteChanged("felt good"))
             viewModel.onEvent(SessionSummaryEvent.NoteSaved)
 
-            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+            assertEquals(59, viewModel.uiState.value.celebration?.xpAwarded)
         }
 
     @Test
@@ -787,7 +787,7 @@ class SessionSummaryViewModelTest {
 
             // The hand-off is emptied by its first taker, so two independent reads would leave
             // whichever ran second with nothing.
-            assertEquals(135, state.celebration?.xpAwarded)
+            assertEquals(59, state.celebration?.xpAwarded)
             assertEquals(13, state.streakSave?.streakDays)
         }
 
@@ -803,7 +803,7 @@ class SessionSummaryViewModelTest {
         )
 
     /**
-     * A finish worth 135 points: twelve sets, the session itself, and one record.
+     * A finish worth 59 points: twelve sets, the session itself, and one record.
      *
      * The awards carry a running total because that is how the store hands them back — each was
      * produced inside its own write — and the level the recap reports is the last one's.
@@ -826,7 +826,7 @@ class SessionSummaryViewModelTest {
             sessionId = sessionId,
             xp = List(12) { XpGrant(XpEvent.SetLogged, award(XpCalculator.XP_PER_SET)) } +
                 XpGrant(XpEvent.SessionFinished, award(XpCalculator.XP_PER_SESSION)) +
-                XpGrant(XpEvent.PrBroken(PrType.MAX_WEIGHT), award(XpCalculator.XP_PER_PR)),
+                XpGrant(XpEvent.PrBroken(PrType.MAX_WEIGHT), award(XpCalculator.xpForRecord(PrType.MAX_WEIGHT))),
         )
     }
 

@@ -127,26 +127,26 @@ class QuestsTest {
     }
 
     @Test
-    fun `a weekly quest is worth more than showing up and less than an achievement`() {
+    fun `a weekly quest is worth more than showing up and less than a silver achievement`() {
         // The prices read against [XpCalculator], which is where the economy they sit in is
-        // written down. Below an achievement, because a milestone reached once in an install's
-        // life should outweigh a week's board; above a single session, or the training would be
+        // written down. Below a silver achievement, because a milestone reached once in an
+        // install's life should outweigh a week's board; above a single session, or the training would be
         // the small half of its own reward.
         Quests.ALL.filter { it.period == QuestPeriod.WEEKLY }.forEach { quest ->
             assertTrue("${quest.id} is worth less than one session", quest.xpReward > XpCalculator.XP_PER_SESSION)
             assertTrue(
-                "${quest.id} is worth more than an achievement",
-                quest.xpReward <= XpCalculator.XP_PER_ACHIEVEMENT,
+                "${quest.id} is worth more than a silver achievement",
+                quest.xpReward <= XpCalculator.XP_PER_SILVER_ACHIEVEMENT,
             )
         }
     }
 
     @Test
-    fun `a monthly quest is worth at least two levels`() {
+    fun `a monthly quest is worth at least the third level`() {
         Quests.ALL.filter { it.period == QuestPeriod.MONTHLY }.forEach { quest ->
             assertTrue(
                 "${quest.id} does not pay for a month",
-                quest.xpReward >= 2 * XpCalculator.XP_PER_LEVEL,
+                quest.xpReward >= XpCalculator.xpToNextLevel(2),
             )
         }
     }

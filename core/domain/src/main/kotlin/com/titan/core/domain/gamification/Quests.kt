@@ -33,15 +33,16 @@ import com.titan.core.domain.model.QuestPeriod
  *
  * ### The prices
  *
- * Read against [XpCalculator]: a session pays 25, a record 50, an achievement 100, and a level
- * costs 100. A weekly quest is therefore worth two to four sessions of showing up — enough to be
- * chased, not enough to make the training itself feel like the small half of the reward. A
- * monthly quest is worth two to three levels, which is the point of a month.
+ * Read against [XpCalculator]: a typical session pays about 50 (fifteen for finishing, two a
+ * working set), a beaten record 10 to 20, a bronze achievement 50, a silver one 100, and a level
+ * costs 100 at the start and several hundred by level 10. A weekly quest is therefore worth about
+ * a session — enough to be chased, not enough to make the training itself feel like the small half
+ * of the reward. A monthly quest is worth a level or more early on, which is the point of a month.
  *
  * The bounds are asserted rather than left to a reading of this paragraph: `QuestsTest` holds
- * weekly rewards above a session and at or below an achievement, monthly ones above every weekly
- * rung and worth at least two levels, and every ladder's harder rung above its easier one. A
- * tuning pass that breaks the economy's shape fails there rather than shipping.
+ * weekly rewards above a session and at or below a silver achievement, monthly ones above every
+ * weekly rung and worth at least what the third level costs, and every ladder's harder rung above
+ * its easier one. A tuning pass that breaks the economy's shape fails there rather than shipping.
  *
  * The volume targets are the one pair not written as the number they compare against: a
  * [QuestMetric.VOLUME_MILLIGRAMS] target is milligrams, and "twenty tonnes" is more legible as
@@ -73,22 +74,22 @@ object Quests {
         metric = QuestMetric.SESSIONS_FINISHED,
         target = 3,
         period = QuestPeriod.WEEKLY,
-        xpReward = 60,
+        xpReward = 40,
     )
 
     /**
      * Train five times this week: the rung a strong one clears. See the note on [Quests].
      *
-     * Priced at exactly an achievement, which is the ceiling for anything weekly — a milestone
-     * reached once in an install's life should not be outweighed by a board that comes back
-     * every Monday. This is the one quest that reaches it.
+     * The dearest weekly quest, and still under a silver achievement, which is the ceiling for
+     * anything weekly — a milestone reached once in an install's life should not be outweighed by
+     * a board that comes back every Monday.
      */
     val WEEKLY_SESSIONS_PLUS = Quest(
         id = "weekly_sessions_plus",
         metric = QuestMetric.SESSIONS_FINISHED,
         target = 5,
         period = QuestPeriod.WEEKLY,
-        xpReward = 100,
+        xpReward = 70,
     )
 
     /**
@@ -103,7 +104,7 @@ object Quests {
         metric = QuestMetric.RECORDS_BROKEN,
         target = 1,
         period = QuestPeriod.WEEKLY,
-        xpReward = 80,
+        xpReward = 45,
     )
 
     /**
@@ -118,7 +119,7 @@ object Quests {
         metric = QuestMetric.VOLUME_MILLIGRAMS,
         target = kilograms(20_000),
         period = QuestPeriod.WEEKLY,
-        xpReward = 70,
+        xpReward = 40,
     )
 
     // ─── Monthly ────────────────────────────────────────────────────────────────────────────
@@ -129,7 +130,7 @@ object Quests {
         metric = QuestMetric.SESSIONS_FINISHED,
         target = 12,
         period = QuestPeriod.MONTHLY,
-        xpReward = 250,
+        xpReward = 200,
     )
 
     /** Five records in the month, across any exercises and any kinds. */
@@ -138,7 +139,7 @@ object Quests {
         metric = QuestMetric.RECORDS_BROKEN,
         target = 5,
         period = QuestPeriod.MONTHLY,
-        xpReward = 300,
+        xpReward = 240,
     )
 
     /** Eighty tonnes in the month — four weeks of [WEEKLY_VOLUME], near enough. */
@@ -147,7 +148,7 @@ object Quests {
         metric = QuestMetric.VOLUME_MILLIGRAMS,
         target = kilograms(80_000),
         period = QuestPeriod.MONTHLY,
-        xpReward = 280,
+        xpReward = 220,
     )
 
     /**

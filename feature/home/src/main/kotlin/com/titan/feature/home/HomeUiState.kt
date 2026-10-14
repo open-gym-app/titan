@@ -184,9 +184,9 @@ data class WeekState(
  *
  * @param level the level the user is on.
  * @param xpIntoLevel points banked toward the next one, `0..xpForLevel`.
- * @param xpForLevel what a level costs — [com.titan.core.domain.gamification.XpCalculator]'s
- *   `XP_PER_LEVEL`, carried rather than read at the call site so the bar and the figure beside
- *   it are scaled by the same number.
+ * @param xpForLevel what climbing out of this level costs —
+ *   [com.titan.core.domain.gamification.XpCalculator.xpToNextLevel], carried rather than read at
+ *   the call site so the bar and the figure beside it are scaled by the same number.
  */
 @Immutable
 data class LevelState(
@@ -198,8 +198,8 @@ data class LevelState(
     /**
      * How far through the level, `0f..1f` — what the bar is drawn from.
      *
-     * Guarded against a zero cost rather than trusting the curve: `XP_PER_LEVEL` is a tuning
-     * constant, and a divide by zero here would take out the whole screen for a value somebody
+     * Guarded against a zero cost rather than trusting the curve: the level curve is a tuning
+     * choice, and a divide by zero here would take out the whole screen for a value somebody
      * is entitled to change.
      */
     val progress: Float

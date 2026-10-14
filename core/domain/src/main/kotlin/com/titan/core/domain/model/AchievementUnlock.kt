@@ -1,5 +1,6 @@
 package com.titan.core.domain.model
 
+import com.titan.core.domain.gamification.AchievementTier
 import java.time.Instant
 
 /**
@@ -15,6 +16,7 @@ import java.time.Instant
  * on emptiness rather than a diff against what was stored.
  *
  * @property achievement which milestone, catalogue entry and all.
+ * @property tier the rung of its ladder the milestone sits on, which is what priced [xp].
  * @property unlockedAt when it was earned — the session's finish, not the moment the row was
  *   written, for the same reason [PersonalRecord.achievedAt] is the set's timestamp: a
  *   cascade retried an hour later must not date the unlock to the retry.
@@ -22,6 +24,7 @@ import java.time.Instant
  */
 data class AchievementUnlock(
     val achievement: Achievement,
+    val tier: AchievementTier,
     val unlockedAt: Instant,
     val xp: XpAward,
 )

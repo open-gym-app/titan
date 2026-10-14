@@ -73,7 +73,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
     @Test
     fun `the award that crosses a threshold is the one that reports the level-up`() =
         runBlocking {
-            award(XpCalculator.XP_PER_LEVEL - 1)
+            award(XpCalculator.xpRequiredForLevel(2).toInt() - 1)
 
             val crossing = award(1)
             val after = award(1)
@@ -87,11 +87,11 @@ class GamificationRepositoryImplTest : RoomTestBase() {
     @Test
     fun `the level stored beside the total is the one the curve buys`() =
         runBlocking {
-            award(XpCalculator.XP_PER_LEVEL * 3)
+            award(XpCalculator.xpRequiredForLevel(4).toInt())
 
             val stored = db.userProgressDao().getOnce()
 
-            assertEquals(XpCalculator.XP_PER_LEVEL * 3L, stored?.totalXp)
+            assertEquals(XpCalculator.xpRequiredForLevel(4), stored?.totalXp)
             assertEquals(XpCalculator.levelForTotalXp(stored?.totalXp ?: 0), stored?.currentLevel)
         }
 
@@ -328,12 +328,12 @@ class GamificationRepositoryImplTest : RoomTestBase() {
     @Test
     fun `the standing reads back everything a screen draws`() =
         runBlocking {
-            award(XpCalculator.XP_PER_LEVEL * 3 + 40)
+            award(XpCalculator.xpRequiredForLevel(4).toInt() + 40)
             finish(MONDAY_EVENING)
 
             val progress = requireNotNull(repository.observeProgress().first())
 
-            assertEquals((XpCalculator.XP_PER_LEVEL * 3 + 40).toLong(), progress.totalXp)
+            assertEquals((XpCalculator.xpRequiredForLevel(4).toInt() + 40).toLong(), progress.totalXp)
             assertEquals(XpCalculator.FIRST_LEVEL + 3, progress.level)
             assertEquals(StreakResult.FIRST_DAY, progress.currentStreak)
             assertEquals(MONDAY_EVENING, progress.lastCountedAt)

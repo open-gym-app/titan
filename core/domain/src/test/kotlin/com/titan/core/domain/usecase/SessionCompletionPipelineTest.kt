@@ -68,7 +68,7 @@ class SessionCompletionPipelineTest {
 
             journalled.pipeline(sessionId, FINISHED_AT)
 
-            // Every store is touched more than once — nine awards, four records, two unlocks
+            // Every store is touched more than once — four awards, four records, two unlocks
             // and the achievement XP behind them — so it is the order they are *first* reached
             // in that is the ordering constraint. Loot is the exception: at most one row, and
             // it is last.
@@ -76,17 +76,45 @@ class SessionCompletionPipelineTest {
         }
 
     @Test
-    fun `each record broken is paid for, which it could not be if xp ran first`() =
+    fun `a record that beats an earlier one is paid for, which it could not be if xp ran first`() =
+        runTest {
+            pipeline(rig.finishSession(workingWeight = LIGHT_WEIGHT), FINISHED_AT)
+            val later = FINISHED_AT.plusSeconds(DAY_SECONDS)
+            val sessionId = rig.finishSession(completedAt = later)
+
+            val progression = pipeline(sessionId, later)
+
+            val broken = progression.recordsBroken.map(PersonalRecord::type).toSet()
+            assertTrue(PrType.MAX_WEIGHT in broken)
+            assertEquals(
+                broken.map { XpEvent.PrBroken(it) }.toSet(),
+                progression.xp.map { it.event }.filterIsInstance<XpEvent.PrBroken>().toSet(),
+            )
+            assertEquals(
+                broken.sumOf(XpCalculator::xpForRecord),
+                progression.xp.filter { it.event is XpEvent.PrBroken }.sumOf { it.award.awarded },
+            )
+        }
+
+    @Test
+    fun `the first figure ever written for an exercise is recorded and not paid for`() =
         runTest {
             val sessionId = rig.finishSession()
 
             val progression = pipeline(sessionId, FINISHED_AT)
 
             assertEquals(BROKEN_TYPES, progression.recordsBroken.map(PersonalRecord::type).toSet())
-            assertEquals(
-                progression.recordsBroken.map { XpEvent.PrBroken(it.type) }.toSet(),
-                progression.xp.map { it.event }.filterIsInstance<XpEvent.PrBroken>().toSet(),
-            )
+            assertTrue(progression.xp.none { it.event is XpEvent.PrBroken })
+        }
+
+    @Test
+    fun `warm-ups are not paid for`() =
+        runTest {
+            val sessionId = rig.finishSession(warmUpSets = 6)
+
+            val progression = pipeline(sessionId, FINISHED_AT)
+
+            assertEquals(PAID_SETS, progression.xp.count { it.event == XpEvent.SetLogged })
         }
 
     @Test
@@ -130,12 +158,11 @@ class SessionCompletionPipelineTest {
 
             val progression = pipeline(sessionId, FINISHED_AT)
 
-            // 25 for the session, 5 per completed set including the warm-up, 50 per record
-            // broken, and 100 per achievement unlocked.
+            // The session, each working set (the warm-up pays nothing), and the two bronze
+            // achievements it unlocks. Its records are the first of their kind, so they are free.
             val expected = XpCalculator.XP_PER_SESSION +
-                XpCalculator.XP_PER_SET * COMPLETED_SETS +
-                XpCalculator.XP_PER_PR * BROKEN_TYPES.size +
-                XpCalculator.XP_PER_ACHIEVEMENT * 2
+                XpCalculator.XP_PER_SET * PAID_SETS +
+                XpCalculator.XP_PER_BRONZE_ACHIEVEMENT * 2
             assertEquals(expected, progression.xpAwarded)
             assertEquals(expected.toLong(), progression.totalXp)
             assertEquals(gamification.totalXp, progression.totalXp)
@@ -182,8 +209,9 @@ class SessionCompletionPipelineTest {
             assertEquals(sessionId, progression.sessionId)
             assertTrue(progression.recordsBroken.isEmpty())
             assertTrue(progression.isComplete)
-            // The session itself is still worth its own award, and still counts as a day.
-            assertEquals(XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_ACHIEVEMENT, progression.xpAwarded)
+            // A session with no work in it pays nothing for itself, but still counts as a day and
+            // still unlocks the milestone for having finished one.
+            assertEquals(XpCalculator.XP_PER_BRONZE_ACHIEVEMENT, progression.xpAwarded)
             assertEquals(StreakResult.Incremented(1), progression.streak?.result)
         }
 
@@ -201,8 +229,8 @@ class SessionCompletionPipelineTest {
             assertTrue(progression.recordsBroken.isEmpty())
             // Paid for the session and its sets, and for no record, because none was detected.
             assertEquals(
-                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * COMPLETED_SETS +
-                    XpCalculator.XP_PER_ACHIEVEMENT,
+                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * PAID_SETS +
+                    XpCalculator.XP_PER_BRONZE_ACHIEVEMENT,
                 progression.xpAwarded,
             )
             assertEquals(StreakResult.Incremented(1), progression.streak?.result)
@@ -249,18 +277,18 @@ class SessionCompletionPipelineTest {
                 listOf(SessionProgressionStep.XP, SessionProgressionStep.ACHIEVEMENTS),
                 progression.failures.map { it.step },
             )
-            // The session and the first two of its four sets — the fourth award is refused.
+            // The session and the first two of its three sets — the third set's award is refused.
             assertEquals(paid, progression.xp.size)
             assertEquals(XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * 2, progression.xpAwarded)
             assertEquals(torn.gamification.totalXp, progression.totalXp)
         }
 
     @Test
-    fun `records written before the store refused are still reported and paid for`() =
+    fun `records written before the store refused are still reported`() =
         runTest {
             // Detection writes a row per candidate, and a re-entry beats the ones it already
             // wrote rather than re-detecting them. A result that dropped them would leave
-            // records the app never mentions and never pays for, on any run.
+            // records the app never mentions, on any run.
             val written = 2
             records.refuseWriteAfter = written
             val sessionId = rig.finishSession()
@@ -270,10 +298,11 @@ class SessionCompletionPipelineTest {
             assertEquals(listOf(SessionProgressionStep.PR_DETECTION), progression.failures.map { it.step })
             assertEquals(records.inserted, progression.recordsBroken)
             assertEquals(written, progression.recordsBroken.size)
-            // And the XP step pays for them: the records that landed are records broken.
+            // They are the first of their kind, so the XP step has nothing to pay for them, and
+            // they still count towards `first_record`.
             assertEquals(
-                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * COMPLETED_SETS +
-                    XpCalculator.XP_PER_PR * written + XpCalculator.XP_PER_ACHIEVEMENT * 2,
+                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * PAID_SETS +
+                    XpCalculator.XP_PER_BRONZE_ACHIEVEMENT * 2,
                 progression.xpAwarded,
             )
         }
@@ -284,7 +313,7 @@ class SessionCompletionPipelineTest {
             // An unlock's insert is what makes it unrepeatable, so the first one is held for
             // good by the time the second one's award is refused. Losing it here would leave a
             // milestone the user owns and no screen ever shows.
-            val sessionAwards = 1 + COMPLETED_SETS + BROKEN_TYPES.size
+            val sessionAwards = 1 + PAID_SETS
             val torn = Rig(decorateGamification = { FailsAfter(it, awards = sessionAwards + 1) })
             val sessionId = torn.finishSession()
 
@@ -424,8 +453,8 @@ class SessionCompletionPipelineTest {
                 progression.achievementsUnlocked.map { it.achievement.id },
             )
             assertEquals(
-                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * COMPLETED_SETS +
-                    XpCalculator.XP_PER_ACHIEVEMENT * 2,
+                XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_SET * PAID_SETS +
+                    XpCalculator.XP_PER_BRONZE_ACHIEVEMENT * 2,
                 progression.xpAwarded,
             )
         }
@@ -765,15 +794,15 @@ class SessionCompletionPipelineTest {
          * and out of progress, holding [warmUpSets] warm-ups and [workingSets] working sets on
          * one exercise.
          *
-         * Warm-ups are lighter than the working sets on purpose. They are excluded from
-         * detection and included in the XP, which is the one place the two readings of the
-         * same rows differ.
+         * Warm-ups are lighter than the working sets on purpose, so that detection and the XP
+         * step can be seen to leave them both out.
          */
         suspend fun finishSession(
             exerciseId: Long = 10L,
             workingSets: Int = 3,
             warmUpSets: Int = 1,
             completedAt: Instant = FINISHED_AT,
+            workingWeight: Long = WORKING_WEIGHT,
         ): Long {
             val millis = completedAt.toEpochMilli()
             val sessionId = sessions.insert(
@@ -787,7 +816,7 @@ class SessionCompletionPipelineTest {
             )
             val sessionExerciseId = sessions.addExercise(sessionId = sessionId, exerciseId = exerciseId)
             repeat(warmUpSets) { addSet(sessionExerciseId, WARM_UP_WEIGHT, millis, SetType.WARMUP) }
-            repeat(workingSets) { addSet(sessionExerciseId, WORKING_WEIGHT, millis, SetType.NORMAL) }
+            repeat(workingSets) { addSet(sessionExerciseId, workingWeight, millis, SetType.NORMAL) }
             return sessionId
         }
 
@@ -944,11 +973,12 @@ class SessionCompletionPipelineTest {
         const val HOUR_SECONDS = 60L * 60
 
         const val WORKING_WEIGHT = 100_000L
+        const val LIGHT_WEIGHT = 80_000L
         const val WARM_UP_WEIGHT = 40_000L
         const val REPS = 5
 
-        /** Warm-ups included: [XpEvent.SetLogged] prices showing up, not how hard the set was. */
-        const val COMPLETED_SETS = 4
+        /** The fixture's working sets: the warm-up before them pays nothing. */
+        const val PAID_SETS = 3
 
         /**
          * What the fixture beats on a fresh install. No distance and no duration are logged, so

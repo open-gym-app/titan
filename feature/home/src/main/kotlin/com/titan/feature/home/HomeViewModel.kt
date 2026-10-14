@@ -416,13 +416,13 @@ class HomeViewModel @Inject constructor(
      * of that. See `GamificationRepository.addXp`, which is where the pair is kept honest.
      */
     private fun UserProgress.standing(): LevelState {
-        val into = (totalXp - XpCalculator.xpRequiredForLevel(level))
-            .coerceIn(0, XpCalculator.XP_PER_LEVEL.toLong())
+        val width = XpCalculator.xpToNextLevel(level)
+        val into = (totalXp - XpCalculator.xpRequiredForLevel(level)).coerceIn(0, width.toLong())
 
         return LevelState(
             level = level,
             xpIntoLevel = into.toInt(),
-            xpForLevel = XpCalculator.XP_PER_LEVEL,
+            xpForLevel = width,
         )
     }
 

@@ -49,8 +49,8 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule.onNodeWithText("Steel Forged").assertIsDisplayed()
-        // 1,240 total; level 13 opens at 1,200, and a level costs 100.
-        composeTestRule.onNodeWithText("40 / 100 XP").assertIsDisplayed()
+        // 4,400 total; level 13 opens at 4,157, and climbing out of it costs 530.
+        composeTestRule.onNodeWithText("243 / 530 XP").assertIsDisplayed()
     }
 
     @Test
@@ -58,7 +58,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Level 13, 40 / 100 XP, 40% complete")
+            .onNodeWithContentDescription("Level 13, 243 / 530 XP, 46% complete")
             .assertIsDisplayed()
     }
 
@@ -67,7 +67,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Break five personal records, 2 / 5, worth 300 XP")
+            .onNodeWithContentDescription("Break five personal records, 2 / 5, worth 240 XP")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -78,7 +78,7 @@ class QuestLogScreenTest {
 
         // Three sessions met the three-session quest.
         composeTestRule
-            .onNodeWithContentDescription("Train three times, complete, earned 60 XP")
+            .onNodeWithContentDescription("Train three times, complete, earned 40 XP")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -87,11 +87,11 @@ class QuestLogScreenTest {
     fun `the board opens on this week, with its own score`() {
         setContent(populatedQuestLog())
 
-        // Two of the four weekly quests are banked, leaving 100 + 70 XP reachable. The cadence
+        // Two of the four weekly quests are banked, leaving 70 + 40 XP reachable. The cadence
         // card speaks as one node — see `QuestPeriodHeader`.
         composeTestRule.onNodeWithText("THIS WEEK").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("This week, 2 of 4 cleared, 170 XP still to earn")
+            .onNodeWithContentDescription("This week, 2 of 4 cleared, 110 XP still to earn")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -106,7 +106,7 @@ class QuestLogScreenTest {
         // swipe does not resize the screen under the thumb making it. See `QuestSections`.
         composeTestRule.onNodeWithText("THIS MONTH").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("This month, 0 of 3 cleared, 830 XP still to earn")
+            .onNodeWithContentDescription("This month, 0 of 3 cleared, 660 XP still to earn")
             .assertExists()
     }
 
@@ -121,7 +121,7 @@ class QuestLogScreenTest {
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Train three times, complete, earned 60 XP")
+            .onNodeWithContentDescription("Train three times, complete, earned 40 XP")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -131,7 +131,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Train five times, 3 / 5, worth 100 XP")
+            .onNodeWithContentDescription("Train five times, 3 / 5, worth 70 XP")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -217,11 +217,11 @@ class QuestLogScreenTest {
         setContent(emptyQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Train three times, 0 / 3, worth 60 XP")
+            .onNodeWithContentDescription("Train three times, 0 / 3, worth 40 XP")
             .performScrollTo()
             .assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Move 80 tonnes, 0 / 80,000, worth 280 XP")
+            .onNodeWithContentDescription("Move 80 tonnes, 0 / 80,000, worth 220 XP")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -247,16 +247,16 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("Iron Disciple").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Level 5, 5 / 100 XP, 5% complete")
+            .onNodeWithContentDescription("Level 5, 5 / 318 XP, 2% complete")
             .assertIsDisplayed()
     }
 
     @Test
     fun `the lifetime total is drawn beside the level's own progress`() {
-        // Two different figures, and the screen shows both: 5 points into level 5, 405 in total.
+        // Two different figures, and the screen shows both: 5 points into level 5, 805 in total.
         setContent(justLevelledUpQuestLog())
 
-        composeTestRule.onNodeWithText("405 XP earned in total").assertIsDisplayed()
+        composeTestRule.onNodeWithText("805 XP earned in total").assertIsDisplayed()
     }
 
     // ─── Streak protection ──────────────────────────────────────────────────────────────
