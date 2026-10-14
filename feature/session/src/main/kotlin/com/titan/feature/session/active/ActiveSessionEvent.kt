@@ -366,6 +366,16 @@ sealed interface ActiveSessionEvent {
     data object RestSheetRequested : ActiveSessionEvent
 
     /**
+     * The session clock was tapped: open the window that manages the rest.
+     *
+     * Where a rest is going, this is [RestSheetRequested] — the sheet comes up over it to be
+     * adjusted, paused or skipped. Where none is, the tap *starts* one at the user's default
+     * length and raises the sheet over it, so a rest can be taken without a set being logged
+     * first: a warm-up, a cardio interval, a pause someone simply wants timed.
+     */
+    data object RestWindowRequested : ActiveSessionEvent
+
+    /**
      * END was tapped: ask whether to end the workout.
      *
      * Asked rather than done, because ending cannot be taken back and END is in the corner a

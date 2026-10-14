@@ -27,9 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -90,6 +92,10 @@ import kotlin.time.Duration.Companion.seconds
  * @param restTimerAnnounces whether the pill is the live region that reads the rest out as it
  *   runs — true once the sheet is away and the pill is the only countdown on screen. See
  *   [RestTimerIndicator].
+ * @param onClockClick manages the rest window from the clock: the tap opens the rest sheet over
+ *   a rest that is going, and starts one where none is. The clock is the one readout on the bar
+ *   that is always there, so it is the way into the rest even between two sets, when the pill
+ *   is not drawn. Null leaves the clock inert.
  * @param enabled false makes the three controls inert, for the one situation that needs it: a
  *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
  *   the write takes, and a pause landing behind it either mutates a session being closed out or
@@ -119,6 +125,7 @@ fun SessionHeaderBar(
     onFinish: () -> Unit = {},
     onDiscard: (() -> Unit)? = null,
     onNameClick: (() -> Unit)? = null,
+    onClockClick: (() -> Unit)? = null,
 ) {
     val chrome = TitanTheme.sessionChrome
 
@@ -145,6 +152,7 @@ fun SessionHeaderBar(
                 elapsed = elapsed,
                 isPaused = isPaused,
                 onNameClick = onNameClick,
+                onClockClick = onClockClick,
                 modifier = Modifier.weight(1f),
             )
 
@@ -276,6 +284,7 @@ private fun SessionTitle(
     elapsed: Duration,
     isPaused: Boolean,
     onNameClick: (() -> Unit)?,
+    onClockClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val chrome = TitanTheme.sessionChrome
@@ -288,6 +297,7 @@ private fun SessionTitle(
     )
     val rename = stringResource(R.string.session_header_rename)
     val merged = stringResource(R.string.session_header_title, name, spoken)
+    val restWindow = stringResource(R.string.session_header_rest_window)
 
     Column(
         modifier = if (onNameClick != null) {
@@ -297,6 +307,16 @@ private fun SessionTitle(
                     onClick(label = rename) {
                         onNameClick()
                         true
+                    }
+                    // The clock's own tap is cleared with the rest of the children, so a screen
+                    // reader reaches it as a custom action on the block instead.
+                    if (onClockClick != null) {
+                        customActions = listOf(
+                            CustomAccessibilityAction(restWindow) {
+                                onClockClick()
+                                true
+                            },
+                        )
                     }
                 }
                 .clickable(onClick = onNameClick)
@@ -312,6 +332,13 @@ private fun SessionTitle(
             maxLines = 1,
             modifier = Modifier
                 .padding(top = TitanTheme.spacing.xs)
+                .then(
+                    if (onClockClick != null) {
+                        Modifier.clickable(onClickLabel = restWindow, onClick = onClockClick)
+                    } else {
+                        Modifier
+                    },
+                )
                 .semantics { contentDescription = spoken },
         )
     }

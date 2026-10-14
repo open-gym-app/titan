@@ -2278,6 +2278,51 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `tapping the clock with no rest running starts one at the default length and raises the sheet`() =
+        runTest {
+            settings.setDefaultRestDuration(2.minutes)
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertEquals(RestTimerState.Running(2.minutes, 2.minutes), viewModel.clocks.value.rest)
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+            assertNull(viewModel.uiState.value.restTarget)
+            assertTrue(drafts.stored?.restTimer is RestTimerSnapshot.Running)
+        }
+
+    @Test
+    fun `tapping the clock over a rest that is going brings the sheet back and leaves the countdown alone`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.RestAdjusted((-30).seconds))
+            viewModel.onEvent(ActiveSessionEvent.RestSheetDismissed)
+            val rest = viewModel.clocks.value.rest
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+            assertEquals(rest, viewModel.clocks.value.rest)
+        }
+
+    @Test
+    fun `tapping the clock over a paused rest does not restart it`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
+            viewModel.onEvent(ActiveSessionEvent.RestSheetDismissed)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Paused)
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
     fun `skipping ends the rest, closes the sheet and leaves the timer idle`() =
         runTest {
             val viewModel = viewModel()

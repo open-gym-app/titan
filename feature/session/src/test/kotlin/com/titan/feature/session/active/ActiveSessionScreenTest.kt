@@ -1590,6 +1590,24 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `tapping the clock asks for the rest window, with or without a rest running`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true).performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `tapping the name still renames, and does not touch the rest`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Push day · Upper, Elapsed 0:23:14").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.NameEditRequested), events)
+    }
+
+    @Test
     fun `nothing on the header says rest when no rest is running`() {
         // The pill is the one thing on this screen wearing the accent and changing on its own.
         // One that sat there reading 0:00 between sets would spend that on nothing.

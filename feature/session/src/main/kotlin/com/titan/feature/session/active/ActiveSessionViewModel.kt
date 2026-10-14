@@ -1542,7 +1542,7 @@ class ActiveSessionViewModel @Inject constructor(
     // ─── The rest between two sets ──────────────────────────────────────────────────────
 
     /**
-     * The five events about the countdown, handled together.
+     * The six events about the countdown, handled together.
      *
      * Split off [onEvent] for the reason the other four groups are, and they belong together
      * for a reason of their own: three of them command the timer and two only say whether the
@@ -1581,6 +1581,15 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.RestSheetRequested ->
                 screenState.update { it.copy(isRestSheetOpen = true) }
+
+            ActiveSessionEvent.RestWindowRequested -> {
+                val rest = restTimer.state.value
+                if (rest !is RestTimerState.Running && rest !is RestTimerState.Paused) {
+                    restTimer.start(defaultRest)
+                    captureRest()
+                }
+                screenState.update { it.copy(isRestSheetOpen = true) }
+            }
 
             else -> return false
         }

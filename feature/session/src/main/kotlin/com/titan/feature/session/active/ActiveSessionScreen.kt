@@ -417,6 +417,8 @@ fun ActiveSessionScreen(
                 // The name is the affordance, so a workout started from the quick action can be
                 // titled from the one place its title is already shown.
                 onNameClick = { onEvent(ActiveSessionEvent.NameEditRequested) },
+                // The clock is the way into the rest window, with or without a rest running.
+                onClockClick = { onEvent(ActiveSessionEvent.RestWindowRequested) },
                 canFinish = state.canFinish,
             )
         },
