@@ -7,6 +7,7 @@ import com.titan.core.domain.backup.model.ExerciseMuscleGroupRow
 import com.titan.core.domain.backup.model.ExerciseRow
 import com.titan.core.domain.backup.model.ExerciseTagRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.backup.model.GymRow
 import com.titan.core.domain.backup.model.MuscleGroupRow
 import com.titan.core.domain.backup.model.PersonalRecordRow
 import com.titan.core.domain.backup.model.PlateStockPayload
@@ -84,12 +85,7 @@ fun sampleDocument(
         sessionXpClaim = listOf(SessionXpClaimRow(sessionId = 1)),
         sessionLootClaim = listOf(SessionLootClaimRow(sessionId = 1)),
         userProgress = listOf(sampleProgress()),
-        achievement = listOf(
-            AchievementRow(achievementId = "first_workout", unlockedAt = FINISHED_AT),
-            // A milestone this build has never heard of. PERSISTENCE.md says a restore must
-            // preserve it, so no test may treat it as corrupt.
-            AchievementRow(achievementId = "from_a_newer_version", unlockedAt = FINISHED_AT),
-        ),
+        achievement = sampleAchievements(),
         questCompletion = listOf(
             QuestCompletionRow(questId = "weekly_volume", periodStart = STARTED_AT, completedAt = FINISHED_AT),
         ),
@@ -108,6 +104,39 @@ fun sampleDocument(
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
             ),
+        ),
+        gym = sampleGyms(),
+    )
+
+private fun sampleAchievements() =
+    listOf(
+        AchievementRow(achievementId = "first_workout", unlockedAt = FINISHED_AT),
+        // A milestone this build has never heard of. PERSISTENCE.md says a restore must
+        // preserve it, so no test may treat it as corrupt.
+        AchievementRow(achievementId = "from_a_newer_version", unlockedAt = FINISHED_AT),
+    )
+
+private fun sampleGyms() =
+    listOf(
+        GymRow(
+            id = 1,
+            name = "Iron Works",
+            address = "12 Rue de la Forge, Paris",
+            latitude = 48.8566,
+            longitude = 2.3522,
+            equipmentTags = listOf("barbell", "squat rack", "sauna, steam"),
+            userNotes = "Quiet before 9",
+            createdAt = STARTED_AT,
+        ),
+        GymRow(
+            id = 2,
+            name = "Basement",
+            address = "",
+            latitude = -33.8688,
+            longitude = 151.2093,
+            equipmentTags = emptyList(),
+            userNotes = null,
+            createdAt = STARTED_AT,
         ),
     )
 

@@ -28,4 +28,5 @@ interface BackupDao :
     TemplateBackupDao,
     HistoryBackupDao,
     ProgressionBackupDao,
-    GamificationBackupDao
+    GamificationBackupDao,
+    GymBackupDao

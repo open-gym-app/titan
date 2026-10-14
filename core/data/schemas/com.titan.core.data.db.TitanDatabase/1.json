@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "7962f122c6106bf41ba4852f3f3bb48b",
+    "identityHash": "6740b88474ef9e9c3e1e9a8cd5a9dcb0",
     "entities": [
       {
         "tableName": "exercise",
@@ -1416,11 +1416,70 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_collected_item_acquired_at` ON `${TABLE_NAME}` (`acquired_at`)"
           }
         ]
+      },
+      {
+        "tableName": "gym",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `address` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `equipment_tags` TEXT NOT NULL, `user_notes` TEXT, `created_at` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "equipmentTags",
+            "columnName": "equipment_tags",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userNotes",
+            "columnName": "user_notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '7962f122c6106bf41ba4852f3f3bb48b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6740b88474ef9e9c3e1e9a8cd5a9dcb0')"
     ]
   }
 }

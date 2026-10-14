@@ -1,8 +1,10 @@
 package com.titan.core.data.db
 
+import com.titan.core.data.db.dao.BackupDao
 import com.titan.core.data.db.entity.AchievementEntity
 import com.titan.core.data.db.entity.CollectedItemEntity
 import com.titan.core.data.db.entity.ExerciseTagEntity
+import com.titan.core.data.db.entity.GymEntity
 import com.titan.core.data.db.entity.QuestCompletionEntity
 import com.titan.core.data.db.entity.SessionLootClaimEntity
 import com.titan.core.data.db.entity.SessionXpClaimEntity
@@ -187,6 +189,34 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
                 collectibleId = "steel_shaker",
                 source = "session_finished",
                 acquiredAt = FINISHED_AT,
+            ),
+        ),
+    )
+    seedGyms(dao)
+}
+
+private suspend fun seedGyms(dao: BackupDao) {
+    dao.insertGyms(
+        listOf(
+            GymEntity(
+                id = 1,
+                name = "Iron Works",
+                address = "12 Rue de la Forge, Paris",
+                latitude = 48.8566,
+                longitude = 2.3522,
+                equipmentTags = "barbell\nsquat rack\nsauna, steam",
+                userNotes = "Quiet before 9",
+                createdAt = STARTED_AT,
+            ),
+            GymEntity(
+                id = 2,
+                name = "Basement",
+                address = "",
+                latitude = -33.8688,
+                longitude = 151.2093,
+                equipmentTags = "",
+                userNotes = null,
+                createdAt = STARTED_AT,
             ),
         ),
     )

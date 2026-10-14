@@ -15,7 +15,7 @@ package com.titan.core.domain.backup.model
  *
  * The three tables that point at nothing — `user_progress`, `achievement` and
  * `collected_item` — could go anywhere and are placed last, beside `quest_completion`, so the
- * gamification group reads together.
+ * gamification group reads together. `gym` points at nothing either, and follows them.
  *
  * ### The name is the format
  *
@@ -83,6 +83,9 @@ enum class BackupTable(val tableName: String) {
 
     /** Points at nothing. */
     COLLECTED_ITEM("collected_item"),
+
+    /** Points at nothing. The user's saved gyms. */
+    GYM("gym"),
     ;
 
     companion object {

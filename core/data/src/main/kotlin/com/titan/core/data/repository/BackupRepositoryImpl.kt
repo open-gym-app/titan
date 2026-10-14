@@ -134,6 +134,8 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.QUEST_COMPLETION -> dao.readQuestCompletions(limit, offset).map { it.toRow() }
 
                 BackupTable.COLLECTED_ITEM -> dao.readCollectedItems(limit, offset).map { it.toRow() }
+
+                BackupTable.GYM -> dao.readGyms(limit, offset).map { it.toRow() }
             }
         }
 
@@ -183,6 +185,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.ACHIEVEMENT -> dao.deleteAchievements()
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
                 BackupTable.COLLECTED_ITEM -> dao.deleteCollectedItems()
+                BackupTable.GYM -> dao.deleteGyms()
             }
         }
     }
@@ -243,6 +246,7 @@ class BackupRepositoryImpl @Inject constructor(
             document.collectedItem,
             dao::insertCollectedItems,
         ) { it.toEntity() }
+        into.table(BackupTable.GYM, document.gym, dao::insertGyms) { it.toEntity() }
     }
 
     /**

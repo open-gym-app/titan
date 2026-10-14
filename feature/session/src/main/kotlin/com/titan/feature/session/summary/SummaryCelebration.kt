@@ -138,13 +138,18 @@ data class SummaryCelebration(
                 .filter { it.xp > 0 }
                 .sortedBy { it.kind.ordinal }
 
-        /** Which line of the breakdown an event belongs on. */
+        /**
+         * Which line of the breakdown an event belongs on. Gym milestones are paid outside a
+         * session's cascade, so they never reach it today; they sit with the other milestones.
+         */
         private fun XpEvent.sourceKind(): XpSourceKind =
             when (this) {
                 XpEvent.SetLogged -> XpSourceKind.SETS
                 XpEvent.SessionFinished -> XpSourceKind.SESSION
                 is XpEvent.PrBroken -> XpSourceKind.RECORDS
                 is XpEvent.AchievementUnlocked -> XpSourceKind.ACHIEVEMENTS
+                XpEvent.GymFirstCheckIn -> XpSourceKind.ACHIEVEMENTS
+                XpEvent.GymFirstReview -> XpSourceKind.ACHIEVEMENTS
                 is XpEvent.QuestCompleted -> XpSourceKind.QUESTS
             }
     }

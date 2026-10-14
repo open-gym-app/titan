@@ -7,6 +7,7 @@ import com.titan.core.data.db.dao.AchievementDao
 import com.titan.core.data.db.dao.BodyMeasurementDao
 import com.titan.core.data.db.dao.CollectedItemDao
 import com.titan.core.data.db.dao.ExerciseDao
+import com.titan.core.data.db.dao.GymDao
 import com.titan.core.data.db.dao.MuscleGroupDao
 import com.titan.core.data.db.dao.PersonalRecordDao
 import com.titan.core.data.db.dao.QuestCompletionDao
@@ -115,4 +116,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideCollectedItemDao(db: TitanDatabase): CollectedItemDao = db.collectedItemDao()
+
+    @Provides
+    @Singleton
+    fun provideGymDao(db: TitanDatabase): GymDao = db.gymDao()
 }

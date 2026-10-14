@@ -313,3 +313,21 @@ data class CollectedItemRow(
     @SerialName("source") val source: String,
     @SerialName("acquired_at") val acquiredAt: Long,
 ) : BackupRow
+
+/**
+ * A row of `gym`: one place the user saved.
+ *
+ * [equipmentTags] is a real list here, though the table packs it into one column; the mapper
+ * does the packing, so the file does not depend on how this build stores it.
+ */
+@Serializable
+data class GymRow(
+    @SerialName("id") val id: Long,
+    @SerialName("name") val name: String,
+    @SerialName("address") val address: String,
+    @SerialName("latitude") val latitude: Double,
+    @SerialName("longitude") val longitude: Double,
+    @SerialName("equipment_tags") val equipmentTags: List<String>,
+    @SerialName("user_notes") val userNotes: String?,
+    @SerialName("created_at") val createdAt: Long,
+) : BackupRow

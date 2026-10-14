@@ -68,6 +68,7 @@ data class ExportDocument(
     @SerialName("achievement") val achievement: List<AchievementRow> = emptyList(),
     @SerialName("quest_completion") val questCompletion: List<QuestCompletionRow> = emptyList(),
     @SerialName("collected_item") val collectedItem: List<CollectedItemRow> = emptyList(),
+    @SerialName("gym") val gym: List<GymRow> = emptyList(),
 ) {
 
     /**
@@ -99,6 +100,7 @@ data class ExportDocument(
             BackupTable.ACHIEVEMENT -> achievement
             BackupTable.QUEST_COMPLETION -> questCompletion
             BackupTable.COLLECTED_ITEM -> collectedItem
+            BackupTable.GYM -> gym
         }
 
     /** How many rows the whole document holds, across every table. What a progress bar divides by. */
