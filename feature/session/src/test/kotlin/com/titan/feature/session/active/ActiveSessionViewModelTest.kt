@@ -2323,6 +2323,50 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `a rest started from the clock is published with its alarm, naming no set`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            val published = backgroundRest.current
+            assertTrue(published?.rest is RestTimerSnapshot.Running)
+            assertEquals(ACTIVE_SESSION_ID, published?.sessionId)
+            assertNull(published?.exerciseName)
+            assertNull(published?.setNumber)
+        }
+
+    @Test
+    fun `a rest started from the clock after one ran out does not inherit its set`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            testScheduler.advanceTimeBy(91.seconds)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Running)
+            assertNull(viewModel.uiState.value.restTarget)
+            assertNull(backgroundRest.current?.exerciseName)
+            assertNull(backgroundRest.current?.setNumber)
+        }
+
+    @Test
+    fun `tapping the clock on a workout on its way out starts nothing`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
     fun `skipping ends the rest, closes the sheet and leaves the timer idle`() =
         runTest {
             val viewModel = viewModel()
@@ -2720,6 +2764,35 @@ class ActiveSessionViewModelTest {
             // Off the exercise the draft named, and out of the store: the second set of the bench,
             // 70 x 8. Nothing about the target is written into the draft itself.
             assertEquals(RestTarget(weight = 70_000_000L, reps = 8), restored.uiState.value.restTarget)
+        }
+
+    @Test
+    fun `a rest started from the clock is saved naming no exercise`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            runCurrent()
+
+            // Null, not zero: zero is the bench, and a restore would credit it the rest.
+            assertTrue(drafts.stored?.restTimer is RestTimerSnapshot.Running)
+            assertNull(drafts.stored?.currentExerciseIndex)
+        }
+
+    @Test
+    fun `a restored rest that followed no set is not credited to the first exercise`() =
+        runTest {
+            val restored = viewModel(
+                store = benchStore(),
+                drafts = FakeDraftStore(
+                    restingDraft(deadline = STARTED_AT + 90_000).copy(currentExerciseIndex = null),
+                ),
+            )
+
+            assertTrue(restored.clocks.value.rest is RestTimerState.Running)
+            assertTrue(restored.uiState.value.isRestSheetOpen)
+            assertNull(restored.uiState.value.restTarget)
+            assertNull(backgroundRest.current?.exerciseName)
         }
 
     // ─── The draft ──────────────────────────────────────────────────────────────────────

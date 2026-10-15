@@ -356,6 +356,11 @@ class HomeViewModel @Inject constructor(
     /**
      * Where the user left off, or null when the draft cannot say.
      *
+     * Which is most of the time. The session screen names an exercise only between two of its
+     * sets, mid-rest — every exercise of the workout is on its page and takes sets, so outside a
+     * rest there is no one exercise the user is on. A draft naming none draws no position rather
+     * than the first exercise's, which would be a guess presented as a fact.
+     *
      * One catalogue row, read by id rather than by walking the whole catalogue for one name.
      * Null when the exercise has been deleted from the library underneath the workout, which
      * drops the line rather than drawing a position with a blank where the movement goes.

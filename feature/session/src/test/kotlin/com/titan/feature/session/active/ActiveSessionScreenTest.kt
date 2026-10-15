@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasStateDescription
@@ -1590,12 +1591,27 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `tapping the clock asks for the rest window, with or without a rest running`() {
+    fun `tapping the clock asks for the rest window between two sets`() {
         setScreen(state())
 
         composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true).performClick()
 
         assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the clock is a full-size target, edge to edge`() {
+        // Measured here because the accessibility gate cannot: the clock's node is cleared into
+        // the merged title block, so ATF never sees it. A touch at either edge of its 48dp is
+        // the clock's, the top one included — that is the side the rename target sits on.
+        setScreen(state())
+        val clock = composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true)
+
+        clock.assertHeightIsAtLeast(48.dp)
+        clock.performTouchInput { click(Offset(centerX, top + 1f)) }
+        clock.performTouchInput { click(Offset(centerX, bottom - 1f)) }
+
+        assertEquals(List(2) { ActiveSessionEvent.RestWindowRequested }, events)
     }
 
     @Test

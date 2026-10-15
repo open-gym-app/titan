@@ -71,6 +71,16 @@ class RestTimerBroadcastsTest {
         }
 
     @Test
+    fun `a rest that follows no set survives the trip without one`() =
+        runTest {
+            val untied = REST.copy(exerciseName = null, setNumber = null)
+
+            broadcasts.handle(restExpiredBroadcast(context, untied))
+
+            assertEquals(listOf(untied.copy(rest = Snapshot.Finished)), restTimer.published)
+        }
+
+    @Test
     fun `an alarm carrying no rest is ignored rather than acted on`() =
         runTest {
             // The cancellation intent is built without extras on purpose — `AlarmManager`

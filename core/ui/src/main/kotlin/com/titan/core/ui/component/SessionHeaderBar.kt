@@ -9,8 +9,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -42,6 +44,7 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.ui.R
 import com.titan.core.ui.format.formatAsElapsed
+import com.titan.core.ui.theme.MIN_TOUCH_TARGET
 import com.titan.core.ui.theme.TitanSessionChrome
 import com.titan.core.ui.theme.TitanTheme
 import kotlin.time.Duration
@@ -267,13 +270,24 @@ fun SessionHeaderBar(
  * tall. A tap target that small is announced as whatever room it can grow into, and the clock
  * directly under it takes that room first — so the name came out 33dp tall to Accessibility
  * Scanner, an error. The rename target is therefore the *whole* title block, name and clock
- * together, which is 45dp on its own and grows the rest of the way into the bar's padding.
+ * together, which is 45dp on its own — more where the clock is a target too, below — and grows
+ * the rest of the way into the bar's padding.
  *
  * Merged rather than clickable-with-children because a content description on a parent
  * *replaces* its children's text for a screen reader rather than adding to it: a plain
  * `semantics(mergeDescendants)` here would announce the clock's description and drop the name.
  * `clearAndSetSemantics` says both, in order, and re-supplies the action the clear threw away —
  * the same trap [RestTimerIndicator] documents.
+ *
+ * ### The clock inside it
+ *
+ * Where the caller passes `onClockClick`, the clock's line takes the touches that land on it,
+ * so a finger on the digits manages the rest and the name above still renames. That line is
+ * [MIN_TOUCH_TARGET] tall rather than the height of the digits, because the rename target is
+ * right on top of it and would take any touch the clock was too short to. The accessibility
+ * gate cannot measure it — the clear above hides the clock's node — so the screen tests do. The
+ * clear also wipes the clock's tap from the accessibility tree along with everything else, so
+ * it is put back on the merged node as a custom action.
  *
  * Inert, the two stay separate nodes: a name that does nothing has no business merging with a
  * clock a reader may want to find on its own.
@@ -330,16 +344,19 @@ private fun SessionTitle(
             style = TitanTheme.typography.numericLarge,
             color = chrome.onSurface,
             maxLines = 1,
-            modifier = Modifier
-                .padding(top = TitanTheme.spacing.xs)
-                .then(
-                    if (onClockClick != null) {
-                        Modifier.clickable(onClickLabel = restWindow, onClick = onClockClick)
-                    } else {
-                        Modifier
-                    },
-                )
-                .semantics { contentDescription = spoken },
+            modifier = if (onClockClick != null) {
+                // A full-height line of its own, the digits centred in it. Drawn, the clock is
+                // 36dp of text, and a target that size only grows into room nothing else holds:
+                // the name above is the rename target and claims every touch that lands on it,
+                // so a finger a few dp high of the digits renamed the workout instead. The
+                // centring slack stands in for the gap the inert clock is drawn with.
+                Modifier
+                    .clickable(onClickLabel = restWindow, onClick = onClockClick)
+                    .heightIn(min = MIN_TOUCH_TARGET)
+                    .wrapContentHeight(Alignment.CenterVertically)
+            } else {
+                Modifier.padding(top = TitanTheme.spacing.xs)
+            }.semantics { contentDescription = spoken },
         )
     }
 }

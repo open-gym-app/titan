@@ -131,6 +131,19 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun `a draft that names no exercise draws no position rather than the first one`() =
+        runTest {
+            sessions.setSessions(listOf(openSession(7)))
+            // What the session screen writes outside a rest, and during one opened from the
+            // clock: no exercise is the one in hand, and the first is not a stand-in for it.
+            drafts.save(draft(sessionId = 7, completed = 2, sets = 2, currentExerciseIndex = null))
+
+            val resume = requireNotNull(viewModel().uiState.value.resume)
+
+            assertNull(resume.position)
+        }
+
+    @Test
     fun `a paused workout says so, and its clock stops where it was paused`() =
         runTest {
             val startedAt = clock.now - 30.minutes.inWholeMilliseconds
@@ -824,6 +837,9 @@ class HomeViewModelTest {
      * [sets] is what a draft actually carries — the rows already written plus at most one being
      * typed, per `ActiveSessionViewModel.draftExercises` — and not a plan. A test that hands
      * over four rows with two ticked is describing a draft the app never writes.
+     *
+     * Names that exercise as the one in hand by default, the way a draft written mid-rest does;
+     * pass a null [currentExerciseIndex] for one that names none.
      */
     private fun draft(
         sessionId: Long,
@@ -831,6 +847,7 @@ class HomeViewModelTest {
         completed: Int = 0,
         sets: Int = 0,
         exerciseId: Long = BENCH_PRESS.id,
+        currentExerciseIndex: Int? = 0,
     ) = ActiveSession(
         sessionId = sessionId,
         startedAt = startedAt,
@@ -844,6 +861,7 @@ class HomeViewModelTest {
                 },
             ),
         ),
+        currentExerciseIndex = currentExerciseIndex,
     )
 
     private companion object {

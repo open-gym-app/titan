@@ -79,6 +79,15 @@ class AndroidBackgroundRestTimerTest {
         }
 
     @Test
+    fun `a rest that follows no set still counts down, and names none`() =
+        runTest {
+            restTimer.set(running(DEADLINE).copy(exerciseName = null, setNumber = null))
+
+            assertEquals("Timed rest", notifier.showing?.body)
+            assertNotNull(shadowOf(alarms).peekNextScheduledAlarm())
+        }
+
+    @Test
     fun `the countdown carries a skip button and a way back into the session`() =
         runTest {
             restTimer.set(running(DEADLINE))

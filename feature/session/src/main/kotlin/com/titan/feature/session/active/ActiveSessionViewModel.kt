@@ -1548,7 +1548,8 @@ class ActiveSessionViewModel @Inject constructor(
      * for a reason of their own: three of them command the timer and two only say whether the
      * sheet is on screen, and the whole design of this feature is that those are separate
      * questions. A swipe that cancelled the rest, or a skip that only hid the sheet, would each
-     * be one line's confusion between the two halves.
+     * be one line's confusion between the two halves. The sixth, the clock's tap, is both on
+     * purpose — see [openRestWindow].
      *
      * @return whether [event] was one of them.
      */
@@ -1582,18 +1583,33 @@ class ActiveSessionViewModel @Inject constructor(
             ActiveSessionEvent.RestSheetRequested ->
                 screenState.update { it.copy(isRestSheetOpen = true) }
 
-            ActiveSessionEvent.RestWindowRequested -> {
-                val rest = restTimer.state.value
-                if (rest !is RestTimerState.Running && rest !is RestTimerState.Paused) {
-                    restTimer.start(defaultRest)
-                    captureRest()
-                }
-                screenState.update { it.copy(isRestSheetOpen = true) }
-            }
+            ActiveSessionEvent.RestWindowRequested -> openRestWindow()
 
             else -> return false
         }
         return true
+    }
+
+    /**
+     * Raises the rest sheet from the session clock, starting a rest at the user's default length
+     * where none is going.
+     *
+     * A rest started here follows no set, so it is tied to no exercise: the exercise and set a
+     * rest that *ran out* was tied to are cleared rather than inherited, or the sheet's "up next"
+     * and the lock-screen note would name a set the lifter already did.
+     *
+     * Ignored while the workout is on its way out, like the other writes: a rest started then
+     * would post a note and an alarm the finish has already taken down, over a session that is
+     * over.
+     */
+    private fun openRestWindow() {
+        if (screenState.value.isBusy) return
+        if (!restTimer.state.value.isLive) {
+            restTimer.start(defaultRest)
+            screenState.update { it.copy(restExerciseId = null, restNextSetNumber = null) }
+            captureRest()
+        }
+        screenState.update { it.copy(isRestSheetOpen = true) }
     }
 
     /**
@@ -1739,7 +1755,11 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun backgroundRest(snapshot: RestTimerSnapshot): BackgroundRest? {
         if (snapshot == RestTimerSnapshot.Idle) return null
-        val exerciseId = screenState.value.restExerciseId ?: return null
+        // A rest started from the clock follows no set, and is published without one: it still
+        // needs its alarm, and a note that names no exercise is truer than one that names a
+        // wrong one.
+        val exerciseId = screenState.value.restExerciseId
+            ?: return BackgroundRest(sessionId = sessionId, exerciseName = null, setNumber = null, rest = snapshot)
         val loaded = loaded.value ?: return null
         val exercise = loaded.ordered.firstOrNull { it.id == exerciseId } ?: return null
 
@@ -2480,8 +2500,10 @@ class ActiveSessionViewModel @Inject constructor(
         val rest = draft.restTimerStateAt(clock.nowMillis())
         if (!live) restTimer.restore(rest)
         val resting = rest is RestTimerState.Running || rest is RestTimerState.Paused
-        val restedExerciseId = draft.exercises
-            .getOrNull(draft.currentExerciseIndex)
+        // Null for a rest that follows no set — one opened from the session clock — which the
+        // draft writes as no index at all, so it comes back belonging to nothing rather than to
+        // whichever exercise happens to be first.
+        val restedExerciseId = draft.currentExercise
             ?.sessionExerciseId
             ?.takeIf { resting }
 
@@ -2611,7 +2633,9 @@ class ActiveSessionViewModel @Inject constructor(
                 unitSystem = unitSystem.value,
                 catalogue = catalogue.value,
             ).orEmpty(),
-            // The exercise the rest belongs to, and zero when there is no rest.
+            // The exercise the rest belongs to, and null when there is no rest or the rest
+            // follows no set — one opened from the session clock. Never zero for "none": zero
+            // is the first exercise, and a restore would credit the rest to it.
             //
             // The field asks which exercise the user was on, and for most of this screen there
             // is no answer — every exercise is on the page and every one of them takes sets.
@@ -2622,8 +2646,7 @@ class ActiveSessionViewModel @Inject constructor(
             // set.
             currentExerciseIndex = state.restExerciseId
                 ?.let { id -> loaded.value?.ordered?.indexOfFirst { it.id == id } }
-                ?.takeIf { it >= 0 }
-                ?: 0,
+                ?.takeIf { it >= 0 },
             restTimer = state.restSnapshot,
             stopwatch = state.stopwatch,
         )

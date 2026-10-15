@@ -146,8 +146,25 @@ class ActiveSessionTest {
     }
 
     @Test
-    fun `an index of zero is allowed on a session with no exercises yet`() {
-        assertEquals(0, minimalSession().currentExerciseIndex)
+    fun `a draft names no exercise unless told one`() {
+        assertNull(minimalSession().currentExerciseIndex)
+        assertNull(minimalSession().currentExercise)
+    }
+
+    @Test
+    fun `no exercise is not the first exercise`() {
+        // The distinction the field is nullable for: a rest opened from the session clock
+        // follows no set, and a restore must not credit it to whichever exercise is first.
+        val session = minimalSession().copy(exercises = listOf(ActiveExercise(exerciseId = 1)))
+
+        assertNull(session.currentExercise)
+        assertEquals(1L, session.copy(currentExerciseIndex = 0).currentExercise?.exerciseId)
+    }
+
+    @Test
+    fun `an index of zero is still allowed on a session with no exercises yet`() {
+        // How a draft written while the field was a plain integer spelled "none yet".
+        assertNull(minimalSession().copy(currentExerciseIndex = 0).currentExercise)
     }
 
     @Test

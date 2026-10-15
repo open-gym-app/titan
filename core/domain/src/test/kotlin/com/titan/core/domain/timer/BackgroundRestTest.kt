@@ -64,6 +64,15 @@ class BackgroundRestTest {
     }
 
     @Test
+    fun `an exercise is never named without the set that comes next`() {
+        // A rest started from the clock follows no set and names nothing. One that named an
+        // exercise with no set would read "Bench press" over a set nobody is waiting on.
+        assertThrows(IllegalArgumentException::class.java) {
+            BackgroundRest(7, "Bench press", setNumber = null, rest = RestTimerSnapshot.Idle)
+        }
+    }
+
+    @Test
     fun `sets are numbered from one, as the lifter reads them`() {
         listOf(0, -1).forEach { setNumber ->
             assertThrows(IllegalArgumentException::class.java) {

@@ -19,6 +19,17 @@ import kotlin.time.Duration.Companion.seconds
  */
 private const val GOLDEN_DOCUMENT =
     """{"version":1,"session":{"sessionId":1,"startedAt":1700000000000,"pausedDuration":"PT0S",""" +
+        """"pausedAt":null,"exercises":[],"currentExerciseIndex":null,"restTimer":{"type":"idle"},""" +
+        """"stopwatch":null}}"""
+
+/**
+ * [GOLDEN_DOCUMENT] as it was written while `currentExerciseIndex` was a plain integer, when a
+ * draft naming no exercise spelled it `0`. Making the field nullable needed no
+ * [ActiveSessionFormat.VERSION] bump only if this still decodes, and to a draft that names
+ * nothing — which is what this pins.
+ */
+private const val PRE_NULLABLE_INDEX_DOCUMENT =
+    """{"version":1,"session":{"sessionId":1,"startedAt":1700000000000,"pausedDuration":"PT0S",""" +
         """"pausedAt":null,"exercises":[],"currentExerciseIndex":0,"restTimer":{"type":"idle"},""" +
         """"stopwatch":null}}"""
 
@@ -232,6 +243,14 @@ class ActiveSessionSerializationTest {
     @Test
     fun `a draft written before the stopwatch existed decodes with none running`() {
         assertEquals(maximalSession().copy(stopwatch = null), ActiveSessionFormat.decode(PRE_STOPWATCH_DOCUMENT))
+    }
+
+    @Test
+    fun `a draft that spelled no exercise as zero still decodes and names none`() {
+        val restored = ActiveSessionFormat.decode(PRE_NULLABLE_INDEX_DOCUMENT)
+
+        assertEquals(minimalSession().copy(currentExerciseIndex = 0), restored)
+        assertNull(restored?.currentExercise)
     }
 
     @Test
