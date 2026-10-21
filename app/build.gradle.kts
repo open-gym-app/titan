@@ -18,8 +18,8 @@ plugins {
     // Generates the JSON the open source licences screen reads at runtime (#208), from this
     // module's own dependency graph — which, as the composition root, is the whole app's.
     alias(libs.plugins.aboutlibraries)
-    // Uploads the release bundle to Play's internal track from the release workflow (#209).
-    // Build-time only: it adds nothing to the APK.
+    // Uploads the release bundle to Play from the release workflow (#209). Build-time only:
+    // it adds nothing to the APK.
     alias(libs.plugins.play.publisher)
     id("titan.android.jacoco")
 }
@@ -227,16 +227,17 @@ aboutLibraries {
 
 // ### Publishing to Play (#209)
 //
-// The release workflow's `publishReleaseBundle` and nothing else: the internal track, as a
-// draft, so a build appears in the Console and rolls out to nobody until a person promotes it
-// (#47, #49). No track above internal is ever named here or in the workflow. Credentials come
+// The release workflow's `publishReleaseBundle` and nothing else. A candidate goes to the
+// internal track, the default here; a release tag passes `--track production`. Both are
+// `COMPLETED`: the build is live for the track's users as soon as Play has reviewed it, with
+// no step in the Console, so pushing a release tag is the decision to ship. Credentials come
 // from the `ANDROID_PUBLISHER_CREDENTIALS` environment variable GPP reads on its own, so no
 // key file is ever on disk. `resolutionStrategy` keeps its `FAIL` default on purpose: a
 // `versionCode` Play has already seen means a tag was reused, and the fix is a new tag, not a
 // silently bumped number the tag no longer describes.
 play {
     track.set("internal")
-    releaseStatus.set(ReleaseStatus.DRAFT)
+    releaseStatus.set(ReleaseStatus.COMPLETED)
     defaultToAppBundles.set(true)
     // Off for every variant but `release` (below). `staging` and `benchmark` are release-like
     // and GPP would otherwise register an upload task for each; neither is a build that
@@ -280,8 +281,8 @@ tasks.configureEach {
 }
 
 // What the release workflow reads the version back out of, in `$GITHUB_OUTPUT` form, so the
-// name on the GitHub Release, the changelog it attaches and the decision to skip Play for a
-// candidate all come from the same parse as the APK's own `versionCode`.
+// name on the GitHub Release, the changelog it attaches and the Play track a build goes to
+// all come from the same parse as the APK's own `versionCode`.
 tasks.register("printReleaseVersion") {
     group = "publishing"
     description = "Prints the version the -PreleaseVersion property resolves to."
