@@ -25,6 +25,33 @@ private val keystoreProperties = Properties().also { props ->
 private fun prop(envKey: String, fileKey: String): String? =
     (System.getenv(envKey) ?: keystoreProperties.getProperty(fileKey))?.takeIf { it.isNotEmpty() }
 
+// The version comes from the release tag, passed by .github/workflows/release.yml as
+// `-PreleaseVersion=1.2.3` or `-PreleaseVersion=1.2.3-rc.4`, and is never edited by hand.
+//
+// `versionCode` is MAJOR * 1_000_000 + MINOR * 10_000 + PATCH * 100 + N, where N is the
+// release candidate number and 99 for the release itself. Play only accepts a code higher
+// than every one it has seen, and this keeps that true across the line the workflow walks:
+// 1.0.0-rc.1 < 1.0.0-rc.2 < 1.0.0 < 1.0.1-rc.1. It caps a version at 98 candidates.
+//
+// A build without the property is a local one: `0.0.0-dev`, below anything ever uploaded.
+private data class ReleaseVersion(val name: String, val code: Int)
+
+private val releaseVersion: ReleaseVersion =
+    (findProperty("releaseVersion") as String?)?.let { name ->
+        val pattern = Regex("""(\d+)\.(\d+)\.(\d+)(?:-rc\.(\d+))?""")
+        val match = requireNotNull(pattern.matchEntire(name)) {
+            "releaseVersion must be MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-rc.N, was '$name'"
+        }
+        val (major, minor, patch, rc) = match.destructured
+        val candidate = rc.toIntOrNull() ?: 99
+        val fitsCandidate = rc.isEmpty() || candidate in 1..98
+        require(minor.toInt() < 100 && patch.toInt() < 100 && fitsCandidate) {
+            "releaseVersion '$name' does not fit the versionCode scheme"
+        }
+        val code = major.toInt() * 1_000_000 + minor.toInt() * 10_000 + patch.toInt() * 100
+        ReleaseVersion(name, code + candidate)
+    } ?: ReleaseVersion("0.0.0-dev", 1)
+
 android {
     namespace = "com.titan.app"
 
@@ -39,8 +66,8 @@ android {
         // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
         // runtime behaviour changes, which is a decision that needs its own testing pass.
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = releaseVersion.code
+        versionName = releaseVersion.name
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
