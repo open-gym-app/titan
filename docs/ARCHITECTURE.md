@@ -3,8 +3,8 @@
 ## Module structure
 
 ```text
-open-gym/
-├── build-logic/            # Included build - the `opengym.android.*` convention plugins
+titan/
+├── build-logic/            # Included build - the `titan.android.*` convention plugins
 ├── app/                    # Composition root - wires DI graph, declares Application/Activity
 ├── benchmark/              # On-device Macrobenchmarks and the Baseline Profile generator
 ├── core/
@@ -28,7 +28,7 @@ Gradle module names: `:app`, `:benchmark`, `:core:domain`, `:core:data`, `:core:
 `:core:testing` ships nothing and is on no main classpath. It holds the Roborazzi preview
 tester that runs the Accessibility Test Framework over every `@Preview`, and the
 `assertAccessible()` a screen test calls — see [ACCESSIBILITY.md](ACCESSIBILITY.md). The
-`opengym.android.compose` plugin adds it as `testImplementation` to `:core:ui` and every
+`titan.android.compose` plugin adds it as `testImplementation` to `:core:ui` and every
 feature; it depends on no module of this project, and `checkArchitecture` holds it to that.
 
 `:benchmark` is the only one that is neither a layer nor a slice. It is a
@@ -46,25 +46,25 @@ modules use.
 
 | Plugin id | Applies |
 | --- | --- |
-| `opengym.android.library` | `com.android.library`, the SDK levels, the JVM toolchain, the shared `lint {}` block, and the JVM unit-test dependencies |
-| `opengym.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
-| `opengym.android.hilt` | Hilt and the KSP processor that generates its components |
-| `opengym.android.feature` | The three above, plus `:core:domain`, `:core:ui` and the ViewModel-to-Compose bridge — everything a vertical slice needs |
-| `opengym.android.benchmark` | `:benchmark` only. `com.android.test`, the Macrobenchmark runner, the API 29 floor those metrics need, and the `benchmark` build type — see below |
-| `opengym.architecture` | Root project only. Registers `checkArchitecture`, which asserts the module dependency graph against this document |
+| `titan.android.library` | `com.android.library`, the SDK levels, the JVM toolchain, the shared `lint {}` block, and the JVM unit-test dependencies |
+| `titan.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
+| `titan.android.hilt` | Hilt and the KSP processor that generates its components |
+| `titan.android.feature` | The three above, plus `:core:domain`, `:core:ui` and the ViewModel-to-Compose bridge — everything a vertical slice needs |
+| `titan.android.benchmark` | `:benchmark` only. `com.android.test`, the Macrobenchmark runner, the API 29 floor those metrics need, and the `benchmark` build type — see below |
+| `titan.architecture` | Root project only. Registers `checkArchitecture`, which asserts the module dependency graph against this document |
 
-`opengym.android.compose` and `opengym.android.hilt` apply `opengym.android.library`
+`titan.android.compose` and `titan.android.hilt` apply `titan.android.library`
 themselves, so the order a module lists them in does not matter.
 
 A feature module's build file should be the plugin and a `namespace`, nothing more:
 
 ```kotlin
 plugins {
-    id("opengym.android.feature")
+    id("titan.android.feature")
 }
 
 android {
-    namespace = "com.opengym.feature.home"
+    namespace = "com.titan.feature.home"
 }
 ```
 
@@ -74,7 +74,7 @@ signing config and build variants that is not worth generalising for one consume
 module shares. Both therefore keep their own copy of the SDK levels and toolchain, and a
 bump has to be made in all three places — `:app` in particular is the module that ships.
 
-`opengym.android.benchmark` *is* a convention plugin for a single module, which the others
+`titan.android.benchmark` *is* a convention plugin for a single module, which the others
 avoid being. It exists anyway because what it configures is not a preference: a
 `com.android.test` module that runs against a debuggable build, or below API 29, or in the
 app's own process, produces numbers that look fine and mean nothing. Those three decisions
@@ -118,14 +118,14 @@ and an encoding, and what each screen decides to keep in it is the screen's. See
 docs/PERSISTENCE.md, "Saved instance state, and where it stops".
 
 The design system lives in `core/ui/.../theme/` and is four things: a Material 3
-`ColorScheme` per mode, a `Typography` on the wireframes' scale, `OpenGymSpacing` and
-`OpenGymShapes`. Material's own tokens are reached through `MaterialTheme`; the two roles it
+`ColorScheme` per mode, a `Typography` on the wireframes' scale, `TitanSpacing` and
+`TitanShapes`. Material's own tokens are reached through `MaterialTheme`; the two roles it
 has no slot for — the mono `numeric` styles and the `eyebrow` section header — are reached
-through the `OpenGymTheme` object, so a call site always says which vocabulary a value comes
+through the `TitanTheme` object, so a call site always says which vocabulary a value comes
 from. **A screen should need no raw `dp` literal for standard rhythm and no `Color(...)` at
 all.**
 
-`OpenGymTheme` also carries the two *stored* preferences that change how every screen renders
+`TitanTheme` also carries the two *stored* preferences that change how every screen renders
 — the colour scheme and the unit system, as the domain's own `ThemePreference` and
 `UnitSystem`. `:app` collects `UserPreferencesRepository` once at the root (`MainViewModel`)
 and passes both in, so a preference write recomposes the whole app: no screen subscribes to
@@ -185,7 +185,7 @@ repository. That work belongs to the feature's ViewModel.
 | `:core:ui` | `:core:data` | Presentation must not bypass the domain layer |
 | `:core:data` | `:core:ui`, `:app`, `:feature:*` | Data layer is unaware of how results are displayed |
 | `:feature:*` | other `:feature:*` | Features are independent vertical slices; cross-feature navigation goes through `:app` |
-| `:benchmark` | everything except `:app` | A benchmark that compiles against the code it measures reaches for a `@Composable` within a week, and is then a slow instrumentation test rather than a measurement of the shipping build. Its handles on the app are the resource ids in `OpenGymTestTags`, restated as strings |
+| `:benchmark` | everything except `:app` | A benchmark that compiles against the code it measures reaches for a `@Composable` within a week, and is then a slow instrumentation test rather than a measurement of the shipping build. Its handles on the app are the resource ids in `TitanTestTags`, restated as strings |
 
 Any dependency that violates these rules must be refactored: extract the shared concern into
 `:core:domain` (if it is a contract) or `:core:ui` (if it is a visual primitive).
@@ -285,7 +285,7 @@ trap: for a `data object` the screen call fails to compile, and for a `data clas
 compiles clean and renders an empty screen, because `ActiveSessionRoute(sessionId = ...)`
 resolves to the route constructor and the result is discarded.
 
-The `opengym.android.feature` convention plugin applies the `kotlin-serialization`
+The `titan.android.feature` convention plugin applies the `kotlin-serialization`
 plugin, so a feature module needs no extra setup to declare one.
 
 ### The shell: a tab scaffold, and modes outside it
@@ -325,7 +325,7 @@ ever hold; with a flat destination it works only while the tab is one screen dee
 breaks silently — the tab simply stops looking selected.
 
 Per-tab back stacks come from the standard trio in
-`OpenGymAppState.navigateToTopLevelDestination`: `popUpTo(startDestination) { saveState }`,
+`TitanAppState.navigateToTopLevelDestination`: `popUpTo(startDestination) { saveState }`,
 `restoreState`, `launchSingleTop`. Returning to a tab resumes where the user left it —
 except when the tab is the one you are already in, where both state flags invert and the pop
 stands, so pressing the active tab returns it to its root.
@@ -342,9 +342,9 @@ graph — and empties the back stack — when `startDestination` changes, and th
 *end* of onboarding: read live, it would tear the graph down underneath the very navigation
 onboarding is making. Finishing is a `navigate(TabsGraphDestination)` with
 `popUpTo<OnboardingDestination> { inclusive = true }`, so the back gesture from Home leaves the
-app rather than re-asking four questions the user has just answered.
+app rather than re-asking questions the user has just answered.
 
-**The four onboarding steps are state, not four destinations.** The flow is one flat
+**The five onboarding steps are state, not five destinations.** The flow is one flat
 destination whose current step lives in its ViewModel. Putting the steps on the back stack
 would make "leave nothing of onboarding behind" a property that has to be re-established every
 time a step is added, where one destination makes it a single `popUpTo`. The system back
@@ -433,7 +433,7 @@ Each Hilt module lives in a `di/` package inside the Gradle module that owns the
 
 | Scope | Component | Use for |
 | --- | --- | --- |
-| `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, network clients, repositories |
+| `@Singleton` | `SingletonComponent` | App-lifetime dependencies: database, DAOs, DataStore, repositories |
 | `@ViewModelScoped` | `ViewModelComponent` | Dependencies shared across a single ViewModel's injection graph but recreated per screen |
 | *(none)* | any | Cheap, stateless objects (e.g. mappers) - a fresh instance per injection site is fine, don't over-scope |
 
@@ -445,9 +445,9 @@ Use `@Provides` when the type needs construction logic or you don't own its cons
 // ✅ construction logic required - @Provides is correct
 @Provides
 @Singleton
-fun provideDatabase(@ApplicationContext context: Context): OpenGymDatabase =
-    Room.databaseBuilder(context, OpenGymDatabase::class.java, "open-gym.db")
-        .addMigrations(*OpenGymDatabase.MIGRATIONS)
+fun provideDatabase(@ApplicationContext context: Context): TitanDatabase =
+    Room.databaseBuilder(context, TitanDatabase::class.java, "titan.db")
+        .addMigrations(*TitanDatabase.MIGRATIONS)
         .build()
 ```
 

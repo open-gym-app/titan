@@ -1,6 +1,6 @@
 # Export schema
 
-The JSON document Open Gym writes when you back a device up, and reads when you restore one.
+The JSON document Titan writes when you back a device up, and reads when you restore one.
 
 It is the only copy of a user's training history that leaves the phone, so this file is the
 specification rather than a description: the format is pinned by tests against it, and a change
@@ -8,14 +8,14 @@ here that is not a change to those tests is a change nobody made.
 
 | Artifact | Path |
 | --- | --- |
-| The document, and the version | `core/domain/src/main/kotlin/com/opengym/core/domain/backup/model/ExportDocument.kt` |
+| The document, and the version | `core/domain/src/main/kotlin/com/titan/core/domain/backup/model/ExportDocument.kt` |
 | One data class per table | `.../backup/model/BackupRow.kt` |
 | The tables, and the order they restore in | `.../backup/model/BackupTable.kt` |
 | Reading, writing and the `Json` configuration | `.../backup/ExportFormat.kt`, `.../backup/ExportWriter.kt` |
 | What an import refuses | `.../backup/BackupValidator.kt`, `.../backup/model/ImportError.kt` |
 | The use cases | `.../usecase/ExportUseCase.kt`, `.../usecase/ImportUseCase.kt` |
-| The row-level store | `core/data/src/main/kotlin/com/opengym/core/data/repository/BackupRepositoryImpl.kt` |
-| Round trip, idempotency and schema-drift tests | `core/data/src/test/kotlin/com/opengym/core/data/db/Backup*.kt`, `ExportSchemaTest.kt` |
+| The row-level store | `core/data/src/main/kotlin/com/titan/core/data/repository/BackupRepositoryImpl.kt` |
+| Round trip, idempotency and schema-drift tests | `core/data/src/test/kotlin/com/titan/core/data/db/Backup*.kt`, `ExportSchemaTest.kt` |
 
 ## The shape
 
@@ -49,20 +49,52 @@ here that is not a change to those tests is a change nobody made.
 
 **Every key above is present in every document**, empty arrays included, so `jq 'keys'` returns
 the same answer for a fresh install as for a power user. `ExportSchemaTest` asserts that this
-list is exactly the tables `OpenGymDatabase` declares.
+list is exactly the tables `TitanDatabase` declares.
 
 ### Keys are the schema's names
 
 A top-level array key is a **SQLite table name**. A row's keys are that table's **column
 names**, in the order the table declares them, and a nullable column is written as `null`
 rather than omitted. So a row in an export and a row in
-`core/data/schemas/com.opengym.core.data.db.OpenGymDatabase/1.json` can be read side by side
+`core/data/schemas/com.titan.core.data.db.TitanDatabase/1.json` can be read side by side
 with no translation — which is the point, and is what `ExportSchemaTest` holds, column for
 column. Units are the schema's too: milligrams, centimetres, seconds, epoch-millisecond UTC
 timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assumptions).
 
 `preferences` is keyed by the **Preferences DataStore key names** for the same reason —
 `default_rest_duration_seconds`, not `defaultRestDuration`.
+
+### The `preferences` object
+
+| Key | Type | Absent from a file means |
+| --- | --- | --- |
+| `unit_system` | `UnitSystem` name | *required* |
+| `theme` | `ThemePreference` name | *required* |
+| `default_rest_duration_seconds` | int64 seconds | *required* |
+| `bar_weight_milligrams` | int64 milligrams | *required* |
+| `training_goal` | `TrainingGoal` name | *required* |
+| `one_rep_max_formula` | `OneRepMaxFormula` name | *required* |
+| `onboarding_completed` | bool | *required* |
+| `plate_inventory_milligrams` | array of `{weight_milligrams, pairs}`, or `null` | `null` — the user never chose a rack |
+| `fitness_level` | `FitnessLevel` name | `BEGINNER` — the file predates #M7-11 |
+| `custom_rep_range_min`, `custom_rep_range_max` | int32 reps | `8` and `12` — the file predates #M7-15, or holds one end without the other |
+| `custom_increment_milligrams` | int64 milligrams, or `null` | `null` — the rack's own smallest step |
+| `warmup_suggestions` | bool | `true` — the file predates #214 |
+
+*Required* is the decoder's word, not the importer's: a required key that is missing makes the
+document `MalformedJson`, where a value the build does not recognise degrades to the setting's
+default (see below). The last six are the keys that may be absent. `plate_inventory_milligrams`
+is written as an explicit `null` by this build and has been since the format's first version;
+`fitness_level` is written by every build from #M7-11 on, the three CUSTOM-goal keys by every
+build from #M7-15 on, and `warmup_suggestions` by every build from #214 on — each is simply not
+there in a file from before it. All read back as the default the table gives, and none bumped
+`schema_version`, per [the rule](#when-to-bump).
+A settings key added after these takes the same shape: nullable in `PreferencesPayload`,
+defaulted on read, listed here.
+
+Not in the object: the notification switches and the reminder schedule. They are device state
+— a permission this phone was granted and alarms this phone has scheduled — and an import that
+wrote them would draw switches that are on with nothing behind them.
 
 ## What is in it, and what is not
 
@@ -83,6 +115,10 @@ are recorded here so they are not re-litigated:
 - **`preferences` is exported**, and restored **last**. A restore is meant to reproduce a
   device, and the unit system in particular changes how every stored weight is *read back*;
   applying it after the rows means the app re-formats once, at the end, rather than mid-write.
+
+**The default templates are user rows.** The ones seeded on first launch (#213) carry no marker
+and travel in `workout_template` like any template the user wrote. A file from a phone that
+deleted one restores without it, and one the user renamed comes back renamed.
 
 **Not exported:** the in-progress session draft (`InProgressSessionRepository`). An interrupted
 workout is device state, not history — importing one would drop the user into a live session

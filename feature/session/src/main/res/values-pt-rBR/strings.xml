@@ -67,12 +67,23 @@
 
     <string name="active_weight_not_a_number">Essa carga não é um número</string>
     <string name="active_reps_not_a_number">Esse número de repetições não é um número</string>
-
-    <string name="active_logged_by_duration">Exercício por tempo. As séries são registradas por duração, o que esta tela ainda não consegue inserir: troque ou remova o exercício para continuar.</string>
+    <string name="active_duration_not_a_time">Esse tempo não é um tempo: digite como 1,30 ou 1,05,30</string>
+    <string name="active_distance_not_a_number">Essa distância não é um número</string>
 
     <string name="active_add_exercises">Adicionar mais exercícios</string>
     <string name="active_remove_exercise">Remover %1$s deste treino</string>
     <string name="active_swap_exercise">Trocar %1$s por outro exercício</string>
+
+    <string name="active_warmup_title">Aquecimento</string>
+    <string name="active_cooldown_title">Volta à calma</string>
+    <string name="active_mobility_added">Adicionado</string>
+    <string name="active_mobility_add">Adicionar ao treino</string>
+    <string name="active_mobility_dismiss">Agora não</string>
+    <string name="active_mobility_fold">Mostrar ou ocultar a sugestão</string>
+    <string name="active_mobility_expanded">Expandido</string>
+    <string name="active_mobility_collapsed">Recolhido</string>
+    <string name="active_warmup_general_note">Mais 5 min de cardio leve</string>
+    <string name="active_warmup_ramp_up">Séries de aproximação: %1$s</string>
 
     <string name="active_no_exercises_title">Nenhum exercício ainda</string>
     <string name="active_no_exercises_body">Este treino começou vazio. Adicione o primeiro exercício abaixo e comece a registrar.</string>
@@ -82,6 +93,20 @@
 
     <string name="active_missing_title">Este treino não existe mais</string>
     <string name="active_missing_body">Foi excluído ou finalizado em outro lugar. Nada aqui pode mais ser registrado nele.</string>
+
+    <string name="finish_session_title">Finalizar este treino?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d série registrada será salva.</item>
+        <item quantity="many">%1$d séries registradas serão salvas.</item>
+        <item quantity="other">%1$d séries registradas serão salvas.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercício ainda não tem nada registrado.</item>
+        <item quantity="many">%1$d exercícios ainda não têm nada registrado.</item>
+        <item quantity="other">%1$d exercícios ainda não têm nada registrado.</item>
+    </plurals>
+    <string name="finish_session_confirm">Finalizar treino</string>
+    <string name="finish_session_cancel">Continuar treinando</string>
 
     <string name="active_error_no_sets">Registre pelo menos uma série antes de finalizar, ou descarte o treino.</string>
     <string name="active_error_finish">Não foi possível finalizar o treino. Nada foi salvo e o treino continua em andamento.</string>

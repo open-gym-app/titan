@@ -1,16 +1,16 @@
 plugins {
-    id("opengym.android.library")
-    id("opengym.android.hilt")
+    id("titan.android.library")
+    id("titan.android.hilt")
     // Declared here as well as inside the Hilt convention: Room's compiler is the other
     // KSP processor this module runs, and it should not stop working the day the DI
-    // modules move somewhere else and `opengym.android.hilt` comes off. Applying is
+    // modules move somewhere else and `titan.android.hilt` comes off. Applying is
     // idempotent.
     alias(libs.plugins.ksp)
-    id("opengym.android.jacoco")
+    id("titan.android.jacoco")
 }
 
 android {
-    namespace = "com.opengym.core.data"
+    namespace = "com.titan.core.data"
 
     buildTypes {
         // The variant `:app`'s own `benchmark` build type resolves to, and the only one that
@@ -86,7 +86,7 @@ dependencies {
     // The weekly auto-backup (#181). The worker lives here rather than in `:feature:settings`
     // because it is I/O with no screen behind it — it runs while the app is not open — and
     // `androidx.hilt:hilt-compiler` is the KSP processor that teaches `HiltWorkerFactory` to
-    // build it. `:app` supplies that factory to WorkManager; see `OpenGymApplication`.
+    // build it. `:app` supplies that factory to WorkManager; see `TitanApplication`.
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)

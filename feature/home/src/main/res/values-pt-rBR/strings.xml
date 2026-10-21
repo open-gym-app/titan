@@ -46,13 +46,14 @@
     <string name="home_quick_start_blocked">Finalize ou descarte o treino acima antes de começar outro.</string>
     <string name="home_start_empty">Começar treino vazio</string>
     <string name="home_start_from_template">Começar a partir de um modelo</string>
+    <string name="home_templates_heading">Seus modelos</string>
+    <string name="home_all_templates">Ver todos os modelos</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 
     <string name="home_record_heading">Recorde recente</string>
     <string name="home_record_open">Mostrar todos os recordes pessoais</string>
     <string name="home_record_new_badge">Novo</string>
-    <string name="home_record_improvement">+%1$s</string>
     <string name="home_record_unknown_exercise">Exercício removido</string>
     <string name="home_record_description">%1$s, %2$s, %3$s, %4$s</string>
 

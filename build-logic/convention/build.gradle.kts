@@ -4,7 +4,7 @@ plugins {
     `kotlin-dsl`
 }
 
-group = "com.opengym.buildlogic"
+group = "com.titan.buildlogic"
 
 // Matches the toolchain every module compiles against; the convention plugins are
 // loaded into the same daemon that builds them.
@@ -54,31 +54,31 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().con
 gradlePlugin {
     plugins {
         register("androidLibrary") {
-            id = "opengym.android.library"
+            id = "titan.android.library"
             implementationClass = "AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
-            id = "opengym.android.compose"
+            id = "titan.android.compose"
             implementationClass = "AndroidComposeConventionPlugin"
         }
         register("androidHilt") {
-            id = "opengym.android.hilt"
+            id = "titan.android.hilt"
             implementationClass = "AndroidHiltConventionPlugin"
         }
         register("androidFeature") {
-            id = "opengym.android.feature"
+            id = "titan.android.feature"
             implementationClass = "AndroidFeatureConventionPlugin"
         }
         register("androidBenchmark") {
-            id = "opengym.android.benchmark"
+            id = "titan.android.benchmark"
             implementationClass = "AndroidBenchmarkConventionPlugin"
         }
         register("androidJacoco") {
-            id = "opengym.android.jacoco"
+            id = "titan.android.jacoco"
             implementationClass = "AndroidJacocoConventionPlugin"
         }
         register("architecture") {
-            id = "opengym.architecture"
+            id = "titan.architecture"
             implementationClass = "ArchitectureConventionPlugin"
         }
     }

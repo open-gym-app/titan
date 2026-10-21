@@ -1,7 +1,7 @@
 plugins {
-    id("opengym.android.feature")
+    id("titan.android.feature")
 }
 
 android {
-    namespace = "com.opengym.feature.session"
+    namespace = "com.titan.feature.session"
 }

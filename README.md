@@ -1,15 +1,15 @@
 <h1 align="center">
-  Open Gym
+  Titan
 </h1>
 
 <p align="center">
-  <a href="https://github.com/open-gym-app/open-gym/actions/workflows/ci.yml">
-    <img src="https://open-gym-app.github.io/img/logo.png" alt="OG-logo" width="120" style="border-radius: 20px;" />
+  <a href="https://github.com/open-gym-app/titan/actions/workflows/ci.yml">
+    <img src="https://open-gym-app.github.io/img/logo.png" alt="Titan logo" width="120" style="border-radius: 20px;" />
   </a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/license/open-gym-app/open-gym" alt="GPL-3.0" />
+  <img src="https://img.shields.io/github/license/open-gym-app/titan" alt="GPL-3.0" />
 </p>
 
 <p align="center">
@@ -32,7 +32,7 @@
 
 ## Introduction
 
-OpenGym is a free, open-source Android workout tracker built with Kotlin and Jetpack Compose.
+Titan is a free, open-source Android workout tracker built with Kotlin and Jetpack Compose.
 All data lives on your device. **No account required**, and no ads.
 
 ## What v1 ships
@@ -41,6 +41,7 @@ All data lives on your device. **No account required**, and no ads.
 - **Templates**: save a workout's shape and start from it next time.
 - **Exercise library**: a searchable library of exercises, seeded from [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db), with the muscles each one works and how to perform it.
 - **Progression**: personal records, an estimated one-rep max, and per-exercise progression charts.
+- **Suggestions**: a next target for every set, and a warm-up and cool-down for the muscles a session trains. Nothing reaches your log until you accept it, and the warm-up cards can be switched off in Settings.
 - **Stats & history**: a calendar of past sessions and the trends behind them.
 - **Reminders**: a notification on the days and at the time you plan to train.
 - **Backup & restore**: export everything to a file, or restore a device from one. Nothing leaves the phone unless you send it somewhere yourself.
@@ -95,11 +96,11 @@ Contributions are accepted under the project's licence: see below.
 
 ## Licence
 
-OpenGym is licensed under the **[GNU General Public License v3.0](LICENSE)**.
+Titan is licensed under the **[GNU General Public License v3.0](LICENSE)**.
 You are free to use, study, share and modify this software under the terms of that licence.
 
 Third-party content bundled with the app (the seeded exercise library and its images) is listed with its own terms in [NOTICE.md](NOTICE.md). The app's runtime dependencies and their licences are also listed in-app, under Settings › About › Open source licences.
 
 ## Issue?
 
-If you encounter a bug or have a feature request, please [open an issue](https://github.com/open-gym-app/open-gym/issues/new).
+If you encounter a bug or have a feature request, please [open an issue](https://github.com/open-gym-app/titan/issues/new).

@@ -1,9 +1,9 @@
 plugins {
-    id("opengym.android.feature")
+    id("titan.android.feature")
 }
 
 android {
-    namespace = "com.opengym.feature.settings"
+    namespace = "com.titan.feature.settings"
 }
 
 dependencies {

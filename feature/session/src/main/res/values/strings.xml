@@ -7,7 +7,7 @@
   read and act on is here, and translatable.
 
   Labels are written in sentence case even where the design draws them uppercase: `Eyebrow`
-  and `OpenGymBadge` uppercase for the caller, so a translator is never asked to reproduce a
+  and `TitanBadge` uppercase for the caller, so a translator is never asked to reproduce a
   typographic treatment.
 -->
 <resources>
@@ -29,9 +29,10 @@
         <item quantity="other">%1$d saved</item>
     </plurals>
 
-    <!-- Before the user has saved a template. It names where templates come from, because
-         nothing on this screen creates one — an empty list with no explanation reads as a
-         broken feature rather than an unused one. -->
+    <!-- When the template list is empty: the defaults a fresh install starts with (#213) have
+         all been deleted, and nothing has been saved since. It names where templates come
+         from, because nothing on this screen creates one — an empty list with no explanation
+         reads as a broken feature rather than an unused one. -->
     <string name="new_session_no_templates_title">No templates yet</string>
     <string name="new_session_no_templates_body">Finish a workout and save it as a template, and it shows up here ready to run again.</string>
 
@@ -95,18 +96,17 @@
     <string name="active_note_label">Note</string>
     <string name="active_note_clear">Clear</string>
 
-    <!-- The two refusals this screen words itself. Everything else a set can be refused for
+    <!-- The refusals this screen words itself. Everything else a set can be refused for
          is `SetValidator`'s own wording, shown as it stands — it names the field, the bound
          and the value it saw, which is more than a paraphrase could. -->
     <string name="active_weight_not_a_number">That weight is not a number</string>
     <string name="active_reps_not_a_number">That rep count is not a number</string>
-
-    <!-- An exercise whose sets are measured in time — a plank, a row on the erg. The row above
-         this takes a weight and a rep count, so there is nowhere to put the one thing a set of
-         it has to record, and `SetValidator` would refuse every set logged from here. Said on
-         the card rather than left as a tick that does nothing: the dead end is the exercise's,
-         and the way out of it is to take the exercise out of the workout. -->
-    <string name="active_logged_by_duration">Timed exercise. Sets are recorded by duration, which this screen cannot enter yet — swap it out or remove it to keep going.</string>
+    <!-- The time field of a hold or a run (#M7-17). Says the shape it takes, because "1.5"
+         is refused rather than guessed at — see parseClockSeconds. The examples are written
+         with the locale's decimal separator rather than a colon: the field opens a decimal
+         pad, which has no colon, and the parser reads either separator as one. -->
+    <string name="active_duration_not_a_time">That time is not a time — type it as 1.30 or 1.05.30</string>
+    <string name="active_distance_not_a_number">That distance is not a number</string>
 
     <!-- The action that opens the picker from inside a running workout. "More" rather than
          "exercises", because the button sits under the ones the session already has. -->
@@ -115,6 +115,30 @@
     <!-- The other way to change what is in a slot: the machine is taken, so something else goes
          in its place — at the same point in the workout, in the same superset. -->
     <string name="active_swap_exercise">Swap %1$s for another exercise</string>
+
+    <!-- ── The warm-up and the cool-down (#214) ───────────────────────────────────────────
+         Two cards around the workout, each proposing two or three mobility movements the
+         session's muscles call for. Nothing is added until the button is pressed, which is why
+         the card names the exercises rather than counting them. -->
+    <string name="active_warmup_title">Warm-up</string>
+    <string name="active_cooldown_title">Cool-down</string>
+    <!-- Added beside the heading once the workout holds every movement the card named. -->
+    <string name="active_mobility_added">Added</string>
+    <string name="active_mobility_add">Add to session</string>
+    <!-- Sends the card away for this workout only. Not a setting: "no warm-up today" and "never
+         show me a warm-up" are different answers, and the second one lives in Settings. -->
+    <string name="active_mobility_dismiss">Not now</string>
+    <!-- What a screen reader hears on the heading row, which folds the card. The label is the
+         action and the two below are the state, so a reader hears both rather than a label that
+         changes under them. -->
+    <string name="active_mobility_fold">Show or hide the suggestion</string>
+    <string name="active_mobility_expanded">Expanded</string>
+    <string name="active_mobility_collapsed">Collapsed</string>
+    <!-- Added to the warm-up when the session spans more than two muscle groups: no two or
+         three movements cover all of it, so raising the whole body's temperature is the advice. -->
+    <string name="active_warmup_general_note">Plus 5 min of easy cardio</string>
+    <!-- Heads the ramp-up sets. %1$s is the lift they lead into — "Bench press ramp-up". -->
+    <string name="active_warmup_ramp_up">%1$s ramp-up</string>
 
     <!-- A session started empty, before any exercise has been added to it. -->
     <string name="active_no_exercises_title">No exercises yet</string>
@@ -127,6 +151,21 @@
     <!-- A session id that no longer resolves to a row. -->
     <string name="active_missing_title">This session is gone</string>
     <string name="active_missing_body">It was deleted or finished somewhere else. Nothing here can be logged against it.</string>
+
+    <!-- The question in front of END. The figures are in it so it can be answered without
+         closing it: what will be saved, and the exercises still to go — the usual sign the tap
+         was a mistake. -->
+    <string name="finish_session_title">End this workout?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d logged set will be saved.</item>
+        <item quantity="other">%1$d logged sets will be saved.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercise has nothing logged yet.</item>
+        <item quantity="other">%1$d exercises have nothing logged yet.</item>
+    </plurals>
+    <string name="finish_session_confirm">End workout</string>
+    <string name="finish_session_cancel">Keep training</string>
 
     <string name="active_error_no_sets">Log at least one set before finishing, or discard the workout.</string>
     <string name="active_error_finish">Could not finish the session. Nothing was saved and the workout is still running.</string>

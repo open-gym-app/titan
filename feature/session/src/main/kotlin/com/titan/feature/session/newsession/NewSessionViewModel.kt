@@ -1,0 +1,558 @@
+package com.titan.feature.session.newsession
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.model.Exercise
+import com.titan.core.domain.model.ExerciseMuscleGroupLink
+import com.titan.core.domain.model.SessionError
+import com.titan.core.domain.model.SessionExerciseDraft
+import com.titan.core.domain.model.SessionPlan
+import com.titan.core.domain.model.TemplateSummary
+import com.titan.core.domain.model.WorkoutSession
+import com.titan.core.domain.model.toSessionPlan
+import com.titan.core.domain.repository.ExerciseRepository
+import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.superset.Supersets
+import com.titan.core.domain.usecase.ApplyTemplateUseCase
+import com.titan.core.domain.usecase.DiscardSessionUseCase
+import com.titan.core.domain.usecase.GetTemplateSummariesUseCase
+import com.titan.core.domain.usecase.ResumeSessionUseCase
+import com.titan.core.domain.usecase.StartPlannedSessionUseCase
+import com.titan.core.ui.component.supersetLabels
+import com.titan.core.ui.state.savedScreenState
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import javax.inject.Inject
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Assembling a workout: the saved templates to choose from, and the plan being put together.
+ *
+ * ### Nothing here writes until START
+ *
+ * The plan lives in this ViewModel and nowhere else until
+ * [StartPlannedSessionUseCase] is called. A template tapped, an exercise picked, an exercise
+ * dropped again — none of it touches the database, so backing out of the flow at any point
+ * leaves no session row and no in-progress draft to clean up. That is not an optimisation:
+ * a flow that wrote as it went would have to *undo* on the way out, and the undo would have
+ * to survive the process being killed on the picker screen.
+ *
+ * ### Why the plan is resolved once rather than observed
+ *
+ * The template's exercises and their catalogue rows are read with a `first()` at the moment
+ * the plan is built, not held as observed flows. The plan is a snapshot of a decision the
+ * user is making right now, and the catalogue cannot change underneath it from here — the
+ * only screen that edits an exercise is the library, which is not reachable while this one is
+ * up. Observing them would mean a review panel that reshuffled itself mid-read for no
+ * benefit.
+ *
+ * What *is* observed is the template list, because #92's authoring writes to it from
+ * elsewhere and a picker showing a stale list is a picker showing templates that are gone.
+ */
+@HiltViewModel
+/*
+ * Seven constructor parameters, one over the threshold, and every one is a graph edge: the
+ * templates, the catalogue, the sessions, and the four transitions this screen can cause —
+ * start, and the resume/discard pair that answers a start it was refused. Bundling them behind
+ * a holder to satisfy the count would put a type in the way of reading what the flow depends
+ * on, which is the one thing the list is good for. The same trade `ActiveSessionViewModel`
+ * records, at a fifth of the size.
+ */
+@Suppress("LongParameterList")
+class NewSessionViewModel @Inject constructor(
+    savedStateHandle: SavedStateHandle,
+    getTemplateSummaries: GetTemplateSummariesUseCase,
+    private val applyTemplate: ApplyTemplateUseCase,
+    private val startPlannedSession: StartPlannedSessionUseCase,
+    private val resumeSession: ResumeSessionUseCase,
+    private val discardSession: DiscardSessionUseCase,
+    private val exerciseRepository: ExerciseRepository,
+    private val sessionRepository: SessionRepository,
+) : ViewModel() {
+
+    /**
+     * The part of this screen that outlives the process (#183).
+     *
+     * The plan is the thing worth keeping: a workout assembled out of the picker, reordered and
+     * named, is several minutes of decisions and *nothing has been written* — a plan is not a
+     * session, which is the whole point of [SessionPlan] and the reason backing out of this flow
+     * costs nothing. Saved state is the right lifetime for it rather than a file, because a plan
+     * only means anything on the way to pressing START: the user who swipes the app away has
+     * abandoned it, and restoring it a day later would be the app pushing a workout at them.
+     *
+     * What is *not* here is the catalogue rows the review panel draws with. Those are a query,
+     * and [adopt] re-runs it on the way back in — which also re-checks that every exercise in
+     * the plan still exists, exactly as it does when the picker answers.
+     */
+    private val savedPlan = savedStateHandle.savedScreenState(viewModelScope) { SavedPlan() }
+
+    /** What the screen owns, as opposed to what the stores do. */
+    private val screenState = MutableStateFlow(
+        ScreenState(
+            selectingExercises = savedPlan.value.selectingExercises,
+            nameDraft = savedPlan.value.nameDraft,
+        ),
+    )
+
+    init {
+        val restored = savedPlan.value
+        viewModelScope.launch {
+            // Re-adopted rather than restored whole, so the panel is drawn from the catalogue as
+            // it stands now — and an exercise deleted while the app was dead is cut with the
+            // same message the picker's own answer would earn.
+            restored.session?.let { adopt(it, restored.estimatedDuration) }
+
+            // Started after the restore, not beside it: the mirror's first write would otherwise
+            // be the empty state it is about to be seeded out of.
+            screenState.collect { state ->
+                savedPlan.value = SavedPlan(
+                    session = state.plan?.session,
+                    estimatedDuration = state.plan?.estimatedDuration,
+                    selectingExercises = state.selectingExercises,
+                    nameDraft = state.nameDraft,
+                )
+            }
+        }
+    }
+
+    /**
+     * The saved templates, or **null** until the read comes back.
+     *
+     * Null rather than an empty list because the two are different states and the screen
+     * draws them differently: no templates is a real answer with a call to action attached,
+     * and flashing it for the few milliseconds before the first emission tells a user who
+     * has six templates that they have none.
+     */
+    private val templates: StateFlow<List<TemplateSummary>?> = getTemplateSummaries()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
+
+    val uiState: StateFlow<NewSessionUiState> = combine(
+        templates,
+        screenState,
+    ) { templates, screen ->
+        NewSessionUiState(
+            templates = templates.orEmpty(),
+            isLoading = templates == null,
+            step = screen.step(),
+            isStarting = screen.isStarting,
+            openSessionId = screen.openSessionId,
+            runningWorkout = screen.runningWorkout,
+            nameDraft = screen.nameDraft,
+            message = screen.message,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        // Long enough to survive a rotation without re-reading the template list, short
+        // enough that a backgrounded screen is not holding database observers open.
+        started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+        initialValue = NewSessionUiState(),
+    )
+
+    /*
+     * One branch per event, which is what the count is measuring. An exhaustive `when` over a
+     * sealed interface has no paths through it to get wrong — the compiler is what checks it is
+     * complete — so the threshold here is counting the flow's *actions* rather than anything
+     * that has to be held in the head at once. The same reasoning `ActiveSessionScreen` records
+     * over its own message table.
+     */
+    @Suppress("CyclomaticComplexMethod")
+    fun onEvent(event: NewSessionEvent) {
+        when (event) {
+            NewSessionEvent.ExerciseSelectionOpened ->
+                screenState.update { it.copy(selectingExercises = true) }
+
+            NewSessionEvent.ExerciseSelectionClosed ->
+                screenState.update { it.copy(selectingExercises = false) }
+
+            is NewSessionEvent.TemplateSelected -> planFromTemplate(event.templateId)
+
+            is NewSessionEvent.ExercisesSelected -> planFromExercises(event.exerciseIds)
+
+            is NewSessionEvent.ExerciseRemoved -> removeExercise(event.index)
+
+            NewSessionEvent.PlanDiscarded ->
+                screenState.update { it.copy(plan = null, selectingExercises = false) }
+
+            NewSessionEvent.NameEditRequested ->
+                screenState.update { it.copy(nameDraft = it.plan?.session?.name.orEmpty()) }
+
+            is NewSessionEvent.NameChanged ->
+                screenState.update { it.copy(nameDraft = event.text) }
+
+            NewSessionEvent.NameEditCancelled ->
+                screenState.update { it.copy(nameDraft = null) }
+
+            NewSessionEvent.NameConfirmed -> applyName()
+
+            NewSessionEvent.SessionStartRequested -> start()
+
+            // The same landing as a start: which of the two opened the workout is not a
+            // difference the shell has to know, and the workout screen resumes what it is
+            // handed — see `ActiveSessionViewModel`, which calls `ResumeSessionUseCase` for
+            // exactly this. `isStarting` goes with it so START cannot be pressed again over
+            // the pop, the same reason a real start leaves it set.
+            NewSessionEvent.ResumeRequested -> screenState.update {
+                it.copy(
+                    isStarting = it.runningWorkout != null,
+                    openSessionId = it.runningWorkout?.sessionId,
+                    runningWorkout = null,
+                )
+            }
+
+            NewSessionEvent.RunningSessionDiscarded -> discardRunning()
+
+            NewSessionEvent.ResumeDismissed -> screenState.update { it.copy(runningWorkout = null) }
+
+            NewSessionEvent.MessageShown -> screenState.update { it.copy(message = null) }
+        }
+    }
+
+    /**
+     * Reads [templateId] out and moves to ready-to-start.
+     *
+     * The estimate comes off the template's own summary rather than being recomputed: the
+     * list on screen already priced it against the user's default rest, and computing it a
+     * second way here is how a row and the panel it opens end up disagreeing by five minutes.
+     */
+    private fun planFromTemplate(templateId: Long) =
+        viewModelScope.launch {
+            val plan = applyTemplate(templateId).getOrElse {
+                screenState.update { it.copy(message = NewSessionMessage.TEMPLATE_UNAVAILABLE) }
+                return@launch
+            }
+
+            adopt(
+                session = plan.toSessionPlan(),
+                estimatedDuration = templates.value
+                    ?.firstOrNull { it.template.id == templateId }
+                    ?.estimatedDuration,
+            )
+        }
+
+    /**
+     * Takes the picker's answer.
+     *
+     * An empty answer is not how a cancel arrives — the picker's confirm bar is disabled
+     * until something is ticked, and a dismissal comes back as
+     * [NewSessionEvent.ExerciseSelectionClosed]. It is handled anyway, as the template list
+     * rather than a review panel with nothing on it.
+     */
+    private fun planFromExercises(exerciseIds: List<Long>) {
+        if (exerciseIds.isEmpty()) {
+            screenState.update { it.copy(selectingExercises = false) }
+            return
+        }
+
+        viewModelScope.launch {
+            // Null, not the shipped default: a hand-picked session has no set counts behind
+            // it, so there is nothing to pace and an estimate here would be invented.
+            adopt(session = SessionPlan.fromExercises(exerciseIds), estimatedDuration = null)
+        }
+    }
+
+    /**
+     * Resolves [session] against the catalogue and puts the screen on the review panel.
+     *
+     * A draft whose exercise is not in the catalogue is dropped **from the plan**, not merely
+     * from what is drawn. Dropping it at draw time only was two bugs: the visible rows and
+     * `plan.session.exercises` then disagreed on what index a row was at, so the close button
+     * removed a different exercise than the one it was next to; and the unresolvable draft
+     * survived into START, where `session_exercise.exercise_id` is a foreign key and one bad
+     * row aborts the whole layout. Cutting it here leaves one list, which the panel numbers
+     * and the use case writes.
+     *
+     * Nothing left after that is reported rather than drawn: an empty review panel is a dead
+     * end, and the user needs to know why the template they tapped came back with nothing.
+     */
+    private suspend fun adopt(
+        session: SessionPlan,
+        estimatedDuration: Duration?,
+    ) {
+        val exercises = exerciseRepository.getAll().first().associateBy(Exercise::id)
+        val known = session.exercises.filter { it.exerciseId in exercises }
+
+        if (known.isEmpty()) {
+            screenState.update {
+                it.copy(selectingExercises = false, message = NewSessionMessage.EXERCISES_UNAVAILABLE)
+            }
+            return
+        }
+
+        val plan = Plan(
+            session = session.copy(exercises = known),
+            estimatedDuration = estimatedDuration,
+            exercises = exercises,
+            muscleGroups = exerciseRepository.getAllMuscleGroupLinks().first(),
+        )
+        screenState.update {
+            it.copy(
+                plan = plan,
+                selectingExercises = false,
+                // Said only when something was actually lost. The panel is still worth
+                // showing — six of eight exercises is a workout — but it is not the workout
+                // that was tapped, and silently starting a shorter one is the part a user
+                // would not forgive.
+                message = if (known.size < session.exercises.size) {
+                    NewSessionMessage.EXERCISES_UNAVAILABLE
+                } else {
+                    it.message
+                },
+            )
+        }
+    }
+
+    /**
+     * Drops the exercise at [index], dissolving whatever it leaves behind.
+     *
+     * [index] is a position in the review panel's list, which is the plan's own list: every
+     * draft in it resolved against the catalogue when the plan was adopted, so the two are
+     * numbered alike. See [adopt].
+     *
+     * The estimate goes with the first removal. The drafts do carry their planned sets, but the
+     * estimate is `TemplateDuration`'s and that also prices the rest between them, which is the
+     * template's and does not travel onto a session draft — so a figure recomputed here would be
+     * a different formula's answer wearing the same units. The only honest options are to drop it
+     * or to keep quoting the figure that priced a workout the user has just changed, and
+     * "4 exercises · ~55m", where the 55 was for eight, is worse than "4 exercises".
+     *
+     * Removing the last one clears the plan, which puts the screen back on the template list.
+     * The alternative — a review panel showing nothing, with START disabled — is a state
+     * whose only exit is the one the back gesture already offers, drawn as though it were a
+     * place.
+     */
+    private fun removeExercise(index: Int) =
+        screenState.update { state ->
+            val plan = state.plan ?: return@update state
+            if (index !in plan.session.exercises.indices) return@update state
+
+            val remaining = plan.session.exercises.filterIndexed { position, _ -> position != index }
+            if (remaining.isEmpty()) {
+                state.copy(plan = null)
+            } else {
+                state.copy(
+                    plan = plan.copy(
+                        session = plan.session.copy(exercises = remaining),
+                        estimatedDuration = null,
+                    ),
+                )
+            }
+        }
+
+    /**
+     * Records what the session will be called, on the plan and nowhere else.
+     *
+     * Nothing is written here — the whole flow's premise is that backing out costs nothing to
+     * undo — so this is the same decision as picking a template or dropping an exercise, and it
+     * travels to `StartSessionUseCase` on `SessionPlan.name` when the user commits. The
+     * blank-means-unnamed rule belongs to `WorkoutSession.normalizeName` rather than to a second
+     * copy of it here: the plan keeps what the user typed, and the two places that have to agree
+     * about what it *means* — the use case on the way to the store, and [Plan.toStep] on the way
+     * to the screen — both ask that one function.
+     */
+    private fun applyName() =
+        screenState.update { state ->
+            val plan = state.plan ?: return@update state.copy(nameDraft = null)
+            state.copy(
+                plan = plan.copy(session = plan.session.copy(name = state.nameDraft)),
+                nameDraft = null,
+            )
+        }
+
+    /**
+     * Writes the plan and reports the session it became.
+     *
+     * Guarded on [ScreenState.isStarting] rather than only in the UI: a double-tapped START
+     * dispatched before recomposition would otherwise reach the use case twice, and the
+     * second call would be refused by the session the first one just opened — an error the
+     * user did nothing to earn.
+     */
+    private fun start() {
+        val plan = screenState.value.plan ?: return
+        if (screenState.value.isStarting) return
+        screenState.update { it.copy(isStarting = true) }
+
+        viewModelScope.launch {
+            startPlannedSession(plan.session)
+                .onSuccess { sessionId ->
+                    // isStarting stays true: the screen is on its way out, and re-enabling
+                    // the button for the frame before the pop invites a second workout.
+                    screenState.update { it.copy(openSessionId = sessionId) }
+                }
+                .onFailure { failure ->
+                    // A session already running is the one refusal that is answered rather than
+                    // reported: the workout in the way is named by the error, and offering it
+                    // back is the only route to it there is — see
+                    // [NewSessionUiState.runningWorkout]. Everything else that can go wrong here
+                    // is the write itself, and nothing was left behind by it.
+                    val blocking = (failure as? SessionError.SessionAlreadyActive)?.sessionId
+                    val running = blocking?.let { runningWorkout(it) }
+
+                    screenState.update {
+                        it.copy(
+                            isStarting = false,
+                            runningWorkout = running,
+                            // Refused by a session that is not there to be read is a refusal
+                            // with nothing to offer, so it is reported like any other.
+                            message = NewSessionMessage.START_FAILED.takeIf { running == null },
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * The workout in the way, read once for the offer that is about to be drawn over it.
+     *
+     * Two reads rather than one because the count is the deciding figure — see
+     * [RunningWorkout.loggedSets] — and `session_exercise` does not carry it. Null when the row
+     * is not there, which is a refusal that cannot be answered and is reported instead.
+     */
+    private suspend fun runningWorkout(sessionId: Long): RunningWorkout? {
+        val session = sessionRepository.getById(sessionId).first() ?: return null
+        return RunningWorkout(
+            sessionId = sessionId,
+            name = session.name,
+            startedAt = session.createdAt,
+            loggedSets = sessionRepository.getSetsForSession(sessionId).first().size,
+        )
+    }
+
+    /**
+     * Throws the workout in the way away and starts the planned one in its place.
+     *
+     * **Resumed first, deliberately.** [DiscardSessionUseCase] discards what the state machine
+     * says is open, and the state machine is in memory: the case that strands somebody here is
+     * a process restart, which leaves it `Idle` over a row still marked in progress. Resuming
+     * is what adopts that row — it is the transition written for exactly this — so the result
+     * is not read: from an already `Active` state there is nothing to adopt and the refusal is
+     * the correct answer, and a row that cannot be loaded fails the discard below, which is
+     * where it is reported.
+     *
+     * The start that follows is the same one START would have run, guarded the same way. It is
+     * run from here rather than left to a second press because the discard is the answer to a
+     * question the user asked by pressing START.
+     */
+    private fun discardRunning() {
+        val state = screenState.value
+        if (state.runningWorkout == null || state.isStarting) return
+        screenState.update { it.copy(isStarting = true) }
+
+        viewModelScope.launch {
+            resumeSession()
+            discardSession()
+                .onSuccess {
+                    // Cleared before the start, which refuses to run while it is set.
+                    screenState.update { it.copy(runningWorkout = null, isStarting = false) }
+                    start()
+                }
+                .onFailure {
+                    // The offer stays up: the workout is still there, still in the way, and
+                    // picking it back up is still the other way out of this.
+                    screenState.update {
+                        it.copy(isStarting = false, message = NewSessionMessage.DISCARD_FAILED)
+                    }
+                }
+        }
+    }
+
+    /** What the screen owns while the flow is open. */
+    private data class ScreenState(
+        val plan: Plan? = null,
+        val selectingExercises: Boolean = false,
+        val isStarting: Boolean = false,
+        val openSessionId: Long? = null,
+        val runningWorkout: RunningWorkout? = null,
+        val nameDraft: String? = null,
+        val message: NewSessionMessage? = null,
+    ) {
+
+        fun step(): NewSessionStep =
+            when {
+                plan != null -> plan.toStep()
+                selectingExercises -> NewSessionStep.ExerciseSelection
+                else -> NewSessionStep.TemplateSelection
+            }
+    }
+
+    /**
+     * The plan, plus the catalogue rows needed to draw it.
+     *
+     * The catalogue is carried alongside rather than looked up per row at draw time: a
+     * lookup inside a list item is a lookup repeated on every scroll pass, and holding it
+     * here is what lets [toStep] be a pure function of this value.
+     *
+     * Every draft in [session] has a row in [exercises] — [adopt] drops the ones that do not
+     * before building this — so the panel's rows and the plan's exercises are one list under
+     * two names, numbered alike.
+     */
+    private data class Plan(
+        val session: SessionPlan,
+        val estimatedDuration: Duration?,
+        val exercises: Map<Long, Exercise>,
+        val muscleGroups: Map<Long, List<ExerciseMuscleGroupLink>>,
+    ) {
+
+        fun toStep(): NewSessionStep.ReadyToStart {
+            // Normalised on every build rather than on removal, because a removal is what
+            // makes a grouping stale and the labels are read off the repaired one — a
+            // superset left with a single member is not a superset and must not be drawn as
+            // `SS A1` with no `A2` under it. The use case normalises again on the way to the
+            // store; this is the same rule applied to what the user is looking at.
+            val grouping = Supersets.normalize(session.exercises.map(SessionExerciseDraft::supersetGroup))
+            val labels = supersetLabels(grouping)
+
+            return NewSessionStep.ReadyToStart(
+                // The same normalisation `StartSessionUseCase` applies on the way to the store,
+                // by the same function, so the panel says "Unnamed session" for exactly the
+                // inputs that will be stored as unnamed. Without it, a user who clears the name
+                // field — which the dialog's own hint invites — confirms their way to a blank
+                // title with no route back to the placeholder.
+                name = WorkoutSession.normalizeName(session.name),
+                estimatedDuration = estimatedDuration,
+                // One row per draft, in order. Unresolvable ids were cut from the plan
+                // itself in [adopt] rather than skipped here, so this cannot drop a row and
+                // leave the panel numbering exercises the plan numbers differently.
+                exercises = session.exercises.mapIndexed { index, draft ->
+                    PlannedExerciseRow(
+                        exercise = requireNotNull(exercises[draft.exerciseId]) {
+                            "draft ${draft.exerciseId} has no catalogue row; adopt() should have cut it"
+                        },
+                        muscleGroups = muscleGroups[draft.exerciseId].orEmpty(),
+                        supersetLabel = labels[index],
+                    )
+                },
+            )
+        }
+    }
+
+    /**
+     * The plan as saved instance state: the decisions, without the rows used to draw them.
+     *
+     * @param session the plan itself, or null when the user has not built one.
+     * @param estimatedDuration the template's pacing figure, which is not derivable from the
+     *   plan — see [ApplyTemplateUseCase] — so it travels with it.
+     * @param selectingExercises the picker was open over this screen.
+     * @param nameDraft what is in the naming dialog, or null when it is closed.
+     */
+    @Serializable
+    private data class SavedPlan(
+        val session: SessionPlan? = null,
+        val estimatedDuration: Duration? = null,
+        val selectingExercises: Boolean = false,
+        val nameDraft: String? = null,
+    )
+
+    private companion object {
+        val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
+    }
+}

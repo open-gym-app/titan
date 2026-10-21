@@ -7,7 +7,7 @@
   site would be written once per screen and drift four ways.
 
   Labels are written in sentence case even where the design draws them uppercase. The
-  `Eyebrow` and `OpenGymBadge` components uppercase for the caller, so a translator is never
+  `Eyebrow` and `TitanBadge` components uppercase for the caller, so a translator is never
   asked to reproduce a typographic treatment.
 -->
 <resources>
@@ -18,6 +18,8 @@
     <string name="set_log_column_previous">Prev</string>
     <!-- The combined weight-and-reps column: "KG × REPS". The unit is the ambient one. -->
     <string name="set_log_column_reps">Reps</string>
+    <!-- The time column of a timed exercise's table: a hold, a run, a ride. -->
+    <string name="set_log_column_time">Time</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the single glyph shown in the set-number cell; the label is
@@ -39,6 +41,13 @@
     <string name="set_log_position">%1$s, set %2$d</string>
     <string name="set_log_weight_field">Weight, set %1$d</string>
     <string name="set_log_reps_field">Reps, set %1$d</string>
+    <!-- The fields a timed exercise is logged in (#M7-17). The distance names its unit,
+         because a figure like 0.4 means nothing without it and the header that says so is
+         hidden from a screen reader. On a hold the weight is what is added to the body, which
+         is why it is not just "Weight". -->
+    <string name="set_log_duration_field">Time, set %1$d</string>
+    <string name="set_log_distance_field">Distance in %2$s, set %1$d</string>
+    <string name="set_log_added_weight_field">Added weight, set %1$d</string>
     <!-- The RPE cell folds its value into the description, the way every other cell does: a
          content description replaces the text it is set on rather than adding to it, so a
          label alone would announce the column and swallow the number. -->
@@ -68,6 +77,21 @@
          numbers are in. -->
     <string name="set_log_weight_and_reps_compact">%1$s×%2$d</string>
     <string name="set_log_reps_only_compact">×%1$d</string>
+    <!-- A timed set on one line: "5 km · 27:14", and a hold with a plate on the back,
+         "1:30 · +10 kg" — the plus because the load is added to the body, not lifted. -->
+    <string name="set_log_distance_and_time" translatable="false">%1$s · %2$s</string>
+    <string name="set_log_timed_with_load" translatable="false">%1$s · +%2$s</string>
+    <!-- The empty time field's hint at the shape it takes. -->
+    <string name="set_log_time_placeholder" translatable="false">0:00</string>
+
+    <!-- ── The hold stopwatch ───────────────────────────────────────────────────── -->
+
+    <!-- The control under a hold's entry row: start it, hold the plank, stop it, and the time
+         goes into the field. Spoken with the set it is for and, while it runs, what it reads. -->
+    <string name="stopwatch_start">Start timer</string>
+    <string name="stopwatch_stop">Stop timer</string>
+    <string name="stopwatch_start_description">Start timer, set %1$d</string>
+    <string name="stopwatch_stop_description">Stop timer, set %1$d, %2$s elapsed</string>
 
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
@@ -78,6 +102,30 @@
          affordance a screen reader can reach. Names the set, because a table of five would
          otherwise offer five identical actions. -->
     <string name="set_delete_action">Delete set %1$d</string>
+
+    <!-- ── The next target ────────────────────────────────────────────────────────── -->
+
+    <!-- The line under the entry row that says what the next set should be (#M7-16): the
+         figures, and beside them how far the weight moved from last time. The whole line is
+         one button — tapping it fills the fields above — so it is read as one sentence: the
+         figures, then the reason, then the action. -->
+    <string name="set_target_line">Target %1$s</string>
+    <string name="set_target_with_change" translatable="false">%1$s · %2$s</string>
+    <!-- The change with its sign, since the figure beside it carries none: "+2.5 kg", "−5 kg".
+         A resource rather than a glyph in code so a translator can move the sign. -->
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_description" translatable="false">%1$s. %2$s</string>
+    <string name="set_target_fill_action">Fill in the target</string>
+
+    <!-- Why the target is what it is, one line per rule, written as advice rather than as the
+         rule's name — see SuggestionReason. The increase and the deload quote the step the
+         weight moves by; the bodyweight deload has no weight to take off. -->
+    <string name="suggestion_reason_increase">Hit the top of the range last time — add %1$s</string>
+    <string name="suggestion_reason_add_rep">Inside the range last time — one more rep</string>
+    <string name="suggestion_reason_repeat">Hit the top of the range once — hit it again to earn the increase</string>
+    <string name="suggestion_reason_deload">Fell short last time — take %1$s off and rebuild</string>
+    <string name="suggestion_reason_deload_bodyweight">Fell short last time — start again at the bottom of the range</string>
 
     <!-- Announced for the leading cell when the type can be changed: "Set type, set 3,
          Warm-up". The value is folded in for the reason the RPE cell folds its own in. -->
@@ -310,6 +358,10 @@
     <string name="stat_duration">Duration</string>
     <string name="stat_exercises">Exercises</string>
     <string name="stat_exercises_unit">done</string>
+    <!-- What the timed sets of a session added up to: how long they were held or run for,
+         and how far they went. Not "Duration", which is how long the session was open. -->
+    <string name="stat_time">Active time</string>
+    <string name="stat_distance">Distance</string>
     <!-- The tile a session summary shows instead of the duration, which its own header
          already carries. -->
     <string name="stat_muscles">Muscles</string>
@@ -327,6 +379,20 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Furthest</string>
     <string name="pr_best_pace">Best pace</string>
+    <!-- What a pace record reads as once its exercise says how: per kilometre for a run or a
+         swim, per hour for a ride. "Best pace" above is the first; the kind itself, in a
+         filter that covers both, is "Fastest". -->
+    <string name="pr_top_speed">Top speed</string>
+    <string name="pr_fastest">Fastest</string>
+    <string name="pr_max_duration">Longest</string>
+    <string name="pr_max_weighted_hold">Weighted hold</string>
+    <!-- How much a record beat the one before it. A pace beats by going down, so its
+         improvement is a minus (U+2212, not a hyphen); everything else goes up. -->
+    <string name="pr_improvement_up" translatable="false">+%1$s</string>
+    <string name="pr_improvement_down" translatable="false">−%1$s</string>
+    <!-- The load a weighted hold was held with, which is weight added to a body rather than
+         lifted - the same `+` a timed set's load wears in `set_log_timed_with_load`. -->
+    <string name="pr_added_load" translatable="false">+%1$s</string>
     <!-- Opens with the badge's own letters. "PR" is what a lifter says and what is drawn,
          and a label that starts with the drawn text is one Voice Access matches; the words
          the abbreviation stands for follow it. -->
@@ -483,8 +549,8 @@
 
     <!-- ── Stored preferences ────────────────────────────────────────────────────── -->
 
-    <!-- The three settings the user is asked about in more than one place: onboarding asks
-         for the goal and the units on first launch, and settings offers all three for the
+    <!-- The settings the user is asked about in more than one place: onboarding asks for the
+         goal, the level and the units on first launch, and settings offers them all for the
          rest of the app's life. The words live here, next to the labels for the domain's
          other enums, so the two screens cannot describe the same stored value differently. -->
 
@@ -506,6 +572,16 @@
     <string name="preference_goal_endurance_detail">High reps, short rests</string>
     <string name="preference_goal_custom">Custom</string>
     <string name="preference_goal_custom_detail">Your own programme</string>
+
+    <!-- The fitness level, in the user's terms: how long they have trained, never what they
+         can lift. `FitnessLevel`, not the exercise catalogue's `DifficultyLevel` — the two
+         nearly share their names and are about different things, see the enum. -->
+    <string name="preference_level_beginner">Beginner</string>
+    <string name="preference_level_beginner_detail">Under a year of training</string>
+    <string name="preference_level_intermediate">Intermediate</string>
+    <string name="preference_level_intermediate_detail">One to three years</string>
+    <string name="preference_level_advanced">Advanced</string>
+    <string name="preference_level_advanced_detail">More than three years</string>
 
     <string name="preference_one_rep_max_epley">Epley</string>
     <string name="preference_one_rep_max_epley_detail">Simple; overestimates at high reps</string>

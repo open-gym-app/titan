@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Android Lint suppression configuration for open-gym.
+  Android Lint suppression configuration for titan.
   Suppression policy: any severity="ignore" entry must have a comment here explaining
   the rationale for accepting the finding.
 -->

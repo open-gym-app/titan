@@ -27,8 +27,34 @@
     <string name="settings_bar_weight_detail">La barre à vide, avant les disques</string>
     <string name="settings_bar_weight_custom">Personnalisée</string>
     <string name="settings_training_goal">Objectif d’entraînement</string>
+    <string name="settings_fitness_level">Niveau d’entraînement</string>
     <string name="settings_one_rep_max_formula">Formule de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Comment le maximum estimé sur une répétition est calculé</string>
+    <string name="settings_warmup_suggestions">Suggestions d’échauffement</string>
+    <string name="settings_warmup_suggestions_detail">Proposer un échauffement et un retour au calme selon les muscles travaillés</string>
+
+    <string name="settings_restore_templates">Restaurer les modèles par défaut</string>
+    <string name="settings_restore_templates_none_missing">Tous les modèles par défaut sont dans votre liste</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">%d modèle par défaut supprimé peut être rétabli</item>
+        <item quantity="many">%d modèles par défaut supprimés peuvent être rétablis</item>
+        <item quantity="other">%d modèles par défaut supprimés peuvent être rétablis</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">Restaurer les modèles par défaut ?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Ajoute %1$d modèle que vous avez supprimé : %2$s</item>
+        <item quantity="many">Ajoute %1$d modèles que vous avez supprimés : %2$s</item>
+        <item quantity="other">Ajoute %1$d modèles que vous avez supprimés : %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restaurer</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d modèle restauré</item>
+        <item quantity="many">%d modèles restaurés</item>
+        <item quantity="other">%d modèles restaurés</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Rien à restaurer : tous les modèles par défaut sont déjà là</string>
+    <string name="settings_restore_templates_failed">Impossible de restaurer les modèles. Réessayez.</string>
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Sauvegarde &amp; restauration</string>
@@ -53,7 +79,7 @@
     <string name="settings_notifications_blocked">Les notifications sont bloquées</string>
     <string name="settings_notifications_blocked_detail">Android ne les délivre pas. Réactivez-les dans les paramètres du système.</string>
     <string name="settings_notifications_allow">Autoriser les notifications</string>
-    <string name="settings_notifications_allow_detail">OpenGym n’a pas encore demandé l’autorisation</string>
+    <string name="settings_notifications_allow_detail">Titan n’a pas encore demandé l’autorisation</string>
 
     <!-- About -->
     <string name="settings_version">Version</string>
@@ -72,6 +98,12 @@
     <string name="settings_dialog_save">Enregistrer</string>
     <string name="settings_bar_weight_field_label">Poids de la barre (%1$s)</string>
     <string name="settings_bar_weight_invalid">Saisissez un poids supérieur à zéro</string>
+    <string name="settings_custom_reps_from">Répétitions de</string>
+    <string name="settings_custom_reps_to">Répétitions à</string>
+    <string name="settings_custom_reps_invalid">Saisissez une fourchette de %1$d à %2$d répétitions, la plus basse en premier</string>
+    <string name="settings_custom_increment_field_label">Palier de charge (%1$s)</string>
+    <string name="settings_custom_increment_detail">Ajouté quand chaque série atteint le haut de la fourchette</string>
+    <string name="settings_custom_increment_invalid">Saisissez un palier supérieur à zéro</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Supprimer toutes les données</string>
@@ -148,7 +180,7 @@
     <string name="backup_auto_last">Dernière sauvegarde %1$s</string>
     <string name="backup_auto_failed">La dernière sauvegarde automatique n’a pas abouti, malgré plusieurs tentatives. Elle réessaiera à la prochaine exécution.</string>
     <string name="backup_auto_save_failed">Ce réglage n’a pas pu être enregistré. Réessayez.</string>
-    <string name="backup_auto_uninstall">Les sauvegardes automatiques sont conservées dans le stockage propre d’Open Gym : elles sont donc supprimées si vous désinstallez l’application. Exportez et enregistrez une copie pour en avoir une qui lui survive.</string>
+    <string name="backup_auto_uninstall">Les sauvegardes automatiques sont conservées dans le stockage propre de Titan : elles sont donc supprimées si vous désinstallez l’application. Exportez et enregistrez une copie pour en avoir une qui lui survive.</string>
 
     <string name="backup_restore_title">Restaurer</string>
     <string name="backup_restore_detail">Remplace tout ce qui est sur cet appareil par le contenu d’un fichier de sauvegarde. Les deux ne sont pas fusionnés.</string>
@@ -158,8 +190,8 @@
     <string name="backup_restore_done">%1$d lignes restaurées. Tout ce qui est sur cet appareil vient désormais du fichier.</string>
 
     <!-- One message per ImportError. -->
-    <string name="backup_error_malformed">Ce fichier n’est pas une sauvegarde Open Gym, ou il est endommagé. Rien n’a été modifié sur cet appareil.</string>
-    <string name="backup_error_version">Cette sauvegarde a été écrite au format version %1$d et cette version de l’application lit la version %2$d. Mettez Open Gym à jour et réessayez. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_malformed">Ce fichier n’est pas une sauvegarde Titan, ou il est endommagé. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_version">Cette sauvegarde a été écrite au format version %1$d et cette version de l’application lit la version %2$d. Mettez Titan à jour et réessayez. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_constraint">Cette sauvegarde est incomplète — elle fait référence à des séances qu’elle ne contient pas. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_io">La sauvegarde n’a pas pu être lue. Si la restauration avait déjà commencé, vos séances sont revenues mais vos paramètres peut-être pas.</string>
 
@@ -192,6 +224,6 @@
     <string name="reminder_days_empty_detail">Aucun jour choisi, donc rien n’est planifié.</string>
 
     <string name="reminder_inexact">Peut arriver en retard</string>
-    <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour OpenGym, donc Android peut retenir le rappel quelques minutes.</string>
+    <string name="reminder_inexact_detail">Les alarmes exactes sont désactivées pour Titan, donc Android peut retenir le rappel quelques minutes.</string>
 
 </resources>

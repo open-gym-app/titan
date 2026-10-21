@@ -91,6 +91,11 @@ words on every instance rather than whatever a reader infers from a flag:
 `PreferenceInfoRow` — the Settings "Font scale" row, the version — is not a control: it reads
 as text and offers no tap, asserted by `SettingsScreenTest` and `PreferenceRowTest`.
 
+A `PreferenceRow` with `enabled = false` — *Restore default templates* when none is missing —
+is announced as disabled, through `clickable(enabled = false)` rather than through dimming
+alone, and its supporting line says why it does nothing. Asserted by `PreferenceRowTest` and
+`SettingsScreenTest`.
+
 ### A control answers to the words drawn on it
 
 Every node that can be pressed has a spoken name that contains the text visible on it (WCAG
@@ -120,7 +125,13 @@ every preview. The notable decisions:
 - **The set table** (`SetLogRow`, `PlannedSetRow`): the set-type picker, the RPE picker and
   the tick keep their drawn 28 / 32 / 32 dp; the grid carries two clearances instead
   (`INDEX_CLEARANCE`, `TOGGLE_CLEARANCE`) and gives up its 8dp side padding to pay for them.
-- **Filter chips** (`OpenGymFilterChip`): drawn at 30dp inside a 48dp
+  A timed exercise's fields (time, distance, added weight) take the same two cells the weight
+  and reps do, so they inherit the same widths; each names its set and, for a distance, its unit
+  ("Distance in km, set 2"), because the header that says so is hidden from a screen reader.
+- **The hold stopwatch** (`HoldStopwatch`): a full-width button under the row, floored at 48dp
+  tall. Its reading is drawn and not announced — a live region a second for the length of a
+  plank is noise — and the stop control speaks it instead: "Stop timer, set 2, 0:47 elapsed".
+- **Filter chips** (`TitanFilterChip`): drawn at 30dp inside a 48dp
   `minimumInteractiveComponentSize`, as Material's own chips are. Chip sections got 18dp of
   air between lines out of it.
 - **The workout header** (`SessionHeaderBar`): the three 36dp controls sit 12dp apart; the
@@ -192,7 +203,7 @@ The inventory is every destination in the navigation graph — all twenty:
 
 | Slice | Screens |
 | --- | --- |
-| Onboarding | Onboarding (4 steps) |
+| Onboarding | Onboarding (5 steps) |
 | Home | Home |
 | History | Sessions, Template editor, Exercise library, Exercise detail, Plate calculator, Exercise picker |
 | Session | New session, Active session, Session summary |

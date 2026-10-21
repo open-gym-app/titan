@@ -61,12 +61,12 @@ Results are printed to the console and written to
 
 ```bash
 ./gradlew :benchmark:connectedBenchmarkAndroidTest \
-  -Pandroid.testInstrumentationRunnerArguments.class=com.opengym.benchmark.SessionsListBenchmark
+  -Pandroid.testInstrumentationRunnerArguments.class=com.titan.benchmark.SessionsListBenchmark
 ```
 
 ### If a run fails before it measures anything
 
-- **"The app did not answer on content://com.opengym.app.benchmark.seed"** — the installed app
+- **"The app did not answer on content://com.titan.app.benchmark.seed"** — the installed app
   is not the `benchmark` build type. `./gradlew :app:installBenchmark`, or just run the Gradle
   task above, which installs both APKs.
 - **"the sessions tab did not appear"** — the app opened on onboarding. The seeder marks
@@ -113,7 +113,7 @@ same question, an answer that covers every composable in the module rather than 
 screens somebody thought to open, and one a later change can be re-checked against:
 
 ```bash
-./gradlew :feature:progression:compileBenchmarkKotlin -Popengym.composeReports
+./gradlew :feature:progression:compileBenchmarkKotlin -Ptitan.composeReports
 less feature/progression/build/compose-reports/progression-composables.txt
 ```
 

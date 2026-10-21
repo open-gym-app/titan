@@ -1,11 +1,11 @@
-import com.opengym.buildlogic.library
+import com.titan.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.project
 
 /**
- * `opengym.android.feature` — everything a `:feature:*` vertical slice needs. Applying
+ * `titan.android.feature` — everything a `:feature:*` vertical slice needs. Applying
  * this plugin plus a `namespace` should be the whole of a feature module's build file.
  *
  * The two module dependencies are the only ones a feature is allowed: `:core:domain`
@@ -15,9 +15,9 @@ import org.gradle.kotlin.dsl.project
 class AndroidFeatureConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
-            pluginManager.apply("opengym.android.library")
-            pluginManager.apply("opengym.android.compose")
-            pluginManager.apply("opengym.android.hilt")
+            pluginManager.apply("titan.android.library")
+            pluginManager.apply("titan.android.compose")
+            pluginManager.apply("titan.android.hilt")
 
             // Destinations are `@Serializable` route types, so every feature needs the
             // serialization compiler plugin to generate their serializers.

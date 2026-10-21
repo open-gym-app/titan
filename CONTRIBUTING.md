@@ -2,7 +2,7 @@
 
 ## Licence
 
-OpenGym is licensed under the [GNU General Public License v3.0](LICENSE). By submitting a
+Titan is licensed under the [GNU General Public License v3.0](LICENSE). By submitting a
 pull request, you agree that your contribution is provided under the same licence.
 
 ## Branch naming
@@ -123,23 +123,23 @@ standard rhythm.** All three come from `:core:ui`'s theme package.
 ```kotlin
 Text(
     text = "THIS WEEK",                                     // eyebrows are uppercased by the caller
-    style = OpenGymTheme.typography.eyebrow,                // ours: eyebrow, numeric*
+    style = TitanTheme.typography.eyebrow,                // ours: eyebrow, numeric*
     color = MaterialTheme.colorScheme.onSurfaceVariant,     // Material: colour, shape, the type roles
-    modifier = Modifier.padding(OpenGymTheme.spacing.md),
+    modifier = Modifier.padding(TitanTheme.spacing.md),
 )
 ```
 
 - **Material's own tokens stay on `MaterialTheme`** — `colorScheme`, `shapes`, and the
   Material type roles. There is no wrapper for them; a second way to reach the same value
   is a second thing to keep in step.
-- **`OpenGymTheme.x` is only for what Material has no slot for**: the spacing scale, the
+- **`TitanTheme.x` is only for what Material has no slot for**: the spacing scale, the
   `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, `plateColors` and
   `sessionChrome`.
 
   `sessionChrome` is the one token set that does **not** invert with the scheme: the active
   workout runs under a solid near-black bar in light *and* dark, because a workout is a mode —
   the bottom bar is hidden and the back gesture does not simply leave — and a header built from
-  Material's `inverse*` slots would be near-white half the time. See `theme/OpenGymSessionChrome.kt`;
+  Material's `inverse*` slots would be near-white half the time. See `theme/TitanSessionChrome.kt`;
   every pair in it is held to WCAG AA by the same test that holds the two schemes.
 
   `plateColors` is an *ordinal* ramp — the heaviest size on the user's rack is the accent and
@@ -148,8 +148,8 @@ Text(
   Every tone carries the label colour that reads on it; see `theme/PlateColors.kt`.
 - **Reach for a component before a style.** `core/ui/.../component/` holds the primitives the
   tokens are meant to be used through — `Eyebrow` (which uppercases for you), `SectionHeading`
-  (the eyebrow with the rule that makes it read as a section break), `OpenGymCard` and
-  `HairlineDivider` (the bordered surface and the rule inside it), `OpenGymBadge`. A screen
+  (the eyebrow with the rule that makes it read as a section break), `TitanCard` and
+  `HairlineDivider` (the bordered surface and the rule inside it), `TitanBadge`. A screen
   that draws its own bordered `Surface` has restated four arguments that will drift.
 
   The same package holds the shared *workout* components, which are not primitives but whole
@@ -158,10 +158,11 @@ Text(
 
   | Component | Draws | Takes |
   | --- | --- | --- |
-  | `SetLogRow` | a set as a row of fields — weight, reps, RPE, set type, tick, inline validation, and what the same set did last time. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, plus an optional `onCommit` and an optional `PreviousSet` |
+  | `SetLogRow` | a set as a row of fields — two value fields chosen by the exercise's logging mode (weight and reps, distance and time, or a hold's time and added weight), RPE, set type, tick, inline validation, and what the same set did last time. The set being typed *and* every set already logged against a workout that can still be changed | text for the fields, because a half-typed number is not a number, an `ExerciseType` and a `DistanceUnit`, plus an optional `onCommit`, an optional `PreviousSet` and an optional `footer` |
+  | `HoldStopwatch` | the start/stop control under a hold's entry row, and its reading while it runs. Stopping it fills the time field; it never logs the set | the set number and the elapsed `Duration`, or null when stopped |
   | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
   | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
-  | `SwipeToDelete` | a row thrown away by dragging it clear off to the left, with the action a screen reader gets instead | what to delete, and what to call it |
+  | `SwipeToDelete` | a row thrown away by dragging it two fifths of the way to the left, with the action a screen reader gets instead | what to delete, and what to call it |
   | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END, and — on a line of its own above the progress rail — the rest countdown as a pill and a bar | a name, an elapsed `Duration`, a `SessionProgress`, an optional `RestTimerState` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
@@ -170,7 +171,8 @@ Text(
   | `TemplateCategoryPicker` | the six answers to "what does this train", `None` among them | a `TemplateCategory?` |
   | `ChipSection` | an eyebrow over a wrapping row of chips — a closed vocabulary shown whole rather than scrolled | a label and the chips |
   | `LoggedSetRow` | a set that has already been written, formatted and unwritable — a finished session's recap, a preview. Its tick takes the set back out of the count where a screen allows that | `WorkoutSet` or `ActiveSet`, plus an optional `onCompletedChange` |
-  | `SetLogHeader` | the column labels above either of the above | — |
+  | `SetLogHeader` | the column labels above either of the above — `KG REPS`, `KM TIME` or `TIME KG` | the same `ExerciseType` and `DistanceUnit` the rows were given |
+  | `SetTargetLine` | what the next set should be and why — `Target 82.5 kg × 8 · +2.5 kg` over the rule in a sentence — as one button that fills the entry row's fields. `SetLogRow` draws it under the row and the same figures as the fields' placeholders when handed a `target`; `formattedFigures` and `reasonText` are the two strings on their own, for the exercise detail's card | `LoadSuggestion` |
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
   | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
@@ -182,16 +184,15 @@ Text(
   | `MetaGrid` | the facts about a thing, two label-and-value cells to a row inside one card | `List<MetaEntry>`, built with `listOfNotNull` |
   | `MuscleContributionList` / `MuscleContributionRow` | the muscle breakdown as bars: a name, its volume, and how it compares | `List<MuscleContribution>`, built with `muscleContributions` |
   | `NotesCard` | the user's own remark on a thing, read as prose and edited in place | the note, the draft, and the prompt shown when there is none |
-  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~55m` and category chip, with a slot for whatever the screen puts on the right | `TemplateSummary` |
-  | `TemplateCard` | the same template as a fixed-width card, for a strip that scrolls sideways. Shares the row's figures, so the two cannot disagree | `TemplateSummary` |
+  | `TemplateRow` | a saved template: its initial, name, `8 ex · ~1h 15m` and category chip, with a slot for whatever the screen puts on the right. Dims and disarms when `enabled` is false | `TemplateSummary` |
   | `SessionRow` | a logged session: its day rail, name, PR badge and `52m · 12 sets · 4,820 kg` | a name, an instant, a duration and two totals |
   | `TrainingCalendar` | a month as a heatmap, trained days shaded against the month's heaviest | a `YearMonth` and a `TrainingDay` per day |
   | `WeekStrip` | the same row without the month around it: seven days, the trained ones filled | a `WeekDay` per day, in the order they are drawn |
-  | `OpenGymTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
-  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles | `PrType` / `PersonalRecord` |
+  | `TitanTabRow` | the wireframes' section tabs: mono labels, accent underline, ruled off | labels and the selected index |
+  | `PrBadge` / `PrValue` | the personal-record tag, and the record's own figure. `formattedValue` writes it as a phrase (`92 kg`, `5:27 /km`, `30.0 km/h`, `1:30 · +20 kg`); `formattedFigure` and `recordUnit` take the two apart, for a `StatTile` that sets them in different type roles. A best pace is drawn in its exercise's `PaceStyle` — a pace, a swim's pace per 100, or a speed — which the repository fills in on every record it reads. `PersonalRecordEntry.formattedImprovement` is what it beat, signed (`+12 kg`, `−0:17 /km`) | the record's label (`PersonalRecord.label()`) / `PersonalRecord` |
   | `PersonalRecordRow` | the same record as a row of its own: the kind as an eyebrow, the date under it, the figure in the accent on the end, with slots for a badge beside the kind and a line under the figure. The list form of `PrValue`, shared by the exercise's bests and the records list | the three pieces already formatted, plus the sentence the whole row is read as |
-  | `OpenGymSearchField` | the in-place search box, with its clear button | the query, hoisted |
-  | `OpenGymFilterChip` / `OpenGymFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
+  | `TitanSearchField` | the in-place search box, with its clear button | the query, hoisted |
+  | `TitanFilterChip` / `TitanFilterChipRow` | a filter as a capsule, and a scrolling row of them | a label and a selected flag |
   | `SelectableOption` | one choice in a list where exactly one is taken, as a card: a radio, the name, and a mono line saying what the option means. What a question asked *as a screen* looks like | a label, an optional detail, and a selected flag |
   | `StepProgress` | how far through a numbered flow the user is, as one filled rail | the step and how many there are |
   | `EmptyState` | the "nothing yet" and "nothing matches" page, with an optional way out | a title, a line of prose, an action |
@@ -199,7 +200,7 @@ Text(
   | `CollapsedReorderRow` | what every item of such a list shrinks to while one is held: its place, its name, one fact and its superset | a position and a name |
   | `SupersetLink` | the join in the gap between two exercises, where a superset is made and unmade | whether the two are already one |
   | `SupersetBadge` | the `SS A1` an exercise in a superset wears | the marker from `supersetLabels` |
-  | `OpenGymValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it | the text, hoisted, and an error |
+  | `TitanValueField` | the app's numeric cell: one figure in a filled box, with an optional caption under it and an optional placeholder in it — a suggested figure that is drawn while the box is empty, never typed for the user and never announced | the text, hoisted, and an error |
   | `BodyDiagram` | the front and back figures with the worked muscles highlighted | `Collection<MuscleGroup>` |
   | `BarbellDiagram` | a loaded bar, plates to scale and mirrored, stamped with their weights | `List<PlateCount>` + the rack's sizes |
   | `PlateLegend` | the same loading as a list of what to carry over from the rack | `List<PlateCount>` + the rack's sizes |
@@ -214,7 +215,14 @@ Text(
   `SetLogRow`, `LoggedSetRow` and `PlannedSetRow` are one table in three states — the set being
   typed, the set that is a record, and the set that has not happened yet — and they share their
   column grid, which is the point of the component: the weight a template plans and the weight it
-  becomes are the same cell, at the same width, in the same order. A caller has to pass the same
+  becomes are the same cell, at the same width, in the same order. **Which two value cells the
+  grid holds is the exercise's logging mode** (`SetValueFields`): weight and reps for `STRENGTH`,
+  distance and time for `ENDURANCE`, time and an added weight for `ISOMETRIC`. Always two, in the
+  same two cells, so a table of runs lines up under a table of presses and every grid constant
+  holds for all three. A time is typed as `M:SS` or `H:MM:SS` — the decimal pad's full stop
+  stands in for the colon — and parsed by `parseClockSeconds`; a distance is typed in the unit
+  `distanceEntryUnit` picks — kilometres or miles, for every exercise, a pool length as `0.025` —
+  and the caller parses with the same unit it labelled the field with. A caller has to pass the same
   `showPrevious` to `SetLogRow`, `LoggedSetRow` and `SetLogHeader` or the labels stop sitting over
   the cells they name; `PlannedSetRow` has its own header (`PlannedSetHeader`) because it drops
   two columns a plan cannot fill in — the previous performance, and the rating.
@@ -286,7 +294,7 @@ Text(
 
   | File | Labels |
   | --- | --- |
-  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()`, `MuscleGroup.displayName()`, `TemplateCategory.label()` |
+  | `component/DomainLabels.kt` | `SetType.label()` / `markerOrNull()`, `PrType.label()` (a kind on its own, as a filter names it: `Fastest`) and `PersonalRecord.label()` (a record, as its exercise reads it: `Best pace`, `Top speed`), `MuscleGroup.displayName()`, `TemplateCategory.label()` |
   | `component/ExerciseLabels.kt` | `EquipmentType.labelOrNull()`, `ExerciseType.label()` / `trackedLabel()`, `MechanicType.label()`, `DifficultyLevel.label()`, `Discipline.label()` |
   | `component/PreferenceLabels.kt` | `ThemePreference.label()` / `detailOrNull()`, `UnitSystem.label()` / `detail()`, `TrainingGoal.label()` / `detail()` |
 
@@ -311,6 +319,7 @@ Text(
   | Weight | milligrams | `formatWeight`, `formatWeightValue` | `parseWeightMilligrams` |
   | Volume | milligram-reps | `formatVolume`, `formatVolumeValue` | — (computed, never typed) |
   | Distance | centimetres | `formatDistance`, `formatDistanceValue` | `parseDistanceCentimetres` |
+  | Pace or speed | whole nanoseconds per centimetre (`paceOf`: a best pace's duration over its distance, never a `Double`) | `formatPaceFigure` and `paceUnit` (`5:27` `/km`, `1:45` `/100 m`, `30.0` `km/h`, by `PaceStyle`), `formatPaceChange` (the difference of two, as shown) — integer arithmetic throughout, through `DistanceUnit`'s exact tenths of a millimetre | — (computed, never typed) |
   | Duration | seconds | `formatAsClock` (countdown), `formatAsElapsed` (running session), `formatAsLength` (a finished one, `52m`), `formatAsTotal` (a period's worth, `32h`), `formatAsEstimate` (`~55m`) | — |
   | Date and time | epoch millis UTC | `formatSessionDate` (`Tue, Apr 28, 2026`), `formatDayAndMonth` (`Apr 28`, a table's date column), `formatTimeOfDay` (`10:14`), `formatMonthAndYear` (`April 2026`), `formatMonthAbbreviation` (`Apr`, a chart's axis), `formatDayOfMonth` / `formatWeekday` / `weekdayInitials` (a calendar's parts) | — (picked, never typed) |
   | A bare count | an `Int` or a `Long` | `formatCount` (`12`, `2,140`) | — |
@@ -364,7 +373,7 @@ are what stands between a Compose screen and a string a translator cannot reach.
 - **Naming.** `<screen-or-component>_<what-it-is>`, lowercase with underscores:
   `set_log_column_reps`, `backup_export_failed`, `quest_log_streak_personal_best`. A
   description a screen reader gets ends in `_description`. Labels are written in sentence case
-  even where the design draws them uppercase — `Eyebrow` and `OpenGymBadge` uppercase for the
+  even where the design draws them uppercase — `Eyebrow` and `TitanBadge` uppercase for the
   caller, so a translator is never asked to reproduce a typographic treatment.
 - **A count takes a `<plurals>`, always.** Not `"$n sets"`, and not a `<string>` with a `%1$d`
   in front of a noun: `1 sets` is the first set of every workout reading wrong in English, and
@@ -416,9 +425,9 @@ are what stands between a Compose screen and a string a translator cannot reach.
 Each class lives in a package that matches its layer and module:
 
 ```text
-com.opengym.core.domain.usecase.LogSessionUseCase
-com.opengym.core.data.repository.SessionRepositoryImpl
-com.opengym.core.data.local.dao.SessionDao
+com.titan.core.domain.usecase.LogSessionUseCase
+com.titan.core.data.repository.SessionRepositoryImpl
+com.titan.core.data.local.dao.SessionDao
 ```
 
 ## Test coverage
@@ -480,7 +489,7 @@ Both are picked up by `make test` and by CI's `unit-test` job. **Use `make test`
 verifying anything. `verifyRoborazziDebug` has to be in the same invocation, which is what
 `make test` and CI both do. Everything they need —
 `ui-test-junit4`, Robolectric, Roborazzi, the SDK pin, `isIncludeAndroidResources` — comes
-from the `opengym.android.compose` convention plugin, so a module's build file adds nothing.
+from the `titan.android.compose` convention plugin, so a module's build file adds nothing.
 
 `:core:ui`'s `example/` package is a worked copy of both patterns against a screen written
 to the two-composable convention above. Start there.
@@ -508,7 +517,7 @@ class ExerciseLibraryScreenTest {
     @Test
     fun `emits ExerciseClicked with the exercise that was tapped`() {
         composeTestRule.setContent {
-            OpenGymTheme {
+            TitanTheme {
                 ExerciseLibraryScreen(
                     state = ExerciseLibraryUiState(exercises = listOf(benchPress)),
                     onEvent = events::add,
@@ -528,12 +537,12 @@ class ExerciseLibraryScreenTest {
 - **A test that composes an `XRoute` needs Hilt**, because `hiltViewModel()` resolves its
   factory through the activity and a plain `ComponentActivity` is not an entry point. That is
   `@HiltAndroidTest` + `@Config(application = HiltTestApplication::class)` +
-  `createAndroidComposeRule<HiltTestActivity>()`; `:app`'s `OpenGymAppNavigationTest` is the
+  `createAndroidComposeRule<HiltTestActivity>()`; `:app`'s `TitanAppNavigationTest` is the
   worked example, and `HiltTestActivity` lives in `app/src/debug`. Prefer not needing it: drive
   the stateless half.
 - Do **not** add `@Config(sdk = ...)`. The level is pinned once for every module by the
   generated `robolectric.properties`; a per-class override drifts the day it moves.
-- Wrap the screen in `OpenGymTheme` so it composes against the colours and typography the
+- Wrap the screen in `TitanTheme` so it composes against the colours and typography the
   app actually uses.
 
 ### How to add a screenshot test
@@ -546,7 +555,7 @@ scanned per module, scoped to that module's namespace.
 @Preview(name = "Exercise library - empty", showBackground = true)
 @Composable
 fun ExerciseLibraryScreenEmptyPreview() {
-    OpenGymTheme {
+    TitanTheme {
         ExerciseLibraryScreen(state = ExerciseLibraryUiState(), onEvent = {})
     }
 }
@@ -637,15 +646,16 @@ each other and composition never settles. Not on a device — a frame or two mor
 is invisible — and not in a component test either, since none of them run at this window size.
 It surfaced once, in `EndToEndJourneyTest` (#187): the one test that assembles the whole app,
 which is the one place that runs at the size where it happens. `TemplateNameDialog` and
-`SessionNameDialog` both hit it and both now use `OpenGymDialog` instead of `AlertDialog` — see
+`SessionNameDialog` both hit it and both now use `TitanDialog` instead of `AlertDialog` — see
 its own doc for the fix, which is sizing the dialog from the window's constraints rather than
 from its content, so there is nothing left to chase. If a new dialog with a text field in it
-ever needs the same shape, reach for `OpenGymDialog` rather than `AlertDialog` from the start.
+ever needs the same shape, reach for `TitanDialog` rather than `AlertDialog` from the start.
 
 ## Pull requests
 
 - **One concern per PR** - keep scope tight so the diff stays readable.
 - **CI must be green** before requesting a review (lint, tests, build, coverage).
+- **Reword what your PR makes untrue.** A comment, doc or string that still waits on an issue the PR closes (`until #54`) should say what the code does now. `make issue-refs-check PR=<number>` lists them.
 - **1 approval required** to merge.
 - **Squash & merge** - all commits on the branch are squashed into one on `main`. The squash commit message must follow the Conventional Commits format above.
 - Delete the branch after merging.

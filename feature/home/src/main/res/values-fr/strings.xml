@@ -46,13 +46,14 @@
     <string name="home_quick_start_blocked">Terminez ou abandonnez la séance ci-dessus avant d’en démarrer une autre.</string>
     <string name="home_start_empty">Démarrer une séance vide</string>
     <string name="home_start_from_template">Démarrer depuis un modèle</string>
+    <string name="home_templates_heading">Vos modèles</string>
+    <string name="home_all_templates">Voir tous les modèles</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 
     <string name="home_record_heading">Record récent</string>
     <string name="home_record_open">Afficher tous les records personnels</string>
     <string name="home_record_new_badge">Nouveau</string>
-    <string name="home_record_improvement">+%1$s</string>
     <string name="home_record_unknown_exercise">Exercice supprimé</string>
     <string name="home_record_description">%1$s, %2$s, %3$s, %4$s</string>
 

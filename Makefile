@@ -1,6 +1,7 @@
 PYTHON ?= python3
 SEED := tools/seed/generate_seed.py
 TRANSLATIONS := tools/translations/check.py
+ISSUE_REFS := tools/issue-refs/check.py
 
 # Where Macrobenchmark leaves what it pulled off the device, and where a Baseline Profile has
 # to land for AGP to package it — `src/main/baselineProfiles` is the source directory AGP reads
@@ -13,7 +14,7 @@ BASELINE_PROFILE_DIR := app/src/main/baselineProfiles
 # settings the way the Settings app does; both have to be installed first, and neither is by
 # default on a clean device — `a11y-scan` opens the Play Store page when the Scanner is missing.
 ADB ?= adb
-APP_ID := com.opengym.app.debug
+APP_ID := com.titan.app.debug
 SCANNER_PACKAGE := com.google.android.apps.accessibility.auditor
 SCANNER_SERVICE := $(SCANNER_PACKAGE)/$(SCANNER_PACKAGE).ScannerService
 # TalkBack ships under two names: Google's, from the Play Store's Accessibility Suite, and the
@@ -25,7 +26,7 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean translations-check test journeys screenshots screenshots-verify lint \
+.PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check test journeys screenshots screenshots-verify lint \
 	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
 help: ## List the available targets
@@ -49,11 +50,16 @@ seed-clean: ## Drop the cached upstream tarballs
 translations-check: ## Report every key missing from, or stray in, each module's translations
 	$(PYTHON) $(TRANSLATIONS) $(if $(STRICT),--strict) $(if $(LOCALE),--locale $(LOCALE))
 
+# Asks GitHub, so it needs GITHUB_TOKEN or a logged-in `gh`. `PR=231` also counts the issues
+# that pull request closes, to check a change for what it made untrue before it merges.
+issue-refs-check: ## Fail on prose that still waits on a closed issue ("until #30 lands")
+	$(PYTHON) $(ISSUE_REFS) $(if $(PR),--pr $(PR))
+
 test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug
 
 journeys: ## Run only the end-to-end journey suite (#29)
-	./gradlew :app:testDebugUnitTest --tests "com.opengym.app.ui.EndToEndJourneyTest"
+	./gradlew :app:testDebugUnitTest --tests "com.titan.app.ui.EndToEndJourneyTest"
 
 screenshots: ## Re-record the screenshot references after an intended visual change
 	./gradlew recordRoborazziDebug -Proborazzi.cleanupOldScreenshots=true
@@ -69,7 +75,7 @@ benchmark: ## Run the on-device benchmarks (#42) - needs a physical device on ad
 
 baseline-profile: ## Regenerate the committed Baseline Profile from a physical device
 	./gradlew :benchmark:connectedBenchmarkAndroidTest \
-		-Pandroid.testInstrumentationRunnerArguments.class=com.opengym.benchmark.BaselineProfileGenerator
+		-Pandroid.testInstrumentationRunnerArguments.class=com.titan.benchmark.BaselineProfileGenerator
 	@mkdir -p $(BASELINE_PROFILE_DIR)
 	@found=$$(find $(BENCHMARK_OUTPUT) -name '*-baseline-prof.txt' -print -quit); \
 		test -n "$$found" || { echo "No profile in $(BENCHMARK_OUTPUT) - did the run reach a device?"; exit 1; }; \

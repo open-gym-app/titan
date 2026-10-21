@@ -59,7 +59,13 @@ MUSCLE_GROUPS = [
 ]
 
 # CARRY has no upstream equivalent; it stays seeded for user-tagged exercises.
-SYSTEM_TAGS = ["PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION"]
+# DYNAMIC, SPEED and SWIM are appended rather than inserted: the ids are
+# positions in this list, so putting one anywhere else would renumber every tag
+# link below it.
+SYSTEM_TAGS = [
+    "PUSH", "PULL", "STATIC", "CARRY", "COMPOUND", "ISOLATION", "DYNAMIC",
+    "SPEED", "SWIM",
+]
 
 # --- Upstream -> schema mappings ------------------------------------------
 
@@ -104,6 +110,11 @@ MECHANIC = {"compound": "COMPOUND", "isolation": "ISOLATION", None: None}
 DIFFICULTY = {"beginner": "BEGINNER", "intermediate": "INTERMEDIATE", "expert": "EXPERT"}
 FORCE_TAG = {"push": "PUSH", "pull": "PULL", "static": "STATIC"}
 
+# The `force` values that mean a movement travels through a range rather than
+# holding a position. Used only for DYNAMIC below; the STATIC tag above is the
+# same column read the other way round, and the two never disagree.
+MOVING_FORCES = ("push", "pull")
+
 # exercise.is_unilateral is not an upstream field. These markers appear only in
 # genuinely one-side-at-a-time movement names, so the inference is safe; an
 # exercise without a marker keeps the column's `false` default rather than
@@ -113,6 +124,21 @@ UNILATERAL = re.compile(
     r"|single[- ]leg|one[- ]handed|alternating)\b",
     re.IGNORECASE,
 )
+
+# How a cardio movement reads how fast it went (#225): `PaceStyle` in the app.
+# A personal best pace is stored once and shown as a speed for the movements a
+# rider or a rower thinks of in km/h, and per 100 m for a swim; anything else is
+# a pace per km or mile. No upstream field says which, so the name does, in the
+# way upstream names its variants (`Bicycling, Stationary`, `Rowing, Stationary`).
+# Matched on every cardio row rather than on a list of slugs, so a cardio row
+# added later (a hand-authored `Kayaking` or `Swimming, Freestyle`) is tagged
+# without an entry of its own.
+#
+# Rowing reads as a speed on purpose. Rowers often quote a split per 500 m, but
+# that would be a fourth `PaceStyle` and a fourth unit for one movement; km/h
+# is the reading a rower's best shares with every other machine in the gym.
+SPEED_NAMES = re.compile(r"bicycl|\bbike\b|cycling|rowing|skating|kayak", re.IGNORECASE)
+SWIM_NAMES = re.compile(r"swim|aqua", re.IGNORECASE)
 
 IMAGE_MAX_EDGE = 400
 IMAGE_QUALITY = 72
@@ -210,6 +236,44 @@ def muscle_name(upstream: str) -> str:
     return name
 
 
+def dynamic_tag(record: dict) -> str | None:
+    """`"DYNAMIC"` when this movement warms a muscle up rather than stretching it out.
+
+    The warm-up/cool-down suggestion (#214) needs to tell leg swings from a seated
+    hamstring stretch, and no upstream field says so on its own. Two rules cover it:
+
+    * **plyometrics** are dynamic by definition - a box jump is nothing else - bar the
+      single upstream record whose ``force`` is ``static``;
+    * a **stretch** is dynamic when ``force`` says it pushes or pulls, i.e. the body
+      travels, and static when it says ``static`` or says nothing.
+
+    Every other category is neither: a bench press is not mobility work, and tagging it
+    would put it in a warm-up card next to leg swings.
+    """
+    category, force = record["category"], record.get("force")
+    if category == "plyometrics":
+        return None if force == "static" else "DYNAMIC"
+    if category == "stretching" and force in MOVING_FORCES:
+        return "DYNAMIC"
+    return None
+
+
+def pace_tag(record: dict) -> str | None:
+    """`"SPEED"` or `"SWIM"` when this cardio movement reads its pace that way.
+
+    Only ``cardio`` rows: a ``Rowing`` strength exercise is a lift, and a pace
+    reading on it would be one nobody asked for. ``SPEED`` is checked first,
+    though no name matches both.
+    """
+    if record["category"] != "cardio":
+        return None
+    if SPEED_NAMES.search(record["name"]):
+        return "SPEED"
+    if SWIM_NAMES.search(record["name"]):
+        return "SWIM"
+    return None
+
+
 def build_sql(exercises: list[dict], commit: str, has_image: set[str]) -> str:
     muscle_ids = {name: i + 1 for i, name in enumerate(MUSCLE_GROUPS)}
     tag_ids = {name: i + 1 for i, name in enumerate(SYSTEM_TAGS)}
@@ -268,7 +332,12 @@ def build_sql(exercises: list[dict], commit: str, has_image: set[str]) -> str:
             seen.add(name)
             muscle_rows.append(f"({index}, {muscle_ids[name]}, 0)")
 
-        for tag in (FORCE_TAG.get(record.get("force")), MECHANIC.get(record.get("mechanic"))):
+        for tag in (
+            FORCE_TAG.get(record.get("force")),
+            MECHANIC.get(record.get("mechanic")),
+            dynamic_tag(record),
+            pace_tag(record),
+        ):
             if tag:
                 tag_rows.append(f"({index}, {tag_ids[tag]})")
 

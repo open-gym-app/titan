@@ -27,8 +27,36 @@
     <string name="settings_bar_weight_detail">The empty bar, before plates</string>
     <string name="settings_bar_weight_custom">Custom</string>
     <string name="settings_training_goal">Training goal</string>
+    <string name="settings_fitness_level">Fitness level</string>
     <string name="settings_one_rep_max_formula">1RM formula</string>
     <string name="settings_one_rep_max_formula_detail">How an estimated one-rep max is calculated</string>
+    <!-- Switches the warm-up and cool-down cards on the active session screen (#214). On by
+         default: the cards propose and never add, so the cost of showing them is a fold. -->
+    <string name="settings_warmup_suggestions">Warm-up suggestions</string>
+    <string name="settings_warmup_suggestions_detail">Offer a warm-up and a cool-down for the muscles a session trains</string>
+
+    <!-- Restore default templates (#213). Puts back the defaults seeded on first launch that
+         the user has since deleted; a default counts as deleted when no template carries its
+         name. The row is disabled, and says why, when there is nothing to put back. -->
+    <string name="settings_restore_templates">Restore default templates</string>
+    <string name="settings_restore_templates_none_missing">Every default template is in your list</string>
+    <plurals name="settings_restore_templates_detail">
+        <item quantity="one">%d deleted default can be added back</item>
+        <item quantity="other">%d deleted defaults can be added back</item>
+    </plurals>
+    <string name="settings_restore_templates_dialog_title">Restore default templates?</string>
+    <plurals name="settings_restore_templates_dialog_body">
+        <item quantity="one">Adds %1$d template you deleted: %2$s</item>
+        <item quantity="other">Adds %1$d templates you deleted: %2$s</item>
+    </plurals>
+    <string name="settings_restore_templates_separator">", "</string>
+    <string name="settings_restore_templates_confirm">Restore</string>
+    <plurals name="settings_restore_templates_done">
+        <item quantity="one">%d template restored</item>
+        <item quantity="other">%d templates restored</item>
+    </plurals>
+    <string name="settings_restore_templates_none_done">Nothing to restore: every default template is already there</string>
+    <string name="settings_restore_templates_failed">Could not restore the templates. Try again.</string>
 
     <!-- Data &amp; privacy -->
     <string name="settings_backup">Backup &amp; restore</string>
@@ -61,7 +89,7 @@
     <string name="settings_notifications_blocked">Notifications are blocked</string>
     <string name="settings_notifications_blocked_detail">Android is not delivering them. Turn them back on in system settings.</string>
     <string name="settings_notifications_allow">Allow notifications</string>
-    <string name="settings_notifications_allow_detail">OpenGym has not asked for permission yet</string>
+    <string name="settings_notifications_allow_detail">Titan has not asked for permission yet</string>
 
     <!-- About -->
     <string name="settings_version">Version</string>
@@ -80,6 +108,14 @@
     <string name="settings_dialog_save">Save</string>
     <string name="settings_bar_weight_field_label">Bar weight (%1$s)</string>
     <string name="settings_bar_weight_invalid">Enter a weight above zero</string>
+    <!-- The CUSTOM goal's own range and step, asked in the training goal dialog (#M7-15).
+         The reps are whole numbers; the step is typed in the current unit system. -->
+    <string name="settings_custom_reps_from">Reps from</string>
+    <string name="settings_custom_reps_to">Reps to</string>
+    <string name="settings_custom_reps_invalid">Enter a range from %1$d to %2$d reps, lowest first</string>
+    <string name="settings_custom_increment_field_label">Weight step (%1$s)</string>
+    <string name="settings_custom_increment_detail">Added when every set reaches the top of the range</string>
+    <string name="settings_custom_increment_invalid">Enter a step above zero</string>
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Delete all data</string>
@@ -152,7 +188,7 @@
     <string name="backup_auto_failed">The last automatic backup did not finish, after several attempts. It will try again on the next run.</string>
     <string name="backup_auto_save_failed">That switch could not be saved. Try again.</string>
     <!-- The one sentence in this section a user must not miss; see AutoBackupSection. -->
-    <string name="backup_auto_uninstall">Automatic backups are kept in Open Gym\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
+    <string name="backup_auto_uninstall">Automatic backups are kept in Titan\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
 
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
@@ -165,8 +201,8 @@
       One message per ImportError. Each says what went wrong and, for the three that guarantee
       it, that nothing on the device was touched — see BackupLabels.kt.
     -->
-    <string name="backup_error_malformed">That file is not an Open Gym backup, or it is damaged. Nothing on this device was changed.</string>
-    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Open Gym and try again. Nothing on this device was changed.</string>
+    <string name="backup_error_malformed">That file is not an Titan backup, or it is damaged. Nothing on this device was changed.</string>
+    <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
     <string name="backup_error_constraint">That backup is incomplete — it refers to workouts it does not contain. Nothing on this device was changed.</string>
     <string name="backup_error_io">The backup could not be read. If the restore had already started, your workouts are back but your settings may not be.</string>
 
@@ -210,6 +246,6 @@
     <!-- Said rather than offered as a fix: the exact-alarm permission lives on a full-screen
          system page most people will not want, and the cost of not having it is minutes. -->
     <string name="reminder_inexact">May arrive late</string>
-    <string name="reminder_inexact_detail">Exact alarms are off for OpenGym, so Android may hold the reminder back a few minutes.</string>
+    <string name="reminder_inexact_detail">Exact alarms are off for Titan, so Android may hold the reminder back a few minutes.</string>
 
 </resources>

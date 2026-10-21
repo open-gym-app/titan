@@ -92,6 +92,8 @@
 
     <string name="exercise_chart_estimate">Estimación de 1RM</string>
     <string name="exercise_chart_volume">Volumen por sesión</string>
+    <string name="exercise_chart_distance">Distancia por sesión</string>
+    <string name="exercise_chart_time">Tiempo por sesión</string>
 
     <!-- ── The recent-attempts table ─────────────────────────────────────────────── -->
 
@@ -100,6 +102,8 @@
     <string name="exercise_attempts_sets">Series</string>
     <string name="exercise_attempts_top">Máx.</string>
     <string name="exercise_attempts_volume">Vol.</string>
+    <string name="exercise_attempts_time">Tiempo</string>
+    <string name="exercise_attempts_distance">Dist.</string>
     <plurals name="exercise_attempts_set_count">
         <item quantity="one">%1$d serie</item>
         <item quantity="many">%1$d series</item>
@@ -107,6 +111,8 @@
     </plurals>
     <string name="exercise_attempt_description">%1$s, %2$s, mejor serie %3$s, volumen %4$s</string>
     <string name="exercise_attempt_record_description">%1$s, %2$s, mejor serie %3$s, récord personal, volumen %4$s</string>
+    <string name="exercise_attempt_timed_description">%1$s, %2$s, mejor serie %3$s, total %4$s</string>
+    <string name="exercise_attempt_timed_record_description">%1$s, %2$s, mejor serie %3$s, récord personal, total %4$s</string>
 
     <!-- ── The chooser ───────────────────────────────────────────────────────────── -->
 
@@ -142,7 +148,6 @@
     <string name="records_filter_all">Todos</string>
 
     <string name="records_new_badge">Nuevo</string>
-    <string name="records_improvement">+%1$s</string>
     <string name="records_unknown_exercise">Ejercicio eliminado</string>
 
     <string name="records_row_description">%1$s, %2$s, %3$s, %4$s</string>
@@ -188,6 +193,8 @@
     <string name="body_history_part">%1$s %2$s</string>
     <string name="body_history_edit">Editar la entrada del %1$s</string>
     <string name="body_history_delete">Eliminar la entrada del %1$s</string>
+    <string name="body_history_deleted">Entrada del %1$s eliminada</string>
+    <string name="body_history_undo">Deshacer</string>
     <string name="body_history_empty_entry">Sin medidas</string>
 
     <!-- ── The form ─────────────────────────────────────────────────────────────── -->

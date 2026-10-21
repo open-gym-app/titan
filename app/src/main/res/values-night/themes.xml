@@ -2,7 +2,7 @@
 <!-- See values/themes.xml. The dark parent matters for the status bar icons the platform
      picks before Compose takes over. -->
 <resources>
-    <style name="Theme.OpenGym" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Titan" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/window_background</item>
     </style>
 </resources>

@@ -4,7 +4,7 @@
   that :app draws — the tab labels, the settings action — belongs here.
 -->
 <resources>
-    <string name="app_name" translatable="false">OpenGym</string>
+    <string name="app_name" translatable="false">Titan</string>
 
     <!-- Bottom navigation. Also read aloud by TalkBack, together with the selected state. -->
     <string name="nav_home">Home</string>

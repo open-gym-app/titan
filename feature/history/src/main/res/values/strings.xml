@@ -3,7 +3,7 @@
   Strings for the Sessions tab and the exercise library.
 
   Written in sentence case even where the design draws them uppercase: `Eyebrow`,
-  `OpenGymBadge` and `OpenGymFilterChip` all uppercase for the caller, so a translator is
+  `TitanBadge` and `TitanFilterChip` all uppercase for the caller, so a translator is
   never asked to reproduce a typographic treatment.
 -->
 <resources>
@@ -204,7 +204,7 @@
 
     <!-- ── Sessions tab ───────────────────────────────────────────────────────────── -->
 
-    <!-- The three tabs. Sentence case; OpenGymTabRow uppercases them. -->
+    <!-- The three tabs. Sentence case; TitanTabRow uppercases them. -->
     <string name="sessions_tab_history">History</string>
     <string name="sessions_tab_templates">Templates</string>
     <string name="sessions_tab_calendar">Calendar</string>
@@ -372,5 +372,17 @@
     <string name="detail_section_records">Personal records</string>
     <!-- One row as a screen reader hears it: kind, figure, date. -->
     <string name="detail_record_description">%1$s, %2$s, %3$s</string>
+
+    <!-- ─── What the next set should be, on the same screen (#M7-16) ─────────────────── -->
+
+    <!-- The card between the muscles and the records: the next-load engine's prescription,
+         why, and the working sets it was read from. Absent when the engine has nothing to say. -->
+    <string name="detail_section_next_target">Next target</string>
+    <!-- Over the sets the target was derived from — last time's working sets, in order. -->
+    <string name="detail_next_target_basis">From last time</string>
+    <!-- The sets on one line: "80 kg × 6 · 80 kg × 6 · 80 kg × 5". -->
+    <string name="detail_next_target_basis_separator" translatable="false">" · "</string>
+    <!-- The whole card as a screen reader hears it: the target, the reason, then the sets. -->
+    <string name="detail_next_target_description">Next target %1$s. %2$s. From last time: %3$s</string>
 
 </resources>

@@ -1,0 +1,184 @@
+package com.titan.core.ui.component
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.intl.Locale
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import com.titan.core.domain.model.ThemePreference
+import com.titan.core.ui.theme.HAIRLINE_WIDTH
+import com.titan.core.ui.theme.PillShape
+import com.titan.core.ui.theme.TitanTheme
+
+/**
+ * A filter, as a capsule that is either on or off.
+ *
+ * The interactive twin of [TitanBadge], which is a *tag* — same shape, same type role, no
+ * click. Keeping them as two components rather than one with an optional `onClick` is what
+ * stops a static label acquiring a touch target and a role that tells a screen reader it can
+ * be pressed.
+ *
+ * **Drawn at 30dp, announced at 48.** The pill is the eyebrow role plus its padding, and a pill
+ * that tall would be a button. What Material does with the same problem — its own chip is 32dp
+ * — is reserve the tap target *around* the drawing, which is `minimumInteractiveComponentSize`
+ * here: the chip's layout is 48dp in whichever dimension the pill falls short, the pill sits
+ * centred in it, and Accessibility Scanner sees a target it does not flag. The rows this lands
+ * in ([ChipSection], [TitanFilterChipRow]) get 18dp of air between pills out of it, which is
+ * the reservation made visible and not a gap to close.
+ *
+ * Not Material's `FilterChip`, for the reason [TitanCard] is not Material's `Card`:
+ * `FilterChip` is a 32dp container with a leading-icon slot, its own elevation and eight
+ * colour slots, and reaching this look through `FilterChipDefaults` means every call site
+ * restating the same six arguments. What is left once those are settled is a bordered pill
+ * with two states, which is the whole of this file.
+ *
+ * **[Role.RadioButton], not `Checkbox`.** A chip row is a set of alternatives where one is
+ * chosen — including the "all" chip that clears the filter — and that is what a screen reader
+ * should say. A row where several can be on at once passes [multiple] and gets the checkbox
+ * role instead; see [TitanFilterChipRow], which does not make that choice for you.
+ *
+ * @param label the text. Uppercased for you in the composition's locale, as [Eyebrow] does
+ *   and for the same reason: the case is typography, not content, and a translation file
+ *   should not have to carry it.
+ * @param multiple whether this chip is one of several that can be on at once. Changes only
+ *   what the chip announces itself as.
+ * @param enabled false makes the chip inert without changing what it shows, the way
+ *   [SetLogRow]'s fields go read-only: the row is still saying which option is chosen, and a
+ *   greyed-out answer is harder to read than a live one. What goes is the tap and the
+ *   click action a screen reader would offer.
+ */
+@Composable
+fun TitanFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    multiple: Boolean = false,
+    enabled: Boolean = true,
+) {
+    Surface(
+        modifier = modifier
+            .minimumInteractiveComponentSize()
+            .selectable(
+                selected = selected,
+                enabled = enabled,
+                role = if (multiple) Role.Checkbox else Role.RadioButton,
+                onClick = onClick,
+            ),
+        shape = PillShape,
+        // The selected chip is the accent's ordinary, un-shouted use: it marks the one thing
+        // on this row that is currently doing something. An unselected chip is the page's own
+        // surface with a hairline round it, so a row of eight reads as one texture and the
+        // chosen one is the only thing that stands out of it.
+        color = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        contentColor = if (selected) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+        border = BorderStroke(
+            width = HAIRLINE_WIDTH,
+            color = if (selected) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.outlineVariant
+            },
+        ),
+    ) {
+        Text(
+            text = label.uppercase(Locale.current.platformLocale),
+            style = TitanTheme.typography.eyebrow,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(
+                horizontal = TitanTheme.spacing.lg,
+                vertical = TitanTheme.spacing.md,
+            ),
+        )
+    }
+}
+
+/**
+ * A scrolling row of them, bleeding to the screen edge.
+ *
+ * A [LazyRow] rather than a `Row` with `horizontalScroll`, because the muscle filter is
+ * seventeen chips wide and the ones off-screen should not be measured to draw the two that
+ * are. The screen margin is [PaddingValues] on the row's *content* rather than on the row, so
+ * the first chip starts on the margin and the last one scrolls past it instead of stopping
+ * short of the edge — which is what tells the user the row moves.
+ */
+@Composable
+fun TitanFilterChipRow(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(horizontal = TitanTheme.spacing.screen),
+    content: LazyListScope.() -> Unit,
+) {
+    LazyRow(
+        modifier = modifier,
+        contentPadding = contentPadding,
+        horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
+        content = content,
+    )
+}
+
+// ─── Previews ───────────────────────────────────────────────────────────────────────────
+
+@Preview(name = "Filter chips", widthDp = 360)
+@Composable
+fun TitanFilterChipPreview() {
+    TitanTheme(theme = ThemePreference.LIGHT) {
+        FilterChipCatalogue()
+    }
+}
+
+@Preview(name = "Filter chips, dark", widthDp = 360)
+@Composable
+fun TitanFilterChipDarkPreview() {
+    TitanTheme(theme = ThemePreference.DARK) {
+        FilterChipCatalogue()
+    }
+}
+
+@Composable
+private fun FilterChipCatalogue() {
+    Column(
+        modifier = Modifier
+            .background(MaterialTheme.colorScheme.background)
+            .padding(vertical = TitanTheme.spacing.screen),
+        verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
+    ) {
+        TitanFilterChipRow {
+            items(listOf("All", "Chest", "Back", "Quads", "Shoulders", "Biceps")) { label ->
+                TitanFilterChip(label = label, selected = label == "All", onClick = {})
+            }
+        }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
+            modifier = Modifier.padding(horizontal = TitanTheme.spacing.screen),
+        ) {
+            TitanFilterChip(label = "Barbell", selected = true, onClick = {}, multiple = true)
+            TitanFilterChip(label = "Dumbbell", selected = false, onClick = {}, multiple = true)
+            TitanFilterChip(label = "Cable", selected = false, onClick = {}, multiple = true)
+        }
+    }
+}

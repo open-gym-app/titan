@@ -7,6 +7,7 @@
     <string name="set_log_column_set">Série</string>
     <string name="set_log_column_previous">Ant.</string>
     <string name="set_log_column_reps">Reps</string>
+    <string name="set_log_column_time">Tempo</string>
     <string name="set_log_column_rpe">RPE</string>
 
     <!-- Set types. The marker is the label's initial. -->
@@ -23,6 +24,9 @@
     <string name="set_log_position">%1$s, série %2$d</string>
     <string name="set_log_weight_field">Carga, série %1$d</string>
     <string name="set_log_reps_field">Repetições, série %1$d</string>
+    <string name="set_log_duration_field">Tempo, série %1$d</string>
+    <string name="set_log_distance_field">Distância em %2$s, série %1$d</string>
+    <string name="set_log_added_weight_field">Peso adicional, série %1$d</string>
     <string name="set_log_rpe_value">Esforço percebido, série %1$d, %2$s</string>
     <string name="set_log_rpe_none">Esforço percebido, série %1$d, não informado</string>
     <string name="set_log_previous_value">Anteriormente %1$s</string>
@@ -38,9 +42,25 @@
     <string name="set_log_weight_and_reps_compact">%1$s×%2$d</string>
     <string name="set_log_reps_only_compact">×%1$d</string>
 
+    <string name="stopwatch_start">Iniciar cronômetro</string>
+    <string name="stopwatch_stop">Parar cronômetro</string>
+    <string name="stopwatch_start_description">Iniciar cronômetro, série %1$d</string>
+    <string name="stopwatch_stop_description">Parar cronômetro, série %1$d, %2$s decorridos</string>
+
     <!-- ── Correcting a logged set ────────────────────────────────────────────────── -->
 
     <string name="set_delete_action">Excluir a série %1$d</string>
+
+    <string name="set_target_line">Meta %1$s</string>
+    <string name="set_target_gain">+%1$s</string>
+    <string name="set_target_loss">−%1$s</string>
+    <string name="set_target_fill_action">Preencher com a meta</string>
+
+    <string name="suggestion_reason_increase">Atingiu o topo da faixa da última vez — adicione %1$s</string>
+    <string name="suggestion_reason_add_rep">Dentro da faixa da última vez — uma repetição a mais</string>
+    <string name="suggestion_reason_repeat">Atingiu o topo da faixa uma vez — atinja de novo para ganhar o aumento</string>
+    <string name="suggestion_reason_deload">Ficou abaixo da última vez — tire %1$s e reconstrua</string>
+    <string name="suggestion_reason_deload_bodyweight">Ficou abaixo da última vez — recomece pelo mínimo da faixa</string>
     <string name="set_type_field">Tipo de série, série %1$d, %2$s</string>
     <string name="rpe_value">Esforço percebido %1$s</string>
     <string name="rpe_not_rated">Sem avaliação</string>
@@ -211,6 +231,8 @@
     <string name="stat_duration">Duração</string>
     <string name="stat_exercises">Exercícios</string>
     <string name="stat_exercises_unit">feitos</string>
+    <string name="stat_time">Tempo ativo</string>
+    <string name="stat_distance">Distância</string>
     <string name="stat_muscles">Músculos</string>
     <string name="stat_muscles_unit">trabalhados</string>
     <string name="stat_description">%1$s, %2$s</string>
@@ -222,6 +244,10 @@
     <string name="pr_estimated_1rm">1RM</string>
     <string name="pr_max_distance">Mais longe</string>
     <string name="pr_best_pace">Melhor ritmo</string>
+    <string name="pr_top_speed">Velocidade máxima</string>
+    <string name="pr_fastest">Mais rápido</string>
+    <string name="pr_max_duration">Mais longo</string>
+    <string name="pr_max_weighted_hold">Sustentação com carga</string>
     <string name="pr_description">PR %1$s, recorde pessoal</string>
     <string name="pr_description_short">PR, recorde pessoal</string>
     <plurals name="pr_unit_reps">
@@ -351,6 +377,13 @@
     <string name="preference_goal_endurance_detail">Muitas repetições, descansos curtos</string>
     <string name="preference_goal_custom">Personalizado</string>
     <string name="preference_goal_custom_detail">Seu próprio programa</string>
+
+    <string name="preference_level_beginner">Iniciante</string>
+    <string name="preference_level_beginner_detail">Menos de um ano de treino</string>
+    <string name="preference_level_intermediate">Intermediário</string>
+    <string name="preference_level_intermediate_detail">De um a três anos</string>
+    <string name="preference_level_advanced">Avançado</string>
+    <string name="preference_level_advanced_detail">Mais de três anos</string>
 
     <string name="preference_one_rep_max_epley">Epley</string>
     <string name="preference_one_rep_max_epley_detail">Simples; superestima com muitas repetições</string>

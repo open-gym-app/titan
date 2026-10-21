@@ -1,9 +1,9 @@
 plugins {
-    id("opengym.android.benchmark")
+    id("titan.android.benchmark")
 }
 
 android {
-    namespace = "com.opengym.benchmark"
+    namespace = "com.titan.benchmark"
 
     // The app this module measures. It is what makes AGP build one variant of this module per
     // variant of `:app` — hence the single `benchmark` build type on both sides — and what

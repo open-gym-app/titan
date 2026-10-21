@@ -1,4 +1,4 @@
-import com.opengym.buildlogic.libs
+import com.titan.buildlogic.libs
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.testing.Test
@@ -13,7 +13,7 @@ import org.gradle.testing.jacoco.tasks.JacocoReport
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 /**
- * `opengym.android.jacoco` — JaCoCo coverage for the `debug` unit tests of an Android
+ * `titan.android.jacoco` — JaCoCo coverage for the `debug` unit tests of an Android
  * module (`:app`, `:core:data`, `:core:ui`). `:core:domain` is a plain Kotlin JVM module
  * and wires the `jacoco` plugin directly (see its build script); this plugin exists
  * because that convention has nothing to attach to on an Android module — the exec data

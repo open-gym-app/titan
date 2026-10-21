@@ -69,13 +69,19 @@
     <!-- Shown on a first launch, where this section is the whole screen. It says what the
          cards that are not there yet are for; it is not an empty state with a glyph on it. -->
     <string name="home_first_launch">Nothing logged yet. Start a session and your week fills in here.</string>
-    <!-- Why the two actions below are dead: a workout is still open, and the flow they lead
-         into refuses to start a second one. Points at the banner above, which is where both
-         ways out of it are. -->
+    <!-- Why the controls below are dead — the actions and the template list alike: a workout
+         is still open, and the flow they lead into refuses to start a second one. Points at
+         the banner above, which is where both ways out of it are. -->
     <string name="home_quick_start_blocked">Finish or discard the workout above before starting another.</string>
     <!-- "Empty" means the workout is built as it goes, not that it stays empty. -->
     <string name="home_start_empty">Start empty session</string>
     <string name="home_start_from_template">Start from template</string>
+    <!-- Heads the list of the user's own saved templates, under the empty-session action.
+         "Your" is the point: it says these are templates that already exist, not kinds of
+         workout the app is offering to make. -->
+    <string name="home_templates_heading">Your templates</string>
+    <!-- The last row of that list, opening the picker with every template on it. -->
+    <string name="home_all_templates">See all templates</string>
 
     <!-- ── The recent personal record ────────────────────────────────────────────── -->
 
@@ -85,8 +91,6 @@
     <!-- Marks a record set in the most recently finished session, which is the one thing on
          this card that is news rather than history. -->
     <string name="home_record_new_badge">New</string>
-    <!-- How much the record beat the one before it. %1$s carries its own unit. -->
-    <string name="home_record_improvement">+%1$s</string>
     <!-- A record whose exercise has been removed from the catalogue since. The record still
          stands, so the card is drawn with this rather than dropped. -->
     <string name="home_record_unknown_exercise">Removed exercise</string>

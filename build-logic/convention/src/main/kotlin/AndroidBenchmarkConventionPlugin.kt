@@ -1,7 +1,7 @@
 import com.android.build.api.dsl.TestExtension
 import com.android.build.api.variant.TestAndroidComponentsExtension
-import com.opengym.buildlogic.AndroidSdk
-import com.opengym.buildlogic.library
+import com.titan.buildlogic.AndroidSdk
+import com.titan.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -9,9 +9,9 @@ import org.gradle.kotlin.dsl.dependencies
 import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 /**
- * `opengym.android.benchmark` — the Macrobenchmark module, `:benchmark`.
+ * `titan.android.benchmark` — the Macrobenchmark module, `:benchmark`.
  *
- * A separate convention rather than a reuse of `opengym.android.library` because the module is
+ * A separate convention rather than a reuse of `titan.android.library` because the module is
  * a different *kind* of thing: `com.android.test` puts its instrumentation in `src/main`
  * rather than in a test source set, and produces an APK that instruments another one rather
  * than a library to link against. Applying the library convention would configure a

@@ -1,9 +1,9 @@
 import com.android.build.api.dsl.LibraryExtension
 import com.android.build.api.variant.LibraryAndroidComponentsExtension
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.opengym.buildlogic.AndroidSdk
-import com.opengym.buildlogic.WriteRobolectricConfig
-import com.opengym.buildlogic.library
+import com.titan.buildlogic.AndroidSdk
+import com.titan.buildlogic.WriteRobolectricConfig
+import com.titan.buildlogic.library
 import io.github.takahirom.roborazzi.RoborazziExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -15,20 +15,20 @@ import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.compose.compiler.gradle.ComposeCompilerGradlePluginExtension
 
 /**
- * `opengym.android.compose` — Compose for a library module: the compiler plugin, the
+ * `titan.android.compose` — Compose for a library module: the compiler plugin, the
  * `compose` build feature, and the BOM-managed UI dependencies.
  *
  * Every Compose artifact is resolved through the BOM, so no module names a Compose
  * version and none of them can drift apart.
  *
- * Applies `opengym.android.library` itself for the same reason [AndroidHiltConventionPlugin]
+ * Applies `titan.android.library` itself for the same reason [AndroidHiltConventionPlugin]
  * does: it configures the `LibraryExtension`, which does not exist until the Android plugin
  * is applied, and the consumer should not have to know the right order.
  */
 class AndroidComposeConventionPlugin : Plugin<Project> {
     override fun apply(target: Project) =
         with(target) {
-            pluginManager.apply("opengym.android.library")
+            pluginManager.apply("titan.android.library")
             pluginManager.apply("org.jetbrains.kotlin.plugin.compose")
             pluginManager.apply("io.github.takahirom.roborazzi")
 
@@ -147,7 +147,7 @@ private fun Project.configureComposeStability() =
     }
 
 /**
- * The Compose compiler's own stability report, behind `-Popengym.composeReports`.
+ * The Compose compiler's own stability report, behind `-Ptitan.composeReports`.
  *
  * ### What it is for
  *
@@ -160,7 +160,7 @@ private fun Project.configureComposeStability() =
  * So this is the sweep #42 asks for, in a form anyone can re-run:
  *
  * ```
- * ./gradlew :feature:history:compileBenchmarkKotlin -Popengym.composeReports
+ * ./gradlew :feature:history:compileBenchmarkKotlin -Ptitan.composeReports
  * less feature/history/build/compose-reports/history-composables.txt
  * ```
  *
@@ -185,7 +185,7 @@ private fun Project.configureComposeReports() {
     }
 }
 
-private const val COMPOSE_REPORTS_PROPERTY = "opengym.composeReports"
+private const val COMPOSE_REPORTS_PROPERTY = "titan.composeReports"
 
 /**
  * Screenshot tests, as reference images committed under `src/test/screenshots` and compared
@@ -230,7 +230,7 @@ private fun Project.configureRoborazzi() =
             // Accessibility Scanner runs on a device — before it is captured (#40). The
             // tester lives in `:core:testing`; what it checks and why is documented there and
             // in docs/ACCESSIBILITY.md.
-            testerQualifiedClassName.set("com.opengym.core.testing.AccessibleComposePreviewTester")
+            testerQualifiedClassName.set("com.titan.core.testing.AccessibleComposePreviewTester")
         }
     }
 

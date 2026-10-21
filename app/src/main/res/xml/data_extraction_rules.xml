@@ -49,10 +49,10 @@
 
     <!-- Google Drive. -->
     <cloud-backup>
-        <exclude domain="database" path="open-gym.db" />
-        <exclude domain="database" path="open-gym.db-wal" />
-        <exclude domain="database" path="open-gym.db-shm" />
-        <exclude domain="database" path="open-gym.db-journal" />
+        <exclude domain="database" path="titan.db" />
+        <exclude domain="database" path="titan.db-wal" />
+        <exclude domain="database" path="titan.db-shm" />
+        <exclude domain="database" path="titan.db-journal" />
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />
@@ -68,10 +68,10 @@
       the same collision as the cloud case, arriving by a different road.
     -->
     <device-transfer>
-        <exclude domain="database" path="open-gym.db" />
-        <exclude domain="database" path="open-gym.db-wal" />
-        <exclude domain="database" path="open-gym.db-shm" />
-        <exclude domain="database" path="open-gym.db-journal" />
+        <exclude domain="database" path="titan.db" />
+        <exclude domain="database" path="titan.db-wal" />
+        <exclude domain="database" path="titan.db-shm" />
+        <exclude domain="database" path="titan.db-journal" />
         <exclude domain="file" path="datastore" />
         <exclude domain="file" path="in-progress-session.json" />
         <exclude domain="file" path="in-progress-session.json.tmp" />

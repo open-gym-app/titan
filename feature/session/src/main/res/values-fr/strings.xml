@@ -67,12 +67,23 @@
 
     <string name="active_weight_not_a_number">Ce poids n’est pas un nombre</string>
     <string name="active_reps_not_a_number">Ce nombre de répétitions n’est pas un nombre</string>
-
-    <string name="active_logged_by_duration">Exercice chronométré. Ses séries se mesurent en durée, ce que cet écran ne sait pas encore saisir — remplacez-le ou retirez-le pour continuer.</string>
+    <string name="active_duration_not_a_time">Cette durée n’est pas une durée — saisissez-la sous la forme 1,30 ou 1,05,30</string>
+    <string name="active_distance_not_a_number">Cette distance n’est pas un nombre</string>
 
     <string name="active_add_exercises">Ajouter d’autres exercices</string>
     <string name="active_remove_exercise">Retirer %1$s de cette séance</string>
     <string name="active_swap_exercise">Remplacer %1$s par un autre exercice</string>
+
+    <string name="active_warmup_title">Échauffement</string>
+    <string name="active_cooldown_title">Retour au calme</string>
+    <string name="active_mobility_added">Ajouté</string>
+    <string name="active_mobility_add">Ajouter à la séance</string>
+    <string name="active_mobility_dismiss">Pas maintenant</string>
+    <string name="active_mobility_fold">Afficher ou masquer la suggestion</string>
+    <string name="active_mobility_expanded">Déplié</string>
+    <string name="active_mobility_collapsed">Replié</string>
+    <string name="active_warmup_general_note">Plus 5 min de cardio léger</string>
+    <string name="active_warmup_ramp_up">Montée en charge : %1$s</string>
 
     <string name="active_no_exercises_title">Aucun exercice pour l’instant</string>
     <string name="active_no_exercises_body">Cette séance a démarré vide. Ajoutez le premier exercice ci-dessous et commencez à enregistrer.</string>
@@ -82,6 +93,20 @@
 
     <string name="active_missing_title">Cette séance n’existe plus</string>
     <string name="active_missing_body">Elle a été supprimée ou terminée ailleurs. Plus rien ne peut y être enregistré.</string>
+
+    <string name="finish_session_title">Terminer cette séance ?</string>
+    <plurals name="finish_session_sets">
+        <item quantity="one">%1$d série enregistrée sera sauvegardée.</item>
+        <item quantity="many">%1$d séries enregistrées seront sauvegardées.</item>
+        <item quantity="other">%1$d séries enregistrées seront sauvegardées.</item>
+    </plurals>
+    <plurals name="finish_session_untouched">
+        <item quantity="one">%1$d exercice n’a encore rien d’enregistré.</item>
+        <item quantity="many">%1$d exercices n’ont encore rien d’enregistré.</item>
+        <item quantity="other">%1$d exercices n’ont encore rien d’enregistré.</item>
+    </plurals>
+    <string name="finish_session_confirm">Terminer la séance</string>
+    <string name="finish_session_cancel">Continuer la séance</string>
 
     <string name="active_error_no_sets">Enregistrez au moins une série avant de terminer, ou abandonnez la séance.</string>
     <string name="active_error_finish">Impossible de terminer la séance. Rien n’a été enregistré et la séance est toujours en cours.</string>

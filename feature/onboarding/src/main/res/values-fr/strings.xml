@@ -13,19 +13,24 @@
     <!-- ── Welcome ───────────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_welcome_title">Notez le travail. Regardez-le s’accumuler.</string>
-    <string name="onboarding_welcome_body">Open Gym est un carnet d’entraînement qui tourne entièrement sur ce téléphone. Pas de compte, pas de cloud, pas de publicité.</string>
+    <string name="onboarding_welcome_body">Titan est un carnet d’entraînement qui tourne entièrement sur ce téléphone. Pas de compte, pas de cloud, pas de publicité.</string>
     <string name="onboarding_welcome_logging">Enregistrez vos séries</string>
     <string name="onboarding_welcome_logging_detail">Poids, répétitions et RPE, un geste par série</string>
     <string name="onboarding_welcome_progress">Suivez vos progrès</string>
     <string name="onboarding_welcome_progress_detail">Volume, records et calendrier d’entraînement</string>
     <string name="onboarding_welcome_privacy">Gardez tout pour vous</string>
     <string name="onboarding_welcome_privacy_detail">Tout reste sur cet appareil</string>
-    <string name="onboarding_welcome_length">Deux questions, et c’est parti</string>
+    <string name="onboarding_welcome_length">Trois questions, et c’est parti</string>
 
     <!-- ── Training goal ─────────────────────────────────────────────────────────── -->
 
     <string name="onboarding_goal_title">Pourquoi vous entraînez-vous ?</string>
-    <string name="onboarding_goal_body">Conservé avec vos paramètres, et modifiable à tout moment. Cela ne change rien à la façon d’enregistrer.</string>
+    <string name="onboarding_goal_body">Fixe la plage de répétitions dans laquelle l’app suggère votre prochaine charge. Conservé avec vos paramètres, et modifiable à tout moment.</string>
+
+    <!-- ── Fitness level ─────────────────────────────────────────────────────────── -->
+
+    <string name="onboarding_level_title">Depuis combien de temps vous entraînez-vous ?</string>
+    <string name="onboarding_level_body">Règle la vitesse à laquelle les charges suggérées augmentent. Conservé avec vos paramètres, et modifiable à tout moment.</string>
 
     <!-- ── Units ─────────────────────────────────────────────────────────────────── -->
 
@@ -37,8 +42,9 @@
     <string name="onboarding_ready_title">Vous êtes prêt.</string>
     <string name="onboarding_ready_body">C’est tout. Votre première séance est à un geste de l’écran d’accueil.</string>
     <string name="onboarding_ready_goal">Objectif d’entraînement</string>
+    <string name="onboarding_ready_level">Niveau d’entraînement</string>
     <string name="onboarding_ready_units">Unités</string>
-    <string name="onboarding_ready_footnote">Les deux se retrouvent dans les paramètres, avec tout le reste.</string>
+    <string name="onboarding_ready_footnote">Les trois se retrouvent dans les paramètres, avec tout le reste.</string>
     <string name="onboarding_ready_recap_description">%1$s, %2$s</string>
 
     <!-- ── Failures ──────────────────────────────────────────────────────────────── -->

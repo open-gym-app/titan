@@ -1,6 +1,6 @@
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
-import com.opengym.buildlogic.ReleaseVersion
-import com.opengym.buildlogic.SyncPlayReleaseNotes
+import com.titan.buildlogic.ReleaseVersion
+import com.titan.buildlogic.SyncPlayReleaseNotes
 import java.util.Properties
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
@@ -10,7 +10,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     // `:app` declares navigation types of its own — the tab scaffold's graph route and, until
     // #97 gives settings a module, the settings destination — so it needs the serialization
-    // compiler plugin the way a feature does. The `opengym.android.feature` convention
+    // compiler plugin the way a feature does. The `titan.android.feature` convention
     // applies it for the modules that use it; `:app` applies no convention plugin.
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
@@ -21,7 +21,7 @@ plugins {
     // Uploads the release bundle to Play's internal track from the release workflow (#209).
     // Build-time only: it adds nothing to the APK.
     alias(libs.plugins.play.publisher)
-    id("opengym.android.jacoco")
+    id("titan.android.jacoco")
 }
 
 private val keystoreProperties = Properties().also { props ->
@@ -43,7 +43,7 @@ private val releaseVersion = ReleaseVersion.parse(providers.gradleProperty("rele
 private val shippedLocales = listOf("en-US", "fr-FR", "es-ES", "pt-BR")
 
 android {
-    namespace = "com.opengym.app"
+    namespace = "com.titan.app"
 
     // :app does not apply a convention plugin, so these are a second copy of the levels in
     // build-logic/.../AndroidSdk.kt. Bump both together, or the APK ships against an older
@@ -51,7 +51,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.opengym.app"
+        applicationId = "com.titan.app"
         minSdk = 26
         // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
         // runtime behaviour changes, which is a decision that needs its own testing pass.
@@ -129,7 +129,7 @@ android {
         //
         // Unlike `staging`. The benchmarks and the profile generator address the app by
         // package name from a second process, and a suffix here would make every one of them
-        // carry a name that is `com.opengym.app` in the build that ships and something else in
+        // carry a name that is `com.titan.app` in the build that ships and something else in
         // the build that was measured.
         //
         // ### Minification is off, and that is the trade
@@ -181,7 +181,7 @@ android {
             // test on the JVM needs the merged resources and a Robolectric runtime behind
             // it. The SDK pin that goes with this lives in
             // `src/test/resources/robolectric.properties` — the library modules get both
-            // from `opengym.android.compose`, which :app does not apply.
+            // from `titan.android.compose`, which :app does not apply.
             isIncludeAndroidResources = true
         }
     }
@@ -293,7 +293,7 @@ tasks.register("printReleaseVersion") {
     }
 }
 
-// The same stability configuration every Compose module gets from `opengym.android.compose`,
+// The same stability configuration every Compose module gets from `titan.android.compose`,
 // which `:app` does not apply. See `config/compose/stability.conf`; a rule that held in the
 // features and not in the composition root would be the worst of both.
 composeCompiler {
@@ -327,6 +327,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
