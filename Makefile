@@ -14,7 +14,7 @@ BASELINE_PROFILE_DIR := app/src/main/baselineProfiles
 # settings the way the Settings app does; both have to be installed first, and neither is by
 # default on a clean device — `a11y-scan` opens the Play Store page when the Scanner is missing.
 ADB ?= adb
-APP_ID := com.titan.app.debug
+APP_ID := app.titan.gym.debug
 SCANNER_PACKAGE := com.google.android.apps.accessibility.auditor
 SCANNER_SERVICE := $(SCANNER_PACKAGE)/$(SCANNER_PACKAGE).ScannerService
 # TalkBack ships under two names: Google's, from the Play Store's Accessibility Suite, and the

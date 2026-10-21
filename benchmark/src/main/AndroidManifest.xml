@@ -11,7 +11,7 @@
       which is what makes this the one failure that would only show up in the numbers.
     -->
     <queries>
-        <package android:name="com.titan.app" />
+        <package android:name="app.titan.gym" />
     </queries>
 
 </manifest>

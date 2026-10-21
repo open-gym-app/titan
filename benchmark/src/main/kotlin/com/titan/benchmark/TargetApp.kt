@@ -28,7 +28,7 @@ internal object TargetApp {
      * `applicationIdSuffix` — see `app/build.gradle.kts` — so this is the same name the
      * shipping build carries.
      */
-    const val PACKAGE_NAME = "com.titan.app"
+    const val PACKAGE_NAME = "app.titan.gym"
 
     /** The seeding provider's authority. Mirrors `BenchmarkSeedProvider.AUTHORITY_SUFFIX`. */
     const val SEED_AUTHORITY = "$PACKAGE_NAME.benchmark.seed"

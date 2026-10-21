@@ -34,7 +34,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.titan.app"
+        applicationId = "app.titan.gym"
         minSdk = 26
         // Deliberately behind `compileSdk`: raising this opts the app in to platform 37's
         // runtime behaviour changes, which is a decision that needs its own testing pass.
@@ -92,7 +92,7 @@ android {
         //
         // Unlike `staging`. The benchmarks and the profile generator address the app by
         // package name from a second process, and a suffix here would make every one of them
-        // carry a name that is `com.titan.app` in the build that ships and something else in
+        // carry a name that is `app.titan.gym` in the build that ships and something else in
         // the build that was measured.
         //
         // ### Minification is off, and that is the trade
