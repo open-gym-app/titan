@@ -34,8 +34,8 @@ private fun prop(envKey: String, fileKey: String): String? =
 // The version comes from the tag and from nowhere else: `.github/workflows/release.yml` passes
 // the tag without its `v` as `-PreleaseVersion=`, and `ReleaseVersion` (build-logic) turns it
 // into the name and the code below. Without the property this is `0.0.0-dev` / `1`, which is
-// every local build and CI's own `assembleRelease`. The rule, and why a candidate shares its
-// release's code, are written up in release/RELEASE.md.
+// every local build and CI's own `assembleRelease`. The rule, and why a candidate has a code
+// of its own, are written up in release/RELEASE.md.
 private val releaseVersion = ReleaseVersion.parse(providers.gradleProperty("releaseVersion").orNull)
 
 // Play's names for the four locales `androidResources.localeFilters` (below) ships, and the
@@ -259,16 +259,16 @@ android {
 // GPP reads release notes from a fixed layout of its own — `src/<sourceSet>/play/release-notes/
 // <locale>/<track>.txt`, an input its resource task discovers rather than a property — so this
 // copies the changelog into that layout before it looks, and fails the build when a locale's
-// file is missing or over Play's limit. `default.txt` rather than `internal.txt`: the notes
-// follow the build when it is promoted, and the workflow only ever publishes to one track
-// anyway. The destination is generated and gitignored; the source is the only file anyone
-// edits.
+// file is over Play's limit, or missing for a release. `default.txt` rather than
+// `internal.txt`: the same notes go to whichever track the workflow names. The destination
+// is generated and gitignored; the source is the only file anyone edits.
 private val syncPlayReleaseNotes = tasks.register<SyncPlayReleaseNotes>("syncPlayReleaseNotes") {
     group = "publishing"
     description = "Copies this version's fastlane changelogs into the layout Gradle Play Publisher reads."
     metadata.set(rootProject.layout.projectDirectory.dir("fastlane/metadata/android"))
     version.set(releaseVersion.name)
-    versionCode.set(releaseVersion.code)
+    versionCode.set(releaseVersion.releaseCode)
+    required.set(!releaseVersion.isReleaseCandidate)
     locales.set(shippedLocales)
     destination.set(layout.projectDirectory.dir("src/release/play/release-notes"))
 }
@@ -289,6 +289,7 @@ tasks.register("printReleaseVersion") {
     doLast {
         println("version=${version.name}")
         println("version_code=${version.code}")
+        println("release_code=${version.releaseCode}")
         println("prerelease=${version.isReleaseCandidate}")
     }
 }

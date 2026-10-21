@@ -18,6 +18,11 @@ import javax.inject.Inject
  * <versionCode>.txt` into the layout Gradle Play Publisher reads release notes from,
  * `src/release/play/release-notes/<locale>/default.txt` (see `app/build.gradle.kts`).
  *
+ * The file is named after the release's code, so a candidate carries the notes of the release
+ * it precedes. Only a release has to have them in every locale ([required]): a candidate is cut
+ * on every push to `main`, usually before anyone has written them, and goes up with whatever
+ * exists — nothing, most of the time.
+ *
  * A task of its own rather than a `Sync`, because a `Sync` whose sources are missing skips
  * as `NO-SOURCE` and never runs the check that is half the point: a release whose changelog
  * is missing in a locale, or over Play's [PLAY_LIMIT] characters, fails *here* — the first
@@ -38,6 +43,10 @@ abstract class SyncPlayReleaseNotes @Inject constructor(private val fileSystem: 
     @get:Input
     abstract val versionCode: Property<Int>
 
+    /** Whether a locale without a changelog fails the build. */
+    @get:Input
+    abstract val required: Property<Boolean>
+
     /** Play's names for the locales the app ships in. */
     @get:Input
     abstract val locales: ListProperty<String>
@@ -50,20 +59,20 @@ abstract class SyncPlayReleaseNotes @Inject constructor(private val fileSystem: 
         val fileName = "${versionCode.get()}.txt"
         fun changelog(locale: String) = metadata.get().file("$locale/changelogs/$fileName").asFile
 
-        val missing = locales.get().filterNot { changelog(it).isFile }
-        check(missing.isEmpty()) {
+        val (present, missing) = locales.get().partition { changelog(it).isFile }
+        check(missing.isEmpty() || !required.get()) {
             "No changelog for ${version.get()} in ${missing.joinToString()}: write " +
                 "fastlane/metadata/android/<locale>/changelogs/$fileName for every locale " +
                 "(release/RELEASE.md)"
         }
-        val overlong = locales.get().filter { changelog(it).readText().length > PLAY_LIMIT }
+        val overlong = present.filter { changelog(it).readText().length > PLAY_LIMIT }
         check(overlong.isEmpty()) {
             "The ${version.get()} changelog is over Play's $PLAY_LIMIT-character limit " +
                 "in ${overlong.joinToString()}"
         }
 
         fileSystem.sync {
-            locales.get().forEach { locale ->
+            present.forEach { locale ->
                 from(changelog(locale)) {
                     into(locale)
                     rename { "default.txt" }
