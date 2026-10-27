@@ -4,33 +4,39 @@
 
 ## The flow
 
+Every release, candidate or not, is a tag you push. Merging to `main` publishes nothing.
+
 | Trigger | Version | Google Play | GitHub |
 | --- | --- | --- | --- |
-| CI passes on a push to `main` | next patch after the last release, next free `-rc.N` | published on **internal** | pre-release |
+| CI passes on a pushed `vX.Y.Z-rc.N` tag | `X.Y.Z-rc.N` | published on **internal** | pre-release |
 | CI passes on a pushed `vX.Y.Z` tag | `X.Y.Z` | published on **production**, to everyone | release |
-| Manual run (*Run workflow*) | what the next candidate would be | nothing | nothing |
+| Manual run (*Run workflow*) | the version you enter | nothing | nothing |
 
 Nothing waits for a person in the Play Console: a candidate reaches internal testers, and a
-release tag reaches every user once Play's review passes. Pushing the tag is the decision to
+release reaches every user once Play's review passes. Pushing the tag is the decision to
 ship.
 
-To ship a candidate, tag the commit it was built from:
+To cut a candidate, then ship the commit it was built from:
 
 ```sh
-git tag v1.0.0 <commit>
-git push origin v1.0.0
+git tag v1.1.0-rc.1 <commit>
+git push origin v1.1.0-rc.1
+
+git tag v1.1.0 <same commit>
+git push origin v1.1.0
 ```
 
-The candidate tags (`v1.0.0-rc.3`) already point at their commits. For a minor or major
-release, tag `v1.1.0` or `v2.0.0` directly. Candidates always bump the patch, and the
-version code stays monotonic either way.
+A release does not need a candidate before it. Tag in increasing order: Play refuses a
+version code lower than one it has already seen, so `v1.0.1-rc.1` can follow `v1.0.0`, but
+`v1.0.0-rc.4` cannot.
 
 ## Version code
 
 `MAJOR * 1_000_000 + MINOR * 10_000 + PATCH * 100 + N`, where `N` is the candidate number
 and 99 for the release, so `1.0.0-rc.1` → `1000001`, `1.0.0` → `1000099`. It is derived in
 `app/build.gradle.kts` from `-PreleaseVersion` and never edited by hand. A local build
-without the property is `0.0.0-dev` / `1`.
+without the property is `0.0.0-dev` / `1`. Minor and patch stay below 100, and candidates
+run from `rc.1` to `rc.98`; the build fails on a tag outside that.
 
 ## Secrets
 
@@ -45,16 +51,14 @@ repository:
 | `KEY_PASSWORD` | the upload key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | the service account's JSON key, with release rights on `app.titan.gym` |
 
-If the environment has required reviewers, every push to `main` waits for an approval
-before its candidate is built.
+If the environment has required reviewers, every pushed release tag and every manual run
+waits for an approval before it is built.
 
 ## When an upload fails
 
-The candidate tag is pushed before the build, so a failed run burns its number and the
-next push takes the next one. Nothing needs cleaning up.
-
-If a release tag's upload fails, fix the cause, then re-run the failed workflow from the
-Actions tab. The tag stays where it is.
+Fix the cause, then re-run the failed workflow from the Actions tab. The tag stays where it
+is. A secret missing from the environment fails the run before the build, with the name of
+the secret.
 
 ## First upload
 
@@ -66,5 +70,5 @@ publish the first bundle by hand, built with `keystore.properties` filled in:
 ./gradlew :app:bundleRelease -PreleaseVersion=1.0.0-rc.1
 ```
 
-Then push the `v1.0.0-rc.1` tag on the commit it was built from, so the workflow's next
-candidate is `rc.2`. It publishes everything after that.
+Do not push a tag for that version: the workflow would build it again and Play would refuse
+the duplicate version code. Start tagging from the next one, `v1.0.0-rc.2`.

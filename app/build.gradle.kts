@@ -5,9 +5,8 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    // `:app` declares navigation types of its own — the tab scaffold's graph route and, until
-    // #97 gives settings a module, the settings destination — so it needs the serialization
-    // compiler plugin the way a feature does. The `titan.android.feature` convention
+    // `:app` declares a navigation type of its own — the tab scaffold's graph route — so it
+    // needs the serialization compiler plugin the way a feature does. The `titan.android.feature` convention
     // applies it for the modules that use it; `:app` applies no convention plugin.
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
@@ -30,7 +29,7 @@ private fun prop(envKey: String, fileKey: String): String? =
 //
 // `versionCode` is MAJOR * 1_000_000 + MINOR * 10_000 + PATCH * 100 + N, where N is the
 // release candidate number and 99 for the release itself. Play only accepts a code higher
-// than every one it has seen, and this keeps that true across the line the workflow walks:
+// than every one it has seen, and this keeps that true as long as tags are pushed in order:
 // 1.0.0-rc.1 < 1.0.0-rc.2 < 1.0.0 < 1.0.1-rc.1. It caps a version at 98 candidates.
 //
 // A build without the property is a local one: `0.0.0-dev`, below anything ever uploaded.

@@ -3,12 +3,14 @@ name: Release
 # Runs after CI, never beside it: nothing reaches Play that did not pass lint, the unit tests
 # and the screenshot checks first.
 #
-# - A push to `main` cuts a release candidate: the next patch after the last release, with
-#   the next free `-rc.N` (1.0.0-rc.1, 1.0.0-rc.2, …, or 1.0.0-rc.1 before any release). It is
-#   tagged, published to Play's internal track and published as a GitHub pre-release.
+# Every release is a tag someone pushed on purpose; a push to `main` publishes nothing.
+#
+# - A pushed `vMAJOR.MINOR.PATCH-rc.N` tag is a release candidate: published to Play's
+#   internal track and published as a GitHub pre-release.
 # - A pushed `vMAJOR.MINOR.PATCH` tag is a release: published to Play's production track,
 #   rolled out to everyone with no step in the Console, and published as a GitHub release.
-# - A manual run is a rehearsal of the candidate path that builds and uploads nowhere.
+# - A manual run is a rehearsal that builds a signed bundle at the version it is given and
+#   uploads it nowhere.
 #
 # The version is the tag, and app/build.gradle.kts derives `versionCode` from it.
 on:
@@ -16,120 +18,115 @@ on:
     workflows: [CI]
     types: [completed]
   workflow_dispatch:
-
-# One release at a time, and never cancelled halfway: a run that has pushed its tag but not
-# uploaded yet would leave a candidate number that exists on GitHub and nowhere else.
-concurrency:
-  group: release
-  cancel-in-progress: false
+    inputs:
+      version:
+        description: Version to build, as MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-rc.N
+        required: true
 
 jobs:
-  release:
-    name: Release
+  # Decides what this run is from the event alone, outside the `release` environment: every
+  # CI run triggers this workflow, pull requests' and `main`'s included, and only the runs
+  # that will publish something should wait for the environment's reviewers or see its secrets.
+  gate:
+    name: Decide what to release
     # `event == 'push'` is what keeps a pull request's CI run — a fork's included — from
     # ever reaching the signing secrets. For a tag push, `head_branch` is the tag's name.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
-       (github.event.workflow_run.head_branch == 'main' ||
-        startsWith(github.event.workflow_run.head_branch, 'v')))
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    permissions: {}
+    outputs:
+      kind: ${{ steps.kind.outputs.kind }}
+      version: ${{ steps.kind.outputs.version }}
+    steps:
+      - name: Work out the kind of release
+        id: kind
+        env:
+          EVENT: ${{ github.event_name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            kind=dry-run
+            version="$INPUT_VERSION"
+          elif [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            kind=candidate
+            version="${HEAD_BRANCH#v}"
+          elif [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            kind=release
+            version="${HEAD_BRANCH#v}"
+          else
+            echo "::notice::$HEAD_BRANCH is not a release tag, nothing to do"
+            kind=none
+          fi
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  release:
+    name: Release
+    needs: gate
+    if: needs.gate.outputs.kind != 'none'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     # Holds KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD and
     # PLAY_SERVICE_ACCOUNT_JSON. Environment secrets, not repository ones (#44).
     environment: release
     permissions:
       contents: write
+    env:
+      KIND: ${{ needs.gate.outputs.kind }}
+      VERSION: ${{ needs.gate.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          # Every tag, to find the last release and the last candidate number.
-          fetch-depth: 0
 
-      - name: Work out the version
-        id: version
+      # app/build.gradle.kts only signs when KEYSTORE_PATH points at a file, and would
+      # otherwise quietly produce an unsigned bundle Play then refuses.
+      - name: Restore the upload keystore
         env:
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          EVENT: ${{ github.event_name }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
         run: |
-          if [[ "$EVENT" == "workflow_run" && "$HEAD_BRANCH" != "main" ]]; then
-            if [[ ! "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "::notice::$HEAD_BRANCH is not a release tag, nothing to do"
-              echo "kind=none" >> "$GITHUB_OUTPUT"
-              exit 0
+          required=(KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD)
+          [[ "$KIND" != "dry-run" ]] && required+=(PLAY_SERVICE_ACCOUNT_JSON)
+          for name in "${required[@]}"; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::$name is not set on the release environment"
+              exit 1
             fi
-            kind=release
-            version="${HEAD_BRANCH#v}"
-          else
-            kind=candidate
-            last=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
-            if [[ -z "$last" ]]; then
-              next=1.0.0
-            else
-              IFS=. read -r major minor patch <<< "${last#v}"
-              next="$major.$minor.$((patch + 1))"
-            fi
-            n=$(git tag --list "v$next-rc.*" | sed "s/^v$next-rc\.//" | sort -n | tail -n 1)
-            version="$next-rc.$(( ${n:-0} + 1 ))"
-          fi
-          [[ "$EVENT" == "workflow_dispatch" ]] && kind=dry-run
-          echo "kind=$kind" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Releasing $version ($kind)" >> "$GITHUB_STEP_SUMMARY"
-
-      # Before the build, so that two candidates can never be given the same number. A build
-      # that fails afterwards burns the number, which is the cheap direction to be wrong in.
-      # A tag pushed with GITHUB_TOKEN triggers no workflow, so this does not start CI again.
-      - name: Tag the candidate
-        if: steps.version.outputs.kind == 'candidate'
-        env:
-          TAG: v${{ steps.version.outputs.version }}
-        run: |
-          git tag "$TAG"
-          git push origin "refs/tags/$TAG"
+          done
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          echo "Releasing $VERSION ($KIND)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up JDK 17
-        if: steps.version.outputs.kind != 'none'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           java-version: "17"
           distribution: "temurin"
 
       - name: Setup Gradle
-        if: steps.version.outputs.kind != 'none'
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # app/build.gradle.kts only signs when KEYSTORE_PATH points at a file, and would
-      # otherwise quietly produce an unsigned bundle Play then refuses. Fail here instead.
-      - name: Restore the upload keystore
-        if: steps.version.outputs.kind != 'none'
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          if [[ -z "$KEYSTORE_BASE64" ]]; then
-            echo "::error::KEYSTORE_BASE64 is not set on the release environment"
-            exit 1
-          fi
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
-          echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-
+      # Gradle rejects a version that does not fit the versionCode scheme, which is the only
+      # check a tag gets beyond the gate's pattern.
       - name: Build the signed bundle and APK
-        if: steps.version.outputs.kind != 'none'
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: ./gradlew :app:bundleRelease :app:assembleRelease -PreleaseVersion="$VERSION"
 
       - name: Name the artifacts
-        if: steps.version.outputs.kind != 'none'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p dist
           cp app/build/outputs/bundle/release/app-release.aab "dist/titan-$VERSION.aab"
@@ -139,28 +136,28 @@ jobs:
       # The R8 mapping goes up with the bundle, so Play deobfuscates the crashes it reports;
       # it is not kept as a workflow artifact on top of that.
       - name: Upload to Google Play
-        if: steps.version.outputs.kind == 'candidate' || steps.version.outputs.kind == 'release'
+        if: env.KIND != 'dry-run'
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: app.titan.gym
-          releaseFiles: dist/titan-${{ steps.version.outputs.version }}.aab
-          releaseName: ${{ steps.version.outputs.version }}
-          track: ${{ steps.version.outputs.kind == 'release' && 'production' || 'internal' }}
+          releaseFiles: dist/titan-${{ env.VERSION }}.aab
+          releaseName: ${{ env.VERSION }}
+          track: ${{ env.KIND == 'release' && 'production' || 'internal' }}
           # Live as soon as Play has reviewed it. Play refuses anything but a draft until the
           # app's first release is out, which is why that one is done by hand (RELEASE.md).
           status: completed
           mappingFile: app/build/outputs/mapping/release/mapping.txt
 
       - name: Publish the GitHub release
-        if: steps.version.outputs.kind == 'candidate' || steps.version.outputs.kind == 'release'
+        if: env.KIND != 'dry-run'
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: v${{ steps.version.outputs.version }}
-          prerelease: ${{ steps.version.outputs.kind == 'candidate' }}
+          tag_name: v${{ env.VERSION }}
+          name: v${{ env.VERSION }}
+          prerelease: ${{ env.KIND == 'candidate' }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            dist/titan-${{ steps.version.outputs.version }}.apk
-            dist/titan-${{ steps.version.outputs.version }}.apk.sha256
+            dist/titan-${{ env.VERSION }}.apk
+            dist/titan-${{ env.VERSION }}.apk.sha256
