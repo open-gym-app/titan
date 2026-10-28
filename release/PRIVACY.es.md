@@ -1,0 +1,121 @@
+# Política de privacidad de Titan
+
+*Vigente desde el 4 de octubre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
+
+Titan es un diario de entrenamiento para Android. Es gratuito, de código abierto y lo
+desarrollan voluntarios. Esta política cubre la app Titan (`com.titan.app`) tal como se
+publica en Google Play y se compila desde su repositorio de código.
+
+## En resumen
+
+- Titan **no recopila nada**. No hay cuenta, ni estadísticas de uso, ni informes de fallos,
+  ni publicidad.
+- La app **no puede conectarse a internet**. No solicita el permiso `INTERNET` de Android, así
+  que el sistema no le deja abrir ninguna conexión de red.
+- Todo lo que registras se queda **en tu teléfono**, en el almacenamiento privado de la app.
+- Tus datos solo salen del teléfono cuando **tú** los exportas, al lugar que **tú** eliges.
+- Puedes **borrarlo todo** en cualquier momento desde la app.
+
+## Qué guarda la app, y dónde
+
+Titan guarda en tu dispositivo lo que necesita un diario de entrenamiento:
+
+| Qué | Ejemplos |
+| --- | --- |
+| Entrenamientos | sesiones, ejercicios, series, pesos, repeticiones, esfuerzo (RPE), descansos, notas |
+| Tu biblioteca y tus plantillas | ejercicios personalizados, notas de ejercicios, plantillas de entrenamiento |
+| Datos corporales | peso, porcentaje de grasa, medidas corporales (cintura, brazos, etc.) |
+| Progreso | récords, puntos de experiencia, nivel, rachas, misiones, logros, coleccionables |
+| Ajustes | unidades, tema, objetivo, nivel, temporizador de descanso, días y hora de los recordatorios, barra y discos |
+
+Todo ello se guarda en la base de datos y los archivos de ajustes privados de la app, que
+Android no deja leer a ninguna otra app.
+
+Si activas la **Copia automática semanal** (Ajustes › Copia de seguridad y restauración), la
+app también escribe una vez por semana un archivo de copia en su propia carpeta del
+almacenamiento compartido del dispositivo (`Android/data/com.titan.app/files/backups`).
+Conserva las tres más recientes y borra las anteriores. Esos archivos se quedan en el
+teléfono, y Android los borra cuando desinstalas la app.
+
+### Datos de salud
+
+El peso, la grasa corporal y las medidas corporales son datos de salud. Titan los usa para
+una sola cosa: mostrarte tus propios registros y su evolución. Nunca se transmiten, venden,
+comparten ni usan con fines publicitarios. Titan no lee ni escribe nada en Health Connect ni
+en ningún otro servicio de salud. Si una versión futura añade la sincronización con Health
+Connect, esta política se actualizará antes de publicarla, y la sincronización estará
+desactivada hasta que tú la actives.
+
+## Qué no hace la app
+
+- **No recopila datos.** Ni el proyecto Titan ni nadie más recibe tus datos. No tenemos
+  ningún servidor que pudiera recibirlos.
+- **No accede a la red.** La app no solicita el permiso `INTERNET`. Sí solicita
+  `ACCESS_NETWORK_STATE`, que añade la biblioteca de planificación de tareas de Android que
+  utiliza. Ese permiso solo le permite saber si el teléfono tiene conexión; no le permite
+  enviar ni recibir nada.
+- **No incluye SDK de terceros que recopilen datos.** Ninguna biblioteca de estadísticas,
+  informes de fallos, publicidad ni rastreo. La lista completa de bibliotecas está en la app,
+  en Ajustes › Acerca de › Licencias de código abierto.
+- **No hace copias en la nube.** La app excluye sus datos de la copia de seguridad automática
+  de Android en Google Drive y de la transferencia entre dispositivos, así que tu historial no
+  se copia fuera del teléfono sin que lo sepas.
+- **No hay cuenta ni identificador publicitario.** La app no sabe quién eres.
+
+## Cuándo salen tus datos del teléfono
+
+Solo cuando tú lo pides. **Exportar una copia de seguridad** (Ajustes › Copia de seguridad y
+restauración) escribe todos tus datos, datos corporales incluidos, en un archivo JSON. Después
+eliges guardar una copia en algún sitio o compartirla con otra app. Desde ese momento, esa
+copia queda en manos del servicio al que la enviaste, bajo sus propias condiciones. El archivo
+no está cifrado: guárdalo en un lugar de confianza.
+
+**Restaurar** lee un archivo de copia que tú eliges y sustituye con él los datos del teléfono.
+No se envía nada.
+
+## Notificaciones
+
+Los recordatorios de entrenamiento, el aviso de fin de descanso, la nota de entrenamiento sin
+terminar y las notificaciones de nivel y recompensas se crean en el teléfono. Ninguna se envía
+desde un servidor. Puedes desactivar cada una en Ajustes › Notificaciones o en los ajustes de
+Android.
+
+## Permisos
+
+| Permiso | Por qué lo solicita la app |
+| --- | --- |
+| `POST_NOTIFICATIONS` | Para mostrar las notificaciones anteriores. Android 13 o superior te lo pregunta antes. |
+| `SCHEDULE_EXACT_ALARM` (Android 12 o inferior) / `USE_EXACT_ALARM` | Para terminar un descanso al segundo exacto y lanzar un recordatorio a la hora que elegiste. |
+| `RECEIVE_BOOT_COMPLETED` | Para volver a programar los recordatorios y la copia semanal después de reiniciar el teléfono. |
+| `VIBRATE` | Para vibrar al terminar un descanso. |
+| `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Los añade la biblioteca de planificación de tareas de Android (WorkManager), que ejecuta la copia semanal. Ninguno da acceso a la red. |
+| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Lo añade la biblioteca AndroidX core. Impide que otras apps envíen mensajes internos a la app. |
+
+## Borrar tus datos
+
+- **Ajustes › Eliminar todos los datos** borra todo lo que la app ha guardado y devuelve cada
+  ajuste a su valor predeterminado. No se puede deshacer.
+- **Desinstalar la app** también lo borra todo, copias automáticas incluidas.
+- **Los archivos exportados** que guardaste o compartiste están fuera de la app. Bórralos allí
+  donde los pusiste.
+
+Como no tenemos ninguna copia de tus datos, no hay nada que debamos borrar ni ninguna
+solicitud que tengas que enviarnos.
+
+## Menores
+
+Titan no está dirigida a menores de 13 años, y no recopila a sabiendas ningún dato de nadie,
+tenga la edad que tenga.
+
+## Cambios en esta política
+
+Si esta política cambia, la nueva versión se publica en esta dirección con una nueva fecha de
+entrada en vigor. Todas las versiones anteriores se conservan en el historial público del
+código del proyecto. Un cambio que hiciera que la app recopilara o enviara datos se anunciaría
+en las notas de la versión correspondiente y requeriría tu consentimiento en la app.
+
+## Contacto
+
+Titan se desarrolla de forma abierta. Para cualquier pregunta sobre esta política o sobre tu
+privacidad, [abre una issue](https://github.com/open-gym-app/titan/issues/new) en el
+repositorio de GitHub del proyecto.
