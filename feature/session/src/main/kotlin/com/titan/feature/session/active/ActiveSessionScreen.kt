@@ -8,6 +8,9 @@
 
 package com.titan.feature.session.active
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
@@ -187,6 +190,21 @@ fun ActiveSessionRoute(
     }
     LaunchedEffect(state.isDiscarded) {
         if (state.isDiscarded) onDiscardSession()
+    }
+
+    // The notification prompt, over the first rest of a user who has never been asked — see
+    // `ActiveSessionViewModel.askForRestNotifications`. Here rather than in the screen because
+    // only something attached to an Activity can raise it. Acknowledged before it goes up,
+    // since `launch` does not wait for the answer; the answer itself is not read, because
+    // whichever it was, the ViewModel's move is the same: publish the rest again.
+    val notificationPrompt = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered) },
+    )
+    LaunchedEffect(state.notificationPermissionRequest) {
+        if (!state.notificationPermissionRequest) return@LaunchedEffect
+        viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
+        notificationPrompt.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     ActiveSessionScreen(

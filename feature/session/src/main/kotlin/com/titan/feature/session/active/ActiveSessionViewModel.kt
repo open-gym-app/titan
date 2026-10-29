@@ -24,6 +24,7 @@ import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WarmupSuggestion
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
@@ -57,6 +58,7 @@ import com.titan.core.domain.usecase.PauseSessionUseCase
 import com.titan.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreSetUseCase
 import com.titan.core.domain.usecase.ResumeSessionUseCase
 import com.titan.core.domain.usecase.SuggestWarmupUseCase
@@ -198,6 +200,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
+    private val requestNotificationPermission: RequestNotificationPermissionUseCase,
     private val idleSessionMonitor: IdleSessionMonitor,
     restSkipRequests: RestSkipRequests,
     private val clock: Clock,
@@ -228,6 +231,12 @@ class ActiveSessionViewModel @Inject constructor(
      * setting would silently keep getting.
      */
     private var defaultRest: Duration = UserPreferences.DEFAULT_REST_DURATION
+
+    /**
+     * Whether the user wants the rest's notification at all, off the same settings document.
+     * Read by [askForRestNotifications], which has no prompt worth raising for a user who said no.
+     */
+    private var restNotificationsOn: Boolean = true
 
     /**
      * The typed input this screen holds that the workout draft does not (#183).
@@ -549,6 +558,7 @@ class ActiveSessionViewModel @Inject constructor(
                 // rest a set gets is a second setting off the same document, and a lifter who
                 // lengthens their rests without also switching to pounds must still get them.
                 defaultRest = preferences.defaultRestDuration
+                restNotificationsOn = NotificationKind.REST_TIMER in preferences.notifications
                 val previous = seen
                 seen = preferences.unitSystem
                 unitSystem.value = preferences.unitSystem
@@ -1585,6 +1595,15 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.RestWindowRequested -> openRestWindow()
 
+            ActiveSessionEvent.NotificationPermissionRequestShown ->
+                screenState.update { it.copy(notificationPermissionRequest = false) }
+
+            // Whatever the answer, the rest going now was published while the answer was
+            // still no — its note dropped and, with it, its alarm, since `BackgroundRestTimer`
+            // only schedules behind a note that was posted. Published again so a grant takes
+            // effect on this rest rather than the next one.
+            ActiveSessionEvent.NotificationPermissionAnswered -> publishRest(screenState.value.restSnapshot)
+
             else -> return false
         }
         return true
@@ -1608,6 +1627,7 @@ class ActiveSessionViewModel @Inject constructor(
             restTimer.start(defaultRest)
             screenState.update { it.copy(restExerciseId = null, restNextSetNumber = null) }
             captureRest()
+            askForRestNotifications()
         }
         screenState.update { it.copy(isRestSheetOpen = true) }
     }
@@ -1653,7 +1673,42 @@ class ActiveSessionViewModel @Inject constructor(
             )
         }
         captureRest()
+        askForRestNotifications()
     }
+
+    /**
+     * Raises the notification permission prompt over the first rest that would need it.
+     *
+     * The rest timer's notification is on by default — it is the one a lifter is standing in a
+     * gym waiting for — but on Android 13 and up nothing reaches the shade until the
+     * `POST_NOTIFICATIONS` prompt has been answered, and the only other place that raises it is
+     * a switch in the settings. A user who never visits them would otherwise get no note, no
+     * alarm and no buzz when the phone is in a pocket, with the setting reading *on* the whole
+     * time.
+     *
+     * Asked here, at the moment a rest starts, because this is the moment the prompt explains
+     * itself: the countdown it is for is on the screen. Whether it is worth raising at all is
+     * [RequestNotificationPermissionUseCase]'s answer, which records the asking so a refusal is
+     * never re-asked — the settings and this screen share that one memory. Skipped where the
+     * user has turned rest notifications off, since a grant would buy them nothing.
+     *
+     * [askedForNotifications] keeps it to one attempt per screen: rests start a dozen times a
+     * workout, and the use case reads a store each time it is asked.
+     */
+    private fun askForRestNotifications() {
+        if (askedForNotifications) return
+        askedForNotifications = true
+        viewModelScope.launch {
+            runCatching {
+                if (restNotificationsOn && requestNotificationPermission()) {
+                    screenState.update { it.copy(notificationPermissionRequest = true) }
+                }
+            }
+        }
+    }
+
+    /** Whether this screen has already considered the prompt. See [askForRestNotifications]. */
+    private var askedForNotifications = false
 
     /**
      * How long the rest after a set on [sessionExerciseId] should be, or **null** where there
@@ -2693,6 +2748,7 @@ class ActiveSessionViewModel @Inject constructor(
             // being restored over a rest that ended while the process was dead.
             isRestSheetOpen = screen.isRestSheetOpen && screen.isRestLive,
             timedExerciseId = screen.stopwatch?.sessionExerciseId,
+            notificationPermissionRequest = screen.notificationPermissionRequest,
             message = screen.message,
         )
 
@@ -2959,6 +3015,8 @@ private data class ScreenState(
      * reading is the ViewModel's — see `ActiveSessionViewModel.stopwatchMark`.
      */
     val stopwatch: StopwatchSnapshot? = null,
+    /** The prompt should go up. See [ActiveSessionUiState.notificationPermissionRequest]. */
+    val notificationPermissionRequest: Boolean = false,
     val message: ActiveSessionMessage? = null,
 ) {
 

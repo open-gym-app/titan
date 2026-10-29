@@ -376,6 +376,16 @@ sealed interface ActiveSessionEvent {
     data object RestWindowRequested : ActiveSessionEvent
 
     /**
+     * The notification prompt has been raised. Sent *before* the answer, because `launch` does
+     * not wait for one and a request left standing would raise the prompt again on the next
+     * recomposition.
+     */
+    data object NotificationPermissionRequestShown : ActiveSessionEvent
+
+    /** The user answered the prompt, either way: the rest going now is published again. */
+    data object NotificationPermissionAnswered : ActiveSessionEvent
+
+    /**
      * END was tapped: ask whether to end the workout.
      *
      * Asked rather than done, because ending cannot be taken back and END is in the corner a

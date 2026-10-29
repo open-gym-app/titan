@@ -14,6 +14,7 @@ import com.titan.core.domain.model.SuggestionReason
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.domain.timer.StopwatchSnapshot
@@ -31,6 +32,7 @@ import com.titan.core.domain.usecase.PauseSessionUseCase
 import com.titan.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreSetUseCase
 import com.titan.core.domain.usecase.ResumeSessionUseCase
 import com.titan.core.domain.usecase.SessionLifecycleLock
@@ -124,6 +126,7 @@ class ActiveSessionViewModelTest {
     private val backgroundRest = FakeBackgroundRestTimer()
     private val idleSession = FakeIdleSessionMonitor()
     private val skipRequests = FakeRestSkipRequests()
+    private val notificationPermission = FakeNotificationPermission()
 
     /**
      * The clock `viewModelScope` runs on, held so a test can move it.
@@ -2336,6 +2339,59 @@ class ActiveSessionViewModelTest {
             assertNull(published?.setNumber)
         }
 
+    // --- asking for the notification the rest needs -------------------------
+
+    @Test
+    fun `the first rest of a user never asked raises the notification prompt, once`() =
+        runTest {
+            notificationPermission.allowed = false
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(viewModel.uiState.value.notificationPermissionRequest)
+            // Recorded as asked before the answer, so the settings screen does not ask again.
+            assertTrue(settings.observe().first().notifications.permissionRequested)
+
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
+            viewModel.onEvent(ActiveSessionEvent.RestSkipped)
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+        }
+
+    @Test
+    fun `an answer to the prompt publishes the rest going again`() =
+        runTest {
+            notificationPermission.allowed = false
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
+            val before = backgroundRest.published.size
+
+            notificationPermission.allowed = true
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered)
+
+            // The first publication was dropped for want of the permission, alarm and all; this
+            // is the one that now reaches the shade.
+            assertEquals(before + 1, backgroundRest.published.size)
+            assertEquals(backgroundRest.published[before - 1], backgroundRest.current)
+        }
+
+    @Test
+    fun `no prompt for a user who has turned rest notifications off`() =
+        runTest {
+            notificationPermission.allowed = false
+            settings.setNotificationEnabled(NotificationKind.REST_TIMER, enabled = false)
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertFalse(settings.observe().first().notifications.permissionRequested)
+        }
+
     @Test
     fun `a rest started from the clock after one ran out does not inherit its set`() =
         runTest {
@@ -4022,6 +4078,7 @@ class ActiveSessionViewModelTest {
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
             backgroundRestTimer = backgroundRest,
+            requestNotificationPermission = RequestNotificationPermissionUseCase(settings, notificationPermission),
             idleSessionMonitor = idleSession,
             restSkipRequests = skipRequests,
             clock = clock,

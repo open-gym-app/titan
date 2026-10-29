@@ -133,6 +133,10 @@ import kotlin.time.Duration
  *   exercise: what the stopwatch reads is [SessionClocks.stopwatch], which moves every second.
  * @param isLoading the reads have not come back yet. Distinct from a session id that no longer
  *   resolves, which is [isMissing] — a blank page and a "this is gone" page are two screens.
+ * @param notificationPermissionRequest the system's notification prompt should go up, over
+ *   the first rest of a user who has never been asked. A one-shot the route acknowledges with
+ *   [ActiveSessionEvent.NotificationPermissionRequestShown] before raising it — see
+ *   `ActiveSessionViewModel.askForRestNotifications`.
  * @param message something that happened and needs saying once.
  */
 @Immutable
@@ -162,6 +166,7 @@ data class ActiveSessionUiState(
     val warmup: MobilityCard? = null,
     val cooldown: MobilityCard? = null,
     val timedExerciseId: Long? = null,
+    val notificationPermissionRequest: Boolean = false,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
