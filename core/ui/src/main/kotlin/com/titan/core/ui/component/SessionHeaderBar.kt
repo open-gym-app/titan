@@ -216,7 +216,7 @@ fun SessionHeaderBar(
  * *replaces* its children's text for a screen reader rather than adding to it: a plain
  * `semantics(mergeDescendants)` here would announce the clock's description and drop the name.
  * `clearAndSetSemantics` says both, in order, and re-supplies the action the clear threw away —
- * the same trap [RestTimerIndicator] documents.
+ * the same trap the rest dock's countdown documents.
  *
  * ### The clock inside it
  *

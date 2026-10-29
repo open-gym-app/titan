@@ -85,7 +85,8 @@ import kotlin.time.Duration.Companion.seconds
  * @param nextSet the set the primary button validates, or null where there is none to point at.
  * @param onValidateSet validate [nextSet].
  * @param announces whether the countdown is the live region that reads the rest out — true once
- *   the sheet is away and the dock is the only countdown on screen. See [RestTimerIndicator].
+ *   the sheet is away and the dock is the only countdown on screen. See the note on live
+ *   regions at the top of `RestTimerSheet.kt`.
  * @param enabled false makes the dock inert, for a workout on its way out.
  */
 @Composable
@@ -234,8 +235,11 @@ private fun StartRestSquare(
  * The rest going, as a strip that fills along its bottom edge.
  *
  * The primary's height and corner, so validating a set swaps one control for another of the same
- * size. One node for a screen reader, reading the time and offering the sheet — the same
- * contract as [RestTimerIndicator], whose wording it shares.
+ * size. One node for a screen reader, reading the time and offering the sheet, in the sheet's
+ * own wording. The action is put back inside the `clearAndSetSemantics` rather than left to
+ * the `Surface`: the clear throws away everything the rest of the chain contributed, the click
+ * handler included, and a node that announces "double tap to activate" and then does nothing
+ * is the way back into a swiped-away sheet gone for anyone driving the screen by screen reader.
  */
 @Composable
 private fun RestCard(

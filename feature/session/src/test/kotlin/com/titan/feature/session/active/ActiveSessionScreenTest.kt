@@ -1495,9 +1495,9 @@ class ActiveSessionScreenTest {
     fun `the rest sheet shows the countdown and the set that ends it`() {
         setScreen(resting(), clocks = restingClocks())
 
-        // Twice over: the sheet's figure and the header's pill behind it, which have to be the
+        // Twice over: the sheet's figure and the dock's countdown behind it, which have to be the
         // same reading — two clocks for one rest, one of them rounded the other way, is the bug
-        // `RestCountdown` and `RestTimerIndicator` share a formatter to prevent.
+        // `RestCountdown` and `RestTimerDock` share a formatter to prevent.
         composeTestRule.onAllNodesWithContentDescription("1:23 left").assertCountEquals(2)
         // The supporting line under the figure: how long the rest is, and what is coming.
         composeTestRule.onNodeWithText("of 2:00 · Next 80 kg × 5").assertExists()
@@ -1579,9 +1579,9 @@ class ActiveSessionScreenTest {
     fun `the dock carries the countdown once the sheet is away, and a tap brings it back`() {
         setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
 
-        // With the sheet away the pill is the live region, and a live region says the
+        // With the sheet away the dock is the live region, and a live region says the
         // quarter-minute — "1:30", not "1:23" — because what it says is what it announces every
-        // time the text changes. See `RestTimerIndicator`'s `announces`.
+        // time the text changes. See `RestTimerDock`'s `announces`.
         composeTestRule
             .onNodeWithContentDescription("Resting, 1:30 left")
             .assertIsDisplayed()
