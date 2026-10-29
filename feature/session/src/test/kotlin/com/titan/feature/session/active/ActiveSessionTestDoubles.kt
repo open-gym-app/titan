@@ -19,6 +19,7 @@ import com.titan.core.domain.model.WeeklyTraining
 import com.titan.core.domain.model.WeeklyVolume
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.notification.NotificationPermission
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.ProgressionRepository
 import com.titan.core.domain.repository.SessionRepository
@@ -618,3 +619,18 @@ private fun mobility(
     primaryMuscleGroupIds = setOf(primary.id),
     isDynamic = isDynamic,
 )
+
+/**
+ * Whether the system would carry a notification, as a switch the test flips.
+ *
+ * Allowed by default, so a test about anything else never sees the prompt go up over its first
+ * rest. A `var` because the point of the prompt is that the answer changes while the screen is
+ * on it.
+ */
+class FakeNotificationPermission(
+    var allowed: Boolean = true,
+    override val isRuntimePermissionRequired: Boolean = true,
+) : NotificationPermission {
+
+    override fun areNotificationsAllowed(): Boolean = allowed
+}

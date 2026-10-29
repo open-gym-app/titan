@@ -164,6 +164,9 @@
     <string name="session_header_finish_label">End</string>
     <!-- The header's name doubles as the way to change it. -->
     <string name="session_header_rename">Rename this workout</string>
+    <string name="session_header_rest_window">Manage the rest timer</string>
+    <!-- The rest dock between two sets: starts a rest at the default length. -->
+    <string name="rest_dock_start">Start a rest</string>
     <!-- The name and the clock as one announcement, where the title block is the rename
          control — see SessionTitle. %1$s the name, %2$s the spoken clock. -->
     <string name="session_header_title">%1$s, %2$s</string>

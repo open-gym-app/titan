@@ -31,4 +31,8 @@ dependencies {
     // navigation and the second through its own serialization plugin.
     api(libs.androidx.lifecycle.viewmodel.savedstate)
     api(libs.kotlinx.serialization.json)
+
+    // `rememberLauncherForActivityResult`, for `NotificationPermissionPrompt`: the settings and
+    // the active workout both raise that prompt, and features cannot share code but through here.
+    implementation(libs.androidx.activity.compose)
 }

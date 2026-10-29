@@ -9,10 +9,11 @@ import kotlinx.coroutines.flow.first
  * The decision to raise the system's notification permission prompt, taken once and in one
  * place.
  *
- * ### Why a use case and not two copies of an `if`
+ * ### Why a use case and not three copies of an `if`
  *
- * Two screens turn notifications on — the settings list, and #39's reminder screen — and both
- * have to answer the same question at the moment they do: is there a prompt worth raising, and
+ * Three screens can ask for notifications — the settings list, #39's reminder screen, and the
+ * active workout over its first rest — and all of them have to answer the same question at the
+ * moment they do: is there a prompt worth raising, and
  * has it already been raised? Getting that wrong is not a bug that shows up in review. Asking
  * when the prompt cannot appear leaves a screen waiting on a callback that never comes; asking
  * *twice* is worse, because Android answers the second one for the user with the refusal they

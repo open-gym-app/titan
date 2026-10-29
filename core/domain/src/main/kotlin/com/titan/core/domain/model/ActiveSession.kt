@@ -42,9 +42,13 @@ import kotlin.time.Duration.Companion.milliseconds
  *   the time accrued since is added to [pausedDuration] on the way out of the pause.
  * @property exercises the exercises of the session in the order they are shown, each
  *   with its sets.
- * @property currentExerciseIndex which of [exercises] the user was on. Zero for a
- *   session with no exercises yet, and otherwise a real index — a draft pointing past
- *   the end of its own list would restore onto nothing.
+ * @property currentExerciseIndex which of [exercises] the user was on, or null when the
+ *   draft names none — a session with no exercises yet, or a moment no single exercise
+ *   was the one in hand. Null rather than zero because zero is a real answer, the first
+ *   exercise, and a restore cannot tell the two apart. When present it is a real index:
+ *   a draft pointing past the end of its own list would restore onto nothing. The one
+ *   exception is zero on an empty list, which is how a document written while this was a
+ *   plain `Int` spelled "no exercises yet"; it still decodes, and names nothing.
  * @property restTimer the rest countdown, as an absolute deadline rather than a
  *   remainder. See [RestTimerSnapshot] for why that distinction is the whole point.
  *   Independent of [pausedAt]: pausing the *session* does not pause the rest, here or in
@@ -70,7 +74,7 @@ data class ActiveSession(
     val pausedDuration: Duration = Duration.ZERO,
     val pausedAt: Long? = null,
     val exercises: List<ActiveExercise> = emptyList(),
-    val currentExerciseIndex: Int = 0,
+    val currentExerciseIndex: Int? = null,
     val restTimer: RestTimerSnapshot = RestTimerSnapshot.Idle,
     val stopwatch: StopwatchSnapshot? = null,
 ) {
@@ -80,8 +84,16 @@ data class ActiveSession(
         require(pausedAt == null || pausedAt >= startedAt) {
             "a session cannot be paused ($pausedAt) before it started ($startedAt)"
         }
-        require(currentExerciseIndex >= 0) { "currentExerciseIndex cannot be negative, was $currentExerciseIndex" }
-        require(exercises.isEmpty() || currentExerciseIndex in exercises.indices) {
+        require(currentExerciseIndex == null || currentExerciseIndex >= 0) {
+            "currentExerciseIndex cannot be negative, was $currentExerciseIndex"
+        }
+        // Zero on an empty list is the one index that names nothing, and only because a draft
+        // written while this was a plain `Int` spelled "no exercises yet" that way.
+        require(
+            currentExerciseIndex == null ||
+                currentExerciseIndex in exercises.indices ||
+                (exercises.isEmpty() && currentExerciseIndex == 0),
+        ) {
             "currentExerciseIndex ($currentExerciseIndex) is past the end of ${exercises.size} exercises"
         }
     }
@@ -89,8 +101,8 @@ data class ActiveSession(
     /** True when the session was suspended at the moment this draft was written. */
     val isPaused: Boolean get() = pausedAt != null
 
-    /** The exercise the user was on, or null for a session with no exercises yet. */
-    val currentExercise: ActiveExercise? get() = exercises.getOrNull(currentExerciseIndex)
+    /** The exercise the user was on, or null when the draft names none. */
+    val currentExercise: ActiveExercise? get() = currentExerciseIndex?.let(exercises::getOrNull)
 
     /** Every set of every exercise the user has ticked off, across the whole draft. */
     val completedSets: List<ActiveSet> get() = exercises.flatMap { it.completedSets }

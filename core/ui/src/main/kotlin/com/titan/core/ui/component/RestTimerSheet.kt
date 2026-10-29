@@ -1,7 +1,6 @@
 package com.titan.core.ui.component
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,14 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.onClick
@@ -38,7 +35,6 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.ui.R
 import com.titan.core.ui.format.formatAsClock
-import com.titan.core.ui.theme.PillShape
 import com.titan.core.ui.theme.TitanTheme
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -53,12 +49,11 @@ import kotlin.time.Duration.Companion.seconds
  *   is the sheet's *content*, not a `ModalBottomSheet` — the sheet, its state and when it is
  *   shown belong to the screen (#98), and a component that owned them could not be driven
  *   from a test or drawn in a preview.
- * - [RestCountdown] is the readout on its own: the eyebrow, the figure and the bar. It is
- *   what a compact header uses when the sheet has been dismissed but the rest is still
- *   running.
- * - [RestTimerIndicator] is the one-line pill for a top app bar.
- * - [RestProgressBar] is the bar alone, which the sheet and the header both draw so that the
- *   two cannot disagree about how far through a rest is.
+ * - [RestCountdown] is the readout on its own: the eyebrow, the figure and the bar, which the
+ *   sheet stacks over its controls.
+ * - [RestTimerDock] is the countdown at the bottom of the workout, once the sheet is away.
+ * - [RestProgressBar] is the bar alone, which the sheet and the dock both draw so that the two
+ *   cannot disagree about how far through a rest is.
  *
  * None of them ticks. [RestTimerState] arrives already counting from
  * [com.titan.core.domain.timer.RestTimerController], which is the thing that owns a clock;
@@ -69,7 +64,7 @@ import kotlin.time.Duration.Companion.seconds
  *
  * A countdown is the one thing on the screen that changes without a tap, and a value that
  * changes silently does not exist to TalkBack. So the readout carries a **polite live region**
- * — the status eyebrow in [RestCountdown], or the pill in [RestTimerIndicator] where the sheet
+ * — the status eyebrow in [RestCountdown], or the countdown in [RestTimerDock] where the sheet
  * has been swiped away — and what it says is [announcement]: the status and the time left *to
  * the nearest quarter minute*. Not the exact second, and not on the exact figure: a live
  * region speaks every time its text changes, and a region that changed sixty times a minute
@@ -174,9 +169,9 @@ fun RestTimerSheet(
 /**
  * The readout alone: what the timer is doing, how long is left, and how far through it is.
  *
- * Extracted from [RestTimerSheet] so a compact header can reuse the exact figure the sheet
- * shows. Two things must not drift apart here — a header that rounded `0:00.7` down while the
- * sheet rounded it up would show two different times for one rest.
+ * The figure is [remaining], which the rest dock reads too, so the two cannot drift apart — a
+ * dock that rounded `0:00.7` down while the sheet rounded it up would show two different times
+ * for one rest.
  *
  * @param valueStyle the type role the figure is set in. The default fills a sheet; pass
  *   `TitanTheme.typography.numericLarge` for a readout inside a card.
@@ -238,21 +233,20 @@ fun RestCountdown(
 /**
  * How far through the rest is, as one bar that fills from empty to full.
  *
- * The whole of the countdown that is *not* a number, and the reason it is public: the sheet
- * and the header both draw it, and they must draw the same thing. A header that had a bar of
- * its own — or, worse, borrowed the one next to it — would be a second answer to "how much of
- * this rest is left", and two bars disagreeing about that is the one thing a rest timer cannot
- * afford.
+ * The whole of the countdown that is *not* a number, and the reason it is shared: the sheet
+ * and the rest dock both draw it, and they must draw the same thing. A dock that had a bar of
+ * its own would be a second answer to "how much of this rest is left", and two bars
+ * disagreeing about that is the one thing a rest timer cannot afford.
  *
- * Continuous, never segmented. It sits a few dp from [SessionProgressRail], which *is*
- * segmented and is counting something else entirely — exercises done, not seconds passed — and
- * the difference in shape is what keeps the two readable as two different facts.
+ * Continuous, never segmented. [SessionProgressRail] *is* segmented and is counting something
+ * else entirely — exercises done, not seconds passed — and the difference in shape is what
+ * keeps the two readable as two different facts.
  *
- * @param color the fill. Defaults to the scheme's primary; the workout header passes its own
- *   accent for a running rest and a neutral for a paused one, on the same rule the big figure
- *   follows — the accent means time is passing, so a frozen bar must not wear it.
+ * @param color the fill. Defaults to the scheme's primary; the dock passes the accent for a
+ *   running rest and a neutral for a paused one, on the same rule the big figure follows — the
+ *   accent means time is passing, so a frozen bar must not wear it.
  * @param trackColor what the unfilled remainder is drawn on.
- * @param height how thick the bar is. The default fills a sheet; a header rail passes its own.
+ * @param height how thick the bar is. The default fills a sheet; the dock passes its own.
  */
 @Composable
 fun RestProgressBar(
@@ -277,96 +271,6 @@ fun RestProgressBar(
     )
 }
 
-/**
- * The countdown as a pill, for a header: `1:23`.
- *
- * The one place the accent is spent on something small. A running rest is the only thing on
- * the active-session screen that is *changing*, and it has to be findable without the sheet
- * being open — which is what makes this the way back into a sheet the user swiped away.
- *
- * @param onClick reopens the sheet. Null draws the pill inert, which is what a header with
- *   nowhere to go wants; where it is given, the pill announces itself as the way back rather
- *   than as four digits that happen to be tappable.
- * @param colors which two pairs it is drawn in. Defaulted to the colour scheme and overridden
- *   by the one caller that is not on it — the active workout's header, which is a near-black
- *   band in both schemes and would swallow a `primaryContainer` pill. See
- *   [RestTimerDefaults.sessionChromeIndicatorColors].
- * @param announces whether this pill is the live region for the rest — true when it is the only
- *   readout on screen, which is the sheet swiped away. False while the sheet is up, or the same
- *   quarter-minute would be spoken twice, once from each window. Announcing, the pill says
- *   [announcement] rather than the exact remainder, since the description *is* what the region
- *   speaks each time it changes; see the note at the top of the file.
- */
-@Composable
-fun RestTimerIndicator(
-    state: RestTimerState,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    colors: RestTimerIndicatorColors = RestTimerDefaults.indicatorColors(),
-    announces: Boolean = false,
-) {
-    val remaining = state.remaining()
-    val running = state is RestTimerState.Running
-    val spoken = if (announces) state.announcement() else spokenRemaining(remaining)
-    val reopen = stringResource(R.string.rest_timer_reopen)
-
-    Row(
-        modifier = modifier
-            // One stop in the traversal order, reading the time and — where there is one — what
-            // pressing it does. The digits on their own are a number with no noun near them.
-            // The action goes in here with the label, and not as a bare label over the
-            // `clickable` below: this is `clearAndSetSemantics`, which throws away everything
-            // the rest of the chain contributed — including the clickable's handler. Labelling
-            // without re-supplying it leaves a node that announces "double tap to activate",
-            // takes the tap and does nothing, which is the way back into a swiped-away sheet
-            // gone for anyone driving the screen by screen reader. (The plain `.semantics`
-            // call elsewhere in this codebase *merges*, which is why a null action is right
-            // there and wrong here.)
-            .clearAndSetSemantics {
-                contentDescription = spoken
-                if (announces) liveRegion = LiveRegionMode.Polite
-                if (onClick != null) {
-                    onClick(label = reopen) {
-                        onClick()
-                        true
-                    }
-                }
-            }
-            .background(
-                color = if (running) colors.runningContainer else colors.restingContainer,
-                shape = PillShape,
-            )
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = TitanTheme.spacing.md, vertical = TitanTheme.spacing.xs),
-        horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = remaining.formatAsClock(),
-            style = TitanTheme.typography.numeric,
-            color = if (running) colors.runningContent else colors.restingContent,
-        )
-    }
-}
-
-/**
- * The two pairs [RestTimerIndicator] is drawn in: one for a countdown that is moving, one for
- * a countdown that is not.
- *
- * A pair each rather than a single container and content, because the difference between them
- * is the whole of what the pill communicates from across a room — the accent means the clock is
- * running, and a paused rest wearing it would be the header saying time is passing when it is
- * not. That is the same rule [RestCountdown] applies to the big figure, stated once for each
- * ground the pill can sit on.
- */
-@Immutable
-data class RestTimerIndicatorColors(
-    val runningContainer: Color,
-    val runningContent: Color,
-    val restingContainer: Color,
-    val restingContent: Color,
-)
-
 /** Defaults for the rest timer components. */
 object RestTimerDefaults {
 
@@ -378,35 +282,6 @@ object RestTimerDefaults {
      * presses is the common case of "give me another half minute".
      */
     val ADJUST_STEP: Duration = 15.seconds
-
-    /** [RestTimerIndicator] on the colour scheme, which is where any ordinary screen puts it. */
-    @Composable
-    fun indicatorColors(): RestTimerIndicatorColors =
-        RestTimerIndicatorColors(
-            runningContainer = MaterialTheme.colorScheme.primaryContainer,
-            runningContent = MaterialTheme.colorScheme.onPrimaryContainer,
-            restingContainer = MaterialTheme.colorScheme.surfaceContainer,
-            restingContent = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-    /**
-     * [RestTimerIndicator] on the active workout's own near-black band.
-     *
-     * The header does not invert with the scheme — see
-     * [com.titan.core.ui.theme.TitanSessionChrome] — so a pill built from the scheme's
-     * containers would be a light chip on a dark bar in one scheme and invisible in the other.
-     * Both pairs here are ones the chrome already carries and the contrast test already holds.
-     */
-    @Composable
-    fun sessionChromeIndicatorColors(): RestTimerIndicatorColors =
-        with(TitanTheme.sessionChrome) {
-            RestTimerIndicatorColors(
-                runningContainer = accent,
-                runningContent = onAccent,
-                restingContainer = fill,
-                restingContent = onSurface,
-            )
-        }
 }
 
 // ─── State, read four ways ──────────────────────────────────────────────────────────────
@@ -416,7 +291,7 @@ object RestTimerDefaults {
  * a state added to the domain is a compile error here rather than a sheet that renders blank.
  */
 
-private fun RestTimerState.remaining(): Duration =
+internal fun RestTimerState.remaining(): Duration =
     when (this) {
         is RestTimerState.Running -> remaining
         is RestTimerState.Paused -> remaining
@@ -445,7 +320,7 @@ private fun RestTimerState.elapsedFraction(): Float {
 }
 
 @Composable
-private fun RestTimerState.statusLabel(): String =
+internal fun RestTimerState.statusLabel(): String =
     when (this) {
         is RestTimerState.Running -> stringResource(R.string.rest_timer_running)
         is RestTimerState.Paused -> stringResource(R.string.rest_timer_paused)
@@ -468,7 +343,7 @@ private fun RestTimerState.accentOrMuted(): Color =
     }
 
 @Composable
-private fun spokenRemaining(remaining: Duration): String =
+internal fun spokenRemaining(remaining: Duration): String =
     stringResource(R.string.rest_timer_remaining, remaining.formatAsClock())
 
 /**
@@ -482,7 +357,7 @@ private fun spokenRemaining(remaining: Duration): String =
  * is announced exactly — the figure is not going to change under the sentence.
  */
 @Composable
-private fun RestTimerState.announcement(): String =
+internal fun RestTimerState.announcement(): String =
     when (this) {
         is RestTimerState.Running ->
             stringResource(R.string.rest_timer_live_running, remaining.roundedUpTo(ANNOUNCEMENT_STEP).formatAsClock())
@@ -565,26 +440,6 @@ fun RestTimerSheetPausedPreview() {
 @Composable
 fun RestTimerSheetFinishedPreview() {
     RestSheetPreview(theme = ThemePreference.LIGHT, state = RestTimerState.Finished)
-}
-
-@Preview(name = "Rest timer - header indicator", widthDp = 360)
-@Composable
-fun RestTimerIndicatorPreview() {
-    TitanTheme(theme = ThemePreference.LIGHT) {
-        Row(
-            modifier = Modifier
-                .background(MaterialTheme.colorScheme.background)
-                .padding(TitanTheme.spacing.screen),
-            horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
-        ) {
-            RestTimerIndicator(
-                state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
-                onClick = {},
-            )
-            RestTimerIndicator(state = RestTimerState.Paused(remaining = 83.seconds, total = 120.seconds))
-            RestTimerIndicator(state = RestTimerState.Idle)
-        }
-    }
 }
 
 @Composable

@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -66,11 +67,14 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.ui.component.DiscardSessionDialog
+import com.titan.core.ui.component.DockSet
 import com.titan.core.ui.component.EmptyState
+import com.titan.core.ui.component.NotificationPermissionPrompt
 import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.ReorderState
 import com.titan.core.ui.component.ReorderableItem
 import com.titan.core.ui.component.RestExpiryAlert
+import com.titan.core.ui.component.RestTimerDock
 import com.titan.core.ui.component.RestTimerSheet
 import com.titan.core.ui.component.SessionHeaderBar
 import com.titan.core.ui.component.SessionNameDialog
@@ -78,6 +82,7 @@ import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.SessionStatChips
 import com.titan.core.ui.component.SheetDragHandle
 import com.titan.core.ui.component.SupersetLink
+import com.titan.core.ui.component.clearFocusOnTap
 import com.titan.core.ui.component.rememberReorderState
 import com.titan.core.ui.component.reorderable
 import com.titan.core.ui.format.formatSessionDate
@@ -188,6 +193,16 @@ fun ActiveSessionRoute(
     LaunchedEffect(state.isDiscarded) {
         if (state.isDiscarded) onDiscardSession()
     }
+
+    // The notification prompt, over the first rest of a user who has never been asked — see
+    // `ActiveSessionViewModel.askForRestNotifications`. Here rather than in the screen because
+    // only something attached to an Activity can raise it. The answer itself is not read,
+    // because whichever it was, the ViewModel's move is the same: publish the rest again.
+    NotificationPermissionPrompt(
+        request = state.notificationPermissionRequest,
+        onRequestShown = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown) },
+        onAnswered = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered) },
+    )
 
     ActiveSessionScreen(
         state = state,
@@ -386,8 +401,18 @@ fun ActiveSessionScreen(
         state.exercises.firstOrNull { it.sessionExerciseId == id }
     }
 
+    val focusManager = LocalFocusManager.current
+
+    // Resolved out here rather than in the dock's slot: the slot recomposes on every tick of a
+    // rest, and the answer only changes with the workout.
+    val working = state.dockExercise
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        // A tap on the page rather than on a control puts the keyboard away — see
+        // `clearFocusOnTap`.
+        modifier = modifier
+            .fillMaxSize()
+            .clearFocusOnTap(focusManager),
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -397,15 +422,6 @@ fun ActiveSessionScreen(
                 elapsed = clocks().elapsed,
                 progress = state.header?.progress ?: SessionProgress(),
                 isPaused = state.isPaused,
-                // The countdown, and the way back into a sheet that has been swiped away. It
-                // is the only thing on this screen that changes on its own, so it lives on the
-                // one surface that is never scrolled off.
-                restTimer = clocks().rest,
-                onRestTimerClick = { onEvent(ActiveSessionEvent.RestSheetRequested) },
-                // The pill reads the rest out only while it is the only readout: with the
-                // sheet up, the sheet's own eyebrow is the live region, and two windows
-                // announcing the same quarter-minute would say it twice.
-                restTimerAnnounces = !state.isRestSheetOpen,
                 // The pause is *not* gated on `isEditable`: coming back from a pause is what
                 // that control is for. What takes the three of them out is a workout already
                 // closing out — a pause landing behind a finish is refused and reported over a
@@ -417,8 +433,44 @@ fun ActiveSessionScreen(
                 // The name is the affordance, so a workout started from the quick action can be
                 // titled from the one place its title is already shown.
                 onNameClick = { onEvent(ActiveSessionEvent.NameEditRequested) },
+                // The clock is the way into the rest window, with or without a rest running.
+                onClockClick = { onEvent(ActiveSessionEvent.RestWindowRequested) },
                 canFinish = state.canFinish,
             )
+        },
+        bottomBar = {
+            // The rest, at the edge the thumb is on — see `RestTimerDock` for why it left the
+            // header. Only over a workout that is there: a blank page or a missing session has
+            // no rest to take.
+            if (state.header != null) {
+                RestTimerDock(
+                    // Read here, inside the dock's own slot, so the tick recomposes the dock and
+                    // only it — the same reason the header reads its clock in its slot.
+                    state = clocks().rest,
+                    // One event for both: the ViewModel raises the sheet over a rest that is
+                    // going and starts one where none is.
+                    onRestClick = { onEvent(ActiveSessionEvent.RestWindowRequested) },
+                    nextSet = working?.let { row ->
+                        DockSet(
+                            label = stringResource(R.string.active_complete_set, row.nextSetNumber),
+                            detail = row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
+                            // The rule the card's own button follows, so the two never disagree —
+                            // a slot whose exercise is being swapped out included.
+                            enabled = state.isEditable && row.canLogEntry &&
+                                state.swappingExerciseId != row.sessionExerciseId &&
+                                row.sessionExerciseId !in state.loggingExerciseIds,
+                        )
+                    },
+                    // The same event as the card's own button: a set validated from the dock is
+                    // a set validated, rest and all.
+                    onValidateSet = { working?.let { onEvent(ActiveSessionEvent.SetLogged(it.sessionExerciseId)) } },
+                    // The dock reads the rest out only while it is the only readout: with the
+                    // sheet up, the sheet's own eyebrow is the live region, and two windows
+                    // announcing the same quarter-minute would say it twice.
+                    announces = !state.isRestSheetOpen,
+                    enabled = !state.isBusy,
+                )
+            }
         },
     ) { innerPadding ->
         when {
@@ -508,8 +560,8 @@ private fun RestAlert(rest: () -> RestTimerState) {
  * ### Swiping it away does not cancel anything
  *
  * The one thing a lifter reliably wants mid-rest is the set they logged wrong, and the sheet is
- * in front of it. So the swipe hides the sheet and leaves the countdown running — the header's
- * pill says so, and tapping it brings this back. Ending the rest is the button that says so.
+ * in front of it. So the swipe hides the sheet and leaves the countdown running — the rest
+ * dock says so, and tapping it brings this back. Ending the rest is the button that says so.
  *
  * ### It comes down when the rest is over, and nothing here has to decide that
  *
@@ -618,6 +670,10 @@ private fun SessionBody(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            // The list stops at the rest dock rather than running on under it, so a card cut
+            // off at the bottom is cut off by the list's own edge — the edge a scroll is
+            // expected to reveal more past — and not hidden behind an opaque bar.
+            .padding(bottom = contentPadding.calculateBottomPadding())
             .navigationBarsPadding()
             // The gesture lives on the list rather than on the cards, because the cards move —
             // see `Modifier.reorderable`.
@@ -1021,8 +1077,8 @@ fun ActiveSessionScreenEditingPreview() {
 @Composable
 fun ActiveSessionScreenRestingPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        // The sheet swiped away with the rest still running, which is the state the header's
-        // pill exists for. The sheet itself is a window of its own and does not render in a
+        // The sheet swiped away with the rest still running, which is the state the rest
+        // dock's countdown exists for. The sheet itself is a window of its own and does not render in a
         // preview; `RestTimerSheet`'s own previews in `:core:ui` are where its body is drawn.
         ActiveSessionScreen(
             state = previewState().copy(restTarget = RestTarget(weight = 80_000_000L, reps = 5)),

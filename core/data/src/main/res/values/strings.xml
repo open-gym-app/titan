@@ -32,6 +32,9 @@
     <!-- The same line for an exercise deleted from the library mid-session: the set number is
          still true, and the workout carries on. -->
     <string name="rest_notification_next_set">Set %1$d</string>
+    <!-- The same line for a rest that follows no set, started from the session clock: there is
+         no exercise and no next set to name, so it says only what the countdown is. -->
+    <string name="rest_notification_untied">Timed rest</string>
     <string name="rest_notification_skip">Skip rest</string>
 
     <!-- The nudge about a workout nobody is working out. Ambient rather than urgent: it goes

@@ -73,9 +73,10 @@ class AndroidBackgroundRestTimer @Inject constructor(
      * The expiry already announced, so the same one is not announced twice.
      *
      * Compared by value rather than by a flag, because a session expires a rest per set: the
-     * duplicate to suppress is byte-for-byte the same rest, and the next one differs by its set
-     * number. Cleared whenever a rest starts, is held or goes away, so a rest that somehow
-     * repeats itself exactly can still be announced again.
+     * duplicate to suppress is byte-for-byte the same rest, and the next one usually differs by
+     * its set number. Not always — two rests started from the session clock name no set and are
+     * equal — which is why it is also cleared whenever a rest starts, is held or goes away: a
+     * rest that repeats itself exactly is still announced again.
      *
      * Not synchronised. Both writers reach it from the main dispatcher — the ViewModel's scope
      * and the receiver's `Dispatchers.Main.immediate` — and the cost of losing the race would be
@@ -256,10 +257,14 @@ class AndroidBackgroundRestTimer @Inject constructor(
         pending.cancel()
     }
 
-    /** "Bench press · set 3" — what the glance is for, or just the set where the name is gone. */
+    /**
+     * "Bench press · set 3" — what the glance is for, or just the set where the name is gone, or
+     * neither where the rest follows no set at all.
+     */
     private fun BackgroundRest.nextUp(): String =
-        when (exerciseName) {
-            null -> context.getString(R.string.rest_notification_next_set, setNumber)
+        when {
+            setNumber == null -> context.getString(R.string.rest_notification_untied)
+            exerciseName == null -> context.getString(R.string.rest_notification_next_set, setNumber)
             else -> context.getString(R.string.rest_notification_next_up, exerciseName, setNumber)
         }
 }
@@ -323,7 +328,8 @@ internal fun restExpiredBroadcast(
             if (rest != null) {
                 putExtra(EXTRA_SESSION_ID, rest.sessionId)
                 putExtra(EXTRA_EXERCISE_NAME, rest.exerciseName)
-                putExtra(EXTRA_SET_NUMBER, rest.setNumber)
+                // Left out for a rest that follows no set; read back as absent below.
+                rest.setNumber?.let { putExtra(EXTRA_SET_NUMBER, it) }
             }
         }
 
@@ -331,11 +337,12 @@ internal fun restExpiredBroadcast(
 internal fun expiredRestOf(intent: Intent): BackgroundRest? {
     if (intent.action != ACTION_REST_EXPIRED) return null
     val sessionId = intent.getLongExtra(EXTRA_SESSION_ID, 0L).takeIf { it > 0 } ?: return null
-    val setNumber = intent.getIntExtra(EXTRA_SET_NUMBER, 0).takeIf { it > 0 } ?: return null
+    // Absent for a rest started from the session clock, which follows no set and names none.
+    val setNumber = intent.getIntExtra(EXTRA_SET_NUMBER, 0).takeIf { it > 0 }
 
     return BackgroundRest(
         sessionId = sessionId,
-        exerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME),
+        exerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME)?.takeIf { setNumber != null },
         setNumber = setNumber,
         rest = RestTimerSnapshot.Finished,
     )

@@ -42,12 +42,11 @@ import com.titan.feature.session.newsession.RunningWorkout
  *
  * ### It shows the workout rather than describing it
  *
- * The head of the dialog is the session chrome — the same dark band, accent eyebrow and title
- * the workout itself runs under, in [TitanTheme.sessionChrome] — carrying that session's
- * name and what is logged in it. A user asked "do you want to keep this or bin it" needs to
- * know *which* workout and *what is in it*, and the app already has a way of drawing a running
- * session that they have been looking at all week. A paragraph explaining the same facts is
- * both longer and harder to answer from.
+ * The head of the dialog is a band of its own — an accent eyebrow over the session's name and
+ * what is logged in it, on the card tone above the dialog's surface. A user asked "do you want
+ * to keep this or bin it" needs to know *which* workout and *what is in it*, and a band with the
+ * workout's name and its count on it says so at a glance. A paragraph
+ * explaining the same facts is both longer and harder to answer from.
  *
  * The set count is the figure the question turns on, and it is drawn rather than described for
  * the reason `DiscardSessionDialog` gives about its own: "discard this workout" is a different
@@ -151,18 +150,22 @@ fun ResumeSessionDialog(
 }
 
 /**
- * The running workout, drawn the way the workout screen draws itself.
+ * The running workout, as a band of its own.
  *
- * Its own chrome rather than the dialog's surface, which is the whole point of it: this band is
- * what a session in progress looks like everywhere else in the app, so it says "that workout"
- * before a word of it has been read.
+ * On `surfaceContainerLow` rather than the dialog's surface, which is the whole point of it:
+ * set apart from the question around it, the band reads as "that workout" before a word of it
+ * has been read. It is the tone a card takes on the page, and every pair drawn on it — the
+ * accent eyebrow, the name, the count — is one `ColorSchemeContrastTest` holds on that tone.
+ * It used to be a near-black band of its own, the one the workout screen ran under; that
+ * screen is drawn on the page now, and a band matching nothing the user has seen would be
+ * telling them nothing.
  */
 @Composable
 private fun RunningWorkoutBanner(
     workout: RunningWorkout,
     modifier: Modifier = Modifier,
 ) {
-    val chrome = TitanTheme.sessionChrome
+    val colors = MaterialTheme.colorScheme
     val logged = if (workout.loggedSets > 0) {
         pluralStringResource(R.plurals.new_session_resume_sets, workout.loggedSets, workout.loggedSets)
     } else {
@@ -172,21 +175,21 @@ private fun RunningWorkoutBanner(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(chrome.surface)
+            .background(colors.surfaceContainerLow)
             .padding(TitanTheme.spacing.lg),
         verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.xs),
     ) {
-        Eyebrow(text = stringResource(R.string.new_session_resume_eyebrow), color = chrome.accent)
+        Eyebrow(text = stringResource(R.string.new_session_resume_eyebrow), color = colors.primary)
         Text(
             // The same fallback the workout's own header uses, so a session started unnamed is
             // called the same thing here as on the screen this opens.
             text = workout.name?.takeIf { it.isNotBlank() } ?: formatSessionDate(workout.startedAt),
             style = MaterialTheme.typography.titleLarge,
-            color = chrome.onSurface,
+            color = colors.onSurface,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        Eyebrow(text = logged, color = chrome.onSurfaceVariant)
+        Eyebrow(text = logged, color = colors.onSurfaceVariant)
     }
 }
 

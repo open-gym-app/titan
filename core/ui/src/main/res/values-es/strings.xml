@@ -81,6 +81,8 @@
     <string name="session_header_finish">Terminar la sesión</string>
     <string name="session_header_finish_label">Fin</string>
     <string name="session_header_rename">Renombrar este entrenamiento</string>
+    <string name="session_header_rest_window">Gestionar el descanso</string>
+    <string name="rest_dock_start">Iniciar un descanso</string>
     <string name="session_header_title">%1$s, %2$s</string>
 
     <!-- ── Naming a session ──────────────────────────────────────────────────────── -->

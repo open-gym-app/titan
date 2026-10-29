@@ -40,15 +40,12 @@ import com.titan.core.ui.component.MetaEntry
 import com.titan.core.ui.component.MetaGrid
 import com.titan.core.ui.component.SectionHeading
 import com.titan.core.ui.component.SelectableOption
-import com.titan.core.ui.component.SessionHeaderBar
-import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.StepProgress
 import com.titan.core.ui.component.StreakShields
 import com.titan.core.ui.component.TitanBadge
 import com.titan.core.ui.component.TitanCard
 import com.titan.core.ui.format.formatAsClock
 import com.titan.core.ui.format.formatWeight
-import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /*
@@ -127,36 +124,6 @@ fun PlateCatalog(modifier: Modifier = Modifier) {
                     PlateCount(weight = 2_500_000, count = 1),
                 ),
                 denominations = PlateInventory.METRIC.stock.map { it.weight },
-            )
-        }
-    }
-}
-
-/**
- * The workout's own chrome, which is the one token set that does *not* invert with the scheme.
- *
- * Drawn as the header it exists for rather than as swatches, for the same reason the plate ramp
- * is drawn as a loaded bar: the question these tokens answer is whether the bar still reads as a
- * distinct dark band against the page behind it, and a column of rectangles cannot show that.
- * The two previews look nearly alike on purpose — see [TitanSessionChrome].
- */
-@Composable
-fun SessionChromeCatalog(modifier: Modifier = Modifier) {
-    CatalogSheet(modifier) {
-        CatalogSection("COLOUR · SESSION CHROME") {
-            val chrome = TitanTheme.sessionChrome
-            ColorSpecimen("chrome · surface", chrome.surface, chrome.onSurface)
-            ColorSpecimen("chrome · surface / variant", chrome.surface, chrome.onSurfaceVariant)
-            ColorSpecimen("chrome · fill", chrome.fill, chrome.onSurface)
-            ColorSpecimen("chrome · accent", chrome.accent, chrome.onAccent)
-            ColorSpecimen("chrome · track", chrome.track, chrome.onSurface)
-        }
-        CatalogSection("SESSION HEADER") {
-            SessionHeaderBar(
-                name = "Push day · Upper",
-                elapsed = 23.minutes + 14.seconds,
-                progress = SessionProgress.of(completed = 3, total = 8),
-                onDiscard = {},
             )
         }
     }
@@ -596,18 +563,6 @@ fun ChoiceCatalogLightPreview() {
 @Composable
 fun ChoiceCatalogDarkPreview() {
     TitanTheme(theme = ThemePreference.DARK) { ChoiceCatalog() }
-}
-
-@Preview(name = "Catalog - session chrome - light", widthDp = 360)
-@Composable
-fun SessionChromeCatalogLightPreview() {
-    TitanTheme(theme = ThemePreference.LIGHT) { SessionChromeCatalog() }
-}
-
-@Preview(name = "Catalog - session chrome - dark", widthDp = 360)
-@Composable
-fun SessionChromeCatalogDarkPreview() {
-    TitanTheme(theme = ThemePreference.DARK) { SessionChromeCatalog() }
 }
 
 @Preview(name = "Catalog - plates - light", widthDp = 360)

@@ -24,6 +24,7 @@ import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WarmupSuggestion
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.repository.ExerciseRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
@@ -57,6 +58,7 @@ import com.titan.core.domain.usecase.PauseSessionUseCase
 import com.titan.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreSetUseCase
 import com.titan.core.domain.usecase.ResumeSessionUseCase
 import com.titan.core.domain.usecase.SuggestWarmupUseCase
@@ -198,6 +200,7 @@ class ActiveSessionViewModel @Inject constructor(
     private val progressionHandoff: SessionProgressionHandoff,
     personalRecordRepository: PersonalRecordRepository,
     private val backgroundRestTimer: BackgroundRestTimer,
+    private val requestNotificationPermission: RequestNotificationPermissionUseCase,
     private val idleSessionMonitor: IdleSessionMonitor,
     restSkipRequests: RestSkipRequests,
     private val clock: Clock,
@@ -228,6 +231,12 @@ class ActiveSessionViewModel @Inject constructor(
      * setting would silently keep getting.
      */
     private var defaultRest: Duration = UserPreferences.DEFAULT_REST_DURATION
+
+    /**
+     * Whether the user wants the rest's notification at all, off the same settings document.
+     * Read by [askForRestNotifications], which has no prompt worth raising for a user who said no.
+     */
+    private var restNotificationsOn: Boolean = true
 
     /**
      * The typed input this screen holds that the workout draft does not (#183).
@@ -549,6 +558,7 @@ class ActiveSessionViewModel @Inject constructor(
                 // rest a set gets is a second setting off the same document, and a lifter who
                 // lengthens their rests without also switching to pounds must still get them.
                 defaultRest = preferences.defaultRestDuration
+                restNotificationsOn = NotificationKind.REST_TIMER in preferences.notifications
                 val previous = seen
                 seen = preferences.unitSystem
                 unitSystem.value = preferences.unitSystem
@@ -625,7 +635,10 @@ class ActiveSessionViewModel @Inject constructor(
         if (handledBySubject(event)) return
 
         when (event) {
-            is ActiveSessionEvent.SetLogged -> log(event.sessionExerciseId)
+            is ActiveSessionEvent.SetLogged -> {
+                screenState.update { it.copy(workingExerciseId = event.sessionExerciseId) }
+                log(event.sessionExerciseId)
+            }
 
             ActiveSessionEvent.PauseToggled -> togglePause()
 
@@ -782,6 +795,7 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { current ->
             val edited = change(current.entryFor(sessionExerciseId))
             current.copy(
+                workingExerciseId = sessionExerciseId,
                 entries = current.entries + (
                     sessionExerciseId to edited.copy(error = validate(edited, unitsOf(sessionExerciseId)))
                     ),
@@ -1542,13 +1556,14 @@ class ActiveSessionViewModel @Inject constructor(
     // ─── The rest between two sets ──────────────────────────────────────────────────────
 
     /**
-     * The five events about the countdown, handled together.
+     * The six events about the countdown, handled together.
      *
      * Split off [onEvent] for the reason the other four groups are, and they belong together
      * for a reason of their own: three of them command the timer and two only say whether the
      * sheet is on screen, and the whole design of this feature is that those are separate
      * questions. A swipe that cancelled the rest, or a skip that only hid the sheet, would each
-     * be one line's confusion between the two halves.
+     * be one line's confusion between the two halves. The sixth, the clock's tap, is both on
+     * purpose — see [openRestWindow].
      *
      * @return whether [event] was one of them.
      */
@@ -1573,18 +1588,49 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.RestSkipped -> skipRest()
 
-            // The countdown is untouched by both of these. What the sheet is doing on screen
-            // and what the timer is doing are two facts, and the header's pill exists because
-            // of it.
+            // The countdown is untouched by this, and by reopening the sheet below. What the
+            // sheet is doing on screen and what the timer is doing are two facts, and the
+            // rest dock's countdown exists because of it.
             ActiveSessionEvent.RestSheetDismissed ->
                 screenState.update { it.copy(isRestSheetOpen = false) }
 
-            ActiveSessionEvent.RestSheetRequested ->
-                screenState.update { it.copy(isRestSheetOpen = true) }
+            ActiveSessionEvent.RestWindowRequested -> openRestWindow()
+
+            ActiveSessionEvent.NotificationPermissionRequestShown ->
+                screenState.update { it.copy(notificationPermissionRequest = false) }
+
+            // Whatever the answer, the rest going now was published while the answer was
+            // still no — its note dropped and, with it, its alarm, since `BackgroundRestTimer`
+            // only schedules behind a note that was posted. Published again so a grant takes
+            // effect on this rest rather than the next one.
+            ActiveSessionEvent.NotificationPermissionAnswered -> publishRest(screenState.value.restSnapshot)
 
             else -> return false
         }
         return true
+    }
+
+    /**
+     * Raises the rest sheet from the dock or the session clock, starting a rest at the user's
+     * default length where none is going.
+     *
+     * A rest started here follows no set, so it is tied to no exercise: the exercise and set a
+     * rest that *ran out* was tied to are cleared rather than inherited, or the sheet's "up next"
+     * and the lock-screen note would name a set the lifter already did.
+     *
+     * Ignored while the workout is on its way out, like the other writes: a rest started then
+     * would post a note and an alarm the finish has already taken down, over a session that is
+     * over.
+     */
+    private fun openRestWindow() {
+        if (screenState.value.isBusy) return
+        if (!restTimer.state.value.isLive) {
+            restTimer.start(defaultRest)
+            screenState.update { it.copy(restExerciseId = null, restNextSetNumber = null) }
+            captureRest()
+            askForRestNotifications()
+        }
+        screenState.update { it.copy(isRestSheetOpen = true) }
     }
 
     /**
@@ -1628,7 +1674,42 @@ class ActiveSessionViewModel @Inject constructor(
             )
         }
         captureRest()
+        askForRestNotifications()
     }
+
+    /**
+     * Raises the notification permission prompt over the first rest that would need it.
+     *
+     * The rest timer's notification is on by default — it is the one a lifter is standing in a
+     * gym waiting for — but on Android 13 and up nothing reaches the shade until the
+     * `POST_NOTIFICATIONS` prompt has been answered, and the only other place that raises it is
+     * a switch in the settings. A user who never visits them would otherwise get no note, no
+     * alarm and no buzz when the phone is in a pocket, with the setting reading *on* the whole
+     * time.
+     *
+     * Asked here, at the moment a rest starts, because this is the moment the prompt explains
+     * itself: the countdown it is for is on the screen. Whether it is worth raising at all is
+     * [RequestNotificationPermissionUseCase]'s answer, which records the asking so a refusal is
+     * never re-asked — the settings and this screen share that one memory. Skipped where the
+     * user has turned rest notifications off, since a grant would buy them nothing.
+     *
+     * [askedForNotifications] keeps it to one attempt per screen: rests start a dozen times a
+     * workout, and the use case reads a store each time it is asked.
+     */
+    private fun askForRestNotifications() {
+        if (askedForNotifications) return
+        askedForNotifications = true
+        viewModelScope.launch {
+            runCatching {
+                if (restNotificationsOn && requestNotificationPermission()) {
+                    screenState.update { it.copy(notificationPermissionRequest = true) }
+                }
+            }
+        }
+    }
+
+    /** Whether this screen has already considered the prompt. See [askForRestNotifications]. */
+    private var askedForNotifications = false
 
     /**
      * How long the rest after a set on [sessionExerciseId] should be, or **null** where there
@@ -1718,11 +1799,12 @@ class ActiveSessionViewModel @Inject constructor(
      * The rest as something outside this app can hold, or **null** when there is nothing to
      * hold.
      *
-     * Null for a rest that is over or was never started, and also for one whose exercise this
-     * screen cannot name at all — a set logged against a slot cut out from under it, which is
+     * Null for a rest that was cancelled or never started, and also for one whose exercise this
+     * screen cannot find at all — a set logged against a slot cut out from under it, which is
      * the same race [restAfter] returns null for. Both mean "take the note down", which is the
      * honest answer: a notification about a rest in an exercise that is not in the workout is
-     * worse than none.
+     * worse than none. A rest tied to *no* exercise — one started from the session clock — is
+     * not that case, and is published naming no set.
      *
      * The set number is read off the store rather than counted here, so it is the number the
      * next row will actually carry — a table with a set deleted out of the middle of it is
@@ -1730,7 +1812,11 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun backgroundRest(snapshot: RestTimerSnapshot): BackgroundRest? {
         if (snapshot == RestTimerSnapshot.Idle) return null
-        val exerciseId = screenState.value.restExerciseId ?: return null
+        // A rest started from the clock follows no set, and is published without one: it still
+        // needs its alarm, and a note that names no exercise is truer than one that names a
+        // wrong one.
+        val exerciseId = screenState.value.restExerciseId
+            ?: return BackgroundRest(sessionId = sessionId, exerciseName = null, setNumber = null, rest = snapshot)
         val loaded = loaded.value ?: return null
         val exercise = loaded.ordered.firstOrNull { it.id == exerciseId } ?: return null
 
@@ -2123,9 +2209,13 @@ class ActiveSessionViewModel @Inject constructor(
     private fun onNameEvent(event: ActiveSessionEvent): Boolean {
         when (event) {
             // Seeded from what is stored, which is the name a user expects to see. Ignored
-            // before the row has loaded — there is nothing to edit yet.
-            ActiveSessionEvent.NameEditRequested -> loaded.value?.session?.let { session ->
-                screenState.update { it.copy(nameDraft = session.name.orEmpty()) }
+            // before the row has loaded — there is nothing to edit yet — and over a workout on
+            // its way out, whose name the finish has already taken to the recap.
+            ActiveSessionEvent.NameEditRequested -> {
+                val session = loaded.value?.session
+                if (session != null && !screenState.value.isBusy) {
+                    screenState.update { it.copy(nameDraft = session.name.orEmpty()) }
+                }
             }
 
             is ActiveSessionEvent.NameChanged ->
@@ -2149,10 +2239,14 @@ class ActiveSessionViewModel @Inject constructor(
      * Closed on success only, and the new title is drawn from the re-read rather than copied
      * into local state — the same shape the recap's note save uses, and for the same reason:
      * two copies of one value are two things to keep in step.
+     *
+     * Refused over a workout on its way out, the way [togglePause] is: a rename landing behind a
+     * finish writes to a session already stamped closed, under a recap that has read the old
+     * name.
      */
     private fun rename() {
         val draft = screenState.value.nameDraft ?: return
-        if (screenState.value.isRenaming) return
+        if (screenState.value.isRenaming || screenState.value.isBusy) return
         screenState.update { it.copy(isRenaming = true) }
 
         viewModelScope.launch {
@@ -2471,8 +2565,10 @@ class ActiveSessionViewModel @Inject constructor(
         val rest = draft.restTimerStateAt(clock.nowMillis())
         if (!live) restTimer.restore(rest)
         val resting = rest is RestTimerState.Running || rest is RestTimerState.Paused
-        val restedExerciseId = draft.exercises
-            .getOrNull(draft.currentExerciseIndex)
+        // Null for a rest that follows no set — one opened from the session clock — which the
+        // draft writes as no index at all, so it comes back belonging to nothing rather than to
+        // whichever exercise happens to be first.
+        val restedExerciseId = draft.currentExercise
             ?.sessionExerciseId
             ?.takeIf { resting }
 
@@ -2602,7 +2698,9 @@ class ActiveSessionViewModel @Inject constructor(
                 unitSystem = unitSystem.value,
                 catalogue = catalogue.value,
             ).orEmpty(),
-            // The exercise the rest belongs to, and zero when there is no rest.
+            // The exercise the rest belongs to, and null when there is no rest or the rest
+            // follows no set — one opened from the session clock. Never zero for "none": zero
+            // is the first exercise, and a restore would credit the rest to it.
             //
             // The field asks which exercise the user was on, and for most of this screen there
             // is no answer — every exercise is on the page and every one of them takes sets.
@@ -2613,8 +2711,7 @@ class ActiveSessionViewModel @Inject constructor(
             // set.
             currentExerciseIndex = state.restExerciseId
                 ?.let { id -> loaded.value?.ordered?.indexOfFirst { it.id == id } }
-                ?.takeIf { it >= 0 }
-                ?: 0,
+                ?.takeIf { it >= 0 },
             restTimer = state.restSnapshot,
             stopwatch = state.stopwatch,
         )
@@ -2661,6 +2758,8 @@ class ActiveSessionViewModel @Inject constructor(
             // being restored over a rest that ended while the process was dead.
             isRestSheetOpen = screen.isRestSheetOpen && screen.isRestLive,
             timedExerciseId = screen.stopwatch?.sessionExerciseId,
+            notificationPermissionRequest = screen.notificationPermissionRequest,
+            workingExerciseId = screen.workingExerciseId,
             message = screen.message,
         )
 
@@ -2927,6 +3026,10 @@ private data class ScreenState(
      * reading is the ViewModel's — see `ActiveSessionViewModel.stopwatchMark`.
      */
     val stopwatch: StopwatchSnapshot? = null,
+    /** The exercise last typed into or validated. See [ActiveSessionUiState.workingExerciseId]. */
+    val workingExerciseId: Long? = null,
+    /** The prompt should go up. See [ActiveSessionUiState.notificationPermissionRequest]. */
+    val notificationPermissionRequest: Boolean = false,
     val message: ActiveSessionMessage? = null,
 ) {
 

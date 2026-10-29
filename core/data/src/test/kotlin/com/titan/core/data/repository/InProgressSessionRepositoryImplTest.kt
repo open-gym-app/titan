@@ -61,7 +61,7 @@ class InProgressSessionRepositoryImplTest {
 
     private fun draft(
         sessionId: Long = 7,
-        currentExerciseIndex: Int = 0,
+        currentExerciseIndex: Int? = null,
         restTimer: RestTimerSnapshot = RestTimerSnapshot.Idle,
     ) = ActiveSession(
         sessionId = sessionId,

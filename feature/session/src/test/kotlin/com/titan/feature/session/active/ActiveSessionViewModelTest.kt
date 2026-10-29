@@ -14,6 +14,7 @@ import com.titan.core.domain.model.SuggestionReason
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.model.WorkoutSet
+import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.domain.timer.StopwatchSnapshot
@@ -31,6 +32,7 @@ import com.titan.core.domain.usecase.PauseSessionUseCase
 import com.titan.core.domain.usecase.RemoveSessionExerciseUseCase
 import com.titan.core.domain.usecase.RenameSessionUseCase
 import com.titan.core.domain.usecase.ReorderSessionExercisesUseCase
+import com.titan.core.domain.usecase.RequestNotificationPermissionUseCase
 import com.titan.core.domain.usecase.RestoreSetUseCase
 import com.titan.core.domain.usecase.ResumeSessionUseCase
 import com.titan.core.domain.usecase.SessionLifecycleLock
@@ -124,6 +126,7 @@ class ActiveSessionViewModelTest {
     private val backgroundRest = FakeBackgroundRestTimer()
     private val idleSession = FakeIdleSessionMonitor()
     private val skipRequests = FakeRestSkipRequests()
+    private val notificationPermission = FakeNotificationPermission()
 
     /**
      * The clock `viewModelScope` runs on, held so a test can move it.
@@ -2278,6 +2281,161 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `tapping the clock with no rest running starts one at the default length and raises the sheet`() =
+        runTest {
+            settings.setDefaultRestDuration(2.minutes)
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertEquals(RestTimerState.Running(2.minutes, 2.minutes), viewModel.clocks.value.rest)
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+            assertNull(viewModel.uiState.value.restTarget)
+            assertTrue(drafts.stored?.restTimer is RestTimerSnapshot.Running)
+        }
+
+    @Test
+    fun `tapping the clock over a rest that is going brings the sheet back and leaves the countdown alone`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.RestAdjusted((-30).seconds))
+            viewModel.onEvent(ActiveSessionEvent.RestSheetDismissed)
+            val rest = viewModel.clocks.value.rest
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+            assertEquals(rest, viewModel.clocks.value.rest)
+        }
+
+    @Test
+    fun `tapping the clock over a paused rest does not restart it`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.RestPauseToggled)
+            viewModel.onEvent(ActiveSessionEvent.RestSheetDismissed)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Paused)
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
+    fun `a rest started from the clock is published with its alarm, naming no set`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            val published = backgroundRest.current
+            assertTrue(published?.rest is RestTimerSnapshot.Running)
+            assertEquals(ACTIVE_SESSION_ID, published?.sessionId)
+            assertNull(published?.exerciseName)
+            assertNull(published?.setNumber)
+        }
+
+    // --- the rest dock ---------------------------------------------------------
+
+    @Test
+    fun `the dock follows the exercise last typed into`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.WeightChanged(FLY_ROW, "20"))
+
+            assertEquals(FLY_ROW, viewModel.uiState.value.workingExerciseId)
+            assertEquals(FLY_ROW, viewModel.uiState.value.dockExercise?.sessionExerciseId)
+        }
+
+    // --- asking for the notification the rest needs -------------------------
+
+    @Test
+    fun `the first rest of a user never asked raises the notification prompt, once`() =
+        runTest {
+            notificationPermission.allowed = false
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(viewModel.uiState.value.notificationPermissionRequest)
+            // Recorded as asked before the answer, so the settings screen does not ask again.
+            assertTrue(settings.observe().first().notifications.permissionRequested)
+
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
+            viewModel.onEvent(ActiveSessionEvent.RestSkipped)
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+        }
+
+    @Test
+    fun `an answer to the prompt publishes the rest going again`() =
+        runTest {
+            notificationPermission.allowed = false
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
+            val before = backgroundRest.published.size
+
+            notificationPermission.allowed = true
+            viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered)
+
+            // The first publication was dropped for want of the permission, alarm and all; this
+            // is the one that now reaches the shade.
+            assertEquals(before + 1, backgroundRest.published.size)
+            assertEquals(backgroundRest.published[before - 1], backgroundRest.current)
+        }
+
+    @Test
+    fun `no prompt for a user who has turned rest notifications off`() =
+        runTest {
+            notificationPermission.allowed = false
+            settings.setNotificationEnabled(NotificationKind.REST_TIMER, enabled = false)
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertFalse(viewModel.uiState.value.notificationPermissionRequest)
+            assertFalse(settings.observe().first().notifications.permissionRequested)
+        }
+
+    @Test
+    fun `a rest started from the clock after one ran out does not inherit its set`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            testScheduler.advanceTimeBy(91.seconds)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Running)
+            assertNull(viewModel.uiState.value.restTarget)
+            assertNull(backgroundRest.current?.exerciseName)
+            assertNull(backgroundRest.current?.setNumber)
+        }
+
+    @Test
+    fun `tapping the clock on a workout on its way out starts nothing`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertEquals(RestTimerState.Idle, viewModel.clocks.value.rest)
+            assertNull(backgroundRest.current)
+        }
+
+    @Test
     fun `skipping ends the rest, closes the sheet and leaves the timer idle`() =
         runTest {
             val viewModel = viewModel()
@@ -2322,7 +2480,7 @@ class ActiveSessionViewModelTest {
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
 
-            viewModel.onEvent(ActiveSessionEvent.RestSheetRequested)
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
 
             assertTrue(viewModel.uiState.value.isRestSheetOpen)
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
@@ -2677,6 +2835,35 @@ class ActiveSessionViewModelTest {
             assertEquals(RestTarget(weight = 70_000_000L, reps = 8), restored.uiState.value.restTarget)
         }
 
+    @Test
+    fun `a rest started from the clock is saved naming no exercise`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            runCurrent()
+
+            // Null, not zero: zero is the bench, and a restore would credit it the rest.
+            assertTrue(drafts.stored?.restTimer is RestTimerSnapshot.Running)
+            assertNull(drafts.stored?.currentExerciseIndex)
+        }
+
+    @Test
+    fun `a restored rest that followed no set is not credited to the first exercise`() =
+        runTest {
+            val restored = viewModel(
+                store = benchStore(),
+                drafts = FakeDraftStore(
+                    restingDraft(deadline = STARTED_AT + 90_000).copy(currentExerciseIndex = null),
+                ),
+            )
+
+            assertTrue(restored.clocks.value.rest is RestTimerState.Running)
+            assertTrue(restored.uiState.value.isRestSheetOpen)
+            assertNull(restored.uiState.value.restTarget)
+            assertNull(backgroundRest.current?.exerciseName)
+        }
+
     // ─── The draft ──────────────────────────────────────────────────────────────────────
 
     @Test
@@ -2968,6 +3155,38 @@ class ActiveSessionViewModelTest {
             assertFalse(viewModel.uiState.value.isPaused)
             assertNull(viewModel.uiState.value.message)
             assertTrue(state.current is SessionState.Finished)
+        }
+
+    @Test
+    fun `renaming is ignored once the workout is on its way out`() =
+        runTest {
+            // The name is a control on the same header, with the same window behind a finish:
+            // a rename landing in it writes to a session already stamped closed, under a recap
+            // that has read the old name.
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.NameEditRequested)
+            viewModel.onEvent(ActiveSessionEvent.NameChanged("Leg day"))
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.NameConfirmed)
+
+            assertEquals("Push day · Upper", viewModel.uiState.value.header?.name)
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `the rename dialog does not open over a workout on its way out`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.NameEditRequested)
+
+            assertNull(viewModel.uiState.value.nameDraft)
         }
 
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
@@ -3904,6 +4123,7 @@ class ActiveSessionViewModelTest {
             progressionHandoff = progressionHandoff,
             personalRecordRepository = personalRecords,
             backgroundRestTimer = backgroundRest,
+            requestNotificationPermission = RequestNotificationPermissionUseCase(settings, notificationPermission),
             idleSessionMonitor = idleSession,
             restSkipRequests = skipRequests,
             clock = clock,

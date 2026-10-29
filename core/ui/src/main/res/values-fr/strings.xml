@@ -82,6 +82,8 @@
     <string name="session_header_finish">Terminer la séance</string>
     <string name="session_header_finish_label">Fin</string>
     <string name="session_header_rename">Renommer cette séance</string>
+    <string name="session_header_rest_window">Gérer le temps de repos</string>
+    <string name="rest_dock_start">Lancer un repos</string>
     <string name="session_header_title">%1$s, %2$s</string>
 
     <!-- ── Naming a session ──────────────────────────────────────────────────────── -->

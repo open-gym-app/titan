@@ -183,17 +183,18 @@ class RestTimerSheetTest {
     }
 
     @Test
-    fun `the header pill is the live region only when told it is the one readout on screen`() {
+    fun `the dock's countdown is the live region only when told it is the one readout on screen`() {
         composeTestRule.setContent {
             TitanTheme {
-                RestTimerIndicator(
+                RestTimerDock(
                     state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+                    onRestClick = {},
                     announces = true,
                 )
             }
         }
 
-        // Announcing, the pill says the quarter-minute — the description is what the region
+        // Announcing, the dock says the quarter-minute — the description is what the region
         // speaks each time it changes — rather than the exact second it says when it is not.
         composeTestRule
             .onNodeWithContentDescription("Resting, 1:30 left")
@@ -201,11 +202,12 @@ class RestTimerSheetTest {
     }
 
     @Test
-    fun `the header indicator announces the remainder rather than reading the digits out`() {
+    fun `the dock's countdown announces the remainder rather than reading the digits out`() {
         composeTestRule.setContent {
             TitanTheme {
-                RestTimerIndicator(
+                RestTimerDock(
                     state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
+                    onRestClick = {},
                 )
             }
         }
@@ -219,20 +221,20 @@ class RestTimerSheetTest {
     }
 
     @Test
-    fun `the indicator says what pressing it does, and stays quiet where it does nothing`() {
+    fun `the dock's countdown says what pressing it does`() {
         var reopens = 0
         composeTestRule.setContent {
             TitanTheme {
-                RestTimerIndicator(
+                RestTimerDock(
                     state = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
-                    onClick = { reopens++ },
+                    onRestClick = { reopens++ },
                 )
             }
         }
 
         // One stop in the traversal order, carrying the time and what a press is for. Four
         // digits announced as "one twenty-three" name nothing at all.
-        val pill = composeTestRule.onNode(
+        val countdown = composeTestRule.onNode(
             hasContentDescription("1:23 left") and
                 hasClickAction() and
                 SemanticsMatcher("has a labelled click action") { node ->
@@ -240,14 +242,14 @@ class RestTimerSheetTest {
                 },
         )
 
-        pill.performClick()
+        countdown.performClick()
         assertEquals(1, reopens)
 
         // And through the action itself, which is the one a screen reader invokes. It is
-        // asserted separately because it is separately breakable: the pill sets its semantics
+        // asserted separately because it is separately breakable: the countdown sets its semantics
         // with `clearAndSetSemantics`, so a label declared without an action leaves a node
         // that a finger can press and TalkBack cannot.
-        pill.performSemanticsAction(SemanticsActions.OnClick)
+        countdown.performSemanticsAction(SemanticsActions.OnClick)
         assertEquals(2, reopens)
     }
 

@@ -60,8 +60,6 @@ fun TitanTheme(
         LocalTitanTypography provides TitanExtendedTypography,
         LocalTitanPlateColors provides
             if (dark) TitanDarkPlateColors else TitanLightPlateColors,
-        LocalTitanSessionChrome provides
-            if (dark) TitanDarkSessionChrome else TitanLightSessionChrome,
         LocalTitanCelebrationColors provides
             if (dark) TitanDarkCelebrationColors else TitanLightCelebrationColors,
         LocalTitanQuestColors provides
@@ -157,12 +155,6 @@ object TitanTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalTitanMedalColors.current
-
-    /** The dark bar the active workout runs under. See [TitanSessionChrome]. */
-    val sessionChrome: TitanSessionChrome
-        @Composable
-        @ReadOnlyComposable
-        get() = LocalTitanSessionChrome.current
 }
 
 /*
@@ -189,25 +181,18 @@ internal val LocalTitanTypography = staticCompositionLocalOf { TitanExtendedTypo
 internal val LocalTitanPlateColors = staticCompositionLocalOf { TitanLightPlateColors }
 
 /*
- * The workout's chrome, on the same terms as the plate ramp above: provided per scheme,
- * static because the scheme cannot change without this composable recomposing, and defaulted
- * to the light set so an unwrapped preview still draws the bar.
- */
-internal val LocalTitanSessionChrome = staticCompositionLocalOf { TitanLightSessionChrome }
-
-/*
- * The payoff's palette, on the same terms as the two above. Defaulted to the light set so an
- * unwrapped preview still draws the celebration rather than throwing.
+ * The payoff's palette, on the same terms as the plate ramp above. Defaulted to the light set
+ * so an unwrapped preview still draws the celebration rather than throwing.
  */
 internal val LocalTitanCelebrationColors = staticCompositionLocalOf { TitanLightCelebrationColors }
 
 /*
- * The quest board's marks, on the same terms as the three above.
+ * The quest board's marks, on the same terms as the two above.
  */
 internal val LocalTitanQuestColors = staticCompositionLocalOf { TitanLightQuestColors }
 
 /*
- * The achievement metals, on the same terms as the four above.
+ * The achievement metals, on the same terms as the three above.
  */
 internal val LocalTitanMedalColors = staticCompositionLocalOf { TitanLightMedalColors }
 

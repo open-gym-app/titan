@@ -26,17 +26,19 @@ import kotlinx.coroutines.flow.Flow
  *   naming nothing or disappearing.
  * @param setNumber which set is next, counting from one. Together with [exerciseName] this is
  *   the whole point of the notification: a glance at the lock screen that says what to do next,
- *   without unlocking.
+ *   without unlocking. **Null** for a rest that follows no set — one started from the session
+ *   clock — where there is no next set to name, and [exerciseName] is null with it.
  */
 data class BackgroundRest(
     val sessionId: Long,
     val exerciseName: String?,
-    val setNumber: Int,
+    val setNumber: Int?,
     val rest: RestTimerSnapshot,
 ) {
     init {
         require(sessionId > 0) { "a rest belongs to a session row, was $sessionId" }
-        require(setNumber > 0) { "sets are numbered from one, was $setNumber" }
+        require(setNumber == null || setNumber > 0) { "sets are numbered from one, was $setNumber" }
+        require(setNumber != null || exerciseName == null) { "an exercise is named with its next set" }
     }
 }
 

@@ -110,8 +110,8 @@ fun SupersetLink(
             // The press is re-supplied here, on purpose. `clearAndSetSemantics` throws away
             // everything below it — the `Surface`'s click included — so a label alone would be
             // a node TalkBack can reach and cannot activate: the way into a superset, gone for
-            // anyone driving the screen by screen reader. The same trap `RestTimerIndicator`
-            // documents; the hand-off is the same shape.
+            // anyone driving the screen by screen reader. The same trap the rest dock's
+            // countdown documents; the hand-off is the same shape.
             .clearAndSetSemantics {
                 contentDescription = description
                 role = Role.Button

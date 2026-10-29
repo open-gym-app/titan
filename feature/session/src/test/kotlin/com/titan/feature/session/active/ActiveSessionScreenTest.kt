@@ -23,6 +23,9 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasStateDescription
@@ -113,7 +116,7 @@ class ActiveSessionScreenTest {
     fun `an exercise is drawn with the sets already logged against it`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+        composeTestRule.onNode(inWorkout("Bench press")).assertIsDisplayed()
 
         // Each logged set is a row of fields with its values already in them: there is no editor
         // to open, so what is drawn is what can be typed into. See `LoggedSetTable`.
@@ -667,6 +670,19 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `a tap on the page beside a field puts the keyboard away, and writes what was typed`() {
+        setScreen(state())
+
+        scrollToDescription("Weight, set 2").performTextReplacement("72.5")
+        // The exercise's title: page, not a control.
+        scrollToText("Bench press").performClick()
+        composeTestRule.waitForIdle()
+
+        scrollToDescription("Weight, set 2").assertIsNotFocused()
+        assertTrue(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 2L) in events)
+    }
+
+    @Test
     fun `negative - moving between the two fields of one row does not write it`() {
         setScreen(state())
 
@@ -1061,7 +1077,7 @@ class ActiveSessionScreenTest {
     fun `a press too short to be a hold leaves the workout alone`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("Bench press").performTouchInput {
+        composeTestRule.onNode(inWorkout("Bench press")).performTouchInput {
             down(center)
             advanceEventTime(TOO_SHORT)
             up()
@@ -1390,7 +1406,7 @@ class ActiveSessionScreenTest {
             .onNodeWithText("Log at least one set before finishing, or discard the workout.")
             .assertIsDisplayed()
         // Still on the screen: the refusal is a state, not an exit.
-        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+        composeTestRule.onNode(inWorkout("Bench press")).assertIsDisplayed()
     }
 
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
@@ -1493,9 +1509,9 @@ class ActiveSessionScreenTest {
     fun `the rest sheet shows the countdown and the set that ends it`() {
         setScreen(resting(), clocks = restingClocks())
 
-        // Twice over: the sheet's figure and the header's pill behind it, which have to be the
+        // Twice over: the sheet's figure and the dock's countdown behind it, which have to be the
         // same reading — two clocks for one rest, one of them rounded the other way, is the bug
-        // `RestCountdown` and `RestTimerIndicator` share a formatter to prevent.
+        // `RestCountdown` and `RestTimerDock` share a formatter to prevent.
         composeTestRule.onAllNodesWithContentDescription("1:23 left").assertCountEquals(2)
         // The supporting line under the figure: how long the rest is, and what is coming.
         composeTestRule.onNodeWithText("of 2:00 · Next 80 kg × 5").assertExists()
@@ -1574,19 +1590,158 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
+    fun `the dock carries the countdown once the sheet is away, and a tap brings it back`() {
         setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
 
-        // With the sheet away the pill is the live region, and a live region says the
+        // With the sheet away the dock is the live region, and a live region says the
         // quarter-minute — "1:30", not "1:23" — because what it says is what it announces every
-        // time the text changes. See `RestTimerIndicator`'s `announces`.
+        // time the text changes. See `RestTimerDock`'s `announces`.
         composeTestRule
             .onNodeWithContentDescription("Resting, 1:30 left")
             .assertIsDisplayed()
             .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
             .performClick()
 
-        assertEquals(listOf(ActiveSessionEvent.RestSheetRequested), events)
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the dock sits at the bottom of the screen, under the workout`() {
+        // The whole point of the dock: the thumb's end of the screen, not the header's.
+        setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
+
+        val pill = composeTestRule.onNodeWithContentDescription("Resting, 1:30 left").fetchSemanticsNode()
+        val root = composeTestRule.onRoot().fetchSemanticsNode()
+        assertTrue(pill.boundsInRoot.top > root.boundsInRoot.height / 2)
+    }
+
+    @Test
+    fun `between two sets the dock validates the set being typed, on the exercise it belongs to`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsEnabled().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetLogged(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `the dock follows the exercise last worked on`() {
+        setScreen(state().copy(workingExerciseId = FLY_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 1", FLY.name)).assertExists()
+    }
+
+    @Test
+    fun `reopened with nothing remembered, the dock picks up where the last set was logged`() {
+        // The fly holds the newest set, so it is where the lifter was when the process went —
+        // not the bench at the top of the workout.
+        val fly = SessionExerciseRow(
+            sessionExerciseId = FLY_ROW,
+            position = 2,
+            exercise = FLY,
+            sets = listOf(loggedRow(id = 9L, weight = "20", reps = "12")),
+        )
+        setScreen(state(exercises = listOf(benchRow(), fly)))
+
+        composeTestRule.onNode(dockAction("Complete set 2", FLY.name)).assertExists()
+    }
+
+    @Test
+    fun `the dock's validate goes inert over a row with nothing typed in it`() {
+        setScreen(state().copy(workingExerciseId = BENCH_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `the dock's validate goes inert over a slot whose exercise is being swapped`() {
+        // The card's own button is read-only while the swap is written; a set validated from
+        // the dock would land on whichever exercise won the race.
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(swappingExerciseId = BENCH_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `between two sets the square beside the dock's action starts a rest`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Start a rest").assertIsDisplayed().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `with no exercise to point at, starting a rest is the dock's action`() {
+        setScreen(state(exercises = emptyList()))
+
+        composeTestRule.onNodeWithText("Start a rest").assertIsDisplayed().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the dock goes inert over a workout on its way out`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithContentDescription("Start a rest").performClick()
+
+        assertEquals(emptyList<ActiveSessionEvent>(), events)
+    }
+
+    @Test
+    fun `the clock goes inert over a workout on its way out, with the dock`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true).performClick()
+
+        // The title block around it is inert too, so the tap starts nothing: no rest the finish
+        // has already taken down, and no rename of a session already stamped closed.
+        assertTrue(ActiveSessionEvent.RestWindowRequested !in events)
+        assertTrue(ActiveSessionEvent.NameEditRequested !in events)
+    }
+
+    @Test
+    fun `the name goes inert over a workout on its way out`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithText("Push day · Upper", substring = true, ignoreCase = true, useUnmergedTree = true)
+            .performClick()
+
+        assertTrue(ActiveSessionEvent.NameEditRequested !in events)
+    }
+
+    @Test
+    fun `tapping the clock asks for the rest window between two sets`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true).performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the clock is a full-size target, edge to edge`() {
+        // Measured here because the accessibility gate cannot: the clock's node is cleared into
+        // the merged title block, so ATF never sees it. A touch at either edge of its 48dp is
+        // the clock's, the top one included — that is the side the rename target sits on.
+        setScreen(state())
+        val clock = composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true)
+
+        clock.assertHeightIsAtLeast(48.dp)
+        clock.performTouchInput { click(Offset(centerX, top + 1f)) }
+        clock.performTouchInput { click(Offset(centerX, bottom - 1f)) }
+
+        assertEquals(List(2) { ActiveSessionEvent.RestWindowRequested }, events)
+    }
+
+    @Test
+    fun `tapping the name still renames, and does not touch the rest`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Push day · Upper, Elapsed 0:23:14").performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.NameEditRequested), events)
     }
 
     @Test
@@ -1597,6 +1752,15 @@ class ActiveSessionScreenTest {
 
         composeTestRule.onAllNodesWithContentDescription("0:00 left").assertCountEquals(0)
     }
+
+    /** [text] on a card in the workout, rather than on the rest dock under it. */
+    private fun inWorkout(text: String): SemanticsMatcher = hasText(text) and hasAnyAncestor(hasScrollToNodeAction())
+
+    /** The dock's primary button: the one node carrying both its action and its exercise. */
+    private fun dockAction(
+        label: String,
+        exercise: String,
+    ): SemanticsMatcher = hasText(label) and hasText(exercise, substring = true)
 
     // ─── Support ────────────────────────────────────────────────────────────────────────
 
@@ -1683,7 +1847,11 @@ class ActiveSessionScreenTest {
         assertTrue(composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().isEmpty())
     }
 
-    private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(hasText(text))
+    /**
+     * The node in the workout with [text] — in the list, so the rest dock under it, which names
+     * the set and the exercise being worked, is not a second match.
+     */
+    private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(inWorkout(text))
 
     private fun scrollToDescription(description: String): SemanticsNodeInteraction =
         scrollTo(hasContentDescription(description))
