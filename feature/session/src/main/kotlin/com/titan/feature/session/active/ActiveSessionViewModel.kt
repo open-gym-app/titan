@@ -635,7 +635,10 @@ class ActiveSessionViewModel @Inject constructor(
         if (handledBySubject(event)) return
 
         when (event) {
-            is ActiveSessionEvent.SetLogged -> log(event.sessionExerciseId)
+            is ActiveSessionEvent.SetLogged -> {
+                screenState.update { it.copy(workingExerciseId = event.sessionExerciseId) }
+                log(event.sessionExerciseId)
+            }
 
             ActiveSessionEvent.PauseToggled -> togglePause()
 
@@ -792,6 +795,7 @@ class ActiveSessionViewModel @Inject constructor(
         screenState.update { current ->
             val edited = change(current.entryFor(sessionExerciseId))
             current.copy(
+                workingExerciseId = sessionExerciseId,
                 entries = current.entries + (
                     sessionExerciseId to edited.copy(error = validate(edited, unitsOf(sessionExerciseId)))
                     ),
@@ -1584,14 +1588,11 @@ class ActiveSessionViewModel @Inject constructor(
 
             ActiveSessionEvent.RestSkipped -> skipRest()
 
-            // The countdown is untouched by both of these. What the sheet is doing on screen
-            // and what the timer is doing are two facts, and the header's pill exists because
-            // of it.
+            // The countdown is untouched by this, and by reopening the sheet below. What the
+            // sheet is doing on screen and what the timer is doing are two facts, and the
+            // dock's pill exists because of it.
             ActiveSessionEvent.RestSheetDismissed ->
                 screenState.update { it.copy(isRestSheetOpen = false) }
-
-            ActiveSessionEvent.RestSheetRequested ->
-                screenState.update { it.copy(isRestSheetOpen = true) }
 
             ActiveSessionEvent.RestWindowRequested -> openRestWindow()
 
@@ -1610,8 +1611,8 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Raises the rest sheet from the session clock, starting a rest at the user's default length
-     * where none is going.
+     * Raises the rest sheet from the dock or the session clock, starting a rest at the user's
+     * default length where none is going.
      *
      * A rest started here follows no set, so it is tied to no exercise: the exercise and set a
      * rest that *ran out* was tied to are cleared rather than inherited, or the sheet's "up next"
@@ -2749,6 +2750,7 @@ class ActiveSessionViewModel @Inject constructor(
             isRestSheetOpen = screen.isRestSheetOpen && screen.isRestLive,
             timedExerciseId = screen.stopwatch?.sessionExerciseId,
             notificationPermissionRequest = screen.notificationPermissionRequest,
+            workingExerciseId = screen.workingExerciseId,
             message = screen.message,
         )
 
@@ -3015,6 +3017,8 @@ private data class ScreenState(
      * reading is the ViewModel's — see `ActiveSessionViewModel.stopwatchMark`.
      */
     val stopwatch: StopwatchSnapshot? = null,
+    /** The exercise last typed into or validated. See [ActiveSessionUiState.workingExerciseId]. */
+    val workingExerciseId: Long? = null,
     /** The prompt should go up. See [ActiveSessionUiState.notificationPermissionRequest]. */
     val notificationPermissionRequest: Boolean = false,
     val message: ActiveSessionMessage? = null,

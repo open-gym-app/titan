@@ -24,6 +24,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasStateDescription
@@ -114,7 +115,7 @@ class ActiveSessionScreenTest {
     fun `an exercise is drawn with the sets already logged against it`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+        composeTestRule.onNode(inWorkout("Bench press")).assertIsDisplayed()
 
         // Each logged set is a row of fields with its values already in them: there is no editor
         // to open, so what is drawn is what can be typed into. See `LoggedSetTable`.
@@ -1062,7 +1063,7 @@ class ActiveSessionScreenTest {
     fun `a press too short to be a hold leaves the workout alone`() {
         setScreen(state())
 
-        composeTestRule.onNodeWithText("Bench press").performTouchInput {
+        composeTestRule.onNode(inWorkout("Bench press")).performTouchInput {
             down(center)
             advanceEventTime(TOO_SHORT)
             up()
@@ -1391,7 +1392,7 @@ class ActiveSessionScreenTest {
             .onNodeWithText("Log at least one set before finishing, or discard the workout.")
             .assertIsDisplayed()
         // Still on the screen: the refusal is a state, not an exit.
-        composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
+        composeTestRule.onNode(inWorkout("Bench press")).assertIsDisplayed()
     }
 
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
@@ -1575,7 +1576,7 @@ class ActiveSessionScreenTest {
     }
 
     @Test
-    fun `the header carries the countdown once the sheet is away, and a tap brings it back`() {
+    fun `the dock carries the countdown once the sheet is away, and a tap brings it back`() {
         setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
 
         // With the sheet away the pill is the live region, and a live region says the
@@ -1587,7 +1588,82 @@ class ActiveSessionScreenTest {
             .assert(expectValue(SemanticsProperties.LiveRegion, LiveRegionMode.Polite))
             .performClick()
 
-        assertEquals(listOf(ActiveSessionEvent.RestSheetRequested), events)
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the dock sits at the bottom of the screen, under the workout`() {
+        // The whole point of the dock: the thumb's end of the screen, not the header's.
+        setScreen(resting().copy(isRestSheetOpen = false), clocks = restingClocks())
+
+        val pill = composeTestRule.onNodeWithContentDescription("Resting, 1:30 left").fetchSemanticsNode()
+        val root = composeTestRule.onRoot().fetchSemanticsNode()
+        assertTrue(pill.boundsInRoot.top > root.boundsInRoot.height / 2)
+    }
+
+    @Test
+    fun `between two sets the dock validates the set being typed, on the exercise it belongs to`() {
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsEnabled().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.SetLogged(BENCH_ROW)), events)
+    }
+
+    @Test
+    fun `the dock follows the exercise last worked on`() {
+        setScreen(state().copy(workingExerciseId = FLY_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 1", FLY.name)).assertExists()
+    }
+
+    @Test
+    fun `reopened with nothing remembered, the dock picks up where the last set was logged`() {
+        // The fly holds the newest set, so it is where the lifter was when the process went —
+        // not the bench at the top of the workout.
+        val fly = SessionExerciseRow(
+            sessionExerciseId = FLY_ROW,
+            position = 2,
+            exercise = FLY,
+            sets = listOf(loggedRow(id = 9L, weight = "20", reps = "12")),
+        )
+        setScreen(state(exercises = listOf(benchRow(), fly)))
+
+        composeTestRule.onNode(dockAction("Complete set 2", FLY.name)).assertExists()
+    }
+
+    @Test
+    fun `the dock's validate goes inert over a row with nothing typed in it`() {
+        setScreen(state().copy(workingExerciseId = BENCH_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsNotEnabled()
+    }
+
+    @Test
+    fun `between two sets the square beside the dock's action starts a rest`() {
+        setScreen(state())
+
+        composeTestRule.onNodeWithContentDescription("Start a rest").assertIsDisplayed().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `with no exercise to point at, starting a rest is the dock's action`() {
+        setScreen(state(exercises = emptyList()))
+
+        composeTestRule.onNodeWithText("Start a rest").assertIsDisplayed().performClick()
+
+        assertEquals(listOf(ActiveSessionEvent.RestWindowRequested), events)
+    }
+
+    @Test
+    fun `the dock goes inert over a workout on its way out`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithContentDescription("Start a rest").performClick()
+
+        assertEquals(emptyList<ActiveSessionEvent>(), events)
     }
 
     @Test
@@ -1631,6 +1707,15 @@ class ActiveSessionScreenTest {
 
         composeTestRule.onAllNodesWithContentDescription("0:00 left").assertCountEquals(0)
     }
+
+    /** [text] on a card in the workout, rather than on the rest dock under it. */
+    private fun inWorkout(text: String): SemanticsMatcher = hasText(text) and hasAnyAncestor(hasScrollToNodeAction())
+
+    /** The dock's primary button: the one node carrying both its action and its exercise. */
+    private fun dockAction(
+        label: String,
+        exercise: String,
+    ): SemanticsMatcher = hasText(label) and hasText(exercise, substring = true)
 
     // ─── Support ────────────────────────────────────────────────────────────────────────
 
@@ -1717,7 +1802,11 @@ class ActiveSessionScreenTest {
         assertTrue(composeTestRule.onAllNodes(matcher).fetchSemanticsNodes().isEmpty())
     }
 
-    private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(hasText(text))
+    /**
+     * The node in the workout with [text] — in the list, so the rest dock under it, which names
+     * the set and the exercise being worked, is not a second match.
+     */
+    private fun scrollToText(text: String): SemanticsNodeInteraction = scrollTo(inWorkout(text))
 
     private fun scrollToDescription(description: String): SemanticsNodeInteraction =
         scrollTo(hasContentDescription(description))

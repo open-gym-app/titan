@@ -117,7 +117,7 @@ import kotlin.time.Duration
  *   or `Paused`: the sheet is a thing to look at while time passes. The countdown itself is
  *   [SessionClocks.rest], and is not folded in here as one nullable, because they are two
  *   questions: the rest goes on running with the sheet swiped away, which is the whole of what
- *   the header's pill is for.
+ *   the rest dock is for.
  * @param restTarget what the next set is expected to be, shown on the sheet so the rest is
  *   worth watching rather than waiting out. Null where nothing has been logged to predict it
  *   from. Carried as quantities rather than as `80 kg × 5`, because the unit is the ambient
@@ -137,6 +137,10 @@ import kotlin.time.Duration
  *   the first rest of a user who has never been asked. A one-shot the route acknowledges with
  *   [ActiveSessionEvent.NotificationPermissionRequestShown] before raising it — see
  *   `ActiveSessionViewModel.askForRestNotifications`.
+ * @param workingExerciseId the exercise the lifter last typed into or validated a set on, or
+ *   null before they have touched one. What the rest dock's "validate" button is aimed at: with
+ *   no exercise "open" on this screen, the last one used is the honest answer to "which set did
+ *   they just do". See [dockExercise].
  * @param message something that happened and needs saying once.
  */
 @Immutable
@@ -167,9 +171,25 @@ data class ActiveSessionUiState(
     val cooldown: MobilityCard? = null,
     val timedExerciseId: Long? = null,
     val notificationPermissionRequest: Boolean = false,
+    val workingExerciseId: Long? = null,
     val isLoading: Boolean = true,
     val message: ActiveSessionMessage? = null,
 ) {
+
+    /**
+     * The exercise the rest dock offers to validate a set on, or null where there is none.
+     *
+     * The one last used while it is still in the workout. That memory is the screen's and does
+     * not outlive the process, so a workout reopened after Android reclaimed it falls back on
+     * what the store can say: the first exercise with a row ready to log, then the one holding
+     * the most recent set — ids are handed out in the order sets are written — and only then the
+     * first one with nothing ticked, the workout as planned, from the top.
+     */
+    val dockExercise: SessionExerciseRow?
+        get() = exercises.firstOrNull { it.sessionExerciseId == workingExerciseId }
+            ?: exercises.firstOrNull { it.canLogEntry }
+            ?: exercises.filter { it.sets.isNotEmpty() }.maxByOrNull { row -> row.sets.maxOf(LoggedSet::id) }
+            ?: exercises.firstOrNull { it.completedSetCount == 0 }
 
     /** A session id that no longer resolves to a row — as opposed to one still loading. */
     val isMissing: Boolean get() = !isLoading && header == null

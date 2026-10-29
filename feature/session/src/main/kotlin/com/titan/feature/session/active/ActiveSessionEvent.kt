@@ -357,19 +357,16 @@ sealed interface ActiveSessionEvent {
      * The sheet was swiped away, and the countdown carries on behind it.
      *
      * The gesture is how a lifter gets at the set they logged wrong two minutes ago without
-     * throwing away the rest they are in the middle of. The header's pill is what says the
-     * timer is still running, and [RestSheetRequested] is the way back.
+     * throwing away the rest they are in the middle of. The dock's pill is what says the
+     * timer is still running, and [RestWindowRequested] is the way back.
      */
     data object RestSheetDismissed : ActiveSessionEvent
 
-    /** Bring the sheet back up on a rest that is still going. */
-    data object RestSheetRequested : ActiveSessionEvent
-
     /**
-     * The session clock was tapped: open the window that manages the rest.
+     * The rest dock or the session clock was tapped: open the window that manages the rest.
      *
-     * Where a rest is going, this is [RestSheetRequested] — the sheet comes up over it to be
-     * adjusted, paused or skipped. Where none is, the tap *starts* one at the user's default
+     * Where a rest is going, the sheet comes up over it to be adjusted, paused or skipped — the
+     * way back into a sheet that was swiped away. Where none is, the tap *starts* one at the user's default
      * length and raises the sheet over it, so a rest can be taken without a set being logged
      * first: a warm-up, a cardio interval, a pause someone simply wants timed.
      */

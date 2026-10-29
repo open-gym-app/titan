@@ -41,7 +41,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ThemePreference
-import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.ui.R
 import com.titan.core.ui.format.formatAsElapsed
 import com.titan.core.ui.theme.MIN_TOUCH_TARGET
@@ -55,9 +54,10 @@ import kotlin.time.Duration.Companion.seconds
  * The bar the active workout runs under: what you are doing, how long you have been doing it,
  * and the two ways out.
  *
- * Drawn on [TitanTheme.sessionChrome] rather than on the colour scheme, so it stays the same
- * dark band in light and dark — see [TitanSessionChrome] for why a workout gets a surface of
- * its own and why it does not invert.
+ * Drawn on the page's own background, in both schemes. It used to be a near-black band of its
+ * own ([TitanTheme.sessionChrome]) marking the workout as a mode; on a phone the band read as a
+ * separate surface fighting the page for attention, and the rest dock at the bottom of the
+ * screen now does the job of saying what to do next. See [pageChrome].
  *
  * Stateless like everything else here: it renders an elapsed [Duration] and reports taps. It
  * does not tick. The clock is the screen's, because the screen is the thing that knows whether
@@ -84,21 +84,13 @@ import kotlin.time.Duration.Companion.seconds
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
  *   Null leaves the name inert, which is what a caller with nothing to write wants.
- * @param restTimer the rest between two sets, which the bar carries as a pill and a bar of its
- *   own — above the exercise rail, not beside it — while it is running or paused. Idle and
- *   finished draw nothing, taking the line back with them: the pill is the *only* thing on this
- *   screen that is changing on its own, and one that sat there reading `0:00` between sets would
- *   spend the accent on a clock nobody is waiting for.
- * @param onRestTimerClick brings the rest sheet back up. The sheet is swiped away to get at
- *   the workout underneath — see the active session screen — so the pill is the way back into
- *   it, and a bar with no sheet to reopen passes null and gets an inert readout.
- * @param restTimerAnnounces whether the pill is the live region that reads the rest out as it
- *   runs — true once the sheet is away and the pill is the only countdown on screen. See
- *   [RestTimerIndicator].
+ * The rest between two sets is not on this bar. It used to be, as a pill over the rail, and it
+ * moved to [RestTimerDock] at the bottom of the screen: it is the control a lifter presses most
+ * mid-rest, and the top of the screen is the band a one-handed thumb cannot reach.
+ *
  * @param onClockClick manages the rest window from the clock: the tap opens the rest sheet over
- *   a rest that is going, and starts one where none is. The clock is the one readout on the bar
- *   that is always there, so it is the way into the rest even between two sets, when the pill
- *   is not drawn. Null leaves the clock inert.
+ *   a rest that is going, and starts one where none is — the same as the dock, for a hand that
+ *   is already up here. Null leaves the clock inert.
  * @param enabled false makes the three controls inert, for the one situation that needs it: a
  *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
  *   the write takes, and a pause landing behind it either mutates a session being closed out or
@@ -119,9 +111,6 @@ fun SessionHeaderBar(
     modifier: Modifier = Modifier,
     progress: SessionProgress = SessionProgress(),
     isPaused: Boolean = false,
-    restTimer: RestTimerState = RestTimerState.Idle,
-    onRestTimerClick: (() -> Unit)? = null,
-    restTimerAnnounces: Boolean = false,
     enabled: Boolean = true,
     canFinish: Boolean = true,
     onPauseToggle: () -> Unit = {},
@@ -130,7 +119,7 @@ fun SessionHeaderBar(
     onNameClick: (() -> Unit)? = null,
     onClockClick: (() -> Unit)? = null,
 ) {
-    val chrome = TitanTheme.sessionChrome
+    val chrome = pageChrome()
 
     Column(
         modifier = modifier
@@ -205,58 +194,8 @@ fun SessionHeaderBar(
             }
         }
 
-        // Two facts, two lines, because they are counting different things and sharing a line
-        // made them look like one thing counted badly. The rest gets the pill and a bar that
-        // fills as the seconds go; the workout gets the rail, which is segmented because it is
-        // per-exercise and does not move at all while a rest runs. Put end to end, the rail
-        // read as the pill's own progress — a countdown chopped into pieces that sat still —
-        // which is the opposite of both facts. Neither present means no line at all, which is
-        // the bar as it was.
-        val resting = restTimer is RestTimerState.Running || restTimer is RestTimerState.Paused
-        if (resting || progress.total > 0) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                // Room for the pill: drawn 30dp tall and announced at 48dp, it grows 9dp each
-                // way, and the rail under it — which speaks, so it holds its ground — would
-                // otherwise stop it at 8. See `MIN_TOUCH_TARGET`.
-                verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg),
-            ) {
-                if (resting) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RestTimerIndicator(
-                            state = restTimer,
-                            onClick = onRestTimerClick,
-                            colors = RestTimerDefaults.sessionChromeIndicatorColors(),
-                            announces = restTimerAnnounces,
-                        )
-                        RestProgressBar(
-                            state = restTimer,
-                            // Cleared rather than labelled: the pill beside it already speaks
-                            // the remaining time, and a progress node here would be the same
-                            // fact read a second time as a percentage.
-                            modifier = Modifier
-                                .weight(1f)
-                                .clearAndSetSemantics {},
-                            // The accent means time is passing, so a paused rest does not get
-                            // it — the same rule the pill and the sheet's figure follow.
-                            color = if (restTimer is RestTimerState.Running) {
-                                chrome.accent
-                            } else {
-                                chrome.onSurfaceVariant
-                            },
-                            trackColor = chrome.track,
-                            height = RAIL_HEIGHT,
-                        )
-                    }
-                }
-                if (progress.total > 0) {
-                    SessionProgressRail(progress = progress, modifier = Modifier.fillMaxWidth())
-                }
-            }
+        if (progress.total > 0) {
+            SessionProgressRail(progress = progress, modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -301,7 +240,7 @@ private fun SessionTitle(
     onClockClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val chrome = TitanTheme.sessionChrome
+    val chrome = pageChrome()
     val clock = elapsed.formatAsElapsed()
     // The clock is announced with what it is a clock *of*; read as bare text it is four digits
     // with no noun anywhere near them.
@@ -362,6 +301,27 @@ private fun SessionTitle(
 }
 
 /**
+ * The header's palette, taken from the colour scheme so the bar is the page it sits on.
+ *
+ * In the shape of [TitanSessionChrome] so every control on the bar keeps its role — the fill
+ * behind a control, the accent on END and the rail — and only where the colours come from
+ * changes. Every pair is a scheme pair the contrast test already holds.
+ */
+@Composable
+private fun pageChrome(): TitanSessionChrome =
+    with(MaterialTheme.colorScheme) {
+        TitanSessionChrome(
+            surface = background,
+            onSurface = onBackground,
+            onSurfaceVariant = onSurfaceVariant,
+            fill = surfaceContainerHigh,
+            accent = primary,
+            onAccent = onPrimary,
+            track = surfaceContainerHighest,
+        )
+    }
+
+/**
  * The workout as a row of slivers: one per exercise, filled for the ones that are behind you.
  *
  * The one figure on the header that is a *shape* rather than a number, because it answers a
@@ -377,7 +337,7 @@ fun SessionProgressRail(
     progress: SessionProgress,
     modifier: Modifier = Modifier,
 ) {
-    val chrome = TitanTheme.sessionChrome
+    val chrome = pageChrome()
     // The plural agrees with the total rather than with what is done: the noun belongs to
     // "of N exercises", and a workout of one exercise half finished is "0 of 1 exercise".
     val description = pluralStringResource(
@@ -577,26 +537,8 @@ private fun SessionHeaderCatalogue() {
             elapsed = 12.minutes,
             progress = SessionProgress(listOf(false, true, false, true, false)),
         )
-        // Mid-rest, with the sheet swiped away: the pill is the countdown and the way back
-        // into it, and it is the only thing on the bar wearing the accent besides END. The bar
-        // beside it is the rest filling up; the segmented rail below is the workout.
-        SessionHeaderBar(
-            name = "Leg day",
-            elapsed = 31.minutes + 40.seconds,
-            progress = SessionProgress.of(completed = 2, total = 5),
-            restTimer = RestTimerState.Running(remaining = 83.seconds, total = 120.seconds),
-            onRestTimerClick = {},
-        )
-        // The same rest, frozen. Pill and bar both drop the accent together.
-        SessionHeaderBar(
-            name = "Leg day",
-            elapsed = 31.minutes + 40.seconds,
-            progress = SessionProgress.of(completed = 2, total = 5),
-            restTimer = RestTimerState.Paused(remaining = 83.seconds, total = 120.seconds),
-            onRestTimerClick = {},
-        )
     }
 }
 
-/** Five bars, uncut: see the note on `PreferenceRow`'s catalogue for why a clipped one is a red test. */
-private const val CATALOGUE_HEIGHT_DP = 760
+/** Three bars, uncut: see the note on `PreferenceRow`'s catalogue for why a clipped one is a red test. */
+private const val CATALOGUE_HEIGHT_DP = 460

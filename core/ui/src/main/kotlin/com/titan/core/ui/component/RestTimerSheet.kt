@@ -416,7 +416,7 @@ object RestTimerDefaults {
  * a state added to the domain is a compile error here rather than a sheet that renders blank.
  */
 
-private fun RestTimerState.remaining(): Duration =
+internal fun RestTimerState.remaining(): Duration =
     when (this) {
         is RestTimerState.Running -> remaining
         is RestTimerState.Paused -> remaining
@@ -438,14 +438,14 @@ private fun RestTimerState.total(): Duration? =
  * `RestTimerState` forbids it for `Running`, but `Paused` allows a zero remainder and total,
  * so it is guarded rather than assumed.
  */
-private fun RestTimerState.elapsedFraction(): Float {
+internal fun RestTimerState.elapsedFraction(): Float {
     val total = total() ?: return if (this is RestTimerState.Finished) 1f else 0f
     if (total <= Duration.ZERO) return 1f
     return ((total - remaining()) / total).toFloat().coerceIn(0f, 1f)
 }
 
 @Composable
-private fun RestTimerState.statusLabel(): String =
+internal fun RestTimerState.statusLabel(): String =
     when (this) {
         is RestTimerState.Running -> stringResource(R.string.rest_timer_running)
         is RestTimerState.Paused -> stringResource(R.string.rest_timer_paused)
@@ -468,7 +468,7 @@ private fun RestTimerState.accentOrMuted(): Color =
     }
 
 @Composable
-private fun spokenRemaining(remaining: Duration): String =
+internal fun spokenRemaining(remaining: Duration): String =
     stringResource(R.string.rest_timer_remaining, remaining.formatAsClock())
 
 /**
@@ -482,7 +482,7 @@ private fun spokenRemaining(remaining: Duration): String =
  * is announced exactly — the figure is not going to change under the sentence.
  */
 @Composable
-private fun RestTimerState.announcement(): String =
+internal fun RestTimerState.announcement(): String =
     when (this) {
         is RestTimerState.Running ->
             stringResource(R.string.rest_timer_live_running, remaining.roundedUpTo(ANNOUNCEMENT_STEP).formatAsClock())

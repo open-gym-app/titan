@@ -2339,6 +2339,19 @@ class ActiveSessionViewModelTest {
             assertNull(published?.setNumber)
         }
 
+    // --- the rest dock ---------------------------------------------------------
+
+    @Test
+    fun `the dock follows the exercise last typed into`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.onEvent(ActiveSessionEvent.WeightChanged(FLY_ROW, "20"))
+
+            assertEquals(FLY_ROW, viewModel.uiState.value.workingExerciseId)
+            assertEquals(FLY_ROW, viewModel.uiState.value.dockExercise?.sessionExerciseId)
+        }
+
     // --- asking for the notification the rest needs -------------------------
 
     @Test
@@ -2467,7 +2480,7 @@ class ActiveSessionViewModelTest {
             assertFalse(viewModel.uiState.value.isRestSheetOpen)
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
 
-            viewModel.onEvent(ActiveSessionEvent.RestSheetRequested)
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
 
             assertTrue(viewModel.uiState.value.isRestSheetOpen)
             assertEquals(RestTimerState.Running(60.seconds, 90.seconds), viewModel.clocks.value.rest)
