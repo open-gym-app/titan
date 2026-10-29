@@ -66,7 +66,7 @@ Results are printed to the console and written to
 
 ### If a run fails before it measures anything
 
-- **"The app did not answer on content://com.titan.app.benchmark.seed"** — the installed app
+- **"The app did not answer on content://app.titan.gym.benchmark.seed"** — the installed app
   is not the `benchmark` build type. `./gradlew :app:installBenchmark`, or just run the Gradle
   task above, which installs both APKs.
 - **"the sessions tab did not appear"** — the app opened on onboarding. The seeder marks
