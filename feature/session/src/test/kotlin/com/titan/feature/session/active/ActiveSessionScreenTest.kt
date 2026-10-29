@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
@@ -666,6 +667,19 @@ class ActiveSessionScreenTest {
         assertTrue(
             ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 2L) in events,
         )
+    }
+
+    @Test
+    fun `a tap on the page beside a field puts the keyboard away, and writes what was typed`() {
+        setScreen(state())
+
+        scrollToDescription("Weight, set 2").performTextReplacement("72.5")
+        // The exercise's title: page, not a control.
+        scrollToText("Bench press").performClick()
+        composeTestRule.waitForIdle()
+
+        scrollToDescription("Weight, set 2").assertIsNotFocused()
+        assertTrue(ActiveSessionEvent.SetEditCommitted(BENCH_ROW, setId = 2L) in events)
     }
 
     @Test

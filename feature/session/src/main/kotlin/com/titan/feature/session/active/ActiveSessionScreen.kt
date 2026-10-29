@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
@@ -83,6 +84,7 @@ import com.titan.core.ui.component.SessionProgress
 import com.titan.core.ui.component.SessionStatChips
 import com.titan.core.ui.component.SheetDragHandle
 import com.titan.core.ui.component.SupersetLink
+import com.titan.core.ui.component.clearFocusOnTap
 import com.titan.core.ui.component.rememberReorderState
 import com.titan.core.ui.component.reorderable
 import com.titan.core.ui.format.formatSessionDate
@@ -406,8 +408,14 @@ fun ActiveSessionScreen(
         state.exercises.firstOrNull { it.sessionExerciseId == id }
     }
 
+    val focusManager = LocalFocusManager.current
+
     Scaffold(
-        modifier = modifier.fillMaxSize(),
+        // A tap on the page rather than on a control puts the keyboard away — see
+        // `clearFocusOnTap`.
+        modifier = modifier
+            .fillMaxSize()
+            .clearFocusOnTap(focusManager),
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
