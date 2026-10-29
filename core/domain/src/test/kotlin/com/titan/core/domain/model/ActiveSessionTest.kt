@@ -143,6 +143,10 @@ class ActiveSessionTest {
         assertThrows(IllegalArgumentException::class.java) {
             minimalSession().copy(currentExerciseIndex = -1)
         }
+        // Zero is the only index an empty list tolerates: it is how an older draft said "none".
+        assertThrows(IllegalArgumentException::class.java) {
+            minimalSession().copy(currentExerciseIndex = 1)
+        }
     }
 
     @Test

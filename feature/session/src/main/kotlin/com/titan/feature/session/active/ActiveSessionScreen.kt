@@ -8,9 +8,6 @@
 
 package com.titan.feature.session.active
 
-import android.Manifest
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
@@ -72,6 +69,7 @@ import com.titan.core.domain.timer.RestTimerState
 import com.titan.core.ui.component.DiscardSessionDialog
 import com.titan.core.ui.component.DockSet
 import com.titan.core.ui.component.EmptyState
+import com.titan.core.ui.component.NotificationPermissionPrompt
 import com.titan.core.ui.component.PreviousSet
 import com.titan.core.ui.component.ReorderState
 import com.titan.core.ui.component.ReorderableItem
@@ -198,18 +196,13 @@ fun ActiveSessionRoute(
 
     // The notification prompt, over the first rest of a user who has never been asked — see
     // `ActiveSessionViewModel.askForRestNotifications`. Here rather than in the screen because
-    // only something attached to an Activity can raise it. Acknowledged before it goes up,
-    // since `launch` does not wait for the answer; the answer itself is not read, because
-    // whichever it was, the ViewModel's move is the same: publish the rest again.
-    val notificationPrompt = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered) },
+    // only something attached to an Activity can raise it. The answer itself is not read,
+    // because whichever it was, the ViewModel's move is the same: publish the rest again.
+    NotificationPermissionPrompt(
+        request = state.notificationPermissionRequest,
+        onRequestShown = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown) },
+        onAnswered = { viewModel.onEvent(ActiveSessionEvent.NotificationPermissionAnswered) },
     )
-    LaunchedEffect(state.notificationPermissionRequest) {
-        if (!state.notificationPermissionRequest) return@LaunchedEffect
-        viewModel.onEvent(ActiveSessionEvent.NotificationPermissionRequestShown)
-        notificationPrompt.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
 
     ActiveSessionScreen(
         state = state,
@@ -410,6 +403,10 @@ fun ActiveSessionScreen(
 
     val focusManager = LocalFocusManager.current
 
+    // Resolved out here rather than in the dock's slot: the slot recomposes on every tick of a
+    // rest, and the answer only changes with the workout.
+    val working = state.dockExercise
+
     Scaffold(
         // A tap on the page rather than on a control puts the keyboard away — see
         // `clearFocusOnTap`.
@@ -446,7 +443,6 @@ fun ActiveSessionScreen(
             // header. Only over a workout that is there: a blank page or a missing session has
             // no rest to take.
             if (state.header != null) {
-                val working = state.dockExercise
                 RestTimerDock(
                     // Read here, inside the dock's own slot, so the tick recomposes the dock and
                     // only it — the same reason the header reads its clock in its slot.
@@ -458,15 +454,17 @@ fun ActiveSessionScreen(
                         DockSet(
                             label = stringResource(R.string.active_complete_set, row.nextSetNumber),
                             detail = row.exercise?.name ?: stringResource(R.string.active_exercise_removed),
-                            // The rule the card's own button follows, so the two never disagree.
+                            // The rule the card's own button follows, so the two never disagree —
+                            // a slot whose exercise is being swapped out included.
                             enabled = state.isEditable && row.canLogEntry &&
+                                state.swappingExerciseId != row.sessionExerciseId &&
                                 row.sessionExerciseId !in state.loggingExerciseIds,
                         )
                     },
                     // The same event as the card's own button: a set validated from the dock is
                     // a set validated, rest and all.
                     onValidateSet = { working?.let { onEvent(ActiveSessionEvent.SetLogged(it.sessionExerciseId)) } },
-                    // The pill reads the rest out only while it is the only readout: with the
+                    // The dock reads the rest out only while it is the only readout: with the
                     // sheet up, the sheet's own eyebrow is the live region, and two windows
                     // announcing the same quarter-minute would say it twice.
                     announces = !state.isRestSheetOpen,
@@ -562,8 +560,8 @@ private fun RestAlert(rest: () -> RestTimerState) {
  * ### Swiping it away does not cancel anything
  *
  * The one thing a lifter reliably wants mid-rest is the set they logged wrong, and the sheet is
- * in front of it. So the swipe hides the sheet and leaves the countdown running — the dock's
- * pill says so, and tapping it brings this back. Ending the rest is the button that says so.
+ * in front of it. So the swipe hides the sheet and leaves the countdown running — the rest
+ * dock says so, and tapping it brings this back. Ending the rest is the button that says so.
  *
  * ### It comes down when the rest is over, and nothing here has to decide that
  *
@@ -1079,8 +1077,8 @@ fun ActiveSessionScreenEditingPreview() {
 @Composable
 fun ActiveSessionScreenRestingPreview() {
     TitanTheme(theme = ThemePreference.LIGHT) {
-        // The sheet swiped away with the rest still running, which is the state the dock's
-        // pill exists for. The sheet itself is a window of its own and does not render in a
+        // The sheet swiped away with the rest still running, which is the state the rest
+        // dock's countdown exists for. The sheet itself is a window of its own and does not render in a
         // preview; `RestTimerSheet`'s own previews in `:core:ui` are where its body is drawn.
         ActiveSessionScreen(
             state = previewState().copy(restTarget = RestTarget(weight = 80_000_000L, reps = 5)),

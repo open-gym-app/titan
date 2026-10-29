@@ -44,7 +44,6 @@ import com.titan.core.domain.model.ThemePreference
 import com.titan.core.ui.R
 import com.titan.core.ui.format.formatAsElapsed
 import com.titan.core.ui.theme.MIN_TOUCH_TARGET
-import com.titan.core.ui.theme.TitanSessionChrome
 import com.titan.core.ui.theme.TitanTheme
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -54,10 +53,11 @@ import kotlin.time.Duration.Companion.seconds
  * The bar the active workout runs under: what you are doing, how long you have been doing it,
  * and the two ways out.
  *
- * Drawn on the page's own background, in both schemes. It used to be a near-black band of its
- * own ([TitanTheme.sessionChrome]) marking the workout as a mode; on a phone the band read as a
- * separate surface fighting the page for attention, and the rest dock at the bottom of the
- * screen now does the job of saying what to do next. See [pageChrome].
+ * Drawn on the page's own background, in both schemes, in the colour scheme's own pairs — so
+ * every one of them is a pair `ColorSchemeContrastTest` already holds. It used to be a
+ * near-black band with a palette of its own marking the workout as a mode; on a phone the band
+ * read as a separate surface fighting the page for attention, and the rest dock at the bottom
+ * of the screen now does the job of saying what to do next.
  *
  * Stateless like everything else here: it renders an elapsed [Duration] and reports taps. It
  * does not tick. The clock is the screen's, because the screen is the thing that knows whether
@@ -83,18 +83,20 @@ import kotlin.time.Duration.Companion.seconds
  * @param onNameClick rename the workout. The name itself is the affordance rather than a pencil
  *   beside it: the bar already carries three controls and a clock across 320dp, and a fourth
  *   would come out of the clock's width — which is the one thing on it that must not be clipped.
- *   Null leaves the name inert, which is what a caller with nothing to write wants.
+ *   Null leaves the name inert, which is what a caller with nothing to write wants, and so
+ *   does [enabled].
  * The rest between two sets is not on this bar. It used to be, as a pill over the rail, and it
  * moved to [RestTimerDock] at the bottom of the screen: it is the control a lifter presses most
  * mid-rest, and the top of the screen is the band a one-handed thumb cannot reach.
  *
  * @param onClockClick manages the rest window from the clock: the tap opens the rest sheet over
  *   a rest that is going, and starts one where none is — the same as the dock, for a hand that
- *   is already up here. Null leaves the clock inert.
- * @param enabled false makes the three controls inert, for the one situation that needs it: a
- *   workout already on its way out. A finish in flight leaves the bar on screen for as long as
- *   the write takes, and a pause landing behind it either mutates a session being closed out or
- *   is refused and reported over a screen that is successfully leaving. Note that a *paused*
+ *   is already up here. Null leaves the clock inert, and so does [enabled].
+ * @param enabled false makes the three controls, the name and the clock inert, for the one
+ *   situation that needs it: a workout already on its way out. A finish in flight leaves the bar
+ *   on screen for as long as the write takes, and a pause, a rename or a rest landing behind it
+ *   either mutates a session being closed out or is refused and reported over a screen that is
+ *   successfully leaving. Note that a *paused*
  *   session is not that situation — pausing is how a user comes back from it — which is why this
  *   is not [isPaused] read the other way round.
  * @param canFinish whether END in particular is live. Narrower than [enabled] and about a
@@ -119,12 +121,12 @@ fun SessionHeaderBar(
     onNameClick: (() -> Unit)? = null,
     onClockClick: (() -> Unit)? = null,
 ) {
-    val chrome = pageChrome()
+    val colors = MaterialTheme.colorScheme
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(chrome.surface)
+            .background(colors.background)
             .padding(horizontal = TitanTheme.spacing.screen, vertical = TitanTheme.spacing.lg),
         verticalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg),
     ) {
@@ -143,8 +145,11 @@ fun SessionHeaderBar(
                 name = name,
                 elapsed = elapsed,
                 isPaused = isPaused,
-                onNameClick = onNameClick,
-                onClockClick = onClockClick,
+                // Both inert with the three controls: a rename written over a workout on its way
+                // out lands on a session already stamped closed, and a rest started then is one
+                // the finish has already taken down.
+                onNameClick = onNameClick?.takeIf { enabled },
+                onClockClick = onClockClick?.takeIf { enabled },
                 modifier = Modifier.weight(1f),
             )
 
@@ -152,8 +157,8 @@ fun SessionHeaderBar(
                 ChromeButton(
                     onClick = onDiscard,
                     description = stringResource(R.string.session_header_discard),
-                    container = chrome.fill,
-                    content = chrome.onSurface,
+                    container = colors.surfaceContainerHigh,
+                    content = colors.onBackground,
                     enabled = enabled,
                 ) {
                     Icon(imageVector = Icons.Filled.Close, contentDescription = null)
@@ -165,8 +170,8 @@ fun SessionHeaderBar(
                 description = stringResource(
                     if (isPaused) R.string.session_header_resume else R.string.session_header_pause,
                 ),
-                container = chrome.fill,
-                content = chrome.onSurface,
+                container = colors.surfaceContainerHigh,
+                content = colors.onBackground,
                 enabled = enabled,
             ) {
                 Icon(
@@ -178,14 +183,14 @@ fun SessionHeaderBar(
             ChromeButton(
                 onClick = onFinish,
                 description = stringResource(R.string.session_header_finish),
-                container = chrome.accent,
-                content = chrome.onAccent,
+                container = colors.primary,
+                content = colors.onPrimary,
                 enabled = enabled && canFinish,
                 width = FINISH_WIDTH,
             ) {
                 Eyebrow(
                     text = stringResource(R.string.session_header_finish_label),
-                    color = chrome.onAccent,
+                    color = colors.onPrimary,
                     // The button says what it does — "End the session", opening with the word
                     // drawn on it, so a Voice Access user can say what they read — and an
                     // eyebrow describing itself inside it would have TalkBack read both.
@@ -240,7 +245,7 @@ private fun SessionTitle(
     onClockClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val chrome = pageChrome()
+    val colors = MaterialTheme.colorScheme
     val clock = elapsed.formatAsElapsed()
     // The clock is announced with what it is a clock *of*; read as bare text it is four digits
     // with no noun anywhere near them.
@@ -277,11 +282,11 @@ private fun SessionTitle(
             modifier
         },
     ) {
-        Eyebrow(text = name, color = chrome.onSurfaceVariant)
+        Eyebrow(text = name, color = colors.onSurfaceVariant)
         Text(
             text = clock,
             style = TitanTheme.typography.numericLarge,
-            color = chrome.onSurface,
+            color = colors.onBackground,
             maxLines = 1,
             modifier = if (onClockClick != null) {
                 // A full-height line of its own, the digits centred in it. Drawn, the clock is
@@ -301,27 +306,6 @@ private fun SessionTitle(
 }
 
 /**
- * The header's palette, taken from the colour scheme so the bar is the page it sits on.
- *
- * In the shape of [TitanSessionChrome] so every control on the bar keeps its role — the fill
- * behind a control, the accent on END and the rail — and only where the colours come from
- * changes. Every pair is a scheme pair the contrast test already holds.
- */
-@Composable
-private fun pageChrome(): TitanSessionChrome =
-    with(MaterialTheme.colorScheme) {
-        TitanSessionChrome(
-            surface = background,
-            onSurface = onBackground,
-            onSurfaceVariant = onSurfaceVariant,
-            fill = surfaceContainerHigh,
-            accent = primary,
-            onAccent = onPrimary,
-            track = surfaceContainerHighest,
-        )
-    }
-
-/**
  * The workout as a row of slivers: one per exercise, filled for the ones that are behind you.
  *
  * The one figure on the header that is a *shape* rather than a number, because it answers a
@@ -337,7 +321,7 @@ fun SessionProgressRail(
     progress: SessionProgress,
     modifier: Modifier = Modifier,
 ) {
-    val chrome = pageChrome()
+    val colors = MaterialTheme.colorScheme
     // The plural agrees with the total rather than with what is done: the noun belongs to
     // "of N exercises", and a workout of one exercise half finished is "0 of 1 exercise".
     val description = pluralStringResource(
@@ -371,15 +355,15 @@ fun SessionProgressRail(
                     .fillMaxHeight()
                     .background(
                         color = when {
-                            isDone -> chrome.accent
+                            isDone -> colors.primary
 
                             // The exercise being worked is the accent held back: it is
                             // underway rather than behind you, and drawing it either fully on
                             // or fully off would make the rail lie by one exercise in one
                             // direction or the other.
-                            index == upNext -> chrome.accent.copy(alpha = CURRENT_ALPHA)
+                            index == upNext -> colors.primary.copy(alpha = CURRENT_ALPHA)
 
-                            else -> chrome.track
+                            else -> colors.surfaceContainerHighest
                         },
                         shape = RoundedCornerShape(RAIL_HEIGHT / 2),
                     ),
@@ -441,10 +425,10 @@ data class SessionProgress(val exercises: List<Boolean> = emptyList()) {
 /**
  * A control on the bar: a square of [container] with [content] drawn on it.
  *
- * Its own thing rather than an `IconButton` or a `Button` because both of those take their
- * colours from the scheme, and the whole point of the bar is that it is not on the scheme. What
- * is kept is what a button owes: a 48dp touch target, a label a screen reader can read, and a
- * ripple that lands inside the shape.
+ * Its own thing rather than an `IconButton` or a `Button` because both of those are drawn at
+ * Material's 40dp and up, and the bar has room for three controls only at 36dp (see the sizes
+ * below). What is kept is what a button owes: a 48dp touch target, a label a screen reader can
+ * read, and a ripple that lands inside the shape.
  */
 @Composable
 private fun ChromeButton(
@@ -464,8 +448,8 @@ private fun ChromeButton(
             .semantics { contentDescription = description },
         enabled = enabled,
         shape = MaterialTheme.shapes.small,
-        // Faded rather than recoloured: the bar has three tones of its own and a fourth for
-        // "off" would be a colour nobody could place. What the fade has to say is that the
+        // Faded rather than recoloured: the bar draws its controls in two tones, and a third
+        // for "off" would be a colour nobody could place. What the fade has to say is that the
         // control is not there to be pressed, which is the same thing everywhere it happens.
         color = if (enabled) container else container.copy(alpha = DISABLED_ALPHA),
         contentColor = if (enabled) content else content.copy(alpha = DISABLED_ALPHA),

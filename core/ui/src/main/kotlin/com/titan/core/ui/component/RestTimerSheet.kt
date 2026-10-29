@@ -49,11 +49,11 @@ import kotlin.time.Duration.Companion.seconds
  *   is the sheet's *content*, not a `ModalBottomSheet` — the sheet, its state and when it is
  *   shown belong to the screen (#98), and a component that owned them could not be driven
  *   from a test or drawn in a preview.
- * - [RestCountdown] is the readout on its own: the eyebrow, the figure and the bar. It is
- *   what a compact header uses when the sheet has been dismissed but the rest is still
- *   running.
+ * - [RestCountdown] is the readout on its own: the eyebrow, the figure and the bar, which the
+ *   sheet stacks over its controls.
  * - [RestTimerDock] is the countdown at the bottom of the workout, once the sheet is away.
- * - [RestProgressBar] is the bar alone.
+ * - [RestProgressBar] is the bar alone, which the sheet and the dock both draw so that the two
+ *   cannot disagree about how far through a rest is.
  *
  * None of them ticks. [RestTimerState] arrives already counting from
  * [com.titan.core.domain.timer.RestTimerController], which is the thing that owns a clock;
@@ -169,9 +169,9 @@ fun RestTimerSheet(
 /**
  * The readout alone: what the timer is doing, how long is left, and how far through it is.
  *
- * Extracted from [RestTimerSheet] so a compact header can reuse the exact figure the sheet
- * shows. Two things must not drift apart here — a header that rounded `0:00.7` down while the
- * sheet rounded it up would show two different times for one rest.
+ * The figure is [remaining], which the rest dock reads too, so the two cannot drift apart — a
+ * dock that rounded `0:00.7` down while the sheet rounded it up would show two different times
+ * for one rest.
  *
  * @param valueStyle the type role the figure is set in. The default fills a sheet; pass
  *   `TitanTheme.typography.numericLarge` for a readout inside a card.
@@ -233,21 +233,20 @@ fun RestCountdown(
 /**
  * How far through the rest is, as one bar that fills from empty to full.
  *
- * The whole of the countdown that is *not* a number, and the reason it is public: the sheet
- * and the header both draw it, and they must draw the same thing. A header that had a bar of
- * its own — or, worse, borrowed the one next to it — would be a second answer to "how much of
- * this rest is left", and two bars disagreeing about that is the one thing a rest timer cannot
- * afford.
+ * The whole of the countdown that is *not* a number, and the reason it is shared: the sheet
+ * and the rest dock both draw it, and they must draw the same thing. A dock that had a bar of
+ * its own would be a second answer to "how much of this rest is left", and two bars
+ * disagreeing about that is the one thing a rest timer cannot afford.
  *
- * Continuous, never segmented. It sits a few dp from [SessionProgressRail], which *is*
- * segmented and is counting something else entirely — exercises done, not seconds passed — and
- * the difference in shape is what keeps the two readable as two different facts.
+ * Continuous, never segmented. [SessionProgressRail] *is* segmented and is counting something
+ * else entirely — exercises done, not seconds passed — and the difference in shape is what
+ * keeps the two readable as two different facts.
  *
- * @param color the fill. Defaults to the scheme's primary; the workout header passes its own
- *   accent for a running rest and a neutral for a paused one, on the same rule the big figure
- *   follows — the accent means time is passing, so a frozen bar must not wear it.
+ * @param color the fill. Defaults to the scheme's primary; the dock passes the accent for a
+ *   running rest and a neutral for a paused one, on the same rule the big figure follows — the
+ *   accent means time is passing, so a frozen bar must not wear it.
  * @param trackColor what the unfilled remainder is drawn on.
- * @param height how thick the bar is. The default fills a sheet; a header rail passes its own.
+ * @param height how thick the bar is. The default fills a sheet; the dock passes its own.
  */
 @Composable
 fun RestProgressBar(
@@ -314,7 +313,7 @@ private fun RestTimerState.total(): Duration? =
  * `RestTimerState` forbids it for `Running`, but `Paused` allows a zero remainder and total,
  * so it is guarded rather than assumed.
  */
-internal fun RestTimerState.elapsedFraction(): Float {
+private fun RestTimerState.elapsedFraction(): Float {
     val total = total() ?: return if (this is RestTimerState.Finished) 1f else 0f
     if (total <= Duration.ZERO) return 1f
     return ((total - remaining()) / total).toFloat().coerceIn(0f, 1f)

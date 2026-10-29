@@ -73,9 +73,10 @@ class AndroidBackgroundRestTimer @Inject constructor(
      * The expiry already announced, so the same one is not announced twice.
      *
      * Compared by value rather than by a flag, because a session expires a rest per set: the
-     * duplicate to suppress is byte-for-byte the same rest, and the next one differs by its set
-     * number. Cleared whenever a rest starts, is held or goes away, so a rest that somehow
-     * repeats itself exactly can still be announced again.
+     * duplicate to suppress is byte-for-byte the same rest, and the next one usually differs by
+     * its set number. Not always — two rests started from the session clock name no set and are
+     * equal — which is why it is also cleared whenever a rest starts, is held or goes away: a
+     * rest that repeats itself exactly is still announced again.
      *
      * Not synchronised. Both writers reach it from the main dispatcher — the ViewModel's scope
      * and the receiver's `Dispatchers.Main.immediate` — and the cost of losing the race would be

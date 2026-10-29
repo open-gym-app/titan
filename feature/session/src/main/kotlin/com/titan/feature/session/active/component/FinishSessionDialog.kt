@@ -19,7 +19,7 @@ import com.titan.feature.session.R
  * "End this workout?"
  *
  * END sits in the corner of the header bar, which is exactly where a thumb lands reaching for the
- * rest pill beside it or steadying the phone on a bench. Ending is not undoable — it stamps the
+ * pause control beside it or steadying the phone on a bench. Ending is not undoable — it stamps the
  * session closed and runs the whole progression cascade — so a stray tap used to be a workout cut
  * short with the remaining exercises unlogged. One question in front of it costs a tap once per
  * workout, which is the cheapest place in the app to spend one.

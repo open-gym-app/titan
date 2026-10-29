@@ -1590,7 +1590,7 @@ class ActiveSessionViewModel @Inject constructor(
 
             // The countdown is untouched by this, and by reopening the sheet below. What the
             // sheet is doing on screen and what the timer is doing are two facts, and the
-            // dock's pill exists because of it.
+            // rest dock's countdown exists because of it.
             ActiveSessionEvent.RestSheetDismissed ->
                 screenState.update { it.copy(isRestSheetOpen = false) }
 
@@ -1799,11 +1799,12 @@ class ActiveSessionViewModel @Inject constructor(
      * The rest as something outside this app can hold, or **null** when there is nothing to
      * hold.
      *
-     * Null for a rest that is over or was never started, and also for one whose exercise this
-     * screen cannot name at all — a set logged against a slot cut out from under it, which is
+     * Null for a rest that was cancelled or never started, and also for one whose exercise this
+     * screen cannot find at all — a set logged against a slot cut out from under it, which is
      * the same race [restAfter] returns null for. Both mean "take the note down", which is the
      * honest answer: a notification about a rest in an exercise that is not in the workout is
-     * worse than none.
+     * worse than none. A rest tied to *no* exercise — one started from the session clock — is
+     * not that case, and is published naming no set.
      *
      * The set number is read off the store rather than counted here, so it is the number the
      * next row will actually carry — a table with a set deleted out of the middle of it is
@@ -2208,9 +2209,13 @@ class ActiveSessionViewModel @Inject constructor(
     private fun onNameEvent(event: ActiveSessionEvent): Boolean {
         when (event) {
             // Seeded from what is stored, which is the name a user expects to see. Ignored
-            // before the row has loaded — there is nothing to edit yet.
-            ActiveSessionEvent.NameEditRequested -> loaded.value?.session?.let { session ->
-                screenState.update { it.copy(nameDraft = session.name.orEmpty()) }
+            // before the row has loaded — there is nothing to edit yet — and over a workout on
+            // its way out, whose name the finish has already taken to the recap.
+            ActiveSessionEvent.NameEditRequested -> {
+                val session = loaded.value?.session
+                if (session != null && !screenState.value.isBusy) {
+                    screenState.update { it.copy(nameDraft = session.name.orEmpty()) }
+                }
             }
 
             is ActiveSessionEvent.NameChanged ->
@@ -2234,10 +2239,14 @@ class ActiveSessionViewModel @Inject constructor(
      * Closed on success only, and the new title is drawn from the re-read rather than copied
      * into local state — the same shape the recap's note save uses, and for the same reason:
      * two copies of one value are two things to keep in step.
+     *
+     * Refused over a workout on its way out, the way [togglePause] is: a rename landing behind a
+     * finish writes to a session already stamped closed, under a recap that has read the old
+     * name.
      */
     private fun rename() {
         val draft = screenState.value.nameDraft ?: return
-        if (screenState.value.isRenaming) return
+        if (screenState.value.isRenaming || screenState.value.isBusy) return
         screenState.update { it.copy(isRenaming = true) }
 
         viewModelScope.launch {

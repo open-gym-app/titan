@@ -3157,6 +3157,38 @@ class ActiveSessionViewModelTest {
             assertTrue(state.current is SessionState.Finished)
         }
 
+    @Test
+    fun `renaming is ignored once the workout is on its way out`() =
+        runTest {
+            // The name is a control on the same header, with the same window behind a finish:
+            // a rename landing in it writes to a session already stamped closed, under a recap
+            // that has read the old name.
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.NameEditRequested)
+            viewModel.onEvent(ActiveSessionEvent.NameChanged("Leg day"))
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.NameConfirmed)
+
+            assertEquals("Push day · Upper", viewModel.uiState.value.header?.name)
+            assertNull(viewModel.uiState.value.message)
+        }
+
+    @Test
+    fun `the rename dialog does not open over a workout on its way out`() =
+        runTest {
+            val viewModel = viewModel()
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+            viewModel.onEvent(ActiveSessionEvent.NameEditRequested)
+
+            assertNull(viewModel.uiState.value.nameDraft)
+        }
+
     // ─── Discarding ─────────────────────────────────────────────────────────────────────
 
     @Test

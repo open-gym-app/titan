@@ -44,9 +44,10 @@ import javax.inject.Singleton
  * `tag` is how a caller that genuinely needs two at once (several scheduled reminders) says
  * so, and it keeps the two apart without either of them needing to know the other's number.
  *
- * Nothing here requests `POST_NOTIFICATIONS`. Asking is the settings screen's job, at the
- * moment the user turns a notification on — a prompt raised with no context attached is the
- * one most reliably denied, and a denial is sticky. This end only ever checks.
+ * Nothing here requests `POST_NOTIFICATIONS`. Asking is a screen's job, at a moment that explains
+ * it — a notification switch being turned on, or the first rest of a workout — because a prompt
+ * raised with no context attached is the one most reliably denied, and a denial is sticky. This
+ * end only ever checks.
  */
 @Singleton
 class AndroidNotifier @Inject constructor(

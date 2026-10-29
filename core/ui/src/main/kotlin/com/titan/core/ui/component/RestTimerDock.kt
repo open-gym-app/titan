@@ -23,7 +23,6 @@ import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -76,8 +75,8 @@ import kotlin.time.Duration.Companion.seconds
  * Validating a set starts the rest, so the first face slides into the third: the moment the
  * lifter is done is the moment the dock changes under their thumb.
  *
- * Drawn on the page's own background, like the header, with a hairline over it for the list to
- * scroll under.
+ * Drawn on the page's own background, like the header, with a hairline over it where the list
+ * stops.
  *
  * @param state the rest timer, as the screen already has it.
  * @param onRestClick raise the rest sheet — over the rest that is going, or over a new one started
@@ -250,8 +249,8 @@ private fun RestCard(
 ) {
     val colors = MaterialTheme.colorScheme
     val running = state is RestTimerState.Running
-    // The accent means time is passing, so a paused rest does not get it — the rule the pill
-    // and the sheet's figure follow.
+    // The accent means time is passing, so a paused rest does not get it — the rule the sheet's
+    // figure and bar follow.
     val accent = if (running) colors.primary else colors.onSurfaceVariant
     val spoken = if (announces) state.announcement() else spokenRemaining(state.remaining())
     val reopen = stringResource(R.string.rest_timer_reopen)
@@ -301,16 +300,15 @@ private fun RestCard(
                     modifier = Modifier.size(ButtonDefaults.IconSize),
                 )
             }
-            LinearProgressIndicator(
-                progress = { state.elapsedFraction() },
+            // The sheet's own bar, so the two cannot disagree about how far through the rest is.
+            RestProgressBar(
+                state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(BAR_HEIGHT)
                     .align(Alignment.BottomCenter),
                 color = accent,
                 trackColor = Color.Transparent,
-                gapSize = 0.dp,
-                drawStopIndicator = {},
+                height = BAR_HEIGHT,
             )
         }
     }

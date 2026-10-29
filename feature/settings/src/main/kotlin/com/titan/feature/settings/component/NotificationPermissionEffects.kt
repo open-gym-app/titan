@@ -6,12 +6,10 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import com.titan.core.ui.component.NotificationPermissionPrompt
 
 /*
  * Everything platform-shaped about the notification permission, in one place because two
@@ -28,12 +26,10 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 /**
  * The permission prompt, and the two things that can change the answer.
  *
- * Three effects that only make sense together:
+ * Two effects that only make sense together:
  *
- * - the launcher, which is the only thing that can put the system prompt on screen;
- * - the request, raised when the ViewModel asks for it through [request] and acknowledged
- *   **before** the prompt goes up — `launch` does not suspend until the user answers, and
- *   leaving the flag set would raise a second prompt on the next recomposition;
+ * - the prompt itself, raised when the ViewModel asks for it through [request] — see
+ *   [NotificationPermissionPrompt], which the active workout raises it through too;
  * - the resume, which is the only signal that a user who left for the system settings has come
  *   back. There is no callback for it.
  *
@@ -52,16 +48,7 @@ internal fun NotificationPermissionEffects(
     onRequestShown: () -> Unit,
     onRecheck: () -> Unit,
 ) {
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { onRecheck() },
-    )
-
-    LaunchedEffect(request) {
-        if (!request) return@LaunchedEffect
-        onRequestShown()
-        launcher.launch(POST_NOTIFICATIONS)
-    }
+    NotificationPermissionPrompt(request = request, onRequestShown = onRequestShown, onAnswered = onRecheck)
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { onRecheck() }
 }
@@ -133,12 +120,3 @@ private fun Context.startActivityOrNothing(intent: Intent): Boolean =
     } catch (_: ActivityNotFoundException) {
         false
     }
-
-/**
- * The permission the switches are backed by, named here because this module is the only place
- * the app asks for it.
- *
- * A literal rather than `Manifest.permission.POST_NOTIFICATIONS` would be the mistake; the
- * constant exists on every version, and only *holding* it is Android 13+.
- */
-private const val POST_NOTIFICATIONS = android.Manifest.permission.POST_NOTIFICATIONS

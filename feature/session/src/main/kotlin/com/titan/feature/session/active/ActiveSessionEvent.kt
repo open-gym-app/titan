@@ -357,7 +357,7 @@ sealed interface ActiveSessionEvent {
      * The sheet was swiped away, and the countdown carries on behind it.
      *
      * The gesture is how a lifter gets at the set they logged wrong two minutes ago without
-     * throwing away the rest they are in the middle of. The dock's pill is what says the
+     * throwing away the rest they are in the middle of. The rest dock is what says the
      * timer is still running, and [RestWindowRequested] is the way back.
      */
     data object RestSheetDismissed : ActiveSessionEvent

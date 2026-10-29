@@ -133,14 +133,10 @@ Text(
   Material type roles. There is no wrapper for them; a second way to reach the same value
   is a second thing to keep in step.
 - **`TitanTheme.x` is only for what Material has no slot for**: the spacing scale, the
-  `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, `plateColors` and
-  `sessionChrome`.
-
-  `sessionChrome` is the one token set that does **not** invert with the scheme: the active
-  workout runs under a solid near-black bar in light *and* dark, because a workout is a mode —
-  the bottom bar is hidden and the back gesture does not simply leave — and a header built from
-  Material's `inverse*` slots would be near-white half the time. See `theme/TitanSessionChrome.kt`;
-  every pair in it is held to WCAG AA by the same test that holds the two schemes.
+  `eyebrow` and `numeric`/`numericLarge`/`numericSmall` roles, and the palettes for things
+  the scheme has no roles for — `plateColors`, `celebration`, `quest` and `medal`. The workout
+  screen is not one of them: its header and rest dock are drawn on the page in the scheme's own
+  pairs.
 
   `plateColors` is an *ordinal* ramp — the heaviest size on the user's rack is the accent and
   each lighter one steps down through the neutrals — rather than the competition colour code,
@@ -163,7 +159,7 @@ Text(
   | `RpePicker` | the rating cell as a menu of the 6–10 scale in halves, plus the way back to unrated | the stored rating (× 10), or null |
   | `SetTypePicker` | the leading cell as a menu of standard / warm-up / drop / failure / interval | a `SetType` |
   | `SwipeToDelete` | a row thrown away by dragging it two fifths of the way to the left, with the action a screen reader gets instead | what to delete, and what to call it |
-  | `SessionHeaderBar` | the workout's dark bar: name, running clock, pause, discard, END, and — on a line of its own above the progress rail — the rest countdown as a pill and a bar | a name, an elapsed `Duration`, a `SessionProgress`, an optional `RestTimerState` |
+  | `SessionHeaderBar` | the top of the workout, on the page's background: name (the rename control), running clock (the way into the rest window), pause, discard, END, and the progress rail | a name, an elapsed `Duration`, a `SessionProgress` |
   | `SessionProgressRail` | the same header's one-sliver-per-exercise progress | a `SessionProgress` |
   | `SessionNameDialog` | what to call a workout, before it starts, during it and after | the field's text, hoisted |
   | `DiscardSessionDialog` | the question a workout is thrown away through, with the count of what it costs in it. Asked from the workout itself and from Home's resume banner | how many sets go with it |
@@ -176,8 +172,10 @@ Text(
   | `ExerciseListItem` / `ExerciseCard` | name, equipment and muscles, image, "last performed" | `Exercise` + `List<ExerciseMuscleGroupLink>` |
   | `ExerciseImage` / `ExerciseHeroImage` | the bundled photo as a thumbnail and as a 3:2 banner, over the initial it falls back to | `Exercise` |
   | `RestTimerSheet` | the rest bottom sheet's body: countdown, −15s/+15s, pause, skip | `RestTimerState` |
-  | `RestCountdown` / `RestTimerIndicator` | the same countdown alone, and as a header pill — the pill takes its two colour pairs from `RestTimerDefaults`, so it can sit on the session chrome as well as on the scheme | `RestTimerState` |
-  | `RestProgressBar` | how far through a rest is, as one continuous bar. Shared by the sheet and the header so the two cannot disagree, and continuous where `SessionProgressRail` beside it is segmented, because they count different things | `RestTimerState`, plus its colours and thickness |
+  | `RestCountdown` | the sheet's countdown alone: status, time left and the bar | `RestTimerState` |
+  | `RestTimerDock` | the next thing to do, at the bottom of the workout where the thumb is: the button that validates the next set beside a rest starter, or the running rest that raises the sheet | `RestTimerState`, an optional `DockSet` |
+  | `RestProgressBar` | how far through a rest is, as one continuous bar. Shared by the sheet and the dock so the two cannot disagree, and continuous where `SessionProgressRail` is segmented, because they count different things | `RestTimerState`, plus its colours and thickness |
+  | `NotificationPermissionPrompt` | nothing. Raises the system's notification prompt when a ViewModel asks, acknowledging the request before the prompt goes up | the request flag, and the two callbacks |
   | `RestExpiryAlert` | nothing. It buzzes and plays the device's notification tone when a rest **that was running while it was on screen** reaches zero — not for one restored as finished, and not for one that was skipped | `RestTimerState` |
   | `StatTile` / `StatChip` | one figure as a box, and as an inline pill | a label and a formatted value |
   | `SessionStatGrid` / `SessionStatChips` | the summary's four-up grid, and its one-line form | `SessionStats` |

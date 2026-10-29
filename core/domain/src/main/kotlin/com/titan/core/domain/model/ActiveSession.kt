@@ -87,7 +87,13 @@ data class ActiveSession(
         require(currentExerciseIndex == null || currentExerciseIndex >= 0) {
             "currentExerciseIndex cannot be negative, was $currentExerciseIndex"
         }
-        require(currentExerciseIndex == null || exercises.isEmpty() || currentExerciseIndex in exercises.indices) {
+        // Zero on an empty list is the one index that names nothing, and only because a draft
+        // written while this was a plain `Int` spelled "no exercises yet" that way.
+        require(
+            currentExerciseIndex == null ||
+                currentExerciseIndex in exercises.indices ||
+                (exercises.isEmpty() && currentExerciseIndex == 0),
+        ) {
             "currentExerciseIndex ($currentExerciseIndex) is past the end of ${exercises.size} exercises"
         }
     }

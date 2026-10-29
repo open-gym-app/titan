@@ -1654,6 +1654,15 @@ class ActiveSessionScreenTest {
     }
 
     @Test
+    fun `the dock's validate goes inert over a slot whose exercise is being swapped`() {
+        // The card's own button is read-only while the swap is written; a set validated from
+        // the dock would land on whichever exercise won the race.
+        setScreen(state(entry = SetEntry(weight = "80", reps = "5")).copy(swappingExerciseId = BENCH_ROW))
+
+        composeTestRule.onNode(dockAction("Complete set 3", "Bench press")).assertIsNotEnabled()
+    }
+
+    @Test
     fun `between two sets the square beside the dock's action starts a rest`() {
         setScreen(state())
 
@@ -1678,6 +1687,28 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithContentDescription("Start a rest").performClick()
 
         assertEquals(emptyList<ActiveSessionEvent>(), events)
+    }
+
+    @Test
+    fun `the clock goes inert over a workout on its way out, with the dock`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithText("0:23:14", useUnmergedTree = true).performClick()
+
+        // The title block around it is inert too, so the tap starts nothing: no rest the finish
+        // has already taken down, and no rename of a session already stamped closed.
+        assertTrue(ActiveSessionEvent.RestWindowRequested !in events)
+        assertTrue(ActiveSessionEvent.NameEditRequested !in events)
+    }
+
+    @Test
+    fun `the name goes inert over a workout on its way out`() {
+        setScreen(state().copy(isFinishing = true))
+
+        composeTestRule.onNodeWithText("Push day · Upper", substring = true, ignoreCase = true, useUnmergedTree = true)
+            .performClick()
+
+        assertTrue(ActiveSessionEvent.NameEditRequested !in events)
     }
 
     @Test
