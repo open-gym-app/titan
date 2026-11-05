@@ -5,8 +5,9 @@ import androidx.paging.testing.TestPager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
+import kotlin.time.measureTime
 
 /**
  * Query-time regression guards at the two scales [HistoryScales] names: the
@@ -16,9 +17,17 @@ import org.junit.Test
  * These are *not* device benchmarks - they run on the Robolectric JVM runner
  * against in-memory SQLite, so the absolute numbers mean nothing next to a
  * phone's. What they catch is a query going from indexed to quadratic (a
- * dropped index, a join that stops using one, an aggregate moved out of SQL);
- * the budgets are set well above the measured times so ordinary CI-runner noise
- * cannot fail the build. On-device numbers are #42's job.
+ * dropped index, a join that stops using one, an aggregate moved out of SQL).
+ * On-device numbers are #42's job.
+ *
+ * The budgets are milliseconds on an idle development machine, and they are scaled
+ * to the machine the test is really on: CI moves between the homelab cluster and
+ * GitHub-hosted runners that are several times slower, and it runs this beside
+ * other test JVMs, so one fixed number is either too tight for the slow machine or
+ * too loose to notice anything on the fast one. Every attempt first times
+ * [CALIBRATION_SQL], which no schema or query change can affect, and allows the
+ * query that much more. A regression slows the query and not the calibration, so
+ * it fails on any machine, where a slow machine slows both and passes.
  */
 class LargeHistoryBenchmarkTest : RoomTestBase() {
 
@@ -50,6 +59,23 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
 
         /** Comparable headroom over the stress fixture, whose slowest is ~100ms. */
         const val STRESS_BUDGET_MS = 500L
+
+        /**
+         * Fixed work inside SQLite that reads no table, so it costs the same whatever the
+         * schema and the fixture become, and pays for the same engine the queries do.
+         */
+        const val CALIBRATION_SQL =
+            "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM n WHERE x < 200000) SELECT SUM(x) FROM n"
+
+        /** What [CALIBRATION_SQL] measures on the machine the budgets above describe. */
+        const val CALIBRATION_REFERENCE_MS = 25.0
+
+        /**
+         * How many times a query may try to come in under its budget. The calibration follows
+         * sustained load; a spike that lands on the query alone is what the other attempts are
+         * for, and it is gone by the next one, where a regression is there on all of them.
+         */
+        const val MAX_ATTEMPTS = 3
 
         const val PAGE_SIZE = 20
 
@@ -224,19 +250,32 @@ class LargeHistoryBenchmarkTest : RoomTestBase() {
         assertEquals(spec.setCount, countRows("workout_set"))
     }
 
-    private suspend fun <T> assertUnder(
+    private suspend fun assertUnder(
         label: String,
         budgetMs: Long,
-        block: suspend () -> T,
-    ): T {
-        val start = System.nanoTime()
-        val result = block()
-        val elapsedMs = (System.nanoTime() - start) / 1_000_000
-        println("[benchmark] $label: ${elapsedMs}ms (budget ${budgetMs}ms)")
-        assertTrue(
-            "$label took ${elapsedMs}ms, expected under ${budgetMs}ms at this scale",
-            elapsedMs < budgetMs,
-        )
-        return result
+        block: suspend () -> Unit,
+    ) {
+        val misses = mutableListOf<String>()
+        repeat(MAX_ATTEMPTS) {
+            val allowedMs = (budgetMs * machineSlowdown()).toLong()
+            val elapsedMs = measureTime { block() }.inWholeMilliseconds
+            println("[benchmark] $label: ${elapsedMs}ms (budget ${budgetMs}ms, ${allowedMs}ms on this machine now)")
+            if (elapsedMs < allowedMs) return
+            misses += "${elapsedMs}ms against ${allowedMs}ms"
+        }
+        fail("$label stayed over its ${budgetMs}ms budget at this scale, scaled to this machine: $misses")
+    }
+
+    /**
+     * How many times slower than the budgets' reference this machine is running right now.
+     *
+     * Never under one: a machine faster than the reference keeps the budget as written rather
+     * than a tighter one, which would make the test fail on noise the budget was sized to absorb.
+     */
+    private fun machineSlowdown(): Double {
+        val calibrationMs = measureTime {
+            db.query(CALIBRATION_SQL, emptyArray()).use { it.moveToFirst() }
+        }.inWholeMilliseconds
+        return maxOf(1.0, calibrationMs / CALIBRATION_REFERENCE_MS)
     }
 }

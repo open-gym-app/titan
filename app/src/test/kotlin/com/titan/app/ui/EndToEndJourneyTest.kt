@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.WindowInfo
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasStateDescription
@@ -452,12 +453,20 @@ class EndToEndJourneyTest {
             .performTextReplacement(weight)
         composeTestRule.onNodeWithContentDescription(setRepsLabel(number))
             .performTextReplacement(reps)
-        composeTestRule.onNodeWithText(completeSetLabel(number)).performScrollTo().performClick()
+        composeTestRule.onNode(onTheCard(completeSetLabel(number))).performScrollTo().performClick()
         awaitText(completeSetLabel(number + 1))
     }
 
     /**
-     * The workout's finish action, and the recap it lands on.
+     * [text] on the exercise card rather than on the rest dock under the list, which offers the
+     * same "Complete set" action. The card is the one inside something that scrolls.
+     */
+    private fun onTheCard(text: String) = hasText(text) and hasAnyAncestor(hasScrollToNodeAction())
+
+    /**
+     * The workout's finish action, the question in front of it, and the recap it lands on.
+     *
+     * END only asks: it is [CONFIRM_END], on the dialog that raises, that closes the session.
      *
      * DONE is waited for rather than the recap's body: it is the bar, drawn as soon as the
      * screen exists, where everything below it is three Room reads away. What each journey
@@ -468,6 +477,8 @@ class EndToEndJourneyTest {
      */
     private fun finishTheWorkout() {
         composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        awaitText(CONFIRM_END)
+        composeTestRule.onNodeWithText(CONFIRM_END).performClick()
         awaitText(DONE)
     }
 
@@ -563,6 +574,7 @@ class EndToEndJourneyTest {
         const val TAB_HOME = "Home"
         const val TAB_SESSIONS = "Sessions"
         const val ACTIVE_SESSION = "End the session"
+        const val CONFIRM_END = "End workout"
         const val DONE = "Done"
 
         // Home's two ways into the flow: onto the template list, and straight onto the picker.
