@@ -76,9 +76,17 @@ data class StreakProtection(
      * [com.titan.core.domain.gamification.StreakCalculator.advance]. Rolling backwards onto
      * that session's month would refill an allowance a later month has already spent from,
      * which hands back a protection rather than un-sticking a count.
+     *
+     * A count above [MONTHLY_ALLOWANCE] in the current month — a row written when the allowance
+     * was larger, or a restored backup of one — is cut down to it, so the allowance is the most
+     * anybody can spend in a month whatever the stored row says.
      */
     fun replenishedFor(month: YearMonth): StreakProtection =
-        if (period == month) this else copy(remaining = MONTHLY_ALLOWANCE, period = month)
+        when {
+            period != month -> copy(remaining = MONTHLY_ALLOWANCE, period = month)
+            remaining > MONTHLY_ALLOWANCE -> copy(remaining = MONTHLY_ALLOWANCE)
+            else -> this
+        }
 
     /**
      * This allowance with one protection spent at [at].

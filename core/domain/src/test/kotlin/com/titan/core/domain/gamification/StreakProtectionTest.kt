@@ -155,6 +155,17 @@ class StreakProtectionTest {
         assertEquals(protection, protection.replenishedFor(MARCH))
     }
 
+    @Test
+    fun `a count above the allowance in the same month is cut down to it`() {
+        // A row written when the allowance was three, read in the month it was stamped with.
+        val protection = StreakProtection(remaining = 3, period = MARCH, lastConsumedAt = ANCHOR)
+
+        assertEquals(
+            StreakProtection(remaining = StreakProtection.MONTHLY_ALLOWANCE, period = MARCH, lastConsumedAt = ANCHOR),
+            protection.replenishedFor(MARCH),
+        )
+    }
+
     // ─── The allowance's own invariants ─────────────────────────────────────────────────
 
     @Test

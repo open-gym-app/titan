@@ -42,7 +42,8 @@ fun UserProgressRow.toEntity(): UserProgressEntity =
         currentStreak = currentStreak,
         longestStreak = longestStreak,
         lastCountedAt = lastCountedAt,
-        weekSessions = weekSessions,
+        // Never null here: `ExportFormat.decode` upgrades a file that lacks the column.
+        weekSessions = weekSessions ?: 0,
         weekGoalMet = weekGoalMet,
         protectionRemaining = protectionRemaining,
         protectionPeriod = protectionPeriod,
