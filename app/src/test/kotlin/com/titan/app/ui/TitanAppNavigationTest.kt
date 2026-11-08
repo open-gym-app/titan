@@ -5,7 +5,9 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -289,14 +291,10 @@ class TitanAppNavigationTest {
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
 
         logASet()
-        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
 
         // The recap is the end of the flow rather than a step of it — it is pushed as the flow
-        // is popped — but it is still bar-less, because it is outside the tab scaffold. Waited
-        // for, because closing the session out is a write and the navigation follows it.
-        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
-            composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
-        }
+        // is popped — but it is still bar-less, because it is outside the tab scaffold.
+        finishTheWorkout()
         composeTestRule.onNodeWithText(DONE).assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(TAB_HOME).assertDoesNotExist()
     }
@@ -436,10 +434,7 @@ class TitanAppNavigationTest {
     fun `finishing the session flow returns to the tab scaffold`() {
         startAWorkout()
         logASet()
-        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
-        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
-            composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
-        }
+        finishTheWorkout()
         composeTestRule.onNodeWithText(DONE).performClick()
 
         awaitHome()
@@ -615,7 +610,11 @@ class TitanAppNavigationTest {
         }
         composeTestRule.onNodeWithContentDescription(FIRST_SET_WEIGHT).performTextReplacement("60")
         composeTestRule.onNodeWithContentDescription(FIRST_SET_REPS).performTextReplacement("8")
-        composeTestRule.onNodeWithText(COMPLETE_FIRST_SET).performScrollTo().performClick()
+        // On the card, not on the rest dock under the list: both offer it, and only the card's
+        // button sits inside something that scrolls.
+        composeTestRule.onNode(hasText(COMPLETE_FIRST_SET) and hasAnyAncestor(hasScrollToNodeAction()))
+            .performScrollTo()
+            .performClick()
         // Waited for, and this is the part that matters: the tick writes a `workout_set` row and
         // the screen reads it back through Room, so a finish tapped before that round trip lands
         // is a finish over a session that still has nothing in it — which the use case refuses,
@@ -623,6 +622,23 @@ class TitanAppNavigationTest {
         // renumbering itself is the row having come back.
         composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
             composeTestRule.onAllNodesWithText(COMPLETE_SECOND_SET).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    /**
+     * END, the question it raises, and the recap past it.
+     *
+     * END only asks: it is [CONFIRM_END] that closes the session. The recap is waited for because
+     * closing the session out is a write and the navigation follows it.
+     */
+    private fun finishTheWorkout() {
+        composeTestRule.onNodeWithContentDescription(ACTIVE_SESSION).performClick()
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(CONFIRM_END).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(CONFIRM_END).performClick()
+        composeTestRule.waitUntil(READ_TIMEOUT_MILLIS) {
+            composeTestRule.onAllNodesWithText(DONE).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -792,6 +808,7 @@ class TitanAppNavigationTest {
         const val LOGGED_SESSION = "Logged session"
         const val LOGGED_AT = 1_777_377_600_000L
         const val LOGGED_DURATION_MILLIS = 3_120_000L
+        const val CONFIRM_END = "End workout"
         const val DONE = "Done"
 
         // The new-session flow: the seeded template, and the commit that ends setup.
