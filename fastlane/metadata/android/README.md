@@ -59,7 +59,7 @@ file for them.
 | --- | --- |
 | App category | Health & Fitness |
 | Tags | Workout tracker, Fitness |
-| Contact email | **to fill in before the first upload** — it is shown publicly on the listing |
+| Contact email | contact.titan.app@gmail.com (shown publicly on the listing) |
 | Website | https://open-gym-app.github.io |
 | Content rating | see `release/compliance-checklist.md` |
 

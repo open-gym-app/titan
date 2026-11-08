@@ -113,6 +113,5 @@ makes it, and would require your consent in the app.
 
 ## Contact
 
-Titan is maintained in the open. For any question about this policy or your privacy,
-[open an issue](https://github.com/open-gym-app/titan/issues/new) on the project's
-GitHub repository.
+Titan is maintained in the open. For any question about this policy or your privacy, write
+to [contact.titan.app@gmail.com](mailto:contact.titan.app@gmail.com).
