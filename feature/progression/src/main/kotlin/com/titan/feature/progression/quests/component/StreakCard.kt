@@ -88,6 +88,7 @@ internal fun StreakCard(
     isOnBest: Boolean,
     protection: StreakProtection,
     sessionsThisWeek: Int,
+    isWeekGoalMet: Boolean,
     weeklyGoal: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -106,7 +107,7 @@ internal fun StreakCard(
                 Streak(progress = progress, isOnBest = isOnBest)
             }
 
-            ThisWeek(sessions = sessionsThisWeek, goal = weeklyGoal)
+            ThisWeek(sessions = sessionsThisWeek, goal = weeklyGoal, met = isWeekGoalMet)
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -233,13 +234,20 @@ private fun Streak(
     }
 }
 
-/** The week in progress against the goal, or that the goal is met. */
+/**
+ * The week in progress against the goal, or that the goal is met.
+ *
+ * [met] is the streak's own answer, not `sessions >= goal`: after a mid-week change of goal the
+ * two disagree until the next session, and this line must not promise a week the streak has not
+ * counted. A lowered goal can therefore read "3 of 3" for a moment — true, and the next workout
+ * turns it into "met".
+ */
 @Composable
 private fun ThisWeek(
     sessions: Int,
     goal: Int,
+    met: Boolean,
 ) {
-    val met = sessions >= goal
     Text(
         text = if (met) {
             stringResource(R.string.quest_log_week_met)

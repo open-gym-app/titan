@@ -124,6 +124,7 @@ class QuestLogViewModel @Inject constructor(
                     streak.weekSessions,
                     asOf = now,
                 ),
+                isWeekGoalMet = StreakCalculator.isWeekGoalMet(streak.lastCountedAt, streak.weekGoalMet, asOf = now),
                 weeklyGoal = weeklyGoal,
                 // Counted against the catalogue rather than taken as the row count: an id on
                 // file matching no entry — a milestone renamed without a migration — would

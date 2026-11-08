@@ -263,6 +263,24 @@ class StreakCalculatorTest {
         assertEquals(0, StreakCalculator.sessionsThisWeek(null, weekSessions = 0, asOf = at("2026-03-09")))
     }
 
+    @Test
+    fun `this week is met only while the stored flag belongs to this week`() {
+        assertTrue(StreakCalculator.isWeekGoalMet(at("2026-03-02"), weekGoalMet = true, asOf = at("2026-03-06")))
+        assertFalse(StreakCalculator.isWeekGoalMet(at("2026-03-02"), weekGoalMet = false, asOf = at("2026-03-06")))
+        assertFalse(StreakCalculator.isWeekGoalMet(at("2026-03-02"), weekGoalMet = true, asOf = at("2026-03-09")))
+        assertFalse(StreakCalculator.isWeekGoalMet(null, weekGoalMet = false, asOf = at("2026-03-09")))
+    }
+
+    @Test
+    fun `a goal lowered mid-week does not meet the week until a session applies it`() {
+        // Three sessions against a goal of four, then the goal is lowered to three.
+        val state = train(4, "2026-03-02", "2026-03-03", "2026-03-04").state
+        assertFalse(StreakCalculator.isWeekGoalMet(state.lastCountedAt, state.weekGoalMet, asOf = at("2026-03-05")))
+
+        val next = StreakCalculator.advance(state, at("2026-03-05"), weeklyGoal = 3).state
+        assertTrue(StreakCalculator.isWeekGoalMet(next.lastCountedAt, next.weekGoalMet, asOf = at("2026-03-06")))
+    }
+
     /** [days] applied in order from a fresh state, at 18:00 UTC each, against [goal]. */
     private fun train(
         goal: Int,

@@ -54,6 +54,10 @@ import com.titan.core.domain.model.UserProgress
  *   fixture or a preview states the streak it wants drawn rather than a moment to judge it at.
  * @property sessionsThisWeek the workouts counted towards this week's goal so far — see
  *   [com.titan.core.domain.gamification.StreakCalculator.sessionsThisWeek].
+ * @property isWeekGoalMet whether this week has already joined the streak — see
+ *   [com.titan.core.domain.gamification.StreakCalculator.isWeekGoalMet]. Not derived from
+ *   [sessionsThisWeek] and [weeklyGoal], which disagree with the streak once the goal changes
+ *   mid-week.
  * @property weeklyGoal how many workouts this week needs to join the streak, as the user has it
  *   set.
  * @property isLoading the first emission has not landed. What it gates is narrow — see
@@ -70,6 +74,7 @@ data class QuestLogUiState(
     val recentLoot: List<LootDrop> = emptyList(),
     val isStreakLive: Boolean = true,
     val sessionsThisWeek: Int = 0,
+    val isWeekGoalMet: Boolean = false,
     val weeklyGoal: Int = StreakCalculator.DEFAULT_WEEKLY_GOAL,
     val isLoading: Boolean = true,
 ) {

@@ -286,6 +286,22 @@ object StreakCalculator {
     ): Int = if (lastCountedAt != null && lastCountedAt.streakWeek() == asOf.streakWeek()) weekSessions else 0
 
     /**
+     * Whether the week [asOf] falls in has already met its goal and joined the streak — what a
+     * screen draws instead of the count once it has.
+     *
+     * Read from the stored [weekGoalMet] rather than from [sessionsThisWeek] against the goal as
+     * it is set now, for the reason [StreakState.weekGoalMet] is stored at all: the goal can change
+     * mid-week, and only the next finished session applies the new one. Comparing the count with
+     * the current setting would tell a lifter who lowered their goal that the week is met when
+     * the streak has not counted it, and one who raised it that a counted week is still short.
+     */
+    fun isWeekGoalMet(
+        lastCountedAt: Instant?,
+        weekGoalMet: Boolean,
+        asOf: Instant,
+    ): Boolean = weekGoalMet && lastCountedAt != null && lastCountedAt.streakWeek() == asOf.streakWeek()
+
+    /**
      * Whether this allowance can pay for a break of [shortWeeks] in a streak of [streak] weeks —
      * the three conditions [advance] documents, in one place so they are read together.
      */

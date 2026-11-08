@@ -33,7 +33,8 @@ import com.titan.core.domain.model.XpEvent
  * Not the exponential curve most XP systems use: this one is a training log rather than a
  * game with an endgame to pace people towards, and a curve that stretches means a lifter
  * who trains just as hard in year two sees their bar move slower for it. Linear keeps "a
- * session is about a third of a level" true forever.
+ * week at the goal is about two levels" — the year's target, 99 levels over 52 weeks — true
+ * forever.
  */
 object XpCalculator {
 

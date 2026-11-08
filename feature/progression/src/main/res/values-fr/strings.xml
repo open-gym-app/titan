@@ -250,9 +250,9 @@
     <string name="quest_log_streak_none">Aucun enchaînement en cours</string>
     <string name="quest_log_streak_none_body">Atteignez votre objectif de la semaine pour en commencer un.</string>
     <plurals name="quest_log_week_progress">
-        <item quantity="one">%1$d séance sur %2$d cette semaine</item>
-        <item quantity="many">%1$d séances sur %2$d cette semaine</item>
-        <item quantity="other">%1$d séances sur %2$d cette semaine</item>
+        <item quantity="one">%1$d sur %2$d séance cette semaine</item>
+        <item quantity="many">%1$d sur %2$d séances cette semaine</item>
+        <item quantity="other">%1$d sur %2$d séances cette semaine</item>
     </plurals>
     <string name="quest_log_week_met">Objectif de la semaine atteint</string>
 

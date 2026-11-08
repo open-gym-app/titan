@@ -125,6 +125,7 @@ internal fun justLevelledUpQuestLog(): QuestLogUiState {
         protection = StreakProtection(remaining = 1, period = FIXTURE_MONTH),
         // The session that levelled them up also met the week's goal.
         sessionsThisWeek = 3,
+        isWeekGoalMet = true,
         weeklyGoal = 3,
         // A single drop, which is the section at its shortest — a user a few weeks in.
         recentLoot = listOf(drop(Collectibles.WORN_WRISTBAND, daysAgo = 2)),
