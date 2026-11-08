@@ -1,0 +1,33 @@
+O Titan é um diário de treino que roda inteiramente no seu celular. Registre cada série com um toque, siga uma meta que o app calcula a partir do seu histórico e veja suas cargas crescerem. Sem conta, sem nuvem, sem anúncios.
+
+REGISTRE SEU TREINO
+• Comece de um modelo ou do zero e marque as séries conforme avança: carga, repetições e RPE, ou tempo e distância para isometria e cardio.
+• Um timer de descanso que continua contando em segundo plano e avisa quando voltar.
+• Uma calculadora de anilhas que monta a barra com as anilhas que você realmente tem.
+• 17 modelos prontos desde o primeiro dia: empurrar, puxar, pernas, superiores e inferiores, corpo inteiro, HIIT, remo, alongamento e mais. Edite, renomeie ou crie os seus.
+
+SAIBA O QUE LEVANTAR DEPOIS
+• Uma meta em cada série: manter a carga e somar uma repetição, ou aumentar a carga quando você mereceu, de acordo com seu objetivo e seu nível.
+• Um aquecimento e um desaquecimento para os músculos que o treino trabalha. Nada entra no seu registro sem a sua aprovação.
+
+ACOMPANHE SEU PROGRESSO
+• Recordes pessoais, 1RM estimado e um gráfico de progresso para cada exercício.
+• Volume, treinos por semana e tempo de treino em 7 dias, 30 dias, 90 dias, um ano ou todo o histórico.
+• Um calendário dos treinos, e seu peso corporal e medidas ao longo do tempo.
+• Níveis, missões e conquistas que recompensam a constância.
+
+MAIS DE 800 EXERCÍCIOS
+Uma biblioteca com busca, com os músculos que cada um trabalha e como executá-lo. Adicione os seus.
+
+SEUS DADOS SÃO SEUS
+• O Titan não tem permissão de acesso à internet: nada pode sair do celular, e não há análises de uso, relatórios de falhas nem publicidade.
+• Faça backup de tudo em um único arquivo e restaure em qualquer aparelho, ou deixe o Titan gravar uma cópia toda semana.
+• Apague tudo em Configurações quando quiser.
+
+FEITO PARA TODOS
+• Tema claro ou escuro, sistema métrico ou imperial.
+• Em português, inglês, francês e espanhol.
+• Desenvolvido e testado com TalkBack, fontes grandes e uso com uma mão.
+• Lembretes de treino nos dias e no horário que você escolher.
+
+O Titan é gratuito e de código aberto, sob a licença GNU GPL v3.0. A biblioteca de exercícios vem do projeto free-exercise-db.

@@ -90,7 +90,7 @@ Record the date each is submitted. An answer changes only with this file.
 | **Privacy policy** | <https://open-gym-app.github.io/privacy> | ☐ |
 | **Ads** | No, the app does not contain ads. | ☐ |
 | **App access** | All functionality is available without special access: no login, no account, no gated content. | ☐ |
-| **Content rating** | Owned by #46's questionnaire. | ☐ |
+| **Content rating** | See Content rating (IARC) below. | ☐ |
 | **Target audience and content** | Ages **13–15, 16–17 and 18+**. Not designed for children; no features appeal to children under 13. No social features, no user-to-user communication, no ads. | ☐ |
 | **News app** | No. | ☐ |
 | **Government app** | No. | ☐ |
@@ -99,6 +99,46 @@ Record the date each is submitted. An answer changes only with this file.
 | **Exact alarm permission** (`USE_EXACT_ALARM`) | Core functionality: *Timer* — the rest timer between sets must go off on the second, with the screen off. Also used for user-scheduled workout reminders. | ☐ |
 | **Foreground service permissions** | Not applicable: no `foregroundServiceType` declared (see Evidence). | ☐ |
 | **Data safety** | See below. | ☐ |
+
+## Content rating (IARC)
+
+Play Console › Policy › App content › Content rating. The questionnaire is IARC's, and the
+certificate it issues covers every storefront that uses IARC ratings, Play included.
+
+**Status: not submitted.** The answers below are prepared from the app as built; submitting
+them, and recording the certificate, is the remaining step.
+
+### Category
+
+**All other app types.** Titan has levels, quests and loot, but it is a training log those sit
+on top of rather than a game: there is no play outside logging a real workout. Choosing *Game*
+would ask about game content that does not exist.
+
+### Answers
+
+| Question | Answer | Why |
+| --- | --- | --- |
+| Violence, blood or gore | No | |
+| Sexual content or nudity | No | |
+| Profanity or crude humour | No | |
+| Drugs, alcohol or tobacco | No | |
+| Gambling, simulated or real | No | Loot drops are rolled from finishing a workout, cost nothing, cannot be bought and have no value outside the app |
+| Fear or horror | No | |
+| Users can interact or exchange content | No | No accounts, no sharing inside the app, no network access |
+| Shares the user's location | No | No location permission |
+| Digital purchases | No | No billing library, no paid content |
+| Unrestricted internet access | No | The release manifest strips `INTERNET` (`app/src/main/AndroidManifest.xml`), guarded by `NetworkPolicyTest` |
+
+Expected result: the lowest rating in every territory (ESRB Everyone, PEGI 3, USK 0).
+
+### Certificate
+
+| Field | Value |
+| --- | --- |
+| Submitted on | — |
+| IARC certificate ID | — |
+| Ratings issued | — |
+| Commit the answers were checked against | — |
 
 ## Data safety
 

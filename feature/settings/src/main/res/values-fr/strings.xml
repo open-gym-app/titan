@@ -30,6 +30,13 @@
     <string name="settings_fitness_level">Niveau d’entraînement</string>
     <string name="settings_one_rep_max_formula">Formule de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Comment le maximum estimé sur une répétition est calculé</string>
+    <string name="settings_weekly_goal">Objectif hebdomadaire</string>
+    <string name="settings_weekly_goal_detail">Séances par semaine qui font durer votre enchaînement</string>
+    <plurals name="settings_weekly_goal_value">
+        <item quantity="one">%1$d séance par semaine</item>
+        <item quantity="many">%1$d séances par semaine</item>
+        <item quantity="other">%1$d séances par semaine</item>
+    </plurals>
     <string name="settings_warmup_suggestions">Suggestions d’échauffement</string>
     <string name="settings_warmup_suggestions_detail">Proposer un échauffement et un retour au calme selon les muscles travaillés</string>
 

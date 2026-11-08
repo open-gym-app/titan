@@ -156,6 +156,7 @@ class BackupIdempotencyTest : RoomTestBase() {
             sessionRepository = sessions,
             personalRecordRepository = records,
             gamificationRepository = gamification,
+            userPreferencesRepository = preferences,
         )
     }
 

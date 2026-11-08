@@ -249,6 +249,10 @@ data class SessionLootClaimRow(@SerialName("session_id") val sessionId: Long) : 
  * pins it, and a format that omitted it would be a format that disagreed with the schema it
  * claims to mirror. The importer refuses a document that holds more than one of these, or one
  * whose id is not 1, rather than letting SQLite's `CHECK` fail with an untyped error.
+ *
+ * [weekSessions] is nullable for the one reason a column of this format ever is without the
+ * table's being: telling a file from before the weekly streak apart from one that holds zero —
+ * see [com.titan.core.domain.backup.WeeklyStreakUpgrade].
  */
 @Serializable
 data class UserProgressRow(
@@ -258,6 +262,10 @@ data class UserProgressRow(
     @SerialName("current_streak") val currentStreak: Int,
     @SerialName("longest_streak") val longestStreak: Int,
     @SerialName("last_counted_at") val lastCountedAt: Long? = null,
+    // Null only in a file written before the streak was weekly, which had no such column;
+    // [com.titan.core.domain.backup.WeeklyStreakUpgrade] fills it before anything else reads it.
+    @SerialName("week_sessions") val weekSessions: Int? = null,
+    @SerialName("week_goal_met") val weekGoalMet: Boolean = false,
     @SerialName("protection_remaining") val protectionRemaining: Int,
     @SerialName("protection_period") val protectionPeriod: String? = null,
     @SerialName("protection_consumed_at") val protectionConsumedAt: Long? = null,

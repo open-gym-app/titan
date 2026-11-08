@@ -2,6 +2,7 @@ package com.titan.core.domain.backup
 
 import com.titan.core.domain.backup.model.PlateStockPayload
 import com.titan.core.domain.backup.model.PreferencesPayload
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
@@ -35,6 +36,7 @@ fun UserPreferences.toPayload(): PreferencesPayload =
         customRepRangeMax = customRepRange.max,
         customIncrement = customIncrement,
         warmupSuggestions = warmupSuggestions,
+        weeklyWorkoutGoal = weeklyWorkoutGoal,
     )
 
 /**
@@ -72,6 +74,10 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         // Absent is a file from before the cards existed, and a user who has never turned
         // them off has them on — the same answer a fresh install gets.
         warmupSuggestions = warmupSuggestions ?: DEFAULT_WARMUP_SUGGESTIONS,
+        // Absent is a file from before the goal existed; out of range is one the model would
+        // refuse. Either way the user has no goal this build can use, so they get the default.
+        weeklyWorkoutGoal = weeklyWorkoutGoal?.takeIf { it in StreakCalculator.WEEKLY_GOAL_RANGE }
+            ?: StreakCalculator.DEFAULT_WEEKLY_GOAL,
         onboardingCompleted = onboardingCompleted,
     )
 

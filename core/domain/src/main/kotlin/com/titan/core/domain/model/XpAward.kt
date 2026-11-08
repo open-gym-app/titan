@@ -29,7 +29,7 @@ data class XpAward(
      * True for exactly one event per *crossing*: the award that took the total past a
      * threshold, never the ones on either side of it. That is one event per level gained
      * only while no single award is worth more than a level — true of today's constants,
-     * where the largest award (an achievement) is worth exactly one level. Retune one above
+     * where the largest award (a monthly quest) is worth half a level. Retune one above
      * `XP_PER_LEVEL` and an award can clear two thresholds at once; it still reports a single
      * level-up, with [level] two above [previousLevel] rather than one, so a celebration
      * should announce the jump from [previousLevel] to [level] rather than assume it is one.

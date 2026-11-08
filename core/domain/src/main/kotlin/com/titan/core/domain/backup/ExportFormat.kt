@@ -171,7 +171,7 @@ object ExportFormat {
             when (val version = source.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
 
-                ExportDocument.SCHEMA_VERSION -> Decoded.Success(source.readDocument())
+                ExportDocument.SCHEMA_VERSION -> Decoded.Success(WeeklyStreakUpgrade.apply(source.readDocument()))
 
                 else -> Decoded.Refused(
                     ImportError.UnsupportedSchemaVersion(found = version, supported = ExportDocument.SCHEMA_VERSION),

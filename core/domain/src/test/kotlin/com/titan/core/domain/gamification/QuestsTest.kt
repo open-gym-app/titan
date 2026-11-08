@@ -142,11 +142,11 @@ class QuestsTest {
     }
 
     @Test
-    fun `a monthly quest is worth at least two levels`() {
+    fun `a monthly quest is worth at least five sessions`() {
         Quests.ALL.filter { it.period == QuestPeriod.MONTHLY }.forEach { quest ->
             assertTrue(
                 "${quest.id} does not pay for a month",
-                quest.xpReward >= 2 * XpCalculator.XP_PER_LEVEL,
+                quest.xpReward >= MONTHLY_SESSIONS_WORTH * XpCalculator.XP_PER_SESSION,
             )
         }
     }
@@ -201,5 +201,11 @@ class QuestsTest {
         Quests.ALL.forEach { quest ->
             assertTrue("${quest.id} is only met exactly on its target", quest.isMetBy(quest.target + 50))
         }
+    }
+
+    private companion object {
+
+        /** What a month's quest has to be worth, in sessions — see the note on [Quests]. */
+        const val MONTHLY_SESSIONS_WORTH = 5
     }
 }

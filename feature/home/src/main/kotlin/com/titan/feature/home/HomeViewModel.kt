@@ -483,18 +483,18 @@ class HomeViewModel @Inject constructor(
      * asked here rather than restated.
      *
      * Asked at assembly, which is every time the tab is opened and again at each local
-     * midnight. A streak lapses [StreakCalculator.STREAK_GRACE_HOURS] after the session it was
-     * counted from rather than on any boundary this screen wakes for, so a phone left on Home
-     * can hold a lapsed figure until the day turns. A timer for that would be a wake-up
-     * scheduled per user per streak to take away a number nobody is looking at.
+     * midnight. A streak lapses when a UTC week closes short of its goal rather than on any
+     * boundary this screen wakes for, so a phone left on Home can hold a lapsed figure until
+     * the day turns. A timer for that would be a wake-up scheduled per user per streak to take
+     * away a number nobody is looking at.
      *
-     * Zero reads as no streak rather than as "0 days": the store only ever writes at least
-     * [com.titan.core.domain.model.StreakResult.FIRST_DAY] for a session that counted, so a
-     * zero here is a user who has never had one.
+     * Zero reads as no streak rather than as "0 weeks": a streak of none — a first week still
+     * short of its goal, or one that has just been broken — is not a figure worth drawing.
      */
     private fun UserProgress?.liveStreak(): Int? {
         val progress = this ?: return null
-        if (!StreakCalculator.isLive(progress.lastCountedAt, Instant.ofEpochMilli(clock.nowMillis()))) return null
+        val now = Instant.ofEpochMilli(clock.nowMillis())
+        if (!StreakCalculator.isLive(progress.lastCountedAt, progress.weekGoalMet, asOf = now)) return null
         return progress.currentStreak.takeIf { it > 0 }
     }
 

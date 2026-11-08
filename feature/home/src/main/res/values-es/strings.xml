@@ -34,9 +34,9 @@
         <item quantity="other">%1$d sesiones</item>
     </plurals>
     <plurals name="home_week_streak">
-        <item quantity="one">Racha de %1$d día</item>
-        <item quantity="many">Racha de %1$d días</item>
-        <item quantity="other">Racha de %1$d días</item>
+        <item quantity="one">Racha de %1$d semana</item>
+        <item quantity="many">Racha de %1$d semanas</item>
+        <item quantity="other">Racha de %1$d semanas</item>
     </plurals>
 
     <!-- ── Quick start ───────────────────────────────────────────────────────────── -->

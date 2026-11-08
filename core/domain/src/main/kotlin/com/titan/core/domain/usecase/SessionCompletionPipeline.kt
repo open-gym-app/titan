@@ -16,6 +16,7 @@ import com.titan.core.domain.model.XpGrant
 import com.titan.core.domain.repository.GamificationRepository
 import com.titan.core.domain.repository.PersonalRecordRepository
 import com.titan.core.domain.repository.SessionRepository
+import com.titan.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.time.Instant
@@ -102,10 +103,10 @@ import java.time.Instant
  *
  * - detection compares *strictly* better, so a second pass beats the records the first one
  *   wrote and inserts nothing ([PrDetectionUseCase]);
- * - the streak's same-day rule leaves an already-counted session
- *   [com.titan.core.domain.model.StreakResult.Unchanged] ([StreakCalculator]), which is
- *   also what stops a re-entry spending a second streak protection on the same missed day —
- *   see [StreakCalculator.advance];
+ * - the streak counts a session only if it finished after the last one counted, which leaves
+ *   an already-counted session [com.titan.core.domain.model.StreakResult.Unchanged]
+ *   ([StreakCalculator]) and is also what stops a re-entry spending a second streak
+ *   protection on the same short week — see [StreakCalculator.advance];
  * - an unlock is insert-if-absent and its XP sits behind the insert's answer
  *   ([AchievementTriggerUseCase]);
  * - a quest completion is the same insert-if-absent, narrowed to a period, with its XP behind
@@ -182,6 +183,7 @@ class SessionCompletionPipeline(
     private val sessionRepository: SessionRepository,
     private val personalRecordRepository: PersonalRecordRepository,
     private val gamificationRepository: GamificationRepository,
+    private val userPreferencesRepository: UserPreferencesRepository,
 ) {
 
     /**
@@ -196,7 +198,8 @@ class SessionCompletionPipeline(
      *   the row.
      * @param finishedAt when that session finished — the workout's own moment, read from the
      *   row on a re-entry rather than from a clock, so a record's `achievedAt`, an unlock's
-     *   `unlockedAt` and the day the streak counts on all stay the day the training happened.
+     *   `unlockedAt` and the week the streak counts it in all stay the ones the training
+     *   happened in.
      */
     suspend operator fun invoke(
         sessionId: Long,
@@ -220,7 +223,10 @@ class SessionCompletionPipeline(
         }
 
         val streak = runStep(SessionProgressionStep.STREAK, failures) {
-            gamificationRepository.updateStreak { state -> StreakCalculator.advance(state, finishedAt) }
+            // Read before the transaction rather than inside it: the transform must be pure, and
+            // the goal in force is the one the user has set at the moment the session is applied.
+            val weeklyGoal = userPreferencesRepository.observe().first().weeklyWorkoutGoal
+            gamificationRepository.updateStreak { state -> StreakCalculator.advance(state, finishedAt, weeklyGoal) }
         }
 
         val unlocks = mutableListOf<AchievementUnlock>()
@@ -228,7 +234,7 @@ class SessionCompletionPipeline(
             triggerAchievements(progressAfter(streak), finishedAt, into = unlocks)
         }
 
-        // Not fenced by the streak the way achievements are: no quest counts streak days, so a
+        // Not fenced by the streak the way achievements are: no quest counts streak weeks, so a
         // streak step that failed leaves this one evaluating a board that is entirely intact.
         val quests = mutableListOf<QuestCompletion>()
         runStep(SessionProgressionStep.QUESTS, failures) {
@@ -314,7 +320,7 @@ class SessionCompletionPipeline(
         }
         return AchievementProgress(
             sessionsFinished = sessionRepository.countFinished(),
-            currentStreak = counted.days,
+            currentStreak = counted.weeks,
             recordsBroken = personalRecordRepository.count(),
         )
     }

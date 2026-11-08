@@ -247,10 +247,12 @@ private fun sampleProgress() =
     UserProgressRow(
         id = UserProgressRow.SINGLE_ROW_ID,
         totalXp = 4_200,
-        currentLevel = 7,
+        currentLevel = 8,
         currentStreak = 3,
         longestStreak = 11,
         lastCountedAt = FINISHED_AT,
+        weekSessions = 2,
+        weekGoalMet = true,
         protectionRemaining = 2,
         protectionPeriod = "2026-09",
         protectionConsumedAt = STARTED_AT,

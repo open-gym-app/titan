@@ -8,8 +8,8 @@ import com.titan.core.domain.model.StreakProtection
 
 /**
  * The user's gamification progress: the XP they have banked, the level it buys, the streak
- * they are on, the session that streak was last counted from, and what is left of the monthly
- * allowance that saves it from a missed day.
+ * they are on, where the week in progress stands against its goal, and what is left of the
+ * monthly allowance that saves the streak from a short week.
  *
  * ### One row, pinned by the schema
  *
@@ -37,14 +37,17 @@ import com.titan.core.domain.model.StreakProtection
  *   [XpCalculator] rather than counted up by hand. Stored rather than derived on read so a
  *   level-up can be reported by the write that caused it; a level that disagrees with the
  *   total is the one inconsistency `GamificationRepository.addXp` exists to rule out.
- * @property currentStreak consecutive days trained, per
+ * @property currentStreak consecutive weeks that met the weekly goal, per
  *   [com.titan.core.domain.gamification.StreakCalculator].
  * @property longestStreak the best [currentStreak] ever held, which a reset does not lower.
- * @property lastCountedAt when the session the streak was last *counted* from finished, in
- *   epoch milliseconds, or null for a user with no streak history. Deliberately not "when
- *   the last session finished": a second session on a day already counted leaves this where
- *   it is, which is what keeps the same-day rule from sliding the grace window forward with
- *   every workout — the calculator's parameter of the same name says the rest.
+ * @property lastCountedAt when the last session that counted towards the streak finished, in
+ *   epoch milliseconds, or null for a user with no streak history. A session finished at or
+ *   before it counts nothing, which is what keeps a re-run of the cascade from counting a
+ *   session twice — the calculator's state of the same name says the rest.
+ * @property weekSessions the sessions counted in the week [lastCountedAt] falls in.
+ * @property weekGoalMet whether that week has met its goal, and so whether [currentStreak]
+ *   includes it. Stored rather than derived from [weekSessions] because the goal is a setting
+ *   that can change mid-week — see `StreakState.weekGoalMet`.
  * @property protectionRemaining streak protections left in [protectionPeriod]. Defaulted to a
  *   full allowance, which is what a user who has never trained holds — see [StreakProtection].
  * @property protectionPeriod the month [protectionRemaining] belongs to, as `YYYY-MM`
@@ -56,9 +59,9 @@ import com.titan.core.domain.model.StreakProtection
  *   column trails the calendar for a user who has not trained this month — see
  *   `GamificationRepository.observeStreak` for why that is deliberate.
  * @property protectionConsumedAt when a protection was last spent, in epoch milliseconds, or
- *   null if none ever has been. Kept for the surfaces that report it, not for the mechanic:
- *   nothing decides anything from this column, and the guarantee that a protection is not
- *   spent twice for one day rests on [lastCountedAt] instead.
+ *   null if none ever has been. A record of the last spend, carried through a backup, not a
+ *   part of the mechanic: nothing decides anything from this column, and the guarantee that a
+ *   protection is not spent twice for one week rests on [lastCountedAt] instead.
  */
 @Entity(tableName = "user_progress")
 data class UserProgressEntity(
@@ -75,6 +78,10 @@ data class UserProgressEntity(
     val longestStreak: Int = 0,
     @ColumnInfo(name = "last_counted_at")
     val lastCountedAt: Long? = null,
+    @ColumnInfo(name = "week_sessions")
+    val weekSessions: Int = 0,
+    @ColumnInfo(name = "week_goal_met")
+    val weekGoalMet: Boolean = false,
     @ColumnInfo(name = "protection_remaining")
     val protectionRemaining: Int = StreakProtection.MONTHLY_ALLOWANCE,
     @ColumnInfo(name = "protection_period")
@@ -106,6 +113,8 @@ data class UserProgressEntity(
                 "`current_streak` INTEGER NOT NULL, " +
                 "`longest_streak` INTEGER NOT NULL, " +
                 "`last_counted_at` INTEGER, " +
+                "`week_sessions` INTEGER NOT NULL, " +
+                "`week_goal_met` INTEGER NOT NULL, " +
                 "`protection_remaining` INTEGER NOT NULL, " +
                 "`protection_period` TEXT, " +
                 "`protection_consumed_at` INTEGER, " +

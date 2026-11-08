@@ -89,7 +89,7 @@ enum class QuestMetric {
  * ### The boundary is UTC, like every other bucket in this app
  *
  * #105 asks for local midnight. This follows `TrainingWeek` and `StreakCalculator` instead,
- * which both cut their days in **UTC** and both document why: the rows carry epoch millis, no
+ * which both cut their weeks in **UTC** and both document why: the rows carry epoch millis, no
  * table stores the zone a session was logged in, and correcting it means a zone in every query.
  *
  * Consistency is the argument. A weekly quest rolling over at local midnight while the streak

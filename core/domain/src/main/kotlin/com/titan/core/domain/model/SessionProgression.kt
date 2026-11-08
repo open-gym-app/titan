@@ -125,7 +125,7 @@ data class SessionProgressionFailure(
  *
  * Declaration order **is** the running order, and the ordering is not free: XP for a record
  * cannot be paid before the record is detected, and an achievement that unlocks on a first
- * record or a seven-day streak cannot be evaluated before either has been written. See
+ * record or a four-week streak cannot be evaluated before either has been written. See
  * [com.titan.core.domain.usecase.SessionCompletionPipeline].
  */
 enum class SessionProgressionStep {
@@ -148,7 +148,7 @@ enum class SessionProgressionStep {
      * After [PR_DETECTION] because a quest can complete on a record, and after [ACHIEVEMENTS]
      * for no stronger reason than that one order has to be written down and quests have no
      * claim on going first. Unlike [ACHIEVEMENTS] it does not depend on [STREAK] — no quest
-     * counts streak days — so a streak that could not be read does not take this step with it.
+     * counts streak weeks — so a streak that could not be read does not take this step with it.
      */
     QUESTS,
 

@@ -652,7 +652,7 @@ class SessionSummaryViewModelTest {
 
             val state = viewModel(sets = pushDaySets()).uiState.value
 
-            assertEquals(135, state.celebration?.xpAwarded)
+            assertEquals(PROGRESSION_XP, state.celebration?.xpAwarded)
             // Taken, not read: a second collector — the same recap reopened from history —
             // must find nothing. See `SessionProgressionHandoff`.
             assertNull(progressionHandoff.take(SESSION_ID))
@@ -686,7 +686,7 @@ class SessionSummaryViewModelTest {
         runTest {
             progressionHandoff.offer(progression())
             val viewModel = viewModel(sets = pushDaySets())
-            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+            assertEquals(PROGRESSION_XP, viewModel.uiState.value.celebration?.xpAwarded)
 
             // A note write re-runs the state builder. The hand-off is empty by then, so a
             // celebration collected inside that builder would vanish here — which is the whole
@@ -695,7 +695,7 @@ class SessionSummaryViewModelTest {
             viewModel.onEvent(SessionSummaryEvent.NoteChanged("felt good"))
             viewModel.onEvent(SessionSummaryEvent.NoteSaved)
 
-            assertEquals(135, viewModel.uiState.value.celebration?.xpAwarded)
+            assertEquals(PROGRESSION_XP, viewModel.uiState.value.celebration?.xpAwarded)
         }
 
     @Test
@@ -719,8 +719,8 @@ class SessionSummaryViewModelTest {
 
             val state = viewModel(sets = pushDaySets()).uiState.value
 
-            assertEquals(13, state.streakSave?.streakDays)
-            assertEquals(2, state.streakSave?.protectionsRemaining)
+            assertEquals(13, state.streakSave?.streakWeeks)
+            assertEquals(0, state.streakSave?.protectionsRemaining)
         }
 
     @Test
@@ -746,9 +746,9 @@ class SessionSummaryViewModelTest {
             progressionHandoff.offer(
                 progression().copy(
                     streak = StreakUpdate(
-                        result = StreakResult.Reset,
+                        result = StreakResult.Reset(newStreak = 0),
                         state = StreakState(
-                            currentStreak = StreakResult.FIRST_DAY,
+                            currentStreak = 0,
                             longestStreak = 12,
                             protection = StreakProtection(remaining = 0),
                         ),
@@ -767,7 +767,7 @@ class SessionSummaryViewModelTest {
     fun `a save is reported even when the session earned no points`() =
         runTest {
             // A re-entered cascade: the XP claim is spent, so nothing is paid — but the streak
-            // step is not behind that claim and can still report a protected day.
+            // step is not behind that claim and can still report a protected week.
             progressionHandoff.offer(
                 SessionProgression(sessionId = SESSION_ID, streak = protectedStreak()),
             )
@@ -775,7 +775,7 @@ class SessionSummaryViewModelTest {
             val state = viewModel(sets = pushDaySets()).uiState.value
 
             assertNull(state.celebration)
-            assertEquals(13, state.streakSave?.streakDays)
+            assertEquals(13, state.streakSave?.streakWeeks)
         }
 
     @Test
@@ -787,23 +787,23 @@ class SessionSummaryViewModelTest {
 
             // The hand-off is emptied by its first taker, so two independent reads would leave
             // whichever ran second with nothing.
-            assertEquals(135, state.celebration?.xpAwarded)
-            assertEquals(13, state.streakSave?.streakDays)
+            assertEquals(PROGRESSION_XP, state.celebration?.xpAwarded)
+            assertEquals(13, state.streakSave?.streakWeeks)
         }
 
-    /** A twelve-day streak carried through a missed day, with one of the three spent on it. */
+    /** A thirteen-week streak carried over a short week, with the month's protection spent on it. */
     private fun protectedStreak(): StreakUpdate =
         StreakUpdate(
-            result = StreakResult.Protected(protectionsRemaining = 2),
+            result = StreakResult.Protected(newStreak = 13, protectionsRemaining = 0),
             state = StreakState(
                 currentStreak = 13,
                 longestStreak = 13,
-                protection = StreakProtection(remaining = 2),
+                protection = StreakProtection(remaining = 0),
             ),
         )
 
     /**
-     * A finish worth 135 points: twelve sets, the session itself, and one record.
+     * A finish worth [PROGRESSION_XP] points: twelve sets, the session itself, and one record.
      *
      * The awards carry a running total because that is how the store hands them back — each was
      * produced inside its own write — and the level the recap reports is the last one's.
@@ -899,6 +899,9 @@ class SessionSummaryViewModelTest {
 
         /** A set id nothing in the session carries. */
         const val NO_SUCH_SET = 999L
+
+        /** What [progression] is worth: twelve sets, the session, and one record. */
+        const val PROGRESSION_XP = 12 * XpCalculator.XP_PER_SET + XpCalculator.XP_PER_SESSION + XpCalculator.XP_PER_PR
     }
 }
 

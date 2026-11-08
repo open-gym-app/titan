@@ -22,7 +22,7 @@ import com.titan.feature.home.R
  * bar under both.
  *
  * ```text
- * LVL 14                                            40 / 100 XP
+ * LVL 14                                           240 / 600 XP
  * ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
  * ```
  *
@@ -44,7 +44,7 @@ import com.titan.feature.home.R
  *
  * ### One node to a screen reader
  *
- * Three pieces of text and a bar, read as one sentence: `Level 14, 60 points to the next level`.
+ * Three pieces of text and a bar, read as one sentence: `Level 14, 360 points to the next level`.
  * A reader that walked them separately would hear `LVL 14`, then a bare proportion, then the
  * same thing a third time from the bar's own description — the call `PersonalRecordRow` and the
  * summary's stat tiles both make, for the same reason.

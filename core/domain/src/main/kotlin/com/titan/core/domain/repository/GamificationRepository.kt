@@ -138,7 +138,7 @@ interface GamificationRepository {
      * ### Why this exists at all
      *
      * Every other step of the cascade is idempotent by construction — PR detection compares
-     * *strictly* better and so beats nothing on a second pass, an already-counted day leaves
+     * *strictly* better and so beats nothing on a second pass, an already-counted session leaves
      * the streak [StreakResult.Unchanged], and an achievement's row is insert-if-absent. XP is
      * the one that is not: [addXp] banks what it is handed, deliberately (#33), so re-running
      * a finished session's events would pay for it twice. This is the fence that stops it, and
@@ -200,8 +200,8 @@ interface GamificationRepository {
      *
      * [advance] is handed the stored state and returns the whole of the next one, rather than
      * this repository deciding anything, so the rule stays in
-     * [com.titan.core.domain.gamification.StreakCalculator] — where the grace window, the
-     * same-day guarantee, the protection threshold and the monthly rollover are stated once
+     * [com.titan.core.domain.gamification.StreakCalculator] — where the weekly goal, the
+     * count-once anchor, the protection threshold and the monthly rollover are stated once
      * and can be retuned without a data-layer change. Implementations persist
      * [StreakUpdate.state] exactly as given and return the update unchanged; there is no
      * second rule on this side of the boundary to keep in step, which is what the previous
@@ -219,15 +219,13 @@ interface GamificationRepository {
     suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate
 
     /**
-     * The stored streak state as it changes — the streak, the best one ever held, and what is
-     * left of this month's protection allowance.
+     * The stored streak state as it changes — the streak, the best one ever held, where the week
+     * in progress stands against its goal, and what is left of this month's protection allowance.
      *
      * A `Flow` rather than a suspend read, unlike everything else on this interface: its
      * consumers are screens rather than the cascade, and a screen open while a session is
      * finished elsewhere in the app must not keep drawing yesterday's streak. #104's quest log
-     * is the first of them; this is the read its acceptance criterion asks for, and it is
-     * declared now rather than with the screen because the mechanic is worthless if the state
-     * it accumulates cannot be looked at.
+     * is the screen that reads it; the reminder takes one value from it at the moment it fires.
      *
      * [StreakState]'s defaults for a user who has never trained, rather than a null: unlike
      * `UserProgressDao.observe`, which distinguishes "nothing written" from "nothing earned"

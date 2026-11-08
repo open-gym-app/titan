@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.titan.core.data.di.UserPreferencesStore
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
@@ -250,6 +251,13 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.WARMUP_SUGGESTIONS] = enabled }
     }
 
+    override suspend fun setWeeklyWorkoutGoal(goal: Int) {
+        require(goal in StreakCalculator.WEEKLY_GOAL_RANGE) {
+            "the weekly workout goal must be in ${StreakCalculator.WEEKLY_GOAL_RANGE}, was $goal"
+        }
+        dataStore.edit { it[UserPreferencesKeys.WEEKLY_WORKOUT_GOAL] = goal }
+    }
+
     override suspend fun setOnboardingCompleted(completed: Boolean) {
         dataStore.edit { it[UserPreferencesKeys.ONBOARDING_COMPLETED] = completed }
     }
@@ -371,6 +379,7 @@ private object UserPreferencesKeys {
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
     val WARMUP_SUGGESTIONS = booleanPreferencesKey("warmup_suggestions")
+    val WEEKLY_WORKOUT_GOAL = intPreferencesKey("weekly_workout_goal")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
     val REMINDER_DAYS = stringPreferencesKey("reminder_days_iso")
     val REMINDER_TIME_MINUTES = intPreferencesKey("reminder_time_minutes")
@@ -400,10 +409,11 @@ private object UserPreferencesKeys {
  * "No usable answer" is four cases and they are handled identically: the key is absent
  * (a fresh install, or a setting never changed), the key holds an enum name this build
  * does not have (a value written by a newer build, or one since renamed), the key holds a
- * number the model refuses (a non-positive rest or bar weight, which no setter would have
- * written), or the key holds a value of the wrong *type* altogether — a build that stored
- * a flag as text, or a hand-edited file. The last two are the ones that would otherwise
- * throw, and they would throw from inside a `map` on a flow a screen is collecting.
+ * number the model refuses (a non-positive rest or bar weight, a weekly goal out of range,
+ * which no setter would have written), or the key holds a value of the wrong *type*
+ * altogether — a build that stored a flag as text, or a hand-edited file. The last two are the
+ * ones that would otherwise throw, and they would throw from inside a `map` on a flow a screen
+ * is collecting.
  *
  * Every read below therefore goes through [valueOrNull] rather than `Preferences.get`,
  * which casts the stored value to the key's type and throws [ClassCastException] when it
@@ -439,6 +449,9 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
             .toEnumOrDefault(defaults.oneRepMaxFormula),
         warmupSuggestions = values.valueOrNull(UserPreferencesKeys.WARMUP_SUGGESTIONS)
             ?: defaults.warmupSuggestions,
+        weeklyWorkoutGoal = values.valueOrNull(UserPreferencesKeys.WEEKLY_WORKOUT_GOAL)
+            ?.takeIf { it in StreakCalculator.WEEKLY_GOAL_RANGE }
+            ?: defaults.weeklyWorkoutGoal,
         notifications = values.toNotificationPreferences(defaults.notifications),
         reminders = values.toReminderPreferences(defaults.reminders),
     )

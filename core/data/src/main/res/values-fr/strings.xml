@@ -40,9 +40,9 @@
     <string name="reminder_title">C’est l’heure de s’entraîner</string>
     <string name="reminder_body">Notez tout. Ça ne compte que si c’est écrit.</string>
     <plurals name="reminder_body_streak">
-        <item quantity="one">%1$d jour d’affilée en jeu. Tenez bon.</item>
-        <item quantity="many">%1$d jours d’affilée en jeu. Tenez bon.</item>
-        <item quantity="other">%1$d jours d’affilée en jeu. Tenez bon.</item>
+        <item quantity="one">%1$d semaine d’affilée en jeu. Tenez bon.</item>
+        <item quantity="many">%1$d semaines d’affilée en jeu. Tenez bon.</item>
+        <item quantity="other">%1$d semaines d’affilée en jeu. Tenez bon.</item>
     </plurals>
     <string name="reminder_action_start">Commencer</string>
 
@@ -57,9 +57,9 @@
     <string name="progression_notification_both">Enchaînement sauvé, et du butin trouvé</string>
 
     <plurals name="progression_notification_streak_saved">
-        <item quantity="one">Votre enchaînement de %1$d jour est sauvé.</item>
-        <item quantity="many">Votre enchaînement de %1$d jours est sauvé.</item>
-        <item quantity="other">Votre enchaînement de %1$d jours est sauvé.</item>
+        <item quantity="one">Votre enchaînement de %1$d semaine est sauvé.</item>
+        <item quantity="many">Votre enchaînement de %1$d semaines est sauvé.</item>
+        <item quantity="other">Votre enchaînement de %1$d semaines est sauvé.</item>
     </plurals>
     <plurals name="progression_notification_protections_left">
         <item quantity="one">%1$d protection restante ce mois-ci.</item>

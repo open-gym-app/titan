@@ -30,6 +30,13 @@
     <string name="settings_fitness_level">Nível de treino</string>
     <string name="settings_one_rep_max_formula">Fórmula de 1RM</string>
     <string name="settings_one_rep_max_formula_detail">Como a carga máxima estimada para uma repetição é calculada</string>
+    <string name="settings_weekly_goal">Meta semanal</string>
+    <string name="settings_weekly_goal_detail">Treinos por semana que mantêm sua sequência</string>
+    <plurals name="settings_weekly_goal_value">
+        <item quantity="one">%1$d treino por semana</item>
+        <item quantity="many">%1$d treinos por semana</item>
+        <item quantity="other">%1$d treinos por semana</item>
+    </plurals>
     <string name="settings_warmup_suggestions">Sugestões de aquecimento</string>
     <string name="settings_warmup_suggestions_detail">Propor um aquecimento e uma volta à calma conforme os músculos do treino</string>
 

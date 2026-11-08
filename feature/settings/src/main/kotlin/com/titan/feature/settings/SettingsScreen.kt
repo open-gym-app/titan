@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
@@ -57,6 +58,7 @@ import com.titan.core.ui.component.detail
 import com.titan.core.ui.component.detailOrNull
 import com.titan.core.ui.component.label
 import com.titan.core.ui.format.formatAsClock
+import com.titan.core.ui.format.formatCount
 import com.titan.core.ui.format.formatReminderSchedule
 import com.titan.core.ui.format.formatWeight
 import com.titan.core.ui.theme.TitanTheme
@@ -281,6 +283,17 @@ private fun WorkoutGroup(
             value = preferences.oneRepMaxFormula.label(),
             supporting = stringResource(R.string.settings_one_rep_max_formula_detail),
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.ONE_REP_MAX_FORMULA)) },
+        )
+        HairlineDivider()
+        // With the training settings rather than on the quest log, because it is a plan the user
+        // makes about their training: the streak is only what keeps count of it.
+        PreferenceRow(
+            label = stringResource(R.string.settings_weekly_goal),
+            // The bare count: the label and the line under it already say what it counts, and
+            // a phrase in the value column squeezes the label into a column of single words.
+            value = formatCount(preferences.weeklyWorkoutGoal),
+            supporting = stringResource(R.string.settings_weekly_goal_detail),
+            onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.WEEKLY_GOAL)) },
         )
         HairlineDivider()
         // The only switch outside the notifications group, and the only row in this one that is
@@ -568,6 +581,19 @@ private fun SettingsDialogs(
             },
             selected = state.preferences.oneRepMaxFormula,
             onSelect = { onEvent(SettingsEvent.OneRepMaxFormulaSelected(it)) },
+            onDismiss = dismiss,
+        )
+
+        SettingsDialog.WEEKLY_GOAL -> ChoiceDialog(
+            title = stringResource(R.string.settings_weekly_goal),
+            choices = StreakCalculator.WEEKLY_GOAL_RANGE.map { goal ->
+                SettingsChoice(
+                    value = goal,
+                    label = pluralStringResource(R.plurals.settings_weekly_goal_value, goal, goal),
+                )
+            },
+            selected = state.preferences.weeklyWorkoutGoal,
+            onSelect = { onEvent(SettingsEvent.WeeklyGoalSelected(it)) },
             onDismiss = dismiss,
         )
 

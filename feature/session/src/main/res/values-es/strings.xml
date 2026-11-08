@@ -245,9 +245,9 @@
     <string name="summary_streak_saved">Racha salvada</string>
     <string name="summary_streak_saved_badge">Salvada</string>
     <plurals name="summary_streak_saved_headline">
-        <item quantity="one">Una protección cubrió el día que faltaste. Tu racha está en %1$d día.</item>
-        <item quantity="many">Una protección cubrió el día que faltaste. Tu racha está en %1$d días.</item>
-        <item quantity="other">Una protección cubrió el día que faltaste. Tu racha está en %1$d días.</item>
+        <item quantity="one">Una protección cubrió tu semana incompleta. Tu racha está en %1$d semana.</item>
+        <item quantity="many">Una protección cubrió tu semana incompleta. Tu racha está en %1$d semanas.</item>
+        <item quantity="other">Una protección cubrió tu semana incompleta. Tu racha está en %1$d semanas.</item>
     </plurals>
     <plurals name="summary_streak_protections_left">
         <item quantity="one">Queda %1$d este mes</item>
@@ -283,8 +283,8 @@
     <string name="achievement_first_session">Primer entrenamiento registrado</string>
     <string name="achievement_ten_sessions">Diez entrenamientos</string>
     <string name="achievement_hundred_sessions">Cien entrenamientos</string>
-    <string name="achievement_seven_day_streak">Una semana de racha</string>
-    <string name="achievement_thirty_day_streak">Un mes de racha</string>
+    <string name="achievement_four_week_streak">Un mes de racha</string>
+    <string name="achievement_twelve_week_streak">Tres meses de racha</string>
     <string name="achievement_first_record">Primer récord personal</string>
     <string name="achievement_unknown">Logro desbloqueado</string>
 

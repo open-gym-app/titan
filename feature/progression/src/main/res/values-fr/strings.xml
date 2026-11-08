@@ -236,19 +236,25 @@
     <string name="level_title_unknown">Pratiquant</string>
 
     <string name="quest_log_streak_heading">Enchaînement</string>
-    <plurals name="quest_log_streak_days">
-        <item quantity="one">%1$d jour</item>
-        <item quantity="many">%1$d jours</item>
-        <item quantity="other">%1$d jours</item>
+    <plurals name="quest_log_streak_weeks">
+        <item quantity="one">%1$d semaine</item>
+        <item quantity="many">%1$d semaines</item>
+        <item quantity="other">%1$d semaines</item>
     </plurals>
     <plurals name="quest_log_streak_best">
-        <item quantity="one">Record : %1$d jour</item>
-        <item quantity="many">Record : %1$d jours</item>
-        <item quantity="other">Record : %1$d jours</item>
+        <item quantity="one">Record : %1$d semaine</item>
+        <item quantity="many">Record : %1$d semaines</item>
+        <item quantity="other">Record : %1$d semaines</item>
     </plurals>
     <string name="quest_log_streak_personal_best">Votre meilleur à ce jour</string>
     <string name="quest_log_streak_none">Aucun enchaînement en cours</string>
-    <string name="quest_log_streak_none_body">Entraînez-vous aujourd’hui pour en commencer un.</string>
+    <string name="quest_log_streak_none_body">Atteignez votre objectif de la semaine pour en commencer un.</string>
+    <plurals name="quest_log_week_progress">
+        <item quantity="one">%1$d sur %2$d séance cette semaine</item>
+        <item quantity="many">%1$d sur %2$d séances cette semaine</item>
+        <item quantity="other">%1$d sur %2$d séances cette semaine</item>
+    </plurals>
+    <string name="quest_log_week_met">Objectif de la semaine atteint</string>
 
     <!-- ─── Streak protection (#106) ────────────────────────────────────────────────────── -->
 
@@ -352,8 +358,8 @@
     <string name="achievement_first_session">Première séance enregistrée</string>
     <string name="achievement_ten_sessions">Dix séances au compteur</string>
     <string name="achievement_hundred_sessions">Cent séances</string>
-    <string name="achievement_seven_day_streak">Une semaine d’affilée</string>
-    <string name="achievement_thirty_day_streak">Un mois d’affilée</string>
+    <string name="achievement_four_week_streak">Un mois d’affilée</string>
+    <string name="achievement_twelve_week_streak">Trois mois d’affilée</string>
     <string name="achievement_first_record">Premier record personnel</string>
     <string name="achievement_unknown">Succès</string>
 

@@ -202,6 +202,19 @@ interface UserPreferencesRepository {
     suspend fun setWarmupSuggestions(enabled: Boolean)
 
     /**
+     * Sets how many workouts a week make a week count towards the streak — see
+     * [com.titan.core.domain.model.UserPreferences.weeklyWorkoutGoal].
+     *
+     * Takes effect from the next session finished. The week in progress keeps whatever it has
+     * already been judged against — see [com.titan.core.domain.gamification.StreakCalculator].
+     *
+     * @throws IllegalArgumentException if [goal] is outside
+     *   [com.titan.core.domain.gamification.StreakCalculator.WEEKLY_GOAL_RANGE].
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setWeeklyWorkoutGoal(goal: Int)
+
+    /**
      * Puts every setting back to the default a fresh install reads, in one write.
      *
      * The one operation that is not "a setter for a named setting", and it earns the

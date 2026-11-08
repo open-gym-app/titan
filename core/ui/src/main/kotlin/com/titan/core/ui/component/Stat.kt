@@ -442,7 +442,7 @@ fun SessionStatGridPreview() {
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm)) {
                 PrBadge()
                 PrBadge(kind = PrType.ESTIMATED_1RM.label())
-                StatChip(value = "12", label = "day streak", accented = true)
+                StatChip(value = "12", label = "week streak", accented = true)
             }
         }
     }
@@ -463,7 +463,7 @@ fun SessionStatGridDarkPreview() {
             Row(horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.sm)) {
                 PrBadge()
                 PrBadge(kind = PrType.MAX_WEIGHT.label())
-                StatChip(value = "12", label = "day streak", accented = true)
+                StatChip(value = "12", label = "week streak", accented = true)
             }
         }
     }

@@ -140,6 +140,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.TrainingGoalSelected -> setTrainingGoal(event)
             is SettingsEvent.FitnessLevelSelected -> setFitnessLevel(event.level)
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
+            is SettingsEvent.WeeklyGoalSelected -> setWeeklyGoal(event.goal)
             is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
             is SettingsEvent.Notification -> onNotificationEvent(event)
             SettingsEvent.RestoreDefaultTemplatesConfirmed -> restoreMissingTemplates()
@@ -195,6 +196,8 @@ class SettingsViewModel @Inject constructor(
 
     private fun setOneRepMaxFormula(formula: OneRepMaxFormula) =
         writeAndDismiss { userPreferencesRepository.setOneRepMaxFormula(formula) }
+
+    private fun setWeeklyGoal(goal: Int) = writeAndDismiss { userPreferencesRepository.setWeeklyWorkoutGoal(goal) }
 
     // `write`, not `writeAndDismiss`: a switch has no dialog to close behind it.
     private fun setWarmupSuggestions(enabled: Boolean) =

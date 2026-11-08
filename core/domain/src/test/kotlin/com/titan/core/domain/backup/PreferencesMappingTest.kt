@@ -1,6 +1,7 @@
 package com.titan.core.domain.backup
 
 import com.titan.core.domain.backup.model.PlateStockPayload
+import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.FitnessLevel
 import com.titan.core.domain.model.OneRepMaxFormula
 import com.titan.core.domain.model.RepRange
@@ -39,10 +40,25 @@ class PreferencesMappingTest {
             customRepRange = RepRange(6, 10),
             customIncrement = 1_250_000,
             oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
+            weeklyWorkoutGoal = 3,
             onboardingCompleted = true,
         )
 
         assertEquals(preferences, preferences.toPayload().toPreferences())
+    }
+
+    @Test
+    fun `a file written before the weekly goal existed restores the default goal`() {
+        val payload = UserPreferences().toPayload().copy(weeklyWorkoutGoal = null)
+
+        assertEquals(StreakCalculator.DEFAULT_WEEKLY_GOAL, payload.toPreferences().weeklyWorkoutGoal)
+    }
+
+    @Test
+    fun `a weekly goal the model refuses restores the default rather than throwing`() {
+        val payload = UserPreferences().toPayload().copy(weeklyWorkoutGoal = 0)
+
+        assertEquals(StreakCalculator.DEFAULT_WEEKLY_GOAL, payload.toPreferences().weeklyWorkoutGoal)
     }
 
     @Test

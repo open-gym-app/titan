@@ -343,7 +343,7 @@
     </plurals>
 
     <!-- ─── Streak protection (#106) ───────────────────────────────────────────────────
-         Drawn only when this session's missed day was actually paid for out of the monthly
+         Drawn only when this session's short week was actually paid for out of the monthly
          allowance, which is a rare card. See `SummaryStreakSave` for why the recap reports a
          resource the app spent without asking. -->
 
@@ -351,10 +351,10 @@
     <!-- The pill on the card. Short enough to sit beside the sentence on a 360dp screen. -->
     <string name="summary_streak_saved_badge">Saved</string>
     <!-- %1$d is the streak *after* this session, which is the figure worth confirming - the
-         protection covered the missed day and today counted on top of it. -->
+         protection carried the streak over the short week. -->
     <plurals name="summary_streak_saved_headline">
-        <item quantity="one">A protection covered your missed day. Your streak stands at %1$d day.</item>
-        <item quantity="other">A protection covered your missed day. Your streak stands at %1$d days.</item>
+        <item quantity="one">A protection covered your short week. Your streak stands at %1$d week.</item>
+        <item quantity="other">A protection covered your short week. Your streak stands at %1$d weeks.</item>
     </plurals>
     <!-- The cost, beside the marks that show it. %1$d is what is left this month. -->
     <plurals name="summary_streak_protections_left">
@@ -362,7 +362,7 @@
         <item quantity="other">%1$d left this month</item>
     </plurals>
     <!-- Its own string rather than a `zero` quantity, which English never selects. Worth saying
-         in words: a user with none left is one bad day from losing the streak above. -->
+         in words: a user with none left is one short week from losing the streak above. -->
     <string name="summary_streak_protections_none">None left this month</string>
     <!-- What a screen reader hears in place of the two lines above, which are the visible half
          of a sentence whose other half is the row of marks beside them. %1$d is what is left,
@@ -404,8 +404,8 @@
     <string name="achievement_first_session">First workout logged</string>
     <string name="achievement_ten_sessions">Ten workouts in</string>
     <string name="achievement_hundred_sessions">One hundred workouts</string>
-    <string name="achievement_seven_day_streak">A week-long streak</string>
-    <string name="achievement_thirty_day_streak">A month-long streak</string>
+    <string name="achievement_four_week_streak">A month-long streak</string>
+    <string name="achievement_twelve_week_streak">A three-month streak</string>
     <string name="achievement_first_record">First personal record</string>
     <!-- A milestone unlocked by a newer build than this one. Drawn rather than dropped: it is
          still a thing the user did. -->

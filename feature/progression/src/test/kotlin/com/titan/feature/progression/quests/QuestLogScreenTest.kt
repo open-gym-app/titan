@@ -49,8 +49,8 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule.onNodeWithText("Steel Forged").assertIsDisplayed()
-        // 1,240 total; level 13 opens at 1,200, and a level costs 100.
-        composeTestRule.onNodeWithText("40 / 100 XP").assertIsDisplayed()
+        // 7,440 total; level 13 opens at 7,200, and a level costs 600.
+        composeTestRule.onNodeWithText("240 / 600 XP").assertIsDisplayed()
     }
 
     @Test
@@ -58,7 +58,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Level 13, 40 / 100 XP, 40% complete")
+            .onNodeWithContentDescription("Level 13, 240 / 600 XP, 40% complete")
             .assertIsDisplayed()
     }
 
@@ -173,18 +173,18 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("6 days, Best: 21 days")
+            .onNodeWithContentDescription("6 weeks, Best: 21 weeks")
             .performScrollTo()
             .assertIsDisplayed()
     }
 
     @Test
     fun `a streak that ties the best says so instead of repeating the figure`() {
-        // "3 days, best 3" is two figures the reader has to compare to find the fact.
+        // "3 weeks, best 3" is two figures the reader has to compare to find the fact.
         setContent(justLevelledUpQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("3 days, Your best yet")
+            .onNodeWithContentDescription("3 weeks, Your best yet")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -197,7 +197,7 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("Newcomer").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Level 1, 0 / 100 XP, 0% complete")
+            .onNodeWithContentDescription("Level 1, 0 / 600 XP, 0% complete")
             .assertIsDisplayed()
     }
 
@@ -207,7 +207,7 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("No streak yet").performScrollTo().assertIsDisplayed()
         composeTestRule
-            .onNodeWithText("Train today to start one.")
+            .onNodeWithText("Meet your weekly goal to start one.")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -247,26 +247,26 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("Iron Disciple").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Level 5, 5 / 100 XP, 5% complete")
+            .onNodeWithContentDescription("Level 5, 5 / 600 XP, 1% complete")
             .assertIsDisplayed()
     }
 
     @Test
     fun `the lifetime total is drawn beside the level's own progress`() {
-        // Two different figures, and the screen shows both: 5 points into level 5, 405 in total.
+        // Two different figures, and the screen shows both: 5 points into level 5, 2,405 in total.
         setContent(justLevelledUpQuestLog())
 
-        composeTestRule.onNodeWithText("405 XP earned in total").assertIsDisplayed()
+        composeTestRule.onNodeWithText("2,405 XP earned in total").assertIsDisplayed()
     }
 
     // ─── Streak protection ──────────────────────────────────────────────────────────────
 
     @Test
-    fun `the allowance is drawn with what is left of it`() {
+    fun `a spent allowance says it is gone rather than drawing a zero`() {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Streak protection, 2 of 3 streak protections left this month")
+            .onNodeWithContentDescription("Streak protection, Your 1 streak protection is gone for this month")
             .performScrollTo()
             .assertIsDisplayed()
     }
@@ -274,13 +274,36 @@ class QuestLogScreenTest {
     @Test
     fun `a brand-new user is shown a full allowance beside their absent streak`() {
         // Drawn in both streak states: a user with no streak still has an allowance, and it is
-        // what keeps the run they are about to start from being lost to one missed day.
+        // what keeps the run they are about to start from being lost to one short week.
         setContent(emptyQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Streak protection, 3 of 3 streak protections left this month")
+            .onNodeWithContentDescription("Streak protection, 1 of 1 streak protection left this month")
             .performScrollTo()
             .assertIsDisplayed()
+    }
+
+    // ─── The week against the goal ──────────────────────────────────────────────────────
+
+    @Test
+    fun `the week in progress is counted against the goal`() {
+        setContent(populatedQuestLog())
+
+        composeTestRule.onNodeWithText("2 of 4 workouts this week").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a week that has met its goal says so`() {
+        setContent(justLevelledUpQuestLog())
+
+        composeTestRule.onNodeWithText("Weekly goal met").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun `a brand-new user is shown the goal a first week has to meet`() {
+        setContent(emptyQuestLog())
+
+        composeTestRule.onNodeWithText("0 of 4 workouts this week").performScrollTo().assertIsDisplayed()
     }
 
     // ─── Recent loot ────────────────────────────────────────────────────────────────────

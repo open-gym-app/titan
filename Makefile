@@ -27,6 +27,7 @@ SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
 .PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check test journeys screenshots screenshots-verify lint \
+	demo-data store-screenshots \
 	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
 help: ## List the available targets
@@ -66,6 +67,16 @@ screenshots: ## Re-record the screenshot references after an intended visual cha
 
 screenshots-verify: ## Compare the rendered UI against the committed references
 	./gradlew verifyRoborazziDebug
+
+# The store listing's generated half (#46) — see tools/demo/README.md. `--rerun` because the
+# outputs live outside the build directory, where Gradle cannot see them go stale.
+STORE_ASSETS := ./gradlew :app:testDebugUnitTest -Ptitan.storeAssets.record=true --rerun
+
+demo-data: ## Regenerate the demo exports under tools/demo/ the store screenshots are taken from
+	$(STORE_ASSETS) --tests "com.titan.app.store.DemoDatasetTest"
+
+store-screenshots: ## Re-capture the Play listing's phone screenshots in all four locales
+	$(STORE_ASSETS) --tests "com.titan.app.store.StoreScreenshotTest"
 
 lint: ## Run detekt and the Android linter
 	./gradlew detekt lint

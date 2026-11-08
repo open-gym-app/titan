@@ -2,6 +2,7 @@ package com.titan.feature.progression.quests.component
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,32 +29,41 @@ import com.titan.feature.progression.R
 import com.titan.core.ui.R as CoreR
 
 /**
- * The streak: how many days running, and whether that is the best it has been.
+ * The streak: how many weeks running the user has met their weekly goal, whether that is the
+ * best it has been, and where this week stands against the goal.
  *
  * ### The flame burns while the streak does
  *
  * A live streak is drawn with [StreakFlame] beside its count — the one perpetual animation in the
- * app, and the one figure on this screen that is true only until tomorrow. A streak of zero gets
+ * app, and the one figure on this screen that a week can take away. A streak of zero gets
  * no flame at all rather than a dead one; that component's KDoc carries the argument.
  *
  * ### Two states, because a streak of zero is not a small streak
  *
- * A user who has never trained, and one who let a thirty-day run lapse, both read zero here — the
+ * A user who has never trained, and one who let a thirty-week run lapse, both read zero here — the
  * store cannot tell them apart, and neither can this. Both get an invitation to start one rather
  * than a `0` next to a flame, which is a number that reads as a failure rather than as a
  * beginning.
  *
  * A **lapsed** run reads the same way, and that is the point of [isLive]. The stored count is only
  * recomputed when a session finishes, so it stands at twelve for as long as nobody trains; drawing
- * it unasked would tell somebody who last trained in March that they are twelve days deep, which
+ * it unasked would tell somebody who last trained in March that they are twelve weeks deep, which
  * is the one thing a streak must never do. The ViewModel asks the clock — see
  * `StreakCalculator.isLive` — and this card draws the invitation for a run that is over.
  *
  * ### "Your best yet" replaces the best, rather than sitting beside it
  *
- * `5 days · Best: 5 days` is two figures the reader has to compare to find the fact. When the
+ * `5 weeks · Best: 5 weeks` is two figures the reader has to compare to find the fact. When the
  * current run *is* the best, the card says so and drops the redundant number. That is the moment
  * worth marking on this screen, so it takes the accent badge.
+ *
+ * ### This week sits under the count, in both states
+ *
+ * A weekly goal is only something to aim at if the user can see how far through it they are, and
+ * this is the screen that explains the streak. So the week in progress is drawn under the count —
+ * "2 of 4 workouts this week" — whether or not there is a streak to extend: for a user with none
+ * it is how one starts. Once the goal is met the line says so instead, in the accent, because
+ * that is the moment the week joined the streak.
  *
  * ### Streak protection sits under the count, not beside it
  *
@@ -65,7 +75,7 @@ import com.titan.core.ui.R as CoreR
  *
  * Drawn in **both** streak states, unlike everything else here. A user with no streak still has an
  * allowance, and it is the state where knowing about it matters most — a protection is what keeps
- * the run they are about to start from being lost to one missed day. The card would also be
+ * the run they are about to start from being lost to one short week. The card would also be
  * claiming the allowance did not exist by omitting it, which is worse than saying nothing.
  *
  * The marks come from [StreakShields] in `:core:ui`, which the just-finished recap draws too;
@@ -77,6 +87,9 @@ internal fun StreakCard(
     isLive: Boolean,
     isOnBest: Boolean,
     protection: StreakProtection,
+    sessionsThisWeek: Int,
+    isWeekGoalMet: Boolean,
+    weeklyGoal: Int,
     modifier: Modifier = Modifier,
 ) {
     TitanCard(modifier = modifier.fillMaxWidth()) {
@@ -93,6 +106,8 @@ internal fun StreakCard(
             } else {
                 Streak(progress = progress, isOnBest = isOnBest)
             }
+
+            ThisWeek(sessions = sessionsThisWeek, goal = weeklyGoal, met = isWeekGoalMet)
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -169,8 +184,8 @@ private fun Streak(
     progress: UserProgress,
     isOnBest: Boolean,
 ) {
-    val days = pluralStringResource(
-        R.plurals.quest_log_streak_days,
+    val weeks = pluralStringResource(
+        R.plurals.quest_log_streak_weeks,
         progress.currentStreak,
         progress.currentStreak,
     )
@@ -180,24 +195,33 @@ private fun Streak(
         progress.longestStreak,
     )
     val personalBest = stringResource(R.string.quest_log_streak_personal_best)
-    val clauses = listOf(days, if (isOnBest) personalBest else best)
+    val clauses = listOf(weeks, if (isOnBest) personalBest else best)
         .joinToString(stringResource(CoreR.string.spoken_separator))
 
-    Row(
-        // One node: "12 days, best 30" is one fact, and two nodes for it is two swipes.
+    // A flow rather than a row: "Best: 21 weeks" beside a large count does not fit a narrow
+    // screen in every language, and the best moving under the count whole reads better than it
+    // breaking across two lines beside it.
+    FlowRow(
+        // One node: "12 weeks, best 30" is one fact, and two nodes for it is two swipes.
         modifier = Modifier
             .fillMaxWidth()
             .clearAndSetSemantics { contentDescription = clauses },
         horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
-        verticalAlignment = Alignment.CenterVertically,
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        StreakFlame()
+        // The flame and the count are one item, so the flame never wraps away from its figure.
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StreakFlame()
 
-        Text(
-            text = days,
-            style = TitanTheme.typography.numericLarge,
-            color = MaterialTheme.colorScheme.primary,
-        )
+            Text(
+                text = weeks,
+                style = TitanTheme.typography.numericLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         if (isOnBest) {
             TitanBadge(text = personalBest, tone = BadgeTone.ACCENT)
         } else {
@@ -208,6 +232,31 @@ private fun Streak(
             )
         }
     }
+}
+
+/**
+ * The week in progress against the goal, or that the goal is met.
+ *
+ * [met] is the streak's own answer, not `sessions >= goal`: after a mid-week change of goal the
+ * two disagree until the next session, and this line must not promise a week the streak has not
+ * counted. A lowered goal can therefore read "3 of 3" for a moment — true, and the next workout
+ * turns it into "met".
+ */
+@Composable
+private fun ThisWeek(
+    sessions: Int,
+    goal: Int,
+    met: Boolean,
+) {
+    Text(
+        text = if (met) {
+            stringResource(R.string.quest_log_week_met)
+        } else {
+            pluralStringResource(R.plurals.quest_log_week_progress, goal, sessions, goal)
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (met) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

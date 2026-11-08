@@ -2,6 +2,7 @@ package com.titan.feature.home
 
 import androidx.lifecycle.SavedStateHandle
 import com.titan.core.domain.gamification.Quests
+import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.ActiveExercise
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.ActiveSet
@@ -442,20 +443,20 @@ class HomeViewModelTest {
     @Test
     fun `the standing becomes a level and the points banked into it`() =
         runTest {
-            // 1,340 points on a hundred-a-level curve: level 14, forty points in.
-            progress.setProgress(standing(totalXp = 1_340, level = 14))
+            // 7,840 points on a six-hundred-a-level curve: level 14, forty points in.
+            progress.setProgress(standing(totalXp = 7_840, level = 14))
 
             val level = requireNotNull(viewModel().uiState.value.level)
 
             assertEquals(14, level.level)
             assertEquals(40, level.xpIntoLevel)
-            assertEquals(100, level.xpForLevel)
+            assertEquals(XpCalculator.XP_PER_LEVEL, level.xpForLevel)
         }
 
     @Test
     fun `nothing banked yet draws no header at all`() =
         runTest {
-            // Not `LVL 1 · 0 / 100 XP`. A user who has done nothing is told what they can do,
+            // Not `LVL 1 · 0 / 600 XP`. A user who has done nothing is told what they can do,
             // not what they have not — see HomeUiState.level.
             val home = viewModel().uiState.value
 
@@ -473,24 +474,33 @@ class HomeViewModelTest {
         }
 
     @Test
-    fun `a streak counted yesterday is still running`() =
+    fun `a streak whose last week met its goal is still running`() =
         runTest {
-            // The boundary the whole mechanic turns on: the day after counts, so a lifter who
-            // trained yesterday and has not trained today has not lost anything yet.
+            // The boundary the whole mechanic turns on: the week in progress is not judged until
+            // it is over, so a lifter who met last week's goal has not lost anything yet.
             sessions.setSessions(listOf(loggedSession(1, TODAY)))
-            progress.setProgress(standing(currentStreak = 4, lastCountedAt = TODAY.minusDays(1)))
+            progress.setProgress(standing(currentStreak = 4, lastCountedAt = TODAY.minusWeeks(1), weekGoalMet = true))
 
             assertEquals(4, requireNotNull(viewModel().uiState.value.week).streak)
+        }
+
+    @Test
+    fun `a streak whose last week fell short is not drawn`() =
+        runTest {
+            sessions.setSessions(listOf(loggedSession(1, TODAY)))
+            progress.setProgress(standing(currentStreak = 4, lastCountedAt = TODAY.minusWeeks(1), weekGoalMet = false))
+
+            assertNull(requireNotNull(viewModel().uiState.value.week).streak)
         }
 
     @Test
     fun `a streak nobody kept up is not drawn, however long it was`() =
         runTest {
             // The stored figure is still 12: a streak is only recomputed when a session
-            // finishes, and nothing has. Drawing it would tell somebody who last trained five
-            // days ago that they are twelve days deep.
+            // finishes, and nothing has. Drawing it would tell somebody who last trained two
+            // weeks ago that they are twelve weeks deep.
             sessions.setSessions(listOf(loggedSession(1, TODAY)))
-            progress.setProgress(standing(currentStreak = 12, lastCountedAt = TODAY.minusDays(5)))
+            progress.setProgress(standing(currentStreak = 12, lastCountedAt = TODAY.minusWeeks(2), weekGoalMet = true))
 
             assertNull(requireNotNull(viewModel().uiState.value.week).streak)
         }
@@ -712,11 +722,13 @@ class HomeViewModelTest {
         level: Int = 1,
         currentStreak: Int = 0,
         lastCountedAt: LocalDate? = null,
+        weekGoalMet: Boolean = false,
     ) = UserProgress(
         totalXp = totalXp,
         level = level,
         currentStreak = currentStreak,
         lastCountedAt = lastCountedAt?.let { Instant.ofEpochMilli(middayOn(it)) },
+        weekGoalMet = weekGoalMet,
     )
 
     /** A heaviest-lift record of [weight] milligrams, set today. */

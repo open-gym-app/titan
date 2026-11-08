@@ -28,7 +28,7 @@ import com.titan.core.domain.model.Rarity
  *
  * ### The values are starting defaults
  *
- * Like [XpCalculator]'s constants and [StreakCalculator.STREAK_GRACE_HOURS], nothing here has
+ * Like [XpCalculator]'s constants and [StreakCalculator.MIN_PROTECTED_STREAK], nothing here has
  * been validated against real usage. The relationships are the part worth arguing about; each
  * band is a half to a quarter of the one below it, the fall steepening at the top, which on a
  * lifter training three times a week puts a common every three weeks or so, an uncommon every

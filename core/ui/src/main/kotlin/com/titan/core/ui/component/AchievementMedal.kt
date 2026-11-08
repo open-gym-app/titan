@@ -482,7 +482,7 @@ private fun DrawScope.drawShine(
 private fun AchievementMetric.medalGlyph(): ImageVector =
     when (this) {
         AchievementMetric.SESSIONS_FINISHED -> Icons.Outlined.FitnessCenter
-        AchievementMetric.STREAK_DAYS -> Icons.Outlined.LocalFireDepartment
+        AchievementMetric.STREAK_WEEKS -> Icons.Outlined.LocalFireDepartment
         AchievementMetric.RECORDS_BROKEN -> Icons.Outlined.EmojiEvents
     }
 
@@ -621,7 +621,7 @@ private fun MedalRow() {
             )
             AchievementMedal(
                 tier = AchievementTier.SILVER,
-                metric = AchievementMetric.STREAK_DAYS,
+                metric = AchievementMetric.STREAK_WEEKS,
                 isUnlocked = true,
             )
             AchievementMedal(

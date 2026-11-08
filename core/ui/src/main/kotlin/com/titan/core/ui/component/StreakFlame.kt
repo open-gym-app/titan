@@ -30,13 +30,13 @@ import com.titan.core.ui.theme.TitanTheme
  *
  * Everything else that moves here plays once and stops: a count runs up, a bar fills, confetti
  * falls. This does not stop, and that is the point — a streak is the one figure on the screen
- * that is *currently at risk*. It is true only until tomorrow. A still icon says "you have twelve
- * days"; a flame that is still burning says "you have twelve days and they are still going", which
- * is the fact the user is actually being asked to act on.
+ * that is *currently at risk*. It is true only until the week is out. A still icon says "you have
+ * twelve weeks"; a flame that is still burning says "you have twelve weeks and they are still
+ * going", which is the fact the user is actually being asked to act on.
  *
  * It earns the exception by being small, by never moving the layout — the flicker is a scale
  * around a fixed box, so nothing around it reflows — and by being drawn only when there *is* a
- * streak. A zero-day streak draws no flame at all: a dead flame beside a zero would be the app
+ * streak. A streak of zero draws no flame at all: a dead flame beside a zero would be the app
  * illustrating a failure.
  *
  * ### Under reduced motion it simply stands still

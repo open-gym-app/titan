@@ -67,6 +67,7 @@ enum class SettingsDialog {
     TRAINING_GOAL,
     FITNESS_LEVEL,
     ONE_REP_MAX_FORMULA,
+    WEEKLY_GOAL,
 
     /** Putting back the default templates the user deleted — see `RestoreTemplatesDialog`. */
     RESTORE_TEMPLATES,

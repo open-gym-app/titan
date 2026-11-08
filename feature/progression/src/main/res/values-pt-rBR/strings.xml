@@ -236,19 +236,25 @@
     <string name="level_title_unknown">Atleta</string>
 
     <string name="quest_log_streak_heading">Sequência</string>
-    <plurals name="quest_log_streak_days">
-        <item quantity="one">%1$d dia</item>
-        <item quantity="many">%1$d dias</item>
-        <item quantity="other">%1$d dias</item>
+    <plurals name="quest_log_streak_weeks">
+        <item quantity="one">%1$d semana</item>
+        <item quantity="many">%1$d semanas</item>
+        <item quantity="other">%1$d semanas</item>
     </plurals>
     <plurals name="quest_log_streak_best">
-        <item quantity="one">Melhor: %1$d dia</item>
-        <item quantity="many">Melhor: %1$d dias</item>
-        <item quantity="other">Melhor: %1$d dias</item>
+        <item quantity="one">Melhor: %1$d semana</item>
+        <item quantity="many">Melhor: %1$d semanas</item>
+        <item quantity="other">Melhor: %1$d semanas</item>
     </plurals>
     <string name="quest_log_streak_personal_best">Sua melhor até agora</string>
     <string name="quest_log_streak_none">Nenhuma sequência ainda</string>
-    <string name="quest_log_streak_none_body">Treine hoje para começar uma.</string>
+    <string name="quest_log_streak_none_body">Cumpra sua meta semanal para começar uma.</string>
+    <plurals name="quest_log_week_progress">
+        <item quantity="one">%1$d de %2$d treino nesta semana</item>
+        <item quantity="many">%1$d de %2$d treinos nesta semana</item>
+        <item quantity="other">%1$d de %2$d treinos nesta semana</item>
+    </plurals>
+    <string name="quest_log_week_met">Meta semanal cumprida</string>
 
     <!-- ─── Streak protection (#106) ────────────────────────────────────────────────────── -->
 
@@ -352,8 +358,8 @@
     <string name="achievement_first_session">Primeiro treino registrado</string>
     <string name="achievement_ten_sessions">Dez treinos feitos</string>
     <string name="achievement_hundred_sessions">Cem treinos</string>
-    <string name="achievement_seven_day_streak">Uma semana de sequência</string>
-    <string name="achievement_thirty_day_streak">Um mês de sequência</string>
+    <string name="achievement_four_week_streak">Um mês de sequência</string>
+    <string name="achievement_twelve_week_streak">Três meses de sequência</string>
     <string name="achievement_first_record">Primeiro recorde pessoal</string>
     <string name="achievement_unknown">Conquista</string>
 

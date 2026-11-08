@@ -61,8 +61,8 @@
     <string name="reminder_title">Time to train</string>
     <string name="reminder_body">Get it logged. It only counts if you write it down.</string>
     <plurals name="reminder_body_streak">
-        <item quantity="one">%1$d day streak on the line. Keep it.</item>
-        <item quantity="other">%1$d day streak on the line. Keep it.</item>
+        <item quantity="one">%1$d-week streak on the line. Keep it.</item>
+        <item quantity="other">%1$d-week streak on the line. Keep it.</item>
     </plurals>
     <string name="reminder_action_start">Start</string>
 
@@ -84,8 +84,8 @@
          left" is the failure that a concatenated count always eventually ships, and #41's
          languages have more categories than English does. -->
     <plurals name="progression_notification_streak_saved">
-        <item quantity="one">Saved your %1$d-day streak.</item>
-        <item quantity="other">Saved your %1$d-day streak.</item>
+        <item quantity="one">Saved your %1$d-week streak.</item>
+        <item quantity="other">Saved your %1$d-week streak.</item>
     </plurals>
     <plurals name="progression_notification_protections_left">
         <item quantity="one">%1$d protection left this month.</item>

@@ -1,0 +1,33 @@
+Titan is a workout log that runs entirely on your phone. Log every set in a tap, follow a next target that the app works out from your history, and watch your lifts add up. No account, no cloud, no ads.
+
+LOG A WORKOUT
+• Start from a template or from nothing, and tick off sets as you go: weight, reps and RPE, or time and distance for holds and cardio.
+• A rest timer that keeps counting in the background and tells you when to go again.
+• A plate calculator that loads the bar from the plates you actually own.
+• 17 ready-made templates on day one — push, pull, legs, upper and lower body, full body, HIIT, rowing, stretching and more. Edit them, rename them, or write your own.
+
+KNOW WHAT TO LIFT NEXT
+• A next target on every set: hold the weight and add a rep, or add weight when you have earned it, matched to your goal and your experience.
+• A warm-up and a cool-down for the muscles the session trains. Nothing reaches your log until you accept it.
+
+SEE YOUR PROGRESS
+• Personal records, an estimated one-rep max and a progression chart for every exercise.
+• Volume, sessions per week and time trained over 7 days, 30 days, 90 days, a year or all time.
+• A calendar of past sessions, and body weight and measurements over time.
+• Levels, quests and achievements that reward showing up.
+
+A LIBRARY OF MORE THAN 800 EXERCISES
+Searchable, with the muscles each one works and how to perform it. Add your own.
+
+YOUR DATA STAYS YOURS
+• Titan has no internet permission: nothing can leave the phone, and there is no analytics, crash reporting or advertising inside.
+• Back up everything to a single file and restore it on any device, or let Titan write a copy once a week.
+• Delete everything from Settings whenever you like.
+
+MADE FOR EVERYONE
+• Light or dark, metric or imperial.
+• In English, French, Spanish and Portuguese.
+• Built and checked against TalkBack, large fonts and one-handed use.
+• Workout reminders on the days and at the time you choose.
+
+Titan is free and open source under the GNU GPL v3.0. The exercise library comes from the free-exercise-db project.

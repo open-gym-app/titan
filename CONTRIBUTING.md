@@ -606,6 +606,11 @@ git add -A '*/src/test/screenshots'
   `*_compare.png` under `<module>/build/outputs/roborazzi`, which is a reference / diff /
   actual triptych of what changed.
 
+The Play listing's phone screenshots are not references and `make screenshots` does not touch
+them: they are captured from the whole app over a demo history by `make store-screenshots`,
+and nothing compares them. Retake them when a change alters one of the six screens they show —
+see `tools/demo/README.md`.
+
 ### Accessibility checks, for free
 
 Every generated preview test also runs the Accessibility Test Framework — the checks behind

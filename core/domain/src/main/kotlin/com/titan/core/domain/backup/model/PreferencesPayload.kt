@@ -85,6 +85,12 @@ data class PreferencesPayload(
      * under the store's `warmup_suggestions` key.
      */
     @SerialName("warmup_suggestions") val warmupSuggestions: Boolean? = null,
+    /**
+     * How many workouts a week make a week count towards the streak, or **null** in a file from
+     * before the setting existed — which reads back as the default goal. Held under the store's
+     * `weekly_workout_goal` key.
+     */
+    @SerialName("weekly_workout_goal") val weeklyWorkoutGoal: Int? = null,
 )
 
 /** One denomination of [PreferencesPayload.plateInventory]: a plate weight in milligrams, and how many pairs of it. */

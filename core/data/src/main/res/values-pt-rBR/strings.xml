@@ -40,9 +40,9 @@
     <string name="reminder_title">Hora de treinar</string>
     <string name="reminder_body">Registre o treino. Só conta se você anotar.</string>
     <plurals name="reminder_body_streak">
-        <item quantity="one">Sequência de %1$d dia em jogo. Mantenha.</item>
-        <item quantity="many">Sequência de %1$d dias em jogo. Mantenha.</item>
-        <item quantity="other">Sequência de %1$d dias em jogo. Mantenha.</item>
+        <item quantity="one">Sequência de %1$d semana em jogo. Mantenha.</item>
+        <item quantity="many">Sequência de %1$d semanas em jogo. Mantenha.</item>
+        <item quantity="other">Sequência de %1$d semanas em jogo. Mantenha.</item>
     </plurals>
     <string name="reminder_action_start">Começar</string>
 
@@ -57,9 +57,9 @@
     <string name="progression_notification_both">Sequência salva, e item encontrado</string>
 
     <plurals name="progression_notification_streak_saved">
-        <item quantity="one">Sua sequência de %1$d dia foi salva.</item>
-        <item quantity="many">Sua sequência de %1$d dias foi salva.</item>
-        <item quantity="other">Sua sequência de %1$d dias foi salva.</item>
+        <item quantity="one">Sua sequência de %1$d semana foi salva.</item>
+        <item quantity="many">Sua sequência de %1$d semanas foi salva.</item>
+        <item quantity="other">Sua sequência de %1$d semanas foi salva.</item>
     </plurals>
     <plurals name="progression_notification_protections_left">
         <item quantity="one">%1$d proteção restante este mês.</item>

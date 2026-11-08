@@ -161,6 +161,10 @@ class MainViewModelTest {
             preferences.update { it.copy(warmupSuggestions = enabled) }
         }
 
+        override suspend fun setWeeklyWorkoutGoal(goal: Int) {
+            preferences.update { it.copy(weeklyWorkoutGoal = goal) }
+        }
+
         override suspend fun setDefaultRestDuration(duration: Duration) {
             preferences.update { it.copy(defaultRestDuration = duration) }
         }

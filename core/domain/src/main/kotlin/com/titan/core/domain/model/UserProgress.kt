@@ -35,19 +35,19 @@ import java.time.Instant
  *
  * @property totalXp lifetime points, only ever added to.
  * @property level the level [totalXp] buys, as stored — see above.
- * @property currentStreak consecutive days trained **as of the last counted session**. It is
- *   not re-derived by the passage of time, so a streak that has since lapsed still reads at
- *   its old length here — [lastCountedAt] is what settles that, through
- *   [com.titan.core.domain.gamification.StreakCalculator.isLive]. A surface that draws this
- *   figure without asking is a surface that tells somebody who last trained in March that
- *   they are twelve days deep.
+ * @property currentStreak consecutive weeks that met the weekly goal **as of the last counted
+ *   session**. It is not re-derived by the passage of time, so a streak that has since lapsed
+ *   still reads at its old length here — [lastCountedAt] and [weekGoalMet] are what settle that,
+ *   through [com.titan.core.domain.gamification.StreakCalculator.isLive]. A surface that draws
+ *   this figure without asking is a surface that tells somebody who last trained in March that
+ *   they are twelve weeks deep.
  * @property longestStreak the best [currentStreak] ever reached. At least [currentStreak], and
- *   equal to it while the user is on their best run. Stored all along, and read since #104 gave
- *   it the board this KDoc said it was waiting for.
- * @property lastCountedAt when the session the streak was last *counted* from finished, or
- *   null for a user with no streak history. Deliberately not "when the last session
- *   finished": a second session on an already counted day leaves it where it is — see
+ *   equal to it while the user is on their best run.
+ * @property lastCountedAt when the last session that counted towards the streak finished, or
+ *   null for a user with no streak history — see
  *   [com.titan.core.domain.gamification.StreakCalculator].
+ * @property weekGoalMet whether the week [lastCountedAt] falls in has met its goal — see
+ *   [StreakState.weekGoalMet].
  */
 data class UserProgress(
     val totalXp: Long = 0,
@@ -55,6 +55,7 @@ data class UserProgress(
     val currentStreak: Int = 0,
     val longestStreak: Int = 0,
     val lastCountedAt: Instant? = null,
+    val weekGoalMet: Boolean = false,
 ) {
 
     /**

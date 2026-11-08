@@ -9,12 +9,14 @@ import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.UserProgress
 import com.titan.core.domain.repository.CollectedItemRepository
 import com.titan.core.domain.repository.GamificationRepository
+import com.titan.core.domain.repository.UserPreferencesRepository
 import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.QuestProgressUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.Instant
@@ -26,17 +28,19 @@ import javax.inject.Inject
  *
  * ### Five reads, combined, and nothing polled
  *
- * The progress row, the unlocked set, the quest board, the streak state and the recent drops are
- * five flows off the store, combined into one state. Every one of them is a *reactive* read, which
- * is what #104's "update reactively" asks for concretely: a workout finished while this screen
- * sits in the back stack moves the level, the streak, the board and the inventory, and all of them
- * fill in without the screen being left and returned to.
+ * The progress row, the unlocked set, the quest board, the streak state with the weekly goal it is
+ * judged against, and the recent drops are five flows off the stores, combined into one state.
+ * Every one of them is a *reactive* read, which is what #104's "update reactively" asks for
+ * concretely: a workout finished while this screen sits in the back stack moves the level, the
+ * streak, the board and the inventory, and all of them fill in without the screen being left and
+ * returned to.
  *
  * The streak arrives twice over, and that is not a duplication to collapse. `observeProgress`
  * carries the two *counts*, which live on the progress row beside the XP total; `observeStreak`
- * carries the stored [com.titan.core.domain.model.StreakState], whose protection allowance is
- * the only thing read from it here. They are separate reads in the store for that reason and are
- * kept separate here rather than one being derived from the other.
+ * carries the stored [com.titan.core.domain.model.StreakState], whose protection allowance and
+ * count for the week in progress are the only things read from it here. They are separate reads
+ * in the store for that reason and are kept separate here rather than one being derived from the
+ * other.
  *
  * ### Whether the streak is still running is this class's judgement to make
  *
@@ -85,6 +89,7 @@ class QuestLogViewModel @Inject constructor(
     gamificationRepository: GamificationRepository,
     collectedItems: CollectedItemRepository,
     questProgress: QuestProgressUseCase,
+    userPreferences: UserPreferencesRepository,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -97,9 +102,13 @@ class QuestLogViewModel @Inject constructor(
             gamificationRepository.observeProgress().map { it ?: UserProgress() },
             gamificationRepository.observeUnlockedAchievements(),
             questProgress(),
-            gamificationRepository.observeStreak(),
+            // The goal rides with the streak rather than as a sixth source: it is only ever read
+            // beside it, and `combine` stops being typed past five.
+            gamificationRepository.observeStreak().combine(
+                userPreferences.observe().map { it.weeklyWorkoutGoal }.distinctUntilChanged(),
+            ) { streak, goal -> streak to goal },
             collectedItems.observeRecent(RECENT_LOOT_LIMIT),
-        ) { progress, unlocked, quests, streak, loot ->
+        ) { progress, unlocked, quests, (streak, weeklyGoal), loot ->
             val heldIds = unlocked.mapTo(mutableSetOf()) { it.achievementId }
             val now = Instant.ofEpochMilli(clock.nowMillis())
             QuestLogUiState(
@@ -110,7 +119,14 @@ class QuestLogViewModel @Inject constructor(
                 // count is only recomputed when a session finishes, so it stands at twelve for as
                 // long as nobody trains. See `StreakCalculator.isLive`, and `HomeViewModel`, which
                 // asks the same question of the same figure.
-                isStreakLive = StreakCalculator.isLive(lastCountedAt = progress.lastCountedAt, asOf = now),
+                isStreakLive = StreakCalculator.isLive(progress.lastCountedAt, progress.weekGoalMet, asOf = now),
+                sessionsThisWeek = StreakCalculator.sessionsThisWeek(
+                    streak.lastCountedAt,
+                    streak.weekSessions,
+                    asOf = now,
+                ),
+                isWeekGoalMet = StreakCalculator.isWeekGoalMet(streak.lastCountedAt, streak.weekGoalMet, asOf = now),
+                weeklyGoal = weeklyGoal,
                 // Counted against the catalogue rather than taken as the row count: an id on
                 // file matching no entry — a milestone renamed without a migration — would
                 // otherwise push the numerator past the denominator.

@@ -245,9 +245,9 @@
     <string name="summary_streak_saved">Enchaînement sauvé</string>
     <string name="summary_streak_saved_badge">Sauvé</string>
     <plurals name="summary_streak_saved_headline">
-        <item quantity="one">Une protection a couvert le jour manqué. Votre enchaînement est à %1$d jour.</item>
-        <item quantity="many">Une protection a couvert le jour manqué. Votre enchaînement est à %1$d jours.</item>
-        <item quantity="other">Une protection a couvert le jour manqué. Votre enchaînement est à %1$d jours.</item>
+        <item quantity="one">Une protection a couvert la semaine manquée. Votre enchaînement est à %1$d semaine.</item>
+        <item quantity="many">Une protection a couvert la semaine manquée. Votre enchaînement est à %1$d semaines.</item>
+        <item quantity="other">Une protection a couvert la semaine manquée. Votre enchaînement est à %1$d semaines.</item>
     </plurals>
     <plurals name="summary_streak_protections_left">
         <item quantity="one">%1$d restante ce mois-ci</item>
@@ -283,8 +283,8 @@
     <string name="achievement_first_session">Première séance enregistrée</string>
     <string name="achievement_ten_sessions">Dix séances au compteur</string>
     <string name="achievement_hundred_sessions">Cent séances</string>
-    <string name="achievement_seven_day_streak">Une semaine d’affilée</string>
-    <string name="achievement_thirty_day_streak">Un mois d’affilée</string>
+    <string name="achievement_four_week_streak">Un mois d’affilée</string>
+    <string name="achievement_twelve_week_streak">Trois mois d’affilée</string>
     <string name="achievement_first_record">Premier record personnel</string>
     <string name="achievement_unknown">Succès débloqué</string>
 

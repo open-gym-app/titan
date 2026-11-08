@@ -7,6 +7,7 @@ import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.time.Clock
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
@@ -26,18 +27,21 @@ import dagger.hilt.components.SingletonComponent
 object BackupUseCaseModule {
 
     /**
-     * The clock and the page size are both left at their defaults: the real clock is what
-     * production stamps a document with, and the page size is a memory/round-trip trade with no
-     * per-build answer. A test constructs this directly with both pinned.
+     * The clock is the graph's, like every other use case that stamps something: a test that pins
+     * the graph's clock gets a document dated at the moment it pinned. The page size is left at
+     * its default, a memory/round-trip trade with no per-build answer; a test constructs this
+     * directly to pin it small.
      */
     @Provides
     fun provideExportUseCase(
         backupRepository: BackupRepository,
         userPreferencesRepository: UserPreferencesRepository,
+        clock: Clock,
     ): ExportUseCase =
         ExportUseCase(
             backupRepository = backupRepository,
             userPreferencesRepository = userPreferencesRepository,
+            clock = clock,
         )
 
     /**

@@ -153,6 +153,9 @@ internal fun QuestLogScreen(
                 isLive = state.isStreakLive,
                 isOnBest = state.isOnBestStreak,
                 protection = state.protection,
+                sessionsThisWeek = state.sessionsThisWeek,
+                isWeekGoalMet = state.isWeekGoalMet,
+                weeklyGoal = state.weeklyGoal,
             )
 
             QuestSections(state = state)

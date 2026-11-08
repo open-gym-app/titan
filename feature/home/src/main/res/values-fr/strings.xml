@@ -34,9 +34,9 @@
         <item quantity="other">%1$d séances</item>
     </plurals>
     <plurals name="home_week_streak">
-        <item quantity="one">%1$d jour d’affilée</item>
-        <item quantity="many">%1$d jours d’affilée</item>
-        <item quantity="other">%1$d jours d’affilée</item>
+        <item quantity="one">%1$d semaine d’affilée</item>
+        <item quantity="many">%1$d semaines d’affilée</item>
+        <item quantity="other">%1$d semaines d’affilée</item>
     </plurals>
 
     <!-- ── Quick start ───────────────────────────────────────────────────────────── -->

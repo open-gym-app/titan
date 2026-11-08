@@ -10,7 +10,7 @@ import androidx.room.PrimaryKey
  *
  * The fence behind [com.titan.core.domain.repository.GamificationRepository.claimSessionXp].
  * Every other step of the post-session cascade is idempotent by construction — PR detection
- * compares strictly better, an already-counted day leaves the streak unchanged, an unlock is
+ * compares strictly better, an already-counted session leaves the streak unchanged, an unlock is
  * insert-if-absent — and XP is the one that is not, because `addXp` banks what it is handed.
  * A row here is what stops a re-entered cascade paying for the same workout twice.
  *

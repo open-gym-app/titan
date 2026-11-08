@@ -85,7 +85,7 @@ internal val PREVIEW_PAUSED = ResumeState(
 )
 
 /** Part way through level 14 — the header's ordinary case, neither empty nor about to tip. */
-internal val PREVIEW_LEVEL = LevelState(level = 14, xpIntoLevel = 40, xpForLevel = 100)
+internal val PREVIEW_LEVEL = LevelState(level = 14, xpIntoLevel = 240, xpForLevel = 600)
 
 /**
  * A one-rep-max estimate on the deadlift, set in the last session and up 7 kg on the one it
@@ -161,7 +161,7 @@ internal fun previewHome(resume: ResumeState? = PREVIEW_RESUME) =
  */
 internal fun previewPartialHome() =
     HomeUiState(
-        level = LevelState(level = 2, xpIntoLevel = 75, xpForLevel = 100),
+        level = LevelState(level = 2, xpIntoLevel = 450, xpForLevel = 600),
         week = WeekState(days = PREVIEW_DAYS, sessionCount = 4, streak = 3),
         templates = PREVIEW_TEMPLATES,
         isLoading = false,

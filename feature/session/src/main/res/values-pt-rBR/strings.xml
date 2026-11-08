@@ -245,9 +245,9 @@
     <string name="summary_streak_saved">Sequência salva</string>
     <string name="summary_streak_saved_badge">Salva</string>
     <plurals name="summary_streak_saved_headline">
-        <item quantity="one">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dia.</item>
-        <item quantity="many">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dias.</item>
-        <item quantity="other">Uma proteção cobriu o dia que você perdeu. Sua sequência está em %1$d dias.</item>
+        <item quantity="one">Uma proteção cobriu a semana incompleta. Sua sequência está em %1$d semana.</item>
+        <item quantity="many">Uma proteção cobriu a semana incompleta. Sua sequência está em %1$d semanas.</item>
+        <item quantity="other">Uma proteção cobriu a semana incompleta. Sua sequência está em %1$d semanas.</item>
     </plurals>
     <plurals name="summary_streak_protections_left">
         <item quantity="one">%1$d restante este mês</item>
@@ -283,8 +283,8 @@
     <string name="achievement_first_session">Primeiro treino registrado</string>
     <string name="achievement_ten_sessions">Dez treinos feitos</string>
     <string name="achievement_hundred_sessions">Cem treinos</string>
-    <string name="achievement_seven_day_streak">Uma semana de sequência</string>
-    <string name="achievement_thirty_day_streak">Um mês de sequência</string>
+    <string name="achievement_four_week_streak">Um mês de sequência</string>
+    <string name="achievement_twelve_week_streak">Três meses de sequência</string>
     <string name="achievement_first_record">Primeiro recorde pessoal</string>
     <string name="achievement_unknown">Conquista desbloqueada</string>
 

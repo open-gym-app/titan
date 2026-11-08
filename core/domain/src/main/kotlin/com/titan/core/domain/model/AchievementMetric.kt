@@ -18,8 +18,8 @@ enum class AchievementMetric {
     /** Sessions the user has finished, over their whole history. */
     SESSIONS_FINISHED,
 
-    /** The streak the user holds right now — see [StreakResult]. */
-    STREAK_DAYS,
+    /** The streak the user holds right now, in weeks that met the goal — see [StreakResult]. */
+    STREAK_WEEKS,
 
     /** Personal records broken, over the user's whole history. */
     RECORDS_BROKEN,

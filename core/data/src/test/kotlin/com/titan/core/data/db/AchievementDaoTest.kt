@@ -20,7 +20,7 @@ class AchievementDaoTest : RoomTestBase() {
 
     private companion object {
         const val FIRST_SESSION = "first_session"
-        const val SEVEN_DAY_STREAK = "seven_day_streak"
+        const val FOUR_WEEK_STREAK = "four_week_streak"
     }
 
     private val dao by lazy { db.achievementDao() }
@@ -57,11 +57,11 @@ class AchievementDaoTest : RoomTestBase() {
     @Test
     fun `unlocks come back earliest first`() =
         runBlocking {
-            dao.insertIfAbsent(AchievementEntity(SEVEN_DAY_STREAK, unlockedAt = 9_000))
+            dao.insertIfAbsent(AchievementEntity(FOUR_WEEK_STREAK, unlockedAt = 9_000))
             dao.insertIfAbsent(AchievementEntity(FIRST_SESSION, unlockedAt = 1_000))
 
             assertEquals(
-                listOf(FIRST_SESSION, SEVEN_DAY_STREAK),
+                listOf(FIRST_SESSION, FOUR_WEEK_STREAK),
                 dao.getAll().first().map { it.achievementId },
             )
         }

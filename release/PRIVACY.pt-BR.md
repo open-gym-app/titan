@@ -117,5 +117,4 @@ versão correspondente e exigiria o seu consentimento no app.
 ## Contato
 
 O Titan é desenvolvido de forma aberta. Para qualquer dúvida sobre esta política ou sobre a
-sua privacidade, [abra uma issue](https://github.com/open-gym-app/titan/issues/new) no
-repositório do projeto no GitHub.
+sua privacidade, escreva para [contact.titan.app@gmail.com](mailto:contact.titan.app@gmail.com).
