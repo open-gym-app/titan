@@ -59,9 +59,9 @@ import com.titan.core.domain.model.StreakProtection
  *   column trails the calendar for a user who has not trained this month — see
  *   `GamificationRepository.observeStreak` for why that is deliberate.
  * @property protectionConsumedAt when a protection was last spent, in epoch milliseconds, or
- *   null if none ever has been. Kept for the surfaces that report it, not for the mechanic:
- *   nothing decides anything from this column, and the guarantee that a protection is not
- *   spent twice for one week rests on [lastCountedAt] instead.
+ *   null if none ever has been. A record of the last spend, carried through a backup, not a
+ *   part of the mechanic: nothing decides anything from this column, and the guarantee that a
+ *   protection is not spent twice for one week rests on [lastCountedAt] instead.
  */
 @Entity(tableName = "user_progress")
 data class UserProgressEntity(

@@ -767,7 +767,7 @@ class SessionSummaryViewModelTest {
     fun `a save is reported even when the session earned no points`() =
         runTest {
             // A re-entered cascade: the XP claim is spent, so nothing is paid — but the streak
-            // step is not behind that claim and can still report a protected day.
+            // step is not behind that claim and can still report a protected week.
             progressionHandoff.offer(
                 SessionProgression(sessionId = SESSION_ID, streak = protectedStreak()),
             )

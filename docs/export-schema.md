@@ -84,12 +84,13 @@ timestamps, `0`/`1` booleans. See [PERSISTENCE.md](PERSISTENCE.md#storage-assump
 
 *Required* is the decoder's word, not the importer's: a required key that is missing makes the
 document `MalformedJson`, where a value the build does not recognise degrades to the setting's
-default (see below). The last six are the keys that may be absent. `plate_inventory_milligrams`
+default (see below). The last seven are the keys that may be absent. `plate_inventory_milligrams`
 is written as an explicit `null` by this build and has been since the format's first version;
 `fitness_level` is written by every build from #M7-11 on, the three CUSTOM-goal keys by every
 build from #M7-15 on, `warmup_suggestions` by every build from #214 on, and `weekly_workout_goal`
-by every build from the weekly streak on — each is simply not there in a file from before it. All read back as the default the table gives, and none bumped
-`schema_version`, per [the rule](#when-to-bump).
+by every build from the weekly streak on — each is simply not there in a file from before it.
+All read back as the default the table gives, and none bumped `schema_version`, per
+[the rule](#when-to-bump).
 A settings key added after these takes the same shape: nullable in `PreferencesPayload`,
 defaulted on read, listed here.
 
@@ -214,6 +215,14 @@ can change in two taps.
 | `schema_version` | Shipped in | Changes |
 | --- | --- | --- |
 | 1 | unreleased | Initial format: 19 tables, plus `preferences` |
+
+Version 1 has been amended once in place, while unreleased, in a way the rule below would
+otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
+`week_sessions` and `week_goal_met`, and the XP curve was retuned. A file from before that
+change is told apart by a `user_progress` row with no `week_sessions`, and `WeeklyStreakUpgrade`
+converts it on the way in — the streak counts start again, the retired streak milestones are
+dropped, the protection allowance and the level are brought to today's rules. From the first
+release on, a change like it is a bump.
 
 Refusing older files is the rule rather than an oversight. A v1 reader handed a v2 file cannot
 know which columns moved; a v2 reader handed a v1 file would have to invent the values v1 never

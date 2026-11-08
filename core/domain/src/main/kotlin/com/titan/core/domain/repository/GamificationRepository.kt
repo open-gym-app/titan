@@ -219,15 +219,13 @@ interface GamificationRepository {
     suspend fun updateStreak(advance: (state: StreakState) -> StreakUpdate): StreakUpdate
 
     /**
-     * The stored streak state as it changes — the streak, the best one ever held, and what is
-     * left of this month's protection allowance.
+     * The stored streak state as it changes — the streak, the best one ever held, where the week
+     * in progress stands against its goal, and what is left of this month's protection allowance.
      *
      * A `Flow` rather than a suspend read, unlike everything else on this interface: its
      * consumers are screens rather than the cascade, and a screen open while a session is
      * finished elsewhere in the app must not keep drawing yesterday's streak. #104's quest log
-     * is the first of them; this is the read its acceptance criterion asks for, and it is
-     * declared now rather than with the screen because the mechanic is worthless if the state
-     * it accumulates cannot be looked at.
+     * is the screen that reads it; the reminder takes one value from it at the moment it fires.
      *
      * [StreakState]'s defaults for a user who has never trained, rather than a null: unlike
      * `UserProgressDao.observe`, which distinguishes "nothing written" from "nothing earned"

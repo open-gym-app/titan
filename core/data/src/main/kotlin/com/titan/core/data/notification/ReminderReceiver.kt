@@ -158,6 +158,9 @@ class ReminderBroadcasts @Inject constructor(
      * home screen makes, and without it a reminder would tell somebody who last trained in
      * March that they are twelve weeks deep. A user with no live streak gets the plain
      * invitation, which is also what a fresh install gets.
+     *
+     * Nor is it said once this week has met its goal: the week has already joined the streak,
+     * so nothing this session does can keep or lose it, and "on the line" would be untrue.
      */
     private suspend fun body(active: WorkoutSession?): String {
         if (active != null) {
@@ -166,7 +169,7 @@ class ReminderBroadcasts @Inject constructor(
 
         val streak = gamificationRepository.observeStreak().first()
         return when {
-            streak.isLive() -> context.resources.getQuantityString(
+            streak.isOnTheLine() -> context.resources.getQuantityString(
                 R.plurals.reminder_body_streak,
                 streak.currentStreak,
                 streak.currentStreak,
@@ -176,8 +179,14 @@ class ReminderBroadcasts @Inject constructor(
         }
     }
 
-    /** Whether this streak is still standing as of now, rather than as of when it was counted. */
-    private fun StreakState.isLive(): Boolean =
-        currentStreak > 0 &&
-            StreakCalculator.isLive(lastCountedAt, weekGoalMet, asOf = Instant.ofEpochMilli(clock.nowMillis()))
+    /**
+     * Whether this streak is still standing as of now, rather than as of when it was counted, and
+     * still waiting on this week's goal — the only streak a workout today can keep.
+     */
+    private fun StreakState.isOnTheLine(): Boolean {
+        val now = Instant.ofEpochMilli(clock.nowMillis())
+        return currentStreak > 0 &&
+            StreakCalculator.isLive(lastCountedAt, weekGoalMet, asOf = now) &&
+            !StreakCalculator.isWeekGoalMet(lastCountedAt, weekGoalMet, asOf = now)
+    }
 }

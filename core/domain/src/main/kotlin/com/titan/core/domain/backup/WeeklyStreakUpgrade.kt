@@ -2,15 +2,16 @@ package com.titan.core.domain.backup
 
 import com.titan.core.domain.backup.model.ExportDocument
 import com.titan.core.domain.backup.model.UserProgressRow
+import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.StreakProtection
 
 /**
  * Reads a backup written before the streak counted weeks as one this build can restore.
  *
  * The streak used to count sessions kept up within a grace window, and its achievements and its
- * protection allowance were sized for that. Such a file is still `schema_version` 1 — the change
- * added columns rather than a version — and three things in it would mislead if restored as
- * they are:
+ * protection allowance were sized for that; the XP curve was retuned in the same change. Such a
+ * file is still `schema_version` 1 — the change added columns rather than a version — and four
+ * things in it would mislead if restored as they are:
  *
  * - **`current_streak` and `longest_streak` are in other units.** Thirty sessions is not thirty
  *   weeks, and no conversion is honest: the old count says nothing about which weeks met the
@@ -23,6 +24,11 @@ import com.titan.core.domain.model.StreakProtection
  *   catalogue names.
  * - **The protection allowance was larger.** `protection_remaining` is cut to
  *   [StreakProtection.MONTHLY_ALLOWANCE].
+ * - **`current_level` was bought on the old curve**, at a sixth of today's price per level, so it
+ *   is several times what `total_xp` buys now. It is recomputed from the total with
+ *   [XpCalculator]: kept, the header would draw a level the progress bar under it contradicts,
+ *   and the next award would silently drop the column to the level the total really buys.
+ *   `total_xp` itself is kept — the points were earned, only their price moved.
  *
  * A file from before the weekly streak is told apart by the column it could not have: a
  * `user_progress` row with no `week_sessions`. Every file this build writes carries it.
@@ -50,6 +56,7 @@ internal object WeeklyStreakUpgrade {
                 longestStreak = 0,
                 weekSessions = 0,
                 weekGoalMet = false,
+                currentLevel = XpCalculator.levelForTotalXp(totalXp),
                 protectionRemaining = protectionRemaining.coerceAtMost(StreakProtection.MONTHLY_ALLOWANCE),
             )
         }

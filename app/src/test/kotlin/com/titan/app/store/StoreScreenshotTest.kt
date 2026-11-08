@@ -116,8 +116,10 @@ class StoreScreenshotTest {
 
     /**
      * What the graph's clock reads: [StoreAssets.DEMO_NOW], wound back only while the workout in
-     * progress is started — see [startTheNextWorkout].
+     * progress is started — see [startTheNextWorkout]. Volatile because the graph reads it from
+     * whichever thread a use case or a ViewModel happens to run on, not only the test's.
      */
+    @Volatile
     private var now: Long = StoreAssets.DEMO_NOW
 
     @BindValue

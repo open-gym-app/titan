@@ -21,7 +21,7 @@ import javax.inject.Singleton
  *
  * ### Nothing here computes anything
  *
- * Every figure in the body is read straight off the [SessionProgression] — `streak.days`,
+ * Every figure in the body is read straight off the [SessionProgression] — `streak.weeks`,
  * `streak.protectionsRemaining`, the dropped [Collectible]'s id and rarity. There is not a
  * repository or a use case in this file, and that is the acceptance criterion rather than a
  * style preference: the cascade produced those numbers inside the writes that persisted them,
@@ -106,17 +106,17 @@ class AndroidProgressionAnnouncer @Inject constructor(
 
     /** "Saved your 12-week streak. 0 protections left this month." */
     private fun streakBody(saved: StreakUpdate): String {
-        val days = context.resources.getQuantityString(
+        val weeks = context.resources.getQuantityString(
             R.plurals.progression_notification_streak_saved,
-            saved.days,
-            saved.days,
+            saved.weeks,
+            saved.weeks,
         )
         val left = context.resources.getQuantityString(
             R.plurals.progression_notification_protections_left,
             saved.protectionsRemaining,
             saved.protectionsRemaining,
         )
-        return joinSentences(days, left)
+        return joinSentences(weeks, left)
     }
 
     /**

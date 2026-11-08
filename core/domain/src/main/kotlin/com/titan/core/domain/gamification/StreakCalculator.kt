@@ -157,8 +157,8 @@ object StreakCalculator {
      * session finds itself at the anchor and comes back [StreakResult.Unchanged] — which spends
      * nothing. The only path to a second protection is a genuine second break, in a later week.
      *
-     * [StreakProtection.lastConsumedAt] therefore records when one was spent for the surfaces to
-     * draw; the idempotency does not rest on it.
+     * [StreakProtection.lastConsumedAt] therefore only records when one was last spent; the
+     * idempotency does not rest on it.
      *
      * @param state the streak as stored — [StreakState]'s defaults for a user with no history.
      * @param finishedAt when the session being applied finished. The workout's own moment, never

@@ -4,14 +4,14 @@ package com.titan.core.domain.model
  * A streak as it stands after one finished session was applied to it.
  *
  * [StreakResult] says what the session *did*; it does not say what the streak now is, because
- * [StreakResult.Counted] and [StreakResult.Unchanged] carry no figure of their own and [StreakResult.streakAfter] needs
- * the streak it was computed against to answer. Pairing the two is
- * [com.titan.core.domain.gamification.StreakCalculator.advance]'s job, and this is what it
+ * [StreakResult.Counted] and [StreakResult.Unchanged] carry no figure of their own and
+ * [StreakResult.streakAfter] needs the streak it was computed against to answer. Pairing the two
+ * is [com.titan.core.domain.gamification.StreakCalculator.advance]'s job, and this is what it
  * answers with — the same value
  * [com.titan.core.domain.repository.GamificationRepository.updateStreak] returns, because
  * the store writes the rule's answer rather than composing one of its own.
  *
- * The pair is what the cascade needs on both counts: [days] is the figure
+ * The pair is what the cascade needs on both counts: [weeks] is the figure
  * [AchievementProgress.currentStreak] is built from, and [result] is what a surface pattern-
  * matches on to tell a streak that was just lost from one that was never long — see
  * [StreakResult]'s own doc for why that distinction is a type rather than a number.
@@ -25,7 +25,7 @@ data class StreakUpdate(
 ) {
 
     /** The streak held after the session, in weeks that met the goal. */
-    val days: Int get() = state.currentStreak
+    val weeks: Int get() = state.currentStreak
 
     /**
      * What is left of this month's protection allowance.

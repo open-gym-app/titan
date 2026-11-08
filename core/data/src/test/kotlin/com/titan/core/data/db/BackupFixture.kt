@@ -151,7 +151,7 @@ private suspend fun TitanDatabase.seedProgressAndSpoils() {
         listOf(
             UserProgressEntity(
                 totalXp = 4_200,
-                currentLevel = 7,
+                currentLevel = 8,
                 currentStreak = 3,
                 longestStreak = 11,
                 lastCountedAt = FINISHED_AT,

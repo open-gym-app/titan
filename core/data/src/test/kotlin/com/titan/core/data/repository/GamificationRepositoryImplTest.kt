@@ -195,7 +195,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val update = finish(MONDAY_EVENING)
 
             assertEquals(StreakResult.Incremented(1), update.result)
-            assertEquals(1, update.days)
+            assertEquals(1, update.weeks)
             assertEquals(MONDAY_EVENING.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
         }
 
@@ -207,7 +207,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val update = finish(SECOND_MONDAY)
 
             assertEquals(StreakResult.Incremented(2), update.result)
-            assertEquals(2, update.days)
+            assertEquals(2, update.weeks)
         }
 
     @Test
@@ -218,7 +218,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val update = finish(TUESDAY_LATER)
 
             assertEquals(StreakResult.Counted, update.result)
-            assertEquals(1, update.days)
+            assertEquals(1, update.weeks)
             val stored = db.userProgressDao().getOnce()
             assertEquals(2, stored?.weekSessions)
             assertEquals(true, stored?.weekGoalMet)
@@ -235,7 +235,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val update = finish(FIFTH_MONDAY)
 
             assertEquals(StreakResult.Reset(newStreak = 1), update.result)
-            assertEquals(1, update.days)
+            assertEquals(1, update.weeks)
             assertEquals(2, db.userProgressDao().getOnce()?.longestStreak)
             assertEquals(FIFTH_MONDAY.toEpochMilli(), db.userProgressDao().getOnce()?.lastCountedAt)
         }
@@ -252,7 +252,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val update = finish(FIFTH_MONDAY)
 
             assertEquals(StreakResult.Protected(newStreak = 4, protectionsRemaining = 0), update.result)
-            assertEquals(4, update.days)
+            assertEquals(4, update.weeks)
             val stored = db.userProgressDao().getOnce()
             assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, stored?.protectionRemaining)
             assertEquals("2026-03", stored?.protectionPeriod)
@@ -271,7 +271,7 @@ class GamificationRepositoryImplTest : RoomTestBase() {
             val again = finish(FIFTH_MONDAY)
 
             assertEquals(StreakResult.Unchanged, again.result)
-            assertEquals(4, again.days)
+            assertEquals(4, again.weeks)
             assertEquals(StreakProtection.MONTHLY_ALLOWANCE - 1, again.protectionsRemaining)
         }
 

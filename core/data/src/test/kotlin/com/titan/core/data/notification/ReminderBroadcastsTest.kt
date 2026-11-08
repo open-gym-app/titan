@@ -130,6 +130,18 @@ class ReminderBroadcastsTest {
         }
 
     @Test
+    fun `a streak whose week has already met its goal is not on the line`() =
+        runTest {
+            // The week joined the streak with the session an hour ago, so nothing trained today
+            // can keep or lose it.
+            given(streak = StreakState(currentStreak = 12, lastCountedAt = AN_HOUR_AGO, weekGoalMet = true))
+
+            broadcasts.handle(due())
+
+            assertEquals(PLAIN_INVITATION, notifier.showing!!.body)
+        }
+
+    @Test
     fun `a user with no streak history gets the plain invitation`() =
         runTest {
             given()
@@ -257,6 +269,9 @@ class ReminderBroadcastsTest {
         val YESTERDAY: Instant = Instant.ofEpochMilli(NOW).minus(Duration.ofDays(1))
 
         val LAST_MONTH: Instant = Instant.ofEpochMilli(NOW).minus(Duration.ofDays(40))
+
+        /** Earlier the same Monday, so in the week [NOW] falls in. */
+        val AN_HOUR_AGO: Instant = Instant.ofEpochMilli(NOW).minus(Duration.ofHours(1))
 
         const val PLAIN_INVITATION = "Get it logged. It only counts if you write it down."
 

@@ -53,10 +53,10 @@ fun SessionSummaryScreenStreakSavedPreview() {
 /*
  * The save with no XP beside it.
  *
- * Deliberate: a save with no celebration above it is a real session — the streak step
- * is not fenced by the XP claim, so a re-entered cascade can report a protected day and nothing
- * else. It is also the only preview where this card is the first thing under the stat grid,
- * which is the layout worth having a reference for.
+ * Deliberate: a save with no celebration above it is a real session — the streak step is not
+ * fenced by the XP claim, so a re-entered cascade can report a protected week and nothing else.
+ * It is also the only preview where this card is the first thing under the stat grid, which is
+ * the layout worth having a reference for.
  */
 @Preview(name = "Session summary - streak saved, none left", showBackground = true, heightDp = FULL_SCREEN_HEIGHT_DP)
 @Composable

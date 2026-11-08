@@ -30,7 +30,7 @@ class StreakProtectionTest {
         val update = advance(onFile(streak = 12), NEXT_MONDAY)
 
         assertEquals(StreakResult.Protected(newStreak = 12, protectionsRemaining = 0), update.result)
-        assertEquals(12, update.days)
+        assertEquals(12, update.weeks)
         assertTrue(update.protectionConsumed)
     }
 
@@ -39,7 +39,7 @@ class StreakProtectionTest {
         val update = advance(onFile(streak = 12), NEXT_MONDAY)
 
         // Not 13: the covered week did not meet its goal, so it is not a week of the streak.
-        assertEquals(12, update.days)
+        assertEquals(12, update.weeks)
         assertEquals(1, update.state.weekSessions)
     }
 

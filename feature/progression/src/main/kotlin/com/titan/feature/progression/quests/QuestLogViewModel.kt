@@ -38,8 +38,9 @@ import javax.inject.Inject
  * The streak arrives twice over, and that is not a duplication to collapse. `observeProgress`
  * carries the two *counts*, which live on the progress row beside the XP total; `observeStreak`
  * carries the stored [com.titan.core.domain.model.StreakState], whose protection allowance and
- * count for the week in progress are the only things read from it here. They are separate reads in the store for that reason and are
- * kept separate here rather than one being derived from the other.
+ * count for the week in progress are the only things read from it here. They are separate reads
+ * in the store for that reason and are kept separate here rather than one being derived from the
+ * other.
  *
  * ### Whether the streak is still running is this class's judgement to make
  *

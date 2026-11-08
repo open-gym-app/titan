@@ -410,9 +410,10 @@ private object UserPreferencesKeys {
  * (a fresh install, or a setting never changed), the key holds an enum name this build
  * does not have (a value written by a newer build, or one since renamed), the key holds a
  * number the model refuses (a non-positive rest or bar weight, a weekly goal out of range,
- * which no setter would have written), or the key holds a value of the wrong *type* altogether — a build that stored
- * a flag as text, or a hand-edited file. The last two are the ones that would otherwise
- * throw, and they would throw from inside a `map` on a flow a screen is collecting.
+ * which no setter would have written), or the key holds a value of the wrong *type*
+ * altogether — a build that stored a flag as text, or a hand-edited file. The last two are the
+ * ones that would otherwise throw, and they would throw from inside a `map` on a flow a screen
+ * is collecting.
  *
  * Every read below therefore goes through [valueOrNull] rather than `Preferences.get`,
  * which casts the stored value to the key's type and throws [ClassCastException] when it

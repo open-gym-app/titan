@@ -19,8 +19,8 @@ import java.time.YearMonth
  * ### Why the allowance is monthly, and what "monthly" means
  *
  * The calendar month, in [com.titan.core.domain.gamification.StreakCalculator.STREAK_ZONE]
- * — the same UTC day boundary the streak itself is judged in, with the same approximation
- * written down there. A rolling thirty-day window would be fairer and is not worth it: the
+ * — the same UTC boundary the streak's weeks are cut at, with the same approximation written
+ * down there. A rolling thirty-day window would be fairer and is not worth it: the
  * user has to be able to answer "how many do I have left" without the app explaining a window
  * to them, and "one a month" is a sentence that needs no explanation.
  *
@@ -40,9 +40,10 @@ import java.time.YearMonth
  *   clock: a fresh state is full whatever month it is first read in, and the first
  *   [replenishedFor] stamps the month it was read in.
  * @property lastConsumedAt when a protection was last spent, or null if none ever has been.
- *   Carried for the surfaces rather than for the mechanic — the quest log (#104) and #39's
- *   notification are written from the same fact. Idempotency does **not**
- *   rest on it; see [com.titan.core.domain.gamification.StreakCalculator.advance].
+ *   A record of the last spend, stored and carried through a backup, rather than a part of the
+ *   mechanic: the recap and the progression notification report a spend from the
+ *   [StreakUpdate] that made it, not from this. Idempotency does **not** rest on it either; see
+ *   [com.titan.core.domain.gamification.StreakCalculator.advance].
  */
 data class StreakProtection(
     val remaining: Int = MONTHLY_ALLOWANCE,

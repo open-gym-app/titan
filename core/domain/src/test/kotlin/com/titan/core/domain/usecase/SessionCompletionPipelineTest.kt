@@ -45,8 +45,8 @@ import java.time.ZoneOffset
  * between *what the steps wrote*, and a stubbed detection or a stubbed award would let an
  * ordering that never touched the store pass. The fakes are the repository interfaces the
  * module declares and does not implement, and each enforces the part of its contract the
- * cascade leans on — see [FakeGamificationRepository] in particular, whose streak write is
- * where the same-day rule actually holds.
+ * cascade leans on — see [FakeGamificationRepository] in particular, whose streak write keeps
+ * the anchor that makes a session count once.
  */
 class SessionCompletionPipelineTest {
 
@@ -117,7 +117,7 @@ class SessionCompletionPipelineTest {
 
             val progression = pipeline(sessionId, FINISHED_AT)
 
-            assertEquals(threshold, progression.streak?.days)
+            assertEquals(threshold, progression.streak?.weeks)
             assertTrue(
                 progression.achievementsUnlocked.map { it.achievement.id }
                     .contains(Achievements.FOUR_WEEK_STREAK.id),
@@ -387,7 +387,7 @@ class SessionCompletionPipelineTest {
             val second = pipeline(sessionId, FINISHED_AT)
 
             assertEquals(StreakResult.Unchanged, second.streak?.result)
-            assertEquals(1, second.streak?.days)
+            assertEquals(1, second.streak?.weeks)
             assertEquals(1, gamification.streakWeeks)
         }
 
@@ -545,7 +545,7 @@ class SessionCompletionPipelineTest {
     fun `a streak that could not be read does not stop the quests`() =
         runTest {
             // Unlike achievements, which are fenced by the streak because their snapshot needs
-            // it. No quest counts streak days, so the board is entirely intact without one.
+            // it. No quest counts streak weeks, so the board is entirely intact without one.
             val rig = Rig(
                 questCatalogue = listOf(ONE_SESSION_QUEST),
                 decorateGamification = { FailingStreak(it) },

@@ -14,8 +14,8 @@ import com.titan.core.domain.model.UserProgress
  * Everything the quest log draws.
  *
  * One state object rather than a stream, unlike the records list: every section here is a bounded
- * value — a level, seven quests, a milestone count, a handful of streak figures — so there is nothing that
- * has to be paged and nothing that is a stream rather than a list.
+ * value — a level, seven quests, a milestone count, a handful of streak figures — so there is
+ * nothing that has to be paged and nothing that is a stream rather than a list.
  *
  * ### The zero state is the default, and it is a real state
  *

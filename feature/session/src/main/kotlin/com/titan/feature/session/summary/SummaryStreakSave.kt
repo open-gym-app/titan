@@ -14,13 +14,13 @@ import com.titan.core.domain.model.StreakProtection
  * is finished, days after the week that fell short, so there is nothing to ask the user
  * about. That makes telling them afterwards the whole of the mechanic's honesty: a resource
  * silently spent on the user's behalf, never reported, is one they find out about by running
- * out of it. #39 will announce it as a notification when notifications exist; this is the
- * in-app surface, and it is the *right* one whether or not that lands, because the recap is
- * already open in front of the person whose streak was just saved.
+ * out of it. A workout closed from the notification shade is announced by
+ * `AndroidProgressionAnnouncer` instead; one finished on screen is reported here, because the
+ * recap is already open in front of the person whose streak was just saved.
  *
- * The quest log (#104) draws the standing allowance — its shield, spent or not,
- * whether or not anything happened today — from `GamificationRepository.observeStreak`. This is
- * the other half: the *event*, which only the session that caused it can report.
+ * The quest log (#104) draws the standing allowance — its shield, spent or not, whether or not
+ * anything happened today — from `GamificationRepository.observeStreak`. This is the other half:
+ * the *event*, which only the session that caused it can report.
  *
  * ### Absent, not empty
  *
@@ -62,7 +62,7 @@ data class SummaryStreakSave(
             val streak = progression.streak ?: return null
             if (!streak.protectionConsumed) return null
             return SummaryStreakSave(
-                streakWeeks = streak.days,
+                streakWeeks = streak.weeks,
                 protectionsRemaining = streak.protectionsRemaining,
             )
         }

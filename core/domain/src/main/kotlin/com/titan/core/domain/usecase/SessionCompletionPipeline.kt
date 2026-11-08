@@ -320,7 +320,7 @@ class SessionCompletionPipeline(
         }
         return AchievementProgress(
             sessionsFinished = sessionRepository.countFinished(),
-            currentStreak = counted.days,
+            currentStreak = counted.weeks,
             recordsBroken = personalRecordRepository.count(),
         )
     }

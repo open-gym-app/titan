@@ -2,6 +2,7 @@ package com.titan.core.domain.backup
 
 import com.titan.core.domain.backup.model.AchievementRow
 import com.titan.core.domain.backup.model.ExportDocument
+import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.StreakProtection
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -50,6 +51,13 @@ class WeeklyStreakUpgradeTest {
     }
 
     @Test
+    fun `a file from before the weekly streak holds the level its total buys on today's curve`() {
+        val progress = decode(legacyDocument(currentLevel = OLD_CURVE_LEVEL)).userProgress.single()
+
+        assertEquals(XpCalculator.levelForTotalXp(progress.totalXp), progress.currentLevel)
+    }
+
+    @Test
     fun `the retired streak milestones are dropped and every other unlock is kept`() {
         val ids = decode(legacyDocument()).achievement.map { it.achievementId }
 
@@ -61,9 +69,12 @@ class WeeklyStreakUpgradeTest {
      * The sample document as the session-based streak wrote it: no `week_sessions` or
      * `week_goal_met` on the progress row, and its two streak milestones unlocked.
      */
-    private fun legacyDocument(): String {
+    private fun legacyDocument(currentLevel: Int? = null): String {
         val withRetired = sampleDocument().let { document ->
             document.copy(
+                userProgress = document.userProgress.map { row ->
+                    currentLevel?.let { row.copy(currentLevel = it) } ?: row
+                },
                 achievement = document.achievement +
                     WeeklyStreakUpgrade.RETIRED_ACHIEVEMENT_IDS.map { AchievementRow(it, unlockedAt = 0) },
             )
@@ -82,5 +93,10 @@ class WeeklyStreakUpgradeTest {
             },
         )
         return (decoded as ExportFormat.Decoded.Success).document
+    }
+
+    private companion object {
+        /** A level no total in the sample buys on today's curve: what the old, cheaper one stored. */
+        const val OLD_CURVE_LEVEL = 212
     }
 }

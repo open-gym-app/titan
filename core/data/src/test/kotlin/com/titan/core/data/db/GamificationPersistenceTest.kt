@@ -109,7 +109,7 @@ class GamificationPersistenceTest {
                 .updateStreak { state -> StreakCalculator.advance(state, SECOND_MONDAY, GOAL) }
             reopened.close()
 
-            assertEquals(2, update.days)
+            assertEquals(2, update.weeks)
         }
 
     @Test

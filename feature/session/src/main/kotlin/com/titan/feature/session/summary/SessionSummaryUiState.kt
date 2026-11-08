@@ -44,9 +44,9 @@ import com.titan.core.ui.component.MuscleContribution
  *   never wired; see [SummaryCelebration] and `SessionProgressionHandoff`. Absent rather than
  *   zeroed, so the screen draws no section instead of a heading over `0 XP`.
  * @param streakSave whether the short week this session revealed was paid for out of the
- *   streak-protection allowance, or **null** — which is every ordinary session. Same shape and same reasoning as
- *   [celebration]: absent rather than a flag plus two figures nobody should read when it is
- *   false. See [SummaryStreakSave].
+ *   streak-protection allowance, or **null** — which is every ordinary session. Same shape and
+ *   same reasoning as [celebration]: absent rather than a flag plus two figures nobody should
+ *   read when it is false. See [SummaryStreakSave].
  * @param notes the session's stored note, or null for one that has none.
  * @param notesDraft what is in the note field, or **null** when the note is not being edited.
  *   Null is the read state, so a screen asking "is the field open" asks one question.

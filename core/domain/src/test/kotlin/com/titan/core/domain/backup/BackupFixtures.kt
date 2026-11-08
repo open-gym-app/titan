@@ -247,7 +247,7 @@ private fun sampleProgress() =
     UserProgressRow(
         id = UserProgressRow.SINGLE_ROW_ID,
         totalXp = 4_200,
-        currentLevel = 7,
+        currentLevel = 8,
         currentStreak = 3,
         longestStreak = 11,
         lastCountedAt = FINISHED_AT,

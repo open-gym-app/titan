@@ -32,7 +32,7 @@ class StreakCalculatorTest {
         val update = StreakCalculator.advance(StreakState(), at("2026-03-02"), weeklyGoal = 4)
 
         assertEquals(StreakResult.Counted, update.result)
-        assertEquals(0, update.days)
+        assertEquals(0, update.weeks)
         assertEquals(1, update.state.weekSessions)
         assertFalse(update.state.weekGoalMet)
     }
@@ -42,7 +42,7 @@ class StreakCalculatorTest {
         val update = train(goal = 4, "2026-03-02", "2026-03-03", "2026-03-05", "2026-03-07")
 
         assertEquals(StreakResult.Incremented(1), update.result)
-        assertEquals(1, update.days)
+        assertEquals(1, update.weeks)
         assertTrue(update.state.weekGoalMet)
     }
 
@@ -51,7 +51,7 @@ class StreakCalculatorTest {
         val update = train(goal = 3, "2026-03-02", "2026-03-04", "2026-03-06", "2026-03-07")
 
         assertEquals(StreakResult.Counted, update.result)
-        assertEquals(1, update.days)
+        assertEquals(1, update.weeks)
         assertEquals(4, update.state.weekSessions)
     }
 
@@ -91,7 +91,7 @@ class StreakCalculatorTest {
         val update = train(goal = 3, "2026-03-02", "2026-03-04", "2026-03-06", "2026-03-09")
 
         assertEquals(StreakResult.Counted, update.result)
-        assertEquals(1, update.days)
+        assertEquals(1, update.weeks)
         assertEquals(1, update.state.weekSessions)
     }
 
@@ -124,7 +124,7 @@ class StreakCalculatorTest {
         val update = StreakCalculator.advance(short.state, at("2026-03-16"), weeklyGoal = 3)
 
         assertEquals(StreakResult.Reset(newStreak = 0), update.result)
-        assertEquals(0, update.days)
+        assertEquals(0, update.weeks)
         assertEquals(1, update.state.weekSessions)
     }
 
@@ -198,7 +198,7 @@ class StreakCalculatorTest {
         val update = StreakCalculator.advance(met.state, at("2026-03-04"), weeklyGoal = 3)
 
         assertEquals(StreakResult.Counted, update.result)
-        assertEquals(1, update.days)
+        assertEquals(1, update.weeks)
     }
 
     @Test

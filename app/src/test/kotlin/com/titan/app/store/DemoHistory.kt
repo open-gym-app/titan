@@ -239,7 +239,8 @@ internal class DemoHistory(
             .takeWhile { !it.isAfter(to) }
             .toList()
         mondays.forEachIndexed { index, monday ->
-            val progress = index.toDouble() / (mondays.size - 1)
+            // A history inside a single week has one Monday, which is both ends of the drift.
+            val progress = if (mondays.size > 1) index.toDouble() / (mondays.size - 1) else 1.0
             val at = monday.atTime(WEIGH_IN_HOUR, 0).toInstant(ZoneOffset.UTC).toEpochMilli()
             val monthly = monday.dayOfMonth <= DAYS_IN_A_WEEK
             val jitter = random.nextInt(-WEIGHT_JITTER_GRAMS, WEIGHT_JITTER_GRAMS + 1)

@@ -23,8 +23,9 @@ package com.titan.core.domain.gamification
  *
  * Seven bands over the first fifty levels, spaced so the early ones arrive quickly — the first
  * three land inside the first few weeks of training, which is when a new user is deciding
- * whether any of this is for them — and the later ones stretch out. A rank every five levels forever would make
- * the word meaningless; a rank at 1 and the next at 40 would make it invisible.
+ * whether any of this is for them — and the later ones stretch out. A rank every five levels
+ * forever would make the word meaningless; a rank at 1 and the next at 40 would make it
+ * invisible.
  *
  * **These bands are starting defaults**, like the XP constants and the quest targets: nothing has
  * been validated against real usage. Each threshold is named below and read from nowhere else.

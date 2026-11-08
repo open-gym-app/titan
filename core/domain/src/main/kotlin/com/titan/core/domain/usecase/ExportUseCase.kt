@@ -41,8 +41,8 @@ import kotlinx.coroutines.flow.flow
  * @property backupRepository the rows, table by table and page by page.
  * @property userPreferencesRepository the settings, read once — `observe().first()` returns
  *   immediately even on a fresh install, per that interface's emission contract.
- * @property clock stamps [ExportDocument.exportedAt]. Defaulted so production wiring is
- *   repositories only, per the convention the session use cases set.
+ * @property clock stamps [ExportDocument.exportedAt]. Defaulted so a test that does not care
+ *   when the document was written can leave it out; the graph passes its own.
  * @property pageSize how many rows are read and encoded at a time. Defaulted to
  *   [DEFAULT_PAGE_SIZE]; a test pins it small to prove the paging is real.
  */
