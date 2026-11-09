@@ -73,7 +73,7 @@ interface GamificationRepository {
      * Both come from the curve rather than from the level column read off the row, because
      * the column was written by whatever curve was in force when it was last touched. Reusing
      * it as [XpAward.previousLevel] would make the first award after a retune of
-     * `XP_PER_LEVEL` compare a new-curve level against an old-curve one, and report a level-up
+     * the curve compare a new-curve level against an old-curve one, and report a level-up
      * — or a level *drop* — that the user did not earn, which is exactly what #27's
      * celebration fires on.
      *

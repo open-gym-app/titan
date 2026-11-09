@@ -102,7 +102,7 @@ class QuestLogViewModelTest {
     @Test
     fun `the rank comes from the table rather than from the level number`() =
         runTest {
-            gamification.progress.value = UserProgress(totalXp = 1_240, level = 13)
+            gamification.progress.value = UserProgress(totalXp = 14_853, level = 40)
 
             assertEquals(LevelTitles.STEEL_FORGED, collect()().levelTitle)
         }
@@ -165,9 +165,9 @@ class QuestLogViewModelTest {
             val state = collect()
             assertEquals(1, state().progress.level)
 
-            gamification.progress.value = UserProgress(totalXp = 450, level = 5)
+            gamification.progress.value = UserProgress(totalXp = 4_974, level = 20)
 
-            assertEquals(5, state().progress.level)
+            assertEquals(20, state().progress.level)
             assertEquals(LevelTitles.IRON_DISCIPLE, state().levelTitle)
         }
 

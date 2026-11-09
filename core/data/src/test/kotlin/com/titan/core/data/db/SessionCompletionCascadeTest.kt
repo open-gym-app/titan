@@ -234,9 +234,10 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     @Test
     fun `the level the stored total buys is a level the user actually crossed`() =
         runBlocking {
-            // The fixture is built to cross one: a first session breaks every record type it has
-            // the columns for, unlocks two milestones and clears two quests. A cascade that
-            // banked the total without recomputing the level would read as level 1 here.
+            // The fixture is built to cross several: a first session unlocks two milestones and
+            // clears two record quests, which its first-ever records still count towards, and
+            // the first levels are cheap. A cascade that banked the total without recomputing
+            // the level would read as level 1.
             val sessionId = seedFinishedSession()
 
             pipeline(sessionId, FINISHED_AT)
@@ -247,9 +248,9 @@ class SessionCompletionCascadeTest : RoomTestBase() {
                 (stored?.currentLevel ?: 0) > XpCalculator.FIRST_LEVEL,
             )
             // The one figure written out by hand rather than derived, as a check on the
-            // derivation: 50 for the session, 30 for six sets, 80 for eight records, 200 for
-            // two milestones and 380 for two quests is 740, which is one whole level and a
-            // fifth of the second.
+            // derivation: 50 for the session, 30 for six sets, nothing for eight first-ever
+            // records, 200 for two milestones and 380 for two quests is 660, which is past the
+            // 480 that level 5 costs and short of the 671 that level 6 does.
             assertEquals(EXPECTED_LEVEL, stored?.currentLevel)
         }
 
@@ -455,20 +456,21 @@ class SessionCompletionCascadeTest : RoomTestBase() {
         }
 
     @Test
-    fun `what a torn cascade costs is the records' own xp, and exactly that`() =
+    fun `a torn cascade over a first session loses nothing, its records being unpaid baselines`() =
         runBlocking {
-            // The deliberate half of the pipeline's trade, stated as a number. The re-entry's
-            // detection beats the rows the first pass wrote, so it emits no `PrBroken` to pay
-            // for — and nothing downstream rounds the loss up. Under-paying one torn session is
-            // the price of not re-paying every session on every crash-recovery boot; see
-            // `GamificationRepository.claimSessionXp`.
+            // The deliberate half of the pipeline's trade is that the re-entry's detection beats
+            // the rows the first pass wrote, so it emits no `PrBroken` to pay for. A first
+            // session's records are baselines, which pay nothing in either case, so what the
+            // tear would have cost is zero and nothing downstream invents a loss. Under-paying a
+            // torn session that did break an earlier figure is the price of not re-paying every
+            // session on every crash-recovery boot; see `GamificationRepository.claimSessionXp`.
             val sessionId = seedFinishedSession()
             detectPersonalRecords(sessionId)
 
             pipeline(sessionId, FINISHED_AT)
 
             val stored = db.userProgressDao().observe().first()
-            assertEquals(CLEAN_RUN_XP - XpCalculator.XP_PER_PR * RECORDS_BROKEN, stored?.totalXp)
+            assertEquals(CLEAN_RUN_XP, stored?.totalXp)
             assertEquals(XpCalculator.levelForTotalXp(stored!!.totalXp), stored.currentLevel)
         }
 
@@ -588,7 +590,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
         /** Weight, reps, volume and estimated 1RM — see [RECORDS_BROKEN]. */
         const val RECORD_TYPES_PER_EXERCISE = 4
 
-        /** Six, and every one of them completed — warm-ups are priced the same and there are none. */
+        /** Six, and every one of them a working set that pays — there are no warm-ups. */
         val COMPLETED_SETS = EXERCISES * SETS.size
 
         /**
@@ -607,7 +609,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
          * everything else is a count times a constant, which would still agree with a level
          * computed the wrong way. A retune of the economy moves this by hand, on purpose.
          */
-        const val EXPECTED_LEVEL = 2
+        const val EXPECTED_LEVEL = 5
 
         /** Those two as the database returns them — see [storedAchievementIds]. */
         val UNLOCKED_AS_STORED = listOf(Achievements.FIRST_RECORD.id, Achievements.FIRST_SESSION.id)
@@ -616,13 +618,13 @@ class SessionCompletionCascadeTest : RoomTestBase() {
          * What a clean single run leaves on the progress row.
          *
          * Spelled out rather than summed from the result, so this is an expectation and not an
-         * echo: the session, its sets, its records, its milestones, and the two record quests
-         * eight PRs clear in one workout.
+         * echo: the session, its sets, its milestones, and the two record quests eight records
+         * clear in one workout. The records themselves are the first of their kind, so they are
+         * the one thing that session is not paid for.
          */
         val CLEAN_RUN_XP: Long =
             XpCalculator.XP_PER_SESSION.toLong() +
                 XpCalculator.XP_PER_SET * COMPLETED_SETS +
-                XpCalculator.XP_PER_PR * RECORDS_BROKEN +
                 XpCalculator.XP_PER_ACHIEVEMENT * MILESTONES +
                 Quests.WEEKLY_RECORD.xpReward +
                 Quests.MONTHLY_RECORDS.xpReward

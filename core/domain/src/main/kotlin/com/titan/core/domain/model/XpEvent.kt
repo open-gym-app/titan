@@ -34,19 +34,33 @@ package com.titan.core.domain.model
  */
 sealed interface XpEvent {
 
-    /** One set logged, warm-up or not — the work of showing up, priced per set. */
+    /**
+     * One working set done — a completed set that is not a warm-up and carries some work.
+     * Which sets qualify, and how many of a session's are paid, is
+     * [com.titan.core.domain.gamification.SessionXp]'s call; by the time one of these is emitted
+     * the set has already earned it.
+     */
     data object SetLogged : XpEvent
 
-    /** A session finished. Emitted once, on the finish, never per exercise. */
+    /**
+     * A session finished with real work in it. Emitted once, on the finish, never per exercise,
+     * and not at all for a session too thin to count — see
+     * [com.titan.core.domain.gamification.SessionXp.MIN_SETS_FOR_SESSION_XP].
+     */
     data object SessionFinished : XpEvent
 
     /**
-     * A personal record broken, one event per [PrType] the session actually beat.
+     * A personal record **beaten**, one event per [PrType] the session actually beat.
      *
      * A session that beats its weight, rep and volume records for one exercise emits three
      * of these, because three records fell. [prType] carries which, so a future tuning pass
      * can price an estimated 1RM differently from a heaviest lift without changing this
      * type — today they are all worth the same.
+     *
+     * Only a figure that beat an earlier one is an event. The first time an exercise is done
+     * every record kind it is eligible for is written, since there is nothing to compare with,
+     * but nothing was beaten: paying for those would make a new exercise worth a handful of
+     * records and a made-up one worth the same.
      */
     data class PrBroken(val prType: PrType) : XpEvent
 

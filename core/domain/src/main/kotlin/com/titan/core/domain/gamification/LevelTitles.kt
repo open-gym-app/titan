@@ -21,11 +21,14 @@ package com.titan.core.domain.gamification
  *
  * ### The ranks
  *
- * Seven bands over the first fifty levels, spaced so the early ones arrive quickly — the first
- * three land inside the first few weeks of training, which is when a new user is deciding
- * whether any of this is for them — and the later ones stretch out. A rank every five levels
- * forever would make the word meaningless; a rank at 1 and the next at 40 would make it
- * invisible.
+ * Seven bands over the first hundred levels, which is the year `XpEconomyTest` tunes the curve
+ * to: [LEGEND] is a year of training to the default weekly goal, and the bands before it are
+ * placed against that same reference lifter rather than spaced evenly in levels. [XpCalculator]'s
+ * curve makes early levels cheap, so the opening bands sit far apart in levels to stay apart in
+ * time — about a week and a half for [REGULAR], a month for [IRON_DISCIPLE], three months for
+ * [STEEL_FORGED], and then a band every quarter until [LEGEND]. The first two arrive inside the
+ * first month, which is when a new user is deciding whether any of this is for them; the later
+ * ones mark the seasons of a year rather than its weeks.
  *
  * **These bands are starting defaults**, like the XP constants and the quest targets: nothing has
  * been validated against real usage. Each threshold is named below and read from nowhere else.
@@ -35,23 +38,23 @@ object LevelTitles {
     /** Level 1 and up: everybody starts here. */
     val NEWCOMER = LevelTitle(id = "newcomer", fromLevel = XpCalculator.FIRST_LEVEL)
 
-    /** Level 3: past the point where the app was a thing being tried out. */
-    val REGULAR = LevelTitle(id = "regular", fromLevel = 3)
+    /** Level 10, about a week and a half in: past the point where the app was being tried out. */
+    val REGULAR = LevelTitle(id = "regular", fromLevel = 10)
 
-    /** Level 5. */
-    val IRON_DISCIPLE = LevelTitle(id = "iron_disciple", fromLevel = 5)
+    /** Level 20, about a month in. */
+    val IRON_DISCIPLE = LevelTitle(id = "iron_disciple", fromLevel = 20)
 
-    /** Level 10. */
-    val STEEL_FORGED = LevelTitle(id = "steel_forged", fromLevel = 10)
+    /** Level 40, about three months in. */
+    val STEEL_FORGED = LevelTitle(id = "steel_forged", fromLevel = 40)
 
-    /** Level 20. */
-    val RELENTLESS = LevelTitle(id = "relentless", fromLevel = 20)
+    /** Level 60, about six months in. */
+    val RELENTLESS = LevelTitle(id = "relentless", fromLevel = 60)
 
-    /** Level 35. */
-    val UNBREAKABLE = LevelTitle(id = "unbreakable", fromLevel = 35)
+    /** Level 80, about nine months in. */
+    val UNBREAKABLE = LevelTitle(id = "unbreakable", fromLevel = 80)
 
-    /** Level 50, and every level after it — see [forLevel]. */
-    val LEGEND = LevelTitle(id = "legend", fromLevel = 50)
+    /** Level 100, a year in, and every level after it — see [forLevel]. */
+    val LEGEND = LevelTitle(id = "legend", fromLevel = 100)
 
     /**
      * Every rank, lowest first. The order is what [forLevel] walks and what a table of ranks

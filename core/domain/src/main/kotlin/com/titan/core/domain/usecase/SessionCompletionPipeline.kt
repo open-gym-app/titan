@@ -1,5 +1,6 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.gamification.SessionXp
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
@@ -10,7 +11,6 @@ import com.titan.core.domain.model.SessionProgression
 import com.titan.core.domain.model.SessionProgressionFailure
 import com.titan.core.domain.model.SessionProgressionStep
 import com.titan.core.domain.model.StreakUpdate
-import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.model.XpEvent
 import com.titan.core.domain.model.XpGrant
 import com.titan.core.domain.repository.GamificationRepository
@@ -213,13 +213,14 @@ class SessionCompletionPipeline(
         // nine must not take the four already on file out of the report with it. Loot is the
         // writer that needs none — see its own comment below.
         val records = mutableListOf<PersonalRecord>()
+        val beaten = mutableListOf<PersonalRecord>()
         runStep(SessionProgressionStep.PR_DETECTION, failures) {
-            detectPersonalRecords(sessionId, into = records)
+            detectPersonalRecords(sessionId, into = records, beaten = beaten)
         }
 
         val xp = mutableListOf<XpGrant>()
         runStep(SessionProgressionStep.XP, failures) {
-            awardSessionXp(sessionId, records, into = xp)
+            awardSessionXp(sessionId, beaten, into = xp)
         }
 
         val streak = runStep(SessionProgressionStep.STREAK, failures) {
@@ -267,8 +268,9 @@ class SessionCompletionPipeline(
     }
 
     /**
-     * Banks the session's own awards into [into] — one per set logged, one for the session,
-     * one per record — or nothing at all if this session's XP has already been claimed.
+     * Banks the session's own awards into [into] — the session, its working sets and the
+     * records it beat, as [SessionXp] decides — or nothing at all if this session's XP has
+     * already been claimed.
      *
      * The claim is taken first and the awards follow it, which is what makes the whole step a
      * no-op on a re-entry; see [GamificationRepository.claimSessionXp].
@@ -280,24 +282,28 @@ class SessionCompletionPipeline(
      * would correct it. What is lost to the tear is the *rest* of the awards, which is the
      * trade [GamificationRepository.claimSessionXp] names; what was paid is still reported.
      *
-     * Sets are counted from the store rather than passed in, so re-entry needs only a session
-     * id. Warm-ups count: [XpEvent.SetLogged] prices the work of showing up and does not ask
-     * how hard the set was, which is the one place this differs from [PrDetectionUseCase]'s
-     * reading of the same rows.
+     * Sets are read from the store rather than passed in, so re-entry needs only a session id.
+     * Warm-ups and sets with nothing logged on them do not pay, and neither does a record that
+     * was the first figure ever written for its exercise: the first time an exercise is done,
+     * every record kind it is eligible for is written because there is nothing to compare with,
+     * and those are baselines, not feats. [beatenRecords] is therefore detection's own account
+     * of which records found one on file to beat — see [PrDetectionUseCase.invoke] — rather
+     * than every record the session wrote.
+     *
+     * The events are worked out before the claim is taken, because working them out is only
+     * a read: a read that fails then leaves the claim unspent for a re-entry to pay, where after
+     * the claim it would cost the session every award it had earned.
      */
     private suspend fun awardSessionXp(
         sessionId: Long,
-        records: List<PersonalRecord>,
+        beatenRecords: List<PersonalRecord>,
         into: MutableList<XpGrant>,
     ) {
+        val sets = sessionRepository.getSetsForSession(sessionId).first()
+        val events = SessionXp.eventsFor(sets, beatenRecords)
+
         if (!gamificationRepository.claimSessionXp(sessionId)) return
 
-        val setsLogged = sessionRepository.getSetsForSession(sessionId).first().count(WorkoutSet::isCompleted)
-        val events = buildList {
-            add(XpEvent.SessionFinished)
-            repeat(setsLogged) { add(XpEvent.SetLogged) }
-            records.forEach { add(XpEvent.PrBroken(it.type)) }
-        }
         events.forEach { event -> into += XpGrant(event, awardXp(event)) }
     }
 

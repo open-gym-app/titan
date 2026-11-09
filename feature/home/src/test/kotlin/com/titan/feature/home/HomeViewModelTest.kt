@@ -443,20 +443,20 @@ class HomeViewModelTest {
     @Test
     fun `the standing becomes a level and the points banked into it`() =
         runTest {
-            // 7,840 points on a six-hundred-a-level curve: level 14, forty points in.
-            progress.setProgress(standing(totalXp = 7_840, level = 14))
+            // Level 14 opens at 2,812 on the shipped curve: 2,852 is forty points in.
+            progress.setProgress(standing(totalXp = 2_852, level = 14))
 
             val level = requireNotNull(viewModel().uiState.value.level)
 
             assertEquals(14, level.level)
             assertEquals(40, level.xpIntoLevel)
-            assertEquals(XpCalculator.XP_PER_LEVEL, level.xpForLevel)
+            assertEquals(XpCalculator.xpToNextLevel(14), level.xpForLevel)
         }
 
     @Test
     fun `nothing banked yet draws no header at all`() =
         runTest {
-            // Not `LVL 1 · 0 / 600 XP`. A user who has done nothing is told what they can do,
+            // Not `LVL 1 · 0 / 60 XP`. A user who has done nothing is told what they can do,
             // not what they have not — see HomeUiState.level.
             val home = viewModel().uiState.value
 
@@ -621,7 +621,7 @@ class HomeViewModelTest {
             val viewModel = viewModel()
             assertNull(viewModel.uiState.value.level)
 
-            progress.setProgress(standing(totalXp = 1_340, level = 14))
+            progress.setProgress(standing(totalXp = 2_852, level = 14))
 
             assertEquals(14, viewModel.uiState.value.level?.level)
         }

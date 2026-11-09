@@ -316,6 +316,50 @@ class PrDetectionUseCaseTest {
         }
 
     @Test
+    fun `only a record that found one on file to improve on is reported as beaten`() =
+        runTest {
+            // The first session of an exercise writes a baseline of every kind it has, with
+            // nothing to compare against: written, and none of it beaten.
+            val bench = 60L
+            val firstSession = startSession(bench)
+            addSet(firstSession, weight = 100_000_000, reps = 5, completedAt = 1L)
+            val firstBeaten = mutableListOf<PersonalRecord>()
+            val firstWritten = detectPrs(firstSession, beaten = firstBeaten)
+            assertEquals(4, firstWritten.size)
+            assertTrue(firstBeaten.isEmpty())
+
+            // A heavier set on the same exercise improves three kinds and ties the fourth; a
+            // squat done for the first time in the same session is baselines again.
+            val squat = 61L
+            val secondSession = startSession(bench)
+            addSet(secondSession, weight = 110_000_000, reps = 5, completedAt = 2L)
+            exercises.update(Exercise(id = squat, name = "Squat", type = ExerciseType.STRENGTH))
+            val squatSlot = sessions.addExercise(sessionId = secondSession, exerciseId = squat)
+            sessions.addSet(
+                squatSlot,
+                WorkoutSet(
+                    sessionExerciseId = squatSlot,
+                    setNumber = 0,
+                    weight = 140_000_000,
+                    reps = 5,
+                    isCompleted = true,
+                    completedAt = 3L,
+                    createdAt = 3L,
+                    updatedAt = 3L,
+                ),
+            )
+            val secondBeaten = mutableListOf<PersonalRecord>()
+            val secondWritten = detectPrs(secondSession, beaten = secondBeaten)
+
+            assertEquals(
+                setOf(PrType.MAX_WEIGHT, PrType.MAX_VOLUME, PrType.ESTIMATED_1RM),
+                secondBeaten.map { it.type }.toSet(),
+            )
+            assertTrue(secondBeaten.all { it.exerciseId == bench })
+            assertTrue(secondWritten.containsAll(secondBeaten))
+        }
+
+    @Test
     fun `switching the formula changes future estimates without rewriting past records`() =
         runTest {
             val exerciseId = 60L

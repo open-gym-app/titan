@@ -29,10 +29,10 @@ import java.time.ZoneOffset
 
 /** A lifter several months in: mid-level, a live streak, most of the board part-way done. */
 internal fun populatedQuestLog(): QuestLogUiState {
-    // Level 13 opens at 7,200 XP on the shipped curve; 7,440 is 240 points into it.
+    // Level 40 opens at 14,613 XP on the shipped curve; 14,853 is 240 points into it.
     val progress = UserProgress(
-        totalXp = 7_440,
-        level = 13,
+        totalXp = 14_853,
+        level = 40,
         currentStreak = 6,
         longestStreak = 21,
     )
@@ -93,7 +93,7 @@ internal fun emptyQuestLog(): QuestLogUiState {
 /**
  * The moment after a level-up: a level just reached, so the ring is nearly empty.
  *
- * Level 5 is the first level of a *new rank* — `iron_disciple` — which is the case worth having a
+ * Level 20 is the first level of a *new rank* — `iron_disciple` — which is the case worth having a
  * fixture for. There is no transient "just levelled up" flag on this screen and deliberately so:
  * the crossing is observed by the award that caused it and celebrated on the session summary
  * (#111), while this screen draws the standing state. What is asserted here is that the state
@@ -101,10 +101,10 @@ internal fun emptyQuestLog(): QuestLogUiState {
  * ring rather than a full one carried over from the level before.
  */
 internal fun justLevelledUpQuestLog(): QuestLogUiState {
-    // Level 5 opens at 2,400 XP on the shipped curve; 2,405 is five points into it.
+    // Level 20 opens at 4,969 XP on the shipped curve; 4,974 is five points into it.
     val progress = UserProgress(
-        totalXp = 2_405,
-        level = 5,
+        totalXp = 4_974,
+        level = 20,
         currentStreak = 3,
         longestStreak = 3,
     )

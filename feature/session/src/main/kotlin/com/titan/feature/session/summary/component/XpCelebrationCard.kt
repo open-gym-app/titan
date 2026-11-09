@@ -273,7 +273,9 @@ private fun XpEarned(
  *
  * The figure beside the bar follows it rather than showing the final answer, through a
  * `derivedStateOf` over the whole points — so it recomposes at most once per point rather than
- * once per frame, and reads as a tally running up beside the bar it belongs to.
+ * once per frame, and reads as a tally running up beside the bar it belongs to. Each level the
+ * sweep passes through is counted against its own width, because levels cost more as they go:
+ * a run from level 3 to 5 reads `/ 142`, then `/ 168`, then the final level's `/ 191`.
  *
  * The spoken sentence, by contrast, is the **outcome**: a screen reader is given the level and
  * the points remaining once, not a running commentary on an animation it cannot see.
@@ -285,8 +287,11 @@ private fun LevelStanding(
     modifier: Modifier = Modifier,
 ) {
     val remaining = celebration.xpForLevel - celebration.xpIntoLevel
-    val into by remember(sweep, celebration.xpForLevel) {
-        derivedStateOf { (sweep.fraction.value * celebration.xpForLevel).roundToInt() }
+    val width by remember(sweep, celebration) {
+        derivedStateOf { celebration.xpForLevel(sweep.level) }
+    }
+    val into by remember(sweep, celebration) {
+        derivedStateOf { (sweep.fraction.value * width).roundToInt() }
     }
 
     Column(
@@ -303,7 +308,7 @@ private fun LevelStanding(
                 color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text = stringResource(R.string.summary_level_progress, into, celebration.xpForLevel),
+                text = stringResource(R.string.summary_level_progress, into, width),
                 style = TitanTheme.typography.numericSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
