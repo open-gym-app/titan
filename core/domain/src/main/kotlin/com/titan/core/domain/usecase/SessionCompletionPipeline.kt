@@ -1,5 +1,6 @@
 package com.titan.core.domain.usecase
 
+import com.titan.core.domain.gamification.SessionXp
 import com.titan.core.domain.gamification.StreakCalculator
 import com.titan.core.domain.model.AchievementProgress
 import com.titan.core.domain.model.AchievementUnlock
@@ -10,7 +11,6 @@ import com.titan.core.domain.model.SessionProgression
 import com.titan.core.domain.model.SessionProgressionFailure
 import com.titan.core.domain.model.SessionProgressionStep
 import com.titan.core.domain.model.StreakUpdate
-import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.model.XpEvent
 import com.titan.core.domain.model.XpGrant
 import com.titan.core.domain.repository.GamificationRepository
@@ -267,8 +267,9 @@ class SessionCompletionPipeline(
     }
 
     /**
-     * Banks the session's own awards into [into] — one per set logged, one for the session,
-     * one per record — or nothing at all if this session's XP has already been claimed.
+     * Banks the session's own awards into [into] — the session, its working sets and the
+     * records it beat, as [SessionXp] decides — or nothing at all if this session's XP has
+     * already been claimed.
      *
      * The claim is taken first and the awards follow it, which is what makes the whole step a
      * no-op on a re-entry; see [GamificationRepository.claimSessionXp].
@@ -280,10 +281,9 @@ class SessionCompletionPipeline(
      * would correct it. What is lost to the tear is the *rest* of the awards, which is the
      * trade [GamificationRepository.claimSessionXp] names; what was paid is still reported.
      *
-     * Sets are counted from the store rather than passed in, so re-entry needs only a session
-     * id. Warm-ups count: [XpEvent.SetLogged] prices the work of showing up and does not ask
-     * how hard the set was, which is the one place this differs from [PrDetectionUseCase]'s
-     * reading of the same rows.
+     * Sets are read from the store rather than passed in, so re-entry needs only a session id.
+     * Warm-ups and sets with nothing logged on them do not pay, and neither does a record that
+     * was the first figure ever written for its exercise — see [beaten].
      */
     private suspend fun awardSessionXp(
         sessionId: Long,
@@ -292,14 +292,26 @@ class SessionCompletionPipeline(
     ) {
         if (!gamificationRepository.claimSessionXp(sessionId)) return
 
-        val setsLogged = sessionRepository.getSetsForSession(sessionId).first().count(WorkoutSet::isCompleted)
-        val events = buildList {
-            add(XpEvent.SessionFinished)
-            repeat(setsLogged) { add(XpEvent.SetLogged) }
-            records.forEach { add(XpEvent.PrBroken(it.type)) }
-        }
-        events.forEach { event -> into += XpGrant(event, awardXp(event)) }
+        val sets = sessionRepository.getSetsForSession(sessionId).first()
+        SessionXp.eventsFor(sets, beaten(records)).forEach { event -> into += XpGrant(event, awardXp(event)) }
     }
+
+    /**
+     * The [records] that improved on an earlier record of the same exercise and kind.
+     *
+     * The first time an exercise is done, every record kind it is eligible for is written
+     * because there is nothing to compare with; those are baselines, not feats, and
+     * [XpEvent.PrBroken] does not pay for them. A record is only ever inserted, never replaced
+     * (see [PersonalRecordRepository.insertIfBetter]), so "another row of this exercise and
+     * kind" is exactly "something was there to beat".
+     */
+    private suspend fun beaten(records: List<PersonalRecord>): List<PersonalRecord> =
+        records
+            .groupBy(PersonalRecord::exerciseId)
+            .flatMap { (exerciseId, written) ->
+                val history = personalRecordRepository.getRecordsForExercise(exerciseId).first()
+                written.filter { record -> history.any { it.type == record.type && it.id != record.id } }
+            }
 
     /**
      * The three lifetime figures the catalogue is evaluated against, as of now.

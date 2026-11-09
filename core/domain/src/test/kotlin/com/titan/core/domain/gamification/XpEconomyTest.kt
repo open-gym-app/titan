@@ -41,6 +41,17 @@ class XpEconomyTest {
         assertTrue("records pay $records against $training for the training itself", records * 3 < training)
     }
 
+    @Test
+    fun `the reference session sits inside every session cap, so the caps take nothing from the year`() {
+        // The year below multiplies a session's sets and records by the prices as if every one
+        // were paid. That holds only while [SessionXp]'s floor and ceilings leave the reference
+        // session alone; a cap tightened past it would cut the real year and leave this sum
+        // reading as if nothing had changed.
+        assertTrue(SETS_PER_SESSION >= SessionXp.MIN_SETS_FOR_SESSION_XP)
+        assertTrue(SETS_PER_SESSION <= SessionXp.MAX_PAID_SETS)
+        assertTrue(RECORDS_PER_SESSION <= SessionXp.MAX_PAID_RECORDS)
+    }
+
     private fun referenceYearXp(): Long {
         val sessions = SESSIONS_PER_YEAR * XpCalculator.XP_PER_SESSION
         val sets = SESSIONS_PER_YEAR * SETS_PER_SESSION * XpCalculator.XP_PER_SET

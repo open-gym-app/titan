@@ -26,6 +26,10 @@ import com.titan.core.domain.model.XpEvent
  * would make the level a measure of how new somebody is to the app rather than how much they
  * have trained. An achievement, once in an install's life, is worth two sessions.
  *
+ * This prices an event; whether a session earns it at all is [SessionXp]'s call. Warm-ups, empty
+ * ticks and a first-ever figure for an exercise earn nothing there, and a session's sets and
+ * records are capped, which is what keeps these prices from being farmed.
+ *
  * ### A linear curve
  *
  * Level *n* costs the same additional XP as the level before it — `XP_PER_LEVEL × (n − 1)`
