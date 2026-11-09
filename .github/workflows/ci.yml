@@ -4,23 +4,24 @@ on:
   push:
     branches: [main]
     tags: ["*"]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  seed:
-    name: Seed assets
-    # Targets the runner named by the org-level CI_RUNNER variable, normally the
-    # self-hosted scale set in the homelab cluster. Self-hosted execution consumes no
-    # Actions minutes, which is what keeps this free-tier private repository inside its
-    # quota. GitHub has no automatic failover, so when the cluster is down that one
-    # variable is the switch: set it to `ubuntu-latest` and every job in the org moves
-    # back onto GitHub-hosted runners. The literal below is not that switch — it only
-    # covers the case where the variable was never created at all.
+  scripts:
+    name: Seed and translations
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
@@ -40,35 +41,20 @@ jobs:
           key: seed-source-${{ hashFiles('tools/seed/source.lock') }}
 
       # Guards against a hand-edited exercises.sql or an image dropped from the
-      # bundle: both would ship a catalogue that no longer matches the pinned
-      # upstream commit. Compares the SQL byte for byte and the image *names*
-      # only, since WebP output varies across Pillow versions.
+      # bundle
       - name: Verify the committed seed matches the pinned source
         run: make seed-check
 
-  translations:
-    name: Translations
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.14"
-
-      # Every key in `values/` against every `values-<locale>/` beside it, per module — see
-      # docs/TRANSLATION.md. A warning and never a failure, on purpose: a base string added in
-      # a PR should not block that PR on its French, Spanish and Portuguese, but a missing key
-      # falls back to English silently at runtime, so it has to be visible somewhere before a
-      # user reports it. The script writes each finding as a workflow annotation on the file
-      # it is about, which is what puts it on the PR's Files tab.
       - name: Check every translation against the base strings
+        if: ${{ !cancelled() }}
         run: make translations-check
 
-  lint:
-    name: Lint
+  # Every check that needs the Gradle build, in one job so the debug variant compiles once.
+  # Each check step runs under `!cancelled()`, so one failing check does not hide the others'
+  # results, just as when they were separate jobs. The debug APK is the exception: it is
+  # assembled only when every check passed.
+  check:
+    name: Lint, tests and debug build
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
@@ -85,76 +71,21 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # `--warning-mode fail` turns a Gradle deprecation into a build failure, the same way
-      # `-Xwarning-level=DEPRECATION:error` does for Kotlin (see the root build.gradle.kts).
-      # It is on this job only: one place to notice a deprecated Gradle API is enough, and
-      # this is the job whose name already says it is about what the build is warning of.
-      #
-      # It became possible with detekt 2.x. Until then `DetektPlugin.apply` called
-      # `ReportingExtension.file(String)` — deprecated for removal in Gradle 10 — on every
-      # single invocation, so this flag would have failed every build for a call no code
-      # here makes.
+      - name: Fit Gradle to the runner
+        run: install -D -m 644 .github/ci-gradle.properties "${GRADLE_USER_HOME:-$HOME/.gradle}/gradle.properties"
+
       - name: Run Detekt
         run: ./gradlew detekt --continue --warning-mode fail
 
-      - name: Run lint
-        run: ./gradlew lint --continue --warning-mode fail
-
-      # The module dependency graph, asserted against docs/ARCHITECTURE.md, plus the unit
-      # tests for the rules themselves. Both are wired into `check`, but no job here runs
-      # `check` — `unit-test` runs `test` and `build` runs `assembleDebug` — so they are
-      # named explicitly rather than left to a lifecycle task nothing invokes.
-      - name: Verify the module dependency graph
-        run: ./gradlew checkArchitecture checkBuildLogic
-
-  unit-test:
-    name: Unit Tests
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          java-version: "17"
-          distribution: "temurin"
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
-        with:
-          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-
-      # Compose behaviour tests and screenshot tests are both ordinary JVM unit tests under
-      # Robolectric, so this one step covers them and no emulator is needed. Naming
-      # `verifyRoborazziDebug` in the same invocation as `test` puts the debug unit-test task
-      # into screenshot-verification mode rather than running it a second time — asking for
-      # them in two invocations would run every Compose test twice.
       - name: Run unit tests and verify screenshots
+        id: tests
+        if: ${{ !cancelled() }}
         run: ./gradlew test verifyRoborazziDebug --continue
 
-      # The diff images this produces are deliberately *not* uploaded. This is a private
-      # repository on a free-tier plan, where artifact storage is the scarce resource, and a
-      # screenshot diff is reproducible on any machine: the failure names the reference file,
-      # and `make screenshots-verify` regenerates the same `*_compare.png` locally. See
-      # CONTRIBUTING.md.
-
-      # :core:domain is pure business logic with no Android framework escape hatches,
-      # so it carries a hard coverage floor (see core/domain/build.gradle.kts). The
-      # task generates the report and then fails the job below the floor.
       - name: Verify :core:domain coverage
+        if: ${{ !cancelled() && steps.tests.outcome == 'success' }}
         run: ./gradlew :core:domain:jacocoTestCoverageVerification
 
-      # Every run, kept for three days. A failure is the one time anybody opens this report —
-      # to see which lines went unexercised — but uploading unconditionally keeps the step
-      # off the critical path of diagnosing a red build. At ~1.7 MB per run this is the
-      # largest standing claim on a free-tier private repository's artifact storage, so the
-      # short retention, not the condition, is what keeps it bounded.
-      #
-      # A missing report only warns: the tests are finalized by the report task, so a *test*
-      # failure still leaves one behind, and the case where none exists is a compile failure —
-      # already reported above, and not worth a second red step that says nothing about the
-      # cause.
       - name: Upload the :core:domain coverage report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -164,10 +95,25 @@ jobs:
           retention-days: 3
           if-no-files-found: warn
 
-  build:
-    name: Build (debug APK)
+      # After the tests on purpose: lint analyses the classes the test step already compiled,
+      # so it adds its analysis and nothing else.
+      - name: Run lint
+        if: ${{ !cancelled() }}
+        run: ./gradlew lint --continue --warning-mode fail
+
+      # The module dependency graph, asserted against the rules docs/ARCHITECTURE.md
+      - name: Verify the module dependency graph
+        if: ${{ !cancelled() }}
+        run: ./gradlew checkArchitecture checkBuildLogic
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+  release-build:
+    name: Release build (R8)
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    needs: [lint, unit-test]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -183,19 +129,9 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      - name: Assemble debug APK
-        run: ./gradlew assembleDebug
+      # See the step of the same name in the `check` job.
+      - name: Fit Gradle to the runner
+        run: install -D -m 644 .github/ci-gradle.properties "${GRADLE_USER_HOME:-$HOME/.gradle}/gradle.properties"
 
-      # Release is the only variant that runs R8 and resource shrinking, so it is the one
-      # that catches a keep rule the debug build never needs — Room, Hilt and the
-      # serialization plugin all generate code that minification can strip. The `staging`
-      # type is `initWith(release)` plus two name suffixes (app/build.gradle.kts), so it
-      # compiles the same bytecode and cannot fail on its own; it is not built here.
-      #
-      # No KEYSTORE_* secrets are passed: the release signing config only attaches when a
-      # keystore is actually present (app/build.gradle.kts), and pointing KEYSTORE_PATH at
-      # a file that is not in the checkout would fail the build rather than sign anything.
-      # This step verifies that the release variant *assembles*; signing belongs with a
-      # release job that has a keystore to sign with.
       - name: Assemble release APK
         run: ./gradlew assembleRelease

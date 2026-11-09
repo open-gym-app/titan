@@ -33,10 +33,15 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 // XML one is still consumed — `sonar.androidLint.reportPaths` in the root
                 // build script points at `build/reports/lint-results-debug.xml`, which is
                 // exactly where AGP puts it on its own.
+                //
+                // `ignoreTestSources` keeps lint to the code that ships. Without it AGP runs a
+                // second and a third analysis per module, over the unit tests and the
+                // instrumented tests: sources detekt already checks and no user ever executes.
                 lint {
                     abortOnError = true
                     lintConfig = rootProject.file("lint.xml")
                     error += "HardcodedText"
+                    ignoreTestSources = true
                 }
             }
 

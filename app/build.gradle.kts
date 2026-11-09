@@ -203,11 +203,13 @@ android {
     }
 
     // `htmlReport`/`xmlReport` are deliberately absent, as in `AndroidLibraryConventionPlugin`:
-    // AGP deprecated both and writes every report format unconditionally now.
+    // AGP deprecated both and writes every report format unconditionally now. `ignoreTestSources`
+    // keeps lint to the code that ships, as it does there.
     lint {
         abortOnError = true
         lintConfig = rootProject.file("lint.xml")
         error += "HardcodedText"
+        ignoreTestSources = true
     }
 }
 
