@@ -35,7 +35,7 @@ import com.titan.core.domain.model.XpEvent
  *   compared between two levels, because the awards are where the crossing was observed.
  * @property levelProgress how far into [level] the user now stands, `0f..1f`.
  * @property xpIntoLevel points banked toward the next level.
- * @property xpForLevel what [level] costs on its own, so the screen's "43 / 170" needs no
+ * @property xpForLevel what [level] costs on its own, so the screen's "43 / 110" needs no
  *   second import of the curve. Levels cost more as they go, so a sweep through several draws
  *   each one against its own width — see [xpForLevel] with an argument.
  * @property achievements what unlocked, in the order the cascade unlocked them.

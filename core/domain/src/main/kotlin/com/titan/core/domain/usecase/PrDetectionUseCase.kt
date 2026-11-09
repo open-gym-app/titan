@@ -107,10 +107,17 @@ class PrDetectionUseCase(
      *   `first_record`, and whose XP nothing else will ever pay, since a re-run beats the rows
      *   this pass wrote and emits nothing for them. Defaulted, so a caller that does not care
      *   how far a failure got reads the return value and ignores this.
+     * @param beaten where each record that **improved on one already on file** lands, as it is
+     *   written — a subset of [into], filled the same way and for the same reason. The rest are
+     *   baselines: the first figure of their kind the exercise ever had, written because there
+     *   was nothing to compare with. Whether a row was on file is known only inside
+     *   [PersonalRecordRepository.insertIfBetter], so it is reported here rather than left for
+     *   a caller to read back afterwards.
      */
     suspend operator fun invoke(
         sessionId: Long,
         into: MutableList<PersonalRecord> = mutableListOf(),
+        beaten: MutableList<PersonalRecord> = mutableListOf(),
     ): List<PersonalRecord> {
         val performed = sessionRepository.getSetsForSession(sessionId).first()
             .filter { it.isCompleted && it.setType != SetType.WARMUP }
@@ -125,7 +132,7 @@ class PrDetectionUseCase(
         val typeByExercise = exerciseRepository.getByIds(setsByExercise.keys).associate { it.id to it.type }
         setsByExercise.forEach { (exerciseId, sets) ->
             val type = typeByExercise[exerciseId] ?: ExerciseType.STRENGTH
-            detect(exerciseId, type, sets, formula, into)
+            detect(exerciseId, type, sets, formula, into, beaten)
         }
         return into
     }
@@ -136,13 +143,19 @@ class PrDetectionUseCase(
         sets: List<WorkoutSet>,
         formula: OneRepMaxFormula,
         into: MutableList<PersonalRecord>,
+        beaten: MutableList<PersonalRecord>,
     ) {
         val eligible = PrType.eligibleFor(type)
         candidates(exerciseId, sets, formula).filter { it.type in eligible }.forEach { candidate ->
+            var hadRecord = false
             val written = personalRecordRepository.insertIfBetter(exerciseId, candidate.type, candidate) { current ->
+                hadRecord = current != null
                 isBetter(candidate, current)
             }
-            if (written != null) into += written
+            if (written != null) {
+                into += written
+                if (hadRecord) beaten += written
+            }
         }
     }
 

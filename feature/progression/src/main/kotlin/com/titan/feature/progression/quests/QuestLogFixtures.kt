@@ -93,7 +93,7 @@ internal fun emptyQuestLog(): QuestLogUiState {
 /**
  * The moment after a level-up: a level just reached, so the ring is nearly empty.
  *
- * Level 5 is the first level of a *new rank* — `iron_disciple` — which is the case worth having a
+ * Level 20 is the first level of a *new rank* — `iron_disciple` — which is the case worth having a
  * fixture for. There is no transient "just levelled up" flag on this screen and deliberately so:
  * the crossing is observed by the award that caused it and celebrated on the session summary
  * (#111), while this screen draws the standing state. What is asserted here is that the state

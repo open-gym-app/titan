@@ -18,10 +18,10 @@ package com.titan.core.ui.component
  *
  * ### Which levels are milestones
  *
- * Every fifth: a level ending in 0 or 5. Levels arrive quickly — a hundred points each, and a
- * first workout can pay four of them — so a milestone every tenth would be rare enough that most
- * users would meet the second one weeks apart and never learn the app had a louder register at
- * all. Five is frequent enough to be recognised as a pattern and rare enough to still mean
+ * Every fifth: a level ending in 0 or 5. Levels arrive quickly — the first ones cost tens of
+ * points, and a first workout can pay several of them — so a milestone every tenth would be
+ * rare enough that most users would meet the second one weeks apart and never learn the app had
+ * a louder register at all. Five is frequent enough to be recognised as a pattern and rare enough to still mean
  * something. It is one constant, and moving it moves every consequence.
  *
  * ### A different animation, not the same one louder

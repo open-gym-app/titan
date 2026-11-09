@@ -15,8 +15,10 @@ import com.titan.core.domain.model.XpEvent
  *
  * - **Only work pays.** A set pays when it is completed, is not a warm-up, and carries a rep, a
  *   duration or a distance. A set ticked off with nothing logged on it, and a warm-up, are
- *   [isPaidSet]-false — the same reading of the rows [com.titan.core.domain.usecase.PrDetectionUseCase]
- *   makes, so a set that cannot set a record cannot pay for being logged either.
+ *   [isPaidSet]-false. The first two conditions are the ones
+ *   [com.titan.core.domain.usecase.PrDetectionUseCase] filters on; the third is stricter than
+ *   detection, which can read a record off a weight alone, because a load held for no reps, time
+ *   or distance is not a set of anything.
  * - **A session pays on a floor and a ceiling.** Up to [MAX_PAID_SETS] working sets are paid, so
  *   a ninety-set session is worth what a twenty-set one is; and the session itself pays only from
  *   [MIN_SETS_FOR_SESSION_XP] working sets, so starting and finishing an empty workout is worth

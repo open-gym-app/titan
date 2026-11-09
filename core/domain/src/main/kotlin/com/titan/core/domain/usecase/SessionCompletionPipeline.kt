@@ -213,13 +213,14 @@ class SessionCompletionPipeline(
         // nine must not take the four already on file out of the report with it. Loot is the
         // writer that needs none — see its own comment below.
         val records = mutableListOf<PersonalRecord>()
+        val beaten = mutableListOf<PersonalRecord>()
         runStep(SessionProgressionStep.PR_DETECTION, failures) {
-            detectPersonalRecords(sessionId, into = records)
+            detectPersonalRecords(sessionId, into = records, beaten = beaten)
         }
 
         val xp = mutableListOf<XpGrant>()
         runStep(SessionProgressionStep.XP, failures) {
-            awardSessionXp(sessionId, records, into = xp)
+            awardSessionXp(sessionId, beaten, into = xp)
         }
 
         val streak = runStep(SessionProgressionStep.STREAK, failures) {
@@ -283,35 +284,28 @@ class SessionCompletionPipeline(
      *
      * Sets are read from the store rather than passed in, so re-entry needs only a session id.
      * Warm-ups and sets with nothing logged on them do not pay, and neither does a record that
-     * was the first figure ever written for its exercise — see [beaten].
+     * was the first figure ever written for its exercise: the first time an exercise is done,
+     * every record kind it is eligible for is written because there is nothing to compare with,
+     * and those are baselines, not feats. [beatenRecords] is therefore detection's own account
+     * of which records found one on file to beat — see [PrDetectionUseCase.invoke] — rather
+     * than every record the session wrote.
+     *
+     * The events are worked out before the claim is taken, because working them out is only
+     * a read: a read that fails then leaves the claim unspent for a re-entry to pay, where after
+     * the claim it would cost the session every award it had earned.
      */
     private suspend fun awardSessionXp(
         sessionId: Long,
-        records: List<PersonalRecord>,
+        beatenRecords: List<PersonalRecord>,
         into: MutableList<XpGrant>,
     ) {
+        val sets = sessionRepository.getSetsForSession(sessionId).first()
+        val events = SessionXp.eventsFor(sets, beatenRecords)
+
         if (!gamificationRepository.claimSessionXp(sessionId)) return
 
-        val sets = sessionRepository.getSetsForSession(sessionId).first()
-        SessionXp.eventsFor(sets, beaten(records)).forEach { event -> into += XpGrant(event, awardXp(event)) }
+        events.forEach { event -> into += XpGrant(event, awardXp(event)) }
     }
-
-    /**
-     * The [records] that improved on an earlier record of the same exercise and kind.
-     *
-     * The first time an exercise is done, every record kind it is eligible for is written
-     * because there is nothing to compare with; those are baselines, not feats, and
-     * [XpEvent.PrBroken] does not pay for them. A record is only ever inserted, never replaced
-     * (see [PersonalRecordRepository.insertIfBetter]), so "another row of this exercise and
-     * kind" is exactly "something was there to beat".
-     */
-    private suspend fun beaten(records: List<PersonalRecord>): List<PersonalRecord> =
-        records
-            .groupBy(PersonalRecord::exerciseId)
-            .flatMap { (exerciseId, written) ->
-                val history = personalRecordRepository.getRecordsForExercise(exerciseId).first()
-                written.filter { record -> history.any { it.type == record.type && it.id != record.id } }
-            }
 
     /**
      * The three lifetime figures the catalogue is evaluated against, as of now.
