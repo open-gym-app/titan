@@ -209,7 +209,7 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
         levelProgressBefore = 0.59f,
         level = 22,
         leveledUp = true,
-        levelProgress = 0.17f,
+        levelProgress = 0.173f,
         xpIntoLevel = 72,
         xpForLevel = 417,
         achievements = listOf(SummaryAchievement(id = "four_week_streak", xp = 100)),
