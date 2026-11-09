@@ -234,9 +234,10 @@ class SessionCompletionCascadeTest : RoomTestBase() {
     @Test
     fun `the level the stored total buys is a level the user actually crossed`() =
         runBlocking {
-            // The fixture is built to cross one: a first session unlocks two milestones and
-            // clears two record quests, which its first-ever records still count towards. A
-            // cascade that banked the total without recomputing the level would read as level 1.
+            // The fixture is built to cross several: a first session unlocks two milestones and
+            // clears two record quests, which its first-ever records still count towards, and
+            // the first levels are cheap. A cascade that banked the total without recomputing
+            // the level would read as level 1.
             val sessionId = seedFinishedSession()
 
             pipeline(sessionId, FINISHED_AT)
@@ -248,8 +249,8 @@ class SessionCompletionCascadeTest : RoomTestBase() {
             )
             // The one figure written out by hand rather than derived, as a check on the
             // derivation: 50 for the session, 30 for six sets, nothing for eight first-ever
-            // records, 200 for two milestones and 380 for two quests is 660, which is one whole
-            // level and a tenth of the second.
+            // records, 200 for two milestones and 380 for two quests is 660, which is past the
+            // 480 that level 5 costs and short of the 671 that level 6 does.
             assertEquals(EXPECTED_LEVEL, stored?.currentLevel)
         }
 
@@ -608,7 +609,7 @@ class SessionCompletionCascadeTest : RoomTestBase() {
          * everything else is a count times a constant, which would still agree with a level
          * computed the wrong way. A retune of the economy moves this by hand, on purpose.
          */
-        const val EXPECTED_LEVEL = 2
+        const val EXPECTED_LEVEL = 5
 
         /** Those two as the database returns them — see [storedAchievementIds]. */
         val UNLOCKED_AS_STORED = listOf(Achievements.FIRST_RECORD.id, Achievements.FIRST_SESSION.id)

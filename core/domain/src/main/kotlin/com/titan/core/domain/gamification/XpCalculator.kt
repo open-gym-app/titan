@@ -1,6 +1,9 @@
 package com.titan.core.domain.gamification
 
 import com.titan.core.domain.model.XpEvent
+import kotlin.math.pow
+import kotlin.math.roundToLong
+import kotlin.math.sqrt
 
 /**
  * What each [XpEvent] is worth, and what a lifetime total means as a level.
@@ -30,15 +33,22 @@ import com.titan.core.domain.model.XpEvent
  * ticks and a first-ever figure for an exercise earn nothing there, and a session's sets and
  * records are capped, which is what keeps these prices from being farmed.
  *
- * ### A linear curve
+ * ### A curve that flattens
  *
- * Level *n* costs the same additional XP as the level before it — `XP_PER_LEVEL × (n − 1)`
- * to reach level *n* at all, so level 1 is free, level 2 costs 600 and level 12 costs 6,600.
- * Not the exponential curve most XP systems use: this one is a training log rather than a
- * game with an endgame to pace people towards, and a curve that stretches means a lifter
- * who trains just as hard in year two sees their bar move slower for it. Linear keeps "a
- * week at the goal is about two levels" — the year's target, 99 levels over 52 weeks — true
- * forever.
+ * Reaching level *n* costs `LEVEL_CURVE_BASE × (n − 1)^1.5` lifetime XP, so level 1 is free,
+ * level 2 costs 60, level 10 costs 1,620 and level 100 costs 59,102. Each level costs a little
+ * more than the one before it, so a new lifter levels up several times a week and a lifter a year
+ * in still does about once a week: the reference year reaches level 8 in its first week, 20 in
+ * its first month, 40 in its third, and 100 at the end, by when a level takes about three
+ * sessions. Year two adds about 58 levels and year three 49 — slower, but still about one a
+ * week, and `XpEconomyTest` holds the curve to both ends: one to two levels a week as the first
+ * year closes, and at least a level a week across the second.
+ *
+ * A power rather than an exponential: a cost that grows by a fixed percentage per level can be
+ * tuned to reach 100 in a year, but the levels after it then cost a multiple of everything
+ * before, and a lifter in year two who trains just as hard would watch the bar stop. The
+ * exponent is what trades the two ends off — a bigger one makes the first weeks faster and the
+ * second year slower — and 1.5 is the largest that keeps the second year above a level a week.
  */
 object XpCalculator {
 
@@ -54,8 +64,11 @@ object XpCalculator {
     /** Points for one unlocked achievement — see [XpEvent.AchievementUnlocked]. */
     const val XP_PER_ACHIEVEMENT = 100
 
-    /** The cost of every level, the whole of the curve — see the class doc. */
-    const val XP_PER_LEVEL = 600
+    /**
+     * What level 2 costs, and the scale of the whole curve: level *n* costs this times
+     * `(n − 1)^1.5` — see the class doc.
+     */
+    const val LEVEL_CURVE_BASE = 60
 
     /** The level a user starts at, holding no XP at all. */
     const val FIRST_LEVEL = 1
@@ -88,11 +101,15 @@ object XpCalculator {
         }
 
     /**
-     * The level a lifetime total of [totalXp] points buys.
+     * The level a lifetime total of [totalXp] points buys: the highest level whose
+     * [xpRequiredForLevel] is at most [totalXp].
      *
-     * [FIRST_LEVEL] at zero, one level up per [XP_PER_LEVEL] points thereafter, and a total
-     * sitting exactly on a threshold is already at the level it pays for: 600 points is
-     * level 2, 1,199 is still level 2, 1,200 is level 3.
+     * [FIRST_LEVEL] at zero, and a total sitting exactly on a threshold is already at the level
+     * it pays for: 60 points is level 2, 169 is still level 2, 170 is level 3.
+     *
+     * Inverts the curve in floating point for a first guess and then settles it against
+     * [xpRequiredForLevel] itself, so the two can never disagree about a boundary over a
+     * rounding error — the level is defined by the thresholds, not by the inverse.
      *
      * @throws IllegalArgumentException if [totalXp] is negative. XP is only ever added —
      *   nothing in the app spends it — so a negative total is a corrupt row rather than a
@@ -100,17 +117,35 @@ object XpCalculator {
      */
     fun levelForTotalXp(totalXp: Long): Int {
         require(totalXp >= 0) { "totalXp cannot be negative, was $totalXp" }
-        return (totalXp / XP_PER_LEVEL).toInt() + FIRST_LEVEL
+        var level = FIRST_LEVEL + (totalXp.toDouble() / LEVEL_CURVE_BASE).pow(1 / LEVEL_CURVE_EXPONENT).toInt()
+        while (level > FIRST_LEVEL && xpRequiredForLevel(level) > totalXp) level--
+        while (xpRequiredForLevel(level + 1) <= totalXp) level++
+        return level
     }
 
     /**
      * The lifetime total needed to reach [level] — the inverse of [levelForTotalXp], for a
      * progress bar that has to say how far into the current level the user is.
      *
+     * Rounded to the nearest point, which keeps every threshold a whole number of points and
+     * every level dearer than the one before it.
+     *
      * @throws IllegalArgumentException if [level] is below [FIRST_LEVEL], which no user is.
      */
     fun xpRequiredForLevel(level: Int): Long {
         require(level >= FIRST_LEVEL) { "level cannot be below $FIRST_LEVEL, was $level" }
-        return XP_PER_LEVEL.toLong() * (level - FIRST_LEVEL)
+        val steps = (level - FIRST_LEVEL).toDouble()
+        return (LEVEL_CURVE_BASE * steps * sqrt(steps)).roundToLong()
     }
+
+    /**
+     * What [level] costs on its own — the points between reaching it and reaching the next one,
+     * which is the width of the bar drawn while the user stands on it.
+     *
+     * @throws IllegalArgumentException if [level] is below [FIRST_LEVEL].
+     */
+    fun xpToNextLevel(level: Int): Int = (xpRequiredForLevel(level + 1) - xpRequiredForLevel(level)).toInt()
+
+    /** The `1.5` of the curve, for the inverse; [xpRequiredForLevel] spells it as `n·√n`. */
+    private const val LEVEL_CURVE_EXPONENT = 1.5
 }

@@ -175,7 +175,7 @@ class SessionCompletionPipelineTest {
     fun `the result reports the level-ups the awards observed, without a second read`() =
         runTest {
             // A point short of level 2, so the session's first award is the crossing.
-            gamification.addXp(XpCalculator.XP_PER_LEVEL - 1, XpCalculator::levelForTotalXp)
+            gamification.addXp(XpCalculator.xpRequiredForLevel(2).toInt() - 1, XpCalculator::levelForTotalXp)
             val sessionId = rig.finishSession()
 
             val progression = pipeline(sessionId, FINISHED_AT)

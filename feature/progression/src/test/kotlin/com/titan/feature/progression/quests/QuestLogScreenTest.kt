@@ -41,7 +41,7 @@ class QuestLogScreenTest {
     /**
      * The level *digit* is deliberately not asserted here, in this test or the two below it.
      * [com.titan.core.ui.chart.ProgressRing] clears its own subtree and replaces it with one
-     * sentence — `LVL` and `13` as two nodes are two swipes for one fact — so the figure inside
+     * sentence — `LVL` and `40` as two nodes are two swipes for one fact — so the figure inside
      * the ring is not a node to find. The sentence is asserted instead, and it carries the level.
      */
     @Test
@@ -49,8 +49,8 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule.onNodeWithText("Steel Forged").assertIsDisplayed()
-        // 7,440 total; level 13 opens at 7,200, and a level costs 600.
-        composeTestRule.onNodeWithText("240 / 600 XP").assertIsDisplayed()
+        // 14,853 total; level 40 opens at 14,613, and costs 566.
+        composeTestRule.onNodeWithText("240 / 566 XP").assertIsDisplayed()
     }
 
     @Test
@@ -58,7 +58,7 @@ class QuestLogScreenTest {
         setContent(populatedQuestLog())
 
         composeTestRule
-            .onNodeWithContentDescription("Level 13, 240 / 600 XP, 40% complete")
+            .onNodeWithContentDescription("Level 40, 240 / 566 XP, 42% complete")
             .assertIsDisplayed()
     }
 
@@ -197,7 +197,7 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("Newcomer").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Level 1, 0 / 600 XP, 0% complete")
+            .onNodeWithContentDescription("Level 1, 0 / 60 XP, 0% complete")
             .assertIsDisplayed()
     }
 
@@ -247,16 +247,16 @@ class QuestLogScreenTest {
 
         composeTestRule.onNodeWithText("Iron Disciple").assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Level 5, 5 / 600 XP, 1% complete")
+            .onNodeWithContentDescription("Level 20, 5 / 398 XP, 1% complete")
             .assertIsDisplayed()
     }
 
     @Test
     fun `the lifetime total is drawn beside the level's own progress`() {
-        // Two different figures, and the screen shows both: 5 points into level 5, 2,405 in total.
+        // Two different figures, and the screen shows both: 5 points into level 20, 4,974 in total.
         setContent(justLevelledUpQuestLog())
 
-        composeTestRule.onNodeWithText("2,405 XP earned in total").assertIsDisplayed()
+        composeTestRule.onNodeWithText("4,974 XP earned in total").assertIsDisplayed()
     }
 
     // ─── Streak protection ──────────────────────────────────────────────────────────────

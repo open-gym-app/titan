@@ -41,7 +41,7 @@ import kotlin.time.Duration
  *
  * @param level the standing the header draws — the level, and how far into it the user is — or
  *   **null** for somebody who has never banked a point, whose header would otherwise read
- *   `LVL 1 · 0 / 600 XP` before they have done anything at all.
+ *   `LVL 1 · 0 / 60 XP` before they have done anything at all.
  * @param resume the workout the app is holding open, or **null** when there is none — which is
  *   the ordinary case and draws no banner at all.
  * @param week the seven days the user is in the middle of, or **null** for somebody who has
@@ -184,9 +184,10 @@ data class WeekState(
  *
  * @param level the level the user is on.
  * @param xpIntoLevel points banked toward the next one, `0..xpForLevel`.
- * @param xpForLevel what a level costs — [com.titan.core.domain.gamification.XpCalculator]'s
- *   `XP_PER_LEVEL`, carried rather than read at the call site so the bar and the figure beside
- *   it are scaled by the same number.
+ * @param xpForLevel what [level] costs on its own — the width of this level on
+ *   [com.titan.core.domain.gamification.XpCalculator]'s curve, which grows level by level —
+ *   carried rather than read at the call site so the bar and the figure beside it are scaled by
+ *   the same number.
  */
 @Immutable
 data class LevelState(
@@ -198,7 +199,7 @@ data class LevelState(
     /**
      * How far through the level, `0f..1f` — what the bar is drawn from.
      *
-     * Guarded against a zero cost rather than trusting the curve: `XP_PER_LEVEL` is a tuning
+     * Guarded against a zero cost rather than trusting the curve: its scale is a tuning
      * constant, and a divide by zero here would take out the whole screen for a value somebody
      * is entitled to change.
      */

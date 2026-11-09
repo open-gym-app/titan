@@ -27,12 +27,12 @@ data class XpAward(
      * fires on.
      *
      * True for exactly one event per *crossing*: the award that took the total past a
-     * threshold, never the ones on either side of it. That is one event per level gained
-     * only while no single award is worth more than a level — true of today's constants,
-     * where the largest award (a monthly quest) is worth half a level. Retune one above
-     * `XP_PER_LEVEL` and an award can clear two thresholds at once; it still reports a single
-     * level-up, with [level] two above [previousLevel] rather than one, so a celebration
-     * should announce the jump from [previousLevel] to [level] rather than assume it is one.
+     * threshold, never the ones on either side of it. That is one event per level gained only
+     * where a level is wider than any single award, which on today's curve is from about level
+     * 12 on. Below that, levels are cheap enough for one award — an achievement, a monthly
+     * quest — to clear two thresholds at once; it still reports a single level-up, with [level]
+     * two above [previousLevel] rather than one, so a celebration announces the jump from
+     * [previousLevel] to [level] rather than assuming it is one.
      */
     val leveledUp: Boolean get() = level > previousLevel
 }

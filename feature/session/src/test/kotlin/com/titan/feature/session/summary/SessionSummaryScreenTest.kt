@@ -363,7 +363,7 @@ class SessionSummaryScreenTest {
         composeTestRule.onNode(hasScrollAction()).performScrollToNode(hasText("LEVEL UP"))
 
         composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
-        composeTestRule.onAllNodesWithText("Level 4").onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodesWithText("Level 22").onFirst().assertIsDisplayed()
     }
 
     @Test
@@ -524,9 +524,9 @@ class SessionSummaryScreenTest {
         composeTestRule.onNodeWithText("LEVEL UP").assertIsDisplayed()
 
         // The level the user *ended* on, with no frame advanced. The fixture crosses a threshold
-        // from level 3, and the sweep plays crossings one at a time — so a build that animated
-        // regardless would be caught here showing 3. See `rememberLevelSweep`.
-        composeTestRule.onAllNodesWithText("Level 4").onFirst().assertIsDisplayed()
+        // from level 21, and the sweep plays crossings one at a time — so a build that animated
+        // regardless would be caught here showing 21. See `rememberLevelSweep`.
+        composeTestRule.onAllNodesWithText("Level 22").onFirst().assertIsDisplayed()
     }
 
     @Test

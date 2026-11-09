@@ -34,7 +34,7 @@ import com.titan.core.domain.model.QuestPeriod
  * ### The prices
  *
  * Read against [XpCalculator]: a session pays 50 and its sets about as much again, a record 10,
- * an achievement 100, and a level costs 600. A weekly quest is therefore worth one to two
+ * and an achievement 100. A weekly quest is therefore worth one to two
  * sessions of showing up — enough to be chased, not enough to make the training itself feel like
  * the small half of the reward. A monthly quest is worth five or six sessions, which is the
  * point of a month. Together the board pays about a third of what a year of training to the

@@ -22,7 +22,7 @@ import com.titan.feature.home.R
  * bar under both.
  *
  * ```text
- * LVL 14                                           240 / 600 XP
+ * LVL 14                                           240 / 331 XP
  * ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
  * ```
  *

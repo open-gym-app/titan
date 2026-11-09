@@ -171,13 +171,13 @@ internal fun previewCelebration(): SummaryCelebration =
             XpSource(kind = XpSourceKind.RECORDS, count = 1, xp = 10),
             XpSource(kind = XpSourceKind.QUESTS, count = 1, xp = 60),
         ),
-        levelBefore = 4,
-        levelProgressBefore = 0.16f,
-        level = 4,
+        levelBefore = 22,
+        levelProgressBefore = 0.23f,
+        level = 22,
         leveledUp = false,
-        levelProgress = 0.46f,
+        levelProgress = 0.66f,
         xpIntoLevel = 276,
-        xpForLevel = 600,
+        xpForLevel = 417,
         achievements = emptyList(),
         // The third session of the week, which is the ordinary way a quest is cleared — and
         // the case the card was added for, since before it the user was told only that
@@ -205,13 +205,13 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
         ),
         // Lands on an *ordinary* level, so this fixture exercises the quieter of the two
         // crossings. [previewMilestoneCelebration] is the loud one.
-        levelBefore = 3,
-        levelProgressBefore = 0.72f,
-        level = 4,
+        levelBefore = 21,
+        levelProgressBefore = 0.59f,
+        level = 22,
         leveledUp = true,
-        levelProgress = 0.12f,
+        levelProgress = 0.17f,
         xpIntoLevel = 72,
-        xpForLevel = 600,
+        xpForLevel = 417,
         achievements = listOf(SummaryAchievement(id = "four_week_streak", xp = 100)),
         quests = emptyList(),
     )
@@ -219,16 +219,20 @@ internal fun previewLevelUpCelebration(): SummaryCelebration =
 /**
  * A session that crossed onto a **milestone** level — the loudest state the recap has.
  *
- * Level 5 rather than 4: `LevelCeremony` makes every fifth level a milestone, so this is what a
- * milestone crossing draws — a heavier burst, a harder kick, and a banner that names it rather
- * than saying "level up" more loudly. Two thresholds, so the sweep is seen passing an ordinary
- * level on its way to the milestone.
+ * Level 5: `LevelCeremony` makes every fifth level a milestone, so this is what a milestone
+ * crossing draws — a heavier burst, a harder kick, and a banner that names it rather than saying
+ * "level up" more loudly. Two thresholds, so the sweep is seen passing an ordinary level on its
+ * way to the milestone — which is a first fortnight's session, the only time levels are cheap
+ * enough for one session to clear two.
  */
 internal fun previewMilestoneCelebration(): SummaryCelebration =
     previewLevelUpCelebration().copy(
+        levelBefore = 3,
+        levelProgressBefore = 0.72f,
         level = 5,
-        levelProgress = 0.12f,
-        xpIntoLevel = 72,
+        levelProgress = 0.17f,
+        xpIntoLevel = 32,
+        xpForLevel = 191,
     )
 
 /**

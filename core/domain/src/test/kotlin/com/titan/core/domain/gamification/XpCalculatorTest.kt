@@ -8,7 +8,7 @@ import org.junit.Test
 
 class XpCalculatorTest {
 
-    // ─── The curve: 600 XP a level, level 1 free ────────────────────────────────────────
+    // ─── The curve: 60 × (n − 1)^1.5 to reach level n, level 1 free ───────────────────────
 
     @Test
     fun `a user with no xp is at level 1`() {
@@ -17,29 +17,36 @@ class XpCalculatorTest {
 
     @Test
     fun `a total short of the first threshold is still level 1`() {
-        assertEquals(1, XpCalculator.levelForTotalXp(599))
+        assertEquals(1, XpCalculator.levelForTotalXp(59))
     }
 
     @Test
     fun `the exact threshold buys the level`() {
-        assertEquals(2, XpCalculator.levelForTotalXp(600))
+        assertEquals(2, XpCalculator.levelForTotalXp(60))
     }
 
     @Test
     fun `a total inside a level stays at it`() {
-        assertEquals(2, XpCalculator.levelForTotalXp(1_199))
+        assertEquals(2, XpCalculator.levelForTotalXp(169))
     }
 
     @Test
     fun `the next threshold buys the next level`() {
-        assertEquals(3, XpCalculator.levelForTotalXp(1_200))
+        assertEquals(3, XpCalculator.levelForTotalXp(170))
     }
 
     @Test
-    fun `the curve stays linear well up it`() {
-        assertEquals(11, XpCalculator.levelForTotalXp(6_000))
-        assertEquals(43, XpCalculator.levelForTotalXp(25_437))
-        assertEquals(1_001, XpCalculator.levelForTotalXp(600_000))
+    fun `the thresholds up the curve are the ones the class doc quotes`() {
+        assertEquals(1_620L, XpCalculator.xpRequiredForLevel(10))
+        assertEquals(59_102L, XpCalculator.xpRequiredForLevel(100))
+        assertEquals(60_000L, XpCalculator.xpRequiredForLevel(101))
+    }
+
+    @Test
+    fun `the curve holds far beyond where anybody will get`() {
+        assertEquals(100, XpCalculator.levelForTotalXp(59_102))
+        assertEquals(99, XpCalculator.levelForTotalXp(59_101))
+        assertEquals(1_001, XpCalculator.levelForTotalXp(XpCalculator.xpRequiredForLevel(1_001)))
     }
 
     @Test
@@ -55,16 +62,22 @@ class XpCalculatorTest {
     }
 
     @Test
-    fun `each level costs the same as the last`() {
-        val costs = (1..6).map(XpCalculator::xpRequiredForLevel)
-        val steps = costs.zipWithNext { lower, higher -> higher - lower }
+    fun `each level costs more than the last`() {
+        val widths = (1..500).map(XpCalculator::xpToNextLevel)
 
-        assertEquals(listOf(600L, 600L, 600L, 600L, 600L), steps)
+        assertEquals(emptyList<Pair<Int, Int>>(), widths.zipWithNext().filter { (lower, higher) -> higher <= lower })
+    }
+
+    @Test
+    fun `a level's width is the gap between its threshold and the next`() {
+        assertEquals(60, XpCalculator.xpToNextLevel(1))
+        assertEquals(110, XpCalculator.xpToNextLevel(2))
+        assertEquals(898, XpCalculator.xpToNextLevel(100))
     }
 
     @Test
     fun `the requirement for a level is the lowest total that buys it`() {
-        for (level in 1..20) {
+        for (level in 1..1_000) {
             val required = XpCalculator.xpRequiredForLevel(level)
 
             assertEquals(level, XpCalculator.levelForTotalXp(required))

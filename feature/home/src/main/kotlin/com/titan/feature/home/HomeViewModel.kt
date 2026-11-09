@@ -4,7 +4,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.titan.core.domain.gamification.StreakCalculator
-import com.titan.core.domain.gamification.XpCalculator
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.PersonalRecordEntry
 import com.titan.core.domain.model.QuestProgress
@@ -414,22 +413,19 @@ class HomeViewModel @Inject constructor(
     /**
      * The standing as the header draws it: the level, and how far into it.
      *
-     * The points into the level are derived from the *total* rather than trusted to be
-     * consistent with the stored level, and then clamped — the two are written together and
-     * cannot ordinarily disagree, but a retune of the curve leaves rows that were written under
-     * the old one, and a bar drawn past its own end or behind its own start is the visible half
-     * of that. See `GamificationRepository.addXp`, which is where the pair is kept honest.
+     * The points into the level are [UserProgress.xpIntoLevel]'s, the same reading the quest
+     * log draws its ring from: derived from the *total* rather than trusted to be consistent with
+     * the stored level, and then clamped. The two are written together and cannot ordinarily
+     * disagree, but a retune of the curve leaves rows that were written under the old one, and a
+     * bar drawn past its own end or behind its own start is the visible half of that. See
+     * `GamificationRepository.addXp`, which is where the pair is kept honest.
      */
-    private fun UserProgress.standing(): LevelState {
-        val into = (totalXp - XpCalculator.xpRequiredForLevel(level))
-            .coerceIn(0, XpCalculator.XP_PER_LEVEL.toLong())
-
-        return LevelState(
+    private fun UserProgress.standing(): LevelState =
+        LevelState(
             level = level,
-            xpIntoLevel = into.toInt(),
-            xpForLevel = XpCalculator.XP_PER_LEVEL,
+            xpIntoLevel = xpIntoLevel.toInt(),
+            xpForLevel = xpForNextLevel.toInt(),
         )
-    }
 
     /**
      * The board as the dashboard shows it, or **null** when there is nothing worth showing.

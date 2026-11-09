@@ -81,7 +81,7 @@ class GamificationPersistenceTest {
     fun `the XP total and the streak survive the database being closed and reopened`() =
         runBlocking {
             val first = open()
-            first.gamification().addXp(XpCalculator.XP_PER_LEVEL * 2 + 40, XpCalculator::levelForTotalXp)
+            first.gamification().addXp(XpCalculator.xpRequiredForLevel(3).toInt() + 40, XpCalculator::levelForTotalXp)
             first.gamification().updateStreak { state -> StreakCalculator.advance(state, MONDAY_EVENING, GOAL) }
             first.close()
 
@@ -89,8 +89,8 @@ class GamificationPersistenceTest {
             val stored = reopened.userProgressDao().getOnce()
             reopened.close()
 
-            assertEquals(XpCalculator.XP_PER_LEVEL * 2L + 40, stored?.totalXp)
-            assertEquals(XpCalculator.levelForTotalXp(XpCalculator.XP_PER_LEVEL * 2L + 40), stored?.currentLevel)
+            assertEquals(XpCalculator.xpRequiredForLevel(3) + 40, stored?.totalXp)
+            assertEquals(XpCalculator.levelForTotalXp(XpCalculator.xpRequiredForLevel(3) + 40), stored?.currentLevel)
             assertEquals(1, stored?.currentStreak)
             assertEquals(MONDAY_EVENING.toEpochMilli(), stored?.lastCountedAt)
             assertEquals(1, stored?.weekSessions)
