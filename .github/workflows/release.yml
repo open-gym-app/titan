@@ -117,6 +117,11 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
+      # The same budget CI builds with, for the same runner; see the step of the same name in
+      # ci.yml and `.github/ci-gradle.properties`.
+      - name: Fit Gradle to the runner
+        run: install -D -m 644 .github/ci-gradle.properties "${GRADLE_USER_HOME:-$HOME/.gradle}/gradle.properties"
+
       # Gradle rejects a version that does not fit the versionCode scheme, which is the only
       # check a tag gets beyond the gate's pattern.
       - name: Build the signed bundle and APK

@@ -194,7 +194,7 @@ Any dependency that violates these rules must be refactored: extract the shared 
 
 `./gradlew checkArchitecture` reads every module's declared project dependencies and
 asserts them against the two tables above. It is wired into every module's `check`, so
-`./gradlew build` runs it, and CI runs it by name in the `lint` job.
+`./gradlew build` runs it, and CI runs it by name in the `check` job.
 
 Gradle itself objects only to a *cycle*, so before this task existed the tables held exactly
 as long as everybody remembered them — the first violation would have been caught in review,

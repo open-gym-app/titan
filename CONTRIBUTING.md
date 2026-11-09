@@ -481,7 +481,7 @@ unit tests in `src/test`, run by Robolectric, and they come in two kinds:
 | Behaviour | does it render this state, and emit this event? | a test class you write |
 | Screenshot | does it still *look* the same? | mostly a `@Preview`, captured for you |
 
-Both are picked up by `make test` and by CI's `unit-test` job. **Use `make test`, not
+Both are picked up by `make test` and by CI's `check` job. **Use `make test`, not
 `./gradlew test`:** Roborazzi decides whether to compare from the task graph, so a plain
 `./gradlew test` runs the screenshot tests and captures nothing — they pass without
 verifying anything. `verifyRoborazziDebug` has to be in the same invocation, which is what
