@@ -570,6 +570,9 @@ private fun SummaryActionBar(
                 .fillMaxWidth()
                 .padding(TitanTheme.spacing.screen),
             horizontalArrangement = Arrangement.spacedBy(TitanTheme.spacing.lg),
+            // At a large font the template label wraps onto a second line and its button grows;
+            // DONE stays centred beside it rather than hanging from the top edge.
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showSaveAsTemplate) {
                 OutlinedButton(
@@ -577,15 +580,17 @@ private fun SummaryActionBar(
                     enabled = canSaveAsTemplate,
                     shape = MaterialTheme.shapes.small,
                     // The wider half of an uneven split: "Save as template" is three words and
-                    // DONE is one, and an even one ellipsises the label that needs reading
-                    // while leaving white space around the one that does not.
+                    // DONE is one, and an even one wraps the label that needs reading while
+                    // leaving white space around the one that does not.
                     modifier = Modifier.weight(TEMPLATE_BUTTON_WEIGHT),
                 ) {
+                    // Allowed to wrap, never to truncate: at twice the font size three words do
+                    // not fit one line in 58% of a phone's width, and "Save as tem…" is a button
+                    // that no longer says what it does — in any of the four locales.
                     Text(
                         text = stringResource(R.string.summary_save_template),
                         style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }

@@ -174,7 +174,7 @@ class SessionsScreenTest {
         composeTestRule.onNodeWithText("1 TEMPLATE").assertIsDisplayed()
         // The row's own sentence, not a substring: the overflow button beside it also names the
         // template, and matching loosely would find both.
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .assertIsDisplayed()
     }
 
@@ -189,7 +189,7 @@ class SessionsScreenTest {
     fun `tapping a template row opens its editor`() {
         setContent(populated(tab = SessionsTab.TEMPLATES))
 
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .performClick()
 
         assertEquals(listOf(1L), openedTemplates)

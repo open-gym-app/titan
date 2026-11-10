@@ -134,7 +134,10 @@ private fun RowScope.DayCell(
     }
     val content: Color = when {
         trained -> MaterialTheme.colorScheme.onPrimaryContainer
-        day.isFuture -> MaterialTheme.colorScheme.outlineVariant
+
+        // The missing fill and the hairline say "not yet"; the number is the day's date and
+        // stays as readable as any other. It was drawn in the hairline's own colour, which is
+        // 1.5:1 on the screen, and a date nobody can read is not a quiet one.
         else -> MaterialTheme.colorScheme.outline
     }
     // Today's ruled ring, or the hairline that gives an unfilled cell its edge back. Never

@@ -251,7 +251,7 @@ private fun PreviewNotesCard(
         draft = draft,
         isSaving = false,
         emptyPrompt = "Add a note about this exercise — a seat setting, a cue, which machine at your gym.",
-        fieldLabel = "Your notes",
+        fieldLabel = "Note",
         onEdit = {},
         onDraftChange = {},
         onSave = {},

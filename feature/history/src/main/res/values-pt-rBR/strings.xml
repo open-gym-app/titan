@@ -102,7 +102,7 @@
 
     <string name="detail_add_to_session">Adicionar ao treino</string>
 
-    <string name="detail_notes_label">Suas notas</string>
+    <string name="detail_notes_label">Nota</string>
     <string name="detail_notes_empty">Adicione uma nota sobre este exercício: a regulagem do banco, uma dica, qual máquina na sua academia.</string>
     <string name="detail_notes_save_failed">Não foi possível salvar a nota</string>
 
@@ -124,7 +124,8 @@
     <string name="plate_back">Voltar</string>
 
     <string name="plate_target">Carga desejada</string>
-    <string name="plate_target_edit">Carga desejada, %1$s. Toque para digitar uma</string>
+    <string name="plate_target_edit">Carga desejada, %1$s</string>
+    <string name="plate_target_edit_action">Digitar uma carga desejada</string>
     <string name="plate_target_field_label">Carga (%1$s)</string>
     <string name="plate_target_invalid">Digite uma carga acima de zero</string>
 

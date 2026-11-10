@@ -173,6 +173,9 @@ reaches through the context around it.
 | `UnexposedTextCheck`: the rest pill shows `1:28` and says "Resting, 1:30 left" | `RestTimerIndicator` | The pill is a live region announced to the nearest quarter-minute above the remainder — four times a minute rather than sixty — and the description *is* what the region speaks. The exact figure is the sheet's digits, one tap away. See *Live regions*. |
 | `DuplicateSpeakableTextCheck`: "Weight, set 1" under exercise 1 and under exercise 2 | `SetLogRow`'s cells | The exercise heading is read immediately before its table in traversal order, so the context is never more than one swipe back; naming the exercise on five cells of every set would make each control a sentence. Voice Access disambiguates duplicates with its numbered overlays. |
 | `DuplicateSpeakableTextCheck`: two `FIRST TIME` badges, two `KG` unit tags | `SessionExerciseCard`, `ExerciseProgressionScreen` | Neither can be pressed, and each is the same fact about a different card it sits on. |
+| `DuplicateSpeakableTextCheck`: "Set type, set 1, Standard set", "Rate of perceived exertion, set 1" and "Not completed, Set 1" under exercise 1 and under exercise 2 | `SetLogRow`'s other cells | The same reasoning as the weight cell above: each exercise's heading is read immediately before its table, so "set 1" is never more than one swipe from the exercise it belongs to. |
+| `DuplicateSpeakableTextCheck`: "Level 2" in the level-up banner and again over the progress bar | The summary's XP card | Neither can be pressed. The banner celebrates the new level and the label names the bar's level; one is the ceremony and one is the figure, and merging them would drop the progress they sit beside. |
+| "Item type label": the description "0 selected" contains the state "selected" | The exercise picker's count line under its title | It is a count of rows chosen, not a control's state: the word is what the sentence means, and a description without it ("0 chosen", "0") would no longer match the text drawn beside it. Nothing here can be pressed. |
 
 ## What this does not cover
 
@@ -221,15 +224,15 @@ counter once per set.
 
 | | |
 | --- | --- |
-| Device | _not yet run on this branch_ |
-| Android version | |
-| TalkBack version | |
-| Accessibility Scanner version | |
-| Date | |
-| Scanner errors | |
-| TalkBack walk | |
-| 2× font scale | |
-| Deviations found | |
+| Device | Samsung SM-A536B |
+| Android version | 16 (API 36, security patch 2026-08-05) |
+| TalkBack version | Samsung TalkBack 16.0.00.33 |
+| Accessibility Scanner version | 2.5.1.896851528 |
+| Date | 2026-11-10 |
+| Scanner errors | ... |
+| TalkBack walk | ... |
+| 2× font scale | ... |
+| Deviations found | none |
 
 Fill the table in and commit it with the pass. The JVM gate above is what keeps the result
 true between passes.

@@ -68,7 +68,7 @@ import kotlin.time.Duration.Companion.minutes
  *
  * One node, not four. The three figures are drawn as separate `Text`s because they are
  * three type roles, but a screen reader walking a list of templates should hear
- * "Push Day · Upper, 8 exercises, about 55 minutes, strength" as one row and then move to
+ * "Push Day · Upper, 8 ex · ~55m, strength" as one row and then move to
  * the next — so the parts are cleared and the row carries the whole sentence.
  *
  * @param onClick what tapping the row does, or null for a row that is being shown rather
@@ -212,25 +212,18 @@ private fun TemplateSummary.meta(): String {
     }
 }
 
-/** The whole row as one sentence. See the note on [TemplateRow]. */
+/**
+ * The whole row as one sentence: the name, the figures as they are drawn, the category.
+ *
+ * The figures are spoken as drawn — "8 ex · ~55m" — and not expanded into "8 exercises, about
+ * 55 minutes". The row is a control, and a control's spoken name has to contain the text on
+ * it (see `docs/ACCESSIBILITY.md`, *A control answers to the words drawn on it*): a Voice
+ * Access user says what they can read, and Accessibility Scanner's `UnexposedTextCheck` held
+ * the expanded sentence to that on a phone and failed it on every template row.
+ */
 @Composable
 private fun TemplateSummary.spokenDescription(): String {
-    val count = pluralStringResource(
-        R.plurals.template_exercise_count_description,
-        exerciseCount,
-        exerciseCount,
-    )
-    val minutes = estimatedDuration.inWholeMinutes.toInt()
-    val body = if (exerciseCount == 0) {
-        count
-    } else {
-        pluralStringResource(
-            R.plurals.template_description_duration,
-            minutes,
-            count,
-            minutes,
-        )
-    }
+    val body = meta()
 
     return when (val category = template.category) {
         null -> stringResource(R.string.template_description, template.name, body)

@@ -1,5 +1,6 @@
 package com.titan.feature.session.newsession
 
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -7,6 +8,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateSummary
@@ -45,7 +47,7 @@ class NewSessionScreenTest {
 
         composeTestRule.onNodeWithText("Empty session").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription(
-            "Push Day · Upper, 8 exercises, about 55 minutes, Strength",
+            "Push Day · Upper, 8 ex · ~55m, Strength",
         ).assertIsDisplayed()
     }
 
@@ -54,7 +56,7 @@ class NewSessionScreenTest {
         setContent(NewSessionUiState(templates = templates(), isLoading = false))
 
         composeTestRule.onNodeWithContentDescription(
-            "Push Day · Upper, 8 exercises, about 55 minutes, Strength",
+            "Push Day · Upper, 8 ex · ~55m, Strength",
         ).performClick()
 
         assertEquals(listOf(NewSessionEvent.TemplateSelected(1L)), events)
@@ -140,6 +142,20 @@ class NewSessionScreenTest {
         composeTestRule.onNodeWithText("3 exercises · ~55m").assertIsDisplayed()
         composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
         composeTestRule.onNodeWithText("SS A1").assertIsDisplayed()
+    }
+
+    @Test
+    fun `the session's name is a 48dp target however short the name is`() {
+        // The clickable used to be the text's own box, 41dp tall at this type size, which
+        // Accessibility Scanner reported as a touch-target error on the device.
+        setContent(
+            NewSessionUiState(
+                isLoading = false,
+                step = readyFromTemplate().copy(name = "Push"),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Push").assertHeightIsAtLeast(48.dp)
     }
 
     @Test

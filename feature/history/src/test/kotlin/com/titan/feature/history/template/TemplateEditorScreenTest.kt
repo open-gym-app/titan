@@ -57,7 +57,7 @@ class TemplateEditorScreenTest {
         setContent(populated())
 
         composeTestRule.onNodeWithContentDescription(
-            "Push Day · Upper, 3 exercises, about 45 minutes, Strength",
+            "Push Day · Upper, 3 ex · ~45m, Strength",
         ).assertIsDisplayed()
         composeTestRule.onNodeWithText("Bench press").assertIsDisplayed()
         scrollTo(hasText("Cable fly")).assertIsDisplayed()
@@ -258,7 +258,7 @@ class TemplateEditorScreenTest {
         setContent(populated())
 
         composeTestRule.onNodeWithContentDescription(
-            "Push Day · Upper, 3 exercises, about 45 minutes, Strength",
+            "Push Day · Upper, 3 ex · ~45m, Strength",
         ).performClick()
 
         assertEquals(listOf(TemplateEditorEvent.NameEditRequested), events)

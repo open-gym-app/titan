@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
 import com.titan.core.ui.component.IconTile
 import com.titan.core.ui.component.SectionHeading
 import com.titan.core.ui.component.TitanCard
@@ -140,19 +139,18 @@ private fun ExploreRow(
                 container = MaterialTheme.colorScheme.surfaceContainer,
             )
             Column(modifier = Modifier.weight(1f)) {
+                // Neither line is capped: the caption is the sentence that says what the row
+                // opens, and at twice the font size it is wider than the row holds. One line
+                // with an ellipsis cut it after two or three words, so the row grows taller.
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = caption,
                     style = TitanTheme.typography.numericSmall,
                     color = MaterialTheme.colorScheme.outline,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Icon(
