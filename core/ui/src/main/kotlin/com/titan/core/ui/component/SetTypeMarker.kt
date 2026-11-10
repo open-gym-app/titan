@@ -201,16 +201,26 @@ internal val MARKER_SIZE: Dp = 24.dp
  * wider than it. 1.3 is the scale at which "99" still fits, and the number is one a reader has
  * already read once in the exercise's heading and the row's spoken name.
  */
-internal const val MARKER_MAX_FONT_SCALE = 1.3f
+private const val MARKER_MAX_FONT_SCALE = 1.3f
 
-/** Draws [content] with the font scale held to [MARKER_MAX_FONT_SCALE]. */
+/**
+ * Draws [content] with the font scale held to [MARKER_MAX_FONT_SCALE].
+ *
+ * Below the cap the platform's own density is passed through untouched rather than rebuilt:
+ * a `Density(density, fontScale)` is a linear one, and on Android 14 and later the system's
+ * carries the non-linear converter that large text is scaled by.
+ */
 @Composable
 private fun WithCappedFontScale(content: @Composable () -> Unit) {
     val density = LocalDensity.current
+    if (density.fontScale <= MARKER_MAX_FONT_SCALE) {
+        content()
+        return
+    }
     CompositionLocalProvider(
         LocalDensity provides Density(
             density = density.density,
-            fontScale = density.fontScale.coerceAtMost(MARKER_MAX_FONT_SCALE),
+            fontScale = MARKER_MAX_FONT_SCALE,
         ),
         content = content,
     )

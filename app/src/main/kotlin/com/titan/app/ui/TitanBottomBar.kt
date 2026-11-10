@@ -71,15 +71,19 @@ fun TitanBottomBar(
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                val labelSize = fittingLabelSize(
-                    labels = destinations.map { stringResource(it.labelRes).uppercase() },
+                // Resolved once and handed to each tab, so the strings measured are the strings
+                // drawn.
+                val labels = destinations.map { stringResource(it.labelRes) }
+                val labelSize = rememberFittingLabelSize(
+                    labels = labels.map { it.uppercase() },
                     available = maxWidth / destinations.size - LABEL_SIDE_PADDING * 2,
                     style = TitanTheme.typography.eyebrow,
                 )
                 Row(modifier = Modifier.fillMaxWidth()) {
-                    destinations.forEach { destination ->
+                    destinations.forEachIndexed { index, destination ->
                         BottomBarItem(
                             destination = destination,
+                            label = labels[index],
                             selected = destination == currentDestination,
                             labelSize = labelSize,
                             onClick = { onNavigate(destination) },
@@ -102,7 +106,7 @@ fun TitanBottomBar(
  * room, and never below [MIN_LABEL_SIZE].
  */
 @Composable
-private fun fittingLabelSize(
+private fun rememberFittingLabelSize(
     labels: List<String>,
     available: Dp,
     style: TextStyle,
@@ -131,11 +135,11 @@ private fun fittingLabelSize(
 @Composable
 private fun RowScope.BottomBarItem(
     destination: TopLevelDestination,
+    label: String,
     selected: Boolean,
     labelSize: TextUnit,
     onClick: () -> Unit,
 ) {
-    val label = stringResource(destination.labelRes)
     val contentColor = if (selected) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -177,7 +181,7 @@ private fun RowScope.BottomBarItem(
             tint = contentColor,
             modifier = Modifier.padding(top = TitanTheme.spacing.md),
         )
-        // One line, at the size [fittingLabelSize] chose for the whole bar.
+        // One line, at the size [rememberFittingLabelSize] chose for the whole bar.
         Text(
             text = label.uppercase(),
             style = TitanTheme.typography.eyebrow.copy(fontSize = labelSize),
@@ -189,7 +193,7 @@ private fun RowScope.BottomBarItem(
     }
 }
 
-/** The smallest a tab label is drawn, in sp; see [fittingLabelSize]. */
+/** The smallest a tab label is drawn, in sp; see [rememberFittingLabelSize]. */
 private val MIN_LABEL_SIZE = 6.sp
 
 /** How much the label shrinks per step while it does not fit, in sp. */

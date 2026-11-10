@@ -8,11 +8,11 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.Exercise
 import com.titan.core.domain.model.TemplateCategory
 import com.titan.core.domain.model.TemplateSummary
 import com.titan.core.domain.model.WorkoutTemplate
+import com.titan.core.ui.theme.MIN_TOUCH_TARGET
 import com.titan.core.ui.theme.TitanTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -146,8 +146,9 @@ class NewSessionScreenTest {
 
     @Test
     fun `the session's name is a 48dp target however short the name is`() {
-        // The clickable used to be the text's own box, 41dp tall at this type size, which
-        // Accessibility Scanner reported as a touch-target error on the device.
+        // One line of the name is shorter than a thumb at this type size, so the clickable is
+        // the box around it rather than the text's own bounds, which Accessibility Scanner
+        // reports as a touch-target error on the device.
         setContent(
             NewSessionUiState(
                 isLoading = false,
@@ -155,7 +156,7 @@ class NewSessionScreenTest {
             ),
         )
 
-        composeTestRule.onNodeWithText("Push").assertHeightIsAtLeast(48.dp)
+        composeTestRule.onNodeWithText("Push").assertHeightIsAtLeast(MIN_TOUCH_TARGET)
     }
 
     @Test

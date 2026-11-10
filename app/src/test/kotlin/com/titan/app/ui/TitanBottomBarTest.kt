@@ -25,9 +25,10 @@ import org.robolectric.annotation.GraphicsMode
  * The bottom bar under a large system font.
  *
  * A tab is a quarter of the screen wide, and `SESSIONS` in the eyebrow's tracked monospace stops
- * fitting it once the font is large enough. The labels used to break across two lines, then each
- * shrank to fit itself — which left `SESSIONS` smaller than `HOME`, and a bar whose tabs are set
- * at different sizes looks like a mistake. They now share one size, measured so the widest fits.
+ * fitting it once the font is large enough. A label broken across two lines does not fit the bar,
+ * and labels that each shrink to fit themselves leave `SESSIONS` smaller than `HOME` — a bar whose
+ * tabs are set at different sizes looks like a mistake. They share one size, measured so the
+ * widest fits.
  *
  * Native graphics, because under Robolectric's default mode every glyph is a pixel wide and
  * nothing ever overflows. Its font metrics are still not a phone's, so these tests drive the bar

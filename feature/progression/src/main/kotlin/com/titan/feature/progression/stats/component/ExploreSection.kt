@@ -141,7 +141,8 @@ private fun ExploreRow(
             Column(modifier = Modifier.weight(1f)) {
                 // Neither line is capped: the caption is the sentence that says what the row
                 // opens, and at twice the font size it is wider than the row holds. One line
-                // with an ellipsis cut it after two or three words, so the row grows taller.
+                // with an ellipsis would cut it after two or three words, so the row grows
+                // taller instead.
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,

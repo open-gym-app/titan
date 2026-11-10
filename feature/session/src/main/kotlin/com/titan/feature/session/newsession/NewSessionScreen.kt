@@ -536,9 +536,10 @@ private fun ReadyToStartHeader(
             color = MaterialTheme.colorScheme.primary,
         )
         val rename = stringResource(R.string.new_session_rename)
-        // The tap target is the box, not the text: a short name is 35dp tall at this type size,
-        // and a control under 48dp is an error on the device. `MIN_TOUCH_TARGET` rather than
-        // Material's `minimumInteractiveComponentSize`, which the theme switches off.
+        // The tap target is the box, not the text: one line of a name at this type size is
+        // shorter than 48dp, and a control under 48dp is an error on the device. A floor of
+        // `MIN_TOUCH_TARGET` rather than `minimumInteractiveComponentSize`, which would centre
+        // a short name in its square instead of keeping it on the column's start edge.
         Box(
             modifier = Modifier
                 .heightIn(min = MIN_TOUCH_TARGET)

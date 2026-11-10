@@ -227,9 +227,9 @@ private fun TargetWeight(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
-            // The action is the click's own label, which TalkBack reads as "double-tap to ...":
-            // putting "tap to type one" in the description as well said it twice, and is what
-            // Accessibility Scanner's item-type-label check flags.
+            // The action is the click's own label, which TalkBack reads as "double-tap to ...".
+            // The description names only the figure: an action in it as well would be said
+            // twice, and is what Accessibility Scanner's item-type-label check flags.
             .clickable(
                 onClickLabel = stringResource(R.string.plate_target_edit_action),
                 onClick = onEdit,

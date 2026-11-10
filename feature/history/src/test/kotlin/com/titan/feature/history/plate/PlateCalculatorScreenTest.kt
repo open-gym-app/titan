@@ -1,6 +1,9 @@
 package com.titan.feature.history.plate
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -190,6 +193,17 @@ class PlateCalculatorScreenTest {
                 PlateCalculatorEvent.SheetRequested(PlateCalculatorSheet.EQUIPMENT),
             ),
             events,
+        )
+    }
+
+    @Test
+    fun `the target names its action as the click's label, not in its description`() {
+        setContent()
+
+        composeTestRule.onNodeWithContentDescription(TARGET_100).assert(
+            SemanticsMatcher("has the type action") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == "Type a target weight"
+            },
         )
     }
 
