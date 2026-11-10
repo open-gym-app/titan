@@ -228,11 +228,11 @@ counter once per set.
 | Android version | 16 (API 36, security patch 2026-08-05) |
 | TalkBack version | Samsung TalkBack 16.0.00.33 |
 | Accessibility Scanner version | 2.5.1.896851528 |
-| Date | 2026-11-10 |
-| Scanner errors | ... |
-| TalkBack walk | ... |
-| 2× font scale | ... |
-| Deviations found | none |
+| Date | 2026-11-09 to 2026-11-10 |
+| Scanner errors | 0 open, from the scan of 2026-11-10 (50 captures). Not re-scanned since the last fixes |
+| TalkBack walk | _not recorded_ — TalkBack was installed, but no linear-navigation walk or face-down session has been written up |
+| 2× font scale | Walked on the device on 2026-11-09 and 2026-11-10. What is still wrong is under Deviations found |
+| Deviations found | Open at 2×, seen in the 2× previews and not fixed: stat tile figures and labels clipped (`4,8…`, `EXERCIS`), muscle names truncated, exercise names truncated in the summary's list, the RPE cells clipped in the set table. By design: the set number and a set's type initial stop growing at 1.3× because they sit in a fixed 24dp square, and the bottom bar's labels share one size, measured so the widest fits its tab. Scanner warnings accepted are in the table above |
 
 Fill the table in and commit it with the pass. The JVM gate above is what keeps the result
 true between passes.
