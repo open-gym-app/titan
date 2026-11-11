@@ -179,6 +179,7 @@ class ImportUseCase(
         userPreferencesRepository.setCustomIncrement(preferences.customIncrement)
         userPreferencesRepository.setOneRepMaxFormula(preferences.oneRepMaxFormula)
         userPreferencesRepository.setWarmupSuggestions(preferences.warmupSuggestions)
+        userPreferencesRepository.setAutoOpenRestTimer(preferences.autoOpenRestTimer)
         userPreferencesRepository.setWeeklyWorkoutGoal(preferences.weeklyWorkoutGoal)
         userPreferencesRepository.setOnboardingCompleted(preferences.onboardingCompleted)
     }

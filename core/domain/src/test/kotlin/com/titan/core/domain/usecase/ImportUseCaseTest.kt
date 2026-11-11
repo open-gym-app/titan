@@ -432,6 +432,9 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
     override suspend fun setWarmupSuggestions(enabled: Boolean) =
         record("setWarmupSuggestions") { delegate.setWarmupSuggestions(enabled) }
 
+    override suspend fun setAutoOpenRestTimer(enabled: Boolean) =
+        record("setAutoOpenRestTimer") { delegate.setAutoOpenRestTimer(enabled) }
+
     override suspend fun setWeeklyWorkoutGoal(goal: Int) =
         record("setWeeklyWorkoutGoal") { delegate.setWeeklyWorkoutGoal(goal) }
 

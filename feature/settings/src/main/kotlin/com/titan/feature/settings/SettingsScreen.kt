@@ -257,6 +257,15 @@ private fun WorkoutGroup(
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.REST_DURATION)) },
         )
         HairlineDivider()
+        // Under the rest length because it is the other half of the same rest: how long it lasts,
+        // and whether its sheet comes up over the workout when it starts.
+        PreferenceSwitchRow(
+            label = stringResource(R.string.settings_auto_open_rest_timer),
+            supporting = stringResource(R.string.settings_auto_open_rest_timer_detail),
+            checked = preferences.autoOpenRestTimer,
+            onCheckedChange = { onEvent(SettingsEvent.AutoOpenRestTimerToggled(it)) },
+        )
+        HairlineDivider()
         PreferenceRow(
             label = stringResource(R.string.settings_bar_weight),
             value = formatWeight(preferences.barWeight, preferences.unitSystem),
@@ -296,8 +305,7 @@ private fun WorkoutGroup(
             onClick = { onEvent(SettingsEvent.DialogRequested(SettingsDialog.WEEKLY_GOAL)) },
         )
         HairlineDivider()
-        // The only switch outside the notifications group, and the only row in this one that is
-        // about what a *screen* offers rather than about how a number is worked out. It is here
+        // About what a *screen* offers rather than about how a number is worked out. It is here
         // rather than under Appearance because what it hides is training advice, not chrome.
         PreferenceSwitchRow(
             label = stringResource(R.string.settings_warmup_suggestions),

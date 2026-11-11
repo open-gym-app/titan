@@ -239,6 +239,14 @@ class ActiveSessionViewModel @Inject constructor(
     private var restNotificationsOn: Boolean = true
 
     /**
+     * Whether a rest that starts on its own raises its sheet, off the same settings document —
+     * see `UserPreferences.autoOpenRestTimer`. Read by [startRest] and [restoreDraft], the two
+     * places a sheet comes up without the user asking for it. [openRestWindow] does not read it,
+     * because a tap on the dock or the clock is the user asking.
+     */
+    private var autoOpenRestTimer: Boolean = true
+
+    /**
      * The typed input this screen holds that the workout draft does not (#183).
      *
      * The draft carries almost all of it — the half-typed entry row under every exercise, the
@@ -559,6 +567,7 @@ class ActiveSessionViewModel @Inject constructor(
                 // lengthens their rests without also switching to pounds must still get them.
                 defaultRest = preferences.defaultRestDuration
                 restNotificationsOn = NotificationKind.REST_TIMER in preferences.notifications
+                autoOpenRestTimer = preferences.autoOpenRestTimer
                 val previous = seen
                 seen = preferences.unitSystem
                 unitSystem.value = preferences.unitSystem
@@ -620,6 +629,9 @@ class ActiveSessionViewModel @Inject constructor(
                 val preferences = userPreferencesRepository.observe().first()
                 unitSystem.value = preferences.unitSystem
                 defaultRest = preferences.defaultRestDuration
+                // Before [restoreDraft], which decides from it whether a rest that survived the
+                // restart comes back with its sheet up.
+                autoOpenRestTimer = preferences.autoOpenRestTimer
                 reattach()
                 restoreDraft()
                 realignPause()
@@ -1634,7 +1646,9 @@ class ActiveSessionViewModel @Inject constructor(
     }
 
     /**
-     * Starts the rest that follows a set on [sessionExerciseId], and raises the sheet over it.
+     * Starts the rest that follows a set on [sessionExerciseId], and raises the sheet over it
+     * unless the user has asked for it to stay down — see [autoOpenRestTimer]. Where it stays
+     * down, the dock's countdown is the rest, and a tap on it raises the sheet.
      *
      * Called from the two places a set becomes *done* — [log] and the ticking half of
      * [toggleCompletion] — rather than from an event of its own, because starting a rest is not
@@ -1668,7 +1682,10 @@ class ActiveSessionViewModel @Inject constructor(
         restTimer.start(duration)
         screenState.update {
             it.copy(
-                isRestSheetOpen = true,
+                // Left as it was rather than forced down where the setting is off: a sheet the
+                // user raised over the previous rest is one they are using, and the countdown in
+                // it carries straight on into this one.
+                isRestSheetOpen = it.isRestSheetOpen || autoOpenRestTimer,
                 restExerciseId = sessionExerciseId,
                 restNextSetNumber = nextSetNumber,
             )
@@ -2583,9 +2600,10 @@ class ActiveSessionViewModel @Inject constructor(
                 // Straight back up over the workout, because that is where the user was: a rest
                 // is the one thing on this screen that goes on happening while the app is not
                 // running, and coming back to a workout mid-rest with nothing saying so would
-                // hide the only fact that changed while they were gone. Left alone where a rest
+                // hide the only fact that changed while they were gone. Unless the user asked for
+                // the sheet to stay down, in which case the dock says it. Left alone where a rest
                 // is already running, which is the sheet the countdown above put up.
-                isRestSheetOpen = if (live) state.isRestSheetOpen else resting,
+                isRestSheetOpen = if (live) state.isRestSheetOpen else resting && autoOpenRestTimer,
                 restExerciseId = if (live) state.restExerciseId else restedExerciseId,
                 stopwatch = state.stopwatch ?: restoredStopwatch,
             )

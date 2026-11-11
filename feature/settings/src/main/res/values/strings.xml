@@ -23,6 +23,10 @@
     <!-- Workout -->
     <string name="settings_rest_timer">Default rest timer</string>
     <string name="settings_rest_timer_detail">When the exercise has none of its own</string>
+    <!-- Whether the rest timer's sheet comes up by itself when a set is logged. On by default;
+         off leaves the countdown on the dock at the bottom of the workout until it is tapped. -->
+    <string name="settings_auto_open_rest_timer">Show rest timer after a set</string>
+    <string name="settings_auto_open_rest_timer_detail">When off, the countdown stays at the bottom of the screen until you tap it</string>
     <string name="settings_bar_weight">Plate calculator bar</string>
     <string name="settings_bar_weight_detail">The empty bar, before plates</string>
     <string name="settings_bar_weight_custom">Custom</string>

@@ -91,6 +91,12 @@ data class PreferencesPayload(
      * `weekly_workout_goal` key.
      */
     @SerialName("weekly_workout_goal") val weeklyWorkoutGoal: Int? = null,
+    /**
+     * Whether the rest timer's sheet comes up on its own when a rest starts, or **null** in a
+     * file from before the setting existed — which reads back as on, the setting's own
+     * default. Held under the store's `auto_open_rest_timer` key.
+     */
+    @SerialName("auto_open_rest_timer") val autoOpenRestTimer: Boolean? = null,
 )
 
 /** One denomination of [PreferencesPayload.plateInventory]: a plate weight in milligrams, and how many pairs of it. */

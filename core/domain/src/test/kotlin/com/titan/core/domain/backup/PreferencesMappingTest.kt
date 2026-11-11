@@ -13,6 +13,7 @@ import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.plate.PlateStock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.time.Duration.Companion.seconds
 
@@ -40,11 +41,22 @@ class PreferencesMappingTest {
             customRepRange = RepRange(6, 10),
             customIncrement = 1_250_000,
             oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
+            // Both switches off, against their defaults: a mapping that dropped one would read
+            // back as on and fail here rather than pass by accident.
+            warmupSuggestions = false,
+            autoOpenRestTimer = false,
             weeklyWorkoutGoal = 3,
             onboardingCompleted = true,
         )
 
         assertEquals(preferences, preferences.toPayload().toPreferences())
+    }
+
+    @Test
+    fun `a file written before the rest timer switch existed restores it on`() {
+        val payload = UserPreferences(autoOpenRestTimer = false).toPayload().copy(autoOpenRestTimer = null)
+
+        assertTrue(payload.toPreferences().autoOpenRestTimer)
     }
 
     @Test

@@ -109,6 +109,7 @@ class SettingsViewModelTest {
             viewModel.onEvent(SettingsEvent.FitnessLevelSelected(FitnessLevel.ADVANCED))
             viewModel.onEvent(SettingsEvent.OneRepMaxFormulaSelected(OneRepMaxFormula.BRZYCKI))
             viewModel.onEvent(SettingsEvent.WarmupSuggestionsToggled(false))
+            viewModel.onEvent(SettingsEvent.AutoOpenRestTimerToggled(false))
             viewModel.onEvent(SettingsEvent.WeeklyGoalSelected(3))
 
             assertEquals(
@@ -121,6 +122,7 @@ class SettingsViewModelTest {
                     fitnessLevel = FitnessLevel.ADVANCED,
                     oneRepMaxFormula = OneRepMaxFormula.BRZYCKI,
                     warmupSuggestions = false,
+                    autoOpenRestTimer = false,
                     weeklyWorkoutGoal = 3,
                 ),
                 viewModel.uiState.value.preferences,

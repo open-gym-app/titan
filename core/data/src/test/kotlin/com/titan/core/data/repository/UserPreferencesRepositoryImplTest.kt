@@ -135,6 +135,12 @@ class UserPreferencesRepositoryImplTest {
             repository.setOneRepMaxFormula(OneRepMaxFormula.BRZYCKI)
             assertEquals(OneRepMaxFormula.BRZYCKI, repository.observe().first().oneRepMaxFormula)
 
+            repository.setWarmupSuggestions(false)
+            assertFalse(repository.observe().first().warmupSuggestions)
+
+            repository.setAutoOpenRestTimer(false)
+            assertFalse(repository.observe().first().autoOpenRestTimer)
+
             repository.setWeeklyWorkoutGoal(3)
             assertEquals(3, repository.observe().first().weeklyWorkoutGoal)
 

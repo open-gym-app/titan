@@ -144,13 +144,20 @@ class RestTimerController(
      *
      * ### What happens to the total
      *
-     * It is kept, so the progress bar carries on from where it was rather than resetting: a
-     * rest extended with twenty seconds left is still a rest "of 2:00", now 35 seconds from
-     * its end. The one case where it cannot be kept is an extension past the total itself —
-     * [RestTimerState.Running] forbids a remainder longer than its total — and there the total
-     * grows to exactly the new remainder, which is the smallest change that keeps the
-     * invariant. That is a bar that jumps back to empty, and it is the honest drawing of it:
-     * the rest really has been made longer than it ever was.
+     * It moves by the same [delta], so it keeps saying how long this rest lasts: a 2:00 rest
+     * extended once is a rest "of 2:15", whenever the button was pressed, and shortened once it
+     * is one "of 1:45". The time already rested is the one figure that does not move, so the
+     * filled part of the progress bar stays the same length, and only how much bar is left to
+     * fill changes.
+     *
+     * The total used to be kept as it was, growing only when an extension pushed the remainder
+     * past it — and then to the live remainder, fraction of a second and all. A rest of 1:30
+     * extended half a second in read "of 1:44". A shortened one went on claiming the length it
+     * had before. Both read as a total that changed by something other than the step pressed.
+     *
+     * Moving both by the same amount also keeps [RestTimerState.Running]'s invariant without a
+     * clamp: a remainder that was within its total is still within it, and a total above a
+     * positive remainder is positive.
      *
      * ### Where it applies
      *
@@ -173,11 +180,11 @@ class RestTimerController(
                 // takes it from the same place. Null only if a command raced this one in
                 // between, in which case that command's state is the newer answer.
                 val live = run ?: return
-                moveTo(remaining = live.remainingNow() + delta, total = current.total, running = true)
+                moveTo(remaining = live.remainingNow() + delta, total = current.total + delta, running = true)
             }
 
             is RestTimerState.Paused ->
-                moveTo(remaining = current.remaining + delta, total = current.total, running = false)
+                moveTo(remaining = current.remaining + delta, total = current.total + delta, running = false)
 
             RestTimerState.Idle, RestTimerState.Finished -> Unit
         }
@@ -186,9 +193,8 @@ class RestTimerController(
     /**
      * Puts the timer at [remaining] out of [total], counting or frozen per [running].
      *
-     * The shared tail of [adjust]: the clamping, the total that has to grow rather than be
-     * violated, and the shortening that runs off the end are the same three questions either
-     * way, and only the landing state differs.
+     * The shared tail of [adjust]: the shortening that runs off the end is the same question
+     * either way, and only the landing state differs.
      */
     private fun moveTo(
         remaining: Duration,
@@ -200,12 +206,11 @@ class RestTimerController(
             _state.value = RestTimerState.Finished
             return
         }
-        val held = maxOf(total, remaining)
         if (running) {
-            countDownFrom(remaining = remaining, total = held)
+            countDownFrom(remaining = remaining, total = total)
         } else {
             stopCountdown()
-            _state.value = RestTimerState.Paused(remaining, held)
+            _state.value = RestTimerState.Paused(remaining, total)
         }
     }
 

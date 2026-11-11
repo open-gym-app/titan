@@ -161,6 +161,10 @@ class MainViewModelTest {
             preferences.update { it.copy(warmupSuggestions = enabled) }
         }
 
+        override suspend fun setAutoOpenRestTimer(enabled: Boolean) {
+            preferences.update { it.copy(autoOpenRestTimer = enabled) }
+        }
+
         override suspend fun setWeeklyWorkoutGoal(goal: Int) {
             preferences.update { it.copy(weeklyWorkoutGoal = goal) }
         }

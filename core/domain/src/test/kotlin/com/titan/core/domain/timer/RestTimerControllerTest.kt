@@ -245,7 +245,7 @@ class RestTimerControllerTest {
     // ─── Adjusting a rest in flight ─────────────────────────────────────────────────────
 
     @Test
-    fun `extending adds to the remainder and keeps the total`() =
+    fun `extending adds the step to the remainder and to the total`() =
         runTest {
             val timer = restTimer()
 
@@ -253,13 +253,13 @@ class RestTimerControllerTest {
             advanceTimeTo(30.seconds)
             timer.adjust(15.seconds)
 
-            // 60 left of 90 became 75 left of 90: the bar goes back by the fifteen seconds that
-            // were added and by nothing else, which is the whole point of keeping the total.
-            assertEquals(RestTimerState.Running(75.seconds, 90.seconds), timer.state.value)
+            // 60 left of 90 became 75 left of 105: the rest is now fifteen seconds longer, and the
+            // thirty already rested are still thirty.
+            assertEquals(RestTimerState.Running(75.seconds, 105.seconds), timer.state.value)
         }
 
     @Test
-    fun `shortening takes off the remainder and keeps the total`() =
+    fun `shortening takes the step off the remainder and off the total`() =
         runTest {
             val timer = restTimer()
 
@@ -267,7 +267,7 @@ class RestTimerControllerTest {
             advanceTimeTo(30.seconds)
             timer.adjust((-15).seconds)
 
-            assertEquals(RestTimerState.Running(45.seconds, 90.seconds), timer.state.value)
+            assertEquals(RestTimerState.Running(45.seconds, 75.seconds), timer.state.value)
         }
 
     @Test
@@ -297,21 +297,32 @@ class RestTimerControllerTest {
             advanceTimeTo(30.seconds + 500.milliseconds)
             timer.adjust(15.seconds)
 
-            assertEquals(RestTimerState.Running(74.5.seconds, 90.seconds), timer.state.value)
+            assertEquals(RestTimerState.Running(74.5.seconds, 105.seconds), timer.state.value)
         }
 
     @Test
-    fun `extending past the total grows the total to the new remainder`() =
+    fun `the total moves by whole steps however far into the rest they are pressed`() =
         runTest {
+            // The reported bug: pressed a fraction of a second into a rest, an extension used to
+            // grow the total to the live remainder, and a 1:30 rest read "of 1:44". Whatever the
+            // moment, the total is the length started with plus the steps pressed.
             val timer = restTimer()
 
             timer.start(90.seconds)
-            advanceTimeTo(5.seconds)
+            advanceTimeTo(400.milliseconds)
             timer.adjust(15.seconds)
+            assertEquals(105.seconds, (timer.state.value as RestTimerState.Running).total)
 
-            // 85 + 15 is 100, which no `Running` of 90 can hold. The total is the thing that
-            // gives, and by exactly as much as it has to.
-            assertEquals(RestTimerState.Running(100.seconds, 100.seconds), timer.state.value)
+            advanceTimeTo(7.seconds + 300.milliseconds)
+            timer.adjust(15.seconds)
+            assertEquals(120.seconds, (timer.state.value as RestTimerState.Running).total)
+
+            advanceTimeTo(12.seconds + 900.milliseconds)
+            timer.adjust((-15).seconds)
+            assertEquals(
+                RestTimerState.Running(remaining = 105.seconds - 12.9.seconds, total = 105.seconds),
+                timer.state.value,
+            )
         }
 
     @Test
@@ -347,7 +358,7 @@ class RestTimerControllerTest {
             timer.adjust(15.seconds)
             advanceTimeTo(60.seconds) // parked: an adjustment is not a resume
 
-            assertEquals(RestTimerState.Paused(75.seconds, 90.seconds), timer.state.value)
+            assertEquals(RestTimerState.Paused(75.seconds, 105.seconds), timer.state.value)
         }
 
     @Test
