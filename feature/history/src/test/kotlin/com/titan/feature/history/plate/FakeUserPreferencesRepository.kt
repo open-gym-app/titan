@@ -80,6 +80,8 @@ class FakeUserPreferencesRepository(initial: UserPreferences = UserPreferences()
 
     override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
+    override suspend fun setAutoOpenRestTimer(enabled: Boolean) = write { it.copy(autoOpenRestTimer = enabled) }
+
     override suspend fun setWeeklyWorkoutGoal(goal: Int) = write { it.copy(weeklyWorkoutGoal = goal) }
 
     override suspend fun setOnboardingCompleted(completed: Boolean) = write { it.copy(onboardingCompleted = completed) }

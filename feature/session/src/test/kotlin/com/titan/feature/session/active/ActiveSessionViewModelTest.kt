@@ -2152,6 +2152,55 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `with the sheet set to stay down, logging a set starts the rest under the dock`() =
+        runTest {
+            settings.setAutoOpenRestTimer(false)
+            val viewModel = viewModel()
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            // The rest is going all the same; only the sheet waits to be asked for.
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+            assertEquals(RestTimerState.Running(90.seconds, 90.seconds), viewModel.clocks.value.rest)
+        }
+
+    @Test
+    fun `with the sheet set to stay down, a sheet the user raised stays up over the next rest`() =
+        runTest {
+            settings.setAutoOpenRestTimer(false)
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(viewModel.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
+    fun `with the sheet set to stay down, a sheet that came down with its rest stays down over the next`() =
+        runTest {
+            settings.setAutoOpenRestTimer(false)
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            // The rest runs out under the sheet, which goes with it.
+            testScheduler.advanceTimeBy(91.seconds)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Running)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
     fun `the rest is the user's setting`() =
         runTest {
             settings.setDefaultRestDuration(3.minutes)
@@ -2248,7 +2297,7 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
-    fun `adjusting moves the remainder and leaves the total alone`() =
+    fun `adjusting moves the remainder and the total by the same step`() =
         runTest {
             val viewModel = viewModel()
             viewModel.enter(weight = "80", reps = "5")
@@ -2257,9 +2306,9 @@ class ActiveSessionViewModelTest {
             testScheduler.advanceTimeBy(30.seconds)
             viewModel.onEvent(ActiveSessionEvent.RestAdjusted(15.seconds))
 
-            // 60 left of 90 became 75 left of 90: the bar moves back by what was added and by
-            // nothing else, which is what keeping the total is for.
-            assertEquals(RestTimerState.Running(75.seconds, 90.seconds), viewModel.clocks.value.rest)
+            // 60 left of 90 became 75 left of 105: the rest is fifteen seconds longer, and the
+            // thirty already rested stay rested.
+            assertEquals(RestTimerState.Running(75.seconds, 105.seconds), viewModel.clocks.value.rest)
         }
 
     @Test
@@ -2781,6 +2830,19 @@ class ActiveSessionViewModelTest {
             // Straight back up: a rest is the one thing on this screen that went on happening while
             // the app was not running.
             assertTrue(restored.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
+    fun `with the sheet set to stay down, a rest that survived the process comes back under the dock`() =
+        runTest {
+            settings.setAutoOpenRestTimer(false)
+            val draft = restingDraft(deadline = STARTED_AT + 90_000)
+            clock.now = STARTED_AT + 30_000
+
+            val restored = viewModel(drafts = FakeDraftStore(draft))
+
+            assertEquals(RestTimerState.Running(60.seconds, 90.seconds), restored.clocks.value.rest)
+            assertFalse(restored.uiState.value.isRestSheetOpen)
         }
 
     @Test

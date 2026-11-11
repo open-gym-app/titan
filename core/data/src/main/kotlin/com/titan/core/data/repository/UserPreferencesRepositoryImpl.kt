@@ -99,6 +99,7 @@ import kotlin.time.Duration.Companion.seconds
  * asymmetric answers are the same judgement applied to different consequences.
  */
 @Singleton
+@Suppress("TooManyFunctions") // One per `UserPreferencesRepository` method — see its own note.
 class UserPreferencesRepositoryImpl @Inject constructor(
     @param:UserPreferencesStore private val dataStore: DataStore<Preferences>,
 ) : UserPreferencesRepository {
@@ -251,6 +252,10 @@ class UserPreferencesRepositoryImpl @Inject constructor(
         dataStore.edit { it[UserPreferencesKeys.WARMUP_SUGGESTIONS] = enabled }
     }
 
+    override suspend fun setAutoOpenRestTimer(enabled: Boolean) {
+        dataStore.edit { it[UserPreferencesKeys.AUTO_OPEN_REST_TIMER] = enabled }
+    }
+
     override suspend fun setWeeklyWorkoutGoal(goal: Int) {
         require(goal in StreakCalculator.WEEKLY_GOAL_RANGE) {
             "the weekly workout goal must be in ${StreakCalculator.WEEKLY_GOAL_RANGE}, was $goal"
@@ -379,6 +384,7 @@ private object UserPreferencesKeys {
     val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
     val ONE_REP_MAX_FORMULA = stringPreferencesKey("one_rep_max_formula")
     val WARMUP_SUGGESTIONS = booleanPreferencesKey("warmup_suggestions")
+    val AUTO_OPEN_REST_TIMER = booleanPreferencesKey("auto_open_rest_timer")
     val WEEKLY_WORKOUT_GOAL = intPreferencesKey("weekly_workout_goal")
     val NOTIFICATION_PERMISSION_REQUESTED = booleanPreferencesKey("notification_permission_requested")
     val REMINDER_DAYS = stringPreferencesKey("reminder_days_iso")
@@ -449,6 +455,8 @@ private fun toUserPreferences(stored: Preferences): UserPreferences {
             .toEnumOrDefault(defaults.oneRepMaxFormula),
         warmupSuggestions = values.valueOrNull(UserPreferencesKeys.WARMUP_SUGGESTIONS)
             ?: defaults.warmupSuggestions,
+        autoOpenRestTimer = values.valueOrNull(UserPreferencesKeys.AUTO_OPEN_REST_TIMER)
+            ?: defaults.autoOpenRestTimer,
         weeklyWorkoutGoal = values.valueOrNull(UserPreferencesKeys.WEEKLY_WORKOUT_GOAL)
             ?.takeIf { it in StreakCalculator.WEEKLY_GOAL_RANGE }
             ?: defaults.weeklyWorkoutGoal,

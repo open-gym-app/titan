@@ -23,6 +23,8 @@
     <!-- Workout -->
     <string name="settings_rest_timer">Repos par défaut</string>
     <string name="settings_rest_timer_detail">Quand l’exercice n’en a pas de propre</string>
+    <string name="settings_auto_open_rest_timer">Afficher le minuteur de repos après une série</string>
+    <string name="settings_auto_open_rest_timer_detail">Désactivé, le décompte reste en bas de l’écran jusqu’à ce que vous le touchiez</string>
     <string name="settings_bar_weight">Barre du calculateur de disques</string>
     <string name="settings_bar_weight_detail">La barre à vide, avant les disques</string>
     <string name="settings_bar_weight_custom">Personnalisée</string>

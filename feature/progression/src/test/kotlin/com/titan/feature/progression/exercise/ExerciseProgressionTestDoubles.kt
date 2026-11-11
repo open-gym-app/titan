@@ -257,6 +257,8 @@ class FakeSettings(initial: UserPreferences = UserPreferences()) : UserPreferenc
 
     override suspend fun setWarmupSuggestions(enabled: Boolean) = write { it.copy(warmupSuggestions = enabled) }
 
+    override suspend fun setAutoOpenRestTimer(enabled: Boolean) = write { it.copy(autoOpenRestTimer = enabled) }
+
     override suspend fun setWeeklyWorkoutGoal(goal: Int) = write { it.copy(weeklyWorkoutGoal = goal) }
 
     override suspend fun setUnitSystem(unitSystem: UnitSystem) = write { it.copy(unitSystem = unitSystem) }

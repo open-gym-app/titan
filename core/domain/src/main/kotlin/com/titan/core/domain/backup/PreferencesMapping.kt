@@ -37,6 +37,7 @@ fun UserPreferences.toPayload(): PreferencesPayload =
         customIncrement = customIncrement,
         warmupSuggestions = warmupSuggestions,
         weeklyWorkoutGoal = weeklyWorkoutGoal,
+        autoOpenRestTimer = autoOpenRestTimer,
     )
 
 /**
@@ -78,6 +79,9 @@ fun PreferencesPayload.toPreferences(): UserPreferences =
         // refuse. Either way the user has no goal this build can use, so they get the default.
         weeklyWorkoutGoal = weeklyWorkoutGoal?.takeIf { it in StreakCalculator.WEEKLY_GOAL_RANGE }
             ?: StreakCalculator.DEFAULT_WEEKLY_GOAL,
+        // Absent is a file from before the setting existed, whose user always had the sheet
+        // come up on its own.
+        autoOpenRestTimer = autoOpenRestTimer ?: DEFAULT_AUTO_OPEN_REST_TIMER,
         onboardingCompleted = onboardingCompleted,
     )
 
@@ -156,3 +160,6 @@ private const val MIN_REST_SECONDS = 1L
  * fallback it uses — see the enum defaults above, which are spelled out for the same reason.
  */
 private const val DEFAULT_WARMUP_SUGGESTIONS = true
+
+/** What an export with no `auto_open_rest_timer` key restores that setting to, for the same reason. */
+private const val DEFAULT_AUTO_OPEN_REST_TIMER = true

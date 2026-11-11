@@ -672,6 +672,8 @@ private object CascadePreferences : UserPreferencesRepository {
 
     override suspend fun setWarmupSuggestions(enabled: Boolean) = readOnly()
 
+    override suspend fun setAutoOpenRestTimer(enabled: Boolean) = readOnly()
+
     override suspend fun setWeeklyWorkoutGoal(goal: Int) = readOnly()
 
     override suspend fun clear() = readOnly()

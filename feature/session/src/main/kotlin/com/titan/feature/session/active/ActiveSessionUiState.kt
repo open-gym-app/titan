@@ -111,7 +111,9 @@ import kotlin.time.Duration
  *   [finishedSessionId] is — and because the offer has to survive a rotation, which a one-shot
  *   event would not.
  * @param isRestSheetOpen whether the sheet is up over the workout. Raised by a set being marked
- *   done and lowered by the skip, the swipe and the countdown reaching zero — the last of those
+ *   done, unless `UserPreferences.autoOpenRestTimer` says to leave it down, and by a tap on the
+ *   rest dock or the session clock whatever that says. Lowered by the skip, the swipe and the
+ *   countdown reaching zero — the last of those
  *   without the timer going idle, so that a rest slept through stays distinguishable from one
  *   the user called off. Never true over a rest that is not [com.titan.core.domain.timer.RestTimerState.Running]
  *   or `Paused`: the sheet is a thing to look at while time passes. The countdown itself is

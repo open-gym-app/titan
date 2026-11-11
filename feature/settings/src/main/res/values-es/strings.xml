@@ -23,6 +23,8 @@
     <!-- Workout -->
     <string name="settings_rest_timer">Descanso por defecto</string>
     <string name="settings_rest_timer_detail">Cuando el ejercicio no tiene uno propio</string>
+    <string name="settings_auto_open_rest_timer">Mostrar el temporizador de descanso tras una serie</string>
+    <string name="settings_auto_open_rest_timer_detail">Desactivado, la cuenta atrás se queda abajo de la pantalla hasta que la toques</string>
     <string name="settings_bar_weight">Barra de la calculadora de discos</string>
     <string name="settings_bar_weight_detail">La barra vacía, antes de los discos</string>
     <string name="settings_bar_weight_custom">Personalizada</string>

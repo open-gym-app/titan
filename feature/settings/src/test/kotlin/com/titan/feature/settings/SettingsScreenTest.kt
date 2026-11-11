@@ -390,6 +390,16 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun `the rest timer switch reads the stored setting and reports a flip`() {
+        setContent(UserPreferences(autoOpenRestTimer = true))
+
+        composeTestRule.onNodeWithText("Show rest timer after a set").performScrollTo().assertIsOn()
+        composeTestRule.onNodeWithText("Show rest timer after a set").performClick()
+
+        assertEquals(listOf(SettingsEvent.AutoOpenRestTimerToggled(false)), events)
+    }
+
+    @Test
     fun `the warm-up switch reads as off when it is`() {
         setContent(UserPreferences(warmupSuggestions = false))
 

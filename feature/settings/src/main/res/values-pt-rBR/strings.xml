@@ -23,6 +23,8 @@
     <!-- Workout -->
     <string name="settings_rest_timer">Descanso padrão</string>
     <string name="settings_rest_timer_detail">Quando o exercício não tem um próprio</string>
+    <string name="settings_auto_open_rest_timer">Mostrar o cronômetro de descanso após uma série</string>
+    <string name="settings_auto_open_rest_timer_detail">Desativado, a contagem regressiva fica na parte de baixo da tela até você tocar nela</string>
     <string name="settings_bar_weight">Barra da calculadora de anilhas</string>
     <string name="settings_bar_weight_detail">A barra vazia, antes das anilhas</string>
     <string name="settings_bar_weight_custom">Personalizada</string>

@@ -142,6 +142,7 @@ class SettingsViewModel @Inject constructor(
             is SettingsEvent.OneRepMaxFormulaSelected -> setOneRepMaxFormula(event.formula)
             is SettingsEvent.WeeklyGoalSelected -> setWeeklyGoal(event.goal)
             is SettingsEvent.WarmupSuggestionsToggled -> setWarmupSuggestions(event.enabled)
+            is SettingsEvent.AutoOpenRestTimerToggled -> setAutoOpenRestTimer(event.enabled)
             is SettingsEvent.Notification -> onNotificationEvent(event)
             SettingsEvent.RestoreDefaultTemplatesConfirmed -> restoreMissingTemplates()
             SettingsEvent.DeleteAllConfirmed -> deleteAll()
@@ -202,6 +203,9 @@ class SettingsViewModel @Inject constructor(
     // `write`, not `writeAndDismiss`: a switch has no dialog to close behind it.
     private fun setWarmupSuggestions(enabled: Boolean) =
         write { userPreferencesRepository.setWarmupSuggestions(enabled) }
+
+    private fun setAutoOpenRestTimer(enabled: Boolean) =
+        write { userPreferencesRepository.setAutoOpenRestTimer(enabled) }
 
     /**
      * Stores a notification switch, and asks for the permission behind it if this is the first

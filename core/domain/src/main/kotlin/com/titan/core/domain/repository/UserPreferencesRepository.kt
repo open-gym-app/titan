@@ -58,6 +58,10 @@ import kotlin.time.Duration
  * `:core:data`. Nothing about the storage medium is decided here — no key names, no file,
  * no DataStore — only the values and the guarantees above.
  */
+// One setter per setting, which is the write contract above: a setting added is a function
+// added. Grouping setters to stay under the count would bring back the read-modify-write of a
+// whole document that the contract exists to avoid.
+@Suppress("TooManyFunctions")
 interface UserPreferencesRepository {
 
     /** The current settings, re-emitted on every change. Never empty; see the emission contract. */
@@ -200,6 +204,17 @@ interface UserPreferencesRepository {
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setWarmupSuggestions(enabled: Boolean)
+
+    /**
+     * Sets whether the rest timer's sheet comes up on its own when a rest starts — see
+     * [com.titan.core.domain.model.UserPreferences.autoOpenRestTimer].
+     *
+     * A rest already running is left as it is, sheet and all: this decides what the *next*
+     * rest does, and taking a sheet down from under the user is not what turning it off asks.
+     *
+     * @throws IOException if the settings cannot be written.
+     */
+    suspend fun setAutoOpenRestTimer(enabled: Boolean)
 
     /**
      * Sets how many workouts a week make a week count towards the streak — see

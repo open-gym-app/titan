@@ -129,6 +129,19 @@ data class UserPreferences(
     val warmupSuggestions: Boolean = true,
 
     /**
+     * Whether the rest timer's sheet comes up on its own when a rest starts after a set, or
+     * comes back up when a workout is reopened mid-rest.
+     *
+     * On by default, which is what the screen has always done: mid-rest the countdown is the
+     * only thing that matters. Off is for the lifter who finds a panel landing under their
+     * thumb the moment a set is logged more in the way than useful. The rest still starts, and
+     * the dock at the bottom of the workout carries its countdown. Only the sheet stays down
+     * until they ask for it from the dock or the session clock. Tapping either of those raises
+     * it whatever this says, because then the lifter asked for it.
+     */
+    val autoOpenRestTimer: Boolean = true,
+
+    /**
      * How many workouts a week the user means to do — the goal a week has to meet to join the
      * streak. See [StreakCalculator], which is the only reader of it that decides anything.
      *

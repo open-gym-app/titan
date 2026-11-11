@@ -67,6 +67,9 @@ sealed interface SettingsEvent {
      */
     data class WarmupSuggestionsToggled(val enabled: Boolean) : SettingsEvent
 
+    /** The switch that says whether the rest timer's sheet comes up on its own was flipped. */
+    data class AutoOpenRestTimerToggled(val enabled: Boolean) : SettingsEvent
+
     /**
      * The user confirmed putting back the default templates they deleted.
      *

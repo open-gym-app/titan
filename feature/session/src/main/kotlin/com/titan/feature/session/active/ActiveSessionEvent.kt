@@ -326,10 +326,11 @@ sealed interface ActiveSessionEvent {
      * set that has just been logged and the next one, whichever exercise that turns out to be —
      * and `RestTimerController` holds exactly one countdown to match.
      *
-     * Nothing here *starts* a rest either. That is not something the user asks for: a rest
+     * The rest after a set is not started here. That is not something the user asks for: it
      * begins because a set was marked done, which is [SetLogged] and [SetCompletionToggled]
      * doing their own jobs. What is left for this group is the three things a lifter does to a
-     * countdown already running, plus the two about whether the sheet is on screen.
+     * countdown already running, plus the two about whether the sheet is on screen — the second
+     * of which starts a rest of its own where none is going, see [RestWindowRequested].
      */
 
     /**
@@ -366,7 +367,8 @@ sealed interface ActiveSessionEvent {
      * The rest dock or the session clock was tapped: open the window that manages the rest.
      *
      * Where a rest is going, the sheet comes up over it to be adjusted, paused or skipped — the
-     * way back into a sheet that was swiped away. Where none is, the tap *starts* one at the user's default
+     * way back into a sheet that was swiped away, or that the settings kept down when the rest
+     * started. Where none is, the tap *starts* one at the user's default
      * length and raises the sheet over it, so a rest can be taken without a set being logged
      * first: a warm-up, a cardio interval, a pause someone simply wants timed.
      */
