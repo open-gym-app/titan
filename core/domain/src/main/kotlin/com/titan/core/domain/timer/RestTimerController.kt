@@ -148,12 +148,9 @@ class RestTimerController(
      * extended once is a rest "of 2:15", whenever the button was pressed, and shortened once it
      * is one "of 1:45". The time already rested is the one figure that does not move, so the
      * filled part of the progress bar stays the same length, and only how much bar is left to
-     * fill changes.
-     *
-     * The total used to be kept as it was, growing only when an extension pushed the remainder
-     * past it — and then to the live remainder, fraction of a second and all. A rest of 1:30
-     * extended half a second in read "of 1:44". A shortened one went on claiming the length it
-     * had before. Both read as a total that changed by something other than the step pressed.
+     * fill changes. The total is the length started with plus the steps pressed, never the live
+     * remainder: a rest of 1:30 extended half a second in is "of 1:45", not "of 1:44", and a
+     * shortened one does not go on claiming the length it had before.
      *
      * Moving both by the same amount also keeps [RestTimerState.Running]'s invariant without a
      * clamp: a remainder that was within its total is still within it, and a total above a

@@ -276,6 +276,9 @@ fun samplePreferences(): PreferencesPayload =
         customRepRangeMin = 6,
         customRepRangeMax = 10,
         customIncrement = 1_250_000,
+        warmupSuggestions = false,
+        weeklyWorkoutGoal = 3,
+        autoOpenRestTimer = false,
     )
 
 const val EXPORTED_AT: Long = 1_788_686_970_491L

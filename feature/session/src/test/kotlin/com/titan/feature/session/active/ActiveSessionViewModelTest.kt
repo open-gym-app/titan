@@ -2184,6 +2184,23 @@ class ActiveSessionViewModelTest {
         }
 
     @Test
+    fun `with the sheet set to stay down, a sheet that came down with its rest stays down over the next`() =
+        runTest {
+            settings.setAutoOpenRestTimer(false)
+            val viewModel = viewModel()
+            viewModel.onEvent(ActiveSessionEvent.RestWindowRequested)
+            // The rest runs out under the sheet, which goes with it.
+            testScheduler.advanceTimeBy(91.seconds)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertTrue(viewModel.clocks.value.rest is RestTimerState.Running)
+            assertFalse(viewModel.uiState.value.isRestSheetOpen)
+        }
+
+    @Test
     fun `the rest is the user's setting`() =
         runTest {
             settings.setDefaultRestDuration(3.minutes)

@@ -1679,13 +1679,16 @@ class ActiveSessionViewModel @Inject constructor(
             return
         }
 
+        // Left up rather than forced down where the setting is off: a sheet the user raised over
+        // the previous rest is one they are using, and the countdown in it carries straight on
+        // into this one. Read before the start, and off the timer rather than the flag alone:
+        // the flag outlives a rest that ran out (see [build]), and a sheet that came down with
+        // its countdown is not one the user is looking at.
+        val sheetUp = screenState.value.isRestSheetOpen && restTimer.state.value.isLive
         restTimer.start(duration)
         screenState.update {
             it.copy(
-                // Left as it was rather than forced down where the setting is off: a sheet the
-                // user raised over the previous rest is one they are using, and the countdown in
-                // it carries straight on into this one.
-                isRestSheetOpen = it.isRestSheetOpen || autoOpenRestTimer,
+                isRestSheetOpen = sheetUp || autoOpenRestTimer,
                 restExerciseId = sessionExerciseId,
                 restNextSetNumber = nextSetNumber,
             )

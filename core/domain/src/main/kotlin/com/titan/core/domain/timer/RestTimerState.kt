@@ -33,9 +33,10 @@ sealed interface RestTimerState {
     data object Idle : RestTimerState
 
     /**
-     * A rest is counting down. [remaining] is what is left, [total] the duration the
-     * current countdown was started with, so a progress indicator has its denominator
-     * without having to remember what was passed to `start`.
+     * A rest is counting down. [remaining] is what is left, [total] how long the rest
+     * lasts — the duration it was started with, moved by every `adjust` since — so a
+     * progress indicator has its denominator without having to remember what was passed
+     * to `start`.
      *
      * After a pause and resume, [total] stays the *original* total rather than the
      * paused remainder, so the progress ring does not jump when the timer is resumed.

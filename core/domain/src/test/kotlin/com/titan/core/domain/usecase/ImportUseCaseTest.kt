@@ -128,7 +128,7 @@ class ImportUseCaseTest {
         }
 
     /**
-     * Reset before the eight setters. Replace means replace: a setting added to the store later
+     * Reset before the setters. Replace means replace: a setting added to the store later
      * and forgotten in the importer must show up as a default, never as the old device's value.
      */
     @Test
@@ -155,6 +155,9 @@ class ImportUseCaseTest {
             assertEquals(RepRange(6, 10), restored.customRepRange)
             assertEquals(1_250_000L, restored.customIncrement)
             assertEquals(OneRepMaxFormula.BRZYCKI, restored.oneRepMaxFormula)
+            assertFalse(restored.warmupSuggestions)
+            assertEquals(3, restored.weeklyWorkoutGoal)
+            assertFalse(restored.autoOpenRestTimer)
             assertTrue(restored.onboardingCompleted)
             assertEquals(listOf(20_000_000L, 10_000_000L), restored.plateInventory?.stock?.map { it.weight })
         }
