@@ -116,11 +116,14 @@ fun StatTile(
                 modifier = Modifier.padding(top = TitanTheme.spacing.xs),
             )
             if (unit != null) {
+                // Free to wrap. On a tile the unit is often a phrase rather than a word —
+                // "this week", "across 5 exercises" — and at twice the font size one line
+                // holds only its first word or two, which is a different sentence from the
+                // one the tile speaks.
                 Text(
                     text = unit,
                     style = TitanTheme.typography.numericSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
                 )
             }
         }

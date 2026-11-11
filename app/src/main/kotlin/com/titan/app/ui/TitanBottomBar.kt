@@ -3,6 +3,7 @@ package com.titan.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -17,15 +18,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.titan.app.navigation.TopLevelDestination
 import com.titan.core.ui.test.TitanTestTags
 import com.titan.core.ui.theme.TitanTheme
@@ -58,30 +66,80 @@ fun TitanBottomBar(
     ) {
         Column {
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            Row(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                destinations.forEach { destination ->
-                    BottomBarItem(
-                        destination = destination,
-                        selected = destination == currentDestination,
-                        onClick = { onNavigate(destination) },
-                    )
+                // Resolved once and handed to each tab, so the strings measured are the strings
+                // drawn.
+                val labels = destinations.map { stringResource(it.labelRes) }
+                val labelSize = rememberFittingLabelSize(
+                    labels = labels.map { it.uppercase() },
+                    available = maxWidth / destinations.size - LABEL_SIDE_PADDING * 2,
+                    style = TitanTheme.typography.eyebrow,
+                )
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    destinations.forEachIndexed { index, destination ->
+                        BottomBarItem(
+                            destination = destination,
+                            label = labels[index],
+                            selected = destination == currentDestination,
+                            labelSize = labelSize,
+                            onClick = { onNavigate(destination) },
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * The one size every tab label is drawn at: the largest, no bigger than the eyebrow's own, at
+ * which the *widest* of them still fits a tab with [LABEL_SIDE_PADDING] to spare on each side.
+ *
+ * One size for all four rather than each label shrinking to fit itself, because a bar whose
+ * `SESSIONS` is set smaller than its `HOME` reads as a mistake. The size is found by measuring,
+ * so it is the eyebrow's own 10sp wherever the labels already fit — every phone at the default
+ * font, in every locale — and only comes down when a large font or a long translation leaves no
+ * room, and never below [MIN_LABEL_SIZE].
+ */
+@Composable
+private fun rememberFittingLabelSize(
+    labels: List<String>,
+    available: Dp,
+    style: TextStyle,
+): TextUnit {
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val availablePx = with(density) { available.roundToPx() }
+
+    return remember(labels, availablePx, style, density) {
+        var size = style.fontSize.value
+        while (size > MIN_LABEL_SIZE.value && labels.any { label ->
+                measurer.measure(
+                    text = label,
+                    style = style.copy(fontSize = size.sp),
+                    softWrap = false,
+                    maxLines = 1,
+                ).size.width > availablePx
+            }
+        ) {
+            size -= LABEL_SIZE_STEP
+        }
+        size.sp
+    }
+}
+
 @Composable
 private fun RowScope.BottomBarItem(
     destination: TopLevelDestination,
+    label: String,
     selected: Boolean,
+    labelSize: TextUnit,
     onClick: () -> Unit,
 ) {
-    val label = stringResource(destination.labelRes)
     val contentColor = if (selected) {
         MaterialTheme.colorScheme.primary
     } else {
@@ -123,11 +181,23 @@ private fun RowScope.BottomBarItem(
             tint = contentColor,
             modifier = Modifier.padding(top = TitanTheme.spacing.md),
         )
+        // One line, at the size [rememberFittingLabelSize] chose for the whole bar.
         Text(
             text = label.uppercase(),
-            style = TitanTheme.typography.eyebrow,
+            style = TitanTheme.typography.eyebrow.copy(fontSize = labelSize),
             color = contentColor,
+            maxLines = 1,
+            softWrap = false,
             modifier = Modifier.padding(bottom = TitanTheme.spacing.md),
         )
     }
 }
+
+/** The smallest a tab label is drawn, in sp; see [rememberFittingLabelSize]. */
+private val MIN_LABEL_SIZE = 6.sp
+
+/** How much the label shrinks per step while it does not fit, in sp. */
+private const val LABEL_SIZE_STEP = 0.5f
+
+/** Clear space kept either side of a label, so two neighbours never touch. */
+private val LABEL_SIDE_PADDING = 4.dp

@@ -39,7 +39,7 @@ class TemplateRowTest {
         setContent(summary("Push Day · Upper", 8, 55.minutes, TemplateCategory.STRENGTH))
 
         composeTestRule.onNodeWithContentDescription(
-            "Push Day · Upper, 8 exercises, about 55 minutes, Strength",
+            "Push Day · Upper, 8 ex · ~55m, Strength",
         ).assertIsDisplayed()
     }
 
@@ -50,7 +50,7 @@ class TemplateRowTest {
         setContent(summary("Push Day", 8, 55.minutes, category = null))
 
         composeTestRule.onNodeWithText("GENERAL").assertDoesNotExist()
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .assertIsDisplayed()
     }
 
@@ -60,7 +60,7 @@ class TemplateRowTest {
         // states the same absence twice, and the second reads as a measurement.
         setContent(summary("Emptied out", 0, Duration.ZERO))
 
-        composeTestRule.onNodeWithContentDescription("Emptied out, 0 exercises").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Emptied out, 0 ex").assertIsDisplayed()
     }
 
     @Test
@@ -72,7 +72,7 @@ class TemplateRowTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .performClick()
 
         assertEquals(1, taps)
@@ -82,7 +82,7 @@ class TemplateRowTest {
     fun `a row shown rather than offered takes no click`() {
         setContent(summary("Push Day", 8, 55.minutes))
 
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .assertHasNoClickAction()
     }
 
@@ -94,7 +94,7 @@ class TemplateRowTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes")
+        composeTestRule.onNodeWithContentDescription("Push Day, 8 ex · ~55m")
             .assertHasClickAction()
     }
 

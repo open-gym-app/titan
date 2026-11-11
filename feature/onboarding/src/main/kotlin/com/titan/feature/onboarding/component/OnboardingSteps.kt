@@ -157,10 +157,14 @@ internal fun WelcomeStep(modifier: Modifier = Modifier) {
         }
 
         // How long this is going to take, said before it is asked. The commonest reason a
-        // first-run flow is abandoned is not knowing whether it ends.
+        // first-run flow is abandoned is not knowing whether it ends. Allowed every line it
+        // needs: it is a sentence, and at twice the font size it is three lines wide, so one
+        // line would read "THREE QUESTIONS, THEN" and stop.
         Eyebrow(
             text = stringResource(R.string.onboarding_welcome_length),
             color = MaterialTheme.colorScheme.outline,
+            textAlign = TextAlign.Center,
+            maxLines = Int.MAX_VALUE,
         )
     }
 }

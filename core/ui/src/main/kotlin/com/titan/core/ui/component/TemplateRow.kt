@@ -68,8 +68,8 @@ import kotlin.time.Duration.Companion.minutes
  *
  * One node, not four. The three figures are drawn as separate `Text`s because they are
  * three type roles, but a screen reader walking a list of templates should hear
- * "Push Day · Upper, 8 exercises, about 55 minutes, strength" as one row and then move to
- * the next — so the parts are cleared and the row carries the whole sentence.
+ * "Push Day · Upper, 8 ex · ~55m, Strength" as one row and then move to the next — so the
+ * parts are cleared and the row carries the whole sentence.
  *
  * @param onClick what tapping the row does, or null for a row that is being shown rather
  *   than offered — the editor's header. A null draws no ripple and takes no click role.
@@ -93,8 +93,10 @@ fun TemplateRow(
 ) {
     val category = summary.template.category
     // Resolved before the modifier chain: `clearAndSetSemantics` takes a plain lambda, not a
-    // composable one, so the strings cannot be read inside it.
-    val description = summary.spokenDescription()
+    // composable one, so the strings cannot be read inside it. The figures are resolved once
+    // and both drawn and spoken, which is what keeps the two the same words.
+    val meta = summary.meta()
+    val description = summary.spokenDescription(meta)
 
     Row(
         modifier = modifier
@@ -146,7 +148,7 @@ fun TemplateRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = summary.meta(),
+                        text = meta,
                         style = TitanTheme.typography.numericSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -212,37 +214,27 @@ private fun TemplateSummary.meta(): String {
     }
 }
 
-/** The whole row as one sentence. See the note on [TemplateRow]. */
+/**
+ * The whole row as one sentence: the name, the figures as they are drawn, the category.
+ *
+ * The figures are spoken as drawn — "8 ex · ~55m" — and not expanded into "8 exercises, about
+ * 55 minutes". The row is a control, and a control's spoken name has to contain the text on
+ * it (see `docs/ACCESSIBILITY.md`, *A control answers to the words drawn on it*): a Voice
+ * Access user says what they can read, and Accessibility Scanner's `UnexposedTextCheck` held
+ * the expanded sentence to that on a phone and failed it on every template row.
+ */
 @Composable
-private fun TemplateSummary.spokenDescription(): String {
-    val count = pluralStringResource(
-        R.plurals.template_exercise_count_description,
-        exerciseCount,
-        exerciseCount,
-    )
-    val minutes = estimatedDuration.inWholeMinutes.toInt()
-    val body = if (exerciseCount == 0) {
-        count
-    } else {
-        pluralStringResource(
-            R.plurals.template_description_duration,
-            minutes,
-            count,
-            minutes,
-        )
-    }
-
-    return when (val category = template.category) {
-        null -> stringResource(R.string.template_description, template.name, body)
+private fun TemplateSummary.spokenDescription(meta: String): String =
+    when (val category = template.category) {
+        null -> stringResource(R.string.template_description, template.name, meta)
 
         else -> stringResource(
             R.string.template_description_category,
             template.name,
-            body,
+            meta,
             category.label(),
         )
     }
-}
 
 /**
  * The mark's edge, matching the wireframe. Not a scale step: it is a fixed square sized so

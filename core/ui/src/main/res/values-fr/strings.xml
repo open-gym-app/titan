@@ -169,16 +169,6 @@
     </plurals>
     <string name="template_meta">%1$s · %2$s</string>
 
-    <plurals name="template_exercise_count_description">
-        <item quantity="one">%1$d exercice</item>
-        <item quantity="many">%1$d exercices</item>
-        <item quantity="other">%1$d exercices</item>
-    </plurals>
-    <plurals name="template_description_duration">
-        <item quantity="one">%1$s, environ %2$d minute</item>
-        <item quantity="many">%1$s, environ %2$d minutes</item>
-        <item quantity="other">%1$s, environ %2$d minutes</item>
-    </plurals>
     <string name="template_description">%1$s, %2$s</string>
     <string name="template_description_category">%1$s, %2$s, %3$s</string>
 

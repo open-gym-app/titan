@@ -168,16 +168,6 @@
     </plurals>
     <string name="template_meta">%1$s · %2$s</string>
 
-    <plurals name="template_exercise_count_description">
-        <item quantity="one">%1$d exercício</item>
-        <item quantity="many">%1$d exercícios</item>
-        <item quantity="other">%1$d exercícios</item>
-    </plurals>
-    <plurals name="template_description_duration">
-        <item quantity="one">%1$s, cerca de %2$d minuto</item>
-        <item quantity="many">%1$s, cerca de %2$d minutos</item>
-        <item quantity="other">%1$s, cerca de %2$d minutos</item>
-    </plurals>
     <string name="template_description">%1$s, %2$s</string>
     <string name="template_description_category">%1$s, %2$s, %3$s</string>
 

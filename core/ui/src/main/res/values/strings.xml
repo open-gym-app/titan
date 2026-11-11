@@ -281,14 +281,6 @@
     <string name="template_meta">%1$s · %2$s</string>
 
     <!-- Announced for a template row as one sentence — see TemplateRow. -->
-    <plurals name="template_exercise_count_description">
-        <item quantity="one">%1$d exercise</item>
-        <item quantity="other">%1$d exercises</item>
-    </plurals>
-    <plurals name="template_description_duration">
-        <item quantity="one">%1$s, about %2$d minute</item>
-        <item quantity="other">%1$s, about %2$d minutes</item>
-    </plurals>
     <string name="template_description">%1$s, %2$s</string>
     <string name="template_description_category">%1$s, %2$s, %3$s</string>
 

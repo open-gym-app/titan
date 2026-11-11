@@ -144,7 +144,7 @@
          two buttons are the component's own, in :core:ui, because they say the same thing
          wherever a note is written; the prompt below is here because advice about a seat
          setting says nothing under a workout. -->
-    <string name="detail_notes_label">Your notes</string>
+    <string name="detail_notes_label">Note</string>
     <string name="detail_notes_empty">Add a note about this exercise — a seat setting, a cue, which machine at your gym.</string>
     <string name="detail_notes_save_failed">Could not save the note</string>
 
@@ -170,7 +170,8 @@
     <!-- The big figure. Announced with the weight in it, because the number itself is drawn
          as digits and a suffix and would otherwise be read as two unrelated nodes. -->
     <string name="plate_target">Target weight</string>
-    <string name="plate_target_edit">Target weight, %1$s. Tap to type one</string>
+    <string name="plate_target_edit">Target weight, %1$s</string>
+    <string name="plate_target_edit_action">Type a target weight</string>
     <string name="plate_target_field_label">Weight (%1$s)</string>
     <string name="plate_target_invalid">Enter a weight above zero</string>
 

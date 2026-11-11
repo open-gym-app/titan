@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.SetType
@@ -62,18 +65,20 @@ internal fun SetMarker(
     modifier: Modifier = Modifier,
 ) {
     if (setType == SetType.NORMAL) {
-        Text(
-            text = formatCount(setNumber),
-            style = TitanTheme.typography.numeric,
-            color = if (isActive) {
-                MaterialTheme.colorScheme.onPrimaryContainer
-            } else {
-                MaterialTheme.colorScheme.onSurface
-            },
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            modifier = modifier,
-        )
+        WithCappedFontScale {
+            Text(
+                text = formatCount(setNumber),
+                style = TitanTheme.typography.numeric,
+                color = if (isActive) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = modifier,
+            )
+        }
         return
     }
 
@@ -105,13 +110,15 @@ internal fun SetTypeChip(
             contentAlignment = Alignment.Center,
         ) {
             if (glyph != null) {
-                Text(
-                    text = glyph,
-                    style = TitanTheme.typography.numeric,
-                    color = tone.content,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                )
+                WithCappedFontScale {
+                    Text(
+                        text = glyph,
+                        style = TitanTheme.typography.numeric,
+                        color = tone.content,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                    )
+                }
             }
         }
     }
@@ -184,3 +191,37 @@ internal fun SetType.markerTone(): SetTypeMarkerTone {
  * than as a cell of the table with a colour of its own.
  */
 internal val MARKER_SIZE: Dp = 24.dp
+
+/**
+ * The largest font scale the number or initial inside the marker follows.
+ *
+ * The marker is a fixed square in a fixed column, and the table's alignment depends on both
+ * staying put, so the text has to fit the square rather than the square follow the text. At
+ * twice the font size a 15sp figure is 30dp tall in a 24dp square, and a two-digit set number is
+ * wider than it. 1.3 is the scale at which "99" still fits, and the number is one a reader has
+ * already read once in the exercise's heading and the row's spoken name.
+ */
+private const val MARKER_MAX_FONT_SCALE = 1.3f
+
+/**
+ * Draws [content] with the font scale held to [MARKER_MAX_FONT_SCALE].
+ *
+ * Below the cap the platform's own density is passed through untouched rather than rebuilt:
+ * a `Density(density, fontScale)` is a linear one, and on Android 14 and later the system's
+ * carries the non-linear converter that large text is scaled by.
+ */
+@Composable
+private fun WithCappedFontScale(content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    if (density.fontScale <= MARKER_MAX_FONT_SCALE) {
+        content()
+        return
+    }
+    CompositionLocalProvider(
+        LocalDensity provides Density(
+            density = density.density,
+            fontScale = MARKER_MAX_FONT_SCALE,
+        ),
+        content = content,
+    )
+}

@@ -1,6 +1,9 @@
 package com.titan.feature.history.plate
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -97,7 +100,7 @@ class PlateCalculatorScreenTest {
         setContent(target = KILO * 101)
 
         // The target is *not* snapped to something loadable. That is the whole point.
-        composeTestRule.onNodeWithContentDescription("Target weight, 101 kg. Tap to type one").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Target weight, 101 kg").assertIsDisplayed()
         composeTestRule
             .onNodeWithText("Loads to 100 kg · 1 kg short of your target")
             .assertIsDisplayed()
@@ -128,7 +131,7 @@ class PlateCalculatorScreenTest {
     fun `a target under the bar says so instead of drawing plates`() {
         setContent(target = KILO * 15)
 
-        composeTestRule.onNodeWithContentDescription("Target weight, 15 kg. Tap to type one").assertIsDisplayed()
+        composeTestRule.onNodeWithContentDescription("Target weight, 15 kg").assertIsDisplayed()
         composeTestRule.onNodeWithText("Lighter than the empty 20 kg bar").assertIsDisplayed()
         composeTestRule.onNodeWithContentDescription("Barbell with no plates on it").assertIsDisplayed()
         // The legend draws nothing rather than a heading over an empty list.
@@ -194,6 +197,17 @@ class PlateCalculatorScreenTest {
     }
 
     @Test
+    fun `the target names its action as the click's label, not in its description`() {
+        setContent()
+
+        composeTestRule.onNodeWithContentDescription(TARGET_100).assert(
+            SemanticsMatcher("has the type action") { node ->
+                node.config.getOrNull(SemanticsActions.OnClick)?.label == "Type a target weight"
+            },
+        )
+    }
+
+    @Test
     fun `the bar is the way out`() {
         setContent()
 
@@ -206,6 +220,6 @@ class PlateCalculatorScreenTest {
         /** One kilogram in milligrams, so the targets below read as weights. */
         const val KILO = 1_000_000L
 
-        const val TARGET_100 = "Target weight, 100 kg. Tap to type one"
+        const val TARGET_100 = "Target weight, 100 kg"
     }
 }

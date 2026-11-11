@@ -180,7 +180,7 @@ class HomeScreenTest {
 
         composeTestRule.onNodeWithText("YOUR TEMPLATES").performScrollTo().assertIsDisplayed()
         composeTestRule
-            .onNodeWithContentDescription("Push Day, 8 exercises, about 55 minutes, Strength")
+            .onNodeWithContentDescription("Push Day, 8 ex · ~55m, Strength")
             .assertExists()
         // The list's last row is the way to all of them, so the separate action is not drawn.
         composeTestRule.onNodeWithText("Start from template").assertDoesNotExist()
@@ -210,7 +210,7 @@ class HomeScreenTest {
         setContent(state())
 
         composeTestRule
-            .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .onNodeWithContentDescription("Pull Day, 7 ex · ~50m, Strength")
             .performScrollTo()
             .performClick()
 
@@ -228,7 +228,7 @@ class HomeScreenTest {
         // The template rows go the same way, or one becomes the one live control left
         // leading into a refusal.
         composeTestRule
-            .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .onNodeWithContentDescription("Pull Day, 7 ex · ~50m, Strength")
             .assertIsNotEnabled()
         // And said out loud: dead controls with nothing explaining them are worse than the
         // round trip they save.
@@ -247,7 +247,7 @@ class HomeScreenTest {
         composeTestRule.onNodeWithText("START EMPTY SESSION").assertIsEnabled()
         composeTestRule.onNodeWithText("See all templates").assertIsEnabled()
         composeTestRule
-            .onNodeWithContentDescription("Pull Day, 7 exercises, about 50 minutes, Strength")
+            .onNodeWithContentDescription("Pull Day, 7 ex · ~50m, Strength")
             .assertIsEnabled()
     }
 

@@ -3,13 +3,16 @@ package com.titan.feature.session.newsession
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -61,6 +64,7 @@ import com.titan.core.ui.component.SessionNameDialog
 import com.titan.core.ui.component.TemplateRow
 import com.titan.core.ui.component.TitanBadge
 import com.titan.core.ui.format.formatAsEstimate
+import com.titan.core.ui.theme.MIN_TOUCH_TARGET
 import com.titan.core.ui.theme.TitanTheme
 import com.titan.feature.session.R
 import com.titan.feature.session.navigation.NO_TEMPLATE
@@ -532,18 +536,28 @@ private fun ReadyToStartHeader(
             color = MaterialTheme.colorScheme.primary,
         )
         val rename = stringResource(R.string.new_session_rename)
-        Text(
-            // A session built by hand starts out genuinely unnamed, so this is a placeholder
-            // for a null rather than a name being set. Tapping it is where the name comes from
-            // — the earliest of the three moments a session can be titled, the other two being
-            // the workout's own header and the recap.
-            text = step.name ?: stringResource(R.string.new_session_unnamed),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+        // The tap target is the box, not the text: one line of a name at this type size is
+        // shorter than 48dp, and a control under 48dp is an error on the device. A floor of
+        // `MIN_TOUCH_TARGET` rather than `minimumInteractiveComponentSize`, which would centre
+        // a short name in its square instead of keeping it on the column's start edge.
+        Box(
             modifier = Modifier
+                .heightIn(min = MIN_TOUCH_TARGET)
+                .widthIn(min = MIN_TOUCH_TARGET)
                 .clickable(onClick = onRename)
                 .semantics { onClick(label = rename, action = null) },
-        )
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                // A session built by hand starts out genuinely unnamed, so this is a placeholder
+                // for a null rather than a name being set. Tapping it is where the name comes
+                // from — the earliest of the three moments a session can be titled, the other
+                // two being the workout's own header and the recap.
+                text = step.name ?: stringResource(R.string.new_session_unnamed),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         Text(
             text = when (val estimate = step.estimatedDuration) {
                 null -> count
