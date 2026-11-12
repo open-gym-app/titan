@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.SessionError
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
@@ -27,6 +28,29 @@ internal suspend fun SessionRepository.loadSession(sessionId: Long): Result<Work
     getById(sessionId).first()
         ?.let { Result.success(it) }
         ?: Result.failure(SessionError.SessionNotFound(sessionId))
+
+/**
+ * Fails unless [openSessionId] — the session a lifecycle transition is about to act on — is the
+ * one [expected] names.
+ *
+ * Passes when [expected] is null: a caller that names no session accepts the open one, which is
+ * how every in-app control that is drawn over the open session behaves. The row is read only when
+ * [expected] carries a creation time to compare, so a caller naming the id alone costs no query.
+ */
+internal suspend fun SessionRepository.requireExpected(
+    expected: SessionRef?,
+    openSessionId: Long?,
+): Result<Unit> {
+    if (expected == null) return Result.success(Unit)
+
+    val matches = openSessionId == expected.sessionId &&
+        (expected.createdAt == null || getById(openSessionId).first()?.let(expected::matches) == true)
+
+    return when {
+        matches -> Result.success(Unit)
+        else -> Result.failure(SessionError.NotTheOpenSession(expected, openSessionId))
+    }
+}
 
 /**
  * The running session's id, or the refusal for there not being one.

@@ -32,6 +32,39 @@ sealed class SessionError(
             "expected a paused session, but the current state is ${state.describe()}",
         )
 
+    /**
+     * The caller named a session, and it is not the one open.
+     *
+     * A page or a notification that has outlived its workout — opened from a link to a session
+     * that is over or missing, or pressed after the session it was posted for was replaced. The
+     * transition it asked for would have landed on whatever session *is* open, which is a workout
+     * the caller was never about. See [SessionRef].
+     *
+     * @param expected what the caller named.
+     * @param openSessionId the session the transition would have acted on, or null where none is
+     *   open.
+     */
+    data class NotTheOpenSession(
+        val expected: SessionRef,
+        val openSessionId: Long?,
+    ) : SessionError(
+        "expected session ${expected.sessionId} to be the open session, but the open session is ${openSessionId ?: "none"}",
+    )
+
+    /**
+     * A discard that was offered only for a workout with nothing in it found sets logged.
+     *
+     * The idle nudge offers to throw a session away only while none of its sets are completed,
+     * and the offer can be pressed long after it was posted. A set logged in between makes it an
+     * offer to delete work the user did, so the discard is refused and the session stays.
+     */
+    data class SessionHasLoggedSets(
+        val sessionId: Long,
+        val setCount: Int,
+    ) : SessionError(
+        "session $sessionId has $setCount completed set(s) and was only to be discarded empty",
+    )
+
     /** A session with no completed sets is not worth recording, so finishing it is refused. */
     data object NoSetsLogged : SessionError(
         "cannot finish a session with no completed sets",
