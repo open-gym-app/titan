@@ -115,6 +115,10 @@ fun TitanNavHost(
     // is; the activity is reached through `OnNewIntentProvider`, which every `ComponentActivity`
     // implements. It goes through the same [openDeepLink] as the launch one, so a link opens
     // the same screen with the same stack under it however the app happened to be running.
+    //
+    // It is the only listener, and never calls `NavController.handleDeepLink`: that reads
+    // Navigation's own deep-link extras off the intent, which `MainActivity` strips before this
+    // sees it and which nothing here should be the second door for.
     DisposableEffect(activity, navController) {
         val provider = activity as? OnNewIntentProvider
         val listener = Consumer<Intent> { intent ->
@@ -573,6 +577,11 @@ private fun NavHostController.exitSessionFlow() {
  * the `onNewIntent` listener would otherwise leave a link on the activity's intent for a later
  * recomposition to open again. Reading it once and blanking it is what makes [openDeepLink] the
  * only thing that ever acts on one.
+ *
+ * Only a `VIEW` intent carries one. `forNavigation`, in `MainActivity.kt`, has already dropped
+ * the data off any other action, so the gate here and the one there agree:
+ * `NavController.setGraph` would match a `titan://` URI whatever the action, and blanking only
+ * `VIEW` data is enough because no other intent reaching this has any.
  *
  * Null for an ordinary launch — the launcher icon, or a return from the recents list.
  */
