@@ -89,11 +89,14 @@ class AppNotificationTest {
         // value that survives the round trip out to the system and back.
         val skip = NotificationAction(
             label = "Skip rest",
-            target = NotificationTarget.Command(NotificationCommand.SkipRest(sessionId = 7)),
+            target = NotificationTarget.Command(NotificationCommand.SkipRest(SessionRef(7, createdAt = 100))),
         )
 
         assertEquals("Skip rest", skip.label)
-        assertEquals(NotificationTarget.Command(NotificationCommand.SkipRest(7)), skip.target)
+        assertEquals(
+            NotificationTarget.Command(NotificationCommand.SkipRest(SessionRef(7, createdAt = 100))),
+            skip.target,
+        )
     }
 
     @Test
@@ -114,15 +117,19 @@ class AppNotificationTest {
         // Two workouts can never be in progress at once, but a notification outlives the one
         // it was posted for: a press arriving after the session it named has been finished
         // elsewhere must be refused rather than applied to whatever is running now.
-        assertNotEquals(NotificationCommand.SkipRest(7), NotificationCommand.SkipRest(8))
-        assertEquals(7L, NotificationCommand.SkipRest(7).sessionId)
+        assertNotEquals(NotificationCommand.SkipRest(SessionRef(7)), NotificationCommand.SkipRest(SessionRef(8)))
+        assertEquals(7L, NotificationCommand.SkipRest(SessionRef(7, createdAt = 100)).session.sessionId)
         assertEquals(7L, NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)).session.sessionId)
         assertEquals(7L, NotificationCommand.DiscardSession(SessionRef(7, createdAt = 100)).session.sessionId)
-        // The two that end a workout also carry when it began, which is what tells a session
-        // apart from another one written back under the same id by a restore.
+        // Each can also carry when it began, which is what tells a session apart from another
+        // one written back under the same id by a restore.
         assertNotEquals(
             NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)),
             NotificationCommand.FinishSession(SessionRef(7, createdAt = 200)),
+        )
+        assertNotEquals(
+            NotificationCommand.SkipRest(SessionRef(7, createdAt = 100)),
+            NotificationCommand.SkipRest(SessionRef(7, createdAt = 200)),
         )
     }
 
@@ -151,7 +158,7 @@ class AppNotificationTest {
     private companion object {
         val SKIP_REST = NotificationAction(
             label = "Skip rest",
-            target = NotificationTarget.Command(NotificationCommand.SkipRest(7)),
+            target = NotificationTarget.Command(NotificationCommand.SkipRest(SessionRef(7))),
         )
     }
 }

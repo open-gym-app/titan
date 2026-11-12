@@ -1873,16 +1873,27 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun backgroundRest(snapshot: RestTimerSnapshot): BackgroundRest? {
         if (snapshot == RestTimerSnapshot.Idle) return null
+        // The row's creation time travels with the id, so an alarm or a "Skip rest" that comes
+        // back after a restore wrote another workout under this id is told apart from it. Null
+        // only before the row has been read, which then matches on the id alone.
+        val createdAt = loaded.value?.session?.createdAt
         // A rest started from the clock follows no set, and is published without one: it still
         // needs its alarm, and a note that names no exercise is truer than one that names a
         // wrong one.
         val exerciseId = screenState.value.restExerciseId
-            ?: return BackgroundRest(sessionId = sessionId, exerciseName = null, setNumber = null, rest = snapshot)
+            ?: return BackgroundRest(
+                sessionId = sessionId,
+                exerciseName = null,
+                setNumber = null,
+                rest = snapshot,
+                sessionCreatedAt = createdAt,
+            )
         val loaded = loaded.value ?: return null
         val exercise = loaded.ordered.firstOrNull { it.id == exerciseId } ?: return null
 
         return BackgroundRest(
             sessionId = sessionId,
+            sessionCreatedAt = createdAt,
             // Null for an exercise deleted from the library since the session started. The
             // workout carries on past that everywhere else on this screen, and so does this.
             exerciseName = catalogue.value?.exercises?.get(exercise.exerciseId)?.name,

@@ -4,14 +4,21 @@ import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ApplicationProvider
 import com.titan.core.domain.model.ActiveSession
+import com.titan.core.domain.model.SessionRef
+import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.notification.NotificationCommand
 import com.titan.core.domain.repository.InProgressSessionRepository
+import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.timer.BackgroundRest
 import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.timer.RestSkipRequests
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -32,6 +39,10 @@ import com.titan.core.domain.timer.RestTimerSnapshot as Snapshot
  * screen on the stack — because that is the case the whole design is for. A skip that only
  * worked while the session screen happened to exist would pass a manual test and fail the one
  * time it mattered.
+ *
+ * `SessionRepository` is mocked for the reason `AndroidIdleSessionMonitorTest` gives: one of its
+ * members is read here, and a fake would be twenty stubs around it. Unless a test says otherwise
+ * no session row is in progress, so the draft is what says which workout is open.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -42,8 +53,9 @@ class RestTimerBroadcastsTest {
     private val restTimer = RecordingBackgroundRestTimer()
     private val skipRequests = TestRestSkipRequests()
     private val drafts = FakeDraftStore(draft(rest = Snapshot.Running(DEADLINE, 90.seconds)))
+    private val sessions = mockk<SessionRepository> { every { getActive() } returns flowOf(null) }
 
-    private val broadcasts = RestTimerBroadcasts(restTimer, skipRequests, drafts)
+    private val broadcasts = RestTimerBroadcasts(restTimer, skipRequests, drafts, sessions)
 
     // --- the alarm ----------------------------------------------------------
 
@@ -68,6 +80,7 @@ class RestTimerBroadcastsTest {
             assertEquals("Bench press", expired.exerciseName)
             assertEquals(3, expired.setNumber)
             assertEquals(SESSION_ID, expired.sessionId)
+            assertEquals(STARTED_AT, expired.sessionCreatedAt)
         }
 
     @Test
@@ -88,6 +101,66 @@ class RestTimerBroadcastsTest {
             broadcasts.handle(restExpiredBroadcast(context, rest = null))
 
             assertEquals(emptyList<BackgroundRest?>(), restTimer.published)
+        }
+
+    // --- an expiry about a workout that is not open --------------------------
+
+    /** The workout was erased: no draft and no session in progress. Nothing may be said. */
+    @Test
+    fun `an expiry for a session that no longer exists is dropped`() =
+        runTest {
+            drafts.clear()
+
+            broadcasts.handle(restExpiredBroadcast(context, REST))
+
+            assertEquals(emptyList<BackgroundRest?>(), restTimer.published)
+        }
+
+    /** A restore wrote another workout back under the same id. The number matches; the workout does not. */
+    @Test
+    fun `an expiry for an id another workout now carries is dropped`() =
+        runTest {
+            drafts.save(ActiveSession(sessionId = SESSION_ID, startedAt = OTHER_STARTED_AT))
+            every { sessions.getActive() } returns flowOf(SESSION.copy(createdAt = OTHER_STARTED_AT))
+
+            broadcasts.handle(restExpiredBroadcast(context, REST))
+
+            assertEquals(emptyList<BackgroundRest?>(), restTimer.published)
+        }
+
+    /** The draft is written a moment after the screen changes. The row is the authority. */
+    @Test
+    fun `an expiry for the session in progress is announced with no draft written yet`() =
+        runTest {
+            drafts.clear()
+            every { sessions.getActive() } returns flowOf(SESSION)
+
+            broadcasts.handle(restExpiredBroadcast(context, REST))
+
+            assertEquals(listOf(REST.copy(rest = Snapshot.Finished)), restTimer.published)
+        }
+
+    /** An alarm set before the row was read names the session by its id alone, as before. */
+    @Test
+    fun `an expiry with no creation time matches the open workout by its id`() =
+        runTest {
+            val untimed = REST.copy(sessionCreatedAt = null)
+
+            broadcasts.handle(restExpiredBroadcast(context, untimed))
+
+            assertEquals(listOf(untimed.copy(rest = Snapshot.Finished)), restTimer.published)
+        }
+
+    /** A store that failed once is no evidence the workout is gone, and the expiry is the feature. */
+    @Test
+    fun `an expiry is still announced when the session cannot be read`() =
+        runTest {
+            drafts.loadFailure = IllegalStateException("the draft is unreadable")
+            every { sessions.getActive() } returns flow { throw IllegalStateException("the database is locked") }
+
+            broadcasts.handle(restExpiredBroadcast(context, REST))
+
+            assertEquals(listOf(REST.copy(rest = Snapshot.Finished)), restTimer.published)
         }
 
     // --- skipping from the notification -------------------------------------
@@ -133,12 +206,40 @@ class RestTimerBroadcastsTest {
             assertEquals(Snapshot.Running(DEADLINE, 90.seconds), drafts.load()?.restTimer)
         }
 
+    /**
+     * A restore wrote another workout back under the same id. The stale note comes down, which
+     * is what the user asked for, and the workout that now carries the number keeps its rest.
+     */
+    @Test
+    fun `a press for an id another workout now carries only takes the note down`() =
+        runTest {
+            val heard = mutableListOf<Long>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                skipRequests.skipped.collect { heard += it }
+            }
+
+            broadcasts.handle(skipIntent(SessionRef(SESSION_ID, createdAt = OTHER_STARTED_AT)))
+
+            assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
+            assertEquals(Snapshot.Running(DEADLINE, 90.seconds), drafts.load()?.restTimer)
+            assertEquals(emptyList<Long>(), heard)
+        }
+
+    /** A note posted by an earlier build carries no creation time, and its button still works. */
+    @Test
+    fun `a press with no creation time still ends the open workout's rest`() =
+        runTest {
+            broadcasts.handle(skipIntent(SessionRef(SESSION_ID)))
+
+            assertEquals(Snapshot.Idle, drafts.load()?.restTimer)
+        }
+
     @Test
     fun `a press with no draft at all is not an error`() =
         runTest {
             val empty = FakeDraftStore(null)
 
-            RestTimerBroadcasts(restTimer, skipRequests, empty).handle(skipIntent(SESSION_ID))
+            RestTimerBroadcasts(restTimer, skipRequests, empty, sessions).handle(skipIntent(SESSION_ID))
 
             assertNull(empty.load())
             assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
@@ -152,7 +253,7 @@ class RestTimerBroadcastsTest {
             val broken = FakeDraftStore(draft(Snapshot.Running(DEADLINE, 90.seconds)))
             broken.loadFailure = IllegalStateException("the draft is unreadable")
 
-            RestTimerBroadcasts(restTimer, skipRequests, broken).handle(skipIntent(SESSION_ID))
+            RestTimerBroadcasts(restTimer, skipRequests, broken, sessions).handle(skipIntent(SESSION_ID))
 
             assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
         }
@@ -168,8 +269,10 @@ class RestTimerBroadcastsTest {
             assertEquals(Snapshot.Running(DEADLINE, 90.seconds), drafts.load()?.restTimer)
         }
 
-    private fun skipIntent(sessionId: Long): Intent =
-        NotificationCommands.intent(context, NotificationCommand.SkipRest(sessionId))
+    private fun skipIntent(sessionId: Long): Intent = skipIntent(SessionRef(sessionId, createdAt = STARTED_AT))
+
+    private fun skipIntent(session: SessionRef): Intent =
+        NotificationCommands.intent(context, NotificationCommand.SkipRest(session))
 
     private fun draft(rest: Snapshot) = ActiveSession(sessionId = SESSION_ID, startedAt = STARTED_AT, restTimer = rest)
 
@@ -213,6 +316,7 @@ class RestTimerBroadcastsTest {
     private companion object {
         const val SESSION_ID = 7L
         const val STARTED_AT = 1_700_000_000_000L
+        const val OTHER_STARTED_AT = 1_690_000_000_000L
         const val DEADLINE = 1_700_000_090_000L
 
         val REST = BackgroundRest(
@@ -220,6 +324,15 @@ class RestTimerBroadcastsTest {
             exerciseName = "Bench press",
             setNumber = 3,
             rest = Snapshot.Running(DEADLINE, 90.seconds),
+            sessionCreatedAt = STARTED_AT,
+        )
+
+        /** The draft's session as its row, in progress. */
+        val SESSION = WorkoutSession(
+            id = SESSION_ID,
+            lastActiveAt = STARTED_AT,
+            createdAt = STARTED_AT,
+            updatedAt = STARTED_AT,
         )
     }
 }

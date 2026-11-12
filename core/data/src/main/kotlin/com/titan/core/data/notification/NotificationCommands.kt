@@ -49,7 +49,8 @@ internal object NotificationCommands {
     ): Intent =
         when (command) {
             is NotificationCommand.SkipRest ->
-                broadcast<RestTimerReceiver>(context, ACTION_SKIP_REST, command.sessionId)
+                broadcast<RestTimerReceiver>(context, ACTION_SKIP_REST, command.session.sessionId)
+                    .putSessionToken(command.session)
 
             is NotificationCommand.FinishSession ->
                 broadcast<IdleSessionReceiver>(context, ACTION_FINISH_SESSION, command.session.sessionId)
@@ -67,13 +68,18 @@ internal object NotificationCommands {
      * beside its id — see [SessionRef]. One without it names a session by its number alone, which
      * is not enough to act on from outside the process, so it is dropped like any other intent
      * this build cannot read.
+     *
+     * "Skip rest" is read back without one too, as a [SessionRef] that matches on the id alone. It
+     * ends a countdown and deletes nothing, and a note posted by an earlier build, or before the
+     * workout screen had read its session, carries none: dropping the press would leave an
+     * ongoing note the user cannot dismiss.
      */
     fun of(intent: Intent): NotificationCommand? {
         val sessionId = intent.getLongExtra(EXTRA_SESSION_ID, NO_SESSION).takeIf { it != NO_SESSION }
             ?: return null
 
         return when (intent.action) {
-            ACTION_SKIP_REST -> NotificationCommand.SkipRest(sessionId)
+            ACTION_SKIP_REST -> NotificationCommand.SkipRest(sessionRefOf(intent, sessionId) ?: SessionRef(sessionId))
             ACTION_FINISH_SESSION -> sessionRefOf(intent, sessionId)?.let(NotificationCommand::FinishSession)
             ACTION_DISCARD_SESSION -> sessionRefOf(intent, sessionId)?.let(NotificationCommand::DiscardSession)
             else -> null
@@ -81,11 +87,8 @@ internal object NotificationCommands {
     }
 
     /**
-     * Writes [session]'s creation time beside the id [broadcast] already put on this intent.
-     *
-     * Kept apart from [broadcast] so a command that names its session by the id alone stays as it
-     * is; a caller moving one over to a [SessionRef] adds this and reads it back with
-     * [sessionRefOf].
+     * Writes [session]'s creation time beside the id [broadcast] already put on this intent, when
+     * it has one. Read back by [sessionRefOf].
      */
     private fun Intent.putSessionToken(session: SessionRef): Intent =
         apply { session.createdAt?.let { putExtra(EXTRA_SESSION_CREATED_AT, it) } }

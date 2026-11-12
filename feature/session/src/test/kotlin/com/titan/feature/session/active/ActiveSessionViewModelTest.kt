@@ -8,6 +8,7 @@ import com.titan.core.domain.model.EquipmentType
 import com.titan.core.domain.model.ExerciseType
 import com.titan.core.domain.model.MechanicType
 import com.titan.core.domain.model.SessionExercise
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.SuggestionReason
@@ -2640,6 +2641,22 @@ class ActiveSessionViewModelTest {
             assertEquals("Bench press", backgroundRest.current?.exerciseName)
             assertEquals(2, backgroundRest.current?.setNumber)
             assertEquals(ACTIVE_SESSION_ID, backgroundRest.current?.sessionId)
+        }
+
+    /**
+     * The note's button and the alarm come back from outside the process, possibly after a
+     * restore has written another workout under this id. The row's creation time is what tells
+     * the two apart, so it is published with the id.
+     */
+    @Test
+    fun `the rest names its session with the row's creation time`() =
+        runTest {
+            val viewModel = viewModel()
+
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+
+            assertEquals(SessionRef(ACTIVE_SESSION_ID, createdAt = STARTED_AT), backgroundRest.current?.session)
         }
 
     @Test

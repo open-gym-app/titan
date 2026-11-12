@@ -4,6 +4,7 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.AppNotification
 import com.titan.core.domain.notification.NotificationAction
@@ -186,7 +187,9 @@ class AndroidNotifierTest {
                     actions = listOf(
                         NotificationAction(
                             label = "Skip rest",
-                            target = NotificationTarget.Command(NotificationCommand.SkipRest(sessionId = 7)),
+                            target = NotificationTarget.Command(
+                                NotificationCommand.SkipRest(SessionRef(7, createdAt = 100)),
+                            ),
                         ),
                     ),
                 ),

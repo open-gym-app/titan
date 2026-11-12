@@ -355,7 +355,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             val sessionId = openSession(completedSets = 3)
 
             // The rest timer's command, delivered here by mistake or by a newer build.
-            broadcasts.handle(NotificationCommands.intent(context, NotificationCommand.SkipRest(sessionId)))
+            broadcasts.handle(NotificationCommands.intent(context, NotificationCommand.SkipRest(SessionRef(sessionId))))
 
             assertTrue(sessions.getById(sessionId).first()!!.isInProgress)
             assertTrue(notifier.log.isEmpty())
