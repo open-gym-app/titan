@@ -71,6 +71,10 @@ repository:
 | `KEY_PASSWORD` | the upload key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | the service account's JSON key, with release rights on `app.titan.gym` |
 
+Keep the keystore and the JSON key outside the checkout. A copy left in it by mistake is
+ignored by git if it is named like one: `*.jks`, `*.keystore`, `*.p12`, `*.pem`,
+`*service-account*.json` or `play-*.json` (see `.gitignore`).
+
 If the environment has required reviewers, every pushed release tag and every manual run
 waits for an approval before it is built. A deployment-branch policy on the environment does
 not help here: the workflow runs on `workflow_run`, which GitHub treats as running on `main`
