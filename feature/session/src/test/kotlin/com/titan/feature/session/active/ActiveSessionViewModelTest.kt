@@ -3508,7 +3508,9 @@ class ActiveSessionViewModelTest {
         runTest {
             // The report's second case: the page drew last week's sets as if they were the
             // workout, under an END that finished the real one early.
-            val state = FakeSessionStateStore(SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT))
+            val state = FakeSessionStateStore(
+                SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT),
+            )
 
             val page = viewModel(store = runningWithASet(), state = state, savedState = route(FINISHED_SESSION_ID))
 
@@ -3590,7 +3592,9 @@ class ActiveSessionViewModelTest {
         FakeActiveSessionStore(
             session = runningSession(),
             exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
-            sets = listOf(loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 5, weight = 80_000_000L)),
+            sets = listOf(
+                loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 5, weight = 80_000_000L),
+            ),
             others = listOf(finishedSession()),
         )
 

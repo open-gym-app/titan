@@ -159,12 +159,16 @@ class IdleSessionBroadcasts @Inject constructor(
                     when {
                         logged > 0 -> NotificationAction(
                             label = context.getString(R.string.idle_session_finish),
-                            target = NotificationTarget.Command(NotificationCommand.FinishSession(SessionRef.of(session))),
+                            target = NotificationTarget.Command(
+                                NotificationCommand.FinishSession(SessionRef.of(session)),
+                            ),
                         )
 
                         else -> NotificationAction(
                             label = context.getString(R.string.idle_session_discard),
-                            target = NotificationTarget.Command(NotificationCommand.DiscardSession(SessionRef.of(session))),
+                            target = NotificationTarget.Command(
+                                NotificationCommand.DiscardSession(SessionRef.of(session)),
+                            ),
                         )
                     },
                 ),

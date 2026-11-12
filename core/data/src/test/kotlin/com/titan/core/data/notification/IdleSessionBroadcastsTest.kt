@@ -376,12 +376,14 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
     private fun finish(
         sessionId: Long,
         createdAt: Long? = STARTED_AT,
-    ): Intent = NotificationCommands.intent(context, NotificationCommand.FinishSession(SessionRef(sessionId, createdAt)))
+    ): Intent =
+        NotificationCommands.intent(context, NotificationCommand.FinishSession(SessionRef(sessionId, createdAt)))
 
     private fun discard(
         sessionId: Long,
         createdAt: Long? = STARTED_AT,
-    ): Intent = NotificationCommands.intent(context, NotificationCommand.DiscardSession(SessionRef(sessionId, createdAt)))
+    ): Intent =
+        NotificationCommands.intent(context, NotificationCommand.DiscardSession(SessionRef(sessionId, createdAt)))
 
     /** [sessionId] as the alarm and the buttons name it: with the creation time [openSession] gives every row. */
     private fun ref(sessionId: Long): SessionRef = SessionRef(sessionId, createdAt = STARTED_AT)
