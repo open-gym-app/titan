@@ -14,4 +14,12 @@
         <package android:name="app.titan.gym" />
     </queries>
 
+    <!--
+      The `signature` permission the seeding provider is guarded by (see core/data's
+      `src/benchmark/AndroidManifest.xml`). Granted because this APK and the app's `benchmark`
+      build are signed with the same debug key; without it, `ContentResolver.call` fails with
+      a SecurityException naming the permission.
+    -->
+    <uses-permission android:name="app.titan.gym.permission.BENCHMARK_SEED" />
+
 </manifest>
