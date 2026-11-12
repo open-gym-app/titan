@@ -29,8 +29,8 @@ done   # four lines of 200
 
 ## Evidence: what the release build contains
 
-Checked at commit `d9d5d2bd84f96c601ba7d3ee5106214a2e66017c` (`main`, "feat(app): add the Titan
-launcher icon (#227)") with:
+Checked at commit `b4d8f19e67687cb8df8b9f08b132bf706ef65992` (`main`, "fix: let the rest sheet
+stay down and step the total with ±15s (#245)") with:
 
 ```bash
 ./gradlew :app:processReleaseMainManifest \
@@ -79,7 +79,7 @@ Every `uses-permission` in the merged release manifest. **#48's security audit
 | `android.permission.WAKE_LOCK` | `androidx.work:work-runtime` | WorkManager holds a wake lock while the weekly auto-backup runs. |
 | `android.permission.ACCESS_NETWORK_STATE` | `androidx.work:work-runtime` | WorkManager's network constraints. The app sets none, and the permission reads connectivity state only; it cannot open a socket. |
 | `android.permission.FOREGROUND_SERVICE` | `androidx.work:work-runtime` | Declared by WorkManager for long-running work. Unused: no work is promoted to the foreground. |
-| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx.core:core` | Signature-level permission AndroidX uses to keep runtime-registered receivers private to the app. |
+| `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | `androidx.core:core` | Signature-level permission AndroidX uses to keep runtime-registered receivers private to the app. |
 
 ## Console declarations
 

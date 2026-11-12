@@ -3,7 +3,7 @@
 *Em vigor desde 4 de outubro de 2026. Também disponível em [English](PRIVACY.md), [français](PRIVACY.fr.md) e [español](PRIVACY.es.md). Em caso de divergência, prevalece a versão em inglês.*
 
 O Titan é um diário de treino para Android. Ele é gratuito, de código aberto e feito por
-voluntários. Esta política cobre o app Titan (`com.titan.app`) como publicado no Google
+voluntários. Esta política cobre o app Titan (`app.titan.gym`) como publicado no Google
 Play e compilado a partir do seu repositório de código.
 
 ## Em resumo
@@ -33,7 +33,7 @@ deixa nenhum outro app ler.
 
 Se você ativar o **Backup automático semanal** (Configurações › Backup e restauração), o app
 também grava, uma vez por semana, um arquivo de backup na própria pasta dele no armazenamento
-compartilhado do aparelho (`Android/data/com.titan.app/files/backups`). Ele mantém os três
+compartilhado do aparelho (`Android/data/app.titan.gym/files/backups`). Ele mantém os três
 mais recentes e exclui os mais antigos. Esses arquivos ficam no celular, e o Android os exclui
 quando você desinstala o app.
 
@@ -89,7 +89,7 @@ Android.
 | `RECEIVE_BOOT_COMPLETED` | Para agendar de novo os lembretes e o backup semanal depois que o celular reinicia. |
 | `VIBRATE` | Para vibrar no fim de um descanso. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Adicionadas pela biblioteca de agendamento de tarefas do Android (WorkManager), que executa o backup semanal. Nenhuma dá acesso à rede. |
-| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Adicionada pela biblioteca AndroidX core. Ela impede que outros apps enviem mensagens internas ao app. |
+| `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Adicionada pela biblioteca AndroidX core. Ela impede que outros apps enviem mensagens internas ao app. |
 
 ## Excluir seus dados
 
