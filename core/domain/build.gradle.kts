@@ -6,8 +6,11 @@ plugins {
 
 kotlin {
     // A plain JVM library, so no convention plugin applies: keep in step with
-    // AndroidSdk.JVM_TOOLCHAIN in build-logic.
-    jvmToolchain(17)
+    // `titanJdk()` in build-logic's AndroidSdk.kt.
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
 }
 
 jacoco {

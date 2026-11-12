@@ -1,5 +1,9 @@
 package com.titan.buildlogic
 
+import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JavaToolchainSpec
+import org.gradle.jvm.toolchain.JvmVendorSpec
+
 /**
  * The SDK levels the convention plugins compile and run their modules against.
  *
@@ -46,4 +50,22 @@ internal object AndroidSdk {
 
     /** The JDK every module compiles against. */
     const val JVM_TOOLCHAIN = 17
+}
+
+/**
+ * The JDK every module compiles against: [AndroidSdk.JVM_TOOLCHAIN], from Eclipse Adoptium.
+ *
+ * The vendor is pinned because a version alone is satisfied by whichever JDK 17 Gradle finds
+ * first, on the machine or through the toolchain resolver, so two machines could compile one
+ * commit with two different compilers. Adoptium's Temurin is what CI's `setup-java` installs
+ * and what the resolver downloads for a developer, so pinning it changes neither. CI and the
+ * release build also turn auto-download off (`.github/ci-gradle.properties`): there the JDK
+ * comes from `setup-java` or the build fails, never from a download in the middle of it.
+ *
+ * `:app`, `:core:domain` and this included build's own `convention/build.gradle.kts` state the
+ * same two lines themselves, as they do the version; keep them in step.
+ */
+internal fun JavaToolchainSpec.titanJdk() {
+    languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
+    vendor.set(JvmVendorSpec.ADOPTIUM)
 }

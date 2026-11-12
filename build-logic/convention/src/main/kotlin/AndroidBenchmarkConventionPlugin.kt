@@ -2,6 +2,7 @@ import com.android.build.api.dsl.TestExtension
 import com.android.build.api.variant.TestAndroidComponentsExtension
 import com.titan.buildlogic.AndroidSdk
 import com.titan.buildlogic.library
+import com.titan.buildlogic.titanJdk
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -93,7 +94,7 @@ class AndroidBenchmarkConventionPlugin : Plugin<Project> {
             }
 
             extensions.configure<KotlinAndroidProjectExtension> {
-                jvmToolchain(AndroidSdk.JVM_TOOLCHAIN)
+                jvmToolchain { titanJdk() }
             }
 
             dependencies {

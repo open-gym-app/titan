@@ -1,6 +1,7 @@
 import java.util.Properties
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JvmVendorSpec
 
 plugins {
     alias(libs.plugins.android.application)
@@ -213,8 +214,12 @@ android {
     }
 }
 
+// The JDK and vendor every module compiles with; see `titanJdk()` in build-logic's AndroidSdk.kt.
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
+    }
 }
 
 // The open source licences screen's data (#208), generated into `R.raw.aboutlibraries` as
@@ -255,6 +260,7 @@ composeCompiler {
 tasks.withType<JavaCompile>().configureEach {
     javaCompiler.set(javaToolchains.compilerFor {
         languageVersion.set(JavaLanguageVersion.of(17))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
     })
 }
 

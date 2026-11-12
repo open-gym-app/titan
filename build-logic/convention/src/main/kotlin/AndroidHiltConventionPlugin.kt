@@ -1,9 +1,8 @@
-import com.titan.buildlogic.AndroidSdk
 import com.titan.buildlogic.library
+import com.titan.buildlogic.titanJdk
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.getByType
@@ -29,9 +28,7 @@ class AndroidHiltConventionPlugin : Plugin<Project> {
             val toolchains = extensions.getByType<JavaToolchainService>()
             tasks.withType<JavaCompile>().configureEach {
                 javaCompiler.set(
-                    toolchains.compilerFor {
-                        languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
-                    },
+                    toolchains.compilerFor { titanJdk() },
                 )
             }
 

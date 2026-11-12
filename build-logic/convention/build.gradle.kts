@@ -1,4 +1,5 @@
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.gradle.jvm.toolchain.JvmVendorSpec
 
 plugins {
     `kotlin-dsl`
@@ -6,11 +7,12 @@ plugins {
 
 group = "com.titan.buildlogic"
 
-// Matches the toolchain every module compiles against; the convention plugins are
-// loaded into the same daemon that builds them.
+// Matches the toolchain every module compiles against, vendor included (see `titanJdk()` in
+// AndroidSdk.kt); the convention plugins are loaded into the same daemon that builds them.
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
+        vendor.set(JvmVendorSpec.ADOPTIUM)
     }
 }
 

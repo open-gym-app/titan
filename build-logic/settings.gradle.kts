@@ -15,8 +15,18 @@ plugins {
 }
 
 dependencyResolutionManagement {
+    // The content filter the root settings.gradle.kts puts on google(); see the comment there.
     repositories {
-        google()
+        exclusiveContent {
+            forRepository { google() }
+            filter {
+                includeGroupByRegex("androidx\\..*")
+                includeGroupByRegex("com\\.android(\\..*)?")
+                includeGroupByRegex("com\\.google\\.android\\..*")
+                includeGroupByRegex("com\\.google\\.testing\\.platform")
+                includeGroupByRegex("com\\.google\\.prefab")
+            }
+        }
         mavenCentral()
         gradlePluginPortal()
     }
