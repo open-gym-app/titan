@@ -67,7 +67,7 @@
   ],
   "packageRules": [
     {
-      "description": "The catalogue bump is half an update: `source.lock` also carries `sql_sha256`, and the committed SQL and images under the seed assets are generated from the commit above. Renovate moves the pin; regenerating what hangs off it is a local `make seed`. Pulled out of `group:all` so that manual step is never the reason an otherwise-mergeable dependency PR is stuck.",
+      "description": "The catalogue bump is half an update: `source.lock` also pins `tarball_sha256`, the digest of the archive the commit names, and the committed SQL and images under the seed assets are generated from that archive. Renovate moves the commit but cannot compute the digest, so pinning it and regenerating is a local `make seed-rehash`. Pulled out of `group:all` so that manual step is never the reason an otherwise-mergeable dependency PR is stuck. It also waits for approval on the Dependency Dashboard, which stands in for `minimumReleaseAge`: `git-refs` reports no release timestamps, so a branch digest cannot be aged, and `timestamp-optional` would otherwise raise it the moment upstream pushes.",
       "matchManagers": [
         "custom.regex"
       ],
@@ -75,10 +75,25 @@
         "yuhonas/free-exercise-db"
       ],
       "groupName": "exercise catalogue",
+      "dependencyDashboardApproval": true,
       "semanticCommitType": "feat",
       "semanticCommitScope": "seed",
       "prBodyNotes": [
-        "⚠️ **Needs `make seed` before it can merge.** This PR moves the pinned upstream commit only. Check out the branch, run `make seed`, and commit the regenerated `exercises.sql`, images and `sql_sha256` — otherwise the `Seed, translations and release gate` job fails on `make seed-check`."
+        "⚠️ **Needs `make seed-rehash` before it can merge.** This PR moves the pinned upstream commit only. Check out the branch and run `make seed-rehash`: it checks the commit is in upstream `main`'s history, downloads its tarball afresh, pins the tarball's sha256 and regenerates. Commit the updated `source.lock`, `exercises.sql` and images; otherwise the `Seed and translations` job fails on `make seed-check`."
+      ]
+    },
+    {
+      "description": "Pillow is the seed images' encoder: its wheels bundle libwebp, and `make seed-check` compares every committed image byte for byte with a fresh encode. A bump that changes the encoder's output fails that check until the images are regenerated, so it is pulled out of `group:all` like the catalogue. Renovate rewrites the `--hash` lines in tools/seed/requirements.txt itself, with hashin.",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchDepNames": [
+        "pillow"
+      ],
+      "groupName": "seed image encoder",
+      "semanticCommitScope": "seed",
+      "prBodyNotes": [
+        "⚠️ **May need `make seed` before it can merge.** If the `Seed and translations` job reports changed images, check out the branch, run `make seed-deps seed` in a virtualenv and commit the re-encoded images."
       ]
     },
     {
