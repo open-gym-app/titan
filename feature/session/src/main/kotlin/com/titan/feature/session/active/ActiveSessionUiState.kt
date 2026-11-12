@@ -193,7 +193,15 @@ data class ActiveSessionUiState(
             ?: exercises.filter { it.sets.isNotEmpty() }.maxByOrNull { row -> row.sets.maxOf(LoggedSet::id) }
             ?: exercises.firstOrNull { it.completedSetCount == 0 }
 
-    /** A session id that no longer resolves to a row — as opposed to one still loading. */
+    /**
+     * A page whose workout is not running — as opposed to one still loading.
+     *
+     * Three ways to get here, all through a session id that came from outside the screen: the id
+     * no longer resolves to a row, it names a session that is over, or it names one other than
+     * the workout in progress. The ViewModel draws all three without a [header], and the screen
+     * then offers a way back and nothing else: no END, pause or DISCARD, which would act on the
+     * workout that *is* running, and a back gesture that leaves rather than asking to discard.
+     */
     val isMissing: Boolean get() = !isLoading && header == null
 
     /** Whether the workout is over, either way. */

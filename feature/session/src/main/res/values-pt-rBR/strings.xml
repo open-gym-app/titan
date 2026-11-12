@@ -93,6 +93,7 @@
 
     <string name="active_missing_title">Este treino não existe mais</string>
     <string name="active_missing_body">Foi excluído ou finalizado em outro lugar. Nada aqui pode mais ser registrado nele.</string>
+    <string name="active_missing_leave">Voltar</string>
 
     <string name="finish_session_title">Finalizar este treino?</string>
     <plurals name="finish_session_sets">

@@ -93,6 +93,7 @@
 
     <string name="active_missing_title">Esta sesión ya no existe</string>
     <string name="active_missing_body">Se eliminó o se terminó en otro sitio. Aquí ya no se puede registrar nada.</string>
+    <string name="active_missing_leave">Atrás</string>
 
     <string name="finish_session_title">¿Terminar este entrenamiento?</string>
     <plurals name="finish_session_sets">

@@ -362,6 +362,10 @@ fun TitanNavHost(
             // lands back wherever they started the session from, which is the honest answer
             // to "that did not happen".
             onSessionDiscarded = { navController.exitSessionFlow() },
+            // A workout page opened from a link to a session that is not running. The same pop
+            // as a discard, and for the same reason: back to wherever the user was, with the
+            // workout that *is* running left exactly as it was.
+            onSessionLeft = { navController.exitSessionFlow() },
         )
 
         // Registered once, for both callers. `onExit` means the same thing to the recap and

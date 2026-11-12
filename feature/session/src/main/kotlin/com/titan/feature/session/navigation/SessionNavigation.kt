@@ -171,6 +171,9 @@ data class ExercisePicker(
  * @param onSessionDiscarded the workout was thrown away. A separate exit from
  *   [onSessionFinished] rather than the same one with a null id: there is no recap of a session
  *   that no longer exists, so the two land in different places and only `:app` knows where.
+ * @param onSessionLeft the user left a workout page whose workout is not running — one opened
+ *   from a link to a session that is missing, over, or not the one in progress. Nothing was
+ *   finished or discarded, so this is the flow being left as it was entered.
  */
 fun NavGraphBuilder.sessionGraph(
     onCancelSetup: () -> Unit,
@@ -178,6 +181,7 @@ fun NavGraphBuilder.sessionGraph(
     onSessionStarted: (sessionId: Long) -> Unit,
     onSessionFinished: (sessionId: Long) -> Unit,
     onSessionDiscarded: () -> Unit,
+    onSessionLeft: () -> Unit,
 ) {
     navigation<SessionGraphDestination>(startDestination = NewSessionDestination()) {
         composable<NewSessionDestination>(
@@ -229,14 +233,24 @@ fun NavGraphBuilder.sessionGraph(
             // Here rather than inside `ActiveSessionScreen` because it is a property of the
             // destination, not of the screen: `BackHandler` needs an
             // `OnBackPressedDispatcherOwner`, which a `@Preview` does not provide.
+            //
+            // A page whose workout is not running — opened from a link to a session that is
+            // missing or over — has nothing to lose and no workout of its own to discard, so the
+            // gesture simply leaves it. Raising the question there would put a dialog promising
+            // that nothing will be lost in front of the workout that is running somewhere else.
             BackHandler {
-                viewModel.onEvent(ActiveSessionEvent.DiscardRequested)
+                if (viewModel.uiState.value.isMissing) {
+                    onSessionLeft()
+                } else {
+                    viewModel.onEvent(ActiveSessionEvent.DiscardRequested)
+                }
             }
 
             ActiveSessionRoute(
                 onFinishSession = onSessionFinished,
                 onDiscardSession = onSessionDiscarded,
                 onPickExercises = exercisePicker.open,
+                onLeave = onSessionLeft,
                 // Read here, inside the destination, for the reason [ExercisePicker.selectedIds]
                 // gives: taken off the graph as it was built, this is `null` forever.
                 pickedExerciseIds = exercisePicker.selectedIds(),

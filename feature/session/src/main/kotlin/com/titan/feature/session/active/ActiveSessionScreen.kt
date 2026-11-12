@@ -9,6 +9,12 @@
 package com.titan.feature.session.active
 
 import androidx.annotation.StringRes
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.layout.Column
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateDpAsState
@@ -104,6 +110,9 @@ import kotlin.time.Duration.Companion.seconds
  * @param onDiscardSession the workout was thrown away. A different exit from [onFinishSession]
  *   and not a special case of it: there is no recap of a session that no longer exists, so the
  *   two land in different places and `:app` resolves both.
+ * @param onLeave leave a page whose workout is not running — see
+ *   [ActiveSessionUiState.isMissing]. Nothing is finished or discarded on the way: the page is
+ *   about a session that is gone, and the workout that *is* running is not this page's to touch.
  * @param onPickExercises push the exercise picker, saying which of the two questions it is
  *   being opened with: `replacing` for the swap on a card, which fills one slot and so takes
  *   one exercise, and false for the button that adds to the workout. What that opens lives in
@@ -120,6 +129,7 @@ fun ActiveSessionRoute(
     onFinishSession: (sessionId: Long) -> Unit,
     onDiscardSession: () -> Unit,
     onPickExercises: (replacing: Boolean) -> Unit,
+    onLeave: () -> Unit,
     modifier: Modifier = Modifier,
     pickedExerciseIds: List<Long>? = null,
     onPickedExercisesHandled: () -> Unit = {},
@@ -223,6 +233,7 @@ fun ActiveSessionRoute(
             viewModel.onEvent(event)
         },
         onPickExercises = onPickExercises,
+        onLeave = onLeave,
         modifier = modifier,
         snackbarHostState = snackbarHostState,
     )
@@ -284,6 +295,17 @@ fun ActiveSessionRoute(
  * still in the field above it. A refused *finish* appears above the header's END, because the
  * thing that was refused is off in the corner and the answer to it — log a set, or discard — is
  * on this screen rather than in a snackbar that fades.
+ *
+ * ### A page about a workout that is not running
+ *
+ * The page can be opened from a link that names any session id, including one that does not
+ * exist, one that is over, or one that is not the workout in progress. That page draws no
+ * session header — no END, no pause and no DISCARD, which would act on the workout that *is*
+ * running — only a back arrow and the note that the session is gone. See
+ * [ActiveSessionUiState.isMissing].
+ *
+ * @param onLeave the missing page's back arrow. Unused while the workout is on screen, where the
+ *   way out is END or DISCARD.
  */
 @Composable
 /*
@@ -300,6 +322,7 @@ fun ActiveSessionScreen(
     modifier: Modifier = Modifier,
     clocks: () -> SessionClocks = { SessionClocks() },
     onPickExercises: (replacing: Boolean) -> Unit = {},
+    onLeave: () -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     // Which of the two the message is drawn as. The zero-sets refusal is a state of the screen
@@ -416,27 +439,33 @@ fun ActiveSessionScreen(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            SessionHeaderBar(
-                name = state.header.title(),
-                // Read here, inside the bar's own slot, so the tick recomposes the bar and only it.
-                elapsed = clocks().elapsed,
-                progress = state.header?.progress ?: SessionProgress(),
-                isPaused = state.isPaused,
-                // The pause is *not* gated on `isEditable`: coming back from a pause is what
-                // that control is for. What takes the three of them out is a workout already
-                // closing out — a pause landing behind a finish is refused and reported over a
-                // screen on its way to the recap.
-                enabled = !state.isBusy,
-                onPauseToggle = { onEvent(ActiveSessionEvent.PauseToggled) },
-                onFinish = { onEvent(ActiveSessionEvent.FinishRequested) },
-                onDiscard = { onEvent(ActiveSessionEvent.DiscardRequested) },
-                // The name is the affordance, so a workout started from the quick action can be
-                // titled from the one place its title is already shown.
-                onNameClick = { onEvent(ActiveSessionEvent.NameEditRequested) },
-                // The clock is the way into the rest window, with or without a rest running.
-                onClockClick = { onEvent(ActiveSessionEvent.RestWindowRequested) },
-                canFinish = state.canFinish,
-            )
+            // A page whose workout is not running gets a way back and nothing else — see the
+            // class note.
+            if (state.isMissing) {
+                MissingSessionTopBar(onLeave = onLeave)
+            } else {
+                SessionHeaderBar(
+                    name = state.header.title(),
+                    // Read here, inside the bar's own slot, so the tick recomposes the bar and only it.
+                    elapsed = clocks().elapsed,
+                    progress = state.header?.progress ?: SessionProgress(),
+                    isPaused = state.isPaused,
+                    // The pause is *not* gated on `isEditable`: coming back from a pause is what
+                    // that control is for. What takes the three of them out is a workout already
+                    // closing out — a pause landing behind a finish is refused and reported over a
+                    // screen on its way to the recap.
+                    enabled = !state.isBusy,
+                    onPauseToggle = { onEvent(ActiveSessionEvent.PauseToggled) },
+                    onFinish = { onEvent(ActiveSessionEvent.FinishRequested) },
+                    onDiscard = { onEvent(ActiveSessionEvent.DiscardRequested) },
+                    // The name is the affordance, so a workout started from the quick action can be
+                    // titled from the one place its title is already shown.
+                    onNameClick = { onEvent(ActiveSessionEvent.NameEditRequested) },
+                    // The clock is the way into the rest window, with or without a rest running.
+                    onClockClick = { onEvent(ActiveSessionEvent.RestWindowRequested) },
+                    canFinish = state.canFinish,
+                )
+            }
         },
         bottomBar = {
             // The rest, at the edge the thumb is on — see `RestTimerDock` for why it left the
@@ -1157,6 +1186,37 @@ fun ActiveSessionScreenTimingDarkPreview() {
             onEvent = {},
             clocks = { previewClocks().copy(stopwatch = 47.seconds) },
         )
+    }
+}
+
+/**
+ * The bar over a page whose workout is not running: a way back, and nothing else.
+ *
+ * It replaces [SessionHeaderBar] rather than disabling its controls, because there is no workout
+ * on this page for END, pause or DISCARD to be about — and the session those would reach is the
+ * one running somewhere else.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MissingSessionTopBar(onLeave: () -> Unit) {
+    Column {
+        TopAppBar(
+            navigationIcon = {
+                IconButton(onClick = onLeave) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.active_missing_leave),
+                    )
+                }
+            },
+            title = {},
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.background,
+                navigationIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ),
+        )
+        // Ruled off like every other bar in the app.
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
