@@ -229,6 +229,30 @@ class AndroidNotifierTest {
             assertEquals(0, posted.flags and android.app.Notification.FLAG_AUTO_CANCEL)
         }
 
+    @Test
+    fun `a lock screen that hides content sees the title and the countdown, not the exercise`() =
+        runTest {
+            val notifier = notifier(enabled = setOf(NotificationKind.REST_TIMER), allowed = true)
+
+            notifier.post(REST_OVER.copy(countdownTo = DEADLINE))
+
+            val posted = manager.activeNotifications.single().notification
+            assertEquals(android.app.Notification.VISIBILITY_PRIVATE, posted.visibility)
+            val lockScreen = checkNotNull(posted.publicVersion) { "no public version to show when locked" }
+            assertEquals("Rest over", lockScreen.extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString())
+            assertEquals(DEADLINE, lockScreen.`when`)
+            assertTrue(lockScreen.extras.getBoolean(NotificationCompat.EXTRA_CHRONOMETER_COUNT_DOWN))
+            // The body names the lift, so no line of the public version may carry it.
+            listOf(
+                NotificationCompat.EXTRA_TEXT,
+                NotificationCompat.EXTRA_BIG_TEXT,
+                NotificationCompat.EXTRA_SUB_TEXT,
+                NotificationCompat.EXTRA_INFO_TEXT,
+                NotificationCompat.EXTRA_SUMMARY_TEXT,
+            ).forEach { assertNull(it, lockScreen.extras.getCharSequence(it)) }
+            assertNull(lockScreen.actions)
+        }
+
     private fun notifier(
         enabled: Set<NotificationKind>,
         allowed: Boolean,

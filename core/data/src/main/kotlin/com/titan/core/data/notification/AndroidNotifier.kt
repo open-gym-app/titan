@@ -44,6 +44,16 @@ import javax.inject.Singleton
  * `tag` is how a caller that genuinely needs two at once (several scheduled reminders) says
  * so, and it keeps the two apart without either of them needing to know the other's number.
  *
+ * ### The lock screen sees the title and nothing else
+ *
+ * Every notification is `VISIBILITY_PRIVATE` with a public version that carries its title and,
+ * for a rest, the countdown: what a lock screen set to hide sensitive content shows in its
+ * place. The body is where the user's own words go — the exercise a rest is before, the name
+ * of a workout left open — and anybody who can see the phone can read a lock screen. Private
+ * is also the platform default; it is stated here so the public version beside it is read as
+ * the redaction it is. A lock screen set to show everything still shows everything: that is
+ * the user's call, not this class's.
+ *
  * Nothing here requests `POST_NOTIFICATIONS`. Asking is a screen's job, at a moment that explains
  * it — a notification switch being turned on, or the first rest of a workout — because a prompt
  * raised with no context attached is the one most reliably denied, and a denial is sticky. This
@@ -117,6 +127,28 @@ class AndroidNotifier @Inject constructor(
             // An ongoing note is cleared by the app when the thing it describes is over, so
             // dismissing it on a tap would leave the session running with nothing showing.
             .setAutoCancel(!notification.ongoing)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(redacted(notification))
+            .build()
+
+    /**
+     * [notification] as a lock screen that hides sensitive content shows it: the title, which
+     * `AppNotification` keeps free of the user's own words, and the countdown, which is the one
+     * thing a lifter glances at the lock screen for. No body and no buttons.
+     */
+    private fun redacted(notification: AppNotification): Notification =
+        NotificationCompat.Builder(context, notification.kind.channelId)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(notification.title)
+            .setCategory(notification.kind.category)
+            .apply {
+                notification.countdownTo?.let { deadline ->
+                    setWhen(deadline)
+                    setShowWhen(true)
+                    setUsesChronometer(true)
+                    setChronometerCountDown(true)
+                }
+            }
             .build()
 }
 
