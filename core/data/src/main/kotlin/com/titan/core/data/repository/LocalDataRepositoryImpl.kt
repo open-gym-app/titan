@@ -3,6 +3,7 @@ package com.titan.core.data.repository
 import android.content.Context
 import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
+import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.db.DatabaseSeed
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.di.DATABASE_NAME
@@ -11,11 +12,14 @@ import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.notification.ReminderScheduler
+import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.session.IdleSessionMonitor
+import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.usecase.SessionLifecycleLock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -38,14 +42,30 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * The whole of the device's local state, read as counts and erased as one operation.
  *
- * It is the only class that holds all four stores at once — the database, the settings, the
- * in-progress draft file and the in-memory session state — and that is the point: the
- * knowledge of *what "all of it" consists of* lives in exactly one place, so a store added
- * later is a line here rather than a thing the delete-all dialog quietly stops covering.
+ * It is the only class that holds every store at once — the database, the settings, the
+ * in-progress draft file, the in-memory session state and the backup files — and that is the
+ * point: the knowledge of *what "all of it" consists of* lives in exactly one place, so a store
+ * added later is a line here rather than a thing the delete-all dialog quietly stops covering.
  *
- * The workout reminder's **alarms** are the one thing here that is not a store, and they are
- * here for the same reason: they are state this device is holding on the user's behalf, they
- * outlive the process, and the settings wipe is what makes them wrong.
+ * ### What it holds that is not a store
+ *
+ * Three things the operating system keeps on the app's behalf, which outlive the process and
+ * which the wipe makes wrong:
+ *
+ * - **The workout's rest**: its note in the shade and its exact alarm, both naming the session
+ *   being rested in. Left standing, the alarm fires after the wipe and announces "Rest over" for
+ *   a workout that no longer exists. [BackgroundRestTimer] takes both down.
+ * - **The idle nudge**: its alarm and its note, which [IdleSessionMonitor] takes down.
+ * - **The workout reminder's alarms**, which follow the settings: [ReminderScheduler] re-reads
+ *   the store once it has been emptied.
+ *
+ * The weekly backup's *schedule* is not one of them: the toggle and its enqueued work are left
+ * as they are. The toggle lives in its own store precisely so that this wipe does not change a
+ * schedule the user did not ask it to touch (docs/PERSISTENCE.md), and cancelling the work under
+ * a toggle that still read on would draw a switch with nothing behind it. Nor is cancelling
+ * needed to keep a run out of the wipe — `BackupLock` does that: a run that was writing finishes
+ * first and its file is then deleted with the rest, and one that starts afterwards backs up the
+ * emptied device. What goes is the record of past runs, whose files this deletes.
  *
  * ### Order matters, and it is the order of consequences
  *
@@ -54,13 +74,15 @@ import kotlin.time.Duration.Companion.seconds
  * 1. **The session state goes to [SessionState.Idle] first.** It is in memory and it is what
  *    screens are collecting; leaving it pointing at a session id while that row is deleted
  *    means a live screen reading a session that no longer exists for as long as the wipe
- *    takes.
+ *    takes. The rest and the idle nudge go with it, for the same reason: they are on the lock
+ *    screen.
  * 2. **The draft file next**, so a process death in the middle of this cannot leave a
  *    resumable workout referring to rows that are about to go.
- * 3. **Then the rows**, which is the part that actually takes time.
- * 4. **Settings last**, and the alarms behind them with the same step. They are the cheapest
- *    thing to lose and the least alarming to keep: a wipe that dies before this leaves a user
- *    with the right units and no history, which is strictly better than the reverse.
+ * 3. **Then the rows**, which is the part that actually takes time, and the backup files
+ *    after them, which are copies of the same rows.
+ * 4. **Settings last**, and the reminder's alarms behind them with the same step. They are the
+ *    cheapest thing to lose and the least alarming to keep: a wipe that dies before this leaves
+ *    a user with the right units and no history, which is strictly better than the reverse.
  *
  * ### It waits for a backup, and holds back session transitions
  *
@@ -83,13 +105,15 @@ import kotlin.time.Duration.Companion.seconds
  * because an app whose exercise library is empty is broken rather than clean.
  * Exercises the user typed in are not restored, because those are theirs and this is a wipe.
  *
+ * The ids start again from one, as on a fresh install, for the same reason — see [wipe].
+ *
  * ### Failure is loud
  *
  * Nothing in [deleteAll] catches. A wipe that half-worked and reported success is the one
- * outcome the contract forbids, so a failed table clear or an unwritable settings file
- * propagates and the caller tells the user. The counts in [observeFootprint] are the opposite,
- * and for the usual reason: they exist to draw a dialog, and a dialog that cannot draw is
- * worse than one with zeroes in it.
+ * outcome the contract forbids, so a failed table clear, a backup file that will not delete or
+ * an unwritable settings file propagates and the caller tells the user. The counts in
+ * [observeFootprint] are the opposite, and for the usual reason: they exist to draw a dialog,
+ * and a dialog that cannot draw is worse than one with zeroes in it.
  */
 @Singleton
 class LocalDataRepositoryImpl @Inject constructor(
@@ -98,7 +122,11 @@ class LocalDataRepositoryImpl @Inject constructor(
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val templateDraftRepository: TemplateDraftRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val backgroundRestTimer: BackgroundRestTimer,
+    private val idleSessionMonitor: IdleSessionMonitor,
     private val reminderScheduler: ReminderScheduler,
+    private val backupFiles: AutoBackupFiles,
+    private val autoBackupRepository: AutoBackupRepository,
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : LocalDataRepository {
@@ -196,9 +224,31 @@ class LocalDataRepositoryImpl @Inject constructor(
         }
     }
 
-    /** The wipe itself, in the order the class doc gives. */
+    /**
+     * The wipe itself, in the order the class doc gives.
+     *
+     * ### The id counters are reset with the rows
+     *
+     * `clearAllTables` empties every table but not `sqlite_sequence`, where `AUTOINCREMENT`
+     * remembers the largest id each table has ever held and never assigns one below it. Kept,
+     * it carries the old history's numbering into the new one, and one id near `Long.MAX_VALUE`
+     * — a restore made before such ids were refused could write one — leaves nothing to assign:
+     * every later insert into that table fails with `SQLITE_FULL`. Clearing it is what a fresh
+     * install has.
+     *
+     * That gives the old numbers out again, and nothing that outlives the wipe acts on one. The
+     * rows and the drafts are gone, the rest and the idle nudge come down above, and an intent
+     * that was already on its way names its session together with the row's creation time,
+     * which a new workout under the same number does not share. A restore already writes back
+     * ids this device has used before, and those defences are built for it.
+     */
     private suspend fun wipe() {
         sessionStateRepository.update(SessionState.Idle)
+        // The workout's note and alarm, and the nudge's: both name the session about to go, and
+        // the operating system keeps them whatever happens to the rows. Neither class needs the
+        // session to still exist to take its own state down.
+        backgroundRestTimer.set(null)
+        idleSessionMonitor.disarm()
         inProgressSessionRepository.clear()
         // And the half-built template, for the same reason: it names a template id that is
         // about to stop existing, and a draft left behind would be restored over the next
@@ -212,8 +262,15 @@ class LocalDataRepositoryImpl @Inject constructor(
         // screen further down the back stack) showing an empty catalogue until some
         // unrelated write refreshed it.
         database.withTransaction {
-            DatabaseSeed.insertInto(database.openHelper.writableDatabase, context)
+            val writable = database.openHelper.writableDatabase
+            // Before the seed, which writes the catalogue's ids explicitly and so sets the
+            // counters for its own tables back to where a fresh install has them.
+            writable.execSQL(RESET_ID_COUNTERS)
+            DatabaseSeed.insertInto(writable, context)
         }
+        deleteBackups()
+        // The dates the backup screen shows under the toggle describe the files just deleted.
+        autoBackupRepository.forgetRuns()
         userPreferencesRepository.clear()
         // And the alarms the settings had pointed at. `clear()` puts the reminder
         // preferences back to their defaults — which include the switch being *off* — so
@@ -221,6 +278,38 @@ class LocalDataRepositoryImpl @Inject constructor(
         // its own settings screen reports as turned off. `sync` re-reads the store it has
         // just been emptied and takes down everything it does not want.
         reminderScheduler.sync()
+    }
+
+    /**
+     * Empties `backups/`: every manual export, every automatic backup, and the `.json.tmp`
+     * scratch file either may have left. Each is the whole history in plain JSON, which is
+     * exactly what the user has just asked to erase.
+     *
+     * The directory is [AutoBackupFiles.directory], the one place in this module that resolves
+     * it, so a move of the backups is followed here without a second path to keep in step.
+     *
+     * Two passes, because an export renames its scratch file into place *after* it lets go of
+     * [BackupLock]. One that finished just before the wipe took the lock can rename a scratch
+     * file the first pass has listed and not yet reached; the second pass finds it under its
+     * finished name. Nothing can start writing a third: every export needs the lock this holds.
+     *
+     * An export waiting for the lock may already have opened its empty scratch file; deleted or
+     * not, it holds nothing yet, and once the lock is free it can only be written with the
+     * emptied device.
+     *
+     * Throws if a file the last pass tried to delete is still there, in keeping with the class
+     * doc: history left on a device the user asked to clear is a failure to report. One that
+     * vanished between the listing and the delete is not.
+     */
+    private fun deleteBackups() {
+        val directory = backupFiles.directory
+        var stuck = emptyList<File>()
+        repeat(BACKUP_DELETE_PASSES) {
+            stuck = directory.listFiles().orEmpty().filter { !it.deleteRecursively() && it.exists() }
+        }
+        if (stuck.isNotEmpty()) {
+            throw IOException("could not delete ${stuck.joinToString { it.name }} from ${directory.path}")
+        }
     }
 
     /**
@@ -259,6 +348,15 @@ class LocalDataRepositoryImpl @Inject constructor(
         /** SQLite's write-ahead log and shared-memory siblings, both next to the main file. */
         const val WAL_SUFFIX = "-wal"
         const val SHM_SUFFIX = "-shm"
+
+        /**
+         * Forgets the largest id every `AUTOINCREMENT` table has held. SQLite allows ordinary
+         * `DELETE` on its own bookkeeping table for exactly this; see [wipe].
+         */
+        const val RESET_ID_COUNTERS = "DELETE FROM sqlite_sequence"
+
+        /** See [deleteBackups] for why one pass is not enough. */
+        const val BACKUP_DELETE_PASSES = 2
 
         /**
          * How long [observeFootprint] waits before re-reading a database that failed. The same

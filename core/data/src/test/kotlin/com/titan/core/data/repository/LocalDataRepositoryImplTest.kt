@@ -1,11 +1,16 @@
 package com.titan.core.data.repository
 
+import android.app.AlarmManager
+import android.app.Notification
+import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.db.bodyMeasurement
@@ -17,6 +22,15 @@ import com.titan.core.data.db.sessionExercise
 import com.titan.core.data.db.template
 import com.titan.core.data.db.workoutSet
 import com.titan.core.data.di.DATABASE_NAME
+import com.titan.core.data.mapper.SessionExerciseMapper
+import com.titan.core.data.mapper.SessionMapper
+import com.titan.core.data.mapper.WorkoutSetMapper
+import com.titan.core.data.notification.AndroidBackgroundRestTimer
+import com.titan.core.data.notification.AndroidIdleSessionMonitor
+import com.titan.core.data.notification.AndroidNotifier
+import com.titan.core.data.notification.AppForegroundState
+import com.titan.core.data.notification.RestTimerBroadcasts
+import com.titan.core.domain.backup.AutoBackupSchedule
 import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ExportSink
@@ -28,8 +42,14 @@ import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
+import com.titan.core.domain.notification.AppNotification
 import com.titan.core.domain.notification.NotificationKind
+import com.titan.core.domain.notification.NotificationPermission
 import com.titan.core.domain.notification.ReminderScheduler
+import com.titan.core.domain.time.Clock
+import com.titan.core.domain.timer.BackgroundRest
+import com.titan.core.domain.timer.RestSkipRequests
+import com.titan.core.domain.timer.RestTimerSnapshot
 import com.titan.core.domain.usecase.ExportUseCase
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -38,7 +58,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -53,6 +75,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -91,6 +114,22 @@ class LocalDataRepositoryImplTest {
     private lateinit var reminderScheduler: RecordingReminderScheduler
     private lateinit var repository: LocalDataRepositoryImpl
 
+    /*
+     * The workout's state outside the app: the real rest timer and idle monitor over Robolectric's
+     * own `AlarmManager` and `NotificationManager`, so "nothing is left" is a question asked of the
+     * system rather than of a double that was or was not called.
+     */
+    private val alarms: AlarmManager = context.getSystemService(AlarmManager::class.java)
+    private val notifications: NotificationManager = context.getSystemService(NotificationManager::class.java)
+    private lateinit var sessionRepository: SessionRepositoryImpl
+    private lateinit var restTimer: AndroidBackgroundRestTimer
+    private lateinit var idleSessionMonitor: AndroidIdleSessionMonitor
+    private val backupFiles = AutoBackupFiles(context)
+
+    /** The weekly backup's own store, over its own file, as `AutoBackupModule` builds it. */
+    private lateinit var autoBackupStore: DataStore<Preferences>
+    private lateinit var autoBackupRepository: AutoBackupRepositoryImpl
+
     @Before
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(context, TitanDatabase::class.java)
@@ -106,17 +145,29 @@ class LocalDataRepositoryImplTest {
         }
 
         userPreferencesRepository = UserPreferencesRepositoryImpl(dataStore)
+        autoBackupStore = PreferenceDataStoreFactory.create(scope = storeScope) {
+            File(temporaryFolder.root, "auto-backup.preferences_pb")
+        }
+        autoBackupRepository = AutoBackupRepositoryImpl(autoBackupStore)
         inProgressSessionRepository = InProgressSessionRepositoryImpl(context, Dispatchers.IO)
         templateDraftRepository = TemplateDraftRepositoryImpl(context, Dispatchers.IO)
         sessionStateRepository = SessionStateRepositoryImpl()
         reminderScheduler = RecordingReminderScheduler()
+        sessionRepository = SessionRepositoryImpl(db, SessionMapper(), SessionExerciseMapper(), WorkoutSetMapper())
+        val notifier = AndroidNotifier(context, userPreferencesRepository, NotificationsAllowed)
+        restTimer = AndroidBackgroundRestTimer(context, notifier, InBackground)
+        idleSessionMonitor = AndroidIdleSessionMonitor(context, sessionRepository, notifier, Clock { NOW })
         repository = LocalDataRepositoryImpl(
             database = db,
             userPreferencesRepository = userPreferencesRepository,
             inProgressSessionRepository = inProgressSessionRepository,
             templateDraftRepository = templateDraftRepository,
             sessionStateRepository = sessionStateRepository,
+            backgroundRestTimer = restTimer,
+            idleSessionMonitor = idleSessionMonitor,
             reminderScheduler = reminderScheduler,
+            backupFiles = backupFiles,
+            autoBackupRepository = autoBackupRepository,
             context = context,
             ioDispatcher = Dispatchers.IO,
         )
@@ -126,6 +177,7 @@ class LocalDataRepositoryImplTest {
     fun tearDown() {
         db.close()
         storeScope.cancel()
+        backupFiles.directory.deleteRecursively()
     }
 
     // --- footprint --------------------------------------------------------
@@ -388,6 +440,134 @@ class LocalDataRepositoryImplTest {
             assertEquals(UserPreferences(), userPreferencesRepository.observe().first())
         }
 
+    // --- what the wipe leaves outside the stores ----------------------------
+
+    /**
+     * The rest's note and its exact alarm are the operating system's, and outlive the process.
+     * A wipe that left them would announce "Rest over" for a workout the user has just erased.
+     */
+    @Test
+    fun `deleteAll takes the rest's note and alarm down`() =
+        runBlocking {
+            val sessionId = startWorkout()
+            restTimer.set(runningRest(sessionId))
+            assertTrue("precondition: the rest is in the shade", notifications.activeNotifications.isNotEmpty())
+            assertTrue("precondition: the rest has an alarm", shadowOf(alarms).scheduledAlarms.isNotEmpty())
+
+            repository.deleteAll()
+
+            assertEquals(emptyList<String>(), showing())
+            assertEquals(emptyList<Any>(), shadowOf(alarms).scheduledAlarms)
+        }
+
+    /** A paused rest has no alarm, and its note stays up until something takes it down. */
+    @Test
+    fun `deleteAll takes a paused rest's note down`() =
+        runBlocking {
+            val sessionId = startWorkout()
+            restTimer.set(runningRest(sessionId).copy(rest = RestTimerSnapshot.Paused(45.seconds, 90.seconds)))
+            assertTrue("precondition: the paused rest is in the shade", notifications.activeNotifications.isNotEmpty())
+
+            repository.deleteAll()
+
+            assertEquals(emptyList<String>(), showing())
+        }
+
+    @Test
+    fun `deleteAll takes the idle nudge and its alarm down`() =
+        runBlocking {
+            userPreferencesRepository.setNotificationEnabled(NotificationKind.SESSION, enabled = true)
+            startWorkout()
+            idleSessionMonitor.arm()
+            // The nudge as `IdleSessionBroadcasts` posts it once the alarm has gone off.
+            AndroidNotifier(context, userPreferencesRepository, NotificationsAllowed).post(
+                AppNotification(kind = NotificationKind.SESSION, title = "Still training?", body = "Nothing since"),
+            )
+            assertTrue("precondition: the nudge is in the shade", notifications.activeNotifications.isNotEmpty())
+            assertTrue("precondition: the nudge has an alarm", shadowOf(alarms).scheduledAlarms.isNotEmpty())
+
+            repository.deleteAll()
+
+            assertEquals(emptyList<String>(), showing())
+            assertEquals(emptyList<Any>(), shadowOf(alarms).scheduledAlarms)
+        }
+
+    /**
+     * The alarm's own intent, delivered after the wipe — as it would be by an alarm that fired
+     * in the gap, or by one the wipe did not reach. It names a session that no longer exists, so
+     * nothing may be said about it.
+     */
+    @Test
+    fun `an expiry that arrives after deleteAll posts nothing`() =
+        runBlocking {
+            val sessionId = startWorkout()
+            restTimer.set(runningRest(sessionId))
+            val expiry = pendingExpiry()
+
+            repository.deleteAll()
+            restTimerBroadcasts().handle(expiry)
+
+            assertEquals(emptyList<String>(), showing())
+        }
+
+    /**
+     * Every export and every automatic backup is the whole history in plain JSON. A wipe that
+     * left them would leave the very thing the user asked to erase, in a directory a file
+     * manager can open. The scratch files go too: a killed run leaves one the size of the
+     * history.
+     */
+    @Test
+    fun `deleteAll deletes every backup file, finished or not`() =
+        runBlocking {
+            val directory = backupFiles.directory.apply { mkdirs() }
+            val written = listOf(
+                "titan-auto-2026-11-01.json",
+                "titan-auto-2026-11-08.json.tmp",
+                "titan-backup-2026-11-09-1432.json",
+                "titan-backup-2026-11-09-1433.json.tmp",
+            ).map { File(directory, it).apply { writeText("{}") } }
+            assertTrue(written.all(File::exists))
+
+            repository.deleteAll()
+
+            assertEquals(emptyList<String>(), directory.listFiles().orEmpty().map { it.name })
+        }
+
+    /**
+     * The dates under the toggle describe files the wipe has just deleted, so they go. The toggle
+     * is the user's choice about the future and is left alone, and so is the schedule behind it:
+     * cancelling the work under a switch still drawn on would be a promise with nothing behind it.
+     */
+    @Test
+    fun `deleteAll forgets past automatic backups and keeps the toggle`() =
+        runBlocking {
+            autoBackupRepository.setEnabled(true)
+            autoBackupRepository.recordSuccess(at = NOW)
+            autoBackupRepository.recordFailure(at = NOW + 1)
+
+            repository.deleteAll()
+
+            assertEquals(AutoBackupSchedule(enabled = true), autoBackupRepository.read())
+        }
+
+    /**
+     * `AUTOINCREMENT` never hands out a number below the largest it has seen, and `sqlite_sequence`
+     * remembers that number through `DELETE FROM`. A row id near `Long.MAX_VALUE` — from a restore
+     * made before #256 refused them — leaves nothing to assign, and every later insert fails with
+     * `SQLITE_FULL`. A device emptied by the user is the one where nothing can still need the old
+     * numbers.
+     */
+    @Test
+    fun `a new session can be started after deleting data that held an id near the limit`() =
+        runBlocking {
+            db.workoutSessionDao().insert(session(isInProgress = false).copy(id = Long.MAX_VALUE))
+
+            repository.deleteAll()
+
+            val next = db.workoutSessionDao().insert(session(createdAt = NOW, lastActiveAt = NOW))
+            assertEquals(1L, next)
+        }
+
     // --- helpers ----------------------------------------------------------
 
     private companion object {
@@ -405,7 +585,45 @@ class LocalDataRepositoryImplTest {
          * for one that was not held back to have reset the session state many times over.
          */
         const val WAIT_FOR_A_WIPE_MS = 300L
+
+        /** The test's wall clock: the workout starts now, so its idle deadline is in the future. */
+        const val NOW = 1_762_000_000_000L
     }
+
+    /** The titles in the shade, which say *which* note was left when one was. */
+    private fun showing(): List<String> =
+        notifications.activeNotifications.map {
+            it.notification.extras.getCharSequence(
+                Notification.EXTRA_TITLE,
+            ).toString()
+        }
+
+    /** An in-progress session row, started [NOW], as a workout under way has. */
+    private suspend fun startWorkout(): Long =
+        db.workoutSessionDao().insert(session(createdAt = NOW, lastActiveAt = NOW))
+
+    private fun runningRest(sessionId: Long) =
+        BackgroundRest(
+            sessionId = sessionId,
+            exerciseName = "Bench press",
+            setNumber = 3,
+            rest = RestTimerSnapshot.Running(deadline = NOW + 90_000, total = 90.seconds),
+            sessionCreatedAt = NOW,
+        )
+
+    /**
+     * The broadcast the rest's pending alarm would deliver, read off the scheduler.
+     *
+     * Robolectric 4.14 deprecates the field in favour of an accessor it does not ship yet.
+     */
+    @Suppress("DEPRECATION")
+    private fun pendingExpiry(): Intent {
+        val alarm = checkNotNull(shadowOf(alarms).peekNextScheduledAlarm()) { "no rest alarm is pending" }
+        return shadowOf(checkNotNull(alarm.operation)).savedIntent
+    }
+
+    private fun restTimerBroadcasts() =
+        RestTimerBroadcasts(restTimer, NoSkipRequests, inProgressSessionRepository, sessionRepository)
 
     /** One row of every kind the footprint counts. */
     private suspend fun seedUserData() {
@@ -459,4 +677,23 @@ private class RecordingReminderScheduler : ReminderScheduler {
     }
 
     override fun isExact(): Boolean = true
+}
+
+/** Notifications the system would deliver, so whether one is showing is the code's doing. */
+private object NotificationsAllowed : NotificationPermission {
+    override fun areNotificationsAllowed(): Boolean = true
+
+    override val isRuntimePermissionRequired: Boolean = true
+}
+
+/** The app away from the user, which is when the rest's expiry is a notification. */
+private object InBackground : AppForegroundState {
+    override suspend fun isInForeground(): Boolean = false
+}
+
+/** Nobody listening for a skip; these tests never press one. */
+private object NoSkipRequests : RestSkipRequests {
+    override val skipped: Flow<Long> = emptyFlow()
+
+    override suspend fun skip(sessionId: Long) = Unit
 }

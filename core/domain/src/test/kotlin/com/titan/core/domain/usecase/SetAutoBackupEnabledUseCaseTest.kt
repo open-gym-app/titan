@@ -121,6 +121,8 @@ private class FakeAutoBackupRepository : AutoBackupRepository {
 
     override suspend fun recordFailure(at: Long) = write { it.copy(lastFailureAt = at) }
 
+    override suspend fun forgetRuns() = write { it.copy(lastSuccessAt = null, lastFailureAt = null) }
+
     private fun write(transform: (AutoBackupSchedule) -> AutoBackupSchedule) {
         if (writesFail) throw IOException("the store is not writable")
         schedule.update(transform)

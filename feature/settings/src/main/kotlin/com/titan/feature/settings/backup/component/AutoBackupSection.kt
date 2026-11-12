@@ -35,14 +35,14 @@ import com.titan.feature.settings.backup.statusLine
  * ### The uninstall sentence is not a disclaimer
  *
  * It is the most important line in this section. These files live in app-specific storage,
- * which means they go when the app does; somebody who believes a weekly automatic backup will
- * be there after a reinstall has been actively misled, and the manual export directly above is
- * exactly what exists for that case. So it is stated on the screen, next to the toggle, in the
- * same words whether the toggle is on or off.
+ * which means they go when the app does, and "delete all data" deletes them too; somebody who
+ * believes a weekly automatic backup will be there after a reinstall or a wipe has been actively
+ * misled, and the manual export directly above is exactly what exists for that case. So it is
+ * stated on the screen, next to the toggle, in the same words whether the toggle is on or off.
  *
  * It also says the other half of the files' lifetime: turning the switch off stops new backups
  * and deletes none of the ones already written. Retention only runs as part of a backup, so
- * with the schedule off the last three stay until the app goes. That is the safer default —
+ * with the schedule off the last three stay until the app goes or the user deletes all data. That is the safer default —
  * switching a schedule off is not asking for the copies it made to be destroyed — but it is a
  * user's training history sitting on the phone, and somebody turning the feature off to be rid
  * of it has to be told it is still there.

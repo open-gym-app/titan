@@ -258,6 +258,8 @@ class InMemoryAutoBackupSchedule : AutoBackupRepository {
 
     override suspend fun recordFailure(at: Long) = write { it.copy(lastFailureAt = at) }
 
+    override suspend fun forgetRuns() = write { it.copy(lastSuccessAt = null, lastFailureAt = null) }
+
     /** What the store holds, for a test asserting on it without collecting the flow. */
     val current: AutoBackupSchedule get() = schedule.value
 

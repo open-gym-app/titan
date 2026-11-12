@@ -51,9 +51,10 @@ interface IdleSessionMonitor {
     /**
      * Takes the nudge down completely: no alarm pending, and no notification showing.
      *
-     * For the three moments there is nothing to nudge about — the session finished, the session
-     * discarded, and the user looking at the session screen. The last is not tidiness: somebody
-     * with the workout in front of them does not need to be told it is open.
+     * For the moments there is nothing to nudge about — the session finished, the session
+     * discarded, the user looking at the session screen, and the session's rows erased by "delete
+     * all data" or replaced by a restore. The third is not tidiness: somebody with the workout in
+     * front of them does not need to be told it is open.
      */
     suspend fun disarm()
 

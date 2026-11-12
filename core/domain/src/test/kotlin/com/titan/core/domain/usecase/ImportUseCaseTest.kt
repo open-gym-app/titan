@@ -26,6 +26,9 @@ import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.repository.FakeInProgressSessionRepository
 import com.titan.core.domain.repository.FakeTemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.session.IdleSessionMonitor
+import com.titan.core.domain.timer.BackgroundRest
+import com.titan.core.domain.timer.BackgroundRestTimer
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -70,6 +73,8 @@ class ImportUseCaseTest {
     private val templateDraft = FakeTemplateDraftRepository(TemplateDraft(templateId = 3, name = "Push"))
     private val sessionState = FakeSessionStateRepository(SessionState.Active(sessionId = 7, startedAt = 1_000))
     private val reminders = TimelineReminderScheduler(timeline)
+    private val restTimer = CountingRestTimer()
+    private val idleMonitor = CountingIdleMonitor()
 
     /** This class's own locks, so a test holding one blocks only the importer it built. */
     private val backupLock = BackupLock()
@@ -123,6 +128,22 @@ class ImportUseCaseTest {
 
             assertEquals(SessionState.Idle, sessionState.current)
             assertEquals(1, draft.clearCount)
+        }
+
+    /**
+     * The rest's note and alarm, and the idle nudge's, name the session the restore replaces. The
+     * operating system keeps them whatever happens to the rows, so the restore takes them down —
+     * with the session state, before the transaction, so a rollback leaves them down too.
+     */
+    @Test
+    fun `the workout's rest and idle nudge are taken down before the rows are replaced`() =
+        runTest {
+            var seenAtReplace: Pair<List<BackgroundRest?>, Int>? = null
+            backup.onReplaceAll = { seenAtReplace = restTimer.published.toList() to idleMonitor.disarms }
+
+            importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(listOf<BackgroundRest?>(null) to 1, seenAtReplace)
         }
 
     /**
@@ -658,6 +679,8 @@ class ImportUseCaseTest {
             inProgressSessionRepository = draft,
             templateDraftRepository = templateDraft,
             sessionStateRepository = sessionState,
+            backgroundRestTimer = restTimer,
+            idleSessionMonitor = idleMonitor,
             reminderScheduler = reminders,
             backupLock = backupLock,
             sessionLock = sessionLock,
@@ -688,6 +711,8 @@ class ImportUseCaseTest {
             sessionState.current,
         )
         assertTrue("the settings should not have been touched: $timeline", timeline.isEmpty())
+        assertEquals("the rest should have been left alone", emptyList<BackgroundRest?>(), restTimer.published)
+        assertEquals("the idle nudge should have been left alone", 0, idleMonitor.disarms)
     }
 
     private fun emptyDocument() =
@@ -697,6 +722,27 @@ class ImportUseCaseTest {
 
         /** More than the handful of suspension points between an import starting and its first write. */
         const val YIELDS = 50
+    }
+}
+
+/** The rest as the operating system holds it, as a list of what it was told. */
+private class CountingRestTimer : BackgroundRestTimer {
+    val published = mutableListOf<BackgroundRest?>()
+
+    override suspend fun set(rest: BackgroundRest?) {
+        published += rest
+    }
+}
+
+/** The idle nudge, as a count of the times it was taken down. Arming is not a restore's to do. */
+private class CountingIdleMonitor : IdleSessionMonitor {
+    var disarms = 0
+        private set
+
+    override suspend fun arm() = error("a restore never arms the nudge")
+
+    override suspend fun disarm() {
+        disarms++
     }
 }
 

@@ -17,6 +17,9 @@ import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.session.IdleSessionMonitor
+import com.titan.core.domain.timer.BackgroundRest
+import com.titan.core.domain.timer.BackgroundRestTimer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -133,6 +136,8 @@ class InMemoryAutoBackupRepository(enabled: Boolean = true) : AutoBackupReposito
 
     override suspend fun recordFailure(at: Long) = write { it.copy(lastFailureAt = at) }
 
+    override suspend fun forgetRuns() = write { it.copy(lastSuccessAt = null, lastFailureAt = null) }
+
     private fun write(transform: (AutoBackupSchedule) -> AutoBackupSchedule) {
         if (writesFail) throw IOException("the auto-backup store is not writable")
         schedule.update(transform)
@@ -196,4 +201,30 @@ class RecordingReminderScheduler : ReminderScheduler {
     }
 
     override fun isExact(): Boolean = true
+}
+
+/**
+ * The rest's note and alarm, as a list of what a restore told them.
+ *
+ * Whether `set(null)` really empties the shade and the scheduler is `RestoreLeftoversTest`'s
+ * question, over the real classes; the tests that only need a restore to run use this.
+ */
+class RecordingBackgroundRestTimer : BackgroundRestTimer {
+    val published = mutableListOf<BackgroundRest?>()
+
+    override suspend fun set(rest: BackgroundRest?) {
+        published += rest
+    }
+}
+
+/** The idle nudge, as a count of the times a restore took it down. */
+class RecordingIdleSessionMonitor : IdleSessionMonitor {
+    var disarms = 0
+        private set
+
+    override suspend fun arm() = Unit
+
+    override suspend fun disarm() {
+        disarms++
+    }
 }

@@ -92,6 +92,13 @@ class AutoBackupRepositoryImpl @Inject constructor(
         dataStore.edit { it[AutoBackupKeys.LAST_FAILURE_AT] = at }
     }
 
+    override suspend fun forgetRuns() {
+        dataStore.edit { preferences ->
+            preferences.remove(AutoBackupKeys.LAST_SUCCESS_AT)
+            preferences.remove(AutoBackupKeys.LAST_FAILURE_AT)
+        }
+    }
+
     /**
      * The schedule these preferences describe, with anything unusable read as absent.
      *

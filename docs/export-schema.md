@@ -130,7 +130,10 @@ deleted one restores without it, and one the user renamed comes back renamed.
 workout is device state, not history — importing one would drop the user into a live session
 that never happened on this phone. The rows it overlaps *are* exported, so nothing logged is
 lost. An import clears whatever draft the target device holds, because a draft naming a session
-id from before the wipe points at data that no longer exists.
+id from before the wipe points at data that no longer exists. For the same reason it takes down
+the workout's rest notification and alarm and the idle nudge, which the operating system would
+otherwise keep, and deliver, for a session the file may have replaced with another under the
+same id.
 
 ## Restore semantics: replace, not merge
 
@@ -234,7 +237,7 @@ holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
 
 | Columns | Accepted | What a value outside it did |
 | --- | --- | --- |
-| `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a wipe. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
+| `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a restore's wipe; only "Delete all data" resets it. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
 | `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
 | `workout_set.set_number`, `template_set.set_number` | `1` and up | Sets are numbered from 1; a set numbered 0 is one no screen can show as "set 0 of 3" |
 | `workout_set.rpe` | `null`, or `10` to `100` | The scale is RPE 1 to 10 in tenths, and it does not move |

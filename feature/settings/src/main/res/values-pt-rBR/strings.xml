@@ -116,8 +116,8 @@
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Excluir todos os dados</string>
-    <string name="settings_delete_dialog_body">Isto apaga o seguinte deste celular, permanentemente. Não há backup nem como desfazer.</string>
-    <string name="settings_delete_dialog_body_empty">Ainda não há nada registrado neste celular. Excluir mesmo assim volta cada configuração ao padrão.</string>
+    <string name="settings_delete_dialog_body">Isto apaga permanentemente o seguinte deste celular, e todos os backups no armazenamento do próprio Titan. As cópias salvas em outro lugar continuam. Não há como desfazer.</string>
+    <string name="settings_delete_dialog_body_empty">Ainda não há nada registrado neste celular. Excluir mesmo assim apaga os backups no armazenamento do próprio Titan e volta cada configuração ao padrão.</string>
     <string name="settings_delete_dialog_settings_line">cada configuração, de volta ao padrão</string>
     <string name="settings_delete_dialog_prompt">Digite %1$s para confirmar</string>
     <string name="settings_delete_dialog_word">EXCLUIR</string>
@@ -189,7 +189,7 @@
     <string name="backup_auto_last">Último backup %1$s</string>
     <string name="backup_auto_failed">O último backup automático não terminou, após várias tentativas. Ele tentará de novo na próxima execução.</string>
     <string name="backup_auto_save_failed">Não foi possível salvar essa opção. Tente de novo.</string>
-    <string name="backup_auto_uninstall">Os backups automáticos ficam no armazenamento do próprio Titan, mesmo depois que você desativa esta opção, até você desinstalar o app. Exporte e salve uma cópia para ter um que sobreviva a isso.</string>
+    <string name="backup_auto_uninstall">Os backups automáticos ficam no armazenamento do próprio Titan, mesmo depois que você desativa esta opção, até você desinstalar o app ou excluir todos os dados. Exporte e salve uma cópia para ter um que sobreviva a isso.</string>
 
     <string name="backup_restore_title">Restaurar</string>
     <string name="backup_restore_detail">Substitui tudo neste aparelho pelo conteúdo de um arquivo de backup. Não mescla os dois.</string>

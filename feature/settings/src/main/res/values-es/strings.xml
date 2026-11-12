@@ -116,8 +116,8 @@
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Eliminar todos los datos</string>
-    <string name="settings_delete_dialog_body">Esto borra lo siguiente de este teléfono, de forma permanente. No hay copia de seguridad ni vuelta atrás.</string>
-    <string name="settings_delete_dialog_body_empty">Aún no hay nada registrado en este teléfono. Eliminar devuelve igualmente cada ajuste a su valor por defecto.</string>
+    <string name="settings_delete_dialog_body">Esto borra de forma permanente lo siguiente de este teléfono, y todas las copias de seguridad del almacenamiento propio de Titan. Las copias guardadas en otro lugar se conservan. No hay vuelta atrás.</string>
+    <string name="settings_delete_dialog_body_empty">Aún no hay nada registrado en este teléfono. Eliminar borra igualmente las copias de seguridad del almacenamiento propio de Titan y devuelve cada ajuste a su valor por defecto.</string>
     <string name="settings_delete_dialog_settings_line">cada ajuste, a su valor por defecto</string>
     <string name="settings_delete_dialog_prompt">Escribe %1$s para confirmar</string>
     <string name="settings_delete_dialog_word">ELIMINAR</string>
@@ -189,7 +189,7 @@
     <string name="backup_auto_last">Última copia %1$s</string>
     <string name="backup_auto_failed">La última copia automática no terminó, tras varios intentos. Volverá a intentarlo en la próxima ejecución.</string>
     <string name="backup_auto_save_failed">No se pudo guardar ese interruptor. Inténtalo de nuevo.</string>
-    <string name="backup_auto_uninstall">Las copias automáticas se quedan en el almacenamiento propio de Titan, incluso después de desactivar esta opción, hasta que desinstales la aplicación. Exporta y guarda una copia para tener una que sobreviva.</string>
+    <string name="backup_auto_uninstall">Las copias automáticas se quedan en el almacenamiento propio de Titan, incluso después de desactivar esta opción, hasta que desinstales la aplicación o elimines todos los datos. Exporta y guarda una copia para tener una que sobreviva.</string>
 
     <string name="backup_restore_title">Restaurar</string>
     <string name="backup_restore_detail">Sustituye todo lo de este dispositivo por el contenido de un archivo de copia de seguridad. No fusiona ambos.</string>

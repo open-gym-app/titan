@@ -77,6 +77,8 @@ class HostileBackupTest : RoomTestBase() {
             inProgressSessionRepository = drafts,
             templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
+            backgroundRestTimer = RecordingBackgroundRestTimer(),
+            idleSessionMonitor = RecordingIdleSessionMonitor(),
             reminderScheduler = RecordingReminderScheduler(),
         )
     }

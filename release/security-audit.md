@@ -12,6 +12,7 @@ in.
 | Section | Issue |
 | --- | --- |
 | [Release pipeline](#release-pipeline-260) | #260 |
+| [Delete all data and restore: what they left behind](#delete-all-data-and-restore-what-they-left-behind-258) | #258 |
 
 ---
 
@@ -141,3 +142,55 @@ the 403s. Nothing was changed or triggered.
 - Publish the two certificate fingerprints in `RELEASE.md` → *Signing certificate*.
 - Run the scratch-repository acceptance run described in the pull request that closed #260
   and record its result here.
+
+---
+
+## Delete all data and restore: what they left behind (#258)
+
+"Delete all data" promises to leave the phone as a fresh install. A restore replaces every
+table. Both left two kinds of state alone: the backup files, and what the operating system holds
+for the workout that was running. The audit found these by reading the source. #258 reproduced
+them in Robolectric tests before changing anything.
+
+### Findings and what was done
+
+| # | Finding | Resolution |
+| --- | --- | --- |
+| 1 | Every manual export, automatic backup and `*.json.tmp` in `backups/` survived "Delete all data". Each is the whole history in plain JSON. | Fixed: `LocalDataRepositoryImpl.wipe` empties the directory `AutoBackupFiles.directory` resolves, and throws if a file will not go. The dialog and the auto-backup sentence now say so, in four languages. |
+| 2 | "Delete all data" and a restore left the rest's note and exact alarm and the idle nudge's note and alarm. The rest alarm then posted "Rest over" for the erased workout, with a link to its id. | Fixed: both call `BackgroundRestTimer.set(null)` and `IdleSessionMonitor.disarm()` right after the session state goes to `Idle`. |
+| 3 | `RestTimerBroadcasts` rebuilt a rest from the intent with no session check, so an expiry already on its way still posted. A restore can write another workout back under the same id. | Fixed: the expiry and "Skip rest" carry the session's `created_at` (`SessionRef`). An expiry is dropped unless the draft or the in-progress row is that session. A skip for another session only takes the note down. |
+| 4 | `clearAllTables` keeps `sqlite_sequence`. An id near `Long.MAX_VALUE` already stored made every later insert fail with `SQLITE_FULL`, even after "Delete all data". | Fixed: the wipe clears `sqlite_sequence`, so ids start from 1 as on a fresh install. A restore does not reset it. |
+| 5 | The backup screen kept showing "Last backup <date>" for files the wipe had deleted. | Fixed: `AutoBackupRepository.forgetRuns()`. The toggle and the enqueued work are left alone (see `LocalDataRepositoryImpl`'s class doc). |
+
+#### Evidence
+
+The new tests, run against the code before the fix on 2026-11-12, all failed:
+
+```text
+LocalDataRepositoryImplTest
+  deleteAll takes the rest's note and alarm down          expected:<[]> but was:<[Resting]>
+  deleteAll takes a paused rest's note down               expected:<[]> but was:<[Rest paused]>
+  deleteAll takes the idle nudge and its alarm down       expected:<[]> but was:<[Still training?]>
+  an expiry that arrives after deleteAll posts nothing    expected:<[]> but was:<[Rest over]>
+  deleteAll deletes every backup file, finished or not    expected:<[]> but was:<[titan-backup-2026-11-09-1433.json.tmp,
+                                                            titan-backup-2026-11-09-1432.json, titan-auto-2026-11-08.json.tmp,
+                                                            titan-auto-2026-11-01.json]>
+  a new session can be started after deleting data that held an id near the limit
+                                                          SQLiteFullException: database or disk is full (code 13 SQLITE_FULL)
+RestoreLeftoversTest
+  a restore takes the rest, the idle nudge and their alarms down
+                                                          expected:<[]> but was:<[<2 scheduled alarms>]>
+  an expiry for a session id the restore gave to another workout posts nothing
+                                                          expected:<[]> but was:<[Rest over]>
+```
+
+With the fix they pass. With only the session check in `RestTimerBroadcasts` disabled, the two
+"expiry" tests fail again with `Rest over`, so the check is tested on its own and not only
+through the teardown.
+
+### Needs the owner
+
+- On a debug build with a dummy profile: start a rest, swipe the app away, relaunch, *Delete
+  all data*, put the app in the background. No "Rest over" note should appear. Repeat with the
+  rest paused, and once with a backup restore instead of the wipe.
+

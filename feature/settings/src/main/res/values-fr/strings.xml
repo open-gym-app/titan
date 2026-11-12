@@ -116,8 +116,8 @@
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Supprimer toutes les données</string>
-    <string name="settings_delete_dialog_body">Ceci efface définitivement ce qui suit de ce téléphone. Il n’y a ni sauvegarde ni retour possible.</string>
-    <string name="settings_delete_dialog_body_empty">Rien n’est encore enregistré sur ce téléphone. Supprimer remet tout de même chaque paramètre à sa valeur par défaut.</string>
+    <string name="settings_delete_dialog_body">Ceci efface définitivement ce qui suit de ce téléphone, et toutes les sauvegardes du stockage propre de Titan. Les copies enregistrées ailleurs restent. Aucun retour possible.</string>
+    <string name="settings_delete_dialog_body_empty">Rien n’est encore enregistré sur ce téléphone. Supprimer efface tout de même les sauvegardes du stockage propre de Titan et remet chaque paramètre à sa valeur par défaut.</string>
     <string name="settings_delete_dialog_settings_line">chaque paramètre, remis à sa valeur par défaut</string>
     <string name="settings_delete_dialog_prompt">Saisissez %1$s pour confirmer</string>
     <string name="settings_delete_dialog_word">SUPPRIMER</string>
@@ -189,7 +189,7 @@
     <string name="backup_auto_last">Dernière sauvegarde %1$s</string>
     <string name="backup_auto_failed">La dernière sauvegarde automatique n’a pas abouti, malgré plusieurs tentatives. Elle réessaiera à la prochaine exécution.</string>
     <string name="backup_auto_save_failed">Ce réglage n’a pas pu être enregistré. Réessayez.</string>
-    <string name="backup_auto_uninstall">Les sauvegardes automatiques restent dans le stockage propre de Titan, même après la désactivation de cette option, jusqu’à ce que vous désinstalliez l’application. Exportez et enregistrez une copie pour en avoir une qui lui survive.</string>
+    <string name="backup_auto_uninstall">Les sauvegardes automatiques restent dans le stockage propre de Titan, même après la désactivation de cette option, jusqu’à ce que vous désinstalliez l’application ou supprimiez toutes les données. Exportez et enregistrez une copie pour en avoir une qui y survive.</string>
 
     <string name="backup_restore_title">Restaurer</string>
     <string name="backup_restore_detail">Remplace tout ce qui est sur cet appareil par le contenu d’un fichier de sauvegarde. Les deux ne sont pas fusionnés.</string>

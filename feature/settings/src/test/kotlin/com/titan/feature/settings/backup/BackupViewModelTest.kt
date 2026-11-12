@@ -13,6 +13,9 @@ import androidx.test.core.app.ApplicationProvider
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.backup.model.ImportError
+import com.titan.core.domain.session.IdleSessionMonitor
+import com.titan.core.domain.timer.BackgroundRest
+import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
@@ -742,6 +745,8 @@ class BackupViewModelTest {
                 inProgressSessionRepository = backend.draft,
                 templateDraftRepository = backend.templateDraft,
                 sessionStateRepository = backend.sessionState,
+                backgroundRestTimer = NoRestTimer,
+                idleSessionMonitor = NoIdleSessionMonitor,
                 reminderScheduler = backend.reminders,
             ),
             setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
@@ -800,4 +805,16 @@ class BackupViewModelTest {
         /** Bigger than the document a seeded backend exports, so a truncation is visible. */
         const val LONGER_THAN_ANY_BACKUP = 100_000
     }
+}
+
+/** No rest is running on a backup screen's device; what a restore does to one is `:core:data`'s to test. */
+private object NoRestTimer : BackgroundRestTimer {
+    override suspend fun set(rest: BackgroundRest?) = Unit
+}
+
+/** Nor an idle nudge. */
+private object NoIdleSessionMonitor : IdleSessionMonitor {
+    override suspend fun arm() = Unit
+
+    override suspend fun disarm() = Unit
 }

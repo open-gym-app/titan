@@ -525,14 +525,14 @@ class BackupScreenTest {
 
     /**
      * The most important sentence in the section, and it is on the screen whichever way the
-     * switch is set: somebody who believes an automatic backup survives a reinstall has been
-     * actively misled.
+     * switch is set: somebody who believes an automatic backup survives a reinstall, or a
+     * "delete all data", has been actively misled.
      */
     @Test
-    fun `the screen says automatic backups go with the app`() {
+    fun `the screen says automatic backups go with the app and with delete all data`() {
         setContent()
 
-        composeTestRule.onNodeWithText("until you uninstall the app", substring = true)
+        composeTestRule.onNodeWithText("until you uninstall the app or delete all data", substring = true)
             .performScrollTo()
             .assertIsDisplayed()
     }

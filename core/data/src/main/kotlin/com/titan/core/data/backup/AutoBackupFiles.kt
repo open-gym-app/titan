@@ -16,9 +16,10 @@ import javax.inject.Singleton
  *
  * `backups/` under the app's own external files directory — app-specific storage, so it needs
  * no permission and is listed under the app in the system's storage screen. It is also
- * **deleted on uninstall**, which is the fact the backup screen has to state next to the
- * toggle: a user who believes a weekly automatic backup survives a reinstall and finds out
- * otherwise has been actively misled. The manual export (#38) is what exists for that, and it
+ * **deleted on uninstall**, and emptied by "delete all data" (`LocalDataRepositoryImpl`, through
+ * [directory]), which is the fact the backup screen has to state next to the toggle: a user
+ * who believes a weekly automatic backup survives a reinstall and finds out otherwise has been
+ * actively misled. The manual export (#38) is what exists for that, and it
  * is why "Save a copy…" is the first button on the card it produces.
  *
  * The path is spelled here *and* in `BackupViewModel`, which is duplication with a reason:
