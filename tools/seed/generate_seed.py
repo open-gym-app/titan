@@ -3,8 +3,10 @@
 
 Source: https://github.com/yuhonas/free-exercise-db (Unlicense / public domain).
 
-The upstream tarball is pinned by commit in ``source.lock`` so a regeneration is
-reproducible; ``--update`` re-pins to the tip of the default branch. Outputs:
+The upstream tarball is pinned in ``source.lock`` by commit and by the sha256 of
+its bytes, so a regeneration is reproducible and reads exactly the archive that
+was reviewed when it was pinned; ``--update`` re-pins to the tip of the default
+branch. Outputs:
 
   core/data/src/main/assets/seed/exercises.sql   one SQL statement per line
   core/data/src/main/assets/seed/images/*.webp   one downscaled photo per exercise
@@ -15,9 +17,16 @@ complete statement - so the Kotlin side needs no SQL parser. Nothing in it may
 therefore contain a raw newline; instruction paragraphs are re-joined with
 ``char(10)`` concatenation instead.
 
+The images are encoded by Pillow's bundled libwebp, so they are byte-reproducible
+only with the Pillow pinned in ``requirements.txt``; CI installs that file with
+``--require-hashes``.
+
 Usage:
     ./generate_seed.py            regenerate from the pinned commit
     ./generate_seed.py --update   re-pin to upstream HEAD, then regenerate
+    ./generate_seed.py --rehash   pin the sha256 of the commit already in
+                                  source.lock (after Renovate moves it), then
+                                  regenerate
     ./generate_seed.py --check    fail if the committed output is stale
 """
 
@@ -27,10 +36,13 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import sys
 import tarfile
+import tempfile
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -40,10 +52,25 @@ BRANCH = "main"
 TOOL_DIR = Path(__file__).resolve().parent
 ROOT = TOOL_DIR.parents[1]
 LOCK_FILE = TOOL_DIR / "source.lock"
+REQUIREMENTS = TOOL_DIR / "requirements.txt"
 CACHE_DIR = TOOL_DIR / ".cache"
 ASSET_DIR = ROOT / "core/data/src/main/assets/seed"
 SQL_OUT = ASSET_DIR / "exercises.sql"
 IMAGE_DIR = ASSET_DIR / "images"
+
+# Everything read from source.lock or from upstream that ends up in a path or a
+# URL is held to these shapes first. A commit is a full lowercase SHA-1, never a
+# branch name or anything containing a separator; a slug names one file inside
+# the images directory, so `..`, `/` and an absolute path can never reach the
+# join that builds it.
+COMMIT = re.compile(r"[0-9a-f]{40}")
+SHA256 = re.compile(r"[0-9a-f]{64}")
+SLUG = re.compile(r"[A-Za-z0-9_-]+")
+
+# C0 controls other than the three whitespace characters `sql_text` folds. NUL
+# would end the statement early where SQLite reads it as a C string, and the
+# rest have no business in an exercise name or instruction.
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 # --- Taxonomy -------------------------------------------------------------
 #
@@ -157,6 +184,11 @@ def sql_text(value: str | None) -> str:
     """Render `value` as a SQL expression that occupies no more than one line."""
     if value is None:
         return "NULL"
+    control = CONTROL.search(value)
+    if control:
+        raise SystemExit(
+            f"upstream text contains control character {control.group()!r}: {value[:60]!r}"
+        )
     # Tabs and carriage returns carry no meaning here and would survive into the
     # UI as stray whitespace; newlines are the only break worth keeping.
     cleaned = value.replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
@@ -184,34 +216,135 @@ def read_lock() -> dict:
     return json.loads(LOCK_FILE.read_text())
 
 
-def resolve_head() -> str:
-    url = f"https://api.github.com/repos/{REPO}/commits/{BRANCH}"
-    with urllib.request.urlopen(url) as response:
-        return json.load(response)["sha"]
+def write_lock(commit: str, sha256: str) -> None:
+    # The key order is load-bearing: Renovate's regex manager in renovate.json
+    # reads `repo`, `branch` and `commit` as one consecutive match.
+    LOCK_FILE.write_text(json.dumps(
+        {"repo": REPO, "branch": BRANCH, "commit": commit, "tarball_sha256": sha256},
+        indent=2,
+    ) + "\n")
 
 
-def fetch_tarball(commit: str) -> Path:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cached = CACHE_DIR / f"{commit}.tar.gz"
-    if not cached.exists():
-        url = f"https://codeload.github.com/{REPO}/tar.gz/{commit}"
-        print(f"  downloading {url} (~95 MB)")
+def checked_commit(commit: object) -> str:
+    """`commit` if it is a full lowercase SHA-1; stops the run otherwise.
+
+    The commit names the cache file and goes into the download URL, so a value
+    such as `../planted` would read a file outside the cache or fetch a ref
+    nobody pinned.
+    """
+    if not isinstance(commit, str) or not COMMIT.fullmatch(commit):
+        raise SystemExit(f"commit {commit!r} is not 40 lowercase hex characters")
+    return commit
+
+
+def checked_sha256(digest: object) -> str:
+    if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+        raise SystemExit(
+            f"source.lock tarball_sha256 {digest!r} is not 64 lowercase hex characters"
+        )
+    return digest
+
+
+def github_api(path: str) -> dict:
+    url = f"https://api.github.com/repos/{REPO}/{path}"
+    try:
         with urllib.request.urlopen(url) as response:
-            cached.write_bytes(response.read())
-    return cached
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        raise SystemExit(f"GET {url} failed: {error}") from error
 
 
-def load_source(commit: str) -> tuple[list[dict], dict[str, bytes]]:
-    """Return the exercise records and the raw bytes of each exercise's first photo."""
-    archive = fetch_tarball(commit)
+def resolve_head() -> str:
+    return checked_commit(github_api(f"commits/{BRANCH}")["sha"])
+
+
+def require_on_branch(commit: str) -> None:
+    """Stop unless `commit` is reachable from upstream's `BRANCH`.
+
+    GitHub shares objects across a fork network, so the upstream URLs also
+    resolve a commit that exists only in a fork. Comparing it with the branch
+    tells the two apart: the branch is `ahead` of (or `identical` to) any commit
+    in its history, and `behind` or `diverged` from one that is not.
+    """
+    status = github_api(f"compare/{commit}...{BRANCH}").get("status")
+    if status not in ("ahead", "identical"):
+        raise SystemExit(
+            f"{commit} is not in the history of {REPO}@{BRANCH} (compare status "
+            f"{status!r}) - refusing to pin it"
+        )
+
+
+def download(commit: str) -> bytes:
+    url = f"https://codeload.github.com/{REPO}/tar.gz/{commit}"
+    print(f"  downloading {url} (~95 MB)")
+    with urllib.request.urlopen(url) as response:
+        return response.read()
+
+
+def cache(commit: str, data: bytes) -> None:
+    """Store `data` as the cached tarball for `commit`, all or nothing.
+
+    The bytes go to a temporary file in the cache directory first and are renamed
+    over the cache entry, so an interrupted run leaves no partial tarball under
+    the name a later run would read.
+    """
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    fd, partial = tempfile.mkstemp(dir=CACHE_DIR, prefix=f"{commit}.", suffix=".part")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            out.write(data)
+        os.replace(partial, CACHE_DIR / f"{commit}.tar.gz")
+    except BaseException:
+        Path(partial).unlink(missing_ok=True)
+        raise
+
+
+def fetch_tarball(commit: str, sha256: str | None) -> bytes:
+    """The upstream tarball for `commit`, checked against `sha256`.
+
+    The check runs on the bytes in memory, whether they came from the network or
+    from the cache, so the archive parsed afterwards is the one that was hashed,
+    and a download that fails the check is never cached. `sha256=None` means the
+    caller is pinning the commit: the cache is bypassed and the digest of what
+    codeload serves now becomes the pin.
+    """
+    commit = checked_commit(commit)
+    cached = CACHE_DIR / f"{commit}.tar.gz"
+    downloaded = sha256 is None or not cached.exists()
+    data = download(commit) if downloaded else cached.read_bytes()
+    actual = hashlib.sha256(data).hexdigest()
+    if sha256 is not None and actual != sha256:
+        raise SystemExit(
+            f"tarball sha256 mismatch for {commit} "
+            f"({'downloaded' if downloaded else cached}):\n"
+            f"  source.lock {sha256}\n"
+            f"  actual      {actual}\n"
+            f"A stale or tampered cache clears with `make seed-clean`. If Renovate "
+            f"has just moved the commit, `make seed-rehash` pins the new tarball."
+        )
+    if downloaded:
+        cache(commit, data)
+    return data
+
+
+def load_source(archive: bytes) -> tuple[list[dict], dict[str, bytes]]:
+    """Return the exercise records and the raw bytes of each exercise's first photo.
+
+    Every record's id becomes a file name and an asset path, so each is checked
+    against `SLUG` here, before anything is written.
+    """
     exercises: list[dict] = []
     wanted: dict[str, str] = {}
     images: dict[str, bytes] = {}
 
-    with tarfile.open(archive, "r:gz") as tar:
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
         members = {m.name.split("/", 1)[1]: m for m in tar.getmembers() if m.isfile()}
         payload = tar.extractfile(members["dist/exercises.json"])
         exercises = json.load(payload)
+        for record in exercises:
+            slug = record.get("id")
+            if not isinstance(slug, str) or not SLUG.fullmatch(slug):
+                raise SystemExit(f"upstream exercise id {slug!r} is not a safe slug [A-Za-z0-9_-]+")
         # Photos are numbered per exercise; the first frame is the start position
         # and reads best as a thumbnail, so only that one is bundled.
         for record in exercises:
@@ -372,58 +505,139 @@ def build_sql(exercises: list[dict], commit: str, has_image: set[str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_images(images: dict[str, bytes], target: Path) -> None:
+# --- Images ---------------------------------------------------------------
+
+
+def encode_image(blob: bytes) -> bytes:
+    """The bundled WebP for one upstream photo.
+
+    Upstream ships JPEGs only, so no other decoder is offered the bytes. The
+    output is deterministic for a given Pillow build, which is what lets
+    `--check` compare it byte for byte with the committed file.
+    """
     from PIL import Image
 
+    with Image.open(io.BytesIO(blob), formats=["JPEG"]) as image:
+        image = image.convert("RGB")
+        image.thumbnail((IMAGE_MAX_EDGE, IMAGE_MAX_EDGE), Image.LANCZOS)
+        out = io.BytesIO()
+        image.save(out, "WEBP", quality=IMAGE_QUALITY, method=6)
+    return out.getvalue()
+
+
+def image_paths(slugs: list[str], target: Path) -> dict[str, Path]:
+    """The output file for each slug, each one checked to sit directly in `target`.
+
+    `load_source` already rejects any slug that could leave the directory; this
+    is the same promise checked where the paths are made, against the normalised
+    path rather than the slug's spelling. Normalised, not resolved: resolving
+    would follow a symlink already sitting at an expected name, and the check
+    is about where the name points, not where a planted link does.
+    """
+    root = Path(os.path.abspath(target))
+    paths = {}
+    for slug in slugs:
+        path = Path(os.path.abspath(root / f"{slug}.webp"))
+        if path.parent != root:
+            raise SystemExit(f"image for {slug!r} would be written outside {target}")
+        paths[slug] = path
+    return paths
+
+
+def write_images(images: dict[str, bytes], target: Path) -> None:
+    # Every path is checked before the directory is touched, so a bad slug
+    # leaves the committed images as they were.
+    paths = image_paths(sorted(images), target)
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
-    for slug, blob in sorted(images.items()):
-        with Image.open(io.BytesIO(blob)) as image:
-            image = image.convert("RGB")
-            image.thumbnail((IMAGE_MAX_EDGE, IMAGE_MAX_EDGE), Image.LANCZOS)
-            image.save(target / f"{slug}.webp", "WEBP", quality=IMAGE_QUALITY, method=6)
+    for slug, path in paths.items():
+        path.write_bytes(encode_image(images[slug]))
+
+
+def stale_images(images: dict[str, bytes], target: Path) -> dict[str, list[str]]:
+    """Every way the files in `target` differ from what `write_images` would write.
+
+    Each entry in the directory counts, whatever its extension, so a stray file
+    cannot ride along in the APK. Expected files are re-encoded in memory and
+    compared byte for byte; a symlink or directory under an expected name is a
+    mismatch, not a match.
+    """
+    expected = {path.name: slug for slug, path in image_paths(sorted(images), target).items()}
+    present = {p.name: p for p in target.iterdir()} if target.is_dir() else {}
+    changed = []
+    for name in sorted(expected.keys() & present.keys()):
+        path = present[name]
+        if path.is_symlink() or not path.is_file():
+            changed.append(name)
+        elif path.read_bytes() != encode_image(images[expected[name]]):
+            changed.append(name)
+    return {
+        "missing": sorted(expected.keys() - present.keys()),
+        "unexpected": sorted(present.keys() - expected.keys()),
+        "changed": changed,
+    }
+
+
+def pinned_pillow() -> str | None:
+    match = re.search(r"^pillow==(\S+)", REQUIREMENTS.read_text(), re.MULTILINE | re.IGNORECASE)
+    return match.group(1) if match else None
 
 
 # --- Entry point ----------------------------------------------------------
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--update", action="store_true",
-                        help="re-pin source.lock to upstream HEAD before generating")
-    parser.add_argument("--check", action="store_true",
-                        help="verify the committed output is up to date; generate nothing")
-    args = parser.parse_args()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--update", action="store_true",
+                      help="re-pin source.lock to upstream HEAD before generating")
+    mode.add_argument("--rehash", action="store_true",
+                      help="pin the sha256 of the commit already in source.lock, "
+                           "downloaded afresh, before generating")
+    mode.add_argument("--check", action="store_true",
+                      help="verify the committed output is up to date; generate nothing")
+    args = parser.parse_args(argv)
 
     lock = read_lock()
-    commit = resolve_head() if args.update else lock["commit"]
-    if args.update and commit != lock["commit"]:
-        print(f"re-pinning {lock['commit'][:12]} -> {commit[:12]}")
+    pinning = args.update or args.rehash
+    commit = checked_commit(resolve_head() if args.update else lock.get("commit"))
+    if args.update and commit != lock.get("commit"):
+        print(f"re-pinning {str(lock.get('commit'))[:12]} -> {commit[:12]}")
+    if pinning:
+        require_on_branch(commit)
+    sha256 = None if pinning else checked_sha256(lock.get("tarball_sha256"))
 
     print(f"reading {REPO} @ {commit[:12]}")
-    exercises, images = load_source(commit)
+    archive = fetch_tarball(commit, sha256)
+    exercises, images = load_source(archive)
     sql = build_sql(exercises, commit, set(images))
-    digest = hashlib.sha256(sql.encode()).hexdigest()
 
     if args.check:
-        stale = not SQL_OUT.exists() or SQL_OUT.read_text() != sql
-        missing = {f"{slug}.webp" for slug in images} - {p.name for p in IMAGE_DIR.glob("*.webp")}
-        if stale or missing:
+        stale_sql = not SQL_OUT.exists() or SQL_OUT.read_text() != sql
+        stale = stale_images(images, IMAGE_DIR)
+        if stale_sql or any(stale.values()):
             print("seed assets are stale - run `make seed` and commit the result", file=sys.stderr)
-            if missing:
-                print(f"  {len(missing)} image(s) missing, e.g. {sorted(missing)[:3]}", file=sys.stderr)
+            if stale_sql:
+                print(f"  {SQL_OUT.relative_to(ROOT)} differs", file=sys.stderr)
+            for kind, names in stale.items():
+                if names:
+                    print(f"  {len(names)} image(s) {kind}, e.g. {names[:3]}", file=sys.stderr)
+            if stale["changed"]:
+                from PIL import __version__ as installed
+                pinned = pinned_pillow()
+                if installed != pinned:
+                    print(f"  (Pillow {installed} is installed but {REQUIREMENTS.relative_to(ROOT)} "
+                          f"pins {pinned}; another encoder writes other bytes)", file=sys.stderr)
             return 1
-        print(f"seed assets are up to date ({len(exercises)} exercises, sha256 {digest[:12]})")
+        print(f"seed assets are up to date ({len(exercises)} exercises, {len(images)} images)")
         return 0
 
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
     SQL_OUT.write_text(sql)
     write_images(images, IMAGE_DIR)
-    LOCK_FILE.write_text(json.dumps(
-        {"repo": REPO, "branch": BRANCH, "commit": commit, "sql_sha256": digest},
-        indent=2,
-    ) + "\n")
+    if pinning:
+        write_lock(commit, hashlib.sha256(archive).hexdigest())
 
     total = sum(p.stat().st_size for p in IMAGE_DIR.glob("*.webp"))
     print(f"wrote {SQL_OUT.relative_to(ROOT)} ({SQL_OUT.stat().st_size // 1024} KiB)")

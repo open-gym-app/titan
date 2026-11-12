@@ -26,8 +26,8 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check release-gate-check workflows-check \
-	test journeys screenshots screenshots-verify lint \
+.PHONY: help seed seed-update seed-rehash seed-check seed-test seed-deps seed-clean translations-check issue-refs-check \
+	release-gate-check workflows-check test journeys screenshots screenshots-verify lint \
 	demo-data store-screenshots \
 	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
@@ -41,8 +41,19 @@ seed: ## Regenerate the bundled exercise catalogue from the pinned upstream comm
 seed-update: ## Re-pin source.lock to upstream HEAD, then regenerate
 	$(PYTHON) $(SEED) --update
 
+seed-rehash: ## Pin the tarball sha256 of the commit in source.lock (after a Renovate bump), then regenerate
+	$(PYTHON) $(SEED) --rehash
+
 seed-check: ## Fail if the committed seed assets are stale (run in CI)
 	$(PYTHON) $(SEED) --check
+
+seed-test: ## Run the seed generator's own tests (run in CI)
+	$(PYTHON) -m unittest discover -s tools/seed -p 'test_*.py'
+
+# The images are byte-identical only with the encoder they were made with, so this installs
+# exactly that Pillow, hash-checked, into whichever Python runs the targets above.
+seed-deps: ## Install the hash-pinned Pillow the seed images are encoded with
+	$(PYTHON) -m pip install --require-hashes --only-binary :all: --no-deps -r tools/seed/requirements.txt
 
 seed-clean: ## Drop the cached upstream tarballs
 	rm -rf tools/seed/.cache

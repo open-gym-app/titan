@@ -51,7 +51,7 @@ The database is deliberately **not** built with `fallbackToDestructiveMigration`
 
 ## Seed data
 
-The baseline exercise library is **generated, not hand-written**. `tools/seed/generate_seed.py` reads the public-domain [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) dataset, pinned by commit in `tools/seed/source.lock`, and emits two assets:
+The baseline exercise library is **generated, not hand-written**. `tools/seed/generate_seed.py` reads the public-domain [`yuhonas/free-exercise-db`](https://github.com/yuhonas/free-exercise-db) dataset, pinned in `tools/seed/source.lock` by commit and by the sha256 of that commit's tarball, and emits two assets:
 
 | Asset | Contents |
 | --- | --- |
@@ -62,7 +62,16 @@ The baseline exercise library is **generated, not hand-written**. `tools/seed/ge
 | --- | --- |
 | `make seed` | Regenerate from the pinned commit |
 | `make seed-update` | Re-pin `source.lock` to upstream HEAD, then regenerate |
+| `make seed-rehash` | Pin the tarball sha256 of the commit already in `source.lock` (after Renovate moves it), then regenerate |
 | `make seed-check` | Fail if the committed assets are stale (runs in CI) |
+| `make seed-test` | Run the generator's own tests, `tools/seed/test_generate_seed.py` (runs in CI) |
+| `make seed-deps` | Install the hash-pinned Pillow from `tools/seed/requirements.txt` |
+
+**The generator trusts nothing it reads.** The tarball's sha256 is checked on every run, whether it was just downloaded or came from `tools/seed/.cache`, and a download is cached only once it matches. Pinning (`seed-update`, `seed-rehash`) also asks GitHub whether the commit is in upstream `main`'s history: GitHub shares objects across a fork network, so codeload serves a fork-only commit under the upstream name. A commit that is not 40 lowercase hex characters, an upstream exercise id outside `[A-Za-z0-9_-]+`, and a C0 control character in upstream text each stop the run before anything is written.
+
+**`make seed-check` compares bytes, not names.** It regenerates the SQL and re-encodes every image in memory, and fails on any image that differs, is missing, or is not a regular file, and on any file in `images/` the generator would not write, whatever its extension. The images are reproducible only with the encoder that made them, so the check needs the Pillow pinned in `tools/seed/requirements.txt` (its wheels bundle libwebp): CI installs it with `--require-hashes`, and locally `make seed-deps` does the same in a virtualenv.
+
+A Renovate PR that moves the commit leaves `tarball_sha256` behind, so `make seed` and the CI check fail on it with a sha256 mismatch until someone runs `make seed-rehash` on the branch and commits the result. Renovate cannot compute that digest itself. It raises that PR only once it is approved on the Dependency Dashboard: a branch digest has no release timestamp for `minimumReleaseAge` to wait on.
 
 `exercises.sql` is replayed verbatim by `DatabaseSeed.insertInto`. Its format is deliberately parser-free - **every line is blank, a `--` comment, or one complete statement** - which is why instruction paragraphs are re-joined with `char(10)` concatenation instead of embedding raw newlines. Anything editing the generator must preserve that invariant. Every statement is `INSERT OR IGNORE`, so a replay over a populated database is a no-op; `DatabaseSeedTest` asserts this.
 
