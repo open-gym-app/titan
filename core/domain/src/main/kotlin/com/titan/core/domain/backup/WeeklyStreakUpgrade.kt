@@ -56,7 +56,9 @@ internal object WeeklyStreakUpgrade {
                 longestStreak = 0,
                 weekSessions = 0,
                 weekGoalMet = false,
-                currentLevel = XpCalculator.levelForTotalXp(totalXp),
+                // Clamped for the curve's sake only: the stored total is repaired on its way into
+                // the table, and the level is not asked of a total the curve cannot price.
+                currentLevel = XpCalculator.levelForTotalXp(totalXp.coerceIn(0, XpCalculator.MAX_TOTAL_XP)),
                 protectionRemaining = protectionRemaining.coerceAtMost(StreakProtection.MONTHLY_ALLOWANCE),
             )
         }

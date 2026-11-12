@@ -74,6 +74,24 @@ object XpCalculator {
     const val FIRST_LEVEL = 1
 
     /**
+     * The largest lifetime total the curve is asked about: 10^15 points.
+     *
+     * The curve is exact well past it, but not without limit. Somewhere above 5.9 × 10^15 the
+     * level a total buys no longer fits an `Int`, and [levelForTotalXp] and [xpToNextLevel] then
+     * overflow. No lifter gets near this — at a few hundred points a session it is millions of
+     * years of training — so the only total above it is a corrupt or hand-edited row, and
+     * whoever reads `user_progress` clamps into `0..MAX_TOTAL_XP` before calling the curve.
+     */
+    const val MAX_TOTAL_XP: Long = 1_000_000_000_000_000L
+
+    /**
+     * The level [MAX_TOTAL_XP] buys, and so the highest level a stored row may claim. A
+     * `current_level` outside `FIRST_LEVEL..MAX_LEVEL` is replaced by the level its (clamped)
+     * total buys, because [xpToNextLevel] cannot price a level past this one.
+     */
+    val MAX_LEVEL: Int = levelForTotalXp(MAX_TOTAL_XP)
+
+    /**
      * What [event] is worth.
      *
      * Exhaustive over [XpEvent] by construction: a source added later (a daily challenge,

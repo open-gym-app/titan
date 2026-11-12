@@ -4,6 +4,7 @@ import com.titan.core.domain.model.PrType
 import com.titan.core.domain.model.XpEvent
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class XpCalculatorTest {
@@ -47,6 +48,19 @@ class XpCalculatorTest {
         assertEquals(100, XpCalculator.levelForTotalXp(59_102))
         assertEquals(99, XpCalculator.levelForTotalXp(59_101))
         assertEquals(1_001, XpCalculator.levelForTotalXp(XpCalculator.xpRequiredForLevel(1_001)))
+    }
+
+    /**
+     * The ceiling readers clamp a stored total to (#256): the curve has to price it, and the
+     * level above it, without leaving an `Int`.
+     */
+    @Test
+    fun `the curve prices every total up to the ceiling`() {
+        val level = XpCalculator.levelForTotalXp(XpCalculator.MAX_TOTAL_XP)
+
+        assertEquals(XpCalculator.MAX_LEVEL, level)
+        assertTrue(XpCalculator.xpRequiredForLevel(level) <= XpCalculator.MAX_TOTAL_XP)
+        assertTrue(XpCalculator.xpToNextLevel(level) > 0)
     }
 
     @Test

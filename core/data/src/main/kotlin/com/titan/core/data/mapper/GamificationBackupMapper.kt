@@ -18,6 +18,11 @@ import com.titan.core.domain.backup.model.UserProgressRow
  * would make the first award after a restore report a level-up — or a level *drop* — the user
  * did not earn. The row is a record of what the device held; the curve applies to the next
  * award, not to the history.
+ *
+ * The one exception is a value no build writes, which the restore [repaired]s on the way in:
+ * a total the curve cannot price, a level outside the curve, a negative count, an allowance
+ * outside the monthly one, a period that is not a month. Kept, each of them throws on every
+ * launch. See `docs/export-schema.md` for the list.
  */
 fun UserProgressEntity.toRow(): UserProgressRow =
     UserProgressRow(
@@ -48,7 +53,7 @@ fun UserProgressRow.toEntity(): UserProgressEntity =
         protectionRemaining = protectionRemaining,
         protectionPeriod = protectionPeriod,
         protectionConsumedAt = protectionConsumedAt,
-    )
+    ).repaired()
 
 fun AchievementEntity.toRow(): AchievementRow = AchievementRow(achievementId = achievementId, unlockedAt = unlockedAt)
 

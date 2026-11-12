@@ -253,7 +253,7 @@ private fun sampleProgress() =
         lastCountedAt = FINISHED_AT,
         weekSessions = 2,
         weekGoalMet = true,
-        protectionRemaining = 2,
+        protectionRemaining = 0,
         protectionPeriod = "2026-09",
         protectionConsumedAt = STARTED_AT,
     )

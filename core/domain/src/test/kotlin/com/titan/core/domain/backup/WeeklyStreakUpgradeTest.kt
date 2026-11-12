@@ -66,14 +66,33 @@ class WeeklyStreakUpgradeTest {
     }
 
     /**
-     * The sample document as the session-based streak wrote it: no `week_sessions` or
-     * `week_goal_met` on the progress row, and its two streak milestones unlocked.
+     * A file from before the weekly streak whose total the curve cannot price (#256). The
+     * upgrade recomputes the level from the total, and a negative one made the decode throw.
      */
-    private fun legacyDocument(currentLevel: Int? = null): String {
+    @Test
+    fun `a file from before the weekly streak with a negative total decodes at the first level`() {
+        val progress = decode(legacyDocument(totalXp = -5)).userProgress.single()
+
+        assertEquals(XpCalculator.FIRST_LEVEL, progress.currentLevel)
+    }
+
+    /**
+     * The sample document as the session-based streak wrote it: no `week_sessions` or
+     * `week_goal_met` on the progress row, the larger allowance of that rule, and its two streak
+     * milestones unlocked.
+     */
+    private fun legacyDocument(
+        currentLevel: Int? = null,
+        totalXp: Long? = null,
+    ): String {
         val withRetired = sampleDocument().let { document ->
             document.copy(
                 userProgress = document.userProgress.map { row ->
-                    currentLevel?.let { row.copy(currentLevel = it) } ?: row
+                    row.copy(
+                        currentLevel = currentLevel ?: row.currentLevel,
+                        totalXp = totalXp ?: row.totalXp,
+                        protectionRemaining = OLD_ALLOWANCE,
+                    )
                 },
                 achievement = document.achievement +
                     WeeklyStreakUpgrade.RETIRED_ACHIEVEMENT_IDS.map { AchievementRow(it, unlockedAt = 0) },
@@ -98,5 +117,8 @@ class WeeklyStreakUpgradeTest {
     private companion object {
         /** A level no total in the sample buys on today's curve: what the old, cheaper one stored. */
         const val OLD_CURVE_LEVEL = 212
+
+        /** More protections than today's monthly allowance: what the session-based rule granted. */
+        const val OLD_ALLOWANCE = 3
     }
 }
