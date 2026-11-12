@@ -199,7 +199,7 @@ Run it with the app's own targets, in this order, on a physical device on adb:
 make a11y-scan               # installs the debug build, switches Accessibility Scanner on, opens the app
 make a11y-talkback           # TalkBack on, for the linear-navigation walk
 make a11y-font-scale         # system font scale 2.0 (SCALE=1.5 for the middle step)
-make a11y-reset              # everything off, font scale back to 1.0
+make a11y-reset              # the services and font scale the phone had before a11y-scan
 ```
 
 The inventory is every destination in the navigation graph — all twenty:
