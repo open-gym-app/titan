@@ -204,6 +204,64 @@ class ExportFormatDecodeTest {
         }
 
     /**
+     * A source is opened twice, and nothing makes it serve the same bytes both times: a
+     * provider can answer the second opening with another file. The version the first pass
+     * accepted is not taken on trust for the second (#257).
+     */
+    @Test
+    fun `a document that changes version between the two passes is refused`() =
+        runTest {
+            val newer = documentAtVersion(ExportDocument.SCHEMA_VERSION + 1)
+            val passes = ArrayDeque(listOf(stream(sampleDocument()), newer))
+
+            val decoded = ExportFormat.decode { passes.removeFirst().byteInputStream() }
+
+            assertEquals(
+                refusal(
+                    ImportError.UnsupportedSchemaVersion(
+                        found = ExportDocument.SCHEMA_VERSION + 1,
+                        supported = ExportDocument.SCHEMA_VERSION,
+                    ),
+                ),
+                decoded,
+            )
+        }
+
+    /** The limit holds on the size of the bytes, not of the document they would decode into. */
+    @Test
+    fun `a document past the size limit is refused as too large`() =
+        runTest {
+            val text = stream(sampleDocument())
+            val bytes = text.toByteArray().size.toLong()
+
+            val decoded = ExportFormat.decode(source(text), maxBytes = bytes - 1)
+
+            assertEquals(refusal(ImportError.DocumentTooLarge(limitBytes = bytes - 1)), decoded)
+        }
+
+    @Test
+    fun `a document exactly at the size limit decodes`() =
+        runTest {
+            val text = stream(sampleDocument())
+
+            val decoded = ExportFormat.decode(source(text), maxBytes = text.toByteArray().size.toLong())
+
+            assertEquals(sampleDocument(), (decoded as ExportFormat.Decoded.Success).document)
+        }
+
+    /**
+     * The real limit, against a file that never ends: a `{` and then whitespace for ever, which
+     * the version pass would otherwise walk until the heap or the disk gave out. It stops at the
+     * limit, having built nothing, and says why.
+     */
+    @Test
+    fun `a stream that never ends is refused at the real limit`() {
+        val decoded = ExportFormat.decode { EndlessObject() }
+
+        assertEquals(refusal(ImportError.DocumentTooLarge(limitBytes = ExportFormat.MAX_DOCUMENT_BYTES)), decoded)
+    }
+
+    /**
      * The scale the app commits to, through the decoder: 50,000 sets, written to a file by the
      * streaming writer and read back off it.
      *
@@ -226,6 +284,12 @@ class ExportFormatDecodeTest {
                 "a ${file.length()}-byte fixture is too small to say anything about a phone's heap",
                 file.length() > MIN_MEANINGFUL_BYTES,
             )
+            // The size limit has to leave a real history room to grow: MAX_DOCUMENT_BYTES claims
+            // about four times this, and a format change that ate the headroom should say so here.
+            assertTrue(
+                "a target-scale export of ${file.length()} bytes leaves too little room under the limit",
+                file.length() * TARGET_SCALE_HEADROOM <= ExportFormat.MAX_DOCUMENT_BYTES,
+            )
         }
 
     /**
@@ -244,6 +308,34 @@ class ExportFormatDecodeTest {
         override fun open(): InputStream {
             opened++
             return text.byteInputStream()
+        }
+    }
+
+    /** `{` followed by spaces, without end. Bulk reads fill the whole buffer, as a file would. */
+    private class EndlessObject : InputStream() {
+        private var opened = false
+
+        override fun read(): Int =
+            if (opened) {
+                ' '.code
+            } else {
+                opened = true
+                '{'.code
+            }
+
+        override fun read(
+            buffer: ByteArray,
+            offset: Int,
+            length: Int,
+        ): Int {
+            if (length == 0) return 0
+            var start = offset
+            if (!opened) {
+                buffer[start++] = '{'.code.toByte()
+                opened = true
+            }
+            buffer.fill(' '.code.toByte(), start, offset + length)
+            return length
         }
     }
 
@@ -312,11 +404,14 @@ class ExportFormatDecodeTest {
         /**
          * The size the scale test would mean nothing under, in bytes.
          *
-         * 50,000 sets encode to roughly 10 MB, so a megabyte is a floor the fixture clears by an
+         * 50,000 sets encode to roughly 15 MB, so a megabyte is a floor the fixture clears by an
          * order of magnitude — loose enough that a column dropped from `workout_set` cannot fail
          * it, tight enough that a fixture which silently stopped being generated would.
          */
         const val MIN_MEANINGFUL_BYTES = 1_000_000L
+
+        /** How many target-scale exports must fit under [ExportFormat.MAX_DOCUMENT_BYTES]. */
+        const val TARGET_SCALE_HEADROOM = 4L
 
         /** What [FailingStream] says when it gives up, asserted by the test that uses it. */
         const val CARD_REMOVED = "the card was removed"

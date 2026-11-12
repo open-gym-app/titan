@@ -39,6 +39,20 @@ import com.titan.core.domain.model.WorkoutSet
  * every later insert fails; an id of zero or below is one the draft of a workout refuses to be
  * built around; a session dated before 1970 opens an all-time chart of millions of weeks.
  *
+ * And two rules of the same kind that are about shape rather than range:
+ *
+ * - **At most one session in progress.** The app holds that invariant on every start
+ *   (`StartSessionUseCase`), and an export only ever carries the one it had. A file with two
+ *   would restore a device where resume picks one by `last_active_at` and the other stays
+ *   open, uncounted and unfinishable, for good.
+ * - **Well-formed text in every text column a unique key covers.** This compares keys as
+ *   Kotlin strings, which are UTF-16, and SQLite's index compares the UTF-8 it stores. For
+ *   well-formed text the two agree, since the encodings map one to one. For a string holding
+ *   an unpaired surrogate — which JSON can spell as `\ud800` — they do not: SQLite's own
+ *   conversion pairs a lone high surrogate with whatever follows it, so two names that differ
+ *   here can be one name there, pass this check and then fail the insert. Refusing the
+ *   ill-formed string is what keeps the check and the index agreeing.
+ *
  * Not checked: every invariant docs/PERSISTENCE.md says lives in the domain rather than the
  * schema — `SetValidator`'s value bounds, dense set numbering, the superset rules,
  * `BodyMeasurementValidator`'s all-null rule, and whether an enum-like column holds a name this
@@ -75,6 +89,8 @@ object BackupValidator {
             ?: rowIdRanges(document)
             ?: timestampRanges(document)
             ?: setRanges(document)
+            ?: sessionsInProgress(document)
+            ?: textKeys(document)
 
     /**
      * The largest row id a file may carry: 2^53.
@@ -269,6 +285,68 @@ object BackupValidator {
             Column(BackupTable.WORKOUT_SET, "rpe") { document.workoutSet.map { it.rpe?.toLong() } },
         )
 
+    /** No more than one `workout_session` with `is_in_progress` set. */
+    private fun sessionsInProgress(document: ExportDocument): ImportError.ConstraintViolation? {
+        val inProgress = document.workoutSession.filter { it.isInProgress }
+        if (inProgress.size <= 1) return null
+        return ImportError.ConstraintViolation(
+            "workout_session holds ${inProgress.size} sessions in progress, ids " +
+                "${inProgress[0].id} and ${inProgress[1].id} among them; at most one may be",
+        )
+    }
+
+    /**
+     * Every text column a primary key or unique index covers, free of unpaired surrogates.
+     *
+     * A nullable column's null is skipped: it is the absence of text, not ill-formed text.
+     */
+    private fun textKeys(document: ExportDocument): ImportError.ConstraintViolation? {
+        val exercises = document.exercise
+        return listOf(
+            TextColumn(BackupTable.MUSCLE_GROUP, "name") { document.muscleGroup.map { it.name } },
+            TextColumn(BackupTable.TAG, "name") { document.tag.map { it.name } },
+            TextColumn(BackupTable.EXERCISE, "name") { exercises.map { it.name } },
+            TextColumn(BackupTable.EXERCISE, "equipment_type") { exercises.map { it.equipmentType } },
+            TextColumn(BackupTable.EXERCISE, "machine_brand") { exercises.map { it.machineBrand } },
+            TextColumn(BackupTable.ACHIEVEMENT, "achievement_id") { document.achievement.map { it.achievementId } },
+            TextColumn(BackupTable.QUEST_COMPLETION, "quest_id") { document.questCompletion.map { it.questId } },
+        ).firstNotNullOfOrNull { column ->
+            val row = column.values().indexOfFirst { it != null && !it.isWellFormedUtf16() }
+            if (row < 0) {
+                null
+            } else {
+                // The value itself is left out of the message: it is the one string in the file
+                // known not to be printable, and a log line is where it would be printed.
+                ImportError.ConstraintViolation(
+                    "${column.table.tableName}.${column.name} of row ${row + 1} holds an unpaired " +
+                        "surrogate, which SQLite would not store as written",
+                )
+            }
+        }
+    }
+
+    /**
+     * Whether every surrogate in this string is half of a pair, which is what makes its UTF-8
+     * encoding — the form SQLite stores and compares — a faithful copy of it.
+     */
+    private fun String.isWellFormedUtf16(): Boolean {
+        var index = 0
+        while (index < length) {
+            val char = this[index]
+            when {
+                char.isHighSurrogate() -> {
+                    if (index + 1 >= length || !this[index + 1].isLowSurrogate()) return false
+                    index += 2
+                }
+
+                char.isLowSurrogate() -> return false
+
+                else -> index++
+            }
+        }
+        return true
+    }
+
     /**
      * The first value in [columns] outside [range], as a violation naming its column, or null.
      *
@@ -376,6 +454,13 @@ object BackupValidator {
         val table: BackupTable,
         val name: String,
         val values: () -> List<Long?>,
+    )
+
+    /** One text column of the document, read the same way as [Column]. */
+    private class TextColumn(
+        val table: BackupTable,
+        val name: String,
+        val values: () -> List<String?>,
     )
 
     /** One foreign key of the schema: which table points at which, through which column. */

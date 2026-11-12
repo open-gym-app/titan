@@ -2,6 +2,7 @@ package com.titan.core.data.repository
 
 import android.database.sqlite.SQLiteException
 import androidx.room.withTransaction
+import androidx.sqlite.db.SimpleSQLiteQuery
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.di.IoDispatcher
 import com.titan.core.data.mapper.toEntity
@@ -83,11 +84,23 @@ class BackupRepositoryImpl @Inject constructor(
     override suspend fun rowCounts(): Map<BackupTable, Long> =
         withContext(ioDispatcher) {
             BackupTable.entries.associateWith { table ->
-                database.query("SELECT COUNT(*) FROM `${table.tableName}`", emptyArray()).use { cursor ->
-                    if (cursor.moveToFirst()) cursor.getLong(0) else 0L
-                }
+                dao.count(SimpleSQLiteQuery("SELECT COUNT(*) FROM `${table.tableName}`"))
             }
         }
+
+    /**
+     * A Room transaction around [block], which is what gives every read in it one snapshot.
+     *
+     * Room opens it on the writer connection, so it also holds back the app's writes until
+     * [block] returns. That is more than a snapshot needs, and it is what Room's transaction
+     * gives over the platform database. Readers on Room's other connections are not held back,
+     * so every screen keeps drawing while an export runs; a write waits for the export to
+     * finish, seconds at the target scale, and is not lost.
+     *
+     * Every DAO call inside is a `suspend` call, so Room routes it onto the thread holding the
+     * transaction even from inside the `withContext` each read here switches to.
+     */
+    override suspend fun <T> readConsistently(block: suspend () -> T): T = database.withTransaction { block() }
 
     override suspend fun readPage(
         table: BackupTable,

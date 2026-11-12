@@ -21,6 +21,14 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
     /** Every `(table, offset, limit)` [readPage] was asked for, in order. */
     val pageRequests = mutableListOf<PageRequest>()
 
+    /** Whether a [readConsistently] block is running — what a real transaction would be holding. */
+    var inReadTransaction = false
+        private set
+
+    /** How many [rowCounts] and [readPage] calls arrived with no [readConsistently] around them. */
+    var readsOutsideTransaction = 0
+        private set
+
     /** The document [replaceAll] was last handed, or null if it has never been called. */
     var replaced: ExportDocument? = null
         private set
@@ -31,8 +39,13 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
     /** Appended to as the fake is driven, when a test needs the order of two repositories' calls. */
     var timeline: MutableList<String>? = null
 
-    override suspend fun rowCounts(): Map<BackupTable, Long> =
-        BackupTable.entries.associateWith { stored.rows(it).size.toLong() }
+    /** Run as [replaceAll] begins, before anything is written — to look at the world as it starts. */
+    var onReplaceAll: (suspend () -> Unit)? = null
+
+    override suspend fun rowCounts(): Map<BackupTable, Long> {
+        if (!inReadTransaction) readsOutsideTransaction++
+        return BackupTable.entries.associateWith { stored.rows(it).size.toLong() }
+    }
 
     override suspend fun readPage(
         table: BackupTable,
@@ -40,7 +53,17 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
         limit: Int,
     ): List<BackupRow> {
         pageRequests += PageRequest(table, offset, limit)
+        if (!inReadTransaction) readsOutsideTransaction++
         return stored.rows(table).drop(offset).take(limit)
+    }
+
+    override suspend fun <T> readConsistently(block: suspend () -> T): T {
+        inReadTransaction = true
+        return try {
+            block()
+        } finally {
+            inReadTransaction = false
+        }
     }
 
     override suspend fun replaceAll(
@@ -48,6 +71,7 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
         onTableWritten: suspend (BackupTable, Long) -> Unit,
     ) {
         timeline?.add(REPLACE_ALL)
+        onReplaceAll?.invoke()
         replaceFailure?.let { throw it }
         var written = 0L
         for (table in BackupTable.entries) {

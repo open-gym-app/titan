@@ -17,6 +17,9 @@ import com.titan.core.data.db.sessionExercise
 import com.titan.core.data.db.template
 import com.titan.core.data.db.workoutSet
 import com.titan.core.data.di.DATABASE_NAME
+import com.titan.core.domain.backup.BackupLock
+import com.titan.core.domain.backup.ExportFormat
+import com.titan.core.domain.backup.ExportSink
 import com.titan.core.domain.model.ActiveExercise
 import com.titan.core.domain.model.ActiveSession
 import com.titan.core.domain.model.ActiveSet
@@ -27,11 +30,17 @@ import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.notification.ReminderScheduler
+import com.titan.core.domain.usecase.ExportUseCase
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -46,6 +55,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -283,6 +293,88 @@ class LocalDataRepositoryImplTest {
             assertEquals(SessionState.Idle, sessionStateRepository.observe().first())
         }
 
+    /**
+     * The weekly backup and a delete-all used to be free to interleave: the backup paging the
+     * history while the wipe cleared it under it (#257). They share `BackupLock` now — the
+     * export below is the one `BackupWorker` runs, with the lock it takes by default — so the
+     * wipe waits until the file is whole, and the file holds the history from before it.
+     */
+    @Test
+    fun `deleteAll waits for an export that is writing, which keeps the history from before it`() =
+        runBlocking {
+            seedUserData()
+            sessionStateRepository.update(SessionState.Active(sessionId = 7, startedAt = 1_000))
+            val export = ExportUseCase(
+                backupRepository = BackupRepositoryImpl(db, Dispatchers.IO),
+                userPreferencesRepository = userPreferencesRepository,
+            )
+            val exportStarted = CompletableDeferred<Unit>()
+            val exportMayFinish = CountDownLatch(1)
+            val text = StringBuilder()
+
+            val exporting = launch(Dispatchers.IO) {
+                val sink = ExportSink { chunk ->
+                    exportStarted.complete(Unit)
+                    // Blocking, on the thread holding the read transaction: the export is
+                    // mid-document and stays there until the test lets it go.
+                    exportMayFinish.await()
+                    text.append(chunk)
+                }
+                export(sink, "1.0-test").collect()
+            }
+            exportStarted.await()
+            val deleting = launch(Dispatchers.IO) { repository.deleteAll() }
+            val stateWhileExporting = try {
+                delay(WAIT_FOR_A_WIPE_MS)
+                deleting.isActive to sessionStateRepository.observe().first()
+            } finally {
+                // Released whatever the assertions below say, so a failure reports rather than
+                // leaving the export blocked and the test hanging on it.
+                exportMayFinish.countDown()
+            }
+            exporting.join()
+            deleting.join()
+
+            assertTrue("the wipe should have been waiting for the export", stateWhileExporting.first)
+            assertEquals(
+                "the wipe must not have started — not even on the session state",
+                SessionState.Active(sessionId = 7, startedAt = 1_000),
+                stateWhileExporting.second,
+            )
+
+            val exported = (ExportFormat.decode { text.toString().byteInputStream() } as ExportFormat.Decoded.Success)
+            assertEquals("the file holds the history from before the wipe", 1, exported.document.workoutSession.size)
+            assertEquals(DataFootprint(templates = DEFAULT_TEMPLATES), repository.observeFootprint().first())
+        }
+
+    /** The wait is the one part of a wipe that may be abandoned, and abandoning it deletes nothing. */
+    @Test
+    fun `a deleteAll cancelled while it waits for a backup deletes nothing`() =
+        runBlocking {
+            seedUserData()
+            val before = repository.observeFootprint().first()
+            val holding = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val backup = launch {
+                BackupLock.SHARED.exclusively {
+                    holding.complete(Unit)
+                    release.await()
+                }
+            }
+            holding.await()
+
+            try {
+                val deleting = launch(Dispatchers.IO) { repository.deleteAll() }
+                delay(WAIT_FOR_A_WIPE_MS)
+                deleting.cancelAndJoin()
+            } finally {
+                release.complete(Unit)
+            }
+            backup.join()
+
+            assertEquals(before, repository.observeFootprint().first())
+        }
+
     @Test
     fun `a wipe is idempotent`() =
         runBlocking {
@@ -307,6 +399,12 @@ class LocalDataRepositoryImplTest {
 
         /** What the seed puts in `workout_template` before the user has done anything. */
         val DEFAULT_TEMPLATES = DefaultTemplates.all.size
+
+        /**
+         * How long a test gives a wipe that should be waiting to show it is not: long enough
+         * for one that was not held back to have reset the session state many times over.
+         */
+        const val WAIT_FOR_A_WIPE_MS = 300L
     }
 
     /** One row of every kind the footprint counts. */

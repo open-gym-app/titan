@@ -200,7 +200,7 @@
     <string name="backup_auto_failed">The last automatic backup did not finish, after several attempts. It will try again on the next run.</string>
     <string name="backup_auto_save_failed">That switch could not be saved. Try again.</string>
     <!-- The one sentence in this section a user must not miss; see AutoBackupSection. -->
-    <string name="backup_auto_uninstall">Automatic backups are kept in Titan\'s own storage, so they are deleted if you uninstall the app. Export and save a copy for one that outlives it.</string>
+    <string name="backup_auto_uninstall">Automatic backups stay in Titan\'s own storage, even after you turn this off, until you uninstall the app. Export and save a copy for one that outlives it.</string>
 
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
@@ -210,19 +210,22 @@
     <string name="backup_restore_done">Restored %1$d rows. Everything on this device now comes from the file.</string>
 
     <!--
-      One message per ImportError. Each says what went wrong and, for the three that guarantee
+      One message per ImportError. Each says what went wrong and, for the five that guarantee
       it, that nothing on the device was touched — see BackupLabels.kt.
     -->
-    <string name="backup_error_malformed">That file is not an Titan backup, or it is damaged. Nothing on this device was changed.</string>
+    <string name="backup_error_malformed">That file is not a Titan backup, or it is damaged. Nothing on this device was changed.</string>
     <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
-    <string name="backup_error_constraint">That backup is incomplete — it refers to workouts it does not contain. Nothing on this device was changed.</string>
-    <string name="backup_error_io">The backup could not be read. If the restore had already started, your workouts are back but your settings may not be.</string>
+    <string name="backup_error_constraint">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Nothing on this device was changed.</string>
+    <string name="backup_error_io">The backup could not be read. Nothing on this device was changed.</string>
+    <string name="backup_error_too_large">That file is larger than any Titan backup (over %1$s), so it was not read. Nothing on this device was changed.</string>
+    <string name="backup_error_settings">Restored %1$d rows, but your settings could not be saved and may be back at their defaults. Check them in Settings.</string>
 
     <string name="backup_dismiss">Dismiss</string>
 
     <string name="backup_restore_dialog_title">Replace everything?</string>
     <string name="backup_restore_dialog_body">Restoring does not merge. Everything below is deleted and replaced by whatever the file holds.</string>
     <string name="backup_restore_dialog_body_empty">There is nothing logged on this device yet, so there is nothing to lose — the file\'s contents simply replace it.</string>
+    <string name="backup_restore_dialog_file">File: %1$s</string>
     <!-- The wipe resets settings; a restore replaces them with the file's. Not the same sentence. -->
     <string name="backup_restore_dialog_settings_line">every setting, replaced by the file\'s</string>
     <string name="backup_restore_dialog_word">RESTORE</string>

@@ -123,6 +123,27 @@ class AutoBackupFilesTest {
         assertEquals(emptyList<String>(), files.existing().map { it.name })
     }
 
+    /**
+     * A run killed between writing its scratch file and renaming it leaves a partial backup the
+     * size of the history, and the next run only reuses the name if it falls on the same day.
+     * Pruning takes those with it (#257) — this feature's own, and nothing else's: the manual
+     * export's scratch file may be one the backup screen is writing right now.
+     */
+    @Test
+    fun `pruning deletes the scratch files a killed run left, and no one else's`() {
+        write("titan-auto-2026-04-19.json.tmp")
+        write("titan-auto-2026-04-26.json")
+        write("titan-backup-2026-04-26-1432.json.tmp")
+        write("notes.tmp")
+
+        assertEquals(1, files.prune(keep = 3))
+
+        assertEquals(
+            listOf("notes.tmp", "titan-auto-2026-04-26.json", "titan-backup-2026-04-26-1432.json.tmp"),
+            files.directory.list().orEmpty().sorted(),
+        )
+    }
+
     /** Fewer than the limit is not a reason to delete anything, and neither is an empty directory. */
     @Test
     fun `pruning under the limit deletes nothing`() {

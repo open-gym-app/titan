@@ -7,6 +7,7 @@ import com.titan.core.data.db.DatabaseSeed
 import com.titan.core.data.db.TitanDatabase
 import com.titan.core.data.di.DATABASE_NAME
 import com.titan.core.data.di.IoDispatcher
+import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.model.DataFootprint
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.notification.ReminderScheduler
@@ -15,6 +16,7 @@ import com.titan.core.domain.repository.LocalDataRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.usecase.SessionLifecycleLock
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
@@ -60,6 +62,18 @@ import kotlin.time.Duration.Companion.seconds
  *    thing to lose and the least alarming to keep: a wipe that dies before this leaves a user
  *    with the right units and no history, which is strictly better than the reverse.
  *
+ * ### It waits for a backup, and holds back session transitions
+ *
+ * The whole wipe runs under [BackupLock], so it neither lands in the middle of an export —
+ * manual or the weekly one, which would write a file that is half the history and half the
+ * wipe — nor between a restore's rows and its settings. It also holds [SessionLifecycleLock]
+ * from the session reset to the end of the wipe, so a session started from a notification in
+ * that window cannot be inserted into tables that are about to be cleared, or survive them in
+ * the session state.
+ *
+ * Both are taken before anything is touched, and the wait for them can be cancelled: a delete
+ * whose screen goes away while a backup is still writing has deleted nothing.
+ *
  * ### The catalogue is put back, not spared
  *
  * `clearAllTables` is all-or-nothing over every registered entity, so the seeded exercise
@@ -94,6 +108,14 @@ class LocalDataRepositoryImpl @Inject constructor(
      * the same database, and a constructor that takes both invites the day they are not.
      */
     private val localDataDao get() = database.localDataDao()
+
+    /*
+     * The process-wide instances rather than constructor parameters, for the reason
+     * `SessionUseCaseModule` gives for the use cases: the lock's identity is the domain's
+     * invariant, and binding it in the graph would make it something a module could replace.
+     */
+    private val backupLock = BackupLock.SHARED
+    private val sessionLock = SessionLifecycleLock.SHARED
 
     /**
      * The six counts, as one value, and never at the cost of the flow itself.
@@ -162,33 +184,43 @@ class LocalDataRepositoryImpl @Inject constructor(
      * library, or with its history gone and every setting kept, and in both cases with nothing
      * said to anyone. Every other operation in this class is worth abandoning when its screen
      * leaves; the irreversible one is not.
+     *
+     * The locks are taken outside it, so waiting for them is the one part that can still be
+     * abandoned — see the class doc.
      */
     override suspend fun deleteAll() {
-        withContext(ioDispatcher + NonCancellable) {
-            sessionStateRepository.update(SessionState.Idle)
-            inProgressSessionRepository.clear()
-            // And the half-built template, for the same reason: it names a template id that is
-            // about to stop existing, and a draft left behind would be restored over the next
-            // template the user opens.
-            templateDraftRepository.clear()
-            database.clearAllTables()
-            // Through Room's transaction rather than straight at the writable database:
-            // `clearAllTables` notifies the invalidation tracker that the catalogue emptied,
-            // and a raw `beginTransaction` on the support database would not notify it that
-            // the seed came back — leaving any live query over `exercise` (an exercise-library
-            // screen further down the back stack) showing an empty catalogue until some
-            // unrelated write refreshed it.
-            database.withTransaction {
-                DatabaseSeed.insertInto(database.openHelper.writableDatabase, context)
+        backupLock.exclusively {
+            sessionLock.withTransition {
+                withContext(ioDispatcher + NonCancellable) { wipe() }
             }
-            userPreferencesRepository.clear()
-            // And the alarms the settings had pointed at. `clear()` puts the reminder
-            // preferences back to their defaults — which include the switch being *off* — so
-            // without this a wiped phone goes on buzzing at 18:00 on Mondays for a reminder
-            // its own settings screen reports as turned off. `sync` re-reads the store it has
-            // just been emptied and takes down everything it does not want.
-            reminderScheduler.sync()
         }
+    }
+
+    /** The wipe itself, in the order the class doc gives. */
+    private suspend fun wipe() {
+        sessionStateRepository.update(SessionState.Idle)
+        inProgressSessionRepository.clear()
+        // And the half-built template, for the same reason: it names a template id that is
+        // about to stop existing, and a draft left behind would be restored over the next
+        // template the user opens.
+        templateDraftRepository.clear()
+        database.clearAllTables()
+        // Through Room's transaction rather than straight at the writable database:
+        // `clearAllTables` notifies the invalidation tracker that the catalogue emptied,
+        // and a raw `beginTransaction` on the support database would not notify it that
+        // the seed came back — leaving any live query over `exercise` (an exercise-library
+        // screen further down the back stack) showing an empty catalogue until some
+        // unrelated write refreshed it.
+        database.withTransaction {
+            DatabaseSeed.insertInto(database.openHelper.writableDatabase, context)
+        }
+        userPreferencesRepository.clear()
+        // And the alarms the settings had pointed at. `clear()` puts the reminder
+        // preferences back to their defaults — which include the switch being *off* — so
+        // without this a wiped phone goes on buzzing at 18:00 on Mondays for a reminder
+        // its own settings screen reports as turned off. `sync` re-reads the store it has
+        // just been emptied and takes down everything it does not want.
+        reminderScheduler.sync()
     }
 
     /**

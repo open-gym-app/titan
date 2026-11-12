@@ -1,5 +1,7 @@
 package com.titan.feature.settings.backup.component
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -26,19 +28,23 @@ import com.titan.feature.settings.component.TypedConfirmationDialog
  * would read as a bug, and the friction comes from having to *read* rather than from the word
  * being alarming.
  *
- * ### What it does not say
+ * ### It names the file
  *
- * Which file was picked. The system picker showed it a moment ago and this dialog is about the
- * consequence, not the source; naming a document the app has not opened yet would be claiming
- * to have read it.
+ * The name the file's provider gives, above what it will replace. The picker showed it a moment
+ * ago, but this is the last thing between the user and a wipe, and "that is last year's backup"
+ * is a mistake a name catches and a footprint does not. It is the provider's name, not the
+ * file's contents — nothing has been read yet — so it says "File", not what is in it.
  *
  * @param footprint what is on the device now — the same numbers the screen's own card shows,
  *   which is what makes the dialog specific rather than a generic warning.
+ * @param documentName what the provider calls the chosen file, already made safe to draw, or
+ *   null while it has not said; the line is left out until then.
  * @param isRestoring the restore is running. The dialog stays up and inert until it is over.
  */
 @Composable
 fun RestoreConfirmationDialog(
     footprint: DataFootprint,
+    documentName: String?,
     isRestoring: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
@@ -59,6 +65,13 @@ fun RestoreConfirmationDialog(
         onDismiss = onDismiss,
         modifier = modifier,
     ) {
+        if (documentName != null) {
+            Text(
+                text = stringResource(R.string.backup_restore_dialog_file, documentName),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         FootprintList(
             footprint = footprint,
             settingsLine = stringResource(R.string.backup_restore_dialog_settings_line),

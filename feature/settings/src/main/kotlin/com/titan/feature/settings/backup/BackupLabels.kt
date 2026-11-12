@@ -1,6 +1,8 @@
 package com.titan.feature.settings.backup
 
+import android.text.format.Formatter
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.titan.core.domain.backup.AutoBackupSchedule
 import com.titan.core.domain.backup.model.ImportError
@@ -14,7 +16,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 
 /*
- * How the backup screen's values read: the four refusals, the two figures and the date.
+ * How the backup screen's values read: the six refusals, the two figures and the date.
  *
  * Together in one file because they are one job — turning a domain value into words — and
  * because `BackupScreen.kt` is a screen rather than a phrasebook.
@@ -23,10 +25,10 @@ import java.time.ZoneId
 /**
  * What each way a restore can be refused says to the user.
  *
- * A `when` over the sealed [ImportError] rather than a mapping table, so a fifth failure added
- * to the domain does not compile until somebody has decided what it reads as. That is the
- * whole reason `RestoreOutcome.Failed` carries the domain's own type instead of a message
- * enum: "import failed" for four different causes is not an error state, and two of the four
+ * A `when` over the sealed [ImportError] rather than a mapping table, so a seventh failure
+ * added to the domain does not compile until somebody has decided what it reads as. That is
+ * the whole reason `RestoreOutcome.Failed` carries the domain's own type instead of a message
+ * enum: "import failed" for six different causes is not an error state, and three of the six
  * carry numbers the user needs to see.
  *
  * None of them quotes the technical detail the error also carries — a parser offset, a column
@@ -34,13 +36,18 @@ import java.time.ZoneId
  * their backup has just been refused; the reasons are still on the error object for whoever
  * logs it.
  *
- * Every message ends by saying the device was **not** changed, except the one where that may
- * be untrue. `ImportError.IoFailure` is the only failure that can leave work done — the rows
- * restored and the settings not — so it is the only one that does not promise otherwise.
+ * Every message but one says the device was **not** changed. The exception is
+ * `ImportError.SettingsNotRestored`, the one failure that leaves work done — the rows restored
+ * and the settings not — and it says exactly that, rather than either promise.
  */
 @Composable
 internal fun ImportError.message(): String =
     when (this) {
+        is ImportError.DocumentTooLarge -> stringResource(
+            R.string.backup_error_too_large,
+            Formatter.formatShortFileSize(LocalContext.current, limitBytes),
+        )
+
         is ImportError.MalformedJson -> stringResource(R.string.backup_error_malformed)
 
         is ImportError.UnsupportedSchemaVersion ->
@@ -49,6 +56,8 @@ internal fun ImportError.message(): String =
         is ImportError.ConstraintViolation -> stringResource(R.string.backup_error_constraint)
 
         is ImportError.IoFailure -> stringResource(R.string.backup_error_io)
+
+        is ImportError.SettingsNotRestored -> stringResource(R.string.backup_error_settings, rowsRestored)
     }
 
 /**

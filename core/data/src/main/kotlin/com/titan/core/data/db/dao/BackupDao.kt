@@ -1,6 +1,8 @@
 package com.titan.core.data.db.dao
 
 import androidx.room.Dao
+import androidx.room.RawQuery
+import androidx.sqlite.db.SupportSQLiteQuery
 
 /**
  * Every whole-table read, insert and delete an export or an import needs, as one DAO.
@@ -28,4 +30,16 @@ interface BackupDao :
     TemplateBackupDao,
     HistoryBackupDao,
     ProgressionBackupDao,
-    GamificationBackupDao
+    GamificationBackupDao {
+
+    /**
+     * The single integer [query] selects — a `COUNT(*)` over one table, for an export's total.
+     *
+     * Raw, because the table is the argument and SQL cannot bind an identifier; a `suspend` DAO
+     * method rather than `RoomDatabase.query`, because an export counts inside the read
+     * transaction it pages in, and only a DAO call is routed onto the thread holding it. The
+     * raw `query` refuses to run from any other thread while a suspending transaction is open.
+     */
+    @RawQuery
+    suspend fun count(query: SupportSQLiteQuery): Long
+}

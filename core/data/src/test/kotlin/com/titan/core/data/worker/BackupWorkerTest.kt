@@ -12,6 +12,7 @@ import com.titan.core.data.db.CountingInProgressSessionRepository
 import com.titan.core.data.db.CountingTemplateDraftRepository
 import com.titan.core.data.db.InMemoryAutoBackupRepository
 import com.titan.core.data.db.InMemoryUserPreferencesRepository
+import com.titan.core.data.db.RecordingReminderScheduler
 import com.titan.core.data.db.RoomTestBase
 import com.titan.core.data.db.dumpEverything
 import com.titan.core.data.db.dumpTable
@@ -79,6 +80,7 @@ class BackupWorkerTest : RoomTestBase() {
             inProgressSessionRepository = CountingInProgressSessionRepository(),
             templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
+            reminderScheduler = RecordingReminderScheduler(),
         )
     }
 

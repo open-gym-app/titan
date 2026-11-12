@@ -189,7 +189,7 @@
     <string name="backup_auto_last">Última copia %1$s</string>
     <string name="backup_auto_failed">La última copia automática no terminó, tras varios intentos. Volverá a intentarlo en la próxima ejecución.</string>
     <string name="backup_auto_save_failed">No se pudo guardar ese interruptor. Inténtalo de nuevo.</string>
-    <string name="backup_auto_uninstall">Las copias automáticas se guardan en el almacenamiento propio de Titan, así que se eliminan si desinstalas la aplicación. Exporta y guarda una copia para tener una que sobreviva.</string>
+    <string name="backup_auto_uninstall">Las copias automáticas se quedan en el almacenamiento propio de Titan, incluso después de desactivar esta opción, hasta que desinstales la aplicación. Exporta y guarda una copia para tener una que sobreviva.</string>
 
     <string name="backup_restore_title">Restaurar</string>
     <string name="backup_restore_detail">Sustituye todo lo de este dispositivo por el contenido de un archivo de copia de seguridad. No fusiona ambos.</string>
@@ -201,14 +201,17 @@
     <!-- One message per ImportError. -->
     <string name="backup_error_malformed">Ese archivo no es una copia de seguridad de Titan, o está dañado. No se cambió nada en este dispositivo.</string>
     <string name="backup_error_version">Esa copia se escribió con la versión %1$d del formato y esta versión lee la %2$d. Actualiza Titan e inténtalo de nuevo. No se cambió nada en este dispositivo.</string>
-    <string name="backup_error_constraint">Esa copia está incompleta: hace referencia a entrenamientos que no contiene. No se cambió nada en este dispositivo.</string>
-    <string name="backup_error_io">No se pudo leer la copia de seguridad. Si la restauración ya había empezado, tus entrenamientos han vuelto pero puede que tus ajustes no.</string>
+    <string name="backup_error_constraint">Esa copia es incoherente: hace referencia a entrenamientos que no contiene o tiene valores que ninguna versión de Titan escribe. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_io">No se pudo leer la copia de seguridad. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_too_large">Ese archivo es más grande que cualquier copia de seguridad de Titan (más de %1$s), así que no se leyó. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_settings">Se restauraron %1$d filas, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</string>
 
     <string name="backup_dismiss">Cerrar</string>
 
     <string name="backup_restore_dialog_title">¿Sustituir todo?</string>
     <string name="backup_restore_dialog_body">Restaurar no fusiona. Todo lo de abajo se elimina y se sustituye por lo que contenga el archivo.</string>
     <string name="backup_restore_dialog_body_empty">Aún no hay nada registrado en este dispositivo, así que no hay nada que perder: el contenido del archivo simplemente ocupa su lugar.</string>
+    <string name="backup_restore_dialog_file">Archivo: %1$s</string>
     <string name="backup_restore_dialog_settings_line">cada ajuste, sustituido por el del archivo</string>
     <string name="backup_restore_dialog_word">RESTAURAR</string>
     <string name="backup_restore_dialog_confirm">Sustituir</string>

@@ -50,8 +50,8 @@ sealed interface ImportProgress {
 
     /**
      * The import was refused, or failed. See [ImportError] for what each case guarantees about
-     * the state of the database — every one of them but [ImportError.IoFailure] leaves it
-     * exactly as it was.
+     * the state of the database — every one of them but [ImportError.SettingsNotRestored]
+     * leaves it exactly as it was.
      */
     data class Failed(val error: ImportError) : ImportProgress
 }

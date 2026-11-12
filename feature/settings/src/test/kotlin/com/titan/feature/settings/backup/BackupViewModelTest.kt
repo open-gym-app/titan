@@ -15,6 +15,7 @@ import com.titan.core.domain.backup.model.ImportError
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.SetAutoBackupEnabledUseCase
+import com.titan.feature.settings.afterProcessDeath
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -33,6 +34,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
@@ -76,6 +78,10 @@ class BackupViewModelTest {
     private val backend = BackupTestBackend()
     private val viewModels = ViewModelStore()
     private val created = mutableListOf<BackupViewModel>()
+
+    /** Another app's documents provider, which is where every restore below reads from. */
+    private val documents: TestDocumentsProvider =
+        Robolectric.setupContentProvider(TestDocumentsProvider::class.java, TestDocumentsProvider.AUTHORITY)
 
     @Before
     fun setUpMainDispatcher() {
@@ -372,6 +378,166 @@ class BackupViewModelTest {
             assertTrue(!state.isBusy)
         }
 
+    // --- where a restore may read from (#257) --------------------------------
+
+    /** The confirmation names the file, in the provider's words, once the provider has said. */
+    @Test
+    fun `a picked document is named in the confirmation`() =
+        runTest {
+            val file = File(backupDirectory().apply { mkdirs() }, "any.json").apply { writeText("{}") }
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(
+                BackupEvent.RestoreFileChosen(documents.serve(file, "titan-backup-2026-09-06.json").toString()),
+            )
+
+            val named = viewModel.uiState.first { it.pendingRestoreName != null }
+            assertEquals("titan-backup-2026-09-06.json", named.pendingRestoreName)
+        }
+
+    /** A provider that does not say is named by the last segment of its URI, rather than not at all. */
+    @Test
+    fun `a document whose provider gives no name is named by its URI`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.RestoreFileChosen(SOME_URI))
+
+            assertEquals(
+                "titan-backup.json",
+                viewModel.uiState.first { it.pendingRestoreName != null }.pendingRestoreName,
+            )
+        }
+
+    /** A path is read with the app's own permissions, and no picker hands one back. */
+    @Test
+    fun `a file path is refused without opening the confirmation`() =
+        runTest {
+            val file = File(backupDirectory().apply { mkdirs() }, "local.json").apply { writeText("{}") }
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.RestoreFileChosen(Uri.fromFile(file).toString()))
+
+            assertRefusedLocation(viewModel)
+        }
+
+    /** The app's own provider serves its own files; a restore must not read the app through it. */
+    @Test
+    fun `a document the app's own provider serves is refused`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(
+                BackupEvent.RestoreFileChosen("content://${context.packageName}.fileprovider/backups/x.json"),
+            )
+
+            assertRefusedLocation(viewModel)
+        }
+
+    /** A cross-profile URI puts a user id before the authority; it does not hide whose it is. */
+    @Test
+    fun `the app's own authority behind a user prefix is refused`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.RestoreFileChosen("content://10@${context.packageName}.fileprovider/x.json"))
+
+            assertRefusedLocation(viewModel)
+        }
+
+    /**
+     * The URI comes back from saved state as well as from the picker, so the restore checks it
+     * again rather than trusting the check at the pick.
+     */
+    @Test
+    fun `a refused location restored from saved state is refused at the confirmation`() =
+        runTest {
+            backend.seedOneSession()
+            val file = File(backupDirectory().apply { mkdirs() }, "local.json").apply { writeText("{}") }
+            val served = documents.serve(file).toString()
+            val savedState = SavedStateHandle()
+            viewModel(savedState).onEvent(BackupEvent.RestoreFileChosen(served))
+            val tampered = savedState.afterProcessDeath().apply {
+                val key = keys().single()
+                set(key, get<String>(key)!!.replace(served, Uri.fromFile(file).toString()))
+            }
+
+            val restored = viewModel(tampered)
+            collect(restored)
+            restored.onEvent(BackupEvent.RestoreConfirmed)
+            val outcome = restored.uiState.first { it.lastRestore != null }.lastRestore
+
+            assertTrue("was $outcome", (outcome as RestoreOutcome.Failed).error is ImportError.IoFailure)
+            assertEquals(1, backend.sessionCount())
+        }
+
+    @Test
+    fun `the picked name survives process death with the file`() =
+        runTest {
+            val file = File(backupDirectory().apply { mkdirs() }, "any.json").apply { writeText("{}") }
+            val savedState = SavedStateHandle()
+            val first = viewModel(savedState)
+            collect(first)
+            first.onEvent(BackupEvent.RestoreFileChosen(documents.serve(file, "mine.json").toString()))
+            first.uiState.first { it.pendingRestoreName != null }
+
+            val restored = viewModel(savedState.afterProcessDeath())
+            collect(restored)
+
+            assertEquals("mine.json", restored.uiState.first { it.pendingRestoreUri != null }.pendingRestoreName)
+        }
+
+    /** A restore resets the reminder with the settings, so the alarms are re-synced behind it. */
+    @Test
+    fun `a restore re-syncs the reminder alarms`() =
+        runTest {
+            backend.seedOneSession()
+            val viewModel = viewModel()
+            collect(viewModel)
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val exported = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
+
+            restore(viewModel, backupFile(exported.fileName))
+            viewModel.uiState.first { it.lastRestore != null }
+
+            assertEquals(1, backend.reminders.syncs)
+        }
+
+    // --- the name a confirmation draws ------------------------------------
+
+    @Test
+    fun `a plain name is drawn as it is`() {
+        assertEquals("titan-backup-2026-09-06-1432.json", displayableDocumentName("titan-backup-2026-09-06-1432.json"))
+    }
+
+    /** U+202E would draw `titan‮nosj.exe` as `titanexe.json`. */
+    @Test
+    fun `direction overrides and control characters are dropped`() {
+        assertEquals("titannosj.exe", displayableDocumentName("titan\u202Enosj.exe"))
+        assertEquals("ab.json", displayableDocumentName("a\u0000b\n.json"))
+    }
+
+    @Test
+    fun `a name with nothing drawable left is no name`() {
+        assertNull(displayableDocumentName("\u200E\u202E  "))
+        assertNull(displayableDocumentName(null))
+    }
+
+    @Test
+    fun `a long name is cut short with an ellipsis, never through a surrogate pair`() {
+        val long = "a".repeat(MAX_DOCUMENT_NAME_LENGTH - 2) + "\uD83D\uDCAA" + "b".repeat(20)
+
+        val drawn = displayableDocumentName(long)!!
+
+        assertEquals(MAX_DOCUMENT_NAME_LENGTH - 1, drawn.length)
+        assertTrue(drawn, drawn.endsWith("a…"))
+    }
+
     @Test
     fun `dismissing an outcome clears both of them`() =
         runTest {
@@ -499,13 +665,29 @@ class BackupViewModelTest {
 
     // --- helpers ----------------------------------------------------------
 
-    /** Picks [file] and confirms, which is what the dialog does once the word has been typed. */
+    /**
+     * Picks [file] and confirms, which is what the dialog does once the word has been typed.
+     *
+     * Through [documents], because a restore reads only from another app's provider: the
+     * picker's URI, never a path.
+     */
     private fun restore(
         viewModel: BackupViewModel,
         file: File,
     ) {
-        viewModel.onEvent(BackupEvent.RestoreFileChosen(Uri.fromFile(file).toString()))
+        viewModel.onEvent(BackupEvent.RestoreFileChosen(documents.serve(file).toString()))
         viewModel.onEvent(BackupEvent.RestoreConfirmed)
+    }
+
+    /** No confirmation, and a failure that says the file could not be read. */
+    private suspend fun assertRefusedLocation(viewModel: BackupViewModel) {
+        val state = viewModel.uiState.first { it.lastRestore != null }
+        assertNull("no confirmation should open", state.pendingRestoreUri)
+        assertTrue(
+            "was ${state.lastRestore}",
+            (state.lastRestore as RestoreOutcome.Failed).error is ImportError.IoFailure,
+        )
+        assertEquals(BackupPhase.Idle, state.phase)
     }
 
     private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()): BackupViewModel {
@@ -528,6 +710,7 @@ class BackupViewModelTest {
                 inProgressSessionRepository = backend.draft,
                 templateDraftRepository = backend.templateDraft,
                 sessionStateRepository = backend.sessionState,
+                reminderScheduler = backend.reminders,
             ),
             setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
                 autoBackupRepository = backend.autoBackup,

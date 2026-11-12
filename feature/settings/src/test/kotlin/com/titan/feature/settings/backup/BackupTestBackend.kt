@@ -20,6 +20,7 @@ import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.BackupRepository
@@ -67,6 +68,7 @@ class BackupTestBackend {
     val sessionState = InMemorySessionState()
     val autoBackup = InMemoryAutoBackupSchedule()
     val scheduler = RecordingAutoBackupScheduler()
+    val reminders = RecordingReminderScheduler()
 
     /** The document currently "in the database". */
     val document: ExportDocument get() = stored.value
@@ -81,6 +83,8 @@ class BackupTestBackend {
             offset: Int,
             limit: Int,
         ): List<BackupRow> = stored.value.rows(table).drop(offset).take(limit)
+
+        override suspend fun <T> readConsistently(block: suspend () -> T): T = block()
 
         override suspend fun replaceAll(
             document: ExportDocument,
@@ -352,4 +356,16 @@ class InMemorySessionState : SessionStateRepository {
     }
 
     val current: SessionState get() = state.value
+}
+
+/** The reminder alarms, counting the re-syncs a restore asks for once the settings are in. */
+class RecordingReminderScheduler : ReminderScheduler {
+    var syncs = 0
+        private set
+
+    override suspend fun sync() {
+        syncs++
+    }
+
+    override fun isExact(): Boolean = true
 }

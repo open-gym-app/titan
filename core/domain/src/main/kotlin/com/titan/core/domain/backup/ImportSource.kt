@@ -28,8 +28,10 @@ import java.io.InputStream
  *   a file in another encoding reads as mojibake rather than as an error.
  * - [open], and every read on what it returns, **block**. They happen on whatever context
  *   collects `ImportUseCase`'s flow, which adds no dispatcher of its own — so a collector on
- *   the main thread parses tens of megabytes on it. #38 owes that choice, exactly as it does on
- *   the export side.
+ *   the main thread parses tens of megabytes on it. The choice is the caller's, exactly as it
+ *   is on the export side; the backup screen collects on `Dispatchers.IO`.
+ * - The bytes are **counted**: `ExportFormat.decode` reads no more than
+ *   `ExportFormat.MAX_DOCUMENT_BYTES` of them, on either pass.
  * - A failure is **thrown**, not returned: an [java.io.IOException] from [open] or from a read
  *   is reported as `ImportError.IoFailure` with the database untouched, since the document is
  *   read before anything is written. Anything else is a bug and propagates.

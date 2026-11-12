@@ -98,7 +98,9 @@ defaulted on read, listed here.
 
 Not in the object: the notification switches and the reminder schedule. They are device state
 — a permission this phone was granted and alarms this phone has scheduled — and an import that
-wrote them would draw switches that are on with nothing behind them.
+wrote them would draw switches that are on with nothing behind them. A restore resets them to
+their defaults, as it resets every setting before writing the file's, and then re-syncs the
+reminder alarms (`ReminderScheduler.sync`), so no alarm outlives the reminder it was set for.
 
 ## What is in it, and what is not
 
@@ -173,19 +175,48 @@ class level.
 
 The two steps outside the transaction are the file read, which happens before anything is
 touched, and the settings write, which happens after the rows are committed — see
-`ImportError.IoFailure`.
+`ImportError.SettingsNotRestored`. Once the rows are committed the settings write cannot be
+cancelled: a screen closed at that moment does not leave the history restored and the settings
+half-written with nobody told.
+
+### Nothing else runs meanwhile
+
+Three operations take the whole of the user's data at once — an export (the manual one and the
+weekly automatic one, which run the same use case), a restore, and "delete all data" — and each
+is several steps over more than one store. They hold one process-wide lock, `BackupLock`, for
+their whole run, so none of them starts while another is between its steps: an export cannot
+read half a restore, nor a restored history beside the settings it is about to replace. A restore
+or a wipe started during the weekly backup waits for it to finish.
+
+A restore also holds `SessionLifecycleLock` — the lock every session transition takes — from
+resetting the live session to the end of the replace, so a session cannot be started, finished
+or resumed against rows that are being swapped out under it. "Delete all data" does the same.
+
+An export reads every table inside **one read transaction**
+(`BackupRepository.readConsistently`). Its pages are separate queries, and without it a write
+landing between two of them — a session added after `session_exercise` was paged and before
+`workout_set` was — would leave the file with sets whose parent it does not hold, which the next
+restore refuses. The transaction holds the app's writes back until the export ends, seconds at
+the target scale; a set logged in that time is saved when it does. `ExportSnapshotTest` pins it.
 
 ## What an import refuses
 
-Four typed failures, as `ImportError`. Every one but the last leaves the database **exactly** as
+Six typed failures, as `ImportError`. Every one but the last leaves the database **exactly** as
 it was.
 
 | Error | When | State afterwards |
 | --- | --- | --- |
+| `DocumentTooLarge` | The file runs past `ExportFormat.MAX_DOCUMENT_BYTES` (64 MiB) — see [Memory](#memory) | Untouched |
 | `MalformedJson` | Not JSON, or not shaped like a document — a missing required column, a string where a number belongs, a truncated file | Untouched |
-| `UnsupportedSchemaVersion` | `schema_version` is not this build's | Untouched |
+| `UnsupportedSchemaVersion` | `schema_version` is not this build's, on either of the two reads of the file | Untouched |
 | `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits, a value outside [the ranges the format accepts](#the-ranges-a-value-must-be-in) | Untouched. `BackupValidator` decides it before anything is cleared; on the rarer path where SQLite decides it instead, the transaction rolls back and every table is still untouched, but the live session and its draft — cleared before the transaction opens, deliberately — stay cleared |
-| `IoFailure` | A store other than the database could not be read or written — the file itself, the draft on the way in, the settings on the way out | Untouched if it was the file or the draft; rows restored and settings not if it was the settings, which is the only partial outcome and the reason it is reported rather than swallowed |
+| `IoFailure` | The file could not be read, or the draft could not be cleared before the transaction | Untouched |
+| `SettingsNotRestored` | The rows were committed and the settings write after them failed | Rows restored, settings at whatever the store held when it failed — the defaults, if the reset before the setters had landed. The only partial outcome, and the reason it is its own error rather than a refusal |
+
+The drafts are files and cannot join the transaction, so one of two windows has to exist. Clearing
+them before it, as the import does, loses a place in a workout when SQLite refuses what the
+validator did not; clearing them after it would leave a process death in between pointing a
+draft into a database that had been replaced under it. `ImportUseCaseTest` pins the order.
 
 `ConstraintViolation` is decided by checking the document **against itself, before the wipe**,
 which is possible only because import replaces: the file is the whole database afterwards, so
@@ -205,6 +236,8 @@ holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
 | `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
 | `workout_set.set_number`, `template_set.set_number` | `1` and up | Sets are numbered from 1; a set numbered 0 is one no screen can show as "set 0 of 3" |
 | `workout_set.rpe` | `null`, or `10` to `100` | The scale is RPE 1 to 10 in tenths, and it does not move |
+| `workout_session.is_in_progress` | `1` on at most one row | The app holds one session in progress at a time and an export only ever carries the one it had. A second restored one stayed open for good: resume picks one, and the other is never finished or counted |
+| The text columns a primary key or unique index covers: `muscle_group.name`, `tag.name`, `exercise.name`, `.equipment_type`, `.machine_brand`, `achievement.achievement_id`, `quest_completion.quest_id` | Well-formed text: no unpaired surrogate, which JSON can spell as a `\ud800` escape | The validator compares keys as the decoded strings and SQLite's index compares the UTF-8 it stores. SQLite's conversion pairs a lone high surrogate with whatever character follows it, so two names that differ in the file can be one name in the table: they passed the check and failed the insert, after the drafts had been cleared. Well-formed text encodes one to one, so the two comparisons agree. Text no index covers is not refused |
 
 ### What is repaired rather than refused
 
@@ -274,7 +307,10 @@ written for it and listed in the table above.
 
 `ExportFormat.decode` reads `schema_version` **before** interpreting anything else, so a file
 from a newer build is refused for the reason a user can act on rather than incidentally, by the
-decoder tripping over a table it has never heard of.
+decoder tripping over a table it has never heard of. It reads the file twice (see
+[Memory](#memory)), and checks the version the second read decoded as well: a provider owes
+nothing about serving the same bytes twice, and a file whose version changed between the two
+reads is refused for it.
 
 ### When to bump
 
@@ -311,6 +347,23 @@ off it, decode the document from it — held the text, a tree several times its 
 document all at once, which at 50,000 sets is hundreds of megabytes on a device that has 2 GB
 for everything. `ExportFormatDecodeTest` pins both halves: that the source is opened twice
 rather than read once into anything, and that a target-scale document decodes off a file.
+
+**A file is not trusted to be small.** Both reads count the bytes and stop at
+`ExportFormat.MAX_DOCUMENT_BYTES`, 64 MiB, refusing the file as `DocumentTooLarge`. A
+target-scale history is about 15 MB, so the limit is four times that — some 200,000 sets — and
+`ExportFormatDecodeTest` fails if the target scale stops fitting four times over. The decoded
+document takes about twice the file's size in heap, so a file past the limit is one no phone
+could hold anyway; refusing it by count costs a read and no memory, where decoding it ended in
+an out-of-memory error.
+
+## Where a restore reads from
+
+Only from a `content://` document another app's provider serves — what the system picker hands
+back. The backup screen refuses a `file://` path, which would be read with the app's own
+permissions, and a URI on any of the app's own authorities, which would be the app reading its
+own private files through a door meant for others. It checks when the file is picked and again
+when the restore is confirmed, since the URI can come back from saved state. The confirmation
+names the file in the provider's words, stripped of control and direction-override characters.
 
 ## Checking a file by hand
 

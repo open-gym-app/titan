@@ -21,6 +21,13 @@ import java.io.IOException
 /**
  * The weekly automatic backup: one export, written to `backups/` and pruned to three.
  *
+ * ### It shares a lock with restore and delete-all
+ *
+ * The export it runs holds `BackupLock` for the whole document, so a run that starts while the
+ * user is restoring or deleting everything waits for that to finish rather than writing a file
+ * that is half of each. The prune afterwards is outside the lock and touches only this
+ * feature's own files.
+ *
  * ### It is deliberately silent
  *
  * Nothing here posts a notification, on success or on failure, and it is not an omission. A
@@ -103,8 +110,8 @@ class BackupWorker @AssistedInject constructor(
             }
             if (!scratch.renameTo(destination)) throw IOException("could not move ${scratch.name} into place")
         }.onFailure {
-            // Best-effort: a scratch file that will not delete keeps its `.tmp` name, which
-            // retention ignores and no restore picker offers.
+            // Best-effort: a scratch file that will not delete keeps its `.tmp` name, which no
+            // restore picker offers and the next run's prune deletes.
             scratch.delete()
         }.getOrThrow()
 

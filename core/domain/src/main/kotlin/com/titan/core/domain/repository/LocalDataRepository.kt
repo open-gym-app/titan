@@ -54,6 +54,11 @@ interface LocalDataRepository {
      * user has been told what is lost and has said the word. Asking twice is the caller's
      * job — see #M4-23 — and this method's job is to leave nothing behind.
      *
+     * It waits for an export, a weekly backup or a restore that is running to finish before it
+     * touches anything, and session transitions wait for it in turn — see
+     * [com.titan.core.domain.backup.BackupLock]. A call cancelled while it waits has deleted
+     * nothing.
+     *
      * A wipe that fails throws, and the caller must surface it: silently leaving history on
      * a device the user has asked to clear is the one outcome this operation cannot have.
      * The exception is whatever the failing store raises — an [java.io.IOException] from the

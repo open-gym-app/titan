@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.backup.BackupConstraintException
+import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.BackupValidator
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ImportSource
@@ -10,14 +11,18 @@ import com.titan.core.domain.backup.model.ImportProgress
 import com.titan.core.domain.backup.model.PreferencesPayload
 import com.titan.core.domain.backup.toPreferences
 import com.titan.core.domain.model.SessionState
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.repository.BackupRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.withContext
 import java.io.IOException
 
 /**
@@ -30,35 +35,48 @@ import java.io.IOException
  * carries it. That is the whole semantics, and it is a choice rather than a limitation — a
  * merge needs a conflict rule per table, and two devices that both started from the same seeded
  * exercise library collide on ids that mean different rows. docs/export-schema.md has the
- * argument in full. Telling the user before the wipe happens is #38's job; this refuses
- * nothing on their behalf.
+ * argument in full. Telling the user before the wipe happens is the backup screen's
+ * confirmation; this refuses nothing on their behalf.
  *
  * ### The order, and what each step guarantees
  *
  * 1. **Parse and check the version.** [ExportFormat] streams the file for `schema_version`
  *    before it interprets anything else, so a file from a newer build is refused for the reason
- *    it should be rather than by the decoder tripping over a table it does not know.
+ *    it should be rather than by the decoder tripping over a table it does not know. It reads
+ *    no more than [ExportFormat.MAX_DOCUMENT_BYTES].
  * 2. **Validate the document against itself.** Every foreign key, primary key and unique index
- *    in the file, and the ranges the format defines for ids, timestamps and set numbering,
- *    checked while the database is still untouched — possible only because import replaces, so
- *    the file is the whole database and every reference in it must resolve inside it. This is
- *    what makes [ImportError.ConstraintViolation] mean "and nothing happened".
- * 3. **Forget the live session and the two drafts.** All three name row ids from before the
+ *    in the file, the ranges the format defines for ids, timestamps and set numbering, and the
+ *    single session in progress, checked while the database is still untouched — possible only
+ *    because import replaces, so the file is the whole database and every reference in it must
+ *    resolve inside it. This is what makes [ImportError.ConstraintViolation] mean "and nothing
+ *    happened".
+ * 3. **Take the two locks.** [BackupLock] first, so no export, weekly backup or delete-all runs
+ *    between here and the settings; then [SessionLifecycleLock], so no session starts, finishes
+ *    or resumes between the session state being reset and the rows it named being replaced.
+ *    Parsing and validating happen before either, so a large file does not hold up a backup
+ *    while it is being read.
+ * 4. **Forget the live session and the two drafts.** All three name row ids from before the
  *    wipe — the workout in progress, and the template somebody was halfway through writing. The
  *    session state goes first because screens are collecting it, then the draft files, exactly
  *    as `LocalDataRepositoryImpl.deleteAll` orders them and for the same reason. Before the
  *    transaction rather than after it, which costs something in one case: a constraint the
- *    validator did not model would roll the rows back and leave the draft cleared anyway. That
+ *    validator did not model would roll the rows back and leave the drafts cleared anyway. That
  *    is the cheaper mistake — `InProgressSessionRepository` is explicit that losing a draft
  *    costs a place and never a set — where clearing *after* the commit would leave a window in
  *    which a process death left a draft pointing into a database that had been replaced under
- *    it.
- * 4. **Wipe and insert, in one transaction.** [BackupRepository.replaceAll] owns it. A failure
+ *    it. The files cannot join the transaction, so one of the two windows has to exist, and
+ *    this is the one that loses nothing logged.
+ * 5. **Wipe and insert, in one transaction.** [BackupRepository.replaceAll] owns it. A failure
  *    anywhere in it rolls the whole thing back, so there is no state where the database is
  *    empty and the import has given up.
- * 5. **Apply the settings, last.** The unit system changes how every stored weight is *read*,
- *    so applying it after the rows means the app re-themes and re-formats once, at the end,
- *    rather than mid-write.
+ * 6. **Apply the settings, last, and bring the reminder alarms into line.** The unit system
+ *    changes how every stored weight is *read*, so applying it after the rows means the app
+ *    re-themes and re-formats once, at the end, rather than mid-write. Applying them starts
+ *    from [UserPreferencesRepository.clear], which turns the workout reminder off — the
+ *    reminder is device state and not in the document — so [ReminderScheduler.sync] follows,
+ *    or the phone would keep buzzing for a reminder its settings report as off. This step is
+ *    not cancellable: the rows are already committed, and a restore abandoned between them and
+ *    the settings is one nobody would be told about.
  *
  * ### Nothing escapes untyped
  *
@@ -69,7 +87,7 @@ import java.io.IOException
  *
  * ### What is not restored
  *
- * Neither draft — neither is in the document, and step 3 clears whatever the target device
+ * Neither draft — neither is in the document, and step 4 clears whatever the target device
  * held. An interrupted workout and a half-written template are device state rather than
  * history: importing one would drop the user into a live session that never happened on this
  * phone, or into an editor for a template id the file has given a different name to. The rows
@@ -80,6 +98,9 @@ import java.io.IOException
  * @property inProgressSessionRepository the workout draft, cleared before the wipe.
  * @property templateDraftRepository the template draft, cleared with it.
  * @property sessionStateRepository the live session state, set to [SessionState.Idle] first.
+ * @property reminderScheduler the reminder alarms, re-synced once the settings are written.
+ * @property backupLock held from the first write to the last, against exports and delete-all.
+ * @property sessionLock held across the session reset and the replace, against transitions.
  */
 class ImportUseCase(
     private val backupRepository: BackupRepository,
@@ -87,6 +108,9 @@ class ImportUseCase(
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val templateDraftRepository: TemplateDraftRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val reminderScheduler: ReminderScheduler,
+    private val backupLock: BackupLock = BackupLock.SHARED,
+    private val sessionLock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
     /**
@@ -122,37 +146,73 @@ class ImportUseCase(
         }
         val violation = BackupValidator.validate(parsed)
         if (violation != null) return ImportProgress.Failed(violation)
-        return write(parsed)
+        return backupLock.exclusively {
+            replace(parsed) ?: withContext(NonCancellable) { applySettings(parsed) }
+        }
     }
 
     /**
-     * Clears the device's live state, replaces every table, and applies the settings.
+     * Clears the device's live state and replaces every table, answering with the failure that
+     * stopped it or **null** once the transaction has committed.
      *
      * The two `catch`es are the whole of what the layers below are allowed to throw:
      * [BackupConstraintException] for a constraint [BackupValidator] did not model, and
-     * [IOException] for a settings write that could not land. Anything else is a programming
+     * [IOException] for a draft store that could not be cleared. Anything else is a programming
      * error and is deliberately left to propagate — a `catch (Throwable)` here would report a
-     * null-pointer bug to the user as a corrupt backup file.
+     * null-pointer bug to the user as a corrupt backup file. Every one of them leaves the rows
+     * as they were: the transaction has rolled back, or never opened.
      */
-    private suspend fun ProducerScope<ImportProgress>.write(document: ExportDocument): ImportProgress {
+    private suspend fun ProducerScope<ImportProgress>.replace(document: ExportDocument): ImportProgress? {
         val rowsTotal = document.rowCount
         return try {
-            sessionStateRepository.update(SessionState.Idle)
-            inProgressSessionRepository.clear()
-            templateDraftRepository.clear()
-            backupRepository.replaceAll(document) { table, rowsWritten ->
-                // `send` rather than `emit`: this runs inside the database transaction, on the
-                // dispatcher that owns it, and a plain flow would refuse a value produced there.
-                send(ImportProgress.Writing(table = table, rowsWritten = rowsWritten, rowsTotal = rowsTotal))
+            sessionLock.withTransition {
+                sessionStateRepository.update(SessionState.Idle)
+                inProgressSessionRepository.clear()
+                templateDraftRepository.clear()
+                backupRepository.replaceAll(document) { table, rowsWritten ->
+                    // `send` rather than `emit`: this runs inside the database transaction, on
+                    // the dispatcher that owns it, and a plain flow would refuse a value
+                    // produced there.
+                    send(ImportProgress.Writing(table = table, rowsWritten = rowsWritten, rowsTotal = rowsTotal))
+                }
             }
-            restorePreferences(document.preferences)
-            ImportProgress.Complete(rowsWritten = rowsTotal)
+            null
         } catch (failure: BackupConstraintException) {
             ImportProgress.Failed(ImportError.ConstraintViolation(failure.message.orEmpty()))
         } catch (failure: IOException) {
             ImportProgress.Failed(ImportError.IoFailure(failure.message.orEmpty()))
         }
     }
+
+    /**
+     * Writes the document's settings over the device's and re-syncs the reminder alarms, once
+     * the rows are committed.
+     *
+     * Every failure here is caught, not only the [IOException] the store documents, and that
+     * is the one place this class does it. By now the rows are in, so whatever went wrong the
+     * true sentence is the same — the history was restored and the settings were not — and
+     * letting an unexpected exception through would have the screen report the whole restore
+     * as a file that could not be read. Cancellation is the exception, as everywhere.
+     *
+     * The alarms are re-synced whether or not the settings landed: the reset before the setters
+     * may have, and the alarms follow what is stored now.
+     */
+    private suspend fun applySettings(document: ExportDocument): ImportProgress {
+        val settingsFailure = attempt { restorePreferences(document.preferences) }
+        val alarmsFailure = attempt { reminderScheduler.sync() }
+        val failure = settingsFailure ?: alarmsFailure
+        return if (failure == null) {
+            ImportProgress.Complete(rowsWritten = document.rowCount)
+        } else {
+            ImportProgress.Failed(
+                ImportError.SettingsNotRestored(rowsRestored = document.rowCount, reason = failure.message.orEmpty()),
+            )
+        }
+    }
+
+    /** What [block] threw, or null. Cancellation is re-thrown rather than answered. */
+    private suspend fun attempt(block: suspend () -> Unit): Throwable? =
+        runCatching { block() }.exceptionOrNull()?.also { if (it is CancellationException) throw it }
 
     /**
      * Puts every setting back, having first reset them all.
