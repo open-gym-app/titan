@@ -1,5 +1,6 @@
 package com.titan.core.domain.notification
 
+import com.titan.core.domain.model.SessionRef
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -101,10 +102,10 @@ class AppNotificationTest {
         // the background, and a button meaning "do this and stay out of my way" must be the
         // other one.
         val open = NotificationTarget.Screen(deepLink = "titan://session/7")
-        val finish = NotificationTarget.Command(NotificationCommand.FinishSession(7))
+        val finish = NotificationTarget.Command(NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)))
 
         assertEquals("titan://session/7", open.deepLink)
-        assertEquals(NotificationCommand.FinishSession(7), finish.command)
+        assertEquals(NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)), finish.command)
         assertNotEquals(NotificationAction("Finish", open), NotificationAction("Finish", finish))
     }
 
@@ -115,8 +116,14 @@ class AppNotificationTest {
         // elsewhere must be refused rather than applied to whatever is running now.
         assertNotEquals(NotificationCommand.SkipRest(7), NotificationCommand.SkipRest(8))
         assertEquals(7L, NotificationCommand.SkipRest(7).sessionId)
-        assertEquals(7L, NotificationCommand.FinishSession(7).sessionId)
-        assertEquals(7L, NotificationCommand.DiscardSession(7).sessionId)
+        assertEquals(7L, NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)).session.sessionId)
+        assertEquals(7L, NotificationCommand.DiscardSession(SessionRef(7, createdAt = 100)).session.sessionId)
+        // The two that end a workout also carry when it began, which is what tells a session
+        // apart from another one written back under the same id by a restore.
+        assertNotEquals(
+            NotificationCommand.FinishSession(SessionRef(7, createdAt = 100)),
+            NotificationCommand.FinishSession(SessionRef(7, createdAt = 200)),
+        )
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.titan.core.domain.notification
 
+import com.titan.core.domain.model.SessionRef
+
 /**
  * One thing to say, and which kind of thing it is.
  *
@@ -120,22 +122,23 @@ sealed interface NotificationCommand {
     data class SkipRest(val sessionId: Long) : NotificationCommand
 
     /**
-     * Close [sessionId] out with what it has logged, from the idle nudge.
+     * Close [session] out with what it has logged, from the idle nudge.
      *
      * Not a quiet, special-cased finish: it runs the same pipeline the END button runs, so a
      * workout closed from a notification earns exactly what its sets earn. Refused, harmlessly,
-     * for a session that is no longer in progress.
+     * for a session that is no longer in progress — or that is not the one open, which a
+     * [SessionRef] carrying the row's creation time is what lets the use case tell.
      */
-    data class FinishSession(val sessionId: Long) : NotificationCommand
+    data class FinishSession(val session: SessionRef) : NotificationCommand
 
     /**
-     * Throw [sessionId] away, from the idle nudge.
+     * Throw [session] away, from the idle nudge.
      *
      * Offered in place of [FinishSession] for a session with nothing logged in it — there is no
      * history worth writing for a workout that never started, and finishing one is refused
-     * anyway.
+     * anyway. The press re-checks that, since a set can be logged between the post and the tap.
      */
-    data class DiscardSession(val sessionId: Long) : NotificationCommand
+    data class DiscardSession(val session: SessionRef) : NotificationCommand
 }
 
 /** What became of a [AppNotification] handed to a [Notifier]. */

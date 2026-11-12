@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.titan.core.data.R
 import com.titan.core.domain.model.FinishOrigin
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.navigation.DeepLinks
 import com.titan.core.domain.notification.AppNotification
@@ -74,6 +75,13 @@ internal interface IdleSessionEntryPoint {
  * same process the state is `SessionState.Finished`, whose open session id is null, so the
  * finish itself refuses too. The completion pipeline is never reached a second time, which is
  * what makes "awards nothing on a second invocation" true rather than hoped for.
+ *
+ * ### Every press names its session, creation time and all
+ *
+ * The alarm and both buttons carry a [SessionRef] with the row's `created_at`, and every use case
+ * here is handed it as the session it must act on. A button that outlived its workout — pressed
+ * after the user finished it and started another, or after a restore wrote a different workout
+ * back under the same id — is refused rather than applied to whatever is running now.
  */
 @Singleton
 class IdleSessionBroadcasts @Inject constructor(
@@ -88,8 +96,8 @@ class IdleSessionBroadcasts @Inject constructor(
 ) {
 
     suspend fun handle(intent: Intent) {
-        idleSessionOf(intent)?.let { sessionId ->
-            nudge(sessionId)
+        idleSessionOf(intent)?.let { session ->
+            nudge(session)
             return
         }
 
@@ -98,9 +106,12 @@ class IdleSessionBroadcasts @Inject constructor(
             // nothing here navigates to a recap, so what the session earned is announced by the
             // notification this origin permits or by nothing at all. See `FinishOrigin`.
             is NotificationCommand.FinishSession ->
-                close(command.sessionId) { finishSession(FinishOrigin.NOTIFICATION_ACTION) }
+                close(command.session) { finishSession(FinishOrigin.NOTIFICATION_ACTION, expected = command.session) }
 
-            is NotificationCommand.DiscardSession -> close(command.sessionId) { discardSession() }
+            // Re-checked under the lock: the button reads "Discard" only because nothing was
+            // logged when it was posted, and a set logged since makes it an offer to delete work.
+            is NotificationCommand.DiscardSession ->
+                close(command.session) { discardSession(command.session, onlyIfNothingLogged = true) }
 
             // Not this receiver's, or from a build that knew something this one does not — a
             // notification left in the shade across an upgrade. Neither is worth failing over.
@@ -116,13 +127,14 @@ class IdleSessionBroadcasts @Inject constructor(
      * one — and a nudge about a workout that is over is worse than none. The set count is read
      * for the same reason: it decides which of the two honest offers the second button makes.
      */
-    private suspend fun nudge(sessionId: Long) {
-        val session = sessionRepository.getActive().first()?.takeIf { it.id == sessionId }
+    private suspend fun nudge(expected: SessionRef) {
+        val session = sessionRepository.getActive().first()?.takeIf(expected::matches)
         if (session == null) {
             notifier.cancel(NotificationKind.SESSION)
             return
         }
 
+        val sessionId = session.id
         val logged = sessionRepository.getSetsForSession(sessionId).first().count { it.isCompleted }
         val deepLink = DeepLinks.activeSession(sessionId)
 
@@ -147,12 +159,12 @@ class IdleSessionBroadcasts @Inject constructor(
                     when {
                         logged > 0 -> NotificationAction(
                             label = context.getString(R.string.idle_session_finish),
-                            target = NotificationTarget.Command(NotificationCommand.FinishSession(sessionId)),
+                            target = NotificationTarget.Command(NotificationCommand.FinishSession(SessionRef.of(session))),
                         )
 
                         else -> NotificationAction(
                             label = context.getString(R.string.idle_session_discard),
-                            target = NotificationTarget.Command(NotificationCommand.DiscardSession(sessionId)),
+                            target = NotificationTarget.Command(NotificationCommand.DiscardSession(SessionRef.of(session))),
                         )
                     },
                 ),
@@ -173,38 +185,40 @@ class IdleSessionBroadcasts @Inject constructor(
      * worth a crash they would see as the app breaking on its own.
      */
     private suspend fun close(
-        sessionId: Long,
+        session: SessionRef,
         transition: suspend () -> Result<*>,
     ) {
         idleSessionMonitor.disarm()
 
         runCatching {
-            if (attach(sessionId)) transition()
+            if (attach(session)) transition()
         }
     }
 
     /**
-     * Puts the state machine over [sessionId], and answers whether it got there.
+     * Puts the state machine over [session], and answers whether it got there.
      *
      * Three cases, and only the first is the ordinary one:
      *
      * - nothing open, which is every press that arrives at a cold process: the in-progress row
-     *   is adopted through [ResumeSessionUseCase], and the id is checked afterwards because
-     *   that use case adopts whatever row it finds rather than the one asked for;
+     *   is adopted through [ResumeSessionUseCase], which is handed [session] and refuses to
+     *   adopt any other row;
      * - this session already open, from a press that arrived while the app was running;
      * - a *different* session open, which means the notification outlived the workout it was
      *   posted for. Refused — closing out somebody's current workout because they pressed a
-     *   button about the last one is the worst thing this class could do.
+     *   button about the last one is the worst thing this class could do. The transition that
+     *   follows is handed [session] too, so a reused id with another creation time is refused
+     *   there.
      */
-    private suspend fun attach(sessionId: Long): Boolean {
+    private suspend fun attach(session: SessionRef): Boolean {
         val open = when (val state = sessionStateRepository.observe().first()) {
             is SessionState.Active -> state.sessionId
             is SessionState.Paused -> state.sessionId
             SessionState.Idle, is SessionState.Finished -> null
         }
 
-        if (open != null) return open == sessionId
-        return resumeSession().getOrNull()?.sessionId == sessionId
+        if (open != null) return open == session.sessionId
+        return resumeSession(expected = session).isSuccess
     }
 
     /** "Push day · 12 sets logged, nothing since", with the name left out where there is none. */

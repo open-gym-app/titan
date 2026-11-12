@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.notification.NotificationKind
@@ -82,7 +83,7 @@ class AndroidIdleSessionMonitor @Inject constructor(
             return
         }
 
-        schedule(session.id, deadline)
+        schedule(SessionRef.of(session), deadline)
     }
 
     override suspend fun disarm() {
@@ -112,12 +113,12 @@ class AndroidIdleSessionMonitor @Inject constructor(
 
     /** Replaces whatever was pending with one wake-up at [deadline]. Best-effort; see the class note. */
     private fun schedule(
-        sessionId: Long,
+        session: SessionRef,
         deadline: Long,
     ) {
         val manager = context.getSystemService(AlarmManager::class.java) ?: return
         runCatching {
-            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, idleIntent(context, sessionId))
+            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, deadline, idleIntent(context, session))
         }
     }
 
@@ -128,7 +129,7 @@ class AndroidIdleSessionMonitor @Inject constructor(
      * so an intent rebuilt here with no session in it cancels whichever session was scheduled.
      */
     private fun cancelAlarm() {
-        val pending = idleIntent(context, sessionId = null)
+        val pending = idleIntent(context, session = null)
         context.getSystemService(AlarmManager::class.java)?.cancel(pending)
         pending.cancel()
     }
@@ -137,42 +138,51 @@ class AndroidIdleSessionMonitor @Inject constructor(
 /**
  * The broadcast the idle alarm delivers, naming the session it is about.
  *
- * The id is all it carries. What the notification *says* — how many sets are in the session, and
- * therefore whether the second button reads "Finish now" or "Discard" — is read when the alarm
- * fires rather than baked in thirty minutes earlier, because thirty minutes is long enough for
- * the answer to have changed.
+ * The session is all it carries: its id, and its creation time so the nudge can tell it from a
+ * different workout written back under the same id by a restore — see [SessionRef]. What the
+ * notification *says* — how many sets are in the session, and therefore whether the second
+ * button reads "Finish now" or "Discard" — is read when the alarm fires rather than baked in
+ * thirty minutes earlier, because thirty minutes is long enough for the answer to have changed.
  *
- * [sessionId] is null when the intent is only being built to cancel the alarm; extras are not
+ * [session] is null when the intent is only being built to cancel the alarm; extras are not
  * part of the equality `AlarmManager` matches on.
  */
 internal fun idleIntent(
     context: Context,
-    sessionId: Long?,
+    session: SessionRef?,
 ): PendingIntent =
     PendingIntent.getBroadcast(
         context,
         IDLE_SESSION_REQUEST_CODE,
-        idleSessionBroadcast(context, sessionId),
+        idleSessionBroadcast(context, session),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
 /** The broadcast itself, so both ends of the round trip can be exercised without an alarm between. */
 internal fun idleSessionBroadcast(
     context: Context,
-    sessionId: Long?,
+    session: SessionRef?,
 ): Intent =
     Intent(context, IdleSessionReceiver::class.java)
         .setAction(ACTION_SESSION_IDLE)
-        .apply { if (sessionId != null) putExtra(EXTRA_SESSION_ID, sessionId) }
+        .apply {
+            if (session != null) putExtra(EXTRA_SESSION_ID, session.sessionId)
+            session?.createdAt?.let { putExtra(EXTRA_SESSION_CREATED_AT, it) }
+        }
 
-/** The session [intent] says has gone idle, or null when it says nothing this build understands. */
-internal fun idleSessionOf(intent: Intent): Long? {
-    if (intent.action != ACTION_SESSION_IDLE) return null
-    return intent.getLongExtra(EXTRA_SESSION_ID, 0L).takeIf { it > 0 }
+/**
+ * The session [intent] says has gone idle, or null when it says nothing this build understands —
+ * which includes an id with no creation time beside it.
+ */
+internal fun idleSessionOf(intent: Intent): SessionRef? {
+    if (intent.action != ACTION_SESSION_IDLE || !intent.hasExtra(EXTRA_SESSION_CREATED_AT)) return null
+    val sessionId = intent.getLongExtra(EXTRA_SESSION_ID, 0L).takeIf { it > 0 } ?: return null
+    return SessionRef(sessionId = sessionId, createdAt = intent.getLongExtra(EXTRA_SESSION_CREATED_AT, 0L))
 }
 
 private const val ACTION_SESSION_IDLE = "com.titan.core.data.notification.SESSION_IDLE"
 private const val EXTRA_SESSION_ID = "session_id"
+private const val EXTRA_SESSION_CREATED_AT = "session_created_at"
 
 /**
  * One code, because at most one session runs at a time — the premise

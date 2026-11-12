@@ -14,6 +14,7 @@ import com.titan.core.data.mapper.WorkoutSetMapper
 import com.titan.core.data.repository.SessionRepositoryImpl
 import com.titan.core.data.repository.SessionStateRepositoryImpl
 import com.titan.core.domain.model.ActiveSession
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.notification.NotificationCommand
 import com.titan.core.domain.notification.NotificationKind
@@ -102,7 +103,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
         runBlocking {
             val sessionId = openSession(completedSets = 12)
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             val note = notifier.showing
             assertNotNull(note)
@@ -112,7 +113,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             assertEquals(
                 listOf(
                     NotificationTarget.Screen("titan://session/active/$sessionId"),
-                    NotificationTarget.Command(NotificationCommand.FinishSession(sessionId)),
+                    NotificationTarget.Command(NotificationCommand.FinishSession(ref(sessionId))),
                 ),
                 note.actions.map { it.target },
             )
@@ -123,7 +124,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
         runBlocking {
             val sessionId = openSession(completedSets = 12, name = "Push day")
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             assertEquals("Push day · 12 sets logged, nothing since", notifier.showing?.body)
         }
@@ -133,7 +134,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
         runBlocking {
             val sessionId = openSession(completedSets = 1, name = null)
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             // No separator with nothing on one side of it.
             assertEquals("1 set logged, nothing since", notifier.showing?.body)
@@ -147,10 +148,10 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             // cannot work.
             val sessionId = openSession(completedSets = 0)
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             assertEquals(
-                NotificationTarget.Command(NotificationCommand.DiscardSession(sessionId)),
+                NotificationTarget.Command(NotificationCommand.DiscardSession(ref(sessionId))),
                 notifier.showing?.actions?.last()?.target,
             )
             assertEquals("Push day · Nothing logged yet", notifier.showing?.body)
@@ -164,7 +165,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             val sessionId = openSession(completedSets = 3)
             sessions.update(sessions.getById(sessionId).first()!!.copy(isInProgress = false))
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             assertTrue(notifier.posted.isEmpty())
             assertEquals(RecordingNotifier.Event.Cancelled(NotificationKind.SESSION), notifier.log.last())
@@ -177,7 +178,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             sessions.update(sessions.getById(stale).first()!!.copy(isInProgress = false))
             openSession(completedSets = 1)
 
-            broadcasts.handle(idleSessionBroadcast(context, stale))
+            broadcasts.handle(idleSessionBroadcast(context, ref(stale)))
 
             assertTrue(notifier.posted.isEmpty())
         }
@@ -190,7 +191,7 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             notifier.outcome = NotificationOutcome.SUPPRESSED_BY_PREFERENCE
             val sessionId = openSession(completedSets = 3)
 
-            broadcasts.handle(idleSessionBroadcast(context, sessionId))
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
 
             assertTrue(notifier.posted.isEmpty())
         }
@@ -292,6 +293,60 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             assertNull(sessions.getById(sessionId).first())
         }
 
+    @Test
+    fun `a discard offered for an empty session keeps one that has a set logged since`() =
+        runBlocking {
+            // The button was chosen when the alarm went off, over a session with nothing in it.
+            // A set logged in the app before the press makes it an offer to delete that set.
+            val sessionId = openSession(completedSets = 0)
+            broadcasts.handle(idleSessionBroadcast(context, ref(sessionId)))
+            logSet(sessionId)
+
+            broadcasts.handle(discard(sessionId))
+
+            assertNotNull(sessions.getById(sessionId).first())
+            assertEquals(1, countRows("workout_set"))
+        }
+
+    // --- the session a press names ------------------------------------------
+
+    @Test
+    fun `a press naming a reused id with another creation time touches nothing`() =
+        runBlocking {
+            // A notification built for an earlier workout that a restore has since replaced with
+            // a different one under the same id.
+            val sessionId = openSession(completedSets = 3)
+
+            broadcasts.handle(finish(sessionId, createdAt = STARTED_AT - 1))
+            broadcasts.handle(discard(sessionId, createdAt = STARTED_AT - 1))
+
+            assertTrue(sessions.getById(sessionId).first()!!.isInProgress)
+            // Not even adopted: the resume is handed the session the press named, and refuses.
+            assertEquals(SessionState.Idle, states.observe().first())
+        }
+
+    @Test
+    fun `a press that names its session by the id alone is ignored`() =
+        runBlocking {
+            val sessionId = openSession(completedSets = 3)
+
+            broadcasts.handle(finish(sessionId, createdAt = null))
+            broadcasts.handle(discard(sessionId, createdAt = null))
+
+            assertTrue(sessions.getById(sessionId).first()!!.isInProgress)
+            assertTrue(monitor.calls.isEmpty())
+        }
+
+    @Test
+    fun `an alarm about a reused id with another creation time is not announced`() =
+        runBlocking {
+            val sessionId = openSession(completedSets = 3)
+
+            broadcasts.handle(idleSessionBroadcast(context, SessionRef(sessionId, createdAt = STARTED_AT - 1)))
+
+            assertTrue(notifier.posted.isEmpty())
+        }
+
     // --- anything else ------------------------------------------------------
 
     @Test
@@ -313,16 +368,23 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
 
             // The cancellation intent is built without extras — `AlarmManager` matches on action
             // and component — so an empty one must not be mistaken for a session.
-            broadcasts.handle(idleSessionBroadcast(context, sessionId = null))
+            broadcasts.handle(idleSessionBroadcast(context, session = null))
 
             assertTrue(notifier.log.isEmpty())
         }
 
-    private fun finish(sessionId: Long): Intent =
-        NotificationCommands.intent(context, NotificationCommand.FinishSession(sessionId))
+    private fun finish(
+        sessionId: Long,
+        createdAt: Long? = STARTED_AT,
+    ): Intent = NotificationCommands.intent(context, NotificationCommand.FinishSession(SessionRef(sessionId, createdAt)))
 
-    private fun discard(sessionId: Long): Intent =
-        NotificationCommands.intent(context, NotificationCommand.DiscardSession(sessionId))
+    private fun discard(
+        sessionId: Long,
+        createdAt: Long? = STARTED_AT,
+    ): Intent = NotificationCommands.intent(context, NotificationCommand.DiscardSession(SessionRef(sessionId, createdAt)))
+
+    /** [sessionId] as the alarm and the buttons name it: with the creation time [openSession] gives every row. */
+    private fun ref(sessionId: Long): SessionRef = SessionRef(sessionId, createdAt = STARTED_AT)
 
     /** A session in progress with [completedSets] ticked sets against one exercise. */
     private suspend fun openSession(
@@ -349,6 +411,21 @@ class IdleSessionBroadcastsTest : RoomTestBase() {
             )
         }
         return sessionId
+    }
+
+    /** One more completed set on [sessionId]'s first exercise, the way the app logs one. */
+    private suspend fun logSet(sessionId: Long) {
+        val sessionExerciseId = sessions.getExercises(sessionId).first().first().id
+        db.workoutSetDao().insert(
+            workoutSet(
+                sessionExerciseId = sessionExerciseId,
+                setNumber = 1,
+                isCompleted = true,
+                completedAt = STARTED_AT,
+                reps = 5,
+                weight = 80_000_000,
+            ),
+        )
     }
 
     /** [IdleSessionMonitor] as a list of what it was told. */
