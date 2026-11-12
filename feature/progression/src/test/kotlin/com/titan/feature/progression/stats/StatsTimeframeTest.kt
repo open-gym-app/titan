@@ -54,6 +54,21 @@ class StatsTimeframeTest {
         assertTrue(period.start <= period.endInclusive)
     }
 
+    /**
+     * A session stamped −10¹⁷ ms — three million years ago — opened a period the charts then
+     * allocated a bucket a week for, until the app ran out of memory (#256). The import refuses
+     * such a timestamp; a row that got in some other way is clamped to the epoch here.
+     */
+    @Test
+    fun `all time opens no earlier than 1970, however old the first training day reads`() {
+        val ancient = LocalDate.ofEpochDay(-100_000_000_000_000_000L / 86_400_000L)
+
+        val period = StatsTimeframe.ALL.period(TODAY, firstTrainingDay = ancient)
+
+        assertEquals(LocalDate.ofEpochDay(0), period.start)
+        assertTrue(TrainingWeek.startsIn(period).size < 3_000)
+    }
+
     @Test
     fun `the shortest window spans two weekly buckets on every day but Sunday`() {
         // "The last seven days" ends on whatever day it is, so it crosses a Monday on six days

@@ -84,14 +84,20 @@ data class BodyMeasurement(
      * the body-fat figure needs no scaling to divide by 1000. The division truncates, which
      * costs at most a milligram on a figure measured in tens of kilograms.
      *
+     * The weight is split into whole grams and the milligrams left over, and each part is scaled
+     * on its own. The result is the same as `weight × lean / 1000`, but the product never
+     * leaves a `Long`, whatever weight a restored row holds.
+     *
      * A [bodyFat] outside `0..1000` — a corrupt row, since `BodyMeasurementValidator` bounds it
-     * to `1..1000` — produces a value outside `0..weight` rather than a clamped fiction.
+     * to `1..1000` — reads as no lean mass, the way an out-of-range RPE reads as not recorded:
+     * there is no share of a body that it describes.
      */
     val leanMass: Long?
         get() {
             val weight = weight ?: return null
-            val bodyFat = bodyFat ?: return null
-            return weight * (BODY_FAT_WHOLE - bodyFat) / BODY_FAT_WHOLE
+            val bodyFat = bodyFat?.takeIf { it in 0..BODY_FAT_WHOLE } ?: return null
+            val lean = BODY_FAT_WHOLE - bodyFat
+            return weight / BODY_FAT_WHOLE * lean + weight % BODY_FAT_WHOLE * lean / BODY_FAT_WHOLE
         }
 
     /**

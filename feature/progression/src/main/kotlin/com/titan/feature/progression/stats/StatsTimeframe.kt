@@ -56,8 +56,11 @@ enum class StatsTimeframe(
             days != null -> today.minusDays(days - 1)
 
             // Not before today: a period whose start is after its end is rejected by
-            // `TrainingWeek.snap`, and a user with no history is exactly that caller.
-            else -> firstTrainingDay?.coerceAtMost(today) ?: today
+            // `TrainingWeek.snap`, and a user with no history is exactly that caller. Not
+            // before 1970 either: the import refuses an earlier timestamp, and a row that got
+            // in some other way would otherwise open a period of millions of weeks, each one
+            // a bucket the charts allocate.
+            else -> firstTrainingDay?.coerceAtLeast(LocalDate.ofEpochDay(0))?.coerceAtMost(today) ?: today
         }
         return start..today
     }

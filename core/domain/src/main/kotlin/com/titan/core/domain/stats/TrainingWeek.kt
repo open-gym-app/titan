@@ -67,10 +67,17 @@ object TrainingWeek {
             .toList()
     }
 
-    /** How many whole weeks [period] spans once [snap]ped. At least one, for any period. */
+    /**
+     * How many whole weeks [period] spans once [snap]ped. At least one, for any period.
+     *
+     * Held at `Int.MAX_VALUE` rather than narrowed: a period of more weeks than that spans
+     * forty million years, and only a corrupt date gets there, but a narrowed count would wrap
+     * negative and every length computed from it would point backwards.
+     */
     fun countIn(period: ClosedRange<LocalDate>): Int {
         val weeks = snap(period)
-        return (ChronoUnit.DAYS.between(weeks.start, weeks.endInclusive) / DAYS).toInt() + 1
+        val count = ChronoUnit.DAYS.between(weeks.start, weeks.endInclusive) / DAYS + 1
+        return count.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     /**

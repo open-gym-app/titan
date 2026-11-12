@@ -129,4 +129,14 @@ class VolumeCalculatorTest {
         assertEquals(sets.sumOf { VolumeCalculator.setVolume(it) }, VolumeCalculator.totalVolume(sets))
         assertEquals(980 * KG, VolumeCalculator.totalVolume(sets))
     }
+
+    /** A restored weight past `SetValidator`'s bound wrapped the product, and the sum, negative. */
+    @Test
+    fun `a volume past what a Long holds is held at the bound rather than wrapping`() {
+        val heavy = set(reps = 10, weight = Long.MAX_VALUE / 2)
+
+        assertEquals(Long.MAX_VALUE, VolumeCalculator.setVolume(heavy))
+        assertEquals(Long.MAX_VALUE, VolumeCalculator.totalVolume(listOf(heavy, heavy, set())))
+        assertEquals(Long.MIN_VALUE, VolumeCalculator.setVolume(set(reps = 10, weight = Long.MIN_VALUE / 2)))
+    }
 }

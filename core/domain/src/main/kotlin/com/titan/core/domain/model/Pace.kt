@@ -1,5 +1,7 @@
 package com.titan.core.domain.model
 
+import com.titan.core.domain.validation.SetValidator
+
 /**
  * How many nanoseconds make a second: the scale a pace is held at.
  *
@@ -13,7 +15,7 @@ const val NANOS_PER_SECOND: Long = 1_000_000_000L
 
 /**
  * [durationSeconds] over [distanceCentimetres], in whole nanoseconds per centimetre rounded half
- * up — or **null** unless both are positive. Lower is faster.
+ * up — or **null** unless both are positive and inside `SetValidator`'s bounds. Lower is faster.
  *
  * ### Why nanoseconds per centimetre
  *
@@ -26,12 +28,16 @@ const val NANOS_PER_SECOND: Long = 1_000_000_000L
  *
  * Half up, written as integer division, so that SQLite's `(d * 1000000000 + c / 2) / c` in
  * `PersonalRecordDao` produces the same figure for the same row.
+ *
+ * A duration or a distance past those bounds reads as no pace at all, in both places. Only a
+ * hand-edited backup holds one, and the product above would leave a `Long`: Kotlin would wrap
+ * it and SQLite would fall back to floating point, so the two would no longer agree.
  */
 fun paceOf(
     durationSeconds: Long?,
     distanceCentimetres: Long?,
 ): Long? {
-    val seconds = durationSeconds?.takeIf { it > 0L } ?: return null
-    val centimetres = distanceCentimetres?.takeIf { it > 0L } ?: return null
+    val seconds = durationSeconds?.takeIf { it in 1..SetValidator.DURATION_MAX_SECONDS } ?: return null
+    val centimetres = distanceCentimetres?.takeIf { it in 1..SetValidator.DISTANCE_MAX_CM } ?: return null
     return (seconds * NANOS_PER_SECOND + centimetres / 2) / centimetres
 }

@@ -131,4 +131,10 @@ class TrainingWeekTest {
             TrainingWeek.trailing(weeks = 0, endingOn = MONDAY)
         }
     }
+
+    /** The count narrowed a `Long` to an `Int` and wrapped negative on a long enough period. */
+    @Test
+    fun `a period of more weeks than an Int holds is counted at the largest Int`() {
+        assertEquals(Int.MAX_VALUE, TrainingWeek.countIn(LocalDate.MIN.plusDays(7)..LocalDate.MAX.minusDays(7)))
+    }
 }
