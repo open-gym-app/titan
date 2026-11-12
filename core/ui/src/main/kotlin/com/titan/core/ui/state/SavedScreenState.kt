@@ -67,8 +67,15 @@ private val screenStateJson = Json {
  *
  * One key rather than a name per screen, because a [SavedStateHandle] belongs to a single
  * destination: nothing else is writing into it, so a second name would only be a chance to spell
- * it differently in two places. The `com.titan` prefix keeps it clear of the route arguments
- * navigation puts in the same handle, which are named by their own properties.
+ * it differently in two places.
+ *
+ * The handle is not this screen's alone, though: navigation seeds it with the destination's
+ * arguments, and a value already under this key when the ViewModel is built is read as saved
+ * state. Two things keep anything but this code from putting one there. The `com.titan` prefix is
+ * not a name a route property can have, so the arguments a route declares — and the ones a
+ * `titan://` link fills in, which are only those — never land on it. And `MainActivity` strips
+ * every extra off an incoming intent, which is where Navigation's own `deepLinkExtras` would
+ * otherwise copy any key an outside app chose into the arguments of the screen it opens.
  */
 const val SCREEN_STATE_KEY: String = "com.titan.screenState"
 
@@ -109,7 +116,10 @@ internal fun <T : Any> SavedStateHandle.savedScreenState(
     key: String,
     initial: () -> T,
 ): MutableStateFlow<T> {
-    val restored = get<String>(key)?.let { saved ->
+    // Read as anything and then asked whether it is a string, rather than read as a string: a
+    // value of another type under this key is not saved state, and the cast `get<String>` makes
+    // would throw on it on the way into the screen.
+    val restored = (get<Any?>(key) as? String)?.let { saved ->
         try {
             screenStateJson.decodeFromString(serializer, saved)
         } catch (_: IllegalArgumentException) {

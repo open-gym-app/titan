@@ -32,6 +32,19 @@ class SavedScreenStateTest {
         }
 
     @Test
+    fun `a value of another type under the key opens the screen fresh rather than crashing it`() =
+        runTest {
+            // The handle is seeded from the destination's arguments, so this key holds whatever
+            // was put there before the screen read it. Anything that is not a saved document is
+            // not saved state.
+            val state = SavedStateHandle(mapOf(SCREEN_STATE_KEY to 42)).savedScreenState(scope()) {
+                Screen(query = "opening")
+            }
+
+            assertEquals("opening", state.value.query)
+        }
+
+    @Test
     fun `what was written comes back`() =
         runTest {
             val handle = SavedStateHandle()
