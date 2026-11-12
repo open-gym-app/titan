@@ -243,6 +243,58 @@ class PreferencesMappingTest {
         assertEquals(UserPreferences.DEFAULT_REST_DURATION, payload.toPreferences().defaultRestDuration)
     }
 
+    /**
+     * A rest finite but past a day: the rest timer and the template estimate added to it until
+     * it saturated to infinity, and then subtracted one infinity from another (#256).
+     */
+    @Test
+    fun `a rest longer than a day falls back to the default`() {
+        val dayAndASecond = UserPreferences.MAX_REST_DURATION.inWholeSeconds + 1
+
+        assertEquals(
+            UserPreferences.DEFAULT_REST_DURATION,
+            samplePreferences().copy(defaultRestDurationSeconds = dayAndASecond).toPreferences().defaultRestDuration,
+        )
+        assertEquals(
+            UserPreferences.DEFAULT_REST_DURATION,
+            samplePreferences().copy(defaultRestDurationSeconds = 4_000_000_000_000_000).toPreferences()
+                .defaultRestDuration,
+        )
+    }
+
+    @Test
+    fun `a rest of exactly a day is kept`() {
+        val day = UserPreferences.MAX_REST_DURATION.inWholeSeconds
+
+        assertEquals(
+            UserPreferences.MAX_REST_DURATION,
+            samplePreferences().copy(defaultRestDurationSeconds = day).toPreferences().defaultRestDuration,
+        )
+    }
+
+    /** A bar heavier than any set can be: the plate calculator's sums on it wrapped negative. */
+    @Test
+    fun `a bar heavier than the heaviest set falls back to the Olympic bar`() {
+        val payload = samplePreferences().copy(barWeight = UserPreferences.MAX_BAR_WEIGHT + 1)
+
+        assertEquals(UserPreferences.DEFAULT_BAR_WEIGHT, payload.toPreferences().barWeight)
+        assertEquals(
+            UserPreferences.MAX_BAR_WEIGHT,
+            samplePreferences().copy(barWeight = UserPreferences.MAX_BAR_WEIGHT).toPreferences().barWeight,
+        )
+    }
+
+    /** The next-load engine adds the step to a set weight, which wrapped negative past a `Long`. */
+    @Test
+    fun `a custom increment heavier than the heaviest set restores as unset`() {
+        assertNull(samplePreferences().copy(customIncrement = Long.MAX_VALUE).toPreferences().customIncrement)
+        assertEquals(
+            UserPreferences.MAX_CUSTOM_INCREMENT,
+            samplePreferences().copy(customIncrement = UserPreferences.MAX_CUSTOM_INCREMENT).toPreferences()
+                .customIncrement,
+        )
+    }
+
     @Test
     fun `a bar of no weight falls back to the Olympic bar`() {
         val payload = samplePreferences().copy(barWeight = 0)

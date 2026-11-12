@@ -456,6 +456,50 @@ class UserPreferencesRepositoryImplTest {
             assertEquals(UserPreferences(), repository.observe().first())
         }
 
+    /**
+     * The far end of the same bounds (#256). A rest of four quadrillion seconds is finite, and
+     * the rest timer and the template estimate added to it until it was not; a bar or a step
+     * past ten tonnes wrapped the plate calculator's and the next-load engine's sums negative.
+     */
+    @Test
+    fun `a stored rest, bar or step past its ceiling falls back to the default`() =
+        withRawStore { repository, store ->
+            store.edit {
+                it[longPreferencesKey("default_rest_duration_seconds")] = 4_000_000_000_000_000
+                it[longPreferencesKey("bar_weight_milligrams")] = Long.MAX_VALUE
+                it[longPreferencesKey("custom_increment_milligrams")] = Long.MAX_VALUE
+            }
+
+            val preferences = repository.observe().first()
+            assertEquals(UserPreferences.DEFAULT_REST_DURATION, preferences.defaultRestDuration)
+            assertEquals(UserPreferences.DEFAULT_BAR_WEIGHT, preferences.barWeight)
+            assertNull(preferences.customIncrement)
+        }
+
+    @Test
+    fun `the setters reject a rest, bar or step past its ceiling, and take one at it`() =
+        withStore { repository ->
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setDefaultRestDuration(UserPreferences.MAX_REST_DURATION + 1.seconds) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setBarWeight(UserPreferences.MAX_BAR_WEIGHT + 1) }
+            }
+            assertThrows(IllegalArgumentException::class.java) {
+                runBlocking { repository.setCustomIncrement(UserPreferences.MAX_CUSTOM_INCREMENT + 1) }
+            }
+            assertEquals(UserPreferences(), repository.observe().first())
+
+            repository.setDefaultRestDuration(UserPreferences.MAX_REST_DURATION)
+            repository.setBarWeight(UserPreferences.MAX_BAR_WEIGHT)
+            repository.setCustomIncrement(UserPreferences.MAX_CUSTOM_INCREMENT)
+
+            val preferences = repository.observe().first()
+            assertEquals(UserPreferences.MAX_REST_DURATION, preferences.defaultRestDuration)
+            assertEquals(UserPreferences.MAX_BAR_WEIGHT, preferences.barWeight)
+            assertEquals(UserPreferences.MAX_CUSTOM_INCREMENT, preferences.customIncrement)
+        }
+
     @Test
     fun `a rest duration finer than a second is stored to the second`() =
         withStore { repository ->

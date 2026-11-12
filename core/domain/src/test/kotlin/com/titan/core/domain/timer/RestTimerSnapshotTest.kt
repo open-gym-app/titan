@@ -102,6 +102,21 @@ class RestTimerSnapshotTest {
         assertEquals(RestTimerSnapshot.Running(deadline = NOW + 45_000, total = 90.seconds), snapshot)
     }
 
+    /**
+     * The remainder's milliseconds added to the clock wrapped past `Long.MAX_VALUE` into a
+     * deadline in the past, and the rest read back as already over.
+     */
+    @Test
+    fun `a remainder too long to add to the clock is held at the latest deadline`() {
+        val snapshot = RestTimerSnapshot.of(RestTimerState.Running(Duration.INFINITE, Duration.INFINITE), NOW)
+
+        assertEquals(RestTimerSnapshot.Running(deadline = Long.MAX_VALUE, total = Duration.INFINITE), snapshot)
+        assertEquals(
+            RestTimerState.Running((Long.MAX_VALUE - NOW).milliseconds, Duration.INFINITE),
+            snapshot.toStateAt(NOW),
+        )
+    }
+
     @Test
     fun `a persisted rest with no total is refused`() {
         assertThrows(IllegalArgumentException::class.java) {

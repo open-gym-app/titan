@@ -37,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.UnitSystem
+import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.plate.PlateStock
 import com.titan.core.ui.component.Eyebrow
@@ -199,7 +200,8 @@ private fun BarWeightRow(
         // floor is whichever is smaller, so the press is a no-op at the bottom rather than a
         // reversal.
         onDecrease = { onChange((barWeight - step).coerceAtLeast(minOf(barWeight, step))) },
-        onIncrease = { onChange(barWeight + step) },
+        // Never past the heaviest bar `setBarWeight` accepts, for the same reason.
+        onIncrease = { onChange((barWeight + step).coerceAtMost(maxOf(barWeight, UserPreferences.MAX_BAR_WEIGHT))) },
         decreaseDescription = stringResource(R.string.plate_bar_lighter),
         increaseDescription = stringResource(R.string.plate_bar_heavier),
     )

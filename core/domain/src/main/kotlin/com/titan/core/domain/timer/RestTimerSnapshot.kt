@@ -130,6 +130,10 @@ sealed interface RestTimerSnapshot {
          * count. A rest is measured in minutes, so the rounding is not observable —
          * but it does mean a round trip through this type is not the identity on a
          * `Running` whose remainder is a fraction of a millisecond.
+         *
+         * The addition saturates at `Long.MAX_VALUE` rather than wrapping. A remainder
+         * that large is one no rest the app starts can have, but a wrapped deadline would
+         * lie in the past and read back as a rest that is already over.
          */
         fun of(
             state: RestTimerState,
@@ -143,9 +147,24 @@ sealed interface RestTimerSnapshot {
                 is RestTimerState.Paused -> Paused(state.remaining, state.total)
 
                 is RestTimerState.Running -> Running(
-                    deadline = nowMillis + state.remaining.inWholeMilliseconds,
+                    deadline = deadlineAfter(nowMillis, state.remaining.inWholeMilliseconds),
                     total = state.total,
                 )
+            }
+
+        /**
+         * [nowMillis] plus [remainingMillis], held at `Long.MAX_VALUE` where the sum would pass
+         * it. [remainingMillis] is never negative — [RestTimerState.Running] holds a positive
+         * remainder — so the only way out of range is up.
+         */
+        private fun deadlineAfter(
+            nowMillis: Long,
+            remainingMillis: Long,
+        ): Long =
+            if (remainingMillis > Long.MAX_VALUE - nowMillis.coerceAtLeast(0)) {
+                Long.MAX_VALUE
+            } else {
+                nowMillis + remainingMillis
             }
     }
 }

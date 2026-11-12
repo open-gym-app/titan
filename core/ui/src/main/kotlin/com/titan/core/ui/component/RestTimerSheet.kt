@@ -312,9 +312,14 @@ private fun RestTimerState.total(): Duration? =
  * `Finished` is a full bar and `Idle` an empty one. A zero-length total would divide by zero;
  * `RestTimerState` forbids it for `Running`, but `Paused` allows a zero remainder and total,
  * so it is guarded rather than assumed.
+ *
+ * An infinite total or remainder is an empty bar. No rest the app starts is infinite, but a
+ * workout draft written from a rest a restored backup made too long to hold can be, and
+ * subtracting one infinity from another throws, on every recomposition of the sheet.
  */
-private fun RestTimerState.elapsedFraction(): Float {
+internal fun RestTimerState.elapsedFraction(): Float {
     val total = total() ?: return if (this is RestTimerState.Finished) 1f else 0f
+    if (!total.isFinite() || !remaining().isFinite()) return 0f
     if (total <= Duration.ZERO) return 1f
     return ((total - remaining()) / total).toFloat().coerceIn(0f, 1f)
 }

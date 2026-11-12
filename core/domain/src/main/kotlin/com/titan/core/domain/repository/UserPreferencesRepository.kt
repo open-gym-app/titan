@@ -85,8 +85,8 @@ interface UserPreferencesRepository {
      * Sets the rest a set gets by default, to whole-second resolution — anything finer is
      * truncated, which is the granularity a rest is set in anyway.
      *
-     * @throws IllegalArgumentException if [duration] is infinite, or is under one whole
-     * second. Unlike the enum-valued settings, this one can be handed a value no user
+     * @throws IllegalArgumentException if [duration] is under one whole second or longer than
+     * [UserPreferences.MAX_REST_DURATION]. Unlike the enum-valued settings, this one can be handed a value no user
      * could have meant, and storing it would leave every later read falling back to the
      * default with no indication of why — a setting that silently does not take. Every
      * value [UserPreferences.defaultRestDuration] accepts is accepted here unchanged.
@@ -97,7 +97,8 @@ interface UserPreferencesRepository {
     /**
      * Sets the empty barbell's weight, in milligrams — see [UserPreferences.barWeight].
      *
-     * @throws IllegalArgumentException if [barWeight] is not positive.
+     * @throws IllegalArgumentException if [barWeight] is not positive, or is heavier than
+     *   [UserPreferences.MAX_BAR_WEIGHT].
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setBarWeight(barWeight: Long)
@@ -176,7 +177,8 @@ interface UserPreferencesRepository {
      * file that never carried the setting has to *forget* the stored increment, not overwrite
      * it with a copy of today's derived step that would then stop following the rack.
      *
-     * @throws IllegalArgumentException if [milligrams] is zero or negative.
+     * @throws IllegalArgumentException if [milligrams] is zero or negative, or is more than
+     *   [com.titan.core.domain.model.UserPreferences.MAX_CUSTOM_INCREMENT].
      * @throws IOException if the settings cannot be written.
      */
     suspend fun setCustomIncrement(milligrams: Long?)

@@ -16,19 +16,29 @@ import kotlin.time.Duration.Companion.seconds
 object RestDurations {
 
     /**
-     * The exercise's own `defaultRest` where it has a positive one, and [defaultRest] — the
-     * user's setting — otherwise, including for an exercise the catalogue no longer has.
+     * The longest rest an exercise's own `defaultRest` may ask for, in seconds: one day, the
+     * same ceiling `UserPreferences.MAX_REST_DURATION` puts on the user's setting.
+     */
+    const val MAX_EXERCISE_REST_SECONDS: Long = 86_400L
+
+    /**
+     * The exercise's own `defaultRest` where it has one in `1..MAX_EXERCISE_REST_SECONDS`, and
+     * [defaultRest] — the user's setting — otherwise, including for an exercise the catalogue
+     * no longer has.
      *
      * A stored rest of zero or less is treated as no opinion rather than as an instant rest: the
      * column is the user's to fill in, and a zero in it is far likelier to be an empty answer
-     * than a request for no rest at all.
+     * than a request for no rest at all. A rest longer than a day is treated the same way. No
+     * screen writes one, so it came from a hand-edited backup, and honouring it would hand the
+     * timer and the template estimate a duration that saturates to [Duration.INFINITE], whose
+     * arithmetic throws.
      */
     fun of(
         exercise: Exercise?,
         defaultRest: Duration,
     ): Duration =
         exercise?.defaultRest
-            ?.takeIf { it > 0 }
+            ?.takeIf { it in 1..MAX_EXERCISE_REST_SECONDS }
             ?.seconds
             ?: defaultRest
 }

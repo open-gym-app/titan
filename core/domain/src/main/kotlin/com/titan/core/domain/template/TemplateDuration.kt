@@ -47,9 +47,9 @@ import kotlin.time.Duration.Companion.seconds
  * A set's planned *duration* is read, because it is the one figure that says how long
  * the set takes rather than what it lifts. A 30-minute ride priced at [WORK_PER_SET]
  * would put a cardio template at under two minutes, and `3 × 1:30` of a plank is four
- * and a half minutes of holding, not a rep tempo. A non-positive duration — which only
- * an import can write — falls back to the allowance rather than pricing the set at
- * nothing.
+ * and a half minutes of holding, not a rep tempo. A duration outside `SetValidator`'s
+ * bounds — which only an import can write — falls back to the allowance rather than pricing
+ * the set at nothing, or at a figure that saturates the sum to [Duration.INFINITE].
  *
  * It is read only where the exercise's type draws a time field — [ExerciseType.ENDURANCE]
  * and [ExerciseType.ISOMETRIC]. A set keeps every figure it was planned with whatever the
@@ -115,7 +115,9 @@ object TemplateDuration {
      * every swapped slot and miss every exercise's own rest.
      *
      * An empty template estimates [Duration.ZERO], as does one whose exercises all plan
-     * no sets. A non-positive [defaultRest] contributes nothing rather than subtracting time.
+     * no sets. A non-positive [defaultRest] contributes nothing rather than subtracting time, and
+     * one past [UserPreferences.MAX_REST_DURATION] is priced at that ceiling, so the trailing rest
+     * subtracted at the end is always finite.
      */
     fun estimate(
         exercises: List<PlannedExercise>,
@@ -129,7 +131,7 @@ object TemplateDuration {
         // that never runs and so lose it entirely.
         val performed = exercises.filter { it.sets.isNotEmpty() }
         val grouping = performed.map(PlannedExercise::supersetGroup)
-        val fallbackRest = defaultRest.coerceAtLeast(Duration.ZERO)
+        val fallbackRest = defaultRest.coerceIn(Duration.ZERO, UserPreferences.MAX_REST_DURATION)
 
         var total = Duration.ZERO
         // The rest that would be taken after the final set of the workout, subtracted
@@ -157,12 +159,16 @@ object TemplateDuration {
 
     /**
      * How long one planned set occupies, rest excluded — its duration when [readsDuration]
-     * and it has a positive one, the allowance otherwise. See the class note.
+     * and it has one `SetValidator` would accept, the allowance otherwise. See the class note.
      */
     private fun workOf(
         set: PlannedSet,
         readsDuration: Boolean,
-    ): Duration = set.duration?.takeIf { readsDuration && it > 0 }?.seconds ?: WORK_PER_SET
+    ): Duration =
+        set.duration
+            ?.takeIf { readsDuration && it in SetValidator.DURATION_MIN_SECONDS..SetValidator.DURATION_MAX_SECONDS }
+            ?.seconds
+            ?: WORK_PER_SET
 
     /**
      * How many times a rest is taken after the exercise at [last], which is a standalone
