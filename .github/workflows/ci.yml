@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   scripts:
-    name: Seed and translations
+    name: Seed, translations and release gate
     runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
     steps:
       - name: Checkout
@@ -56,6 +56,12 @@ jobs:
       - name: Check every translation against the base strings
         if: ${{ !cancelled() }}
         run: make translations-check
+
+      # The release workflow's gate, against a throwaway repository with a tag on main, an
+      # unmerged tag, a branch named like a version and the rest of the ways around it.
+      - name: Check the release gate
+        if: ${{ !cancelled() }}
+        run: make release-gate-check
 
   # Every check that needs the Gradle build, in one job so the debug variant compiles once.
   # Each check step runs under `!cancelled()`, so one failing check does not hide the others'

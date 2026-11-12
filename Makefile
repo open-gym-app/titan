@@ -26,7 +26,8 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 SCALE ?= 2.0
 
 .DEFAULT_GOAL := help
-.PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check test journeys screenshots screenshots-verify lint \
+.PHONY: help seed seed-update seed-check seed-clean translations-check issue-refs-check release-gate-check workflows-check \
+	test journeys screenshots screenshots-verify lint \
 	demo-data store-screenshots \
 	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
 
@@ -55,6 +56,17 @@ translations-check: ## Report every key missing from, or stray in, each module's
 # that pull request closes, to check a change for what it made untrue before it merges.
 issue-refs-check: ## Fail on prose that still waits on a closed issue ("until #30 lands")
 	$(PYTHON) $(ISSUE_REFS) $(if $(PR),--pr $(PR))
+
+# Builds a throwaway git repository under $TMPDIR and runs .github/scripts/release-gate.sh on
+# every case in it; CI runs it too. Needs bash and git, nothing else.
+release-gate-check: ## Check the release workflow's gate against tags on and off main
+	bash .github/scripts/release-gate-test.sh
+
+# Not in CI, which has no workflow linter. `go run` fetches and builds the pinned actionlint;
+# it runs shellcheck on every `run:` block too when shellcheck is on the PATH.
+ACTIONLINT_VERSION := v1.7.12
+workflows-check: ## Lint the GitHub Actions workflows with actionlint (needs Go)
+	go run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
 
 test: ## Run the JVM unit tests and verify the screenshot references
 	./gradlew test verifyRoborazziDebug
