@@ -14,6 +14,7 @@ import com.titan.core.domain.plate.PlateCalculator
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.plate.PlateSolution
 import com.titan.core.domain.plate.Rack
+import com.titan.core.domain.validation.SetValidator
 
 /**
  * What the next set should be, from what the last ones were — the next-load engine (#M7-15).
@@ -190,9 +191,18 @@ object NextLoadEngine {
     /**
      * A performance read against [range]: its heaviest weight, and how the sets at that
      * weight did. Null when no set at that weight has a rep count to judge.
+     *
+     * Only a set whose reps and weight [SetValidator] would accept is judged. A set outside
+     * those bounds can only have come from a hand-edited backup, and it is read the way
+     * `WorkoutSetMapper` reads an out-of-range RPE, as not recorded: suggesting one more rep
+     * than `Int.MAX_VALUE`, or a step past the heaviest weight a `Long` holds, would overflow,
+     * and the [LoadSuggestion] built from it would throw on whichever screen asked.
      */
     private fun PastPerformance.judge(range: RepRange): Judged? {
-        val counted = sets.filter { set -> set.reps != null && set.reps >= 1 }
+        val counted = sets.filter { set ->
+            set.reps != null && set.reps in SetValidator.REPS_MIN..SetValidator.REPS_MAX &&
+                (set.weight == null || set.weight in SetValidator.WEIGHT_MIN_MG..SetValidator.WEIGHT_MAX_MG)
+        }
         val heaviest = counted.maxOfOrNull { set -> set.weight ?: 0L }?.takeIf { it > 0L }
         val reps = counted
             .filter { set -> heaviest == null || (set.weight ?: 0L) >= heaviest - PlateSolution.WEIGHT_TOLERANCE }
