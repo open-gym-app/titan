@@ -1,6 +1,6 @@
 # Política de privacidade do Titan
 
-*Em vigor desde 4 de outubro de 2026. Também disponível em [English](PRIVACY.md), [français](PRIVACY.fr.md) e [español](PRIVACY.es.md). Em caso de divergência, prevalece a versão em inglês.*
+*Em vigor desde 12 de novembro de 2026. Também disponível em [English](PRIVACY.md), [français](PRIVACY.fr.md) e [español](PRIVACY.es.md). Em caso de divergência, prevalece a versão em inglês.*
 
 O Titan é um diário de treino para Android. Ele é gratuito, de código aberto e feito por
 voluntários. Esta política cobre o app Titan (`app.titan.gym`) como publicado no Google
@@ -32,9 +32,14 @@ Isso fica no banco de dados e nos arquivos de configuração privados do app, qu
 deixa nenhum outro app ler.
 
 Se você ativar o **Backup automático semanal** (Configurações › Backup e restauração), o app
-também grava, uma vez por semana, um arquivo de backup na própria pasta dele no armazenamento
-compartilhado do aparelho (`Android/data/app.titan.gym/files/backups`). Ele mantém os três
-mais recentes e exclui os mais antigos. Esses arquivos ficam no celular, e o Android os exclui
+também grava, uma vez por semana, um arquivo de backup na própria pasta de backups dele, a
+mesma em que **Exportar um backup** grava. Ele mantém os três mais recentes e exclui os mais
+antigos. No Android 10 e versões posteriores, que restringem o acesso de outros apps a essa
+pasta, ela fica no armazenamento compartilhado do aparelho
+(`Android/data/app.titan.gym/files/backups`). No Android 8 e 9, onde outros apps com acesso ao
+armazenamento poderiam ler esse local, a pasta fica no armazenamento interno privado do app, e
+um backup só sai dela quando você usa **Compartilhar** ou **Salvar uma cópia…** em
+Configurações › Backup e restauração. Esses arquivos ficam no celular, e o Android os exclui
 quando você desinstala o app.
 
 ### Dados de saúde

@@ -1,6 +1,6 @@
 # Politique de confidentialité de Titan
 
-*En vigueur le 4 octobre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
+*En vigueur le 12 novembre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
 
 Titan est un carnet d’entraînement pour Android. Il est gratuit, open source et développé
 par des bénévoles. Cette politique couvre l’application Titan (`app.titan.gym`) telle
@@ -35,9 +35,15 @@ l’application, qu’Android ne laisse lire à aucune autre application.
 
 Si vous activez la **Sauvegarde auto hebdomadaire** (Paramètres › Sauvegarde & restauration),
 l’application écrit aussi, une fois par semaine, un fichier de sauvegarde dans son propre
-dossier du stockage partagé de l’appareil (`Android/data/app.titan.gym/files/backups`). Elle
-garde les trois plus récents et supprime les plus anciens. Ces fichiers restent sur le
-téléphone, et Android les supprime lorsque vous désinstallez l’application.
+dossier de sauvegardes, celui où écrit **Exporter une sauvegarde**. Elle garde les trois plus
+récents et supprime les plus anciens. Sous Android 10 et versions ultérieures, qui
+restreignent l’accès des autres applications à ce dossier, il se trouve dans le stockage
+partagé de l’appareil (`Android/data/app.titan.gym/files/backups`). Sous Android 8 et 9, où
+d’autres applications ayant accès au stockage pourraient lire cet emplacement, le dossier se
+trouve plutôt dans le stockage interne privé de l’application, et une sauvegarde n’en sort
+que lorsque vous utilisez **Partager** ou **Enregistrer une copie…** dans Paramètres ›
+Sauvegarde & restauration. Ces fichiers restent sur le téléphone, et Android les supprime
+lorsque vous désinstallez l’application.
 
 ### Données de santé
 
