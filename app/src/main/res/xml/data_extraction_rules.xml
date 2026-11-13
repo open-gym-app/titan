@@ -31,12 +31,13 @@
   under that name instead. A stale journal restored beside a database that is not there is the
   same corruption by a different file.
 
-  `backups/` is listed in two domains for one directory, and both are needed: the export
-  writes to the app's external files directory when there is one and falls back to `files/`
-  when `getExternalFilesDir` is null (`AutoBackupFiles.directory`, `BackupViewModel`, and the
+  `backups/` is listed in two domains for one directory, and both are needed: every backup is
+  written under `files/` below Android 10, where the external files directory is readable by
+  other apps (#259), and on a device with no external volume; and under the app's external
+  files directory otherwise (`BackupDirectory`, implemented by `AppBackupDirectory`, and the
   two paths `file_paths.xml` declares for the same reason). Excluding only the `external` copy
-  would leave every export on the phone that took the fallback travelling to Drive — the one
-  file this whole boundary exists to keep on the device.
+  would leave every export on an Android 8 or 9 phone travelling to Drive — the one file this
+  whole boundary exists to keep on the device.
 
   `no_backup/` is exempt from all of this by the platform and needs no entry — which is why
   the auto-backup schedule store lives there (see AutoBackupModule), alongside WorkManager's

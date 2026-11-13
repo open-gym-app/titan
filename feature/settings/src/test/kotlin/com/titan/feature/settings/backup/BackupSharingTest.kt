@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.domain.backup.BackupDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -30,6 +31,11 @@ import java.io.File
  *   anywhere else. In the app the receiver *is* an activity, so a device can never show it.
  *   This test found it.
  *
+ * - A `file_paths.xml` that serves one root and not the other fails only on the Android
+ *   versions that write there: internal storage on Android 8 and 9, where no file manager can
+ *   reach a backup and the share is one of only two ways out, and the external files directory
+ *   from Android 10 (#259).
+ *
  * The provider is declared in this module's manifest, so the unit-test manifest carries it as
  * `com.titan.feature.settings.test.fileprovider` — exactly `"$packageName.fileprovider"`,
  * the authority [shareBackup] derives. AGP does that substitution, so this pins it too: an
@@ -44,8 +50,8 @@ import java.io.File
  * hands each test *method* a fresh temporary directory. Split across methods, the first one to
  * run seeds that cache and every later one asks about a file under a root that no longer
  * matches — a harness artefact with no device counterpart, since a real external files
- * directory does not move under a running process. So the four facts below are asserted about
- * one share, which is what they are facts about anyway.
+ * directory does not move under a running process. So the facts below are asserted about one
+ * share from each root, in one method.
  */
 @RunWith(RobolectricTestRunner::class)
 class BackupSharingTest {
@@ -54,9 +60,9 @@ class BackupSharingTest {
 
     @Test
     fun `sharing a backup offers the exported file to another app, readably`() {
-        val fileName = writeBackup(DOCUMENT)
+        val file = writeBackup(requireNotNull(context.getExternalFilesDir(null)), DOCUMENT)
 
-        context.shareBackup(fileName)
+        context.shareBackup(file)
 
         val chooser = requireNotNull(shadowOf(context as Application).nextStartedActivity) {
             "sharing should have started an activity"
@@ -84,28 +90,48 @@ class BackupSharingTest {
         assertEquals("${context.packageName}.fileprovider", uri.authority)
 
         // The assertion that earns the test: reading the URI back proves `file_paths.xml`
-        // covers the directory `BackupViewModel` writes to, that the declared authority is the
+        // covers the directory backups are written to, that the declared authority is the
         // one the code derives, and that the file is *served* rather than merely named. A
         // provider scoped to the wrong root produces a URI that looks perfectly good and
         // cannot be opened.
-        val received = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        assertNotNull("the receiving app must be able to open the URI", received)
-        assertEquals(DOCUMENT, received)
+        assertEquals(DOCUMENT, read(uri))
+
+        // The same for a backup in internal storage, where Android 8 and 9 keep them.
+        val internal = writeBackup(context.filesDir, INTERNAL_DOCUMENT)
+        context.shareBackup(internal)
+        val internalChooser = requireNotNull(shadowOf(context as Application).nextStartedActivity)
+        val internalSend = requireNotNull(internalChooser.getParcelableExtra(Intent.EXTRA_INTENT, Intent::class.java))
+        assertEquals(
+            INTERNAL_DOCUMENT,
+            read(requireNotNull(internalSend.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java))),
+        )
     }
 
-    /** Writes a backup where the exporter would, and returns its name. */
-    private fun writeBackup(contents: String): String {
-        // The same path `BackupViewModel.backupDirectory` builds, which is the point of
-        // rebuilding it here rather than sharing a constant: if the two ever disagree, the
-        // provider stops serving the file and this test is what says so.
-        val directory = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
+    private fun read(uri: Uri): String {
+        val received = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        assertNotNull("the receiving app must be able to open $uri", received)
+        return requireNotNull(received)
+    }
+
+    /**
+     * Writes a backup under `backups/` in [root], one of the two roots `BackupDirectory` picks
+     * between, and returns it.
+     *
+     * The directory name is the shared constant; the root is spelled here on purpose, since
+     * which roots the provider serves is the question.
+     */
+    private fun writeBackup(
+        root: File,
+        contents: String,
+    ): File {
+        val directory = File(root, BackupDirectory.NAME)
         directory.mkdirs()
-        File(directory, FILE_NAME).writeText(contents)
-        return FILE_NAME
+        return File(directory, FILE_NAME).apply { writeText(contents) }
     }
 
     private companion object {
         const val FILE_NAME = "titan-backup-2026-09-06-1432.json"
         const val DOCUMENT = """{"schema_version":1,"exported_at":1,"app_version":"1.0"}"""
+        const val INTERNAL_DOCUMENT = """{"schema_version":1,"exported_at":2,"app_version":"1.0"}"""
     }
 }

@@ -293,9 +293,10 @@ class LocalDataRepositoryImpl @Inject constructor(
      *
      * The directories are [AutoBackupFiles.everyDirectory], from the one place in this module
      * that resolves them, so a move of the backups is followed here without a second path to
-     * keep in step. Both of them rather than [AutoBackupFiles.directory] alone, because that one
+     * keep in step. Both roots rather than [AutoBackupFiles.directory] alone, because that one
      * follows whichever volume is mounted now, and a backup written while the external volume
-     * was away sits in the internal fallback.
+     * was away sits in the internal fallback. Resolving first also moves in any an older install
+     * left under the other root.
      *
      * Two passes, because an export renames its scratch file into place *after* it lets go of
      * [BackupLock]. One that finished just before the wipe took the lock can rename a scratch

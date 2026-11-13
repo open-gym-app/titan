@@ -15,16 +15,17 @@ import java.io.File
 /**
  * Naming and retention: the two rules that decide what a user is left holding three weeks in.
  *
- * Robolectric rather than a temporary folder, because the directory is derived from
- * `getExternalFilesDir` and *which* directory it is — app-specific storage, deleted on
- * uninstall — is half of what the class is for.
+ * Robolectric rather than a temporary folder, because the directory is the real
+ * [AppBackupDirectory]'s and *which* directory it is — app-specific storage, deleted on
+ * uninstall — is half of what the class is for. Which root it picks on which Android version is
+ * `AppBackupDirectoryTest`'s question.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34], manifest = Config.NONE)
 class AutoBackupFilesTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
-    private val files = AutoBackupFiles(context)
+    private val files = AutoBackupFiles(AppBackupDirectory(context))
 
     @Before
     fun emptyTheDirectory() {

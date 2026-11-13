@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.data.backup.AppBackupDirectory
 import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.db.DefaultTemplates
 import com.titan.core.data.db.TitanDatabase
@@ -125,7 +126,7 @@ class LocalDataRepositoryImplTest {
     private lateinit var sessionRepository: SessionRepositoryImpl
     private lateinit var restTimer: AndroidBackgroundRestTimer
     private lateinit var idleSessionMonitor: AndroidIdleSessionMonitor
-    private val backupFiles = AutoBackupFiles(context)
+    private val backupFiles = AutoBackupFiles(AppBackupDirectory(context))
 
     /** The weekly backup's own store, over its own file, as `AutoBackupModule` builds it. */
     private lateinit var autoBackupStore: DataStore<Preferences>

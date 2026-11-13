@@ -1,7 +1,6 @@
 package com.titan.core.data.backup
 
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.titan.core.domain.backup.BackupDirectory
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -14,18 +13,16 @@ import javax.inject.Singleton
  *
  * ### The same directory the manual export writes to
  *
- * `backups/` under the app's own external files directory — app-specific storage, so it needs
- * no permission and is listed under the app in the system's storage screen. It is also
- * **deleted on uninstall**, and emptied by "delete all data" (`LocalDataRepositoryImpl`, through
- * [everyDirectory]), which is the fact the backup screen has to state next to the toggle: a user
- * who believes a weekly automatic backup survives a reinstall and finds out otherwise has been
- * actively misled. The manual export (#38) is what exists for that, and it
- * is why "Save a copy…" is the first button on the card it produces.
+ * `backups/` in app-specific storage, resolved by the [BackupDirectory] the backup screen's
+ * export also asks: internal storage below Android 10, the external files directory from it
+ * (see [AppBackupDirectory] for why). Either way it needs no permission, no other app can read
+ * it, and it is **deleted on uninstall**, and emptied by "delete all data"
+ * (`LocalDataRepositoryImpl`, through [everyDirectory]). That is the fact the backup screen has to
+ * state next to the toggle: a user who believes a weekly automatic backup survives a reinstall
+ * and finds out otherwise has been actively misled. The manual export (#38) is what exists for
+ * that, and it is why "Save a copy…" is the first button on the card it produces.
  *
- * The path is spelled here *and* in `BackupViewModel`, which is duplication with a reason:
- * `:feature:settings` may not depend on `:core:data` (docs/ARCHITECTURE.md), so there is no
- * type both could share. What keeps the two honest is that they must agree only on a directory
- * name, and they name different files inside it — see [PREFIX].
+ * The two writers share the directory and name different files inside it — see [PREFIX].
  *
  * ### Automatic and manual backups are told apart by name
  *
@@ -41,30 +38,23 @@ import javax.inject.Singleton
  * window.
  */
 @Singleton
-class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val context: Context) {
+class AutoBackupFiles @Inject constructor(private val backupDirectory: BackupDirectory) {
 
     /**
-     * `backups/`, on the external volume when there is one.
+     * `backups/`, wherever [BackupDirectory] puts it on this Android version.
      *
-     * Falls back to internal storage on a device with no external volume mounted, where
-     * `getExternalFilesDir` is null. Not created here — [scratchFor] does that, at the moment
-     * something is about to be written, so a device that never turns the toggle on grows no
-     * empty directory.
+     * Not created here — [scratchFor] does that, at the moment something is about to be
+     * written, so a device that never turns the toggle on grows no empty directory. The first
+     * read in a process may move an older install's backups into place, so it belongs on a
+     * background thread, which is where every caller already is.
      */
-    val directory: File get() = File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_DIRECTORY)
+    val directory: File get() = backupDirectory.resolve()
 
     /**
-     * Every `backups/` a backup can have been written to: the external one, and the internal
-     * fallback [directory] resolves to while no external volume is mounted.
-     *
-     * For "delete all data", which has to find every copy. [directory] alone answers for the
-     * volume mounted *now*, so it would miss a backup written to internal storage while the
-     * external volume was away, and every external one while it is away again.
+     * Every `backups/` a backup can have been written to, for "delete all data", which has to
+     * find every copy. See [BackupDirectory.everyDirectory] for why [directory] alone is not it.
      */
-    val everyDirectory: List<File>
-        get() = listOfNotNull(context.getExternalFilesDir(null), context.filesDir)
-            .map { File(it, BACKUP_DIRECTORY) }
-            .distinct()
+    val everyDirectory: List<File> get() = backupDirectory.everyDirectory()
 
     /** The file a run started at [at] writes, named for that day in the device's own zone. */
     fun fileFor(at: Long): File {
@@ -131,19 +121,7 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
         directory.listFiles().orEmpty()
             .filter { it.isFile && it.name.startsWith(PREFIX) && it.name.endsWith(SUFFIX + SCRATCH_SUFFIX) }
 
-    companion object {
-
-        /**
-         * `backups/`, the directory name alone — [directory] is what resolves it against a root.
-         *
-         * Public where the rest of this companion is not, because it is read outside this
-         * module: `:app`'s `BackupRulesTest` builds the paths it expects Android's backup rules
-         * to exclude out of this constant, in both domains the directory can land in. That is
-         * the difference between "deleted on uninstall" being true and being a sentence on a
-         * settings screen, so a rename here fails a test rather than quietly putting every
-         * export on Google's servers.
-         */
-        const val BACKUP_DIRECTORY = "backups"
+    private companion object {
 
         /** What makes a file *this* feature's. Retention never looks past it. */
         private const val PREFIX = "titan-auto-"

@@ -7,9 +7,13 @@
   let any app that guessed a path read a draft workout out of an authority granted for a
   share sheet.
 
-  Both variants of app-specific storage are declared because `BackupViewModel` falls back from
-  external to internal on a device with no external volume mounted; the path a backup is
-  written to has to be one this provider can serve either way.
+  Both variants of app-specific storage are declared because backups live under either root
+  (`BackupDirectory`, implemented by `AppBackupDirectory` in `:core:data`): internal storage
+  below Android 10, where the external files directory is readable by any app with storage
+  access (#259), and the external files directory from Android 10, or internal storage there
+  too on a device with no external volume mounted. On Android 8 and 9 no file manager can reach
+  a backup, so the share sheet and "Save a copy…" are the only ways one leaves the app, and the
+  internal path is what lets the share work there.
 -->
 <paths>
     <external-files-path
