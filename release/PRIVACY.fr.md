@@ -3,7 +3,7 @@
 *En vigueur le 4 octobre 2026. Également disponible en [English](PRIVACY.md), [español](PRIVACY.es.md) et [português (Brasil)](PRIVACY.pt-BR.md). En cas de divergence, la version anglaise fait foi.*
 
 Titan est un carnet d’entraînement pour Android. Il est gratuit, open source et développé
-par des bénévoles. Cette politique couvre l’application Titan (`com.titan.app`) telle
+par des bénévoles. Cette politique couvre l’application Titan (`app.titan.gym`) telle
 qu’elle est publiée sur Google Play et compilée depuis son dépôt source.
 
 ## En bref
@@ -35,7 +35,7 @@ l’application, qu’Android ne laisse lire à aucune autre application.
 
 Si vous activez la **Sauvegarde auto hebdomadaire** (Paramètres › Sauvegarde & restauration),
 l’application écrit aussi, une fois par semaine, un fichier de sauvegarde dans son propre
-dossier du stockage partagé de l’appareil (`Android/data/com.titan.app/files/backups`). Elle
+dossier du stockage partagé de l’appareil (`Android/data/app.titan.gym/files/backups`). Elle
 garde les trois plus récents et supprime les plus anciens. Ces fichiers restent sur le
 téléphone, et Android les supprime lorsque vous désinstallez l’application.
 
@@ -93,7 +93,7 @@ Notifications ou dans les paramètres d’Android.
 | `RECEIVE_BOOT_COMPLETED` | Pour reprogrammer vos rappels et la sauvegarde hebdomadaire après un redémarrage du téléphone. |
 | `VIBRATE` | Pour vibrer à la fin d’un repos. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Ajoutées par la bibliothèque de planification de tâches d’Android (WorkManager), qui exécute la sauvegarde hebdomadaire. Aucune ne donne accès au réseau. |
-| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Ajoutée par la bibliothèque AndroidX core. Elle empêche d’autres applications d’envoyer des messages internes à l’application. |
+| `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Ajoutée par la bibliothèque AndroidX core. Elle empêche d’autres applications d’envoyer des messages internes à l’application. |
 
 ## Supprimer vos données
 

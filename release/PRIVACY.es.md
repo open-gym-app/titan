@@ -3,7 +3,7 @@
 *Vigente desde el 4 de octubre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
 
 Titan es un diario de entrenamiento para Android. Es gratuito, de código abierto y lo
-desarrollan voluntarios. Esta política cubre la app Titan (`com.titan.app`) tal como se
+desarrollan voluntarios. Esta política cubre la app Titan (`app.titan.gym`) tal como se
 publica en Google Play y se compila desde su repositorio de código.
 
 ## En resumen
@@ -33,7 +33,7 @@ Android no deja leer a ninguna otra app.
 
 Si activas la **Copia automática semanal** (Ajustes › Copia de seguridad y restauración), la
 app también escribe una vez por semana un archivo de copia en su propia carpeta del
-almacenamiento compartido del dispositivo (`Android/data/com.titan.app/files/backups`).
+almacenamiento compartido del dispositivo (`Android/data/app.titan.gym/files/backups`).
 Conserva las tres más recientes y borra las anteriores. Esos archivos se quedan en el
 teléfono, y Android los borra cuando desinstalas la app.
 
@@ -89,7 +89,7 @@ Android.
 | `RECEIVE_BOOT_COMPLETED` | Para volver a programar los recordatorios y la copia semanal después de reiniciar el teléfono. |
 | `VIBRATE` | Para vibrar al terminar un descanso. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Los añade la biblioteca de planificación de tareas de Android (WorkManager), que ejecuta la copia semanal. Ninguno da acceso a la red. |
-| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Lo añade la biblioteca AndroidX core. Impide que otras apps envíen mensajes internos a la app. |
+| `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Lo añade la biblioteca AndroidX core. Impide que otras apps envíen mensajes internos a la app. |
 
 ## Borrar tus datos
 

@@ -3,7 +3,7 @@
 *Effective 4 October 2026. Also available in [français](PRIVACY.fr.md), [español](PRIVACY.es.md) and [português (Brasil)](PRIVACY.pt-BR.md).*
 
 Titan is a workout tracker for Android. It is free, open source, and made by volunteers.
-This policy covers the Titan app (`com.titan.app`) as published on Google Play and built
+This policy covers the Titan app (`app.titan.gym`) as published on Google Play and built
 from the source repository.
 
 ## The short version
@@ -33,7 +33,7 @@ app read.
 
 If you turn on **Weekly auto-backup** (Settings › Backup & restore), the app also writes a
 backup file once a week into its own folder on the device's shared storage
-(`Android/data/com.titan.app/files/backups`). It keeps the three most recent and deletes
+(`Android/data/app.titan.gym/files/backups`). It keeps the three most recent and deletes
 older ones. These files stay on the phone, and Android deletes them when you uninstall the
 app.
 
@@ -86,7 +86,7 @@ one off in Settings › Notifications or in Android's settings.
 | `RECEIVE_BOOT_COMPLETED` | To schedule your workout reminders and the weekly backup again after the phone restarts. |
 | `VIBRATE` | To buzz when a rest period ends. |
 | `WAKE_LOCK`, `FOREGROUND_SERVICE`, `ACCESS_NETWORK_STATE` | Added by Android's job scheduler library (WorkManager), which runs the weekly backup. None of them grants network access. |
-| `com.titan.app.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Added by the AndroidX core library. It keeps other apps from sending the app internal messages. |
+| `app.titan.gym.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` | Added by the AndroidX core library. It keeps other apps from sending the app internal messages. |
 
 ## Deleting your data
 
