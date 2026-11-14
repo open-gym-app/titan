@@ -70,6 +70,21 @@ class GymPersistenceTest {
         }
 
     @Test
+    fun `a gym saved without a pin is still there after a restart`() =
+        runBlocking {
+            val garage = Gym(name = "Garage", address = "3 Home Lane", createdAt = 1_700_000_000_000)
+            val first = open()
+            val id = first.gyms().save(garage)
+            first.close()
+
+            val reopened = open()
+            val stored = reopened.gyms().getById(id).first()
+            reopened.close()
+
+            assertEquals(garage.copy(id = id), stored)
+        }
+
+    @Test
     fun `an edit survives a restart`() =
         runBlocking {
             val first = open()

@@ -23,7 +23,7 @@ class NearbyGymsUseCaseTest {
 
     private fun gym(
         id: Long,
-        coordinates: Coordinates,
+        coordinates: Coordinates?,
     ) = Gym(id = id, name = "Gym $id", address = "somewhere", coordinates = coordinates, createdAt = 0)
 
     private class FakeGymRepository(initial: List<Gym>) : GymRepository {
@@ -37,6 +37,20 @@ class NearbyGymsUseCaseTest {
 
         override suspend fun delete(id: Long) = error("not used")
     }
+
+    /** A gym with no pin has no distance, so it is not "nearby" at any radius. */
+    @Test
+    fun `a gym saved without coordinates is never nearby`() =
+        runTest {
+            val repository = FakeGymRepository(listOf(gym(1, null), gym(2, northOf(1.0))))
+
+            val nearby = NearbyGymsUseCase(repository)(userLocation = here, radiusKm = 20_000.0)
+
+            nearby.test {
+                assertEquals(listOf(2L), awaitItem().map { it.gym.id })
+                cancelAndIgnoreRemainingEvents()
+            }
+        }
 
     @Test
     fun `only gyms inside the radius come back, nearest first`() =

@@ -30,10 +30,18 @@ data class Coordinates(
  *
  * ### Local-first
  *
- * Nothing here is fetched from anywhere: the user types the name and address, drops the pin
- * and tags the equipment, and the whole directory is browsable with no connection. It is the
- * data layer the review and marketplace features build on, and it is exported and restored
- * with the rest of the device.
+ * Nothing here is fetched from anywhere: the user types the name and address, tags the
+ * equipment, and the whole directory is browsable with no connection. It is the data layer the
+ * review and marketplace features build on, and it is exported and restored with the rest of
+ * the device.
+ *
+ * ### The pin is optional
+ *
+ * A gym is a name and an address; [coordinates] are there when the user gave them and null
+ * when they did not. The app holds no location permission and cannot geocode an address
+ * offline, so a model that required a pin would require the user to type a latitude. A gym
+ * without one is saved, listed, tagged and reviewed like any other — it is only left out of
+ * `NearbyGymsUseCase`, which has nothing to measure it by.
  *
  * ### Equipment tags
  *
@@ -42,6 +50,7 @@ data class Coordinates(
  * `GymValidator` refuses a tag that contains a line break.
  *
  * @property id the row id, or 0 for a gym not saved yet.
+ * @property coordinates where the gym is, or null when the user placed no pin.
  * @property userNotes whatever the user wrote about the place; never shown to anyone else.
  * @property createdAt when the gym was saved, in epoch milliseconds UTC — the caller's clock,
  *   as everywhere else in the data layer.
@@ -50,7 +59,7 @@ data class Gym(
     val id: Long = 0,
     val name: String,
     val address: String,
-    val coordinates: Coordinates,
+    val coordinates: Coordinates? = null,
     val equipmentTags: List<String> = emptyList(),
     val userNotes: String? = null,
     val createdAt: Long,

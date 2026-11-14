@@ -208,13 +208,11 @@ private suspend fun TitanDatabase.seedGyms() {
                 userNotes = "closes at 22:00",
                 createdAt = STARTED_AT,
             ),
-            // A gym with no tags and no notes: the empty tag column and the null have to survive.
+            // A gym with no pin, no tags and no notes: the empty tag column and the nulls have to survive.
             GymEntity(
                 id = 2,
                 name = "Park Pull-ups",
                 address = "",
-                latitudeMicro = -33_868_820,
-                longitudeMicro = 151_209_300,
                 equipmentTags = "",
                 createdAt = STARTED_AT,
             ),

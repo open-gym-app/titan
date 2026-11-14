@@ -156,8 +156,8 @@ abstract class TitanDatabase : RoomDatabase() {
                         "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
                         "`name` TEXT NOT NULL, " +
                         "`address` TEXT NOT NULL, " +
-                        "`latitude_micro` INTEGER NOT NULL, " +
-                        "`longitude_micro` INTEGER NOT NULL, " +
+                        "`latitude_micro` INTEGER, " +
+                        "`longitude_micro` INTEGER, " +
                         "`equipment_tags` TEXT NOT NULL, " +
                         "`user_notes` TEXT, " +
                         "`created_at` INTEGER NOT NULL)",

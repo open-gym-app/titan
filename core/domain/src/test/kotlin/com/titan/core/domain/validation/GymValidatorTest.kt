@@ -38,6 +38,12 @@ class GymValidatorTest {
         assertTrue(reason(valid.copy(address = "")).contains("address"))
     }
 
+    /** The pin is optional: a name and an address are a gym. */
+    @Test
+    fun `a gym with no coordinates is valid`() {
+        assertEquals(ValidationResult.Valid, GymValidator.validate(valid.copy(coordinates = null)))
+    }
+
     @Test
     fun `the coordinate ranges are inclusive`() {
         listOf(Coordinates(90.0, 180.0), Coordinates(-90.0, -180.0)).forEach {

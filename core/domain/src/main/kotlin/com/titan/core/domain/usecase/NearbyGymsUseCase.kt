@@ -19,7 +19,10 @@ class NearbyGymsUseCase(private val gymRepository: GymRepository) {
     /**
      * Gyms no further than [radiusKm] from [userLocation], ascending by distance, re-emitted as
      * the directory changes. A gym exactly [radiusKm] away is included; gyms at the same
-     * distance keep the repository's order.
+     * distance keep the repository's order. A gym saved without coordinates is never in the
+     * list, whatever the radius: there is no distance to give it.
+     *
+     * [userLocation] is the caller's to supply. Nothing here reads the device's position.
      *
      * @throws IllegalArgumentException if [radiusKm] is not a positive, finite number.
      */
@@ -31,7 +34,9 @@ class NearbyGymsUseCase(private val gymRepository: GymRepository) {
 
         return gymRepository.getAll().map { gyms ->
             gyms
-                .map { gym -> NearbyGym(gym, GeoDistance.haversineKm(userLocation, gym.coordinates)) }
+                .mapNotNull { gym ->
+                    gym.coordinates?.let { NearbyGym(gym, GeoDistance.haversineKm(userLocation, it)) }
+                }
                 .filter { it.distanceKm <= radiusKm }
                 .sortedBy { it.distanceKm }
         }

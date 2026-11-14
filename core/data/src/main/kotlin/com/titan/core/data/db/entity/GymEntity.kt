@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
  * One gym in the user's own directory. See `Gym`.
  *
  * Coordinates are integer microdegrees, not REAL, so the table holds no floating point and
- * round-trips through an export exactly — see docs/PERSISTENCE.md. [equipmentTags] is the
+ * round-trips through an export exactly — see docs/PERSISTENCE.md. Both are null for a gym
+ * saved without a pin; a row holding only one of them reads as having none. [equipmentTags] is the
  * tags one per line (`''` for none); `GymValidator` refuses a tag that contains a line break,
  * and an importer writing this table directly has to check it itself.
  */
@@ -21,9 +22,9 @@ data class GymEntity(
     @ColumnInfo(name = "address")
     val address: String,
     @ColumnInfo(name = "latitude_micro")
-    val latitudeMicro: Int,
+    val latitudeMicro: Int? = null,
     @ColumnInfo(name = "longitude_micro")
-    val longitudeMicro: Int,
+    val longitudeMicro: Int? = null,
     @ColumnInfo(name = "equipment_tags")
     val equipmentTags: String,
     @ColumnInfo(name = "user_notes")

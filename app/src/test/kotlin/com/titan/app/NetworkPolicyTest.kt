@@ -65,6 +65,32 @@ class NetworkPolicyTest {
      */
     @Test
     fun `no module requests the internet permission`() {
+        val offenders = projectManifests().filter { manifest ->
+            parse(manifest.path).elements("uses-permission").any {
+                it.getAttribute("android:name") == INTERNET && it.getAttribute("tools:node") != "remove"
+            }
+        }
+        assertEquals("manifests requesting INTERNET: $offenders", emptyList<File>(), offenders)
+    }
+
+    /**
+     * Not a network lock, but the same promise read off the same files: the gym directory is
+     * the user's own typing (#50). `NearbyGymsUseCase` is handed the point it measures from and
+     * a gym's pin is optional, so nothing needs the device's position — and asking for it is a
+     * decision that belongs in a reviewed change to this test.
+     */
+    @Test
+    fun `no module requests a location permission`() {
+        val offenders = projectManifests().filter { manifest ->
+            parse(manifest.path).elements("uses-permission").any {
+                it.getAttribute("android:name") in LOCATION_PERMISSIONS && it.getAttribute("tools:node") != "remove"
+            }
+        }
+
+        assertEquals("manifests requesting a location permission: $offenders", emptyList<File>(), offenders)
+    }
+
+    private fun projectManifests(): List<File> {
         val root = File("..").canonicalFile
         val manifests = root.walkTopDown()
             .onEnter { it == root || (it.name != "build" && !it.name.startsWith(".")) }
@@ -72,12 +98,7 @@ class NetworkPolicyTest {
             .toList()
 
         assertTrue("expected to find the project's manifests", manifests.size > 1)
-        val offenders = manifests.filter { manifest ->
-            parse(manifest.path).elements("uses-permission").any {
-                it.getAttribute("android:name") == INTERNET && it.getAttribute("tools:node") != "remove"
-            }
-        }
-        assertEquals("manifests requesting INTERNET: $offenders", emptyList<File>(), offenders)
+        return manifests
     }
 
     private fun parse(path: String): Element {
@@ -99,5 +120,10 @@ class NetworkPolicyTest {
 
     private companion object {
         const val INTERNET = "android.permission.INTERNET"
+        val LOCATION_PERMISSIONS = setOf(
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.ACCESS_BACKGROUND_LOCATION",
+        )
     }
 }

@@ -71,6 +71,11 @@ private val V1_FIXTURE = MigrationFixture(
             "INSERT INTO gym (name, address, latitude_micro, longitude_micro, equipment_tags, created_at) " +
                 "VALUES ('Iron Works', '12 Forge Street', 51507400, -127800, '', 1700000000000000)",
         )
+        // The pin is optional: a gym is a name and an address.
+        db.execSQL(
+            "INSERT INTO gym (name, address, equipment_tags, created_at) " +
+                "VALUES ('Garage', '3 Home Lane', '', 1700000000000000)",
+        )
     },
 )
 

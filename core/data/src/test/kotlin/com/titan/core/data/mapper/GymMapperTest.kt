@@ -50,6 +50,24 @@ class GymMapperTest {
     }
 
     @Test
+    fun `a gym with no pin stores two nulls and reads back with none`() {
+        val entity = mapper.toEntity(gym.copy(coordinates = null))
+
+        assertNull(entity.latitudeMicro)
+        assertNull(entity.longitudeMicro)
+        assertNull(mapper.toDomain(entity).coordinates)
+    }
+
+    /** Only a file somebody else wrote holds one: the app writes both halves or neither. */
+    @Test
+    fun `half a pin reads as no pin`() {
+        val entity = mapper.toEntity(gym)
+
+        assertNull(mapper.toDomain(entity.copy(longitudeMicro = null)).coordinates)
+        assertNull(mapper.toDomain(entity.copy(latitudeMicro = null)).coordinates)
+    }
+
+    @Test
     fun `tags are stored one per line, in order`() {
         assertEquals("squat rack\ndumbbells to 50 kg", mapper.toEntity(gym).equipmentTags)
     }

@@ -8,6 +8,8 @@ import com.titan.core.domain.model.Gym
  * [BodyMeasurementValidator] for the gym directory, and a check a caller runs rather than a
  * gate the write path forces it through.
  *
+ * A gym with no coordinates is valid: the pin is optional, see [Gym].
+ *
  * Reports *all* violations in one [ValidationResult.Invalid], so a form with a missing name and
  * a mistyped latitude shows both.
  */
@@ -17,7 +19,7 @@ object GymValidator {
         val violations = buildList {
             if (gym.name.isBlank()) add("name must not be blank")
             if (gym.address.isBlank()) add("address must not be blank")
-            addAll(coordinateViolations(gym.coordinates))
+            gym.coordinates?.let { addAll(coordinateViolations(it)) }
             gym.equipmentTags.forEach { tag ->
                 if (tag.isBlank()) {
                     add("an equipment tag must not be blank")

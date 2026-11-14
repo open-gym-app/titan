@@ -132,8 +132,6 @@ private fun sampleGyms() =
             id = 2,
             name = "Park Pull-ups",
             address = "",
-            latitudeMicro = -33_868_820,
-            longitudeMicro = 151_209_300,
             equipmentTags = "",
             createdAt = STARTED_AT,
         ),
