@@ -154,6 +154,34 @@ class BackupViewModelTest {
             assertTrue("$shared should exist", shared.isFile)
         }
 
+    /**
+     * From Android 10 the directory follows whichever volume is mounted, so the root it names
+     * can change between the export and the tap on Share. The file the export wrote is still
+     * the one handed over, not a name under the other root with nothing behind it.
+     */
+    @Test
+    fun `the share finds the export after the directory moves to the other root`() =
+        runTest {
+            val external = File(requireNotNull(context.getExternalFilesDir(null)), BackupDirectory.NAME)
+            var current = backupDirectory.resolve()
+            val moving = object : BackupDirectory {
+                override fun resolve(): File = current
+
+                override fun everyDirectory(): List<File> =
+                    listOf(current, external, backupDirectory.resolve()).distinct()
+            }
+            val viewModel = viewModel(directory = moving)
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val outcome = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
+            current = external
+
+            val shared = viewModel.exportedFile(outcome.fileName)
+            assertEquals(backupFile(outcome.fileName), shared)
+            assertTrue("$shared should exist", shared.isFile)
+        }
+
     /** The rows the exporter counted are the rows the outcome reports. */
     @Test
     fun `a finished export reports what it wrote`() =
@@ -745,39 +773,44 @@ class BackupViewModelTest {
         assertEquals(BackupPhase.Idle, state.phase)
     }
 
-    private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()): BackupViewModel {
-        val factory = viewModelFactory { initializer { newViewModel(savedState) } }
+    private fun viewModel(
+        savedState: SavedStateHandle = SavedStateHandle(),
+        directory: BackupDirectory = backupDirectory,
+    ): BackupViewModel {
+        val factory = viewModelFactory { initializer { newViewModel(savedState, directory) } }
         return ViewModelProvider.create(viewModels, factory)["backup-${created.size}", BackupViewModel::class]
             .also { created += it }
     }
 
-    private fun newViewModel(savedState: SavedStateHandle) =
-        BackupViewModel(
-            savedStateHandle = savedState,
-            context = context,
-            backupDirectory = backupDirectory,
-            exportBackup = ExportUseCase(
-                backupRepository = backend.backupRepository,
-                userPreferencesRepository = backend.preferences,
-            ),
-            importBackup = ImportUseCase(
-                backupRepository = backend.backupRepository,
-                userPreferencesRepository = backend.preferences,
-                inProgressSessionRepository = backend.draft,
-                templateDraftRepository = backend.templateDraft,
-                sessionStateRepository = backend.sessionState,
-                backgroundRestTimer = NoRestTimer,
-                idleSessionMonitor = NoIdleSessionMonitor,
-                reminderScheduler = backend.reminders,
-            ),
-            setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
-                autoBackupRepository = backend.autoBackup,
-                scheduler = backend.scheduler,
-            ),
-            clock = { EXPORTED_AT },
-            localDataRepository = backend.localDataRepository,
+    private fun newViewModel(
+        savedState: SavedStateHandle,
+        directory: BackupDirectory,
+    ) = BackupViewModel(
+        savedStateHandle = savedState,
+        context = context,
+        backupDirectory = directory,
+        exportBackup = ExportUseCase(
+            backupRepository = backend.backupRepository,
+            userPreferencesRepository = backend.preferences,
+        ),
+        importBackup = ImportUseCase(
+            backupRepository = backend.backupRepository,
+            userPreferencesRepository = backend.preferences,
+            inProgressSessionRepository = backend.draft,
+            templateDraftRepository = backend.templateDraft,
+            sessionStateRepository = backend.sessionState,
+            backgroundRestTimer = NoRestTimer,
+            idleSessionMonitor = NoIdleSessionMonitor,
+            reminderScheduler = backend.reminders,
+        ),
+        setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
             autoBackupRepository = backend.autoBackup,
-        )
+            scheduler = backend.scheduler,
+        ),
+        clock = { EXPORTED_AT },
+        localDataRepository = backend.localDataRepository,
+        autoBackupRepository = backend.autoBackup,
+    )
 
     /**
      * `uiState` is a `stateIn(WhileSubscribed)`, so every test collects it in the background

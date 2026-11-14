@@ -15,12 +15,13 @@ import javax.inject.Singleton
  *
  * `backups/` in app-specific storage, resolved by the [BackupDirectory] the backup screen's
  * export also asks: internal storage below Android 10, the external files directory from it
- * (see [AppBackupDirectory] for why). Either way it needs no permission, no other app can read
- * it, and it is **deleted on uninstall**, and emptied by "delete all data"
- * (`LocalDataRepositoryImpl`, through [everyDirectory]). That is the fact the backup screen has to
- * state next to the toggle: a user who believes a weekly automatic backup survives a reinstall
- * and finds out otherwise has been actively misled. The manual export (#38) is what exists for
- * that, and it is why "Save a copy…" is the first button on the card it produces.
+ * (see [AppBackupDirectory] for why, and for the one open question on Android 10). Either way
+ * it needs no permission, it is kept out of other apps' reach, and it is **deleted on
+ * uninstall**, and emptied by "delete all data" (`LocalDataRepositoryImpl`, through
+ * [everyDirectory]). That is the fact the backup screen has to state next to the toggle: a
+ * user who believes a weekly automatic backup survives a reinstall and finds out otherwise has
+ * been actively misled. The manual export (#38) is what exists for that, and it is why "Save a
+ * copy…" is the first button on the card it produces.
  *
  * The two writers share the directory and name different files inside it — see [PREFIX].
  *

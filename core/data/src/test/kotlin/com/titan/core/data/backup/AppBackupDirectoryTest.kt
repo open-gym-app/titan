@@ -3,14 +3,17 @@ package com.titan.core.data.backup
 import android.content.Context
 import android.content.ContextWrapper
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.domain.backup.ExportFormat
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.RandomAccessFile
 
 /**
  * Which root the backups live under on which Android version, and the move that follows an
@@ -126,8 +129,8 @@ class AppBackupDirectoryTest {
 
     /**
      * A phone that moves to Android 10 with its backups in internal storage: the directory the
-     * app reads changes, so the files follow it rather than sitting where no export lists them
-     * and "Delete all data" does not look.
+     * app reads changes, so the files follow it rather than sitting where no export, share or
+     * retention pass looks.
      */
     @Test
     fun `from Android 10 backups left in internal storage follow the directory`() {
@@ -138,6 +141,45 @@ class AppBackupDirectoryTest {
         assertEquals(external, directory)
         assertEquals("manual", File(directory, "titan-backup-2026-11-09-1432.json").readText())
         assertFalse(internal.exists())
+    }
+
+    /**
+     * Larger than any restore would read, and on Android 9 possibly planted by another app with
+     * storage access: it stays out of private storage. Sparse, so the test writes no 64 MB.
+     */
+    @Test
+    @Config(sdk = [28])
+    fun `a backup too large to restore is left where it is`() {
+        write(external, "titan-auto-2026-11-01.json", "auto")
+        external.mkdirs()
+        RandomAccessFile(File(external, "titan-backup-2026-11-09-1432.json"), "rw").use {
+            it.setLength(ExportFormat.MAX_DOCUMENT_BYTES + 1)
+        }
+
+        val directory = AppBackupDirectory(context).resolve()
+
+        assertEquals(listOf("titan-auto-2026-11-01.json"), names(directory))
+        assertEquals(listOf("titan-backup-2026-11-09-1432.json"), names(external))
+    }
+
+    /**
+     * "Delete all data" before any export: it lists both roots and wipes them, so copying the old
+     * backups across first would be wasted. The process counts as settled, and a later [resolve]
+     * does not move them either; they are where [AppBackupDirectory.everyDirectory] said.
+     */
+    @Test
+    @Config(sdk = [28])
+    fun `asking for every directory first settles the process without moving anything`() {
+        write(external, "titan-auto-2026-11-01.json", "auto")
+        val process = AppBackupDirectory(context)
+
+        val directories = process.everyDirectory()
+
+        assertEquals(listOf(internal, external), directories)
+        assertEquals(listOf("titan-auto-2026-11-01.json"), names(external))
+        assertEquals(internal, process.resolve())
+        assertFalse(internal.exists())
+        assertTrue(File(external, "titan-auto-2026-11-01.json").isFile)
     }
 
     @Test

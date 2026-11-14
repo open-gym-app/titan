@@ -543,15 +543,22 @@ class BackupViewModel @Inject constructor(
      * Public for the share, which the route hands straight to the platform: the screen knows
      * the file by the name on its card, and this is what turns that into the file. The
      * directory is [backupDirectory]'s, the one the weekly backup and "Delete all data" use
-     * too — app-specific storage that no other app can read on any Android version this app
-     * runs on, and that goes away with an uninstall, which is the right lifetime for a file
-     * whose whole purpose is to be handed to somewhere else. `file_paths.xml` declares a
-     * `FileProvider` path under both roots it can be in.
+     * too — app-specific storage kept out of other apps' reach (see `AppBackupDirectory` for
+     * the one open question on Android 10), and that goes away with an uninstall, which is the
+     * right lifetime for a file whose whole purpose is to be handed to somewhere else.
+     * `file_paths.xml` declares a `FileProvider` path under both roots it can be in.
+     *
+     * Looked for under every root rather than only the one [BackupDirectory.resolve] names now:
+     * from Android 10 that follows whichever volume is mounted, so an export written to the
+     * internal fallback while the external volume was away would otherwise be shared, or
+     * copied, as a file that is not there once the volume came back.
      *
      * Cheap on the main thread once an export has run in this process, which a share always
      * follows.
      */
-    fun exportedFile(fileName: String): File = File(backupDirectory.resolve(), fileName)
+    fun exportedFile(fileName: String): File =
+        backupDirectory.everyDirectory().map { File(it, fileName) }.firstOrNull(File::isFile)
+            ?: File(backupDirectory.resolve(), fileName)
 
     /**
      * `titan-backup-2026-09-06-1432.json`.

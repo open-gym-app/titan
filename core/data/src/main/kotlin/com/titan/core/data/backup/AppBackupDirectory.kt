@@ -3,6 +3,7 @@ package com.titan.core.data.backup
 import android.content.Context
 import android.os.Build
 import com.titan.core.domain.backup.BackupDirectory
+import com.titan.core.domain.backup.ExportFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
@@ -34,11 +35,17 @@ import javax.inject.Singleton
  *
  * A build older than this rule left its backups in shared storage on Android 8 and 9, and a
  * phone upgraded to Android 10 has its backups in `filesDir`. Either way they are in a directory
- * that nothing reads any more: no export lists it, and "Delete all data" would not empty it. So
- * the first [resolve] in a process moves every finished backup (`titan-*.json`, manual and
+ * that no export, share or retention pass looks in any more; only "Delete all data", which
+ * empties both roots through [everyDirectory], still finds them. So the first [resolve] in a
+ * process moves every finished backup (`titan-*.json`, manual and
  * automatic alike) from the other root's `backups/` into this one, deletes the scratch files
  * (`titan-*.json.tmp`) an interrupted export left there, and removes the old directory if that
- * leaves it empty. Anything else in it is not the app's and is left alone.
+ * leaves it empty. Anything else in it is not the app's and is left alone, and so is a backup
+ * larger than [ExportFormat.MAX_DOCUMENT_BYTES]: no restore would read it, and on Android 8 and 9
+ * the old directory is one other apps can write to, so a file that size is as likely planted as
+ * the app's, and copying it would hold up the first export for nothing. A forged backup under
+ * the limit does come across; it is no more trusted here than it was where the older build
+ * offered it, and a restore decodes and validates it like any other document.
  *
  * **On first use rather than at startup**, because that is the one hook that costs nothing to
  * anybody who never touches a backup, needs no code in `:app`, and still runs before anything
@@ -47,6 +54,14 @@ import javax.inject.Singleton
  * instead put a directory listing, and on an old phone tens of megabytes of copying, on every
  * cold start's path. Every caller but the share reaches here on a background thread; the share
  * only offers a file an export wrote earlier in the same process, so by then the move is done.
+ *
+ * **Not when [everyDirectory] comes first.** Its callers look in both roots themselves, so a
+ * move would only shuffle files they reach anyway, and for "Delete all data" — the caller that
+ * can come first, on a phone upgraded and wiped before any export — it would copy tens of
+ * megabytes only to delete them a moment later. So [everyDirectory] settles the process without
+ * moving anything. It takes the same lock as the move: one another thread has started finishes
+ * before the directories are listed, and none can start after, so no copy lands behind a wipe.
+ * If the wipe then fails, what it left under the old root waits for the next process.
  *
  * **Once per process, and idempotent across processes.** A file is moved only when its source is
  * still there, a name already present here is kept (it is the copy the app has been using since
@@ -74,9 +89,11 @@ class AppBackupDirectory @Inject constructor(@param:ApplicationContext private v
         return directory
     }
 
+    /** Settles the process without moving anything; see the class doc for why. */
     override fun everyDirectory(): List<File> {
-        val first = resolve()
-        return (listOf(first) + roots().map { File(it, BackupDirectory.NAME) }).distinct()
+        synchronized(lock) { settled = true }
+        val current = File(root(), BackupDirectory.NAME)
+        return (listOf(current) + roots().map { File(it, BackupDirectory.NAME) }).distinct()
     }
 
     private fun roots(): List<File> = listOfNotNull(context.getExternalFilesDir(null), context.filesDir)
@@ -125,6 +142,7 @@ class AppBackupDirectory @Inject constructor(@param:ApplicationContext private v
             source.delete()
             return
         }
+        if (source.length() > ExportFormat.MAX_DOCUMENT_BYTES) return
         target.parentFile?.mkdirs()
         if (source.renameTo(target)) return
         val scratch = File(target.path + SCRATCH_SUFFIX)
