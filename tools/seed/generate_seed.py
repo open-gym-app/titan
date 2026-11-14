@@ -44,6 +44,7 @@ import tarfile
 import tempfile
 import urllib.error
 import urllib.request
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 REPO = "yuhonas/free-exercise-db"
@@ -245,13 +246,22 @@ def checked_sha256(digest: object) -> str:
     return digest
 
 
-def github_api(path: str) -> dict:
-    url = f"https://api.github.com/repos/{REPO}/{path}"
+# Seconds a connection or a single read may stall before the run stops, so a
+# dead network ends in a message instead of a hang.
+NETWORK_TIMEOUT = 60
+
+
+def fetch(url: str) -> bytes:
+    """The body at `url`; any HTTP or network failure stops the run with the URL."""
     try:
-        with urllib.request.urlopen(url) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as error:
+        with urllib.request.urlopen(url, timeout=NETWORK_TIMEOUT) as response:
+            return response.read()
+    except (urllib.error.URLError, TimeoutError) as error:
         raise SystemExit(f"GET {url} failed: {error}") from error
+
+
+def github_api(path: str) -> dict:
+    return json.loads(fetch(f"https://api.github.com/repos/{REPO}/{path}"))
 
 
 def resolve_head() -> str:
@@ -277,8 +287,7 @@ def require_on_branch(commit: str) -> None:
 def download(commit: str) -> bytes:
     url = f"https://codeload.github.com/{REPO}/tar.gz/{commit}"
     print(f"  downloading {url} (~95 MB)")
-    with urllib.request.urlopen(url) as response:
-        return response.read()
+    return fetch(url)
 
 
 def cache(commit: str, data: bytes) -> None:
@@ -331,26 +340,45 @@ def load_source(archive: bytes) -> tuple[list[dict], dict[str, bytes]]:
     """Return the exercise records and the raw bytes of each exercise's first photo.
 
     Every record's id becomes a file name and an asset path, so each is checked
-    against `SLUG` here, before anything is written.
+    against `SLUG` here, before anything is written. A malformed archive stops the
+    run with a message naming what is missing rather than a bare traceback, since
+    the person reading it is usually reviewing an upstream bump, not this script.
     """
     exercises: list[dict] = []
     wanted: dict[str, str] = {}
     images: dict[str, bytes] = {}
 
     with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
-        members = {m.name.split("/", 1)[1]: m for m in tar.getmembers() if m.isfile()}
+        members = {
+            m.name.split("/", 1)[1]: m for m in tar.getmembers() if m.isfile() and "/" in m.name
+        }
+        if "dist/exercises.json" not in members:
+            raise SystemExit("upstream archive has no dist/exercises.json")
         payload = tar.extractfile(members["dist/exercises.json"])
-        exercises = json.load(payload)
-        for record in exercises:
+        try:
+            exercises = json.load(payload)
+        except json.JSONDecodeError as error:
+            raise SystemExit(f"upstream dist/exercises.json is not valid JSON: {error}") from None
+        if not isinstance(exercises, list):
+            raise SystemExit("upstream dist/exercises.json is not a JSON array")
+        for index, record in enumerate(exercises):
+            if not isinstance(record, dict):
+                raise SystemExit(f"upstream exercise #{index} is not a JSON object")
             slug = record.get("id")
             if not isinstance(slug, str) or not SLUG.fullmatch(slug):
                 raise SystemExit(f"upstream exercise id {slug!r} is not a safe slug [A-Za-z0-9_-]+")
         # Photos are numbered per exercise; the first frame is the start position
         # and reads best as a thumbnail, so only that one is bundled.
         for record in exercises:
-            if record.get("images"):
-                wanted[f"exercises/{record['images'][0]}"] = record["id"]
+            photos = record.get("images")
+            if not photos:
+                continue
+            if not isinstance(photos, list) or not isinstance(photos[0], str):
+                raise SystemExit(f"upstream exercise {record['id']!r} has a malformed images list")
+            wanted[f"exercises/{photos[0]}"] = record["id"]
         for path, slug in wanted.items():
+            if path not in members:
+                raise SystemExit(f"upstream exercise {slug!r} names a photo the archive lacks: {path}")
             images[slug] = tar.extractfile(members[path]).read()
 
     return exercises, images
@@ -544,15 +572,30 @@ def image_paths(slugs: list[str], target: Path) -> dict[str, Path]:
     return paths
 
 
+def encode_images(blobs: dict[str, bytes]) -> dict[str, bytes]:
+    """`encode_image` of every value in `blobs`, under the same keys.
+
+    Each photo is independent and the encode is CPU-bound, so the work is spread
+    over a process per core; the bytes each encode produces do not depend on the
+    process that ran it.
+    """
+    if len(blobs) < 2:
+        return {key: encode_image(blob) for key, blob in blobs.items()}
+    with ProcessPoolExecutor() as pool:
+        return dict(zip(blobs, pool.map(encode_image, blobs.values(), chunksize=16)))
+
+
 def write_images(images: dict[str, bytes], target: Path) -> None:
-    # Every path is checked before the directory is touched, so a bad slug
-    # leaves the committed images as they were.
+    # Every path is checked and every photo encoded before the directory is
+    # touched, so a bad slug or an undecodable photo leaves the committed images
+    # as they were.
     paths = image_paths(sorted(images), target)
+    encoded = encode_images({slug: images[slug] for slug in paths})
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
     for slug, path in paths.items():
-        path.write_bytes(encode_image(images[slug]))
+        path.write_bytes(encoded[slug])
 
 
 def stale_images(images: dict[str, bytes], target: Path) -> dict[str, list[str]]:
@@ -565,13 +608,13 @@ def stale_images(images: dict[str, bytes], target: Path) -> dict[str, list[str]]
     """
     expected = {path.name: slug for slug, path in image_paths(sorted(images), target).items()}
     present = {p.name: p for p in target.iterdir()} if target.is_dir() else {}
-    changed = []
-    for name in sorted(expected.keys() & present.keys()):
-        path = present[name]
-        if path.is_symlink() or not path.is_file():
-            changed.append(name)
-        elif path.read_bytes() != encode_image(images[expected[name]]):
-            changed.append(name)
+    shared = sorted(expected.keys() & present.keys())
+    regular = [n for n in shared if not present[n].is_symlink() and present[n].is_file()]
+    encoded = encode_images({name: images[expected[name]] for name in regular})
+    changed = [
+        name for name in shared
+        if name not in encoded or present[name].read_bytes() != encoded[name]
+    ]
     return {
         "missing": sorted(expected.keys() - present.keys()),
         "unexpected": sorted(present.keys() - expected.keys()),

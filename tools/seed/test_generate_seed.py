@@ -140,7 +140,7 @@ class HostileIdTest(SeedTreeTest):
 
     def test_write_images_refuses_a_path_outside_its_target(self) -> None:
         # load_source would have stopped these already; write_images checks the
-        # resolved path on its own, and does so before clearing the directory.
+        # normalised path on its own, and does so before clearing the directory.
         for slug in ("../x", "/x"):
             with self.subTest(slug=slug):
                 before = snapshot(self.root)
@@ -156,6 +156,48 @@ class HostileIdTest(SeedTreeTest):
         generate_seed.write_images({"fine": jpeg()}, self.image_dir)
         self.assertEqual(b"outside", outside.read_bytes())
         self.assertFalse((self.image_dir / "fine.webp").is_symlink())
+
+
+def raw_tarball(files: dict[str, bytes]) -> bytes:
+    """An archive holding exactly `files`, for shapes `tarball` cannot express."""
+    out = io.BytesIO()
+    with tarfile.open(fileobj=out, mode="w:gz") as tar:
+        for name, data in files.items():
+            info = tarfile.TarInfo(f"free-exercise-db-{COMMIT}/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return out.getvalue()
+
+
+class MalformedArchiveTest(unittest.TestCase):
+    """Each malformed shape stops with a message, never a KeyError or TypeError."""
+
+    def assert_stops_with(self, archive: bytes, fragment: str) -> None:
+        with self.assertRaises(SystemExit) as stop:
+            generate_seed.load_source(archive)
+        self.assertIn(fragment, str(stop.exception.code))
+
+    def test_a_missing_catalogue_stops_the_run(self) -> None:
+        self.assert_stops_with(raw_tarball({"README.md": b"hi"}), "no dist/exercises.json")
+
+    def test_a_catalogue_that_is_not_json_stops_the_run(self) -> None:
+        self.assert_stops_with(raw_tarball({"dist/exercises.json": b"{"}), "not valid JSON")
+
+    def test_a_catalogue_that_is_not_an_array_stops_the_run(self) -> None:
+        self.assert_stops_with(raw_tarball({"dist/exercises.json": b"{}"}), "not a JSON array")
+
+    def test_a_record_that_is_not_an_object_stops_the_run(self) -> None:
+        self.assert_stops_with(raw_tarball({"dist/exercises.json": b'["x"]'}), "#0 is not a JSON object")
+
+    def test_a_malformed_images_list_stops_the_run(self) -> None:
+        for images in ("ok/0.jpg", [7]):
+            with self.subTest(images=images):
+                catalogue = json.dumps([{**record("ok"), "images": images}]).encode()
+                self.assert_stops_with(raw_tarball({"dist/exercises.json": catalogue}), "malformed images")
+
+    def test_a_photo_missing_from_the_archive_stops_the_run(self) -> None:
+        catalogue = json.dumps([record("ok")]).encode()
+        self.assert_stops_with(raw_tarball({"dist/exercises.json": catalogue}), "exercises/ok/0.jpg")
 
 
 class HostileCommitTest(SeedTreeTest):
@@ -201,6 +243,29 @@ class TarballPinTest(SeedTreeTest):
         self.assertEqual(0, generate_seed.main([]))
         self.assertEqual(["good.webp"], sorted(p.name for p in self.image_dir.iterdir()))
         self.assertEqual(lock, self.lock.read_bytes())
+        self.assertEqual(0, generate_seed.main(["--check"]))
+
+
+class PinningTest(SeedTreeTest):
+    def test_a_commit_outside_the_branch_is_never_downloaded_or_pinned(self) -> None:
+        # What the compare API reports for a fork-only commit, and a reply with
+        # no status at all.
+        self.pin(COMMIT, tarball([record("good")]))
+        for status in ("behind", "diverged", None):
+            with self.subTest(status=status):
+                with mock.patch.object(generate_seed, "github_api", return_value={"status": status}), \
+                        mock.patch.object(generate_seed, "download", side_effect=no_network):
+                    self.assert_exits_writing_nothing("--rehash")
+
+    def test_rehash_pins_the_digest_of_a_commit_on_the_branch(self) -> None:
+        archive = tarball([record("good")])
+        self.pin(COMMIT, b"the archive before Renovate moved the commit")
+        with mock.patch.object(generate_seed, "github_api", return_value={"status": "ahead"}), \
+                mock.patch.object(generate_seed, "download", return_value=archive):
+            self.assertEqual(0, generate_seed.main(["--rehash"]))
+        lock = json.loads(self.lock.read_text())
+        self.assertEqual((COMMIT, hashlib.sha256(archive).hexdigest()),
+                         (lock["commit"], lock["tarball_sha256"]))
         self.assertEqual(0, generate_seed.main(["--check"]))
 
 
