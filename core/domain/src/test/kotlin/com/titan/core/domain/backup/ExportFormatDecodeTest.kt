@@ -50,9 +50,22 @@ class ExportFormatDecodeTest {
         )
     }
 
-    /** Older is refused too. That is the compatibility rule, not an oversight — see [ImportError]. */
+    /**
+     * Version 1 had no `gym` table, so a file from it carries no such key. It restores as the
+     * same document with an empty directory, stamped with the version it has been brought to.
+     */
     @Test
-    fun `an older schema version is refused as well`() {
+    fun `a version 1 document is read, with no gyms`() {
+        val sample = sampleDocument()
+
+        val decoded = ExportFormat.decode(source(documentAtVersion(1, without = setOf("gym"))))
+
+        assertEquals(ExportFormat.Decoded.Success(sample.copy(gym = emptyList())), decoded)
+    }
+
+    /** Older with no up-converter is refused too. That is the compatibility rule — see [ImportError]. */
+    @Test
+    fun `an older schema version nothing converts is refused as well`() {
         val decoded = ExportFormat.decode(source(documentAtVersion(0)))
 
         assertEquals(
@@ -387,9 +400,12 @@ class ExportFormatDecodeTest {
     private fun refusal(error: ImportError) = ExportFormat.Decoded.Refused(error)
 
     /** [sampleDocument] re-encoded with its version replaced — the only way to make one this build refuses. */
-    private fun documentAtVersion(version: Int): String {
+    private fun documentAtVersion(
+        version: Int,
+        without: Set<String> = emptySet(),
+    ): String {
         val encoded = json.encodeToJsonElement(ExportDocument.serializer(), sampleDocument()).jsonObject
-        val bumped = encoded.toMutableMap().apply { put("schema_version", JsonPrimitive(version)) }
+        val bumped = (encoded - without).toMutableMap().apply { put("schema_version", JsonPrimitive(version)) }
         return json.encodeToString(JsonObject.serializer(), JsonObject(bumped))
     }
 

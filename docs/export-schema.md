@@ -21,7 +21,7 @@ here that is not a change to those tests is a change nobody made.
 
 ```jsonc
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "exported_at": 1788686970491,        // epoch milliseconds, UTC
   "app_version": "1.0-debug",          // diagnostic only; nothing reads it back
   "preferences": { … },                // the settings store — see below
@@ -43,7 +43,8 @@ here that is not a change to those tests is a change nobody made.
   "user_progress":         [ … ],
   "achievement":           [ … ],
   "quest_completion":      [ … ],
-  "collected_item":        [ … ]
+  "collected_item":        [ … ],
+  "gym":                   [ … ]
 }
 ```
 
@@ -211,7 +212,7 @@ it was.
 | --- | --- | --- |
 | `DocumentTooLarge` | The file runs past `ExportFormat.MAX_DOCUMENT_BYTES` (64 MiB) — see [Memory](#memory) | Untouched |
 | `MalformedJson` | Not JSON, or not shaped like a document — a missing required column, a string where a number belongs, a truncated file | Untouched |
-| `UnsupportedSchemaVersion` | `schema_version` is not this build's, on either of the two reads of the file | Untouched |
+| `UnsupportedSchemaVersion` | `schema_version` is neither this build's nor an older one it up-converts, on either of the two reads of the file | Untouched |
 | `ConstraintViolation` | A foreign key naming a row the file does not contain, two rows sharing a primary key or a unique index, a `user_progress` that is not the single row the table admits, a value outside [the ranges the format accepts](#the-ranges-a-value-must-be-in) | Untouched. `BackupValidator` decides it before anything is cleared; on the rarer path where SQLite decides it instead, the transaction rolls back and every table is still untouched, but the live session and its draft — cleared before the transaction opens, deliberately — stay cleared, and the error's `liveStateCleared` says so for the screen to tell the user |
 | `IoFailure` | The file could not be read, or the device could not take the transaction's writes — out of space, a disk error | Untouched. A file that cannot be read fails before anything is cleared; a device that cannot write fails inside the transaction, which rolls back, and leaves the live session and its draft cleared as for a `ConstraintViolation` SQLite decides, with the same `liveStateCleared` |
 | `LiveStateNotCleared` | The live session or one of the two drafts could not be cleared before the transaction | Untouched, but the live session may already have been ended and the workout draft discarded — the session state is reset first and the drafts after it |
@@ -237,8 +238,8 @@ holds one, and `BackupValidatorRangeTest` pins each range at both of its edges.
 
 | Columns | Accepted | What a value outside it did |
 | --- | --- | --- |
-| `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a restore's wipe; only "Delete all data" resets it. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
-| `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
+| `id` of every table whose id is a rowid: `muscle_group`, `tag`, `exercise`, `workout_template`, `template_exercise`, `template_set`, `workout_session`, `session_exercise`, `workout_set`, `personal_record`, `body_measurement`, `collected_item`, `gym` | `1` to `9007199254740992` (2^53) | Zero is rewritten to a fresh id on insert and strands every reference to it. An in-progress session numbered below one is one the workout draft refuses to be built around. An id near `Long.MAX_VALUE` leaves `AUTOINCREMENT` nothing to assign, so every later insert fails with `SQLITE_FULL`, and the counter survives a restore's wipe; only "Delete all data" resets it. 2^53 is also the largest integer a reader that parses JSON numbers as doubles, `jq` among them, reads exactly. Every foreign key must resolve to one of these ids, so it is in range too |
+| `workout_session.completed_at`, `.last_active_at`, `.created_at`, `.updated_at`; `session_exercise.created_at`, `.updated_at`; `workout_set.completed_at`, `.created_at`, `.updated_at`; `personal_record.achieved_at`; `body_measurement.created_at`, `.updated_at`; `user_progress.last_counted_at`, `.protection_consumed_at`; `achievement.unlocked_at`; `quest_completion.period_start`, `.completed_at`; `collected_item.acquired_at`; `gym.created_at` | `0` to `253402300799999`, the epoch to the last millisecond of 9999, UTC | A session dated before 1970 opened the all-time chart on its day, and the chart allocated a bucket for every week since: at −10^17 ms that is millions of them. `0` stays accepted because it is the placeholder `completed_at` of a planned set |
 | `workout_set.set_number`, `template_set.set_number` | `1` and up | Sets are numbered from 1; a set numbered 0 is one no screen can show as "set 0 of 3" |
 | `workout_set.rpe` | `null`, or `10` to `100` | The scale is RPE 1 to 10 in tenths, and it does not move |
 | `workout_session.is_in_progress` | `1` on at most one row | The app holds one session in progress at a time and an export only ever carries the one it had. A second restored one stayed open for good: resume picks one, and the other is never finished or counted |
@@ -290,11 +291,21 @@ user can change in two taps.
 
 ## Version history and the compatibility rule
 
-**A reader accepts its own version and refuses every other one, older included.**
+**A reader accepts its own version, and an older one only where an up-converter is listed
+for it below. Every other version is refused, older included.**
 
-| `schema_version` | Shipped in | Changes |
-| --- | --- | --- |
-| 1 | unreleased | Initial format: 19 tables, plus `preferences` |
+| `schema_version` | Shipped in | Changes | Read by later versions |
+| --- | --- | --- | --- |
+| 1 | 1.0 | Initial format: 19 tables, plus `preferences` | Yes, by 2 - `ExportUpgrade` |
+| 2 | the gym directory (M8) | Adds the `gym` table: 20 tables, plus `preferences` | |
+
+Version 2 is a bump for the reason the rule gives: it adds a table. A version 1 reader has
+`ignoreUnknownKeys` on, so without the bump it would restore a version 2 file and drop the
+user's gyms without a word; with it, the file is refused for its version. The other direction
+is safe to convert, and `ExportUpgrade` does: a version 1 file was written by a build with no
+gym directory, so its missing `gym` key means exactly "no gyms", every other table is laid out
+as it was, and nothing has to be invented. The automatic weekly backups a 1.0 install wrote
+therefore still restore after the update.
 
 Version 1 has been amended once in place, while unreleased, in a way the rule below would
 otherwise call a bump: the streak moved from sessions to weeks, `user_progress` gained
@@ -307,8 +318,9 @@ release on, a change like it is a bump.
 Refusing older files is the rule rather than an oversight. A v1 reader handed a v2 file cannot
 know which columns moved; a v2 reader handed a v1 file would have to invent the values v1 never
 stored. Either is a silent, permanent corruption of the only copy of somebody's training
-history. When an older version does become readable, it will be because an up-converter was
-written for it and listed in the table above.
+history. An older version is readable only because an up-converter was written for it and
+listed in the table above, and only where it can answer what the older file never said without
+guessing.
 
 `ExportFormat.decode` reads `schema_version` **before** interpreting anything else, so a file
 from a newer build is refused for the reason a user can act on rather than incidentally, by the
@@ -374,7 +386,7 @@ names the file in the provider's words, stripped of control and direction-overri
 
 ```sh
 jq empty export.json                                    # it parses
-jq 'keys_unsorted' export.json                          # the envelope, then the 19 tables
+jq 'keys_unsorted' export.json                          # the envelope, then the 20 tables
 jq '.workout_set | length' export.json                  # how many sets it carries
 jq '.schema_version' export.json                        # which reader will accept it
 jq '.workout_set[0] | keys_unsorted' export.json         # a row's columns, in the table's order

@@ -20,8 +20,8 @@ import com.titan.core.domain.backup.model.TagRow
  * *interpreting*: `ExerciseMapper` parses enum-like text columns through [EnumColumn], folds a
  * row and its links into one model, and can fail. These do none of that. A backup row is the
  * table restated — same names, same types, same nulls — so the mapping is a rename and nothing
- * else, and there is nothing for a class to hold or a test to stub. Nineteen injectable classes
- * whose bodies are all `Entity(a = row.a, b = row.b)` would be nineteen bindings in a Hilt
+ * else, and there is nothing for a class to hold or a test to stub. Twenty injectable classes
+ * whose bodies are all `Entity(a = row.a, b = row.b)` would be twenty bindings in a Hilt
  * module for no behaviour.
  *
  * ### Nothing is interpreted on the way through

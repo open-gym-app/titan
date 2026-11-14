@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.first
  * fails if it is ever handed more than a page's worth at once.
  *
  * The one thing that *is* held whole is the row count, taken up front so the bar is determinate
- * rather than a spinner — nineteen `COUNT(*)`s over indexed tables, which is cheap next to
+ * rather than a spinner — twenty `COUNT(*)`s over indexed tables, which is cheap next to
  * reading the rows.
  *
  * ### It reads one state of the database, and nothing else replaces it meanwhile

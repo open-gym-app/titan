@@ -49,12 +49,12 @@ sealed interface ImportError {
      * Refused in *both* directions, older included, and that is the compatibility rule rather
      * than an oversight: a v1 reader handed a v2 file cannot know which columns moved, and a v2
      * reader handed a v1 file would have to invent the values v1 never stored. Either is a
-     * silent, permanent corruption of the only copy of somebody's training history. When a
-     * version does become readable, it is because an up-converter was written for it and listed
-     * in docs/export-schema.md's version-history table.
+     * silent, permanent corruption of the only copy of somebody's training history. An older
+     * version is readable only where an up-converter was written for it and listed in
+     * docs/export-schema.md's version-history table — version 1 is, and never arrives here.
      *
      * @property found what the document claims.
-     * @property supported what this build reads — [ExportDocument.SCHEMA_VERSION].
+     * @property supported what this build writes — [ExportDocument.SCHEMA_VERSION].
      */
     data class UnsupportedSchemaVersion(
         val found: Int,

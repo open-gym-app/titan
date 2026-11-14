@@ -31,7 +31,7 @@ import org.junit.Test
 
 /**
  * Export, wipe, import — over the real pipeline, over a real (Robolectric) SQLite, with every
- * one of the nineteen tables carrying rows.
+ * one of the twenty tables carrying rows.
  *
  * ### What only this test can see
  *
@@ -278,12 +278,12 @@ class BackupRoundTripTest : RoomTestBase() {
         runBlocking {
             db.seedEveryTable()
             val before = db.dumpEverything()
-            val newer = exportToText().replace("\"schema_version\":1", "\"schema_version\":2")
+            val newer = exportToText().replace("\"schema_version\":2", "\"schema_version\":3")
 
             val progress = import(source(newer)).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
+                ImportProgress.Failed(ImportError.UnsupportedSchemaVersion(found = 3, supported = 2)),
                 progress.last(),
             )
             assertEquals(before, db.dumpEverything())

@@ -40,7 +40,7 @@ import javax.inject.Singleton
  * not contain still in the table, and "replace" would quietly become "replace, plus whatever
  * this build ships with".
  *
- * What is left is a `DELETE FROM` per table, which is what the five backup DAOs' delete
+ * What is left is a `DELETE FROM` per table, which is what the six backup DAOs' delete
  * methods are. They cannot drift from the schema in the way the issue behind this warns about,
  * because they are `@Query` statements Room parses against the entities: a table renamed and
  * not renamed here fails the build, and a table added and not added here fails
@@ -77,12 +77,12 @@ class BackupRepositoryImpl @Inject constructor(
     private val dao get() = database.backupDao()
 
     /**
-     * A `COUNT(*)` per table, run as raw SQL rather than as nineteen more DAO methods.
+     * A `COUNT(*)` per table, run as raw SQL rather than as twenty more DAO methods.
      *
      * The table name is interpolated, which is safe here and only here: it comes from
      * [BackupTable], a closed enum of SQLite identifiers with no user input anywhere near it.
-     * The alternative is nineteen `@Query("SELECT COUNT(*) FROM …")` declarations that no
-     * screen reads, spread across five interfaces already at their method budget, to produce
+     * The alternative is twenty `@Query("SELECT COUNT(*) FROM …")` declarations that no
+     * screen reads, spread across six interfaces already at their method budget, to produce
      * one integer each.
      */
     override suspend fun rowCounts(): Map<BackupTable, Long> =
@@ -151,6 +151,8 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.QUEST_COMPLETION -> dao.readQuestCompletions(limit, offset).map { it.toRow() }
 
                 BackupTable.COLLECTED_ITEM -> dao.readCollectedItems(limit, offset).map { it.toRow() }
+
+                BackupTable.GYM -> dao.readGyms(limit, offset).map { it.toRow() }
             }
         }
 
@@ -227,6 +229,7 @@ class BackupRepositoryImpl @Inject constructor(
                 BackupTable.ACHIEVEMENT -> dao.deleteAchievements()
                 BackupTable.QUEST_COMPLETION -> dao.deleteQuestCompletions()
                 BackupTable.COLLECTED_ITEM -> dao.deleteCollectedItems()
+                BackupTable.GYM -> dao.deleteGyms()
             }
         }
     }
@@ -287,14 +290,15 @@ class BackupRepositoryImpl @Inject constructor(
             document.collectedItem,
             dao::insertCollectedItems,
         ) { it.toEntity() }
+        into.table(BackupTable.GYM, document.gym, dao::insertGyms) { it.toEntity() }
     }
 
     /**
      * The running insert, and the only thing that knows how many rows have gone in.
      *
-     * A tiny class rather than a `var` threaded through nineteen calls: the total has to survive
+     * A tiny class rather than a `var` threaded through twenty calls: the total has to survive
      * every table, and a helper that took it and returned it would put the same local on both
-     * ends of nineteen assignments, where dropping one is a silent progress bug.
+     * ends of twenty assignments, where dropping one is a silent progress bug.
      */
     private class Insertion(private val report: suspend (BackupTable, Long) -> Unit) {
 

@@ -101,7 +101,7 @@ class ExportStreamingTest : RoomTestBase() {
      * docs/export-schema.md documents, and it parses.
      */
     @Test
-    fun `the exported file's top-level keys are the envelope and the nineteen tables`() =
+    fun `the exported file's top-level keys are the envelope and the twenty tables`() =
         runBlocking {
             seedHistory(SMALL_SCALE)
             val file = temporaryFolder.newFile("keys.json")

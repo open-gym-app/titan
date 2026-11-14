@@ -206,7 +206,7 @@ object BackupValidator {
             ?: references(PERSONAL_RECORD_TO_WORKOUT_SET, workoutSets, document.personalRecord.map { it.workoutSetId })
     }
 
-    /** `body_measurement`, the two claim tables, and everything the gamification group holds. */
+    /** `body_measurement`, `gym`, the two claim tables, and everything the gamification group holds. */
     private fun gamificationConstraints(document: ExportDocument): ImportError.ConstraintViolation? {
         val sessions by lazy { document.workoutSession.mapTo(mutableSetOf()) { it.id } }
 
@@ -220,6 +220,7 @@ object BackupValidator {
                 document.questCompletion.map { it.questId to it.periodStart },
             )
             ?: unique(BackupTable.COLLECTED_ITEM, "id", document.collectedItem.map { it.id })
+            ?: unique(BackupTable.GYM, "id", document.gym.map { it.id })
             ?: singleRowProgress(document.userProgress)
             ?: references(XP_CLAIM_TO_SESSION, sessions, document.sessionXpClaim.map { it.sessionId })
             ?: references(LOOT_CLAIM_TO_SESSION, sessions, document.sessionLootClaim.map { it.sessionId })
@@ -241,6 +242,7 @@ object BackupValidator {
             Column(BackupTable.PERSONAL_RECORD, "id") { document.personalRecord.map { it.id } },
             Column(BackupTable.BODY_MEASUREMENT, "id") { document.bodyMeasurement.map { it.id } },
             Column(BackupTable.COLLECTED_ITEM, "id") { document.collectedItem.map { it.id } },
+            Column(BackupTable.GYM, "id") { document.gym.map { it.id } },
         )
 
     /** Every timestamp column, inside `0..MAX_TIMESTAMP`. */
@@ -271,6 +273,7 @@ object BackupValidator {
             Column(BackupTable.QUEST_COMPLETION, "period_start") { quests.map { it.periodStart } },
             Column(BackupTable.QUEST_COMPLETION, "completed_at") { quests.map { it.completedAt } },
             Column(BackupTable.COLLECTED_ITEM, "acquired_at") { document.collectedItem.map { it.acquiredAt } },
+            Column(BackupTable.GYM, "created_at") { document.gym.map { it.createdAt } },
         )
     }
 
@@ -418,7 +421,7 @@ object BackupValidator {
      * The table carries a `CHECK (id = 1)` that Room cannot express and
      * `TitanDatabase.singleRowProgressCallback` applies by hand, so a document with two rows
      * in it — or one row numbered 2 — would fail at the insert with a constraint error naming
-     * none of the nineteen tables it could have come from. Catching it here is what turns that
+     * none of the twenty tables it could have come from. Catching it here is what turns that
      * into a sentence.
      */
     private fun singleRowProgress(rows: List<UserProgressRow>): ImportError.ConstraintViolation? =

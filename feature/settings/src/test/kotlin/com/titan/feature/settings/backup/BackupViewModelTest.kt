@@ -375,13 +375,13 @@ class BackupViewModelTest {
             viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
             val exported = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
             val file = backupFile(exported.fileName)
-            file.writeText(file.readText().replace("\"schema_version\":1", "\"schema_version\":2"))
+            file.writeText(file.readText().replace("\"schema_version\":2", "\"schema_version\":3"))
 
             restore(viewModel, file)
             val outcome = viewModel.uiState.first { it.lastRestore != null }.lastRestore
 
             assertEquals(
-                RestoreOutcome.Failed(ImportError.UnsupportedSchemaVersion(found = 2, supported = 1)),
+                RestoreOutcome.Failed(ImportError.UnsupportedSchemaVersion(found = 3, supported = 2)),
                 outcome,
             )
         }

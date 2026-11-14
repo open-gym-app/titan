@@ -27,7 +27,7 @@ import com.titan.core.domain.backup.model.PreferencesPayload
  * [finish]. A table may be filled by any number of [writeRows] calls — that is the point — but
  * the tables themselves must not go backwards, because a table already closed cannot be
  * reopened without rewriting bytes the sink has already been handed. A table that is never
- * mentioned is written as an empty array, so the document always carries all nineteen keys
+ * mentioned is written as an empty array, so the document always carries all twenty keys
  * whether or not the caller bothered to ask about an empty table.
  *
  * Misuse throws [IllegalStateException] rather than producing a document that parses into
