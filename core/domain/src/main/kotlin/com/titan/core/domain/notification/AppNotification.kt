@@ -116,10 +116,14 @@ sealed interface NotificationTarget {
 sealed interface NotificationCommand {
 
     /**
-     * End the rest running in [sessionId] now — the lifter is back under the bar and said so
+     * End the rest running in [session] now — the lifter is back under the bar and said so
      * without unlocking.
+     *
+     * A [SessionRef] for the reason [FinishSession] takes one: the button can be pressed after
+     * a restore has written another workout back under the same id, and the creation time is
+     * what keeps the press away from that workout's rest.
      */
-    data class SkipRest(val sessionId: Long) : NotificationCommand
+    data class SkipRest(val session: SessionRef) : NotificationCommand
 
     /**
      * Close [session] out with what it has logged, from the idle nudge.

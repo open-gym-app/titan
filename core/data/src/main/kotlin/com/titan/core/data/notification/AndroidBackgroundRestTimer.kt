@@ -78,10 +78,13 @@ class AndroidBackgroundRestTimer @Inject constructor(
      * equal — which is why it is also cleared whenever a rest starts, is held or goes away: a
      * rest that repeats itself exactly is still announced again.
      *
-     * Not synchronised. Both writers reach it from the main dispatcher — the ViewModel's scope
-     * and the receiver's `Dispatchers.Main.immediate` — and the cost of losing the race would be
-     * the duplicate alert this exists to avoid, not a broken state.
+     * Volatile rather than synchronised. The ViewModel's scope and the receiver's
+     * `Dispatchers.Main.immediate` reach it from the main thread, but "delete all data" and a
+     * restore take the rest down from an IO thread, so a write has to be visible across threads.
+     * The check-then-set in [expire] can still interleave with a clear, and the cost of losing
+     * that race is the duplicate alert this exists to avoid, not a broken state.
      */
+    @Volatile
     private var announced: BackgroundRest? = null
 
     override suspend fun set(rest: BackgroundRest?) {
@@ -123,7 +126,7 @@ class AndroidBackgroundRestTimer @Inject constructor(
                 actions = listOf(
                     NotificationAction(
                         label = context.getString(R.string.rest_notification_skip),
-                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.sessionId)),
+                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.session)),
                     ),
                 ),
             ),
@@ -161,7 +164,7 @@ class AndroidBackgroundRestTimer @Inject constructor(
                 actions = listOf(
                     NotificationAction(
                         label = context.getString(R.string.rest_notification_skip),
-                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.sessionId)),
+                        target = NotificationTarget.Command(NotificationCommand.SkipRest(rest.session)),
                     ),
                 ),
             ),
@@ -298,7 +301,9 @@ private fun Context.ringerMode(): RingerMode =
  *
  * The extras are the whole of what survives: the alarm can fire at a process that has been dead
  * for the length of the rest, so what the notification says has to be written into the intent
- * rather than read off anything still in memory.
+ * rather than read off anything still in memory. That includes the session's creation time, so
+ * [RestTimerBroadcasts] can tell the workout the rest was in from another one a restore wrote
+ * back under the same id.
  *
  * [rest] is null when the intent is only being built to *cancel* the alarm — `AlarmManager`
  * compares action and component and ignores extras, so an empty one matches whatever is set.
@@ -327,6 +332,7 @@ internal fun restExpiredBroadcast(
         .apply {
             if (rest != null) {
                 putExtra(EXTRA_SESSION_ID, rest.sessionId)
+                rest.sessionCreatedAt?.let { putExtra(EXTRA_SESSION_CREATED_AT, it) }
                 putExtra(EXTRA_EXERCISE_NAME, rest.exerciseName)
                 // Left out for a rest that follows no set; read back as absent below.
                 rest.setNumber?.let { putExtra(EXTRA_SET_NUMBER, it) }
@@ -345,11 +351,16 @@ internal fun expiredRestOf(intent: Intent): BackgroundRest? {
         exerciseName = intent.getStringExtra(EXTRA_EXERCISE_NAME)?.takeIf { setNumber != null },
         setNumber = setNumber,
         rest = RestTimerSnapshot.Finished,
+        // Absent from an alarm set before its session's creation time was known, which then
+        // matches on the id alone.
+        sessionCreatedAt = intent.takeIf { it.hasExtra(EXTRA_SESSION_CREATED_AT) }
+            ?.getLongExtra(EXTRA_SESSION_CREATED_AT, 0L),
     )
 }
 
 private const val ACTION_REST_EXPIRED = "com.titan.core.data.notification.REST_EXPIRED"
 private const val EXTRA_SESSION_ID = "session_id"
+private const val EXTRA_SESSION_CREATED_AT = "session_created_at"
 private const val EXTRA_EXERCISE_NAME = "exercise_name"
 private const val EXTRA_SET_NUMBER = "set_number"
 

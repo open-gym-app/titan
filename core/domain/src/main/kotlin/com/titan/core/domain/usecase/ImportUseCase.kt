@@ -17,6 +17,8 @@ import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.session.IdleSessionMonitor
+import com.titan.core.domain.timer.BackgroundRestTimer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.ProducerScope
@@ -58,15 +60,18 @@ import java.io.IOException
  * 4. **Forget the live session and the two drafts.** All three name row ids from before the
  *    wipe — the workout in progress, and the template somebody was halfway through writing. The
  *    session state goes first because screens are collecting it, then the draft files, exactly
- *    as `LocalDataRepositoryImpl.deleteAll` orders them and for the same reason. Before the
- *    transaction rather than after it, which costs something in one case: a constraint the
- *    validator did not model would roll the rows back and leave the drafts cleared anyway. That
- *    is the cheaper mistake — `InProgressSessionRepository` is explicit that losing a draft
- *    costs a place and never a set — where clearing *after* the commit would leave a window in
- *    which a process death left a draft pointing into a database that had been replaced under
- *    it. The files cannot join the transaction, so one of the two windows has to exist, and
- *    this is the one that loses nothing logged. A draft store that cannot be cleared stops the
- *    restore here, as [ImportError.LiveStateNotCleared].
+ *    as `LocalDataRepositoryImpl.deleteAll` orders them and for the same reason. The workout's
+ *    rest and idle nudge go with the session state: each is a notification and an alarm the
+ *    operating system keeps outside every store here, naming a session id that is about to
+ *    mean nothing, or — since a restore writes back ids this device has used — another
+ *    workout. Before the transaction rather than after it, which costs something in one case: a
+ *    constraint the validator did not model would roll the rows back and leave the drafts
+ *    cleared anyway. That is the cheaper mistake — `InProgressSessionRepository` is explicit
+ *    that losing a draft costs a place and never a set — where clearing *after* the commit would
+ *    leave a window in which a process death left a draft pointing into a database that had been
+ *    replaced under it. The files cannot join the transaction, so one of the two windows has to
+ *    exist, and this is the one that loses nothing logged. A draft store that cannot be cleared
+ *    stops the restore here, as [ImportError.LiveStateNotCleared].
  * 5. **Wipe and insert, in one transaction.** [BackupRepository.replaceAll] owns it. A failure
  *    anywhere in it rolls the whole thing back, so there is no state where the database is
  *    empty and the import has given up.
@@ -100,6 +105,8 @@ import java.io.IOException
  * @property inProgressSessionRepository the workout draft, cleared before the wipe.
  * @property templateDraftRepository the template draft, cleared with it.
  * @property sessionStateRepository the live session state, set to [SessionState.Idle] first.
+ * @property backgroundRestTimer the rest's note and alarm, taken down with the session state.
+ * @property idleSessionMonitor the idle nudge's note and alarm, taken down with it.
  * @property reminderScheduler the reminder alarms, re-synced once the settings are written.
  * @property backupLock held from the first write to the last, against exports and delete-all.
  * @property sessionLock held across the session reset and the replace, against transitions.
@@ -110,6 +117,8 @@ class ImportUseCase(
     private val inProgressSessionRepository: InProgressSessionRepository,
     private val templateDraftRepository: TemplateDraftRepository,
     private val sessionStateRepository: SessionStateRepository,
+    private val backgroundRestTimer: BackgroundRestTimer,
+    private val idleSessionMonitor: IdleSessionMonitor,
     private val reminderScheduler: ReminderScheduler,
     private val backupLock: BackupLock = BackupLock.SHARED,
     private val sessionLock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
@@ -180,6 +189,8 @@ class ImportUseCase(
     private suspend fun forgetLiveState(): ImportProgress? =
         try {
             sessionStateRepository.update(SessionState.Idle)
+            backgroundRestTimer.set(null)
+            idleSessionMonitor.disarm()
             inProgressSessionRepository.clear()
             templateDraftRepository.clear()
             null

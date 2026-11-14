@@ -1,5 +1,6 @@
 package com.titan.core.domain.timer
 
+import com.titan.core.domain.model.SessionRef
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -28,18 +29,26 @@ import kotlinx.coroutines.flow.Flow
  *   the whole point of the notification: a glance at the lock screen that says what to do next,
  *   without unlocking. **Null** for a rest that follows no set — one started from the session
  *   clock — where there is no next set to name, and [exerciseName] is null with it.
+ * @param sessionCreatedAt that session row's `created_at`, carried out to the alarm and the
+ *   "Skip rest" button beside [sessionId]. Both can come back after a restore has written a
+ *   different workout under the same id, and the creation time is what tells the two apart —
+ *   see [SessionRef]. **Null** when the caller does not know it, which matches on the id alone.
  */
 data class BackgroundRest(
     val sessionId: Long,
     val exerciseName: String?,
     val setNumber: Int?,
     val rest: RestTimerSnapshot,
+    val sessionCreatedAt: Long? = null,
 ) {
     init {
         require(sessionId > 0) { "a rest belongs to a session row, was $sessionId" }
         require(setNumber == null || setNumber > 0) { "sets are numbered from one, was $setNumber" }
         require(setNumber != null || exerciseName == null) { "an exercise is named with its next set" }
     }
+
+    /** The workout this rest is in, as precisely as the caller named it. */
+    val session: SessionRef get() = SessionRef(sessionId = sessionId, createdAt = sessionCreatedAt)
 }
 
 /**

@@ -4,6 +4,7 @@ import android.app.AlarmManager
 import android.content.Context
 import android.media.AudioManager
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.notification.NotificationCommand
 import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.notification.NotificationOutcome
@@ -94,8 +95,10 @@ class AndroidBackgroundRestTimerTest {
 
             val note = notifier.showing!!
             assertEquals("titan://session/active/7", note.deepLink)
+            // The button names the session with its creation time, so a press that arrives after
+            // a restore wrote another workout under the same id cannot end that workout's rest.
             assertEquals(
-                listOf(NotificationTarget.Command(NotificationCommand.SkipRest(SESSION_ID))),
+                listOf(NotificationTarget.Command(NotificationCommand.SkipRest(SessionRef(SESSION_ID, CREATED_AT)))),
                 note.actions.map { it.target },
             )
         }
@@ -309,6 +312,7 @@ class AndroidBackgroundRestTimerTest {
             exerciseName = "Bench press",
             setNumber = 3,
             rest = RestTimerSnapshot.Running(deadline = deadline, total = 90.seconds),
+            sessionCreatedAt = CREATED_AT,
         )
 
     private fun paused() = running(DEADLINE).copy(rest = RestTimerSnapshot.Paused(45.seconds, 90.seconds))
@@ -322,6 +326,7 @@ class AndroidBackgroundRestTimerTest {
 
     private companion object {
         const val SESSION_ID = 7L
+        const val CREATED_AT = 1_700_000_000_000L
         const val DEADLINE = 1_700_000_090_000L
         const val LATER_DEADLINE = 1_700_000_105_000L
     }

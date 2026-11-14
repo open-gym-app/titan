@@ -42,9 +42,13 @@ interface LocalDataRepository {
     /**
      * Erases every trace of the user from this device and leaves the app as a fresh
      * install: no sessions, no sets, no templates, no personal records, no custom
-     * exercises, no body weight log, no in-progress workout, and every setting back at its
+     * exercises, no body weight log, no in-progress workout, no backup file in the app's own
+     * storage, no rest or idle-session notification or alarm, and every setting back at its
      * default — including [com.titan.core.domain.model.UserPreferences.onboardingCompleted],
      * so the next launch asks the first-run questions again.
+     *
+     * The weekly backup's toggle is not a setting in that sense and stays as the user left it;
+     * only the record of its past runs goes, with the files it describes.
      *
      * **The seeded exercise catalogue survives.** It is app content rather than the user's,
      * and an app whose exercise library is empty is broken rather than clean. Implementations

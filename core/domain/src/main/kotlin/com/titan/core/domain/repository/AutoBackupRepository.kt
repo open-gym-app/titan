@@ -78,4 +78,17 @@ interface AutoBackupRepository {
      * @throws IOException if the store cannot be written.
      */
     suspend fun recordFailure(at: Long)
+
+    /**
+     * Forgets when a run last wrote a backup and when one last gave up, leaving the toggle as it
+     * is.
+     *
+     * For "delete all data", which deletes the files those dates describe. A row still reading
+     * "Last backup 26 Apr" over an empty directory tells somebody who has just erased everything
+     * that there is a backup to come back to. The toggle is the user's own choice and is not this
+     * method's to change.
+     *
+     * @throws IOException if the store cannot be written.
+     */
+    suspend fun forgetRuns()
 }

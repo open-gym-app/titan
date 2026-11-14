@@ -611,6 +611,31 @@ class SettingsScreenTest {
             }
     }
 
+    /**
+     * The backups in Titan's own storage go with everything else (#258). Somebody planning to
+     * delete everything and restore from last week's automatic backup has to read that first,
+     * and has to learn that a copy saved somewhere else is the one that survives.
+     */
+    @Test
+    fun `the confirmation says the backups on this phone go too`() {
+        setContent(dialog = SettingsDialog.DELETE_ALL, footprint = FOOTPRINT)
+
+        composeTestRule.onNodeWithText("every backup in Titan's own storage", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("Copies saved elsewhere stay", substring = true).assertIsDisplayed()
+    }
+
+    /** Even with nothing logged: a phone that held history once can still hold its backups. */
+    @Test
+    fun `the confirmation with nothing logged still says the backups go`() {
+        setContent(dialog = SettingsDialog.DELETE_ALL, footprint = DataFootprint())
+
+        composeTestRule.onNodeWithText("every backup in Titan's own storage", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+    }
+
     @Test
     fun `a kind the user has none of is not listed`() {
         setContent(

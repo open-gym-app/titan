@@ -1850,7 +1850,20 @@ class ActiveSessionViewModel @Inject constructor(
     private fun publishRest(snapshot: RestTimerSnapshot) {
         val rest = backgroundRest(snapshot)
         backgroundRestJob?.cancel()
-        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(rest) } }
+        backgroundRestJob = viewModelScope.launch {
+            runCatching {
+                // A rest is published only while this page's session is the one open, as the
+                // draft is written (see [writeDraft]). A page left alive in the back stack keeps
+                // its countdown after "delete all data" or a restore has taken the note down and
+                // set the state to `Idle`, and when that countdown runs out it would otherwise
+                // post "Rest over" for a workout that is gone. Nothing is taken down either: the
+                // note in the shade may be the open workout's.
+                if (rest != null && sessionStateRepository.observe().first().openSessionId != sessionId) {
+                    return@runCatching
+                }
+                backgroundRestTimer.set(rest)
+            }
+        }
     }
 
     /** The rest publication in flight, so the next one supersedes it. See [publishRest]. */
@@ -1873,16 +1886,27 @@ class ActiveSessionViewModel @Inject constructor(
      */
     private fun backgroundRest(snapshot: RestTimerSnapshot): BackgroundRest? {
         if (snapshot == RestTimerSnapshot.Idle) return null
+        // The row's creation time travels with the id, so an alarm or a "Skip rest" that comes
+        // back after a restore wrote another workout under this id is told apart from it. Null
+        // only before the row has been read, which then matches on the id alone.
+        val createdAt = loaded.value?.session?.createdAt
         // A rest started from the clock follows no set, and is published without one: it still
         // needs its alarm, and a note that names no exercise is truer than one that names a
         // wrong one.
         val exerciseId = screenState.value.restExerciseId
-            ?: return BackgroundRest(sessionId = sessionId, exerciseName = null, setNumber = null, rest = snapshot)
+            ?: return BackgroundRest(
+                sessionId = sessionId,
+                exerciseName = null,
+                setNumber = null,
+                rest = snapshot,
+                sessionCreatedAt = createdAt,
+            )
         val loaded = loaded.value ?: return null
         val exercise = loaded.ordered.firstOrNull { it.id == exerciseId } ?: return null
 
         return BackgroundRest(
             sessionId = sessionId,
+            sessionCreatedAt = createdAt,
             // Null for an exercise deleted from the library since the session started. The
             // workout carries on past that everywhere else on this screen, and so does this.
             exerciseName = catalogue.value?.exercises?.get(exercise.exerciseId)?.name,

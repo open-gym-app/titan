@@ -68,6 +68,8 @@ class BackupRoundTripTest : RoomTestBase() {
             inProgressSessionRepository = draft,
             templateDraftRepository = templateDraft,
             sessionStateRepository = sessionState,
+            backgroundRestTimer = RecordingBackgroundRestTimer(),
+            idleSessionMonitor = RecordingIdleSessionMonitor(),
             reminderScheduler = RecordingReminderScheduler(),
         )
     }

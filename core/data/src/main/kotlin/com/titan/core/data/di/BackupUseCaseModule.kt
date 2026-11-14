@@ -9,7 +9,9 @@ import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
 import com.titan.core.domain.repository.TemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import com.titan.core.domain.session.IdleSessionMonitor
 import com.titan.core.domain.time.Clock
+import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.usecase.ExportUseCase
 import com.titan.core.domain.usecase.ImportUseCase
 import com.titan.core.domain.usecase.SessionLifecycleLock
@@ -52,8 +54,10 @@ object BackupUseCaseModule {
      * Takes the three stores an import has to *forget* as well as the two it writes. The live
      * session state and the two drafts all name row ids from before the wipe, so leaving them
      * would point a screen at a session or a template that no longer exists — see
-     * [ImportUseCase] for the order and why it is that order. The reminder scheduler is there
-     * because restoring the settings resets the reminder, and the alarms have to follow it.
+     * [ImportUseCase] for the order and why it is that order. The rest timer and the idle monitor
+     * are there for the same reason: each holds a note and an alarm naming the session the
+     * restore replaces. The reminder scheduler is there because restoring the settings resets the
+     * reminder, and the alarms have to follow it.
      *
      * Both locks are the process-wide instances, named here so the wiring says so: the export
      * above, `BackupWorker` through it, and `LocalDataRepositoryImpl.deleteAll` all hold the
@@ -66,6 +70,8 @@ object BackupUseCaseModule {
         inProgressSessionRepository: InProgressSessionRepository,
         templateDraftRepository: TemplateDraftRepository,
         sessionStateRepository: SessionStateRepository,
+        backgroundRestTimer: BackgroundRestTimer,
+        idleSessionMonitor: IdleSessionMonitor,
         reminderScheduler: ReminderScheduler,
     ): ImportUseCase =
         ImportUseCase(
@@ -74,6 +80,8 @@ object BackupUseCaseModule {
             inProgressSessionRepository = inProgressSessionRepository,
             templateDraftRepository = templateDraftRepository,
             sessionStateRepository = sessionStateRepository,
+            backgroundRestTimer = backgroundRestTimer,
+            idleSessionMonitor = idleSessionMonitor,
             reminderScheduler = reminderScheduler,
             backupLock = BackupLock.SHARED,
             sessionLock = SessionLifecycleLock.SHARED,

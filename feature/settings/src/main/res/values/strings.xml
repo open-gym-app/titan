@@ -131,8 +131,8 @@
 
     <!-- Delete all data -->
     <string name="settings_delete_dialog_title">Delete all data</string>
-    <string name="settings_delete_dialog_body">This erases the following from this phone, permanently. There is no backup and no undo.</string>
-    <string name="settings_delete_dialog_body_empty">There is nothing logged on this phone yet. Deleting still puts every setting back to its default.</string>
+    <string name="settings_delete_dialog_body">This permanently erases the following from this phone, and every backup in Titan\'s own storage. Copies saved elsewhere stay. No undo.</string>
+    <string name="settings_delete_dialog_body_empty">There is nothing logged on this phone yet. Deleting still removes every backup in Titan\'s own storage and puts every setting back to its default.</string>
     <string name="settings_delete_dialog_settings_line">every setting, back to its defaults</string>
     <string name="settings_delete_dialog_prompt">Type %1$s to confirm</string>
     <string name="settings_delete_dialog_word">DELETE</string>
@@ -200,7 +200,7 @@
     <string name="backup_auto_failed">The last automatic backup did not finish, after several attempts. It will try again on the next run.</string>
     <string name="backup_auto_save_failed">That switch could not be saved. Try again.</string>
     <!-- The one sentence in this section a user must not miss; see AutoBackupSection. -->
-    <string name="backup_auto_uninstall">Automatic backups stay in Titan\'s own storage, even after you turn this off, until you uninstall the app. Export and save a copy for one that outlives it.</string>
+    <string name="backup_auto_uninstall">Automatic backups stay in Titan\'s own storage, even after you turn this off, until you uninstall the app or delete all data. Export and save a copy for one that outlives it.</string>
 
     <string name="backup_restore_title">Restore</string>
     <string name="backup_restore_detail">Replaces everything on this device with the contents of a backup file. It does not merge the two.</string>
