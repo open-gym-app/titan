@@ -1,4 +1,9 @@
 [versions]
+# The JDK every module and the build logic compile with, and its vendor: the name of one of
+# `JvmVendorSpec`'s constants. Read by `titan.jvm.toolchain` and build-logic's own
+# `convention/build.gradle.kts`; CI installs the same JDK with `setup-java` (temurin, 17).
+jdk = "17"
+jdkVendor = "ADOPTIUM"
 agp = "9.5.1"
 kotlin = "2.3.20"
 ksp = "2.3.9"

@@ -1,5 +1,6 @@
 package com.titan.buildlogic
 
+import org.gradle.api.Project
 import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainSpec
 import org.gradle.jvm.toolchain.JvmVendorSpec
@@ -12,10 +13,10 @@ import org.gradle.jvm.toolchain.JvmVendorSpec
  * convention plugin at once, which is the point — a module that needs a different level is
  * a decision worth arguing in a PR, not a value worth making configurable.
  *
- * Two modules are *not* covered, because neither applies a convention plugin: `:app` sets
- * `compileSdk`/`minSdk`/`targetSdk` and its toolchain in `app/build.gradle.kts`, and
- * `:core:domain` sets its toolchain in `core/domain/build.gradle.kts`. A bump here is only
- * half a bump until those move too — and `:app` is the one that ships the APK.
+ * `:app` is *not* covered, because it applies none of the Android convention plugins: it sets
+ * `compileSdk`/`minSdk`/`targetSdk` in `app/build.gradle.kts`. A bump here is only half a bump
+ * until that moves too — and `:app` is the one that ships the APK. The JDK is not here at all:
+ * it is in the version catalog, where build-logic's own build script can read it too.
  */
 internal object AndroidSdk {
     const val COMPILE = 37
@@ -47,13 +48,10 @@ internal object AndroidSdk {
      * moves when Robolectric does, not when the compile level does.
      */
     const val ROBOLECTRIC = 34
-
-    /** The JDK every module compiles against. */
-    const val JVM_TOOLCHAIN = 17
 }
 
 /**
- * The JDK every module compiles against: [AndroidSdk.JVM_TOOLCHAIN], from Eclipse Adoptium.
+ * The JDK every module compiles against: `jdk` from `jdkVendor`, both in the version catalog.
  *
  * The vendor is pinned because a version alone is satisfied by whichever JDK 17 Gradle finds
  * first, on the machine or through the toolchain resolver, so two machines could compile one
@@ -62,10 +60,19 @@ internal object AndroidSdk {
  * release build also turn auto-download off (`.github/ci-gradle.properties`): there the JDK
  * comes from `setup-java` or the build fails, never from a download in the middle of it.
  *
- * `:app`, `:core:domain` and this included build's own `convention/build.gradle.kts` state the
- * same two lines themselves, as they do the version; keep them in step.
+ * The catalog rather than a constant here because build-logic's own `convention/build.gradle.kts`
+ * needs the same JDK and cannot call into the code it is compiling; it reads the catalog too.
  */
-internal fun JavaToolchainSpec.titanJdk() {
-    languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
-    vendor.set(JvmVendorSpec.ADOPTIUM)
+internal fun JavaToolchainSpec.titanJdk(project: Project) {
+    languageVersion.set(JavaLanguageVersion.of(project.catalogVersion("jdk")))
+    vendor.set(jvmVendor(project.catalogVersion("jdkVendor")))
 }
+
+/** The `JvmVendorSpec` constant called [name], or a configuration failure that names it. */
+internal fun jvmVendor(name: String): JvmVendorSpec =
+    runCatching { JvmVendorSpec::class.java.getField(name).get(null) as JvmVendorSpec }.getOrElse {
+        throw IllegalStateException(
+            "jdkVendor = \"$name\" in gradle/libs.versions.toml is not a JvmVendorSpec constant",
+            it,
+        )
+    }

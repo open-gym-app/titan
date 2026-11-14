@@ -25,3 +25,11 @@ internal fun Project.library(alias: String): Provider<MinimalExternalModuleDepen
             "No library '$alias' in gradle/libs.versions.toml (required by a convention plugin)",
         )
     }
+
+/** A `[versions]` entry of the `libs` catalog, failing with its name when it is missing. */
+internal fun Project.catalogVersion(alias: String): String =
+    libs.findVersion(alias).orElseThrow {
+        IllegalStateException(
+            "No version '$alias' in gradle/libs.versions.toml (required by a convention plugin)",
+        )
+    }.requiredVersion

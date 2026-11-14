@@ -13,6 +13,8 @@ mkdir -p "$work/bin"
 cat >"$work/bin/adb" <<'FAKE'
 #!/usr/bin/env bash
 set -eu
+# `adb -s SERIAL ...`, the way `make ADB="adb -s SERIAL"` calls it.
+if [ "$1" = -s ]; then shift 2; fi
 case "$1" in
   get-serialno) echo "FAKE-0001"; exit 0 ;;
   shell) shift ;;
@@ -105,6 +107,47 @@ expect secure enabled_accessibility_services "$OWN:$SCANNER"
 run reset "$SCANNER"
 expect secure enabled_accessibility_services "$OWN"
 
+case_name="a pass abandoned without a reset does not hand its snapshot to the next one"
+phone
+seed secure enabled_accessibility_services "$OWN"
+seed secure accessibility_enabled 1
+seed system font_scale 1.0
+run enable-service "$SCANNER"
+# Weeks later, by hand: the Scanner off, TalkBack on for good, a larger font.
+seed secure enabled_accessibility_services "$OWN:$TALKBACK"
+seed system font_scale 1.3
+run enable-service "$SCANNER"
+run reset "$SCANNER"
+expect secure enabled_accessibility_services "$OWN:$TALKBACK"
+expect secure accessibility_enabled 1
+expect system font_scale 1.3
+
+case_name="a reset keeps what was changed by hand since the pass, and puts back the rest"
+phone
+seed secure enabled_accessibility_services "$OWN"
+seed secure accessibility_enabled 1
+seed system font_scale 1.15
+run enable-service "$SCANNER"
+run font-scale 2.0
+seed secure enabled_accessibility_services "$OWN:$SCANNER:$TALKBACK"
+run reset "$SCANNER"
+expect secure enabled_accessibility_services "$OWN:$TALKBACK"
+expect secure accessibility_enabled 1
+expect system font_scale 1.15
+[[ -z "$(ls -A "$A11Y_STATE_DIR")" ]] || fail "the saved state outlived the reset"
+
+case_name="a font scale changed by hand during the pass stays"
+phone
+seed secure enabled_accessibility_services "$OWN"
+seed secure accessibility_enabled 1
+seed system font_scale 1.0
+run enable-service "$SCANNER"
+run font-scale 2.0
+seed system font_scale 1.3
+run reset "$SCANNER"
+expect secure enabled_accessibility_services "$OWN"
+expect system font_scale 1.3
+
 case_name="with nothing saved, only the pass's own services go"
 phone
 seed secure enabled_accessibility_services "$SCANNER:$OWN:$TALKBACK"
@@ -132,6 +175,14 @@ fi
 expect secure enabled_accessibility_services "$OWN"
 [[ ! -e "$work/pwned" ]] || fail "the component was run by the phone's shell"
 [[ ! -e "$A11Y_STATE_DIR" ]] || fail "it saved state for a step it refused"
+
+case_name="an ADB that names its device, as make ADB=\"adb -s SERIAL\" passes it"
+phone
+seed secure enabled_accessibility_services "$OWN"
+ADB="adb -s FAKE-0001" run enable-service "$SCANNER"
+expect secure enabled_accessibility_services "$OWN:$SCANNER"
+ADB="adb -s FAKE-0001" run reset "$SCANNER"
+expect secure enabled_accessibility_services "$OWN"
 
 if ((failures)); then
   echo "$failures check(s) failed."

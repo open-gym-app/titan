@@ -1,4 +1,7 @@
 pluginManagement {
+    // The filtered google() the root build uses, for plugins and dependencies both.
+    apply(from = "../gradle/google.settings.gradle.kts")
+
     repositories {
         gradlePluginPortal()
     }
@@ -15,18 +18,8 @@ plugins {
 }
 
 dependencyResolutionManagement {
-    // The content filter the root settings.gradle.kts puts on google(); see the comment there.
+    // Beside the filtered google() that ../gradle/google.settings.gradle.kts added above.
     repositories {
-        exclusiveContent {
-            forRepository { google() }
-            filter {
-                includeGroupByRegex("androidx\\..*")
-                includeGroupByRegex("com\\.android(\\..*)?")
-                includeGroupByRegex("com\\.google\\.android\\..*")
-                includeGroupByRegex("com\\.google\\.testing\\.platform")
-                includeGroupByRegex("com\\.google\\.prefab")
-            }
-        }
         mavenCentral()
         gradlePluginPortal()
     }

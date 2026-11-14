@@ -7,12 +7,13 @@ plugins {
 
 group = "com.titan.buildlogic"
 
-// Matches the toolchain every module compiles against, vendor included (see `titanJdk()` in
-// AndroidSdk.kt); the convention plugins are loaded into the same daemon that builds them.
+// The toolchain every module compiles against, vendor included, read from the same catalog
+// entries `titanJdk()` in AndroidSdk.kt reads: this script cannot call the code it compiles.
+// The convention plugins are loaded into the same daemon that builds them.
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-        vendor.set(JvmVendorSpec.ADOPTIUM)
+        languageVersion.set(JavaLanguageVersion.of(libs.versions.jdk.get()))
+        vendor.set(JvmVendorSpec::class.java.getField(libs.versions.jdkVendor.get()).get(null) as JvmVendorSpec)
     }
 }
 
@@ -78,6 +79,10 @@ gradlePlugin {
         register("androidJacoco") {
             id = "titan.android.jacoco"
             implementationClass = "AndroidJacocoConventionPlugin"
+        }
+        register("jvmToolchain") {
+            id = "titan.jvm.toolchain"
+            implementationClass = "JvmToolchainConventionPlugin"
         }
         register("architecture") {
             id = "titan.architecture"

@@ -114,14 +114,7 @@ class AndroidNotifier @Inject constructor(
             .setSilent(notification.silent)
             .apply {
                 notification.deepLink?.let { setContentIntent(context.open(it)) }
-                notification.countdownTo?.let { deadline ->
-                    // Ticked by the system, from `when` down to zero. The platform redraws it
-                    // in place; nothing here wakes up to do it. See `AppNotification`.
-                    setWhen(deadline)
-                    setShowWhen(true)
-                    setUsesChronometer(true)
-                    setChronometerCountDown(true)
-                }
+                notification.countdownTo?.let { countdownTo(it) }
                 notification.actions.forEach { addAction(NO_ACTION_ICON, it.label, context.press(it)) }
             }
             // An ongoing note is cleared by the app when the thing it describes is over, so
@@ -141,15 +134,18 @@ class AndroidNotifier @Inject constructor(
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(notification.title)
             .setCategory(notification.kind.category)
-            .apply {
-                notification.countdownTo?.let { deadline ->
-                    setWhen(deadline)
-                    setShowWhen(true)
-                    setUsesChronometer(true)
-                    setChronometerCountDown(true)
-                }
-            }
+            .apply { notification.countdownTo?.let { countdownTo(it) } }
             .build()
+
+    /**
+     * A countdown to [deadline], ticked by the system from `when` down to zero. The platform
+     * redraws it in place; nothing here wakes up to do it. See `AppNotification`.
+     */
+    private fun NotificationCompat.Builder.countdownTo(deadline: Long): NotificationCompat.Builder =
+        setWhen(deadline)
+            .setShowWhen(true)
+            .setUsesChronometer(true)
+            .setChronometerCountDown(true)
 }
 
 /**

@@ -4,21 +4,10 @@ pluginManagement {
     // every module's build script cache.
     includeBuild("build-logic")
 
+    // Google's repository, filtered to Google's own groups, for plugins and dependencies both.
+    apply(from = "gradle/google.settings.gradle.kts")
+
     repositories {
-        // Google's Maven repository is asked for AndroidX, the Android Gradle plugin and its
-        // tools, and Google's Android libraries, and for nothing else; and those groups are
-        // asked of nobody else, so a look-alike published to another repository is never
-        // picked up in their place. `com.google.*` beyond these lives on Maven Central.
-        exclusiveContent {
-            forRepository { google() }
-            filter {
-                includeGroupByRegex("androidx\\..*")
-                includeGroupByRegex("com\\.android(\\..*)?")
-                includeGroupByRegex("com\\.google\\.android\\..*")
-                includeGroupByRegex("com\\.google\\.testing\\.platform")
-                includeGroupByRegex("com\\.google\\.prefab")
-            }
-        }
         mavenCentral()
         gradlePluginPortal()
     }
@@ -29,18 +18,8 @@ plugins {
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-    // The same filter as the plugin repositories above.
+    // Beside the filtered google() that gradle/google.settings.gradle.kts added above.
     repositories {
-        exclusiveContent {
-            forRepository { google() }
-            filter {
-                includeGroupByRegex("androidx\\..*")
-                includeGroupByRegex("com\\.android(\\..*)?")
-                includeGroupByRegex("com\\.google\\.android\\..*")
-                includeGroupByRegex("com\\.google\\.testing\\.platform")
-                includeGroupByRegex("com\\.google\\.prefab")
-            }
-        }
         mavenCentral()
     }
 }

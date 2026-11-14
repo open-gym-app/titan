@@ -32,6 +32,13 @@ class PrintableTest(unittest.TestCase):
     def test_every_control_character_is_spelled_out(self) -> None:
         self.assertEqual(check.printable("a\x1bb\x07c\rd\x00e\x7ff\x9bg"), "a\\x1bb\\x07c\\x0dd\\x00e\\x7ff\\x9bg")
 
+    def test_bidirectional_overrides_are_spelled_out(self) -> None:
+        self.assertEqual(check.printable("a\u202eb\u2066c\u200fd"), "a\\u202eb\\u2066c\\u200fd")
+
+    def test_a_backslash_is_doubled_only_when_asked(self) -> None:
+        self.assertEqual(check.printable("a\\x1b\x1b", backslashes=True), "a\\\\x1b\\x1b")
+        self.assertEqual(check.printable("\\d+"), "\\d+")
+
     def test_ordinary_text_is_left_alone(self) -> None:
         title = "Rest timer: «30 s» — set 2 of 5 (#30)"
         self.assertEqual(check.printable(title), title)
@@ -73,6 +80,12 @@ class ReportTest(unittest.TestCase):
         _, out = self.run_check()
 
         self.assertIn("Harmless\\x1b[2J\\x1b[H\\x07\\x0dAll issues are open\\x9b31m", out)
+
+    def test_a_title_spelling_out_an_escape_does_not_pass_for_one(self) -> None:
+        with mock.patch.object(check, "github", return_value={"state": "closed", "title": "Fake\\x1b"}):
+            _, out = self.run_check()
+
+        self.assertIn("(Fake\\\\x1b)", out)
 
 
 if __name__ == "__main__":
