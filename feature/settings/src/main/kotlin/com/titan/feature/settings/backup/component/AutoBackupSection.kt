@@ -42,10 +42,10 @@ import com.titan.feature.settings.backup.statusLine
  *
  * It also says the other half of the files' lifetime: turning the switch off stops new backups
  * and deletes none of the ones already written. Retention only runs as part of a backup, so
- * with the schedule off the last three stay until the app goes or the user deletes all data. That is the safer default —
- * switching a schedule off is not asking for the copies it made to be destroyed — but it is a
- * user's training history sitting on the phone, and somebody turning the feature off to be rid
- * of it has to be told it is still there.
+ * with the schedule off the last three stay until the app goes or the user deletes all data.
+ * That is the safer default — switching a schedule off is not asking for the copies it made to
+ * be destroyed — but it is a user's training history sitting on the phone, and somebody turning
+ * the feature off to be rid of it has to be told it is still there.
  *
  * @param schedule what the store holds: the flag, when a run last wrote a file, and whether the
  *   last one gave up. Never the ViewModel's own copy — a worker records its run with no screen

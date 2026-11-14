@@ -10,6 +10,7 @@ import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.timer.RestSkipRequests
 import com.titan.core.domain.timer.RestTimerSnapshot
+import com.titan.core.domain.usecase.SessionLifecycleLock
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -76,8 +77,20 @@ internal interface RestTimerEntryPoint {
  * Both of those take the note and the alarm down, so this is the second line rather than the
  * first — but an alarm already being delivered when they ran, or a note from a build that did not
  * take them down, still lands here. So both handlers first ask [isOpenWorkout], and an expiry for
- * any other session is dropped: a "Rest over" for a workout that no longer exists, with a link to
- * an id that now means nothing or something else, is worse than silence.
+ * any other session announces nothing and only takes its note down: a "Rest over" for a workout
+ * that no longer exists, with a link to an id that now means nothing or something else, is worse
+ * than silence.
+ *
+ * ### Under the session lock
+ *
+ * Asking and acting are two steps, and a wipe or a restore can run between them: they take the
+ * rest down *before* they clear the draft and the rows, so an expiry that asked in that gap would
+ * still be told yes and post its note after the teardown, and a skip that loaded the draft before
+ * the clear would save it back after it. Both wipes hold [SessionLifecycleLock] from the
+ * teardown to the cleared rows, so each handler takes it for the ask and everything that follows
+ * it: it then runs wholly before a wipe, whose teardown follows it, or wholly after, when there
+ * is nothing left to say yes. The wait is a delete all's fraction of a second, or a restore's,
+ * which only an alarm that fires during one ever sees.
  */
 @Singleton
 class RestTimerBroadcasts @Inject constructor(
@@ -87,12 +100,21 @@ class RestTimerBroadcasts @Inject constructor(
     private val sessions: SessionRepository,
 ) {
 
+    private val sessionLock = SessionLifecycleLock.SHARED
+
     suspend fun handle(intent: Intent) {
         expiredRestOf(intent)?.let { expired ->
             // The rest ran out. Whether that is announced or quietly cleared is
             // `AndroidBackgroundRestTimer`'s decision, taken against the process lifecycle —
             // the same decision the in-process countdown reaches, so the two cannot disagree.
-            if (isOpenWorkout(expired.session)) backgroundRestTimer.set(expired)
+            //
+            // An expiry for another session announces nothing, but it still takes the note down:
+            // there is one alarm slot, and every later rest replaces or cancels it, so an alarm
+            // that fires for a gone session means the note in the shade, if any, is that rest's
+            // countdown — ongoing, and otherwise left counting past zero.
+            sessionLock.withTransition {
+                backgroundRestTimer.set(expired.takeIf { isOpenWorkout(expired.session) })
+            }
             return
         }
 
@@ -123,12 +145,18 @@ class RestTimerBroadcasts @Inject constructor(
      * save, and two writes of one value are not worth a conditional that would have to guess
      * whether anybody was listening. A press about any other session stops there, so it cannot
      * end the rest of a workout that happens to carry the same id.
+     *
+     * Everything after the note comes down runs under the session lock (see the class doc), so
+     * the draft cannot be saved back after a wipe cleared it.
      */
     private suspend fun skip(session: SessionRef) {
         backgroundRestTimer.set(null)
-        if (!isOpenWorkout(session)) return
-        skipRequests.skip(session.sessionId)
-        forgetRest(session)
+        sessionLock.withTransition {
+            if (isOpenWorkout(session)) {
+                skipRequests.skip(session.sessionId)
+                forgetRest(session)
+            }
+        }
     }
 
     /**

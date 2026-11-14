@@ -78,10 +78,13 @@ class AndroidBackgroundRestTimer @Inject constructor(
      * equal — which is why it is also cleared whenever a rest starts, is held or goes away: a
      * rest that repeats itself exactly is still announced again.
      *
-     * Not synchronised. Both writers reach it from the main dispatcher — the ViewModel's scope
-     * and the receiver's `Dispatchers.Main.immediate` — and the cost of losing the race would be
-     * the duplicate alert this exists to avoid, not a broken state.
+     * Volatile rather than synchronised. The ViewModel's scope and the receiver's
+     * `Dispatchers.Main.immediate` reach it from the main thread, but "delete all data" and a
+     * restore take the rest down from an IO thread, so a write has to be visible across threads.
+     * The check-then-set in [expire] can still interleave with a clear, and the cost of losing
+     * that race is the duplicate alert this exists to avoid, not a broken state.
      */
+    @Volatile
     private var announced: BackgroundRest? = null
 
     override suspend fun set(rest: BackgroundRest?) {

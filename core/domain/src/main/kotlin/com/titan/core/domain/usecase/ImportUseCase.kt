@@ -63,15 +63,15 @@ import java.io.IOException
  *    as `LocalDataRepositoryImpl.deleteAll` orders them and for the same reason. The workout's
  *    rest and idle nudge go with the session state: each is a notification and an alarm the
  *    operating system keeps outside every store here, naming a session id that is about to
- *    mean nothing, or — since a restore writes back ids this device has used — another workout. Before the
- *    transaction rather than after it, which costs something in one case: a constraint the
- *    validator did not model would roll the rows back and leave the drafts cleared anyway. That
- *    is the cheaper mistake — `InProgressSessionRepository` is explicit that losing a draft
- *    costs a place and never a set — where clearing *after* the commit would leave a window in
- *    which a process death left a draft pointing into a database that had been replaced under
- *    it. The files cannot join the transaction, so one of the two windows has to exist, and
- *    this is the one that loses nothing logged. A draft store that cannot be cleared stops the
- *    restore here, as [ImportError.LiveStateNotCleared].
+ *    mean nothing, or — since a restore writes back ids this device has used — another
+ *    workout. Before the transaction rather than after it, which costs something in one case: a
+ *    constraint the validator did not model would roll the rows back and leave the drafts
+ *    cleared anyway. That is the cheaper mistake — `InProgressSessionRepository` is explicit
+ *    that losing a draft costs a place and never a set — where clearing *after* the commit would
+ *    leave a window in which a process death left a draft pointing into a database that had been
+ *    replaced under it. The files cannot join the transaction, so one of the two windows has to
+ *    exist, and this is the one that loses nothing logged. A draft store that cannot be cleared
+ *    stops the restore here, as [ImportError.LiveStateNotCleared].
  * 5. **Wipe and insert, in one transaction.** [BackupRepository.replaceAll] owns it. A failure
  *    anywhere in it rolls the whole thing back, so there is no state where the database is
  *    empty and the import has given up.

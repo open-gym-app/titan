@@ -2659,6 +2659,31 @@ class ActiveSessionViewModelTest {
             assertEquals(SessionRef(ACTIVE_SESSION_ID, createdAt = STARTED_AT), backgroundRest.current?.session)
         }
 
+    /**
+     * "Delete all data" and a restore set the state to `Idle` and take the note down, but a page
+     * left alive in the back stack keeps its countdown. When that runs out it must not put a
+     * "Rest over" back up for the workout that is gone.
+     */
+    @Test
+    fun `a rest that runs out after the session stopped being open is not published`() =
+        runTest {
+            val open = SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT)
+            val state = FakeSessionStateStore(open)
+            val viewModel = viewModel(state = state)
+            viewModel.enter(weight = "80", reps = "5")
+            viewModel.onEvent(ActiveSessionEvent.SetLogged(BENCH_ROW))
+            runCurrent()
+            state.update(SessionState.Idle)
+            backgroundRest.set(null)
+            val publications = backgroundRest.published.size
+
+            testScheduler.advanceTimeBy(91.seconds)
+
+            assertEquals(RestTimerState.Finished, viewModel.clocks.value.rest)
+            assertEquals(publications, backgroundRest.published.size)
+            assertNull(backgroundRest.current)
+        }
+
     @Test
     fun `the ticks do not republish the rest`() =
         runTest {

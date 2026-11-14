@@ -17,7 +17,7 @@ import javax.inject.Singleton
  * `backups/` under the app's own external files directory — app-specific storage, so it needs
  * no permission and is listed under the app in the system's storage screen. It is also
  * **deleted on uninstall**, and emptied by "delete all data" (`LocalDataRepositoryImpl`, through
- * [directory]), which is the fact the backup screen has to state next to the toggle: a user
+ * [everyDirectory]), which is the fact the backup screen has to state next to the toggle: a user
  * who believes a weekly automatic backup survives a reinstall and finds out otherwise has been
  * actively misled. The manual export (#38) is what exists for that, and it
  * is why "Save a copy…" is the first button on the card it produces.
@@ -52,6 +52,19 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
      * empty directory.
      */
     val directory: File get() = File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_DIRECTORY)
+
+    /**
+     * Every `backups/` a backup can have been written to: the external one, and the internal
+     * fallback [directory] resolves to while no external volume is mounted.
+     *
+     * For "delete all data", which has to find every copy. [directory] alone answers for the
+     * volume mounted *now*, so it would miss a backup written to internal storage while the
+     * external volume was away, and every external one while it is away again.
+     */
+    val everyDirectory: List<File>
+        get() = listOfNotNull(context.getExternalFilesDir(null), context.filesDir)
+            .map { File(it, BACKUP_DIRECTORY) }
+            .distinct()
 
     /** The file a run started at [at] writes, named for that day in the device's own zone. */
     fun fileFor(at: Long): File {

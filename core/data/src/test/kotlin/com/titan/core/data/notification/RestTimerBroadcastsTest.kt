@@ -12,8 +12,10 @@ import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.timer.BackgroundRest
 import com.titan.core.domain.timer.BackgroundRestTimer
 import com.titan.core.domain.timer.RestSkipRequests
+import com.titan.core.domain.usecase.SessionLifecycleLock
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,6 +23,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -107,25 +110,25 @@ class RestTimerBroadcastsTest {
 
     /** The workout was erased: no draft and no session in progress. Nothing may be said. */
     @Test
-    fun `an expiry for a session that no longer exists is dropped`() =
+    fun `an expiry for a session that no longer exists only takes the note down`() =
         runTest {
             drafts.clear()
 
             broadcasts.handle(restExpiredBroadcast(context, REST))
 
-            assertEquals(emptyList<BackgroundRest?>(), restTimer.published)
+            assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
         }
 
     /** A restore wrote another workout back under the same id. The number matches; the workout does not. */
     @Test
-    fun `an expiry for an id another workout now carries is dropped`() =
+    fun `an expiry for an id another workout now carries only takes the note down`() =
         runTest {
             drafts.save(ActiveSession(sessionId = SESSION_ID, startedAt = OTHER_STARTED_AT))
             every { sessions.getActive() } returns flowOf(SESSION.copy(createdAt = OTHER_STARTED_AT))
 
             broadcasts.handle(restExpiredBroadcast(context, REST))
 
-            assertEquals(emptyList<BackgroundRest?>(), restTimer.published)
+            assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
         }
 
     /** The draft is written a moment after the screen changes. The row is the authority. */
@@ -256,6 +259,59 @@ class RestTimerBroadcastsTest {
             RestTimerBroadcasts(restTimer, skipRequests, broken, sessions).handle(skipIntent(SESSION_ID))
 
             assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
+        }
+
+    // --- during a wipe -------------------------------------------------------
+
+    /**
+     * A delete all or a restore takes the rest down before it clears the draft. An expiry that
+     * asked in between would still be told yes; it waits for the wipe instead, and then finds
+     * nothing open.
+     */
+    @Test
+    fun `an expiry delivered during a wipe waits for it and announces nothing`() =
+        runTest {
+            val wipeMayFinish = CompletableDeferred<Unit>()
+            launch {
+                SessionLifecycleLock.SHARED.withTransition {
+                    restTimer.set(null)
+                    wipeMayFinish.await()
+                    drafts.clear()
+                }
+            }
+            runCurrent()
+
+            launch { broadcasts.handle(restExpiredBroadcast(context, REST)) }
+            runCurrent()
+            wipeMayFinish.complete(Unit)
+            runCurrent()
+
+            assertEquals(listOf<BackgroundRest?>(null, null), restTimer.published)
+        }
+
+    /** The note comes down at once; the draft is left to the wipe, so it cannot be saved back. */
+    @Test
+    fun `a press during a wipe takes the note down and leaves the draft to it`() =
+        runTest {
+            val wipeMayFinish = CompletableDeferred<Unit>()
+            launch {
+                SessionLifecycleLock.SHARED.withTransition {
+                    wipeMayFinish.await()
+                    drafts.clear()
+                }
+            }
+            runCurrent()
+
+            launch { broadcasts.handle(skipIntent(SESSION_ID)) }
+            runCurrent()
+
+            assertEquals(listOf<BackgroundRest?>(null), restTimer.published)
+            assertEquals(Snapshot.Running(DEADLINE, 90.seconds), drafts.load()?.restTimer)
+
+            wipeMayFinish.complete(Unit)
+            runCurrent()
+
+            assertNull(drafts.load())
         }
 
     // --- anything else ------------------------------------------------------

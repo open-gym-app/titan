@@ -534,6 +534,22 @@ class LocalDataRepositoryImplTest {
         }
 
     /**
+     * A backup written while no external volume was mounted went to the internal fallback, and
+     * [AutoBackupFiles.directory] does not name that one while the external volume is back.
+     */
+    @Test
+    fun `deleteAll deletes a backup written to internal storage while the external volume was away`() =
+        runBlocking {
+            val internal = File(context.filesDir, "backups").apply { mkdirs() }
+            val written = File(internal, "titan-auto-2026-11-01.json").apply { writeText("{}") }
+            assertTrue(written.exists())
+
+            repository.deleteAll()
+
+            assertEquals(emptyList<String>(), internal.listFiles().orEmpty().map { it.name })
+        }
+
+    /**
      * The dates under the toggle describe files the wipe has just deleted, so they go. The toggle
      * is the user's choice about the future and is left alone, and so is the schedule behind it:
      * cancelling the work under a switch still drawn on would be a promise with nothing behind it.

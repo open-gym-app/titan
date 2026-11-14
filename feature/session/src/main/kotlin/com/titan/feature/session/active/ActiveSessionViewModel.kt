@@ -1850,7 +1850,20 @@ class ActiveSessionViewModel @Inject constructor(
     private fun publishRest(snapshot: RestTimerSnapshot) {
         val rest = backgroundRest(snapshot)
         backgroundRestJob?.cancel()
-        backgroundRestJob = viewModelScope.launch { runCatching { backgroundRestTimer.set(rest) } }
+        backgroundRestJob = viewModelScope.launch {
+            runCatching {
+                // A rest is published only while this page's session is the one open, as the
+                // draft is written (see [writeDraft]). A page left alive in the back stack keeps
+                // its countdown after "delete all data" or a restore has taken the note down and
+                // set the state to `Idle`, and when that countdown runs out it would otherwise
+                // post "Rest over" for a workout that is gone. Nothing is taken down either: the
+                // note in the shade may be the open workout's.
+                if (rest != null && sessionStateRepository.observe().first().openSessionId != sessionId) {
+                    return@runCatching
+                }
+                backgroundRestTimer.set(rest)
+            }
+        }
     }
 
     /** The rest publication in flight, so the next one supersedes it. See [publishRest]. */
