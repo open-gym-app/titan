@@ -78,7 +78,7 @@
       "semanticCommitType": "feat",
       "semanticCommitScope": "seed",
       "prBodyNotes": [
-        "⚠️ **Needs `make seed` before it can merge.** This PR moves the pinned upstream commit only. Check out the branch, run `make seed`, and commit the regenerated `exercises.sql`, images and `sql_sha256` — otherwise the `Seed assets` job fails on `make seed-check`."
+        "⚠️ **Needs `make seed` before it can merge.** This PR moves the pinned upstream commit only. Check out the branch, run `make seed`, and commit the regenerated `exercises.sql`, images and `sql_sha256` — otherwise the `Seed, translations and release gate` job fails on `make seed-check`."
       ]
     },
     {

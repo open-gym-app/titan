@@ -78,12 +78,12 @@ Each plural form is held to the base form of the *same quantity* — `many`, whi
 does not have, to the base's `other` — so a `one` form that legitimately carries no
 placeholder in English is not asked to grow one in French.
 
-**It warns and never fails.** CI runs it beside the seed check (`Seed and translations` in
-`.github/workflows/ci.yml`) and the script writes each finding as a workflow annotation on the
-file it is about, which is what puts it on the PR's *Files* tab. A base string added in a PR
-should not block that PR on its three translations, but a missing key is invisible at runtime,
-so it has to be visible somewhere first. `STRICT=1` is for the claim "this locale is
-complete", which each of the three made when it landed.
+**It warns and never fails.** CI runs it beside the seed check (`Seed, translations and
+release gate` in `.github/workflows/ci.yml`) and the script writes each finding as a workflow
+annotation on the file it is about, which is what puts it on the PR's *Files* tab. A base
+string added in a PR should not block that PR on its three translations, but a missing key is
+invisible at runtime, so it has to be visible somewhere first. `STRICT=1` is for the claim
+"this locale is complete", which each of the three made when it landed.
 
 Lint checks a subset of the same things and is configured to agree — see `lint.xml`:
 `MissingTranslation` is a warning for the reason above, `ImpliedQuantity` is a warning

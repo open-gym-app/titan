@@ -3,7 +3,8 @@ name: Release
 # Runs after CI, never beside it: nothing reaches Play that did not pass lint, the unit tests
 # and the screenshot checks first.
 #
-# Every release is a tag someone pushed on purpose; a push to `main` publishes nothing.
+# Every release is a tag someone pushed on purpose, on a commit already on `main`; a push to
+# `main` publishes nothing, and neither does a tag anywhere else.
 #
 # - A pushed `vMAJOR.MINOR.PATCH-rc.N` tag is a release candidate: published to Play's
 #   internal track and published as a GitHub pre-release.
@@ -13,6 +14,11 @@ name: Release
 #   uploads it nowhere.
 #
 # The version is the tag, and app/build.gradle.kts derives `versionCode` from it.
+#
+# `workflow_run` rather than `push: tags`, because it always runs this file as it is on `main`:
+# a tag on a commit that rewrites this workflow still meets the gate below as `main` has it.
+# The price is that GitHub sees every job here as running on `main`, so the environment's
+# deployment-branch policy cannot tell a tag from a branch, or either from `main`; the gate does.
 on:
   workflow_run:
     workflows: [CI]
@@ -24,52 +30,58 @@ on:
         required: true
 
 jobs:
-  # Decides what this run is from the event alone, outside the `release` environment: every
-  # CI run triggers this workflow, pull requests' and `main`'s included, and only the runs
-  # that will publish something should wait for the environment's reviewers or see its secrets.
+  # Decides what this run is, outside the `release` environment: every CI run triggers this
+  # workflow, pull requests' and `main`'s included, and only the runs that will publish
+  # something should wait for the environment's reviewers or see its secrets.
   gate:
     name: Decide what to release
-    # `event == 'push'` is what keeps a pull request's CI run — a fork's included — from
-    # ever reaching the signing secrets. For a tag push, `head_branch` is the tag's name.
+    # A cheap first filter, so most CI runs skip the checkout below. `event == 'push'` keeps a
+    # pull request's CI run from going further; the name is only a name until the gate script
+    # has checked it against the tag and `main`.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        startsWith(github.event.workflow_run.head_branch, 'v'))
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    permissions: {}
+    # GitHub-hosted, not CI_RUNNER: the job holding the keystore runs on a fresh machine
+    # whatever runners CI_RUNNER points pull requests at, and so does this one, which decides
+    # whether that job runs. See release/security-audit.md.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       kind: ${{ steps.kind.outputs.kind }}
       version: ${{ steps.kind.outputs.version }}
     steps:
+      # The gate script from `main` (or from the dispatched ref, for a rehearsal), with every
+      # tag and every branch's history to check the run against. A sparse checkout is also a
+      # blobless clone, so only the files the checkout writes (the scripts and the root's own
+      # files) are downloaded, not every revision of the tree.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
       - name: Work out the kind of release
         id: kind
         env:
           EVENT: ${{ github.event_name }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           INPUT_VERSION: ${{ inputs.version }}
-        run: |
-          if [[ "$EVENT" == "workflow_dispatch" ]]; then
-            kind=dry-run
-            version="$INPUT_VERSION"
-          elif [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
-            kind=candidate
-            version="${HEAD_BRANCH#v}"
-          elif [[ "$HEAD_BRANCH" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            kind=release
-            version="${HEAD_BRANCH#v}"
-          else
-            echo "::notice::$HEAD_BRANCH is not a release tag, nothing to do"
-            kind=none
-          fi
-          echo "kind=$kind" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          WORKFLOW_PATH: ${{ github.event.workflow_run.path }}
+          HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/release-gate.sh
 
   release:
     name: Release
     needs: gate
-    if: needs.gate.outputs.kind != 'none'
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+    if: contains(fromJSON('["candidate", "release", "dry-run"]'), needs.gate.outputs.kind)
+    # See the gate's runner.
+    runs-on: ubuntu-latest
     # Holds KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD and
     # PLAY_SERVICE_ACCOUNT_JSON. Environment secrets, not repository ones (#44).
     environment: release
@@ -83,9 +95,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # Nothing here pushes; the GitHub release step brings its own token.
+          persist-credentials: false
 
       # app/build.gradle.kts only signs when KEYSTORE_PATH points at a file, and would
-      # otherwise quietly produce an unsigned bundle Play then refuses.
+      # otherwise quietly produce an unsigned bundle Play then refuses. The path is given to
+      # the build step alone, and the file is removed at the end of the job whatever happens.
       - name: Restore the upload keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -102,9 +117,8 @@ jobs:
               exit 1
             fi
           done
+          umask 077
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
-          echo "KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-          echo "Releasing $VERSION ($KIND)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -116,6 +130,9 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+          # Restores what `main`'s CI saved and saves nothing: a workflow_run job's caches are
+          # filed under `main`, where every later release, and CI on `main`, would restore them.
+          cache-read-only: true
 
       # The same budget CI builds with, for the same runner; see the step of the same name in
       # ci.yml and `.github/ci-gradle.properties`.
@@ -126,6 +143,7 @@ jobs:
       # check a tag gets beyond the gate's pattern.
       - name: Build the signed bundle and APK
         env:
+          KEYSTORE_PATH: ${{ runner.temp }}/upload.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -140,8 +158,11 @@ jobs:
 
       # The R8 mapping goes up with the bundle, so Play deobfuscates the crashes it reports;
       # it is not kept as a workflow artifact on top of that.
+      #
+      # The two publishing steps check the event as well as the kind: a manual run never
+      # publishes, whatever the gate said.
       - name: Upload to Google Play
-        if: env.KIND != 'dry-run'
+        if: github.event_name == 'workflow_run' && env.KIND != 'dry-run'
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
@@ -155,10 +176,13 @@ jobs:
           mappingFile: app/build/outputs/mapping/release/mapping.txt
 
       - name: Publish the GitHub release
-        if: env.KIND != 'dry-run'
+        if: github.event_name == 'workflow_run' && env.KIND != 'dry-run'
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: v${{ env.VERSION }}
+          # Only used if the tag was deleted after the gate checked it: the release then names
+          # the commit that was built, not `main`'s tip.
+          target_commitish: ${{ github.event.workflow_run.head_sha }}
           name: v${{ env.VERSION }}
           prerelease: ${{ env.KIND == 'candidate' }}
           generate_release_notes: true
@@ -166,3 +190,7 @@ jobs:
           files: |
             dist/titan-${{ env.VERSION }}.apk
             dist/titan-${{ env.VERSION }}.apk.sha256
+
+      - name: Remove the upload keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"
