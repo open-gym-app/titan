@@ -327,7 +327,7 @@ class SettingsScreenTest {
         listOf(
             "Health Connect",
             // "Marketplace deals" is the last row left in the notifications group that has
-            // nothing behind it — it is M8 (#52). Every other row there is a live switch.
+            // nothing behind it — it belongs to the Community and Marketplace milestone (#52). Every other row there is a live switch.
             "Marketplace deals",
             "Donate",
         ).forEach { label ->

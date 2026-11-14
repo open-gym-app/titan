@@ -22,10 +22,11 @@ import kotlin.reflect.KClass
  * The bottom bar's four tabs.
  *
  * **Four, not five.** The wireframes draw a five-tab bar including Map and More; Map has
- * no content until M8 and a tab that opens an empty screen is worse than no tab, and "More"
- * is a tab that means nothing — its one MVP inhabitant is Settings, which is reachable
- * from the gear in the top bar where a once-a-month destination belongs. Map arrives as a
- * fifth tab in M8, when there is something behind it.
+ * no content until the Gym Map milestone and a tab that opens an empty screen is worse
+ * than no tab, and "More" is a tab that means nothing — its one MVP inhabitant is
+ * Settings, which is reachable from the gear in the top bar where a once-a-month
+ * destination belongs. Map arrives as a fifth tab with the Gym Map milestone, when there
+ * is something behind it.
  *
  * Library sits third, between Sessions and Stats, because the bar reads left to right as
  * the shape of a workout: what today holds, what has been done, what there is to do it with,

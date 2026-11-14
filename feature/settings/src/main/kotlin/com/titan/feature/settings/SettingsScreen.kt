@@ -444,7 +444,8 @@ private fun NotificationsGroup(
             HairlineDivider()
         }
 
-        // The one row in this group still waiting on a milestone: the marketplace is M8 (#52).
+        // The one row in this group still waiting on a milestone: the marketplace, which belongs to
+        // the Community and Marketplace milestone (#52).
         PreferenceSoonRow(label = stringResource(R.string.settings_marketplace))
     }
 }

@@ -26,7 +26,7 @@ package com.titan.core.domain.model
  *
  * ### Adding a source later
  *
- * A sealed interface, so a new source (M8's daily challenges, M5-11's quests) is a new
+ * A sealed interface, so a new source (a daily challenge, M5-11's quests) is a new
  * variant and a new constant beside the existing ones. Nothing that *emits* or *carries* an
  * event changes; the one place a new variant must be handled is
  * [com.titan.core.domain.gamification.XpCalculator.xpFor], where the compiler demands it
