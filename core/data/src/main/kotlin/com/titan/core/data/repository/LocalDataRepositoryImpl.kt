@@ -111,7 +111,10 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Nothing in [deleteAll] catches. A wipe that half-worked and reported success is the one
  * outcome the contract forbids, so a failed table clear, a backup file that will not delete or
- * an unwritable settings file propagates and the caller tells the user. The counts in
+ * an unwritable settings file propagates and the caller tells the user. A backup file that will
+ * not delete is the one failure reported late: the settings and the alarms behind it are
+ * independent of it, so they are reset first and the failure is thrown after them, leaving the
+ * device as close to what the user asked for as it can be. The counts in
  * [observeFootprint] are the opposite, and for the usual reason: they exist to draw a dialog,
  * and a dialog that cannot draw is worse than one with zeroes in it.
  */
@@ -268,7 +271,7 @@ class LocalDataRepositoryImpl @Inject constructor(
             writable.execSQL(RESET_ID_COUNTERS)
             DatabaseSeed.insertInto(writable, context)
         }
-        deleteBackups()
+        val stuckBackups = deleteBackups()
         // The dates the backup screen shows under the toggle describe the files just deleted.
         autoBackupRepository.forgetRuns()
         userPreferencesRepository.clear()
@@ -278,6 +281,9 @@ class LocalDataRepositoryImpl @Inject constructor(
         // its own settings screen reports as turned off. `sync` re-reads the store it has
         // just been emptied and takes down everything it does not want.
         reminderScheduler.sync()
+        if (stuckBackups.isNotEmpty()) {
+            throw IOException("could not delete ${stuckBackups.joinToString { it.path }}")
+        }
     }
 
     /**
@@ -300,11 +306,12 @@ class LocalDataRepositoryImpl @Inject constructor(
      * not, it holds nothing yet, and once the lock is free it can only be written with the
      * emptied device.
      *
-     * Throws if a file the last pass tried to delete is still there, in keeping with the class
-     * doc: history left on a device the user asked to clear is a failure to report. One that
-     * vanished between the listing and the delete is not.
+     * Answers with the files the last pass tried to delete and found still there, rather than
+     * throwing at once: history left on a device the user asked to clear is a failure to
+     * report, and [wipe] reports it, but only after the settings and the alarms that do not
+     * depend on it. One that vanished between the listing and the delete is not stuck.
      */
-    private fun deleteBackups() {
+    private fun deleteBackups(): List<File> {
         val directories = backupFiles.everyDirectory
         var stuck = emptyList<File>()
         repeat(BACKUP_DELETE_PASSES) {
@@ -312,9 +319,7 @@ class LocalDataRepositoryImpl @Inject constructor(
                 .flatMap { it.listFiles().orEmpty().asList() }
                 .filter { !it.deleteRecursively() && it.exists() }
         }
-        if (stuck.isNotEmpty()) {
-            throw IOException("could not delete ${stuck.joinToString { it.path }}")
-        }
+        return stuck
     }
 
     /**

@@ -78,6 +78,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -531,6 +532,33 @@ class LocalDataRepositoryImplTest {
             repository.deleteAll()
 
             assertEquals(emptyList<String>(), directory.listFiles().orEmpty().map { it.name })
+        }
+
+    /**
+     * A backup that will not delete is reported, but not before the steps that do not depend on
+     * it: the settings, the record of past runs and the reminder alarms are reset anyway, so the
+     * phone ends as close to what the dialog promised as it can. The file is made undeletable by
+     * putting it in a directory nobody may write to.
+     */
+    @Test
+    fun `a backup that will not delete is reported after the settings and alarms are reset`() =
+        runBlocking {
+            val locked = File(backupFiles.directory, "locked").apply { mkdirs() }
+            File(locked, "titan-auto-2026-11-01.json").writeText("{}")
+            check(locked.setWritable(false)) { "could not make $locked read-only" }
+            userPreferencesRepository.setUnitSystem(UnitSystem.IMPERIAL)
+            userPreferencesRepository.setNotificationEnabled(NotificationKind.REMINDERS, enabled = true)
+            autoBackupRepository.recordSuccess(at = NOW)
+            try {
+                val failure = runCatching { repository.deleteAll() }.exceptionOrNull()
+
+                assertTrue("expected the stuck file to be reported, got $failure", failure is IOException)
+                assertEquals(UserPreferences(), userPreferencesRepository.observe().first())
+                assertEquals(AutoBackupSchedule(enabled = false), autoBackupRepository.read())
+                assertEquals(1, reminderScheduler.syncs)
+            } finally {
+                locked.setWritable(true)
+            }
         }
 
     /**
