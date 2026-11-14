@@ -48,9 +48,23 @@ jobs:
           path: tools/seed/.cache
           key: seed-source-${{ hashFiles('tools/seed/source.lock') }}
 
-      # Guards against a hand-edited exercises.sql or an image dropped from the
-      # bundle
+      # The images are compared byte for byte with a fresh encode, so the
+      # encoder has to be the exact Pillow they were made with: hash-pinned,
+      # wheels only.
+      - name: Install the pinned Pillow
+        id: seed-deps
+        run: make seed-deps
+
+      # Both seed steps need the Pillow above, but not each other, so a failing
+      # test does not hide the check's result.
+      - name: Test the seed generator
+        if: ${{ !cancelled() && steps.seed-deps.outcome == 'success' }}
+        run: make seed-test
+
+      # Guards against a hand-edited exercises.sql, a tampered upstream tarball,
+      # and any image changed in, dropped from or added to the bundle
       - name: Verify the committed seed matches the pinned source
+        if: ${{ !cancelled() && steps.seed-deps.outcome == 'success' }}
         run: make seed-check
 
       - name: Check every translation against the base strings

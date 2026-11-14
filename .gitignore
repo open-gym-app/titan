@@ -34,3 +34,6 @@ keystore.properties
 
 # Cached upstream tarballs for tools/seed/generate_seed.py
 tools/seed/.cache/
+
+# Bytecode from importing the Python tools, e.g. tools/seed/test_generate_seed.py
+__pycache__/

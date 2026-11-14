@@ -1,0 +1,17 @@
+# The encoder behind the seed images. Pillow's wheels bundle libwebp, so this pin
+# is what makes the images byte-reproducible and what `generate_seed.py --check`
+# compares against. Installed with `pip install --require-hashes --only-binary
+# :all:`; the hashes are every CPython 3.14 wheel of the release for Linux, macOS
+# and Windows, so `make seed-deps` installs wherever that Python runs, and CI's
+# runners pick the manylinux ones. Renovate rewrites this block with hashin on a
+# bump, which lists every file of the new release.
+pillow==12.3.0 \
+    --hash=sha256:23aceaa007d6172b02c277f0cd359c79492bbb14f7072b4ede9fbcaf20648130 \
+    --hash=sha256:251bf95b67017e27b13d82f5b326234ca62d70f9cf4c2b9032de2358a3b12c7b \
+    --hash=sha256:af8d94b0db561cf68b88a267c5c44b49e134f525d0dc2cb7ed413a66bc23559a \
+    --hash=sha256:ba54cfebe86920a559a7c4d6b9050791c20513650a1952ebe3368c7dc70306f8 \
+    --hash=sha256:e158cb00350dc278f3b91551101aa7d12415a66ebf2c91d8d5ac14e56ddd3ad0 \
+    --hash=sha256:e91206ee562682b51b98ef4b26a6ef48fd84e15fd4c4bc5ec768eb641d206838 \
+    --hash=sha256:e9aeb04d6aef139de265b29683e119b638208f88cf73cdd1658aa07221165321 \
+    --hash=sha256:fdafc9cce40277e0f7a0feabce0ee50dd2fa1800f3b38015e51296b5e814048d \
+    --hash=sha256:fe3cca2e4e8a592be0f269a1ca4835c25199d9f3ce815c8491048f785b0a0198
