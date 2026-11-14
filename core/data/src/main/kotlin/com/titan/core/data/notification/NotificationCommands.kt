@@ -2,6 +2,7 @@ package com.titan.core.data.notification
 
 import android.content.Context
 import android.content.Intent
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.notification.NotificationCommand
 
 /**
@@ -39,6 +40,7 @@ internal object NotificationCommands {
     private const val ACTION_DISCARD_SESSION = "com.titan.core.data.notification.DISCARD_SESSION"
 
     private const val EXTRA_SESSION_ID = "session_id"
+    private const val EXTRA_SESSION_CREATED_AT = "session_created_at"
 
     /** The intent that carries [command] to the receiver that handles it. */
     fun intent(
@@ -50,23 +52,51 @@ internal object NotificationCommands {
                 broadcast<RestTimerReceiver>(context, ACTION_SKIP_REST, command.sessionId)
 
             is NotificationCommand.FinishSession ->
-                broadcast<IdleSessionReceiver>(context, ACTION_FINISH_SESSION, command.sessionId)
+                broadcast<IdleSessionReceiver>(context, ACTION_FINISH_SESSION, command.session.sessionId)
+                    .putSessionToken(command.session)
 
             is NotificationCommand.DiscardSession ->
-                broadcast<IdleSessionReceiver>(context, ACTION_DISCARD_SESSION, command.sessionId)
+                broadcast<IdleSessionReceiver>(context, ACTION_DISCARD_SESSION, command.session.sessionId)
+                    .putSessionToken(command.session)
         }
 
-    /** The command [intent] carries, or **null** when it carries none this build understands. */
+    /**
+     * The command [intent] carries, or **null** when it carries none this build understands.
+     *
+     * The two commands that end a workout are read back only with the session's creation time
+     * beside its id — see [SessionRef]. One without it names a session by its number alone, which
+     * is not enough to act on from outside the process, so it is dropped like any other intent
+     * this build cannot read.
+     */
     fun of(intent: Intent): NotificationCommand? {
         val sessionId = intent.getLongExtra(EXTRA_SESSION_ID, NO_SESSION).takeIf { it != NO_SESSION }
             ?: return null
 
         return when (intent.action) {
             ACTION_SKIP_REST -> NotificationCommand.SkipRest(sessionId)
-            ACTION_FINISH_SESSION -> NotificationCommand.FinishSession(sessionId)
-            ACTION_DISCARD_SESSION -> NotificationCommand.DiscardSession(sessionId)
+            ACTION_FINISH_SESSION -> sessionRefOf(intent, sessionId)?.let(NotificationCommand::FinishSession)
+            ACTION_DISCARD_SESSION -> sessionRefOf(intent, sessionId)?.let(NotificationCommand::DiscardSession)
             else -> null
         }
+    }
+
+    /**
+     * Writes [session]'s creation time beside the id [broadcast] already put on this intent.
+     *
+     * Kept apart from [broadcast] so a command that names its session by the id alone stays as it
+     * is; a caller moving one over to a [SessionRef] adds this and reads it back with
+     * [sessionRefOf].
+     */
+    private fun Intent.putSessionToken(session: SessionRef): Intent =
+        apply { session.createdAt?.let { putExtra(EXTRA_SESSION_CREATED_AT, it) } }
+
+    /** The session [intent] names, with its creation time, or null when the time is missing. */
+    private fun sessionRefOf(
+        intent: Intent,
+        sessionId: Long,
+    ): SessionRef? {
+        if (!intent.hasExtra(EXTRA_SESSION_CREATED_AT)) return null
+        return SessionRef(sessionId = sessionId, createdAt = intent.getLongExtra(EXTRA_SESSION_CREATED_AT, 0L))
     }
 
     /**

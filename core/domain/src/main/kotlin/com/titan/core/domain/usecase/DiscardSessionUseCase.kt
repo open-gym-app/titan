@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.SessionError
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.repository.InProgressSessionRepository
 import com.titan.core.domain.repository.SessionRepository
@@ -30,6 +31,20 @@ import kotlinx.coroutines.withContext
  * therefore not the same action as finishing a short session, and the UI must not offer
  * it as a neighbour of finish without saying what it costs.
  *
+ * ### Naming what is discarded
+ *
+ * A caller about a particular session passes it as `expected`, and the discard is refused
+ * with [SessionError.NotTheOpenSession] when the open session is another. This is the
+ * transition that matters most for: a confirmation dialog drawn over a page or a
+ * notification that outlived its workout would otherwise delete whichever one is running
+ * now, sets and all. See [SessionRef].
+ *
+ * A caller that offered the discard *because* the session was empty — the idle nudge, whose
+ * button reads "Discard" only over a session with nothing logged — passes
+ * `onlyIfNothingLogged`, and the discard is refused with [SessionError.SessionHasLoggedSets]
+ * when a set has been completed since. The check is made under the lock, so a set logged in
+ * the app cannot land between it and the delete.
+ *
  * Runs under [SessionLifecycleLock] so it cannot interleave with another transition —
  * notably a finish, which would otherwise be closing out a row this call is deleting.
  */
@@ -49,12 +64,28 @@ class DiscardSessionUseCase(
      * since [StartSessionUseCase] refuses a second session while it exists. A failure part
      * way through therefore leaves the session still running and reports it, rather than
      * clearing the state over a row that is still there.
+     *
+     * @param expected the session the caller means, or null to discard whichever one is open.
+     * @param onlyIfNothingLogged refuse the discard when the session has any completed set.
      */
-    suspend operator fun invoke(): Result<Long> =
+    suspend operator fun invoke(
+        expected: SessionRef? = null,
+        onlyIfNothingLogged: Boolean = false,
+    ): Result<Long> =
         lock.withTransition {
             val current = sessionStateRepository.observe().first()
             val sessionId = current.openSessionId
                 ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+
+            sessionRepository.requireExpected(expected, sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
+
+            if (onlyIfNothingLogged) {
+                val logged = sessionRepository.getSetsForSession(sessionId).first().count { it.isCompleted }
+                if (logged > 0) {
+                    return@withTransition Result.failure(SessionError.SessionHasLoggedSets(sessionId, logged))
+                }
+            }
 
             // Uncancellable as one piece, which matters here more than anywhere else in this
             // package. [runCatching] cannot tell a cancellation from a failure — it catches both —

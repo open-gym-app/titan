@@ -17,6 +17,7 @@ import com.titan.core.domain.model.SessionError
 import com.titan.core.domain.model.SessionExercise
 import com.titan.core.domain.model.SessionExerciseDraft
 import com.titan.core.domain.model.SessionMovement
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.UnitSystem
@@ -210,6 +211,19 @@ class ActiveSessionViewModel @Inject constructor(
     private val sessionId: Long = savedStateHandle.toRoute<ActiveSessionDestination>().sessionId
 
     /**
+     * [sessionId] as the lifecycle use cases take it: the session every transition from this page
+     * must act on, or be refused.
+     *
+     * The route is the only thing that says which workout this page is about, and it can arrive
+     * from outside the app — a `titan://session/active/{id}` link any app or web page can send.
+     * The use cases act on whichever session the state machine has open, so without this a page
+     * for a session that is missing or over would pause, finish or discard the workout that *is*
+     * running. The id alone is enough here; the creation time is for callers that hold an id
+     * across a process boundary. See [SessionRef].
+     */
+    private val thisSession = SessionRef(sessionId)
+
+    /**
      * The rest between two sets, counting down.
      *
      * On [viewModelScope], so the countdown stops when the screen is finally let go of and not
@@ -348,9 +362,19 @@ class ActiveSessionViewModel @Inject constructor(
      * Three reads as one value, the shape the recap uses and for the same reasons — the
      * arithmetic has a single object to be a pure function of, and `null` means one thing
      * ("nothing has come back yet") rather than three flags that can disagree.
+     *
+     * The lifecycle state rides along, folded down to the one question this page asks of it —
+     * whether the session open is a *different* one — so the page can tell its workout from a
+     * link to one that is not running. See [Loaded.isThisWorkout].
      */
     private val loaded: StateFlow<Loaded?> = combine(
         sessionRepository.getById(sessionId),
+        // Folded to the boolean before it is combined, and deduplicated, so a pause or a resume
+        // of this page's own workout — which changes the state but not the answer — does not
+        // rebuild every row.
+        sessionStateRepository.observe()
+            .map { state -> state.openSessionId.let { it != null && it != sessionId } }
+            .distinctUntilChanged(),
         sessionRepository.getExercises(sessionId),
         sessionRepository.getSetsForSession(sessionId),
         // The fourth read, and the one that is about a workout other than this one: what each
@@ -360,8 +384,14 @@ class ActiveSessionViewModel @Inject constructor(
         // one value. A screen built from two flows would draw a `PREV` column for an exercise
         // that had already been swapped out of the slot.
         sessionRepository.getPreviousSets(sessionId),
-    ) { session, exercises, sets, previous ->
-        Loaded(session = session, exercises = exercises, sets = sets, previous = previous)
+    ) { session, anotherIsOpen, exercises, sets, previous ->
+        Loaded(
+            session = session,
+            exercises = exercises,
+            sets = sets,
+            previous = previous,
+            anotherIsOpen = anotherIsOpen,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS), null)
 
     /** The catalogue rows the session's exercises are drawn from. */
@@ -661,8 +691,11 @@ class ActiveSessionViewModel @Inject constructor(
             ActiveSessionEvent.FinishDismissed ->
                 screenState.update { it.copy(confirmingFinish = false) }
 
+            // Not over a page whose workout is not running: there is nothing here to throw
+            // away, and a dialog promising that nothing will be lost would be about a session
+            // this page does not own. The back gesture leaves such a page instead.
             ActiveSessionEvent.DiscardRequested ->
-                screenState.update { it.copy(confirmingDiscard = true) }
+                if (!uiState.value.isMissing) screenState.update { it.copy(confirmingDiscard = true) }
 
             // Ignored while the delete is in flight, matching the recap's template dialog: a
             // dismissal that cleared the flag would re-arm the action over a session that is
@@ -680,14 +713,22 @@ class ActiveSessionViewModel @Inject constructor(
             // leaving is the moment it becomes worth saying — see `IdleSessionMonitor`. Both
             // are wrapped: an alarm that could not be set is not worth taking a workout down
             // for, and neither is one that could not be cancelled.
+            //
+            // Only over the workout in progress. The monitor is about that one, whichever page
+            // asks, so a page opened from a link to a session that is missing or over would
+            // otherwise take down the running workout's nudge just by being looked at.
             ActiveSessionEvent.ScreenShown ->
                 viewModelScope.launch {
-                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.disarm() } }
+                    idleSessionMutex.withLock {
+                        runCatching { if (isTheWorkoutInProgress()) idleSessionMonitor.disarm() }
+                    }
                 }
 
             ActiveSessionEvent.ScreenHidden ->
                 viewModelScope.launch {
-                    idleSessionMutex.withLock { runCatching { idleSessionMonitor.arm() } }
+                    idleSessionMutex.withLock {
+                        runCatching { if (isTheWorkoutInProgress()) idleSessionMonitor.arm() }
+                    }
                 }
 
             else -> Unit
@@ -2308,7 +2349,7 @@ class ActiveSessionViewModel @Inject constructor(
             // Room writes, a store that cannot be written throws rather than returning a
             // refusal, and there is no `CoroutineExceptionHandler` on this scope to catch it.
             val outcome = try {
-                if (paused) resumeSession() else pauseSession()
+                if (paused) resumeSession(thisSession) else pauseSession(thisSession)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -2399,7 +2440,7 @@ class ActiveSessionViewModel @Inject constructor(
             flushSetEdits()
 
             val outcome = try {
-                finishSession()
+                finishSession(expected = thisSession)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -2458,7 +2499,7 @@ class ActiveSessionViewModel @Inject constructor(
 
         viewModelScope.launch {
             val outcome = try {
-                discardSession()
+                discardSession(thisSession)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (_: Throwable) {
@@ -2508,22 +2549,29 @@ class ActiveSessionViewModel @Inject constructor(
      * and the state is already `Active` on this session. It matters after a process restart, and
      * after the user has been somewhere else in the app long enough for nothing to be holding
      * the state — see the class note.
+     *
+     * The resume is handed [thisSession], so it only ever picks up *this* page's workout. A page
+     * opened from a link to a session that is missing or over would otherwise resume whichever
+     * workout is paused, or adopt whichever one a restart left in progress.
      */
     private suspend fun reattach() {
-        val current = sessionStateRepository.observe().first()
-        val alreadyAttached = when (current) {
-            is SessionState.Active -> current.sessionId == sessionId
-            is SessionState.Paused -> current.sessionId == sessionId
-            SessionState.Idle, is SessionState.Finished -> false
-        }
-        if (!alreadyAttached) {
-            // Refusals are swallowed on purpose. The failure case is a session that is not in
-            // progress at all — one finished in another process, say — and the screen already
-            // draws that as a session that is gone, which is a better answer than a message
-            // about a transition the user did not ask for.
-            resumeSession()
+        if (sessionStateRepository.observe().first().openSessionId != sessionId) {
+            // Refusals are swallowed on purpose. The failure cases are a session that is not in
+            // progress at all — one finished in another process, say — and a page about a
+            // session other than the one running, and the screen already draws both as a
+            // session that is gone, which is a better answer than a message about a transition
+            // the user did not ask for.
+            resumeSession(thisSession)
         }
     }
+
+    /**
+     * Whether this page's session is the one in progress on disk.
+     *
+     * Asked of the row rather than of the state machine, which reads `Idle` after a process
+     * restart until [reattach] has run, while the row already says which workout is running.
+     */
+    private suspend fun isTheWorkoutInProgress(): Boolean = sessionRepository.getActive().first()?.id == sessionId
 
     /**
      * Reads the stored draft back, if it describes this session.
@@ -2629,13 +2677,19 @@ class ActiveSessionViewModel @Inject constructor(
      * the screen gives way and banks the stretch rather than showing a pause that is not real.
      */
     private suspend fun realignPause() {
+        // Only over this page's own workout. [reattach] leaves the state machine on another
+        // session where this page is about one that is not running, and that session's pause is
+        // none of this page's business.
+        val current = sessionStateRepository.observe().first()
+        if (current.openSessionId != sessionId) return
+
         val pausedOnScreen = screenState.value.pausedAt != null
-        val inDomain = sessionStateRepository.observe().first() as? SessionState.Paused
+        val inDomain = current as? SessionState.Paused
         if (pausedOnScreen == (inDomain != null)) return
 
         val refused = when {
-            pausedOnScreen -> pauseSession().isFailure
-            else -> resumeSession().isFailure
+            pausedOnScreen -> pauseSession(thisSession).isFailure
+            else -> resumeSession(thisSession).isFailure
         }
         if (!refused) return
 
@@ -2698,9 +2752,16 @@ class ActiveSessionViewModel @Inject constructor(
      * The draft's exercises are rebuilt from what is on disk plus the row being typed, rather
      * than maintained alongside it: the rows are the record, and a second copy of them here is
      * a second thing to keep in step.
+     *
+     * Written only while this page's session is the one running. There is one draft slot for the
+     * whole app, and [loaded] is a cached copy of the row that can be a moment behind it — so the
+     * row has to say the session is in progress *and* the state machine, asked now, has to have it
+     * open. A page for a session that is missing, over, or not the one running would otherwise
+     * write its own draft over the running workout's.
      */
     private suspend fun writeDraft() {
-        val session = loaded.value?.session ?: return
+        val session = loaded.value?.session?.takeIf(WorkoutSession::isInProgress) ?: return
+        if (sessionStateRepository.observe().first().openSessionId != sessionId) return
         val state = screenState.value
         // Nothing is written once the workout is on its way out. The layout actions save in
         // their coroutine tail, and their in-flight flags are not part of [ScreenState.isBusy],
@@ -2785,7 +2846,15 @@ class ActiveSessionViewModel @Inject constructor(
         )
 
         if (loaded == null || catalogue == null) return base
-        val session = loaded.session ?: return base.copy(isLoading = false)
+        // A page about a workout that is not running draws as one that is gone — no header, so
+        // no END and no DISCARD, and a plain way out. A workout this page is itself closing out
+        // stops being in progress on the way, and is drawn as it was until the screen leaves.
+        // Neither question is drawn over it: one raised by a back gesture while the page was
+        // still loading, or left up when its workout was closed out from the notification, would
+        // be a dialog about a workout this page no longer has.
+        val session = loaded.session
+            ?.takeIf { screen.isBusy || loaded.isThisWorkout }
+            ?: return base.copy(isLoading = false, confirmingFinish = false, confirmingDiscard = false)
 
         val rows = loaded.rows(
             catalogue = catalogue,
@@ -3167,7 +3236,19 @@ private class Loaded(
     exercises: List<SessionExercise>,
     val sets: List<WorkoutSet>,
     private val previous: Map<Long, List<WorkoutSet>>,
+    private val anotherIsOpen: Boolean,
 ) {
+
+    /**
+     * Whether [session] is the workout running, as opposed to a row this page was merely pointed
+     * at.
+     *
+     * A row that is in progress with a different session open is impossible — one runs at a time —
+     * and is treated as not this one. A row in progress with *nothing* open is this one: that is
+     * the state a process restart leaves, and `reattach` puts the state machine back over it.
+     */
+    val isThisWorkout: Boolean
+        get() = session?.isInProgress == true && !anotherIsOpen
 
     /** The session's exercises in the order they are performed, which is the `position` column. */
     val ordered: List<SessionExercise> = exercises.sortedBy(SessionExercise::position)

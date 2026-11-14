@@ -44,12 +44,16 @@ import java.time.LocalDate
  * both shorter and stricter than stubbing each read in turn. It also means the set the screen
  * logs comes back out of the *read* flow, which is what the "stats update immediately" criterion
  * actually asks for — a stubbed read would pass while the two disagreed.
+ *
+ * @param others rows that are not the session being logged — a workout finished last week — for
+ *   the tests of a page opened on one of them. Read by id and never written.
  */
 class FakeActiveSessionStore(
     session: WorkoutSession? = null,
     exercises: List<SessionExercise> = emptyList(),
     sets: List<WorkoutSet> = emptyList(),
     previousSets: Map<Long, List<WorkoutSet>> = emptyMap(),
+    private val others: List<WorkoutSession> = emptyList(),
 ) : SessionRepository {
 
     private val session = MutableStateFlow(session)
@@ -93,7 +97,11 @@ class FakeActiveSessionStore(
      */
     var updateFailure: Throwable? = null
 
-    override fun getById(id: Long): Flow<WorkoutSession?> = session.map { it?.takeIf { s -> s.id == id } }
+    override fun getById(id: Long): Flow<WorkoutSession?> =
+        session.map { it?.takeIf { s -> s.id == id } ?: others.firstOrNull { s -> s.id == id } }
+
+    /** The session being logged as it now stands, or null once it has been deleted. */
+    val current: WorkoutSession? get() = session.value
 
     override fun getExercises(sessionId: Long): Flow<List<SessionExercise>> =
         exercises.map { rows -> rows.filter { it.sessionId == sessionId } }
@@ -257,7 +265,7 @@ class FakeActiveSessionStore(
     /** Just the block — no rollback; see the domain `FakeSessionRepository` for why. */
     override suspend fun <T> atomically(block: suspend () -> T): T = block()
 
-    override fun getAll(): Flow<List<WorkoutSession>> = session.map { listOfNotNull(it) }
+    override fun getAll(): Flow<List<WorkoutSession>> = session.map { listOfNotNull(it) + others }
 
     override fun getActive(): Flow<WorkoutSession?> = session.map { it?.takeIf(WorkoutSession::isInProgress) }
 

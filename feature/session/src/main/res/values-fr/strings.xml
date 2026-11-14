@@ -93,6 +93,7 @@
 
     <string name="active_missing_title">Cette séance n’existe plus</string>
     <string name="active_missing_body">Elle a été supprimée ou terminée ailleurs. Plus rien ne peut y être enregistré.</string>
+    <string name="active_missing_leave">Retour</string>
 
     <string name="finish_session_title">Terminer cette séance ?</string>
     <plurals name="finish_session_sets">

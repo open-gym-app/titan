@@ -1,8 +1,5 @@
 package com.titan.app.ui
 
-import android.content.Intent
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,13 +16,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.core.util.Consumer
 import com.titan.app.R
 import com.titan.app.navigation.TitanAppState
 import com.titan.app.navigation.TitanNavHost
@@ -59,8 +54,6 @@ fun TitanApp(
     appState: TitanAppState = rememberTitanAppState(),
 ) {
     val chrome = appState.chrome
-
-    NewIntentDeepLinks(appState)
 
     Scaffold(
         modifier = modifier
@@ -115,37 +108,6 @@ fun TitanApp(
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
         )
-    }
-}
-
-/**
- * Hands `NavController` the deep links that arrive after it was built.
- *
- * Navigation reads the launching intent exactly once, as the graph is created, which covers the
- * link that starts the app from cold. `MainActivity` is `singleTop` and this app is one
- * activity, so every *other* deep link — the notification tapped while the app is merely
- * backgrounded, with its window still alive behind the shade — is delivered to the running
- * instance through `onNewIntent`, where nothing was listening: the task came forward on
- * whichever screen the user left it on and the link went nowhere. That is the one failure a
- * deep link has no symptom for, since arriving at the wrong screen looks like an app that was
- * simply reopened.
- *
- * Registered from the composition rather than from `MainActivity` because the `NavController`
- * is the composition's, and an activity holding a reference to it would be the one place in
- * this app that navigation is driven from outside the graph that owns it.
- */
-@Composable
-private fun NewIntentDeepLinks(appState: TitanAppState) {
-    val activity = LocalActivity.current as? ComponentActivity ?: return
-    val navController = appState.navController
-
-    DisposableEffect(activity, navController) {
-        // `handleDeepLink` answers false for an intent that matches no destination — a share, a
-        // launcher tap on a task already running — and does nothing, which is what should
-        // happen to it.
-        val listener = Consumer<Intent> { intent -> navController.handleDeepLink(intent) }
-        activity.addOnNewIntentListener(listener)
-        onDispose { activity.removeOnNewIntentListener(listener) }
     }
 }
 

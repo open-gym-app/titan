@@ -148,9 +148,13 @@
     <string name="active_rpe_title">How hard was that?</string>
     <string name="active_rpe_body">Rate of perceived exertion, for the set you are logging. Tap the value again to clear it.</string>
 
-    <!-- A session id that no longer resolves to a row. -->
+    <!-- A page about a session that is not running: the id no longer resolves to a row, or it
+         names a workout that is over or is not the one in progress. -->
     <string name="active_missing_title">This session is gone</string>
     <string name="active_missing_body">It was deleted or finished somewhere else. Nothing here can be logged against it.</string>
+    <!-- The back arrow over that page, which is its only control: there is no workout on it to end
+         or throw away. Read out by screen readers. -->
+    <string name="active_missing_leave">Back</string>
 
     <!-- The question in front of END. The figures are in it so it can be answered without
          closing it: what will be saved, and the exercises still to go — the usual sign the tap

@@ -210,6 +210,31 @@ class ActiveSessionScreenTest {
         composeTestRule.onNodeWithText("This session is gone").assertIsDisplayed()
     }
 
+    @Test
+    fun `a page whose workout is not running offers a way back and nothing that acts on a workout`() {
+        // The page a link to a missing or finished session opens (#255). END, pause and DISCARD
+        // would land on the workout that is running somewhere else, so none of them is drawn.
+        var left = 0
+        composeTestRule.setContent {
+            TitanTheme {
+                ActiveSessionScreen(
+                    state = ActiveSessionUiState(isLoading = false),
+                    onEvent = events::add,
+                    onLeave = { left++ },
+                )
+            }
+        }
+
+        assertMissing(hasContentDescription("End the session"))
+        assertMissing(hasContentDescription("Discard the session"))
+        assertMissing(hasContentDescription("Pause the session"))
+
+        composeTestRule.onNodeWithContentDescription("Back").performClick()
+
+        assertEquals(1, left)
+        assertTrue(events.isEmpty())
+    }
+
     // ─── Previous performance ───────────────────────────────────────────────────────────
 
     @Test

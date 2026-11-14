@@ -4,6 +4,7 @@ import com.titan.core.domain.model.FinishOrigin
 import com.titan.core.domain.model.FinishedSession
 import com.titan.core.domain.model.SessionError
 import com.titan.core.domain.model.SessionProgression
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.model.SessionSummary
 import com.titan.core.domain.model.WorkoutSession
@@ -39,6 +40,11 @@ import java.time.Instant
  *
  * Runs under [SessionLifecycleLock] so a double-tapped finish cannot close the same
  * session out twice.
+ *
+ * A caller about a particular session — the workout screen, the idle nudge's button —
+ * passes it as `expected`, and the finish is refused with [SessionError.NotTheOpenSession]
+ * when the open session is another. Without it, a page or a notification that outlived its
+ * workout would close out whichever one is running now. See [SessionRef].
  *
  * ### The gamification cascade runs from here
  *
@@ -99,9 +105,13 @@ class FinishSessionUseCase(
      *   is going to celebrate whatever came back. A caller that closes a session out with no
      *   recap to follow has to say so, because the payoff is then announced by the notification
      *   or by nothing at all — see [FinishOrigin]. Nothing else about the close-out reads it.
+     * @param expected the session the caller means, or null to finish whichever one is open.
      */
-    suspend operator fun invoke(origin: FinishOrigin = FinishOrigin.WORKOUT_SCREEN): Result<FinishedSession> {
-        val outcome = closeOutUnderLock()
+    suspend operator fun invoke(
+        origin: FinishOrigin = FinishOrigin.WORKOUT_SCREEN,
+        expected: SessionRef? = null,
+    ): Result<FinishedSession> {
+        val outcome = closeOutUnderLock(expected)
 
         // Best-effort, and outside everything above: by here the workout is saved and its
         // payoff is banked, so a notification that could not be posted must not come back as a
@@ -121,11 +131,14 @@ class FinishSessionUseCase(
         return outcome
     }
 
-    private suspend fun closeOutUnderLock(): Result<FinishedSession> =
+    private suspend fun closeOutUnderLock(expected: SessionRef?): Result<FinishedSession> =
         lock.withTransition {
             val current = sessionStateRepository.observe().first()
             val sessionId = current.openSessionId
                 ?: return@withTransition Result.failure(SessionError.SessionNotActive(current))
+
+            sessionRepository.requireExpected(expected, sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
 
             val session = sessionRepository.loadSession(sessionId)
                 .getOrElse { return@withTransition Result.failure(it) }

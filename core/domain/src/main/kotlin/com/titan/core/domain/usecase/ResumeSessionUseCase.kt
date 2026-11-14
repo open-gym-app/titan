@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.model.SessionError
+import com.titan.core.domain.model.SessionRef
 import com.titan.core.domain.model.SessionState
 import com.titan.core.domain.repository.SessionRepository
 import com.titan.core.domain.repository.SessionStateRepository
@@ -23,13 +24,23 @@ import kotlinx.coroutines.flow.first
  * whatever session `getActive` resolves to. Without that, a restart mid-workout
  * would strand the session: unreachable by every transition, and blocking new ones.
  *
- * Once M3-07 makes the state itself durable this path becomes the rare case rather
- * than the every-restart case, but it stays correct either way — the row is the
- * authority on what is in progress.
+ * The state is in memory by design (see `SessionStateRepositoryImpl`), so this is the
+ * every-restart case rather than a rare one, and the row is the authority on what is
+ * in progress.
  *
  * Refused with [SessionError.SessionNotPaused] when there is nothing to resume:
  * from `Active` (already running), or from `Idle`/`Finished` with no session in
  * progress.
+ *
+ * ### Naming the session to resume
+ *
+ * Adopting "whatever `getActive` resolves to" is right for a caller that wants the
+ * workout back whichever it is, and wrong for one that is about a particular session:
+ * the workout screen for session 7, or the idle nudge's button for it. Those pass the
+ * session they mean as `expected`, and the resume is refused with
+ * [SessionError.NotTheOpenSession] when the paused or adoptable session is a different
+ * one — or the same id with another creation time, for a caller outside the process.
+ * See [SessionRef].
  *
  * Runs under [SessionLifecycleLock] so it cannot interleave with another transition.
  */
@@ -40,11 +51,19 @@ class ResumeSessionUseCase(
     private val lock: SessionLifecycleLock = SessionLifecycleLock.SHARED,
 ) {
 
-    suspend operator fun invoke(): Result<SessionState.Active> =
+    /**
+     * @param expected the session the caller means, or null to resume whichever one is paused or
+     *   left in progress. Checked under the lock, against the session this would resume, so a
+     *   transition landing in between cannot slip a different workout under it.
+     */
+    suspend operator fun invoke(expected: SessionRef? = null): Result<SessionState.Active> =
         lock.withTransition {
             val current = sessionStateRepository.observe().first()
             val sessionId = resumableSessionId(current)
                 ?: return@withTransition Result.failure(SessionError.SessionNotPaused(current))
+
+            sessionRepository.requireExpected(expected, sessionId)
+                .getOrElse { return@withTransition Result.failure(it) }
 
             val session = sessionRepository.loadSession(sessionId)
                 .getOrElse { return@withTransition Result.failure(it) }

@@ -13,6 +13,7 @@ import com.titan.core.domain.model.SetType
 import com.titan.core.domain.model.SuggestionReason
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
+import com.titan.core.domain.model.WorkoutSession
 import com.titan.core.domain.model.WorkoutSet
 import com.titan.core.domain.notification.NotificationKind
 import com.titan.core.domain.timer.RestTimerSnapshot
@@ -3451,6 +3452,167 @@ class ActiveSessionViewModelTest {
             assertEquals(1, store.logged.size)
         }
 
+    // ─── A page for a session that is not running (#255) ───────────────────────────────
+    //
+    // The route can come from outside the app — `titan://session/active/{id}` with any id — and
+    // every lifecycle use case acts on whichever session the state machine has open. These pin
+    // that a page for a session that does not exist, or for one that is over, touches nothing of
+    // the workout that is running: Y below is session 7, paused or active, with a set in it.
+
+    @Test
+    fun `a link to a missing session leaves the paused workout paused`() =
+        runTest {
+            val paused = SessionState.Paused(sessionId = ACTIVE_SESSION_ID, pausedAt = STARTED_AT)
+            val state = FakeSessionStateStore(paused)
+
+            val page = viewModel(store = runningWithASet(), state = state, savedState = route(MISSING_SESSION_ID))
+
+            assertEquals(paused, state.current)
+            assertTrue(page.uiState.value.isMissing)
+        }
+
+    @Test
+    fun `a link to a missing session does not adopt the workout a restart left in progress`() =
+        runTest {
+            val state = FakeSessionStateStore(SessionState.Idle)
+
+            viewModel(store = runningWithASet(), state = state, savedState = route(MISSING_SESSION_ID))
+
+            assertEquals(SessionState.Idle, state.current)
+        }
+
+    @Test
+    fun `discard and finish on a page for a missing session leave the workout stored and in progress`() =
+        runTest {
+            listOf(
+                SessionState.Paused(sessionId = ACTIVE_SESSION_ID, pausedAt = STARTED_AT),
+                SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT),
+            ).forEach { running ->
+                assertUntouchedBy(route(MISSING_SESSION_ID), running)
+            }
+        }
+
+    @Test
+    fun `discard and finish on a page for a finished session leave the workout stored and in progress`() =
+        runTest {
+            listOf(
+                SessionState.Paused(sessionId = ACTIVE_SESSION_ID, pausedAt = STARTED_AT),
+                SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT),
+            ).forEach { running ->
+                assertUntouchedBy(route(FINISHED_SESSION_ID), running)
+            }
+        }
+
+    @Test
+    fun `a page for a finished session draws as gone rather than as the workout`() =
+        runTest {
+            // The report's second case: the page drew last week's sets as if they were the
+            // workout, under an END that finished the real one early.
+            val state = FakeSessionStateStore(
+                SessionState.Active(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT),
+            )
+
+            val page = viewModel(store = runningWithASet(), state = state, savedState = route(FINISHED_SESSION_ID))
+
+            assertTrue(page.uiState.value.isMissing)
+            assertNull(page.uiState.value.header)
+        }
+
+    @Test
+    fun `the back gesture's question is not raised over a page for a session that is not running`() =
+        runTest {
+            val page = viewModel(store = runningWithASet(), savedState = route(MISSING_SESSION_ID))
+
+            page.onEvent(ActiveSessionEvent.DiscardRequested)
+
+            assertFalse(page.uiState.value.confirmingDiscard)
+        }
+
+    @Test
+    fun `a page for a session that is over writes no draft over the running workout's`() =
+        runTest {
+            // One draft slot for the whole app. The page's cached row is a finished session, and
+            // typing into one of its rows used to save a draft naming it over workout 7's.
+            val running = ActiveSession(sessionId = ACTIVE_SESSION_ID, startedAt = STARTED_AT)
+            val drafts = FakeDraftStore(running)
+            val store = FakeActiveSessionStore(
+                session = finishedSession(),
+                exercises = listOf(
+                    activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)
+                        .copy(sessionId = FINISHED_SESSION_ID),
+                ),
+            )
+
+            val page = viewModel(store = store, drafts = drafts, savedState = route(FINISHED_SESSION_ID))
+            page.enter(weight = "80", reps = "5")
+
+            assertTrue(drafts.saves.isEmpty())
+            assertEquals(running, drafts.stored)
+        }
+
+    @Test
+    fun `the workout's own page still saves its draft`() =
+        runTest {
+            // The guard above, from the other side: the running workout is the one page it lets
+            // through.
+            val viewModel = viewModel()
+
+            viewModel.enter(weight = "80", reps = "5")
+
+            assertEquals(ACTIVE_SESSION_ID, drafts.stored?.sessionId)
+        }
+
+    /**
+     * Opens a page on [page] while workout 7 is [running], sends it everything that ends a
+     * workout, and asserts workout 7 is exactly as it was.
+     */
+    private fun TestScope.assertUntouchedBy(
+        page: SavedStateHandle,
+        running: SessionState,
+    ) {
+        val store = runningWithASet()
+        val state = FakeSessionStateStore(running)
+        val viewModel = viewModel(store = store, state = state, savedState = page)
+
+        viewModel.onEvent(ActiveSessionEvent.PauseToggled)
+        viewModel.onEvent(ActiveSessionEvent.DiscardRequested)
+        viewModel.onEvent(ActiveSessionEvent.DiscardConfirmed)
+        viewModel.onEvent(ActiveSessionEvent.FinishRequested)
+        viewModel.onEvent(ActiveSessionEvent.FinishConfirmed)
+
+        assertEquals(running, state.current)
+        assertEquals(runningSession(), store.current)
+        assertEquals(1, store.stored.size)
+        assertFalse(viewModel.uiState.value.isDiscarded)
+        assertNull(viewModel.uiState.value.finishedSessionId)
+    }
+
+    /** Workout 7 — the push day — with one set logged on the bench. */
+    private fun runningWithASet() =
+        FakeActiveSessionStore(
+            session = runningSession(),
+            exercises = listOf(activeExercise(id = BENCH_ROW, exerciseId = BENCH.id, position = 0)),
+            sets = listOf(
+                loggedSet(id = 1L, sessionExerciseId = BENCH_ROW, setNumber = 1, reps = 5, weight = 80_000_000L),
+            ),
+            others = listOf(finishedSession()),
+        )
+
+    /** A workout from the week before, closed out and on disk. */
+    private fun finishedSession() =
+        WorkoutSession(
+            id = FINISHED_SESSION_ID,
+            name = "Pull day",
+            completedAt = STARTED_AT - 1,
+            isInProgress = false,
+            lastActiveAt = STARTED_AT - 1,
+            createdAt = STARTED_AT - WEEK_MILLIS,
+            updatedAt = STARTED_AT - 1,
+        )
+
+    /** The destination's arguments for a page about [sessionId], the way a link supplies them. */
+    private fun route(sessionId: Long) = SavedStateHandle(mapOf("sessionId" to sessionId))
+
     // ─── The next target ────────────────────────────────────────────────────────────────
 
     @Test
@@ -4217,6 +4379,14 @@ class ActiveSessionViewModelTest {
 
         /** A `session_exercise` row of some earlier workout, which this screen never resolves. */
         const val PREVIOUS_ROW = 99L
+
+        /** A session id no row has, as a link from outside the app can name. */
+        const val MISSING_SESSION_ID = 999L
+
+        /** A session that is on disk and over — see `finishedSession`. */
+        const val FINISHED_SESSION_ID = 3L
+
+        const val WEEK_MILLIS = 7 * 24 * 60 * 60 * 1_000L
 
         /* Imperial weights, in the milligrams everything is stored in. */
         const val LB_45 = 20_411_657L
