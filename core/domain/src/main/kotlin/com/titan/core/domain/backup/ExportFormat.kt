@@ -31,7 +31,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
+import java.io.FilterInputStream
 import java.io.IOException
+import java.io.InputStream
 
 /**
  * The wire format of an [ExportDocument]: one [Json] configuration, one row encoder, and one
@@ -53,6 +55,13 @@ import java.io.IOException
  * [ImportError.MalformedJson]) where `ActiveSessionFormat` collapses both to null, and the
  * difference is what the two documents are worth: a draft is disposable and a backup is the
  * only copy, so "written by a newer version" has to be a sentence the user can act on.
+ *
+ * ### A file is not trusted to be small
+ *
+ * Both passes count the bytes they read and stop at [MAX_DOCUMENT_BYTES]. The decoded document
+ * is held whole — the validation needs it — so a file several times the size of any real
+ * history would otherwise be read until the heap ran out. The version pass reaches the limit
+ * first, having built nothing, so refusing such a file costs a read and no memory.
  *
  * ### Why `ignoreUnknownKeys` is on for a format this strict
  *
@@ -79,6 +88,18 @@ object ExportFormat {
         explicitNulls = true
         ignoreUnknownKeys = true
     }
+
+    /**
+     * The largest document [decode] reads: 64 MiB.
+     *
+     * A history at the scale the app commits to — 50,000 sets — encodes to about 15 MB, so this
+     * is four times that: some 200,000 sets, decades of training four days a week. A real file
+     * does not reach it, and `ExportFormatDecodeTest` fails if the target scale stops fitting
+     * four times over. A larger one is either not a backup or not one a phone could hold:
+     * the decoded rows take about twice the file's size in heap, and an Android app commonly
+     * gets 256 MB of it for everything.
+     */
+    const val MAX_DOCUMENT_BYTES: Long = 64L * 1024 * 1024
 
     /** The keys of the envelope: everything in the document that is not one of the tables. */
     private val tableKeys: Set<String> = BackupTable.entries.mapTo(mutableSetOf()) { it.tableName }
@@ -161,22 +182,36 @@ object ExportFormat {
      * newer build has to be refused *for its version*, which means learning the version before
      * anything is decoded against this build's model. See the class doc.
      *
+     * ### The second pass checks the version again
+     *
+     * Two openings are two reads of whatever the source serves at the time, and a content
+     * provider owes nothing about serving the same bytes twice — a file can also be replaced
+     * between them. So the version the decoded document carries is compared again rather than
+     * assumed to be the one the first pass saw, and a document that changed version in between
+     * is refused for it.
+     *
      * @return [Decoded.Success] with the parsed document, [Decoded.Refused] with
      *   [ImportError.UnsupportedSchemaVersion] when the version is not this build's,
-     *   [ImportError.MalformedJson] when the bytes are not a document at all, or
+     *   [ImportError.DocumentTooLarge] when the bytes run past [MAX_DOCUMENT_BYTES],
+     *   [ImportError.MalformedJson] when they are not a document at all, or
      *   [ImportError.IoFailure] when they could not be read.
      */
-    fun decode(source: ImportSource): Decoded =
+    fun decode(source: ImportSource): Decoded = decode(source, MAX_DOCUMENT_BYTES)
+
+    /** [decode] with the size limit as a parameter, so a test can reach it without 64 MiB. */
+    internal fun decode(
+        source: ImportSource,
+        maxBytes: Long,
+    ): Decoded =
         try {
-            when (val version = source.readVersion()) {
+            val capped = ImportSource { CappedStream(source.open(), maxBytes) }
+            when (val version = capped.readVersion()) {
                 null -> Decoded.Refused(ImportError.MalformedJson("no `$VERSION_KEY` in the document"))
-
-                ExportDocument.SCHEMA_VERSION -> Decoded.Success(WeeklyStreakUpgrade.apply(source.readDocument()))
-
-                else -> Decoded.Refused(
-                    ImportError.UnsupportedSchemaVersion(found = version, supported = ExportDocument.SCHEMA_VERSION),
-                )
+                ExportDocument.SCHEMA_VERSION -> accept(capped.readDocument())
+                else -> unsupported(version)
             }
+        } catch (failure: DocumentTooLargeException) {
+            Decoded.Refused(ImportError.DocumentTooLarge(limitBytes = failure.limitBytes))
         } catch (failure: IllegalArgumentException) {
             // Covers every way the text can fail to be a document at once: `SerializationException`
             // *is* an `IllegalArgumentException`, and it is what the decoder throws for JSON that
@@ -189,6 +224,19 @@ object ExportFormat {
             // and the two are different sentences for a screen to show.
             Decoded.Refused(ImportError.IoFailure(failure.message.orEmpty()))
         }
+
+    /** [document] if the second pass read the version the first one did, else the refusal. */
+    private fun accept(document: ExportDocument): Decoded =
+        if (document.schemaVersion == ExportDocument.SCHEMA_VERSION) {
+            Decoded.Success(WeeklyStreakUpgrade.apply(document))
+        } else {
+            unsupported(document.schemaVersion)
+        }
+
+    private fun unsupported(version: Int): Decoded =
+        Decoded.Refused(
+            ImportError.UnsupportedSchemaVersion(found = version, supported = ExportDocument.SCHEMA_VERSION),
+        )
 
     /**
      * The version this source's document claims, or null if it does not claim one.
@@ -218,6 +266,46 @@ object ExportFormat {
      */
     @Serializable
     private class VersionEnvelope(@SerialName(VERSION_KEY) val schemaVersion: Int? = null)
+
+    /**
+     * [delegate], refusing to hand over more than [limit] bytes.
+     *
+     * Every read path is counted — the single byte, the batch and the skip — because the
+     * decoder is free to use any of them. Throws on the read that would cross the limit, so the
+     * bytes up to it are all a refused file ever costs.
+     */
+    private class CappedStream(
+        delegate: InputStream,
+        private val limit: Long,
+    ) : FilterInputStream(delegate) {
+
+        private var count = 0L
+
+        override fun read(): Int = super.read().also { if (it >= 0) consumed(1) }
+
+        override fun read(
+            buffer: ByteArray,
+            offset: Int,
+            length: Int,
+        ): Int = super.read(buffer, offset, length).also { if (it > 0) consumed(it.toLong()) }
+
+        override fun skip(n: Long): Long = super.skip(n).also { consumed(it) }
+
+        override fun markSupported(): Boolean = false
+
+        private fun consumed(bytes: Long) {
+            count += bytes
+            if (count > limit) throw DocumentTooLargeException(limit)
+        }
+    }
+
+    /**
+     * Thrown by [CappedStream], and an [IOException] so it travels through the decoder the way
+     * a failed read does. Caught before the general [IOException] in [decode], which is what
+     * keeps it from being reported as a file that could not be read.
+     */
+    private class DocumentTooLargeException(val limitBytes: Long) :
+        IOException("the document is larger than $limitBytes bytes")
 
     /** What [decode] answers: a document, or the typed reason there is not one. */
     sealed interface Decoded {

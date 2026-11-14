@@ -189,7 +189,7 @@
     <string name="backup_auto_last">Último backup %1$s</string>
     <string name="backup_auto_failed">O último backup automático não terminou, após várias tentativas. Ele tentará de novo na próxima execução.</string>
     <string name="backup_auto_save_failed">Não foi possível salvar essa opção. Tente de novo.</string>
-    <string name="backup_auto_uninstall">Os backups automáticos ficam no armazenamento do próprio Titan, então são excluídos se você desinstalar o app. Exporte e salve uma cópia para ter um que sobreviva a isso.</string>
+    <string name="backup_auto_uninstall">Os backups automáticos ficam no armazenamento do próprio Titan, mesmo depois que você desativa esta opção, até você desinstalar o app. Exporte e salve uma cópia para ter um que sobreviva a isso.</string>
 
     <string name="backup_restore_title">Restaurar</string>
     <string name="backup_restore_detail">Substitui tudo neste aparelho pelo conteúdo de um arquivo de backup. Não mescla os dois.</string>
@@ -201,14 +201,21 @@
     <!-- One message per ImportError. -->
     <string name="backup_error_malformed">Esse arquivo não é um backup do Titan, ou está danificado. Nada neste aparelho foi alterado.</string>
     <string name="backup_error_version">Esse backup foi gravado na versão %1$d do formato e esta versão do app lê a versão %2$d. Atualize o Titan e tente de novo. Nada neste aparelho foi alterado.</string>
-    <string name="backup_error_constraint">Esse backup está incompleto: ele se refere a treinos que não contém. Nada neste aparelho foi alterado.</string>
-    <string name="backup_error_io">Não foi possível ler o backup. Se a restauração já tinha começado, seus treinos voltaram, mas suas configurações talvez não.</string>
+    <string name="backup_error_constraint">Esse backup é incoerente: ele se refere a treinos que não contém ou tem valores que nenhuma versão do Titan grava. Nada neste aparelho foi alterado.</string>
+    <string name="backup_error_constraint_live_state">Esse backup é incoerente: ele se refere a treinos que não contém ou tem valores que nenhuma versão do Titan grava. Seu histórico e suas configurações não foram alterados, mas o treino ou modelo que você tinha aberto pode ter sido fechado.</string>
+    <string name="backup_error_io">Não foi possível ler o backup. Nada neste aparelho foi alterado.</string>
+    <string name="backup_error_io_live_state">Não foi possível gravar o backup neste aparelho. Seu histórico e suas configurações não foram alterados, mas o treino ou modelo que você tinha aberto pode ter sido fechado.</string>
+    <string name="backup_error_live_state">Esse backup não foi restaurado: não foi possível fechar antes o treino ou o modelo que você tinha aberto. Seu histórico e suas configurações não foram alterados, mas esse treino ou modelo pode ter sido fechado.</string>
+    <string name="backup_error_too_large">Esse arquivo é maior do que qualquer backup do Titan (mais de %1$s), então não foi lido. Nada neste aparelho foi alterado.</string>
+    <string name="backup_error_settings">%1$d linhas restauradas, mas não foi possível salvar suas configurações, e elas podem ter voltado ao padrão. Confira em Configurações.</string>
+    <string name="backup_error_reminders">%1$d linhas e suas configurações restauradas, mas não foi possível atualizar seu lembrete de treino para combinar. Confira em Configurações.</string>
 
     <string name="backup_dismiss">Fechar</string>
 
     <string name="backup_restore_dialog_title">Substituir tudo?</string>
     <string name="backup_restore_dialog_body">Restaurar não mescla. Tudo abaixo é excluído e substituído pelo que o arquivo contém.</string>
     <string name="backup_restore_dialog_body_empty">Ainda não há nada registrado neste aparelho, então não há nada a perder: o conteúdo do arquivo simplesmente toma o lugar.</string>
+    <string name="backup_restore_dialog_file">Arquivo: %1$s</string>
     <string name="backup_restore_dialog_settings_line">cada configuração, substituída pela do arquivo</string>
     <string name="backup_restore_dialog_word">RESTAURAR</string>
     <string name="backup_restore_dialog_confirm">Substituir</string>

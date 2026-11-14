@@ -19,6 +19,8 @@ import com.titan.core.domain.model.DataFootprint
  * @param pendingRestoreUri the file the user picked, waiting on the confirmation dialog. Held
  *   as a `String` rather than a `Uri` so the state carries no platform type: a preview and a
  *   test build one by hand, and the screen is the only thing that needs it back as a `Uri`.
+ * @param pendingRestoreName what the provider calls that file, made safe to draw, for the
+ *   confirmation to name. Null until the provider has answered, or if it never does.
  * @param lastExport the outcome of the most recent export, or null before there has been one.
  *   Persistent rather than a one-shot snackbar: it names a file the user may want to find
  *   again, and a message about a file that has scrolled past is no message at all.
@@ -44,6 +46,7 @@ data class BackupUiState(
     val autoBackup: AutoBackupSchedule = AutoBackupSchedule(),
     val autoBackupSaveFailed: Boolean = false,
     val pendingRestoreUri: String? = null,
+    val pendingRestoreName: String? = null,
     val lastExport: ExportOutcome? = null,
     val lastRestore: RestoreOutcome? = null,
     val lastSave: SaveOutcome? = null,
@@ -112,7 +115,7 @@ sealed interface ExportOutcome {
      * The file could not be written — no space, a storage volume that went away mid-write.
      *
      * Carries no detail, unlike [RestoreOutcome.Failed]: there is one way for this to fail and
-     * one thing to do about it, where an import has four distinguishable causes that lead the
+     * one thing to do about it, where an import has six distinguishable causes that lead the
      * user somewhere different. The partial file is deleted before this is reported.
      */
     data object Failed : ExportOutcome
@@ -141,7 +144,7 @@ sealed interface RestoreOutcome {
     data class Succeeded(val rowsRestored: Long) : RestoreOutcome
 
     /**
-     * @property error which of the four refusals it was. Kept as the domain's own type rather
+     * @property error which of the six refusals it was. Kept as the domain's own type rather
      *   than flattened into a message enum, because two of them carry values a user needs —
      *   [ImportError.UnsupportedSchemaVersion] names both versions — and because a `when` over
      *   a sealed type is what makes "each case renders its own message" a compiler-checked

@@ -66,7 +66,7 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
      * leaves a truncated document by construction — the sink has already been handed everything
      * written so far — and a half-backup somebody could restore from is worse than no backup.
      * The `.tmp` name also keeps it out of [existing], so a scratch file left by a killed run is
-     * never counted as one of the three kept.
+     * never counted as one of the three kept; [prune] is what deletes it.
      */
     fun scratchFor(destination: File): File {
         directory.mkdirs()
@@ -87,7 +87,8 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
             .sortedByDescending { it.name }
 
     /**
-     * Deletes every automatic backup but the [keep] most recent, and reports how many went.
+     * Deletes every automatic backup but the [keep] most recent, and every scratch file a run
+     * left behind, and reports how many went.
      *
      * Unbounded retention on a file that grows with the user's history is a disk leak on
      * storage they cannot browse to clear — and three weeks is long enough to notice a problem
@@ -95,10 +96,26 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
      * that refuses to go is left where it is rather than failing a run that has already written
      * a good backup.
      *
+     * The scratch files are this feature's own `titan-auto-*.json.tmp` and nothing else. A run
+     * that was killed between writing one and renaming it — the OS reclaiming the process, a
+     * battery that died — leaves a partial backup the size of the history behind, and no later
+     * run reuses it unless it happens to fall on the same day. The caller has finished its own
+     * write before it prunes, and WorkManager never runs two of the same unique work at once,
+     * so every one of them is stale. The manual export's scratch file is not touched: it may
+     * be one an export on the screen is writing right now.
+     *
      * @param keep how many of the newest to leave behind. Zero empties the directory of
      *   automatic backups; negative is not a thing a caller means and is treated as zero.
      */
-    fun prune(keep: Int): Int = existing().drop(keep.coerceAtLeast(0)).count { it.delete() }
+    fun prune(keep: Int): Int {
+        val stale = existing().drop(keep.coerceAtLeast(0)) + scratchFiles()
+        return stale.count { it.delete() }
+    }
+
+    /** The automatic backups' scratch files, finished with or abandoned. */
+    private fun scratchFiles(): List<File> =
+        directory.listFiles().orEmpty()
+            .filter { it.isFile && it.name.startsWith(PREFIX) && it.name.endsWith(SUFFIX + SCRATCH_SUFFIX) }
 
     companion object {
 
@@ -118,7 +135,10 @@ class AutoBackupFiles @Inject constructor(@param:ApplicationContext private val 
         private const val PREFIX = "titan-auto-"
         private const val SUFFIX = ".json"
 
-        /** Not `.json.tmp`: nothing offers a file under this name and no picker filtered to JSON shows it. */
+        /**
+         * Appended to the finished name, so a scratch file is `titan-auto-<date>.json.tmp`: not a
+         * `.json`, so nothing offers it and no picker filtered to JSON shows it.
+         */
         private const val SCRATCH_SUFFIX = ".tmp"
 
         private val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")

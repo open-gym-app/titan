@@ -178,6 +178,9 @@ class BackupValidatorRangeTest {
                 d.copy(
                     workoutSession = d.workoutSession + WorkoutSessionRow(
                         id,
+                        // Finished: the fixture already holds the one session in progress a
+                        // document may carry.
+                        isInProgress = false,
                         lastActiveAt = 0,
                         createdAt = 0,
                         updatedAt = 0,

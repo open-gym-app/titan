@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import com.titan.core.domain.backup.BackupConstraintException
+import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.asSource
 import com.titan.core.domain.backup.model.BackupTable
 import com.titan.core.domain.backup.model.ExportDocument
@@ -20,14 +21,21 @@ import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.repository.FakeInProgressSessionRepository
 import com.titan.core.domain.repository.FakeTemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -43,10 +51,11 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * What an import does, and — for every way it can be refused — what it leaves behind.
  *
- * The contract this leans on hardest is that a refusal means *nothing happened*. Three of the
- * four [ImportError]s are decided before the database is touched at all, so the assertions
+ * The contract this leans on hardest is that a refusal means *nothing happened*. Five of the
+ * eight [ImportError]s are decided before the database is touched at all, so the assertions
  * below are that the repository was never called rather than that it rolled back: a rollback
- * that has to be trusted is a rollback nobody has tested.
+ * that has to be trusted is a rollback nobody has tested. The other three are the partial
+ * outcomes, and the tests for them pin what each one leaves behind.
  */
 class ImportUseCaseTest {
 
@@ -60,6 +69,11 @@ class ImportUseCaseTest {
     private val draft = FakeInProgressSessionRepository(ActiveSession(sessionId = 7, startedAt = 1_000))
     private val templateDraft = FakeTemplateDraftRepository(TemplateDraft(templateId = 3, name = "Push"))
     private val sessionState = FakeSessionStateRepository(SessionState.Active(sessionId = 7, startedAt = 1_000))
+    private val reminders = TimelineReminderScheduler(timeline)
+
+    /** This class's own locks, so a test holding one blocks only the importer it built. */
+    private val backupLock = BackupLock()
+    private val sessionLock = SessionLifecycleLock()
 
     @Test
     fun `a valid document is written to the database whole`() =
@@ -289,27 +303,316 @@ class ImportUseCaseTest {
             val emissions = importer().invoke(encode(sampleDocument())).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.ConstraintViolation("UNIQUE constraint failed: tag.name")),
+                ImportProgress.Failed(
+                    ImportError.ConstraintViolation("UNIQUE constraint failed: tag.name", liveStateCleared = true),
+                ),
+                emissions.last(),
+            )
+        }
+
+    /**
+     * A device that cannot take the writes fails inside the transaction, after the live state
+     * was cleared, so it says so — rather than reaching the screen as a file that could not be
+     * read, whose sentence promises nothing changed.
+     */
+    @Test
+    fun `a device that cannot take the rows is an IO failure that cleared the live state`() =
+        runTest {
+            backup.replaceFailure = IOException("database or disk is full")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(
+                ImportProgress.Failed(ImportError.IoFailure("database or disk is full", liveStateCleared = true)),
                 emissions.last(),
             )
         }
 
     /**
      * The one failure that leaves work done — the rows are committed and the settings are not —
-     * which is why it has to be reported rather than swallowed.
+     * which is why it is its own error rather than the "could not be read" a refused file gets
+     * (#257). A screen told `IoFailure` here would say nothing was restored, over a database
+     * that now holds the whole file.
      */
     @Test
-    fun `a settings write that cannot land is reported as an IO failure`() =
+    fun `a settings write that cannot land is reported as settings not restored`() =
         runTest {
             preferences.failure = IOException("read-only filesystem")
+            val document = sampleDocument()
+
+            val emissions = importer().invoke(encode(document)).toList()
+
+            assertEquals(
+                ImportProgress.Failed(
+                    ImportError.SettingsNotRestored(rowsRestored = document.rowCount, reason = "read-only filesystem"),
+                ),
+                emissions.last(),
+            )
+            assertEquals(document, backup.replaced)
+        }
+
+    /**
+     * After the commit the sentence is the same whatever was thrown, so an unexpected failure
+     * is not left to escape and be reported by the screen as a file it could not read.
+     */
+    @Test
+    fun `any failure writing the settings after the commit is settings not restored`() =
+        runTest {
+            preferences.failure = IllegalStateException("the store's own bug")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertTrue(
+                "expected SettingsNotRestored, was ${emissions.last()}",
+                (emissions.last() as ImportProgress.Failed).error is ImportError.SettingsNotRestored,
+            )
+        }
+
+    /**
+     * Restoring the settings starts from `clear()`, which turns the workout reminder off — it is
+     * device state and not in the file — so the alarms behind it have to come down after (#257).
+     */
+    @Test
+    fun `the reminder alarms are re-synced after the settings`() =
+        runTest {
+            importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(1, reminders.syncs)
+            assertEquals("the sync should follow every settings write: $timeline", SYNC, timeline.last())
+        }
+
+    /** The reset may have landed before the setter that failed, so the alarms follow it anyway. */
+    @Test
+    fun `the reminder alarms are re-synced even when a setting cannot be written`() =
+        runTest {
+            preferences.failure = IOException("read-only filesystem")
+
+            importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(1, reminders.syncs)
+        }
+
+    /**
+     * The settings landed and only the alarms did not, so the settings are not what failed: a
+     * screen told `SettingsNotRestored` here would send the user to fix settings that are
+     * already the file's.
+     */
+    @Test
+    fun `an alarm sync that fails on its own is reported as reminders not rescheduled`() =
+        runTest {
+            reminders.failure = IllegalStateException("alarm manager unavailable")
+            val document = sampleDocument()
+
+            val emissions = importer().invoke(encode(document)).toList()
+
+            assertEquals(
+                ImportProgress.Failed(
+                    ImportError.RemindersNotRescheduled(
+                        rowsRestored = document.rowCount,
+                        reason = "alarm manager unavailable",
+                    ),
+                ),
+                emissions.last(),
+            )
+            assertEquals(document, backup.replaced)
+        }
+
+    /** When both fail, the settings are what the user has to go and put right. */
+    @Test
+    fun `a settings failure is reported over an alarm sync failure`() =
+        runTest {
+            preferences.failure = IOException("read-only filesystem")
+            reminders.failure = IllegalStateException("alarm manager unavailable")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertTrue(
+                "expected SettingsNotRestored, was ${emissions.last()}",
+                failure(emissions) is ImportError.SettingsNotRestored,
+            )
+        }
+
+    @Test
+    fun `a refused document re-syncs nothing`() =
+        runTest {
+            importer().invoke(encode(sampleDocument().copy(schemaVersion = 99))).toList()
+
+            assertEquals(0, reminders.syncs)
+        }
+
+    /**
+     * The order the class doc argues for, pinned: by the time the transaction opens, the live
+     * session is idle and both drafts are gone — and when the transaction then rolls back, they
+     * stay gone (#257). The drafts are files and cannot join the transaction; this is the
+     * window that loses a place in a workout rather than the one that points a draft into a
+     * replaced database.
+     */
+    @Test
+    fun `the live state is cleared before the transaction and stays cleared if it rolls back`() =
+        runTest {
+            var seenAtReplace: Triple<SessionState, Int, Int>? = null
+            backup.onReplaceAll = {
+                val state = sessionState.current
+                seenAtReplace = Triple(state, draft.clearCount, templateDraft.clearCount)
+            }
+            backup.replaceFailure = BackupConstraintException("UNIQUE constraint failed: tag.name")
+
+            importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(Triple(SessionState.Idle, 1, 1), seenAtReplace)
+            assertNull("the rows should have rolled back", backup.replaced)
+            assertEquals(1, draft.clearCount)
+            assertEquals(SessionState.Idle, sessionState.current)
+        }
+
+    /**
+     * The session state is reset before the drafts, so a draft store that fails has already
+     * ended the live workout. `IoFailure` would tell the user nothing on the device changed;
+     * this is its own error, and the restore stops before the transaction opens.
+     */
+    @Test
+    fun `a draft that cannot be cleared stops the restore before the rows`() =
+        runTest {
+            draft.clearFailure = IOException("draft file is read-only")
 
             val emissions = importer().invoke(encode(sampleDocument())).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.IoFailure("read-only filesystem")),
+                ImportProgress.Failed(ImportError.LiveStateNotCleared("draft file is read-only")),
                 emissions.last(),
             )
+            assertNull("the database should not have been touched", backup.replaced)
+            assertEquals(SessionState.Idle, sessionState.current)
+            assertEquals("the template draft is cleared after the workout draft", 0, templateDraft.clearCount)
+            assertTrue("the settings should not have been touched: $timeline", timeline.isEmpty())
+            assertEquals(0, reminders.syncs)
+        }
+
+    /**
+     * A session transition holds [SessionLifecycleLock] across its read and its write. The
+     * restore takes it too, so a start or a finish cannot interleave with the reset of the
+     * session state and the replace of the rows it named (#257).
+     */
+    @Test
+    fun `the session is reset under the lifecycle lock`() =
+        runTest {
+            val transitionRunning = CompletableDeferred<Unit>()
+            val transitionMayEnd = CompletableDeferred<Unit>()
+            val transition = launch {
+                sessionLock.withTransition {
+                    transitionRunning.complete(Unit)
+                    transitionMayEnd.await()
+                }
+            }
+            transitionRunning.await()
+
+            val restore = async { importer().invoke(encode(sampleDocument())).toList() }
+            yieldUntilIdle()
+
+            assertEquals(
+                "the restore must wait for the transition before touching the session",
+                SessionState.Active(sessionId = 7, startedAt = 1_000),
+                sessionState.current,
+            )
+            assertNull(backup.replaced)
+
+            transitionMayEnd.complete(Unit)
+            transition.join()
+
+            assertEquals(ImportProgress.Complete(sampleDocument().rowCount), restore.await().last())
+            assertEquals(SessionState.Idle, sessionState.current)
+        }
+
+    /**
+     * An export or a delete-all holding [BackupLock] keeps the restore out until it is done —
+     * rows *and* settings, since an export between the two would carry the new history in the
+     * old units (#257).
+     */
+    @Test
+    fun `a restore waits for whatever holds the backup lock`() =
+        runTest {
+            val holding = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val holder = launch {
+                backupLock.exclusively {
+                    holding.complete(Unit)
+                    release.await()
+                }
+            }
+            holding.await()
+
+            val restore = async { importer().invoke(encode(sampleDocument())).toList() }
+            yieldUntilIdle()
+
+            assertNull("nothing may be written while the lock is held", backup.replaced)
+            assertTrue("no setting may be written either: $timeline", timeline.isEmpty())
+
+            release.complete(Unit)
+            holder.join()
+
+            assertEquals(ImportProgress.Complete(sampleDocument().rowCount), restore.await().last())
+        }
+
+    /** And the other way round: the lock is held until the settings are in. */
+    @Test
+    fun `the backup lock is held until the settings are written`() =
+        runTest {
+            var lockedDuringSettings: Boolean? = null
+            preferences.onClear = { lockedDuringSettings = backupLock.isHeld() }
+
+            importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(true, lockedDuringSettings)
+            assertFalse("the lock should be released at the end", backupLock.isHeld())
+        }
+
+    /**
+     * Once the rows are committed the settings follow them, even if whoever collected the
+     * restore has gone — a screen closed mid-restore must not leave the history restored and
+     * the settings half-written with nobody told (#257).
+     */
+    @Test
+    fun `the settings are applied even if the restore is cancelled once the rows are in`() =
+        runTest {
+            val settingsStarted = CompletableDeferred<Unit>()
+            val settingsMayContinue = CompletableDeferred<Unit>()
+            preferences.onClear = {
+                settingsStarted.complete(Unit)
+                settingsMayContinue.await()
+            }
+
+            val restore = launch { importer().invoke(encode(sampleDocument())).toList() }
+            settingsStarted.await()
+            restore.cancel()
+            settingsMayContinue.complete(Unit)
+            restore.join()
+
             assertEquals(sampleDocument(), backup.replaced)
+            assertTrue("every setter should have run: $timeline", "setOnboardingCompleted" in timeline)
+            assertEquals(1, reminders.syncs)
+        }
+
+    /**
+     * The narrower window of the same promise: a cancellation that arrives as the transaction
+     * commits. Room hands the commit back through a `withContext`, which answers a cancelled
+     * caller with a `CancellationException` even though the rows are in; `yield` stands in for
+     * that check here.
+     */
+    @Test
+    fun `the settings are applied even if the restore is cancelled as the rows commit`() =
+        runTest {
+            lateinit var restore: Job
+            backup.onCommitted = {
+                restore.cancel()
+                yield()
+            }
+
+            restore = launch { importer().invoke(encode(sampleDocument())).toList() }
+            restore.join()
+
+            assertEquals(sampleDocument(), backup.replaced)
+            assertTrue("every setter should have run: $timeline", "setOnboardingCompleted" in timeline)
+            assertEquals(1, reminders.syncs)
         }
 
     /**
@@ -355,7 +658,16 @@ class ImportUseCaseTest {
             inProgressSessionRepository = draft,
             templateDraftRepository = templateDraft,
             sessionStateRepository = sessionState,
+            reminderScheduler = reminders,
+            backupLock = backupLock,
+            sessionLock = sessionLock,
         )
+
+    /** Lets every coroutine the test has started run as far as it can before the next assertion. */
+    private suspend fun yieldUntilIdle() = repeat(YIELDS) { yield() }
+
+    /** Whether something holds this lock now: true if a zero-length attempt to take it fails. */
+    private suspend fun BackupLock.isHeld(): Boolean = withTimeoutOrNull(1) { exclusively { } } == null
 
     /** [document] as the use case takes it: bytes to be opened, never a string it holds. */
     private fun encode(document: ExportDocument) = text(document).asSource()
@@ -380,6 +692,32 @@ class ImportUseCaseTest {
 
     private fun emptyDocument() =
         ExportDocument(exportedAt = 1, appVersion = "1.0-debug", preferences = samplePreferences())
+
+    private companion object {
+
+        /** More than the handful of suspension points between an import starting and its first write. */
+        const val YIELDS = 50
+    }
+}
+
+/** The [timeline] entry [TimelineReminderScheduler] writes. */
+private const val SYNC = "sync"
+
+/** A [ReminderScheduler] that counts syncs and writes them into the shared call log. */
+private class TimelineReminderScheduler(private val timeline: MutableList<String>) : ReminderScheduler {
+    var syncs = 0
+        private set
+
+    /** Thrown by [sync] after it is counted, when set: the alarms that could not be re-armed. */
+    var failure: Throwable? = null
+
+    override suspend fun sync() {
+        syncs++
+        timeline += SYNC
+        failure?.let { throw it }
+    }
+
+    override fun isExact(): Boolean = true
 }
 
 /**
@@ -395,7 +733,10 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
     private val delegate = FakeUserPreferencesRepository()
 
     /** Thrown by every setter instead of writing, when set. */
-    var failure: IOException? = null
+    var failure: Exception? = null
+
+    /** Run as [clear] begins — the first settings write of a restore. */
+    var onClear: (suspend () -> Unit)? = null
 
     override fun observe(): Flow<UserPreferences> = delegate.observe()
 
@@ -459,7 +800,10 @@ private class RecordingUserPreferencesRepository(private val timeline: MutableLi
 
     override suspend fun setReminderTime(time: LocalTime) = record("setReminderTime") { delegate.setReminderTime(time) }
 
-    override suspend fun clear() = record("clear") { delegate.clear() }
+    override suspend fun clear() {
+        onClear?.invoke()
+        record("clear") { delegate.clear() }
+    }
 
     private suspend fun record(
         name: String,

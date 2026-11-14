@@ -35,6 +35,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 /**
  * The repository on its own: paging, counting, and the transaction.
@@ -126,6 +127,36 @@ class BackupRepositoryImplTest : RoomTestBase() {
             }.exceptionOrNull()
 
             assertTrue("expected a typed constraint failure, got $failure", failure is BackupConstraintException)
+            assertEquals("the transaction did not roll back", before, db.dumpEverything())
+        }
+
+    /**
+     * A full disk is the device's fault and not the file's, so it comes out as an
+     * `IOException` rather than as a refused row — and is rolled back all the same. The disk is
+     * filled by capping the database at the pages it already holds, then handing it a document
+     * with a large note that cannot fit in them.
+     */
+    @Test
+    fun `a device that cannot take the writes rolls back and is reported as an IO failure`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+            val document = documentOfEverythingInTheDatabase().let {
+                it.copy(
+                    bodyMeasurement = it.bodyMeasurement + BodyMeasurementRow(
+                        id = 9_999,
+                        notes = "x".repeat(LARGE_NOTE),
+                        createdAt = 0,
+                        updatedAt = 0,
+                    ),
+                )
+            }
+            // Stepped, not just opened: a cursor nobody reads never runs its statement.
+            db.openHelper.writableDatabase.query("PRAGMA max_page_count = 1").use { it.moveToFirst() }
+
+            val failure = runCatching { repository.replaceAll(document) { _, _ -> } }.exceptionOrNull()
+
+            assertTrue("expected an IO failure, got $failure", failure is IOException)
             assertEquals("the transaction did not roll back", before, db.dumpEverything())
         }
 
@@ -228,6 +259,9 @@ class BackupRepositoryImplTest : RoomTestBase() {
     private companion object {
 
         const val PAGE = 1_000
+
+        /** Far more than the pages an in-memory database seeded with a handful of rows holds. */
+        const val LARGE_NOTE = 1_000_000
 
         val defaultPreferences: PreferencesPayload = UserPreferences().toPayload()
     }

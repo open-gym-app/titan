@@ -1,7 +1,9 @@
 package com.titan.feature.settings.backup
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -129,6 +131,7 @@ class BackupViewModel @Inject constructor(
             autoBackup = autoBackup,
             autoBackupSaveFailed = screen.autoBackupSaveFailed,
             pendingRestoreUri = screen.pendingRestoreUri,
+            pendingRestoreName = screen.pendingRestoreName,
             lastExport = screen.lastExport,
             lastRestore = screen.lastRestore,
             lastSave = screen.lastSave,
@@ -143,9 +146,11 @@ class BackupViewModel @Inject constructor(
         when (event) {
             is BackupEvent.ExportRequested -> export(event.appVersion)
 
-            is BackupEvent.RestoreFileChosen -> screenState.update { it.copy(pendingRestoreUri = event.uri) }
+            is BackupEvent.RestoreFileChosen -> choose(event.uri)
 
-            BackupEvent.RestoreDismissed -> screenState.update { it.copy(pendingRestoreUri = null) }
+            BackupEvent.RestoreDismissed -> screenState.update {
+                it.copy(pendingRestoreUri = null, pendingRestoreName = null)
+            }
 
             BackupEvent.RestoreConfirmed -> restore()
 
@@ -327,6 +332,118 @@ class BackupViewModel @Inject constructor(
     }
 
     /**
+     * Holds [uri] for the confirmation, or refuses it if it is not somewhere a backup can come
+     * from — see [isRestorable].
+     *
+     * The URI is held at once, so a confirmation that arrives straight after the pick finds it.
+     * Everything that has to ask another process follows on `Dispatchers.IO`: the package
+     * manager, for whether this app serves the authority, and the provider, for the document's
+     * name. Neither belongs on the main thread, and the dialog draws without the name until
+     * then. What can be decided from the URI's text alone — a `file://` path, an authority under
+     * the application id — is refused here before the dialog ever opens.
+     *
+     * A confirmation that lands before the package manager has answered is not a way past it:
+     * [documentAt] runs the whole check again before anything is read.
+     */
+    private fun choose(uri: String) {
+        val document = Uri.parse(uri)
+        if (!isRestorableByName(document)) {
+            screenState.update { it.refusing(uri) }
+            return
+        }
+        screenState.update { it.copy(pendingRestoreUri = uri, pendingRestoreName = null) }
+
+        viewModelScope.launch {
+            if (withContext(Dispatchers.IO) { isServedByThisApp(document) }) {
+                // Only the pick it was asked about, and only while it is still waiting for the
+                // user: once confirmed, [documentAt] refuses it on its own.
+                screenState.update { if (it.pendingRestoreUri == uri) it.refusing(uri) else it }
+                return@launch
+            }
+            // Broad for the reason every read of a picked document is: a provider can fail in
+            // ways `IOException` does not cover, and a name the dialog cannot show costs the
+            // line naming the file and nothing else.
+            val name = runCatching { withContext(Dispatchers.IO) { displayNameOf(document) } }.getOrElse { failure ->
+                if (failure is CancellationException) throw failure
+                null
+            }
+            // Only onto the pick it was asked for: a second file chosen while the provider was
+            // answering about the first must not be shown under the first one's name.
+            screenState.update { if (it.pendingRestoreUri == uri) it.copy(pendingRestoreName = name) else it }
+        }
+    }
+
+    /** This state with [uri] refused as a place to restore from, and no confirmation open. */
+    private fun ScreenState.refusing(uri: String) =
+        copy(
+            pendingRestoreUri = null,
+            pendingRestoreName = null,
+            lastExport = null,
+            lastRestore = RestoreOutcome.Failed(ImportError.IoFailure(refusedLocation(uri))),
+            lastSave = null,
+        )
+
+    /**
+     * Whether [document] is a place a restore may read from: a `content://` URI that another
+     * app's provider serves.
+     *
+     * The picker only ever hands back such a URI, so this refuses nothing a user can choose. It
+     * is here because the URI is also read back from saved state, and because what it guards is
+     * a restore *replacing every row on the device* with whatever the bytes say:
+     *
+     * - **Not `file://`.** A path is read with this app's own permissions, which reach its
+     *   private files — and no picker produces one, so nothing a user does needs it.
+     * - **Not this app's own authority.** The app's `FileProvider` serves `backups/` and its
+     *   other providers serve its internals; a URI naming one of them is the app reading
+     *   itself through a door meant for other apps. That covers every authority under the
+     *   application id, which is how all of them are declared, and anything the package
+     *   manager resolves to this package besides.
+     *
+     * The second half asks the package manager, a call into the system process, so this is
+     * for `Dispatchers.IO`; [choose] runs its two halves apart for that reason.
+     */
+    private fun isRestorable(document: Uri): Boolean = isRestorableByName(document) && !isServedByThisApp(document)
+
+    /**
+     * The half of [isRestorable] the URI's text decides: a `content://` scheme and an authority
+     * that is not under the application id.
+     *
+     * The authority is compared without the `<user>@` prefix a cross-profile content URI
+     * carries, which would otherwise hide the app's own name behind a number.
+     */
+    private fun isRestorableByName(document: Uri): Boolean {
+        if (document.scheme != ContentResolver.SCHEME_CONTENT) return false
+        val authority = authorityOf(document) ?: return false
+        val own = context.packageName
+        return authority != own && !authority.startsWith("$own.")
+    }
+
+    /**
+     * The half of [isRestorable] only the package manager can answer: whether the provider
+     * behind [document]'s authority belongs to this app. A binder call; never on Main.
+     */
+    private fun isServedByThisApp(document: Uri): Boolean {
+        val authority = authorityOf(document) ?: return false
+        val provider = runCatching { context.packageManager.resolveContentProvider(authority, 0) }.getOrNull()
+        return provider?.packageName == context.packageName
+    }
+
+    /** [document]'s authority without a cross-profile `<user>@` prefix, or null if it has none. */
+    private fun authorityOf(document: Uri): String? =
+        document.authority?.substringAfterLast('@')?.takeIf { it.isNotEmpty() }
+
+    /**
+     * What the provider calls [document], made safe to draw — or its last path segment if the
+     * provider does not say, or null if neither leaves anything to show.
+     */
+    private fun displayNameOf(document: Uri): String? {
+        val provided = context.contentResolver
+            .query(document, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+        return displayableDocumentName(provided ?: document.lastPathSegment)
+    }
+
+    /**
      * Replaces everything on the device with the confirmed document.
      *
      * *Opening* the file is this class's job and `ImportUseCase`'s explicitly is not, so the
@@ -344,6 +461,8 @@ class BackupViewModel @Inject constructor(
             it.copy(
                 phase = BackupPhase.Validating,
                 pendingRestoreUri = null,
+                // Kept while the restore runs: the dialog stays up, inert, until it is over, and
+                // it goes on naming the file it is replacing everything with.
                 lastExport = null,
                 lastRestore = null,
                 lastSave = null,
@@ -354,8 +473,8 @@ class BackupViewModel @Inject constructor(
             // `Dispatchers.IO` around the *whole run* rather than around the file read alone:
             // `ImportUseCase` adds no dispatcher of its own, so parsing tens of megabytes of
             // JSON and checking every foreign key in it would otherwise happen on Main — the
-            // choice `ImportSource` says #38 owes. `screenState` is a `MutableStateFlow`, so
-            // mirroring progress back out of here is safe from any thread.
+            // choice `ImportSource` leaves to its caller. `screenState` is a `MutableStateFlow`,
+            // so mirroring progress back out of here is safe from any thread.
             //
             // The catch is broad on purpose, and for the reason the export's is: opening a
             // document the user chose can fail in ways a `catch (IOException)` does not cover —
@@ -368,7 +487,7 @@ class BackupViewModel @Inject constructor(
                 if (failure is CancellationException) throw failure
                 RestoreOutcome.Failed(ImportError.IoFailure(failure.message.orEmpty()))
             }
-            screenState.update { it.copy(phase = BackupPhase.Idle, lastRestore = outcome) }
+            screenState.update { it.copy(phase = BackupPhase.Idle, pendingRestoreName = null, lastRestore = outcome) }
         }
     }
 
@@ -400,10 +519,13 @@ class BackupViewModel @Inject constructor(
      * a `String` of it would be 60 MB of UTF-16 before a row had been parsed.
      *
      * A URI that resolves to nothing throws, which `ExportFormat.decode` already reports as
-     * [ImportError.IoFailure] with the database untouched.
+     * [ImportError.IoFailure] with the database untouched. So does one [isRestorable] refuses —
+     * checked again here rather than trusted from [choose], because the URI may have come back
+     * from saved state rather than from the picker.
      */
     private fun documentAt(uri: String): ImportSource {
         val document = Uri.parse(uri)
+        if (!isRestorable(document)) throw IOException(refusedLocation(uri))
         return ImportSource {
             context.contentResolver.openInputStream(document) ?: throw IOException("nothing to read at $uri")
         }
@@ -436,11 +558,11 @@ class BackupViewModel @Inject constructor(
     /**
      * What the screen shows and what the store does not know about.
      *
-     * Only [pendingRestoreUri] comes back. A [phase] is work in flight, and the process that was
-     * doing it is gone — a screen restored mid-export would show a progress bar over nothing.
-     * The three outcomes are reports of something that finished before the user put the phone
-     * down, and re-announcing "restored 4,182 rows" twenty minutes later is the app describing
-     * an event rather than reporting one.
+     * Only [pendingRestoreUri] and its [pendingRestoreName] come back. A [phase] is work in
+     * flight, and the process that was doing it is gone — a screen restored mid-export would
+     * show a progress bar over nothing. The three outcomes are reports of something that
+     * finished before the user put the phone down, and re-announcing "restored 4,182 rows"
+     * twenty minutes later is the app describing an event rather than reporting one.
      *
      * The permission the URI carries is the caller's to have taken: the picker grants it for the
      * life of the process unless it was taken persistably, which is why what is saved is the URI
@@ -454,6 +576,7 @@ class BackupViewModel @Inject constructor(
         @Transient
         val autoBackupSaveFailed: Boolean = false,
         val pendingRestoreUri: String? = null,
+        val pendingRestoreName: String? = null,
         @Transient
         val lastExport: ExportOutcome? = null,
         @Transient
@@ -463,6 +586,9 @@ class BackupViewModel @Inject constructor(
     )
 
     companion object {
+
+        /** The reason recorded for a location [isRestorable] refuses. For a log, never shown. */
+        private fun refusedLocation(uri: String) = "not a document another app provides: $uri"
 
         private val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
 
@@ -484,16 +610,62 @@ class BackupViewModel @Inject constructor(
         private const val TRUNCATING_WRITE = "wt"
 
         /**
-         * Not `.json.tmp`: nothing offers a file under this name to the share sheet, and the
-         * restore picker sorts by the name a user recognises. The document itself is the real
-         * guard — a truncated one fails to decode before a row is written — but a half-backup
-         * that does not look like a backup is one fewer thing to pick by mistake.
+         * Appended to the finished name, so the scratch file is `titan-backup-<stamp>.json.tmp`:
+         * not a `.json`, so nothing offers it to the share sheet and a restore picker filtered
+         * to JSON does not show it. The document itself is the real guard — a truncated one
+         * fails to decode before a row is written — but a half-backup that does not look like a
+         * backup is one fewer thing to pick by mistake.
          */
         private const val SCRATCH_SUFFIX = ".tmp"
 
         private val FILE_NAME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HHmm")
     }
 }
+
+/**
+ * [name] as the restore confirmation may draw it, or null if nothing drawable is left.
+ *
+ * The name comes from another app's provider, so it is treated as text somebody else wrote.
+ * Control characters and Unicode format characters go — the second include the
+ * right-to-left override that makes a name ending in `.exe` draw as one ending in `.json` — and
+ * a name longer than [MAX_DOCUMENT_NAME_LENGTH] is cut short with an ellipsis, so it cannot push
+ * the warning off a dialog that has to be read. The cut never splits a surrogate pair.
+ */
+internal fun displayableDocumentName(name: String?): String? {
+    // By code point rather than by `Char`: the format characters outside the Basic Multilingual
+    // Plane — the invisible tag characters among them — are two `Char`s that each read as a
+    // surrogate, and an unpaired surrogate is itself one of the characters that draws wrong.
+    val visible = buildString {
+        name.orEmpty().codePoints().forEach { codePoint ->
+            if (Character.getType(codePoint).toByte() !in HIDDEN_CHARACTER_TYPES) appendCodePoint(codePoint)
+        }
+    }.trim()
+    return when {
+        visible.isEmpty() -> null
+        visible.length <= MAX_DOCUMENT_NAME_LENGTH -> visible
+        else -> visible.take(MAX_DOCUMENT_NAME_LENGTH - 1).removeSuffixIf { it.isHighSurrogate() }.trimEnd() + ELLIPSIS
+    }
+}
+
+private fun String.removeSuffixIf(predicate: (Char) -> Boolean): String =
+    if (isNotEmpty() && predicate(last())) dropLast(1) else this
+
+/** Long enough for any name the export writes and most a user gives a copy; short enough to fit a dialog. */
+internal const val MAX_DOCUMENT_NAME_LENGTH = 80
+
+private const val ELLIPSIS = "…"
+
+/**
+ * Control, format, the two separators and unpaired surrogates: characters that draw nothing, or
+ * draw something else.
+ */
+private val HIDDEN_CHARACTER_TYPES = setOf(
+    Character.CONTROL,
+    Character.FORMAT,
+    Character.LINE_SEPARATOR,
+    Character.PARAGRAPH_SEPARATOR,
+    Character.SURROGATE,
+)
 
 /**
  * The phase an import emission describes, or **null** for the two that end the run.

@@ -154,7 +154,14 @@ class BackupValidatorTest {
         val document = sampleDocument().let {
             it.copy(
                 workoutSession = it.workoutSession +
-                    WorkoutSessionRow(id = 9, templateId = null, lastActiveAt = 0, createdAt = 0, updatedAt = 0),
+                    WorkoutSessionRow(
+                        id = 9,
+                        templateId = null,
+                        isInProgress = false,
+                        lastActiveAt = 0,
+                        createdAt = 0,
+                        updatedAt = 0,
+                    ),
             )
         }
 

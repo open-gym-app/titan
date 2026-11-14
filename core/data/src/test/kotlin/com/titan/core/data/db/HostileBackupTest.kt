@@ -1,5 +1,7 @@
 package com.titan.core.data.db
 
+import android.database.sqlite.SQLiteConstraintException
+import com.titan.core.data.db.entity.TagEntity
 import com.titan.core.data.db.entity.UserProgressEntity
 import com.titan.core.data.mapper.ExerciseMapper
 import com.titan.core.data.mapper.MuscleGroupLinkMapper
@@ -65,13 +67,17 @@ class HostileBackupTest : RoomTestBase() {
         ExportUseCase(backupRepository = backup, userPreferencesRepository = preferences, clock = { EXPORTED_AT })
     }
 
+    /** The draft store, kept so a refusal can be shown to have come before anything was cleared. */
+    private val drafts = CountingInProgressSessionRepository()
+
     private val import by lazy {
         ImportUseCase(
             backupRepository = backup,
             userPreferencesRepository = preferences,
-            inProgressSessionRepository = CountingInProgressSessionRepository(),
+            inProgressSessionRepository = drafts,
             templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
+            reminderScheduler = RecordingReminderScheduler(),
         )
     }
 
@@ -382,6 +388,63 @@ class HostileBackupTest : RoomTestBase() {
 
     // ─── What every test above reads, and what it then tries to write ─────────────────────────
 
+    // ─── #257: names SQLite stores as one, and a second session in progress ─────────────────────
+
+    /**
+     * The audit's claim, checked against SQLite itself: two tag names that are different strings
+     * in Kotlin, each with an unpaired surrogate, are one name to the unique index once SQLite
+     * has converted them to the UTF-8 it stores. This is what `BackupValidator` comparing them
+     * as Kotlin strings would have let through.
+     */
+    @Test
+    fun `two names with a lone surrogate can be one name to SQLite`() =
+        runBlocking {
+            db.tagDao().insert(TagEntity(name = LONE_SURROGATE_A))
+
+            val second = runCatching { db.tagDao().insert(TagEntity(name = LONE_SURROGATE_B)) }.exceptionOrNull()
+
+            assertNotEquals(LONE_SURROGATE_A, LONE_SURROGATE_B)
+            assertTrue("expected the index to see one name, got $second", second is SQLiteConstraintException)
+        }
+
+    /**
+     * So a file holding them is refused by the validator, before the wipe — not by the insert
+     * after it, which used to roll the rows back but leave the live session and its draft
+     * cleared.
+     */
+    @Test
+    fun `a restore holding names SQLite would store as one is refused before anything is cleared`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+
+            val progress = restoreOver(escapeLoneSurrogates = true) { document ->
+                document.copy(
+                    tag = document.tag.mapIndexed { index, row ->
+                        row.copy(name = if (index == 0) LONE_SURROGATE_A else LONE_SURROGATE_B)
+                    },
+                )
+            }
+
+            assertRefused(progress, "tag.name of row 1")
+            assertEquals(before, db.dumpEverything())
+            assertEquals("the draft must not be cleared for a file the validator refuses", 0, drafts.clearCount)
+        }
+
+    @Test
+    fun `a restored second session in progress is refused and changes nothing`() =
+        runBlocking {
+            db.seedEveryTable()
+            val before = db.dumpEverything()
+
+            val progress = restoreOver { document ->
+                document.copy(workoutSession = document.workoutSession + sessionRow(id = 9, inProgress = true))
+            }
+
+            assertRefused(progress, "workout_session holds 2 sessions in progress")
+            assertEquals(before, db.dumpEverything())
+        }
+
     /**
      * Every sum the History list, the Stats screen and the dashboard read, over a history whose
      * sets add up past a `Long`. Each is held at `Long.MAX_VALUE` rather than throwing.
@@ -437,17 +500,39 @@ class HostileBackupTest : RoomTestBase() {
     /** Seeds every table, exports it, edits the file with [edit] and restores the result. */
     private suspend fun restore(edit: (ExportDocument) -> ExportDocument): ImportProgress {
         db.seedEveryTable()
-        return restoreOver(edit)
+        return restoreOver(edit = edit)
     }
 
-    /** Exports what the database holds now, edits it with [edit] and restores it over the top. */
-    private suspend fun restoreOver(edit: (ExportDocument) -> ExportDocument): ImportProgress {
+    /**
+     * Exports what the database holds now, edits it with [edit] and restores it over the top.
+     *
+     * @param escapeLoneSurrogates write every unpaired surrogate as a `\uD800`-style escape.
+     *   That is the only way one reaches the decoder: the encoder writes text as it is, and
+     *   UTF-8 has no bytes for half a pair — the file would hold `?` in its place.
+     */
+    private suspend fun restoreOver(
+        escapeLoneSurrogates: Boolean = false,
+        edit: (ExportDocument) -> ExportDocument,
+    ): ImportProgress {
         val text = StringBuilder()
         export(ExportSink { text.append(it) }, APP_VERSION).toList()
         val document = (ExportFormat.decode(source(text.toString())) as ExportFormat.Decoded.Success).document
         val edited = json.encodeToString(ExportDocument.serializer(), edit(document))
-        return import(source(edited)).toList().last()
+        return import(source(if (escapeLoneSurrogates) edited.escapingLoneSurrogates() else edited)).toList().last()
     }
+
+    /** This text with each unpaired surrogate written as a JSON `\u` escape. */
+    private fun String.escapingLoneSurrogates(): String =
+        buildString {
+            this@escapingLoneSurrogates.forEachIndexed { index, char ->
+                val paired = when {
+                    char.isHighSurrogate() -> this@escapingLoneSurrogates.getOrNull(index + 1)?.isLowSurrogate() == true
+                    char.isLowSurrogate() -> this@escapingLoneSurrogates.getOrNull(index - 1)?.isHighSurrogate() == true
+                    else -> true
+                }
+                if (paired) append(char) else append("\\u%04x".format(char.code))
+            }
+        }
 
     private fun source(text: String) = ImportSource { text.byteInputStream() }
 
@@ -490,6 +575,14 @@ class HostileBackupTest : RoomTestBase() {
 
         /** More than half of `Long.MAX_VALUE`: any two of these overflow an integer sum. */
         const val HUGE = 5_000_000_000_000_000_000L
+
+        /**
+         * An unpaired high surrogate before `A` (U+0041) and before `с` (U+0441). SQLite's UTF-16
+         * reader pairs the surrogate with whatever follows it and keeps that character's low ten
+         * bits, and the two share them: both come out as U+10041.
+         */
+        const val LONE_SURROGATE_A = "\uD800A"
+        const val LONE_SURROGATE_B = "\uD800\u0441"
 
         /** −10¹⁷ ms, three million years before the epoch: the issue's own example. */
         const val ANCIENT = -100_000_000_000_000_000L

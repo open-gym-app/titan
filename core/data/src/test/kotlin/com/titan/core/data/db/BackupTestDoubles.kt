@@ -11,6 +11,7 @@ import com.titan.core.domain.model.TrainingGoal
 import com.titan.core.domain.model.UnitSystem
 import com.titan.core.domain.model.UserPreferences
 import com.titan.core.domain.notification.NotificationKind
+import com.titan.core.domain.notification.ReminderScheduler
 import com.titan.core.domain.plate.PlateInventory
 import com.titan.core.domain.repository.AutoBackupRepository
 import com.titan.core.domain.repository.InProgressSessionRepository
@@ -178,4 +179,21 @@ class CountingTemplateDraftRepository : TemplateDraftRepository {
         clearCount++
         draft = null
     }
+}
+
+/**
+ * The reminder alarms, as a count of how often a restore asked for them to be re-synced.
+ *
+ * Whether `sync` schedules the right alarms is `AndroidReminderSchedulerTest`'s question; a
+ * restore owes only that it asks once the settings have been replaced.
+ */
+class RecordingReminderScheduler : ReminderScheduler {
+    var syncs = 0
+        private set
+
+    override suspend fun sync() {
+        syncs++
+    }
+
+    override fun isExact(): Boolean = true
 }

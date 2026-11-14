@@ -166,6 +166,7 @@ fun BackupScreen(
     if (state.pendingRestoreUri != null || state.phase.isRestoring) {
         RestoreConfirmationDialog(
             footprint = state.footprint,
+            documentName = state.pendingRestoreName,
             isRestoring = state.phase.isRestoring,
             onConfirm = { onEvent(BackupEvent.RestoreConfirmed) },
             onDismiss = { onEvent(BackupEvent.RestoreDismissed) },
@@ -694,6 +695,7 @@ fun BackupScreenRestoreConfirmationPreview() {
             state = BackupUiState(
                 footprint = SAMPLE_FOOTPRINT,
                 pendingRestoreUri = "content://downloads/titan-backup.json",
+                pendingRestoreName = "titan-backup-2026-09-06-1432.json",
             ),
             onEvent = {},
             onBack = {},

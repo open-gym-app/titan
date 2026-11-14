@@ -1,6 +1,7 @@
 package com.titan.core.domain.usecase
 
 import app.cash.turbine.test
+import com.titan.core.domain.backup.BackupLock
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ExportSink
 import com.titan.core.domain.backup.asSource
@@ -12,9 +13,13 @@ import com.titan.core.domain.backup.samplePreferences
 import com.titan.core.domain.backup.toPayload
 import com.titan.core.domain.model.ThemePreference
 import com.titan.core.domain.model.UnitSystem
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,6 +34,9 @@ class ExportUseCaseTest {
     private val backup = FakeBackupRepository(stored)
     private val preferences = FakeUserPreferencesRepository()
     private val clock = MutableClock(now = EXPORTED_AT)
+
+    /** This class's own lock, so a test holding it blocks only the exporter it built. */
+    private val lock = BackupLock()
 
     @Test
     fun `the document written is the database, stamped with the clock and the build`() =
@@ -172,6 +180,49 @@ class ExportUseCaseTest {
             assertEquals(small.toString(), large.toString())
         }
 
+    /**
+     * Pages are separate queries; a write between two of them would be in some and not others.
+     * Every count and every page is read inside the one read transaction, so the file is one
+     * state of the database (#257).
+     */
+    @Test
+    fun `every read happens inside one read transaction`() =
+        runTest {
+            exporter(pageSize = 1).invoke(ExportSink { }, APP_VERSION).toList()
+
+            assertTrue("the export should have paged", backup.pageRequests.size > BackupTable.entries.size)
+            assertEquals(0, backup.readsOutsideTransaction)
+        }
+
+    /**
+     * A restore or a delete-all holding [BackupLock] keeps the export out until it has finished
+     * its rows *and* its settings — the weekly backup included, which runs this same use case
+     * (#257).
+     */
+    @Test
+    fun `an export waits for whatever holds the backup lock`() =
+        runTest {
+            val holding = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val holder = launch {
+                lock.exclusively {
+                    holding.complete(Unit)
+                    release.await()
+                }
+            }
+            holding.await()
+
+            val export = async { exporter().invoke(ExportSink { }, APP_VERSION).toList() }
+            repeat(YIELDS) { yield() }
+
+            assertTrue("nothing may be read while the lock is held", backup.pageRequests.isEmpty())
+
+            release.complete(Unit)
+            holder.join()
+
+            assertTrue(export.await().last() is ExportProgress.Complete)
+        }
+
     @Test
     fun `a page size of zero is refused at construction`() {
         val failure = runCatching { exporter(pageSize = 0) }.exceptionOrNull()
@@ -187,6 +238,7 @@ class ExportUseCaseTest {
         userPreferencesRepository = preferences,
         clock = clock,
         pageSize = pageSize,
+        lock = lock,
     )
 
     private fun emptyDocument() =
@@ -195,5 +247,8 @@ class ExportUseCaseTest {
     private companion object {
         const val EXPORTED_AT = 1_788_686_970_491L
         const val APP_VERSION = "1.0-debug"
+
+        /** More than the handful of suspension points between an export starting and its first read. */
+        const val YIELDS = 50
     }
 }

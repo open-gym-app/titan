@@ -83,6 +83,7 @@ class BackupIdempotencyTest : RoomTestBase() {
             inProgressSessionRepository = CountingInProgressSessionRepository(),
             templateDraftRepository = CountingTemplateDraftRepository(),
             sessionStateRepository = SessionStateRepositoryImpl(),
+            reminderScheduler = RecordingReminderScheduler(),
         )
     }
 
