@@ -42,6 +42,12 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
     /** Run as [replaceAll] begins, before anything is written — to look at the world as it starts. */
     var onReplaceAll: (suspend () -> Unit)? = null
 
+    /**
+     * Run once the rows are stored, before [replaceAll] returns — where Room's commit hands
+     * control back to the caller through a `withContext` that checks for cancellation.
+     */
+    var onCommitted: (suspend () -> Unit)? = null
+
     override suspend fun rowCounts(): Map<BackupTable, Long> {
         if (!inReadTransaction) readsOutsideTransaction++
         return BackupTable.entries.associateWith { stored.rows(it).size.toLong() }
@@ -80,6 +86,7 @@ class FakeBackupRepository(var stored: ExportDocument) : BackupRepository {
         }
         stored = document
         replaced = document
+        onCommitted?.invoke()
     }
 
     /** One call to [readPage], as it was made. */

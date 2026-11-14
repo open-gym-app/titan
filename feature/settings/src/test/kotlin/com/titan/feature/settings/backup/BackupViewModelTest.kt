@@ -1,6 +1,7 @@
 package com.titan.feature.settings.backup
 
 import android.content.Context
+import android.content.pm.ProviderInfo
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelProvider
@@ -36,6 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import java.io.File
 
 /**
@@ -451,6 +453,29 @@ class BackupViewModelTest {
         }
 
     /**
+     * An authority outside the application id that the package manager still resolves to this
+     * app. Only the package manager can say so, and it is asked off the main thread, after the
+     * confirmation has opened — so the refusal arrives late, and still closes it.
+     */
+    @Test
+    fun `a provider of the app's own under another authority is refused`() =
+        runTest {
+            shadowOf(context.packageManager).addOrUpdateProvider(
+                ProviderInfo().apply {
+                    authority = ALIASED_AUTHORITY
+                    packageName = context.packageName
+                    name = "com.titan.AliasedProvider"
+                },
+            )
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.RestoreFileChosen("content://$ALIASED_AUTHORITY/backups/x.json"))
+
+            assertRefusedLocation(viewModel)
+        }
+
+    /**
      * The URI comes back from saved state as well as from the picker, so the restore checks it
      * again rather than trusting the check at the pick.
      */
@@ -520,6 +545,13 @@ class BackupViewModelTest {
     fun `direction overrides and control characters are dropped`() {
         assertEquals("titannosj.exe", displayableDocumentName("titan\u202Enosj.exe"))
         assertEquals("ab.json", displayableDocumentName("a\u0000b\n.json"))
+    }
+
+    /** U+E0041 is an invisible tag character, two `Char`s that a filter by `Char` keeps. */
+    @Test
+    fun `format characters outside the basic plane and lone surrogates are dropped`() {
+        assertEquals("ab.json", displayableDocumentName("a󠁁b\uD800.json"))
+        assertEquals("💪.json", displayableDocumentName("💪.json"))
     }
 
     @Test
@@ -758,6 +790,9 @@ class BackupViewModelTest {
         const val EXPORTED_AT = 1_788_697_774_000L
 
         const val SOME_URI = "content://downloads/titan-backup.json"
+
+        /** Not under the application id, for a provider the package manager says is this app's. */
+        const val ALIASED_AUTHORITY = "org.example.titan-alias"
 
         /** 2026-04-26, a day the auto-backup row can name. */
         const val LAST_BACKUP_AT = 1_777_161_600_000L

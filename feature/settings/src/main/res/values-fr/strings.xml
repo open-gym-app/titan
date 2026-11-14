@@ -202,9 +202,12 @@
     <string name="backup_error_malformed">Ce fichier n’est pas une sauvegarde Titan, ou il est endommagé. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_version">Cette sauvegarde a été écrite au format version %1$d et cette version de l’application lit la version %2$d. Mettez Titan à jour et réessayez. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_constraint">Cette sauvegarde est incohérente — elle fait référence à des séances qu’elle ne contient pas, ou contient des valeurs qu’aucune version de Titan n’écrit. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_constraint_live_state">Cette sauvegarde est incohérente — elle fait référence à des séances qu’elle ne contient pas, ou contient des valeurs qu’aucune version de Titan n’écrit. Votre historique et vos paramètres n’ont pas été modifiés, mais la séance ou le modèle que vous aviez ouvert a peut-être été fermé.</string>
     <string name="backup_error_io">La sauvegarde n’a pas pu être lue. Rien n’a été modifié sur cet appareil.</string>
+    <string name="backup_error_live_state">Cette sauvegarde n’a pas été restaurée : la séance ou le modèle que vous aviez ouvert n’a pas pu être fermé d’abord. Votre historique et vos paramètres n’ont pas été modifiés, mais cette séance ou ce modèle a peut-être été fermé.</string>
     <string name="backup_error_too_large">Ce fichier est plus volumineux que n’importe quelle sauvegarde Titan (plus de %1$s) : il n’a pas été lu. Rien n’a été modifié sur cet appareil.</string>
     <string name="backup_error_settings">%1$d lignes restaurées, mais vos paramètres n’ont pas pu être enregistrés et sont peut-être revenus à leurs valeurs par défaut. Vérifiez-les dans les Paramètres.</string>
+    <string name="backup_error_reminders">%1$d lignes et vos paramètres restaurés, mais votre rappel d’entraînement n’a pas pu être mis à jour en conséquence. Vérifiez-le dans les Paramètres.</string>
 
     <string name="backup_dismiss">Fermer</string>
 

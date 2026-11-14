@@ -332,31 +332,34 @@ class BackupViewModel @Inject constructor(
     }
 
     /**
-     * Holds [uri] for the confirmation, or refuses it outright if it is not somewhere a backup
-     * can come from — see [isRestorable].
+     * Holds [uri] for the confirmation, or refuses it if it is not somewhere a backup can come
+     * from — see [isRestorable].
      *
      * The URI is held at once, so a confirmation that arrives straight after the pick finds it.
-     * The document's name follows when the provider has answered: asking is a call into another
-     * app's process, which does not belong on the main thread, and the dialog draws without it
-     * until then.
+     * Everything that has to ask another process follows on `Dispatchers.IO`: the package
+     * manager, for whether this app serves the authority, and the provider, for the document's
+     * name. Neither belongs on the main thread, and the dialog draws without the name until
+     * then. What can be decided from the URI's text alone — a `file://` path, an authority under
+     * the application id — is refused here before the dialog ever opens.
+     *
+     * A confirmation that lands before the package manager has answered is not a way past it:
+     * [documentAt] runs the whole check again before anything is read.
      */
     private fun choose(uri: String) {
         val document = Uri.parse(uri)
-        if (!isRestorable(document)) {
-            screenState.update {
-                it.copy(
-                    pendingRestoreUri = null,
-                    pendingRestoreName = null,
-                    lastExport = null,
-                    lastRestore = RestoreOutcome.Failed(ImportError.IoFailure(refusedLocation(uri))),
-                    lastSave = null,
-                )
-            }
+        if (!isRestorableByName(document)) {
+            screenState.update { it.refusing(uri) }
             return
         }
         screenState.update { it.copy(pendingRestoreUri = uri, pendingRestoreName = null) }
 
         viewModelScope.launch {
+            if (withContext(Dispatchers.IO) { isServedByThisApp(document) }) {
+                // Only the pick it was asked about, and only while it is still waiting for the
+                // user: once confirmed, [documentAt] refuses it on its own.
+                screenState.update { if (it.pendingRestoreUri == uri) it.refusing(uri) else it }
+                return@launch
+            }
             // Broad for the reason every read of a picked document is: a provider can fail in
             // ways `IOException` does not cover, and a name the dialog cannot show costs the
             // line naming the file and nothing else.
@@ -369,6 +372,16 @@ class BackupViewModel @Inject constructor(
             screenState.update { if (it.pendingRestoreUri == uri) it.copy(pendingRestoreName = name) else it }
         }
     }
+
+    /** This state with [uri] refused as a place to restore from, and no confirmation open. */
+    private fun ScreenState.refusing(uri: String) =
+        copy(
+            pendingRestoreUri = null,
+            pendingRestoreName = null,
+            lastExport = null,
+            lastRestore = RestoreOutcome.Failed(ImportError.IoFailure(refusedLocation(uri))),
+            lastSave = null,
+        )
 
     /**
      * Whether [document] is a place a restore may read from: a `content://` URI that another
@@ -386,17 +399,38 @@ class BackupViewModel @Inject constructor(
      *   application id, which is how all of them are declared, and anything the package
      *   manager resolves to this package besides.
      *
+     * The second half asks the package manager, a call into the system process, so this is
+     * for `Dispatchers.IO`; [choose] runs its two halves apart for that reason.
+     */
+    private fun isRestorable(document: Uri): Boolean = isRestorableByName(document) && !isServedByThisApp(document)
+
+    /**
+     * The half of [isRestorable] the URI's text decides: a `content://` scheme and an authority
+     * that is not under the application id.
+     *
      * The authority is compared without the `<user>@` prefix a cross-profile content URI
      * carries, which would otherwise hide the app's own name behind a number.
      */
-    private fun isRestorable(document: Uri): Boolean {
+    private fun isRestorableByName(document: Uri): Boolean {
         if (document.scheme != ContentResolver.SCHEME_CONTENT) return false
-        val authority = document.authority?.substringAfterLast('@')?.takeIf { it.isNotEmpty() } ?: return false
+        val authority = authorityOf(document) ?: return false
         val own = context.packageName
-        if (authority == own || authority.startsWith("$own.")) return false
-        val provider = runCatching { context.packageManager.resolveContentProvider(authority, 0) }.getOrNull()
-        return provider?.packageName != own
+        return authority != own && !authority.startsWith("$own.")
     }
+
+    /**
+     * The half of [isRestorable] only the package manager can answer: whether the provider
+     * behind [document]'s authority belongs to this app. A binder call; never on Main.
+     */
+    private fun isServedByThisApp(document: Uri): Boolean {
+        val authority = authorityOf(document) ?: return false
+        val provider = runCatching { context.packageManager.resolveContentProvider(authority, 0) }.getOrNull()
+        return provider?.packageName == context.packageName
+    }
+
+    /** [document]'s authority without a cross-profile `<user>@` prefix, or null if it has none. */
+    private fun authorityOf(document: Uri): String? =
+        document.authority?.substringAfterLast('@')?.takeIf { it.isNotEmpty() }
 
     /**
      * What the provider calls [document], made safe to draw — or its last path segment if the
@@ -427,7 +461,8 @@ class BackupViewModel @Inject constructor(
             it.copy(
                 phase = BackupPhase.Validating,
                 pendingRestoreUri = null,
-                pendingRestoreName = null,
+                // Kept while the restore runs: the dialog stays up, inert, until it is over, and
+                // it goes on naming the file it is replacing everything with.
                 lastExport = null,
                 lastRestore = null,
                 lastSave = null,
@@ -452,7 +487,7 @@ class BackupViewModel @Inject constructor(
                 if (failure is CancellationException) throw failure
                 RestoreOutcome.Failed(ImportError.IoFailure(failure.message.orEmpty()))
             }
-            screenState.update { it.copy(phase = BackupPhase.Idle, lastRestore = outcome) }
+            screenState.update { it.copy(phase = BackupPhase.Idle, pendingRestoreName = null, lastRestore = outcome) }
         }
     }
 
@@ -597,9 +632,14 @@ class BackupViewModel @Inject constructor(
  * the warning off a dialog that has to be read. The cut never splits a surrogate pair.
  */
 internal fun displayableDocumentName(name: String?): String? {
-    val visible = name.orEmpty()
-        .filterNot { Character.getType(it).toByte() in HIDDEN_CHARACTER_TYPES }
-        .trim()
+    // By code point rather than by `Char`: the format characters outside the Basic Multilingual
+    // Plane — the invisible tag characters among them — are two `Char`s that each read as a
+    // surrogate, and an unpaired surrogate is itself one of the characters that draws wrong.
+    val visible = buildString {
+        name.orEmpty().codePoints().forEach { codePoint ->
+            if (Character.getType(codePoint).toByte() !in HIDDEN_CHARACTER_TYPES) appendCodePoint(codePoint)
+        }
+    }.trim()
     return when {
         visible.isEmpty() -> null
         visible.length <= MAX_DOCUMENT_NAME_LENGTH -> visible
@@ -615,12 +655,16 @@ internal const val MAX_DOCUMENT_NAME_LENGTH = 80
 
 private const val ELLIPSIS = "…"
 
-/** Control, format and the two separators: characters that draw nothing, or draw something else. */
+/**
+ * Control, format, the two separators and unpaired surrogates: characters that draw nothing, or
+ * draw something else.
+ */
 private val HIDDEN_CHARACTER_TYPES = setOf(
     Character.CONTROL,
     Character.FORMAT,
     Character.LINE_SEPARATOR,
     Character.PARAGRAPH_SEPARATOR,
+    Character.SURROGATE,
 )
 
 /**

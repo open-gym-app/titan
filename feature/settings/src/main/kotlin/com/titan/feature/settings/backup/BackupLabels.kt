@@ -16,7 +16,7 @@ import java.time.YearMonth
 import java.time.ZoneId
 
 /*
- * How the backup screen's values read: the six refusals, the two figures and the date.
+ * How the backup screen's values read: the eight refusals, the two figures and the date.
  *
  * Together in one file because they are one job — turning a domain value into words — and
  * because `BackupScreen.kt` is a screen rather than a phrasebook.
@@ -28,7 +28,7 @@ import java.time.ZoneId
  * A `when` over the sealed [ImportError] rather than a mapping table, so a seventh failure
  * added to the domain does not compile until somebody has decided what it reads as. That is
  * the whole reason `RestoreOutcome.Failed` carries the domain's own type instead of a message
- * enum: "import failed" for six different causes is not an error state, and three of the six
+ * enum: "import failed" for eight different causes is not an error state, and four of the eight
  * carry numbers the user needs to see.
  *
  * None of them quotes the technical detail the error also carries — a parser offset, a column
@@ -36,9 +36,13 @@ import java.time.ZoneId
  * their backup has just been refused; the reasons are still on the error object for whoever
  * logs it.
  *
- * Every message but one says the device was **not** changed. The exception is
- * `ImportError.SettingsNotRestored`, the one failure that leaves work done — the rows restored
- * and the settings not — and it says exactly that, rather than either promise.
+ * Five of the messages say the device was **not** changed — the constraint violation only when
+ * the validator caught it; one SQLite refused came after the open workout was closed, and says
+ * that instead. The other three are the failures that leave something changed, and each says
+ * exactly what rather than either promise:
+ * `ImportError.LiveStateNotCleared` restored nothing but may have closed the workout or template
+ * the user had open, `ImportError.SettingsNotRestored` restored the rows and not the settings,
+ * and `ImportError.RemindersNotRescheduled` restored both and could not re-arm the reminder.
  */
 @Composable
 internal fun ImportError.message(): String =
@@ -53,11 +57,17 @@ internal fun ImportError.message(): String =
         is ImportError.UnsupportedSchemaVersion ->
             stringResource(R.string.backup_error_version, found, supported)
 
-        is ImportError.ConstraintViolation -> stringResource(R.string.backup_error_constraint)
+        is ImportError.ConstraintViolation -> stringResource(
+            if (liveStateCleared) R.string.backup_error_constraint_live_state else R.string.backup_error_constraint,
+        )
 
         is ImportError.IoFailure -> stringResource(R.string.backup_error_io)
 
+        is ImportError.LiveStateNotCleared -> stringResource(R.string.backup_error_live_state)
+
         is ImportError.SettingsNotRestored -> stringResource(R.string.backup_error_settings, rowsRestored)
+
+        is ImportError.RemindersNotRescheduled -> stringResource(R.string.backup_error_reminders, rowsRestored)
     }
 
 /**

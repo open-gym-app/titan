@@ -327,6 +327,23 @@ class BackupScreenTest {
     }
 
     /**
+     * SQLite refused it inside the transaction, after the open workout was closed: the rows are
+     * untouched, the workout may not be, so this does not promise that nothing changed.
+     */
+    @Test
+    fun `a constraint violation found by SQLite says the open workout may have closed`() {
+        setContent(
+            lastRestore = RestoreOutcome.Failed(
+                ImportError.ConstraintViolation("UNIQUE constraint failed: tag.name", liveStateCleared = true),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("contradicts itself", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("may have been closed", substring = true).assertIsDisplayed()
+        assertPromisesNothing()
+    }
+
+    /**
      * A file that could not be read was never applied — the rows are replaced only after it has
      * been read whole — so this one promises, like the others (#257). It used to hedge, because
      * it also stood for a settings write that failed after the rows; that has its own message.
@@ -351,7 +368,20 @@ class BackupScreenTest {
         assertSaysNothingChanged()
     }
 
-    /** The one failure that changed something, and the only one that does not promise otherwise. */
+    /**
+     * Nothing was restored, but the workout that was open may have been ended on the way — so
+     * this says both, and does not make the promise the clean refusals make.
+     */
+    @Test
+    fun `live state that could not be cleared says what may have closed`() {
+        setContent(lastRestore = RestoreOutcome.Failed(ImportError.LiveStateNotCleared("draft file is read-only")))
+
+        composeTestRule.onNodeWithText("was not restored", substring = true).performScrollTo().assertIsDisplayed()
+        composeTestRule.onNodeWithText("may have been closed", substring = true).assertIsDisplayed()
+        assertPromisesNothing()
+    }
+
+    /** One of the failures that changed something, and does not promise otherwise. */
     @Test
     fun `settings that did not land say the rows did, and promise nothing else`() {
         setContent(
@@ -362,10 +392,23 @@ class BackupScreenTest {
 
         composeTestRule.onNodeWithText("Restored 52180 rows", substring = true).performScrollTo().assertIsDisplayed()
         composeTestRule.onNodeWithText("settings could not be saved", substring = true).assertIsDisplayed()
-        val promises = composeTestRule
-            .onAllNodesWithText("Nothing on this device was changed", substring = true)
-            .fetchSemanticsNodes()
-        assertTrue("this failure must not claim the device is untouched", promises.isEmpty())
+        assertPromisesNothing()
+    }
+
+    /** The settings landed, so this blames the reminder alone and not them. */
+    @Test
+    fun `reminders that could not be rescheduled say the settings were restored`() {
+        setContent(
+            lastRestore = RestoreOutcome.Failed(
+                ImportError.RemindersNotRescheduled(rowsRestored = 52_180, reason = "alarm manager unavailable"),
+            ),
+        )
+
+        composeTestRule.onNodeWithText("Restored 52180 rows and your settings", substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        composeTestRule.onNodeWithText("reminder could not be updated", substring = true).assertIsDisplayed()
+        assertPromisesNothing()
     }
 
     /** A failed restore leaves the screen usable: both actions come back. */
@@ -505,6 +548,14 @@ class BackupScreenTest {
 
     private fun assertSaysNothingChanged() {
         composeTestRule.onNodeWithText("Nothing on this device was changed", substring = true).assertIsDisplayed()
+    }
+
+    /** For the failures that left something changed: none of them may claim the device is untouched. */
+    private fun assertPromisesNothing() {
+        val promises = composeTestRule
+            .onAllNodesWithText("Nothing on this device was changed", substring = true)
+            .fetchSemanticsNodes()
+        assertTrue("this failure must not claim the device is untouched", promises.isEmpty())
     }
 
     private fun setContent(

@@ -202,9 +202,12 @@
     <string name="backup_error_malformed">Ese archivo no es una copia de seguridad de Titan, o está dañado. No se cambió nada en este dispositivo.</string>
     <string name="backup_error_version">Esa copia se escribió con la versión %1$d del formato y esta versión lee la %2$d. Actualiza Titan e inténtalo de nuevo. No se cambió nada en este dispositivo.</string>
     <string name="backup_error_constraint">Esa copia es incoherente: hace referencia a entrenamientos que no contiene o tiene valores que ninguna versión de Titan escribe. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_constraint_live_state">Esa copia es incoherente: hace referencia a entrenamientos que no contiene o tiene valores que ninguna versión de Titan escribe. Tu historial y tus ajustes no cambiaron, pero el entrenamiento o la plantilla que tenías abierto puede haberse cerrado.</string>
     <string name="backup_error_io">No se pudo leer la copia de seguridad. No se cambió nada en este dispositivo.</string>
+    <string name="backup_error_live_state">No se restauró esa copia: no se pudo cerrar antes el entrenamiento o la plantilla que tenías abierto. Tu historial y tus ajustes no cambiaron, pero ese entrenamiento o esa plantilla puede haberse cerrado.</string>
     <string name="backup_error_too_large">Ese archivo es más grande que cualquier copia de seguridad de Titan (más de %1$s), así que no se leyó. No se cambió nada en este dispositivo.</string>
     <string name="backup_error_settings">Se restauraron %1$d filas, pero no se pudieron guardar tus ajustes y puede que hayan vuelto a sus valores predeterminados. Revísalos en Ajustes.</string>
+    <string name="backup_error_reminders">Se restauraron %1$d filas y tus ajustes, pero no se pudo actualizar tu recordatorio de entrenamiento para que coincida. Revísalo en Ajustes.</string>
 
     <string name="backup_dismiss">Cerrar</string>
 

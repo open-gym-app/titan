@@ -27,6 +27,7 @@ import com.titan.core.domain.repository.FakeInProgressSessionRepository
 import com.titan.core.domain.repository.FakeTemplateDraftRepository
 import com.titan.core.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -51,9 +52,10 @@ import kotlin.time.Duration.Companion.seconds
  * What an import does, and — for every way it can be refused — what it leaves behind.
  *
  * The contract this leans on hardest is that a refusal means *nothing happened*. Five of the
- * six [ImportError]s are decided before the database is touched at all, so the assertions
+ * eight [ImportError]s are decided before the database is touched at all, so the assertions
  * below are that the repository was never called rather than that it rolled back: a rollback
- * that has to be trusted is a rollback nobody has tested.
+ * that has to be trusted is a rollback nobody has tested. The other three are the partial
+ * outcomes, and the tests for them pin what each one leaves behind.
  */
 class ImportUseCaseTest {
 
@@ -301,7 +303,9 @@ class ImportUseCaseTest {
             val emissions = importer().invoke(encode(sampleDocument())).toList()
 
             assertEquals(
-                ImportProgress.Failed(ImportError.ConstraintViolation("UNIQUE constraint failed: tag.name")),
+                ImportProgress.Failed(
+                    ImportError.ConstraintViolation("UNIQUE constraint failed: tag.name", liveStateCleared = true),
+                ),
                 emissions.last(),
             )
         }
@@ -370,6 +374,46 @@ class ImportUseCaseTest {
             assertEquals(1, reminders.syncs)
         }
 
+    /**
+     * The settings landed and only the alarms did not, so the settings are not what failed: a
+     * screen told `SettingsNotRestored` here would send the user to fix settings that are
+     * already the file's.
+     */
+    @Test
+    fun `an alarm sync that fails on its own is reported as reminders not rescheduled`() =
+        runTest {
+            reminders.failure = IllegalStateException("alarm manager unavailable")
+            val document = sampleDocument()
+
+            val emissions = importer().invoke(encode(document)).toList()
+
+            assertEquals(
+                ImportProgress.Failed(
+                    ImportError.RemindersNotRescheduled(
+                        rowsRestored = document.rowCount,
+                        reason = "alarm manager unavailable",
+                    ),
+                ),
+                emissions.last(),
+            )
+            assertEquals(document, backup.replaced)
+        }
+
+    /** When both fail, the settings are what the user has to go and put right. */
+    @Test
+    fun `a settings failure is reported over an alarm sync failure`() =
+        runTest {
+            preferences.failure = IOException("read-only filesystem")
+            reminders.failure = IllegalStateException("alarm manager unavailable")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertTrue(
+                "expected SettingsNotRestored, was ${emissions.last()}",
+                failure(emissions) is ImportError.SettingsNotRestored,
+            )
+        }
+
     @Test
     fun `a refused document re-syncs nothing`() =
         runTest {
@@ -401,6 +445,29 @@ class ImportUseCaseTest {
             assertNull("the rows should have rolled back", backup.replaced)
             assertEquals(1, draft.clearCount)
             assertEquals(SessionState.Idle, sessionState.current)
+        }
+
+    /**
+     * The session state is reset before the drafts, so a draft store that fails has already
+     * ended the live workout. `IoFailure` would tell the user nothing on the device changed;
+     * this is its own error, and the restore stops before the transaction opens.
+     */
+    @Test
+    fun `a draft that cannot be cleared stops the restore before the rows`() =
+        runTest {
+            draft.clearFailure = IOException("draft file is read-only")
+
+            val emissions = importer().invoke(encode(sampleDocument())).toList()
+
+            assertEquals(
+                ImportProgress.Failed(ImportError.LiveStateNotCleared("draft file is read-only")),
+                emissions.last(),
+            )
+            assertNull("the database should not have been touched", backup.replaced)
+            assertEquals(SessionState.Idle, sessionState.current)
+            assertEquals("the template draft is cleared after the workout draft", 0, templateDraft.clearCount)
+            assertTrue("the settings should not have been touched: $timeline", timeline.isEmpty())
+            assertEquals(0, reminders.syncs)
         }
 
     /**
@@ -508,6 +575,29 @@ class ImportUseCaseTest {
         }
 
     /**
+     * The narrower window of the same promise: a cancellation that arrives as the transaction
+     * commits. Room hands the commit back through a `withContext`, which answers a cancelled
+     * caller with a `CancellationException` even though the rows are in; `yield` stands in for
+     * that check here.
+     */
+    @Test
+    fun `the settings are applied even if the restore is cancelled as the rows commit`() =
+        runTest {
+            lateinit var restore: Job
+            backup.onCommitted = {
+                restore.cancel()
+                yield()
+            }
+
+            restore = launch { importer().invoke(encode(sampleDocument())).toList() }
+            restore.join()
+
+            assertEquals(sampleDocument(), backup.replaced)
+            assertTrue("every setter should have run: $timeline", "setOnboardingCompleted" in timeline)
+            assertEquals(1, reminders.syncs)
+        }
+
+    /**
      * The other half of [ImportError.IoFailure]: a file that cannot be read at all.
      *
      * Reported like the settings failure and unlike it in what it leaves behind — the document
@@ -600,9 +690,13 @@ private class TimelineReminderScheduler(private val timeline: MutableList<String
     var syncs = 0
         private set
 
+    /** Thrown by [sync] after it is counted, when set: the alarms that could not be re-armed. */
+    var failure: Throwable? = null
+
     override suspend fun sync() {
         syncs++
         timeline += SYNC
+        failure?.let { throw it }
     }
 
     override fun isExact(): Boolean = true

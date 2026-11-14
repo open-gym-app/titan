@@ -211,14 +211,18 @@
 
     <!--
       One message per ImportError. Each says what went wrong and, for the five that guarantee
-      it, that nothing on the device was touched — see BackupLabels.kt.
+      it, that nothing on the device was touched; the other three say what was — see
+      BackupLabels.kt.
     -->
     <string name="backup_error_malformed">That file is not a Titan backup, or it is damaged. Nothing on this device was changed.</string>
     <string name="backup_error_version">That backup was written at format version %1$d and this build reads version %2$d. Update Titan and try again. Nothing on this device was changed.</string>
     <string name="backup_error_constraint">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Nothing on this device was changed.</string>
+    <string name="backup_error_constraint_live_state">That backup contradicts itself — it refers to workouts it does not contain, or holds values no version of Titan writes. Your history and settings were not changed, but the workout or template you had open may have been closed.</string>
     <string name="backup_error_io">The backup could not be read. Nothing on this device was changed.</string>
+    <string name="backup_error_live_state">That backup was not restored: the workout or template you had open could not be closed first. Your history and settings were not changed, but that workout or template may have been closed.</string>
     <string name="backup_error_too_large">That file is larger than any Titan backup (over %1$s), so it was not read. Nothing on this device was changed.</string>
     <string name="backup_error_settings">Restored %1$d rows, but your settings could not be saved and may be back at their defaults. Check them in Settings.</string>
+    <string name="backup_error_reminders">Restored %1$d rows and your settings, but your workout reminder could not be updated to match. Check it in Settings.</string>
 
     <string name="backup_dismiss">Dismiss</string>
 

@@ -65,7 +65,8 @@ import java.io.IOException
  *    costs a place and never a set — where clearing *after* the commit would leave a window in
  *    which a process death left a draft pointing into a database that had been replaced under
  *    it. The files cannot join the transaction, so one of the two windows has to exist, and
- *    this is the one that loses nothing logged.
+ *    this is the one that loses nothing logged. A draft store that cannot be cleared stops the
+ *    restore here, as [ImportError.LiveStateNotCleared].
  * 5. **Wipe and insert, in one transaction.** [BackupRepository.replaceAll] owns it. A failure
  *    anywhere in it rolls the whole thing back, so there is no state where the database is
  *    empty and the import has given up.
@@ -74,8 +75,9 @@ import java.io.IOException
  *    re-themes and re-formats once, at the end, rather than mid-write. Applying them starts
  *    from [UserPreferencesRepository.clear], which turns the workout reminder off — the
  *    reminder is device state and not in the document — so [ReminderScheduler.sync] follows,
- *    or the phone would keep buzzing for a reminder its settings report as off. This step is
- *    not cancellable: the rows are already committed, and a restore abandoned between them and
+ *    or the phone would keep buzzing for a reminder its settings report as off — and a sync
+ *    that fails on its own is [ImportError.RemindersNotRescheduled], not a settings failure.
+ *    This step is not cancellable: the rows are already committed, and a restore abandoned between them and
  *    the settings is one nobody would be told about.
  *
  * ### Nothing escapes untyped
@@ -155,32 +157,59 @@ class ImportUseCase(
      * Clears the device's live state and replaces every table, answering with the failure that
      * stopped it or **null** once the transaction has committed.
      *
-     * The two `catch`es are the whole of what the layers below are allowed to throw:
-     * [BackupConstraintException] for a constraint [BackupValidator] did not model, and
-     * [IOException] for a draft store that could not be cleared. Anything else is a programming
-     * error and is deliberately left to propagate — a `catch (Throwable)` here would report a
-     * null-pointer bug to the user as a corrupt backup file. Every one of them leaves the rows
-     * as they were: the transaction has rolled back, or never opened.
+     * The wait for the session lock can be cancelled; what runs under it cannot. A cancelled
+     * collector still stops the write — its channel is closed, so the next progress `send`
+     * throws inside the transaction and rolls it back — but the commit itself returns through
+     * the repository's `withContext`, which would otherwise answer a caller cancelled at that
+     * moment with a [kotlinx.coroutines.CancellationException] *after* the rows were in. That
+     * is the one place a cancellation could skip the settings, so it is not allowed to land.
      */
-    private suspend fun ProducerScope<ImportProgress>.replace(document: ExportDocument): ImportProgress? {
+    private suspend fun ProducerScope<ImportProgress>.replace(document: ExportDocument): ImportProgress? =
+        sessionLock.withTransition {
+            withContext(NonCancellable) { forgetLiveState() ?: replaceRows(document) }
+        }
+
+    /**
+     * Ends the live session and discards both drafts, answering with the failure that stopped
+     * it or **null**.
+     *
+     * Its own [ImportError.LiveStateNotCleared] rather than [ImportError.IoFailure], whose
+     * sentence is "nothing was changed": the session state is reset before the drafts are
+     * cleared, so a draft store that fails has already watched the live workout end.
+     */
+    private suspend fun forgetLiveState(): ImportProgress? =
+        try {
+            sessionStateRepository.update(SessionState.Idle)
+            inProgressSessionRepository.clear()
+            templateDraftRepository.clear()
+            null
+        } catch (failure: IOException) {
+            ImportProgress.Failed(ImportError.LiveStateNotCleared(failure.message.orEmpty()))
+        }
+
+    /**
+     * Wipes and refills every table in one transaction, answering with the failure that rolled
+     * it back or **null** once it has committed.
+     *
+     * The one `catch` is the whole of what [BackupRepository.replaceAll] is allowed to throw: a
+     * [BackupConstraintException] for a constraint [BackupValidator] did not model. Anything
+     * else is a programming error and is deliberately left to propagate — a `catch (Throwable)`
+     * here would report a null-pointer bug to the user as a corrupt backup file.
+     */
+    private suspend fun ProducerScope<ImportProgress>.replaceRows(document: ExportDocument): ImportProgress? {
         val rowsTotal = document.rowCount
         return try {
-            sessionLock.withTransition {
-                sessionStateRepository.update(SessionState.Idle)
-                inProgressSessionRepository.clear()
-                templateDraftRepository.clear()
-                backupRepository.replaceAll(document) { table, rowsWritten ->
-                    // `send` rather than `emit`: this runs inside the database transaction, on
-                    // the dispatcher that owns it, and a plain flow would refuse a value
-                    // produced there.
-                    send(ImportProgress.Writing(table = table, rowsWritten = rowsWritten, rowsTotal = rowsTotal))
-                }
+            backupRepository.replaceAll(document) { table, rowsWritten ->
+                // `send` rather than `emit`: this runs inside the database transaction, on the
+                // dispatcher that owns it, and a plain flow would refuse a value produced there.
+                send(ImportProgress.Writing(table = table, rowsWritten = rowsWritten, rowsTotal = rowsTotal))
             }
             null
         } catch (failure: BackupConstraintException) {
-            ImportProgress.Failed(ImportError.ConstraintViolation(failure.message.orEmpty()))
-        } catch (failure: IOException) {
-            ImportProgress.Failed(ImportError.IoFailure(failure.message.orEmpty()))
+            // Only reachable after [forgetLiveState] has run, so the live state is gone.
+            ImportProgress.Failed(
+                ImportError.ConstraintViolation(failure.message.orEmpty(), liveStateCleared = true),
+            )
         }
     }
 
@@ -190,23 +219,30 @@ class ImportUseCase(
      *
      * Every failure here is caught, not only the [IOException] the store documents, and that
      * is the one place this class does it. By now the rows are in, so whatever went wrong the
-     * true sentence is the same — the history was restored and the settings were not — and
-     * letting an unexpected exception through would have the screen report the whole restore
-     * as a file that could not be read. Cancellation is the exception, as everywhere.
+     * true sentence is about what came after them, and letting an unexpected exception through
+     * would have the screen report the whole restore as a file that could not be read.
+     * Cancellation is the exception, as everywhere.
      *
      * The alarms are re-synced whether or not the settings landed: the reset before the setters
-     * may have, and the alarms follow what is stored now.
+     * may have, and the alarms follow what is stored now. A settings failure is reported over an
+     * alarms one, because it is the one the user has to go and put right; an alarms failure
+     * alone is its own error, since the settings it would otherwise blame are exactly the
+     * document's.
      */
     private suspend fun applySettings(document: ExportDocument): ImportProgress {
         val settingsFailure = attempt { restorePreferences(document.preferences) }
         val alarmsFailure = attempt { reminderScheduler.sync() }
-        val failure = settingsFailure ?: alarmsFailure
-        return if (failure == null) {
-            ImportProgress.Complete(rowsWritten = document.rowCount)
-        } else {
-            ImportProgress.Failed(
-                ImportError.SettingsNotRestored(rowsRestored = document.rowCount, reason = failure.message.orEmpty()),
+        val rows = document.rowCount
+        return when {
+            settingsFailure != null -> ImportProgress.Failed(
+                ImportError.SettingsNotRestored(rowsRestored = rows, reason = settingsFailure.message.orEmpty()),
             )
+
+            alarmsFailure != null -> ImportProgress.Failed(
+                ImportError.RemindersNotRescheduled(rowsRestored = rows, reason = alarmsFailure.message.orEmpty()),
+            )
+
+            else -> ImportProgress.Complete(rowsWritten = rows)
         }
     }
 
