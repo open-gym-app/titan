@@ -1,13 +1,7 @@
-import com.titan.buildlogic.AndroidSdk
 import com.titan.buildlogic.library
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.jvm.toolchain.JavaLanguageVersion
-import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.kotlin.dsl.dependencies
-import org.gradle.kotlin.dsl.getByType
-import org.gradle.kotlin.dsl.withType
 
 /**
  * `titan.android.hilt` — Hilt and the KSP processor that generates its components.
@@ -24,16 +18,8 @@ class AndroidHiltConventionPlugin : Plugin<Project> {
             pluginManager.apply("com.google.devtools.ksp")
             pluginManager.apply("com.google.dagger.hilt.android")
 
-            // Hilt aggregates its components through javac, which needs a real compiler
-            // rather than whichever JVM happens to be running Gradle.
-            val toolchains = extensions.getByType<JavaToolchainService>()
-            tasks.withType<JavaCompile>().configureEach {
-                javaCompiler.set(
-                    toolchains.compilerFor {
-                        languageVersion.set(JavaLanguageVersion.of(AndroidSdk.JVM_TOOLCHAIN))
-                    },
-                )
-            }
+            // Hilt aggregates its components through javac, which `titan.jvm.toolchain` (applied
+            // by `titan.android.library` above) points at the build's JDK.
 
             dependencies {
                 add("implementation", library("hilt-android"))

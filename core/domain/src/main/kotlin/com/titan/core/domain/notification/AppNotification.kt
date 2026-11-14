@@ -23,9 +23,11 @@ package com.titan.core.domain.notification
  *
  * @param kind what this is, which decides the channel it goes to, the preference that gates it
  *   and the id it takes.
- * @param title the first line.
+ * @param title the first line, and the only one a lock screen that hides sensitive content
+ *   shows. So it never carries the user's own words — an exercise, a workout's name, its
+ *   notes; those go in [body].
  * @param body the second. Long text is collapsed by the platform, so the first sentence has to
- *   carry the meaning on its own.
+ *   carry the meaning on its own. Hidden on a lock screen set to hide sensitive content.
  * @param tag distinguishes two live notifications of the same [kind]. Null for the usual case
  *   of one at a time.
  * @param ongoing the user cannot swipe it away, and it stays until the app cancels it. For a

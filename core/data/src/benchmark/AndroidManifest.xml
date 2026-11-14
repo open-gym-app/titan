@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
         <!--
@@ -14,14 +13,26 @@
           no permission on it is a way in, which is why this declaration lives in
           `src/benchmark` and not in `src/main` — no build a user can install merges it.
 
+          The permission is the second wall. The `benchmark` build type carries the shipping
+          applicationId and wipes the database for whoever calls it, so a benchmark build that
+          ever reaches a phone outside a lab would hand that to every app on it. A `signature`
+          permission is granted only to an APK signed with the same key, which on the machine
+          running the benchmark is the debug key both this build type and `:benchmark` are
+          signed with; `BenchmarkSeedProvider.call` checks it again itself.
+
           `${applicationId}` resolves against the *app's* id at merge time, so the authority
-          follows the build type's package the way every other component's does.
+          and the permission follow the build type's package the way every other component's
+          does. `:benchmark` requests the permission by its literal name.
         -->
         <provider
             android:name="com.titan.core.data.benchmark.BenchmarkSeedProvider"
             android:authorities="${applicationId}.benchmark.seed"
             android:exported="true"
-            tools:ignore="ExportedContentProvider" />
+            android:permission="${applicationId}.permission.BENCHMARK_SEED" />
     </application>
+
+    <permission
+        android:name="${applicationId}.permission.BENCHMARK_SEED"
+        android:protectionLevel="signature" />
 
 </manifest>

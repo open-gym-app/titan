@@ -1,4 +1,7 @@
 pluginManagement {
+    // The filtered google() the root build uses, for plugins and dependencies both.
+    apply(from = "../gradle/google.settings.gradle.kts")
+
     repositories {
         gradlePluginPortal()
     }
@@ -15,8 +18,8 @@ plugins {
 }
 
 dependencyResolutionManagement {
+    // Beside the filtered google() that ../gradle/google.settings.gradle.kts added above.
     repositories {
-        google()
         mavenCentral()
         gradlePluginPortal()
     }

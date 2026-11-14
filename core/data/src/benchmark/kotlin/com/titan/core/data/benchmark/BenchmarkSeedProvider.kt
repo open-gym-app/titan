@@ -37,6 +37,16 @@ import kotlinx.coroutines.runBlocking
  * manifest of a shipping build does not declare it. An exported provider that wipes the
  * database and writes a synthetic history is exactly what must never reach a user, and the
  * build type is what guarantees it cannot: there is no flag to get wrong at runtime.
+ *
+ * ### And only `:benchmark` may call it
+ *
+ * The build type keeps the shipping `applicationId`, so a benchmark build installed on a phone
+ * outside a lab would be this provider with nothing in front of it. The manifest guards it with
+ * a `signature` permission, which the system grants only to an APK signed with the same key —
+ * `:benchmark`, signed with the same debug key as this build type — and refuses to hand the
+ * provider to anybody else. [call] checks the permission again rather than lean on that:
+ * Android documents how a provider's permission guards its `query`, `insert`, `update` and
+ * `delete`, and this provider is nothing but `call`.
  */
 class BenchmarkSeedProvider : ContentProvider() {
 
@@ -63,9 +73,13 @@ class BenchmarkSeedProvider : ContentProvider() {
         arg: String?,
         extras: Bundle?,
     ): Bundle? {
+        val context = requireNotNull(context) { "BenchmarkSeedProvider was called before it was attached" }
+        context.enforceCallingPermission(
+            context.packageName + PERMISSION_SUFFIX,
+            "Only :benchmark, signed with this build's key, may seed the database",
+        )
         if (method != METHOD_SEED) return null
 
-        val context = requireNotNull(context) { "BenchmarkSeedProvider was called before it was attached" }
         val entryPoint = EntryPointAccessors.fromApplication(
             context.applicationContext,
             SeedEntryPoint::class.java,
@@ -123,6 +137,12 @@ class BenchmarkSeedProvider : ContentProvider() {
          * lives in a build type and the benchmark lives in a different APK.
          */
         const val AUTHORITY_SUFFIX = ".benchmark.seed"
+
+        /**
+         * The suffix of the `signature` permission a caller must hold, appended to the app's
+         * `applicationId` like [AUTHORITY_SUFFIX]. `:benchmark` requests it in its manifest.
+         */
+        const val PERMISSION_SUFFIX = ".permission.BENCHMARK_SEED"
 
         /** Seeds [HistoryScales.TARGET] and answers with [RESULT_SET_COUNT]. */
         const val METHOD_SEED = "seed"

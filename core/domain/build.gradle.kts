@@ -2,12 +2,8 @@ plugins {
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     jacoco
-}
-
-kotlin {
-    // A plain JVM library, so no convention plugin applies: keep in step with
-    // AndroidSdk.JVM_TOOLCHAIN in build-logic.
-    jvmToolchain(17)
+    // A plain JVM library, so none of the Android conventions apply; this one is the JDK.
+    id("titan.jvm.toolchain")
 }
 
 jacoco {

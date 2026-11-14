@@ -4,8 +4,10 @@ pluginManagement {
     // every module's build script cache.
     includeBuild("build-logic")
 
+    // Google's repository, filtered to Google's own groups, for plugins and dependencies both.
+    apply(from = "gradle/google.settings.gradle.kts")
+
     repositories {
-        google()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -16,8 +18,8 @@ plugins {
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // Beside the filtered google() that gradle/google.settings.gradle.kts added above.
     repositories {
-        google()
         mavenCentral()
     }
 }

@@ -46,6 +46,7 @@ modules use.
 
 | Plugin id | Applies |
 | --- | --- |
+| `titan.jvm.toolchain` | The JDK Kotlin and javac compile with: `jdk` from `jdkVendor` in the version catalog, which build-logic's own build script reads too |
 | `titan.android.library` | `com.android.library`, the SDK levels, the JVM toolchain, the shared `lint {}` block, and the JVM unit-test dependencies |
 | `titan.android.compose` | The Compose compiler plugin, `buildFeatures { compose = true }`, and the BOM-managed UI dependencies |
 | `titan.android.hilt` | Hilt and the KSP processor that generates its components |
@@ -71,8 +72,9 @@ android {
 `:app` and `:core:domain` are deliberately left out: `:app` is an application module with
 signing config and build variants that is not worth generalising for one consumer, and
 `:core:domain` is a plain Kotlin JVM library carrying a JaCoCo coverage floor no other
-module shares. Both therefore keep their own copy of the SDK levels and toolchain, and a
-bump has to be made in all three places — `:app` in particular is the module that ships.
+module shares. Both apply `titan.jvm.toolchain`, so the JDK is chosen in one place, but `:app`
+keeps its own copy of the SDK levels, and a bump has to be made in both places — `:app` in
+particular is the module that ships.
 
 `titan.android.benchmark` *is* a convention plugin for a single module, which the others
 avoid being. It exists anyway because what it configures is not a preference: a

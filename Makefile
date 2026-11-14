@@ -24,12 +24,14 @@ TALKBACK_SERVICES := com.google.android.marvin.talkback/com.google.android.marvi
 	com.samsung.android.accessibility.talkback/com.samsung.android.marvin.talkback.TalkBackService
 # The system font scale `a11y-font-scale` sets: the 2.0 the pass walks every screen at.
 SCALE ?= 2.0
+# Changes those settings on the phone, after saving what it had for `a11y-reset` to put back.
+A11Y_SETTINGS := ADB="$(ADB)" bash tools/a11y/settings.sh
 
 .DEFAULT_GOAL := help
 .PHONY: help seed seed-update seed-rehash seed-check seed-test seed-deps seed-clean translations-check issue-refs-check \
-	release-gate-check workflows-check test journeys screenshots screenshots-verify lint \
+	issue-refs-test release-gate-check workflows-check test journeys screenshots screenshots-verify lint \
 	demo-data store-screenshots \
-	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record
+	benchmark baseline-profile a11y-scan a11y-talkback a11y-font-scale a11y-reset a11y-record a11y-settings-test
 
 help: ## List the available targets
 	@grep -hE '^[a-z0-9-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -67,6 +69,9 @@ translations-check: ## Report every key missing from, or stray in, each module's
 # that pull request closes, to check a change for what it made untrue before it merges.
 issue-refs-check: ## Fail on prose that still waits on a closed issue ("until #30 lands")
 	$(PYTHON) $(ISSUE_REFS) $(if $(PR),--pr $(PR))
+
+issue-refs-test: ## Run the issue-refs checker's own tests (run in CI)
+	$(PYTHON) -m unittest discover -s tools/issue-refs -p 'test_*.py'
 
 # Builds a throwaway git repository under $TMPDIR and runs .github/scripts/release-gate.sh on
 # every case in it; CI runs it too. Needs bash and git, nothing else.
@@ -128,14 +133,14 @@ a11y-scan: ## Install the debug app, switch Accessibility Scanner on and open th
 		$(ADB) shell am start -a android.intent.action.VIEW -d "market://details?id=$(SCANNER_PACKAGE)" >/dev/null; \
 		exit 1; \
 	fi
-	@$(call enable-service,$(SCANNER_SERVICE))
+	@$(A11Y_SETTINGS) enable-service $(SCANNER_SERVICE)
 	$(ADB) shell monkey -p $(APP_ID) -c android.intent.category.LAUNCHER 1 >/dev/null
 	@echo "Scanner is on: tap its floating button on each of the twenty screens in docs/ACCESSIBILITY.md."
 
 a11y-talkback: ## Switch TalkBack on for the linear-navigation walk (a11y-reset turns it off again)
 	@for service in $(TALKBACK_SERVICES); do \
 		if $(ADB) shell pm list packages "$${service%%/*}" | grep -q "$${service%%/*}"; then \
-			$(call enable-service,$$service); \
+			$(A11Y_SETTINGS) enable-service "$$service" || exit 1; \
 			echo "TalkBack is on ($${service%%/*}). Swipe right to move, double-tap to activate; 'make a11y-reset' turns it off."; \
 			exit 0; \
 		fi; \
@@ -143,12 +148,14 @@ a11y-talkback: ## Switch TalkBack on for the linear-navigation walk (a11y-reset 
 	echo "No TalkBack on the device - install the Android Accessibility Suite from the Play Store."; exit 1
 
 a11y-font-scale: ## Set the system font scale (SCALE=2.0 by default) for the large-text walk
-	$(ADB) shell settings put system font_scale $(SCALE)
+	@$(A11Y_SETTINGS) font-scale $(SCALE)
 
-a11y-reset: ## Switch every accessibility service off and put the font scale back to 1.0
-	$(ADB) shell settings put secure enabled_accessibility_services '""'
-	$(ADB) shell settings put secure accessibility_enabled 0
-	$(ADB) shell settings put system font_scale 1.0
+a11y-reset: ## Put the accessibility services and font scale back to what they were before the pass
+	@$(A11Y_SETTINGS) reset $(SCANNER_SERVICE) $(TALKBACK_SERVICES)
+
+# The targets above, against a fake adb whose phone is a directory of files; CI runs it too.
+a11y-settings-test: ## Check that a11y-reset puts back the phone's own accessibility settings
+	bash tools/a11y/settings-test.sh
 
 # The four rows adb cannot read are passed as variables, each one optional:
 #   make a11y-record SCANNER_ERRORS="0 on all twenty" TALKBACK_WALK="..." FONT_SCALE="..." DEVIATIONS="none"
@@ -158,16 +165,3 @@ a11y-record: ## Write the device rows of the pass record in docs/ACCESSIBILITY.m
 		$(if $(TALKBACK_WALK),--talkback-walk "$(TALKBACK_WALK)") \
 		$(if $(FONT_SCALE),--font-scale "$(FONT_SCALE)") \
 		$(if $(DEVIATIONS),--deviations "$(DEVIATIONS)")
-
-# Adds one service to the colon-separated list Android keeps, rather than replacing the list:
-# switching the Scanner on must not switch TalkBack off, or the two halves of the pass cannot
-# be run together. `accessibility_enabled` is the master switch the list is read behind.
-define enable-service
-	current=$$($(ADB) shell settings get secure enabled_accessibility_services | tr -d '\r'); \
-	case "$$current" in \
-		*$(1)*) ;; \
-		null|"") $(ADB) shell settings put secure enabled_accessibility_services "$(1)" ;; \
-		*) $(ADB) shell settings put secure enabled_accessibility_services "$$current:$(1)" ;; \
-	esac; \
-	$(ADB) shell settings put secure accessibility_enabled 1
-endef

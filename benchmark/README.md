@@ -69,6 +69,9 @@ Results are printed to the console and written to
 - **"The app did not answer on content://app.titan.gym.benchmark.seed"** — the installed app
   is not the `benchmark` build type. `./gradlew :app:installBenchmark`, or just run the Gradle
   task above, which installs both APKs.
+- **"Permission Denial … requires app.titan.gym.permission.BENCHMARK_SEED"** — the two APKs
+  are signed with different keys, typically an app installed from another machine's build.
+  Uninstall it and run the Gradle task above, which builds and installs both from this one.
 - **"the sessions tab did not appear"** — the app opened on onboarding. The seeder marks
   onboarding complete, so this means the seeding call did not reach the app at all.
 - **Locked or dark screen** — Macrobenchmark needs the device awake and unlocked.

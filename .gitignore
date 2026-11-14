@@ -25,9 +25,18 @@ captures/
 .externalNativeBuild
 .cxx/
 
+# Signing and publishing keys: the upload keystore and its passwords, the Play service
+# account's JSON key (release/RELEASE.md), and the other containers a key arrives in.
 *.jks
 *.keystore
 keystore.properties
+*.p12
+*.pfx
+*.pem
+*.key
+*service-account*.json
+*service_account*.json
+play-*.json
 
 .DS_Store
 .kotlin/
@@ -37,3 +46,10 @@ tools/seed/.cache/
 
 # Bytecode from importing the Python tools, e.g. tools/seed/test_generate_seed.py
 __pycache__/
+
+# Local artefacts: a SonarQube scan's configuration and work directory, scratch files such as a
+# PR description drafted as tmp.<n>.md, and a launch-video tool's output directory.
+sonar-project.properties
+.scannerwork/
+tmp.*
+brag-output/

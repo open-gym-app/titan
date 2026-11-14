@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -158,6 +159,37 @@ def quoted(before: str) -> bool:
     return double % 2 == 1 or before.count("`") % 2 == 1
 
 
+# The bidirectional overrides, embeddings, isolates and marks: format characters, not
+# controls, but a terminal that lays text out right to left reorders the line around them, so
+# a title can show words in an order other than the one it holds.
+BIDI_CONTROLS = frozenset("\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+
+
+def printable(text: str, backslashes: bool = False) -> str:
+    """[text] with every control character spelled out as its escape, so that what reaches the
+    terminal is text and nothing else. An issue title is written by whoever opened the issue,
+    and the repository is public: a title holding ESC can clear the screen or recolour the
+    report, a CR can rewrite the line it is on, and a BEL rings. Category `Cc` is the C0 set,
+    DEL and the C1 set, which holds the single-byte CSI some terminals still honour; the
+    [BIDI_CONTROLS] go the same way, as `\\uNNNN`.
+
+    With [backslashes], a backslash is doubled too, so that a title holding the four characters
+    `\\x1b` does not print the same as one holding ESC. The repository's own paths and
+    sentences keep theirs as they are: they quote regexes and code, and doubling would garble
+    them."""
+    return "".join(escaped(char, backslashes) for char in text)
+
+
+def escaped(char: str, backslashes: bool) -> str:
+    if backslashes and char == "\\":
+        return "\\\\"
+    if unicodedata.category(char) == "Cc":
+        return f"\\x{ord(char):02x}"
+    if char in BIDI_CONTROLS:
+        return f"\\u{ord(char):04x}"
+    return char
+
+
 def token() -> str | None:
     for name in ("GITHUB_TOKEN", "GH_TOKEN"):
         if os.environ.get(name):
@@ -243,7 +275,7 @@ def main() -> int:
                 # Not an issue at all — a number that happens to follow a `#`. Nothing to hold.
                 states[issue] = ("missing", "")
     except (urllib.error.URLError, TimeoutError) as error:
-        print(f"Could not ask GitHub about issues: {error}", file=sys.stderr)
+        print(f"Could not ask GitHub about issues: {printable(str(error))}", file=sys.stderr)
         return 2
 
     stale = []
@@ -251,11 +283,15 @@ def main() -> int:
         state, title = states[ref.issue]
         if state == "closed" or ref.issue in closing:
             why = f"closed by this pull request (#{pr})" if ref.issue in closing and state != "closed" else "closed"
-            stale.append((ref, f"#{ref.issue} ({title}) is {why}, but this still waits on it"))
+            shown = printable(title, backslashes=True)
+            stale.append((ref, f"#{ref.issue} ({shown}) is {why}, but this still waits on it"))
 
+    # The title comes from GitHub, and the path and the sentence from a pull request's files:
+    # none of them is this script's to trust with the developer's terminal. The message is the
+    # script's own words around a title already made printable above.
     for ref, message in stale:
-        rel = ref.path.relative_to(ROOT)
-        print(f"{rel}:{ref.line}: {message}\n    {ref.sentence}")
+        rel = printable(str(ref.path.relative_to(ROOT)))
+        print(f"{rel}:{ref.line}: {message}\n    {printable(ref.sentence)}")
 
     pending = len({ref.issue for ref in references}) - len({ref.issue for ref, _ in stale})
     print(f"\n{len(stale)} stale reference(s); {pending} issue(s) still open and waited on.")

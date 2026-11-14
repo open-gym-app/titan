@@ -77,6 +77,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: make release-gate-check
 
+      # The issue-refs checker prints issue titles anyone can write; this holds it to printing
+      # their control characters as text, without a token or the network.
+      - name: Test the issue-refs checker
+        if: ${{ !cancelled() }}
+        run: make issue-refs-test
+
+      # The accessibility pass's device settings, against a fake adb: what a11y-reset puts back.
+      - name: Check the accessibility settings script
+        if: ${{ !cancelled() }}
+        run: make a11y-settings-test
+
   # Every check that needs the Gradle build, in one job so the debug variant compiles once.
   # Each check step runs under `!cancelled()`, so one failing check does not hide the others'
   # results, just as when they were separate jobs. The debug APK is the exception: it is

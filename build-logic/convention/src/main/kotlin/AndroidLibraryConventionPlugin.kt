@@ -5,7 +5,6 @@ import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.kotlin.dsl.dependencies
-import org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension
 
 /**
  * `titan.android.library` — the baseline every `:core:*` and `:feature:*` Android
@@ -45,9 +44,7 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 }
             }
 
-            extensions.configure<KotlinAndroidProjectExtension> {
-                jvmToolchain(AndroidSdk.JVM_TOOLCHAIN)
-            }
+            pluginManager.apply("titan.jvm.toolchain")
 
             dependencies {
                 add("testImplementation", library("junit"))

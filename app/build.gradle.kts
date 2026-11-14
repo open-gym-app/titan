@@ -1,6 +1,4 @@
 import java.util.Properties
-import org.gradle.api.tasks.compile.JavaCompile
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,6 +13,8 @@ plugins {
     // module's own dependency graph — which, as the composition root, is the whole app's.
     alias(libs.plugins.aboutlibraries)
     id("titan.android.jacoco")
+    // The JDK and vendor every module compiles with, for Kotlin and javac (which Hilt uses).
+    id("titan.jvm.toolchain")
 }
 
 private val keystoreProperties = Properties().also { props ->
@@ -213,10 +213,6 @@ android {
     }
 }
 
-kotlin {
-    jvmToolchain(17)
-}
-
 // The open source licences screen's data (#208), generated into `R.raw.aboutlibraries` as
 // part of this module's own Android build — the `.android` plugin variant registers that
 // automatically, so there is nothing to invoke by hand.
@@ -250,12 +246,6 @@ composeCompiler {
     stabilityConfigurationFiles.add(
         rootProject.layout.projectDirectory.file("config/compose/stability.conf"),
     )
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    javaCompiler.set(javaToolchains.compilerFor {
-        languageVersion.set(JavaLanguageVersion.of(17))
-    })
 }
 
 dependencies {

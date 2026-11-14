@@ -8,10 +8,11 @@ package com.titan.buildlogic
  * convention plugin at once, which is the point — a module that needs a different level is
  * a decision worth arguing in a PR, not a value worth making configurable.
  *
- * Two modules are *not* covered, because neither applies a convention plugin: `:app` sets
- * `compileSdk`/`minSdk`/`targetSdk` and its toolchain in `app/build.gradle.kts`, and
- * `:core:domain` sets its toolchain in `core/domain/build.gradle.kts`. A bump here is only
- * half a bump until those move too — and `:app` is the one that ships the APK.
+ * `:app` is *not* covered, because it applies none of the Android convention plugins: it sets
+ * `compileSdk`/`minSdk`/`targetSdk` in `app/build.gradle.kts`. A bump here is only half a bump
+ * until that moves too — and `:app` is the one that ships the APK. The JDK is not here at all:
+ * it is in the version catalog, where build-logic's own build script can read it too, and
+ * `titan.jvm.toolchain` applies it.
  */
 internal object AndroidSdk {
     const val COMPILE = 37
@@ -43,7 +44,4 @@ internal object AndroidSdk {
      * moves when Robolectric does, not when the compile level does.
      */
     const val ROBOLECTRIC = 34
-
-    /** The JDK every module compiles against. */
-    const val JVM_TOOLCHAIN = 17
 }
