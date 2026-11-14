@@ -7,6 +7,7 @@ import android.provider.OpenableColumns
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.titan.core.domain.backup.BackupDirectory
 import com.titan.core.domain.backup.ExportSink
 import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.backup.model.ImportError
@@ -87,6 +88,7 @@ import kotlin.time.Duration.Companion.seconds
 class BackupViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     @param:ApplicationContext private val context: Context,
+    private val backupDirectory: BackupDirectory,
     private val exportBackup: ExportUseCase,
     private val importBackup: ImportUseCase,
     private val setAutoBackupEnabled: SetAutoBackupEnabledUseCase,
@@ -199,10 +201,13 @@ class BackupViewModel @Inject constructor(
 
     /** The export itself: scratch file, stream, rename. Throws on any storage failure. */
     private suspend fun writeExport(appVersion: String): ExportOutcome {
-        val destination = File(backupDirectory(), fileName())
-        val scratch = File(destination.path + SCRATCH_SUFFIX)
+        val name = fileName()
 
         return withContext(Dispatchers.IO) {
+            // Resolved here rather than before the switch to IO: the first resolution in a
+            // process may move an older install's backups into place (see [BackupDirectory]).
+            val destination = File(backupDirectory.resolve(), name)
+            val scratch = File(destination.path + SCRATCH_SUFFIX)
             var rowsWritten = 0L
             runCatching {
                 scratch.parentFile?.mkdirs()
@@ -272,9 +277,10 @@ class BackupViewModel @Inject constructor(
      *
      * ### Why this exists at all
      *
-     * [backupDirectory] is app-specific external storage, which no file manager may browse on
-     * Android 11 and up, and the share sheet lists apps that *receive* a file rather than
-     * places to put one — on a stock device nothing in it offers "save to Downloads". So an
+     * [backupDirectory] is app-specific storage: internal storage below Android 11, which no
+     * file manager can browse at all, and the external files directory from it, which none
+     * may browse either. The share sheet lists apps that *receive* a file rather
+     * than places to put one — on a stock device nothing in it offers "save to Downloads". So an
      * export the user could not reach was the whole of what the feature delivered. The system
      * document picker is the way out, and it needs no permission: `WRITE_EXTERNAL_STORAGE` has
      * been a no-op since Android 10, and the URI arrives already writable.
@@ -298,7 +304,7 @@ class BackupViewModel @Inject constructor(
             // away between the pick and the write, a grant revoked — and all of them mean the
             // same "that did not work, choose somewhere else".
             val outcome = runCatching {
-                withContext(Dispatchers.IO) { copyInto(File(backupDirectory(), fileName), Uri.parse(destination)) }
+                withContext(Dispatchers.IO) { copyInto(exportedFile(fileName), Uri.parse(destination)) }
                 SaveOutcome.Succeeded
             }.getOrElse { failure ->
                 if (failure is CancellationException) throw failure
@@ -532,15 +538,27 @@ class BackupViewModel @Inject constructor(
     }
 
     /**
-     * Where backups are written: `backups/` under the app's own external files directory.
+     * The export called [fileName], in the directory every backup is written to.
      *
-     * App-specific storage, so it needs no permission, is listed under the app in the system's
-     * storage screen, and goes away with an uninstall — which is the right lifetime for a file
-     * whose whole purpose is to be handed to somewhere else. It falls back to internal storage
-     * on a device with no external volume mounted, where `getExternalFilesDir` is null; a
-     * `FileProvider` path is declared for both.
+     * Public for the share, which the route hands straight to the platform: the screen knows
+     * the file by the name on its card, and this is what turns that into the file. The
+     * directory is [backupDirectory]'s, the one the weekly backup and "Delete all data" use
+     * too — app-specific storage kept out of other apps' reach (see `AppBackupDirectory`), and
+     * that goes away with an uninstall, which is the
+     * right lifetime for a file whose whole purpose is to be handed to somewhere else.
+     * `file_paths.xml` declares a `FileProvider` path under both roots it can be in.
+     *
+     * Looked for under every root rather than only the one [BackupDirectory.resolve] names now:
+     * from Android 11 that follows whichever volume is mounted, so an export written to the
+     * internal fallback while the external volume was away would otherwise be shared, or
+     * copied, as a file that is not there once the volume came back.
+     *
+     * Cheap on the main thread once an export has run in this process, which a share always
+     * follows.
      */
-    private fun backupDirectory(): File = File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_DIRECTORY)
+    fun exportedFile(fileName: String): File =
+        backupDirectory.everyDirectory().map { File(it, fileName) }.firstOrNull(File::isFile)
+            ?: File(backupDirectory.resolve(), fileName)
 
     /**
      * `titan-backup-2026-09-06-1432.json`.
@@ -585,23 +603,12 @@ class BackupViewModel @Inject constructor(
         val lastSave: SaveOutcome? = null,
     )
 
-    companion object {
+    private companion object {
 
         /** The reason recorded for a location [isRestorable] refuses. For a log, never shown. */
         private fun refusedLocation(uri: String) = "not a document another app provides: $uri"
 
         private val SUBSCRIPTION_TIMEOUT_MS = 5.seconds.inWholeMilliseconds
-
-        /**
-         * `backups/`, the same directory `AutoBackupFiles` writes to from `:core:data`.
-         *
-         * The two are spelled separately because this module may not depend on that one
-         * (docs/ARCHITECTURE.md), and a constant duplicated with a comment asking nobody to
-         * change one copy is not a contract. Public is what turns it into one: `:app` depends
-         * on both sides of that edge, and its `BackupRulesTest` asserts the two strings are
-         * equal — and that Android's backup rules exclude the directory they name.
-         */
-        const val BACKUP_DIRECTORY = "backups"
 
         private const val FILE_NAME_PREFIX = "titan-backup-"
         private const val FILE_NAME_SUFFIX = ".json"

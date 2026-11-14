@@ -1,6 +1,6 @@
 # Titan privacy policy
 
-*Effective 4 October 2026. Also available in [français](PRIVACY.fr.md), [español](PRIVACY.es.md) and [português (Brasil)](PRIVACY.pt-BR.md).*
+*Effective 12 November 2026. Also available in [français](PRIVACY.fr.md), [español](PRIVACY.es.md) and [português (Brasil)](PRIVACY.pt-BR.md).*
 
 Titan is a workout tracker for Android. It is free, open source, and made by volunteers.
 This policy covers the Titan app (`app.titan.gym`) as published on Google Play and built
@@ -32,10 +32,14 @@ This is kept in the app's private database and settings files, which Android let
 app read.
 
 If you turn on **Weekly auto-backup** (Settings › Backup & restore), the app also writes a
-backup file once a week into its own folder on the device's shared storage
-(`Android/data/app.titan.gym/files/backups`). It keeps the three most recent and deletes
-older ones. These files stay on the phone, and Android deletes them when you uninstall the
-app.
+backup file once a week into its own backup folder, the one **Export a backup** writes to. It
+keeps the three most recent and deletes older ones. On Android 11 and later, which keeps
+other apps out of it, that folder is on the device's shared storage
+(`Android/data/app.titan.gym/files/backups`). On Android 8 to 10, where other apps with
+storage access could read that location, the folder is in the app's private internal storage
+instead, and a backup leaves it only when you use **Share** or **Save a copy…** in
+Settings › Backup & restore. These files stay on the phone, and Android deletes them when you
+uninstall the app.
 
 ### Health data
 

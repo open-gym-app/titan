@@ -79,10 +79,11 @@ fun BackupRoute(
     }
 
     // Where a copy of the finished export goes. `CreateDocument` is the *only* way an app can
-    // put a file somewhere the user can find it: `Android/data/…`, where the export is written,
-    // is off limits to file managers on Android 11 and up, and no permission exists that would
-    // change that — `WRITE_EXTERNAL_STORAGE` has done nothing since Android 10. The picker
-    // seeds the name field with the export's, so the file keeps its timestamp.
+    // put a file somewhere the user can find it: the export is written to internal storage below
+    // Android 11, which no file manager can browse, and to `Android/data/…` from it, which is off
+    // limits to file managers there. No permission exists that would change that
+    // — `WRITE_EXTERNAL_STORAGE` has done nothing since Android 10. The picker seeds the name
+    // field with the export's, so the file keeps its timestamp.
     val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BACKUP_MIME_TYPE)) { uri ->
         if (uri != null) viewModel.onEvent(BackupEvent.SaveDestinationChosen(uri.toString()))
     }
@@ -94,11 +95,12 @@ fun BackupRoute(
         onBack = onBack,
         onPickFile = { picker.launch(RESTORE_MIME_TYPES) },
         onSaveCopy = saver::launch,
-        // Straight to the platform, with no round trip through the ViewModel: a share sheet
-        // leaves no state behind, changes nothing, and the file it needs is already named on
-        // the screen. `FileProvider` rather than a `file://` URI, which has thrown
+        // Straight to the platform, with no event through the ViewModel: a share sheet leaves
+        // no state behind, changes nothing, and the file it needs is already named on the
+        // screen. The ViewModel only says where that name is, so the directory is resolved in
+        // one place. `FileProvider` rather than a `file://` URI, which has thrown
         // `FileUriExposedException` since Android 7 — see `shareBackup`.
-        onShare = context::shareBackup,
+        onShare = { fileName -> context.shareBackup(viewModel.exportedFile(fileName)) },
         modifier = modifier,
     )
 }

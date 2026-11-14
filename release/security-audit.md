@@ -13,6 +13,7 @@ in.
 | --- | --- |
 | [Release pipeline](#release-pipeline-260) | #260 |
 | [Delete all data and restore: what they left behind](#delete-all-data-and-restore-what-they-left-behind-258) | #258 |
+| [Backups in shared storage on Android 8 and 9](#backups-in-shared-storage-on-android-8-and-9-259) | #259 |
 
 ---
 
@@ -194,3 +195,119 @@ through the teardown.
   all data*, put the app in the background. No "Rest over" note should appear. Repeat with the
   rest paused, and once with a backup restore instead of the wipe.
 
+---
+
+## Backups in shared storage on Android 8 and 9 (#259)
+
+Every manual export and every weekly automatic backup was written to
+`getExternalFilesDir(null)/backups`, which is `/sdcard/Android/data/app.titan.gym/files/backups`,
+on every Android version. Each file is the whole training history and the body weight, body fat
+and measurement log in plain JSON, and a file the restore trusts. `minSdk` is 26. On Android
+8.0 to 9 (API 26 to 28), Android documents that app-specific external storage can be read and
+written by any app holding `READ_EXTERNAL_STORAGE` or `WRITE_EXTERNAL_STORAGE`. Gallery,
+file-manager and messaging apps commonly hold one. The privacy policy said these files were
+protected by the app's sandbox, which on those versions was not true. The audit found this by
+reading the source and the platform documentation. It had no emulator to observe it on.
+
+### Decision
+
+**Option 1 of the issue: below Android 11, backups live in app-private internal storage.**
+`filesDir/backups` below API 30; `getExternalFilesDir(null)/backups` from API 30, with
+`filesDir/backups` as the fallback when there is no external volume. The other two options were
+encryption at rest, which needs key management the project has avoided so far, and accepting
+and documenting the exposure. Option 1 was taken without waiting for the emulator check. The
+exposure is the platform's documented behaviour on API 26 to 28. Moving the files to internal
+storage there is safe whether or not the check confirms it, and it costs only reachability:
+on those versions no file manager can browse to a backup any more.
+
+The threshold is API 30, not the API 29 the issue reads, for the same reason. Android's
+documentation lists "apps can no longer access files in any other app's app-specific directory
+within external storage" among the *Android 11* changes, so on Android 10 an app in legacy
+storage mode (targeting API 28 or below, or `requestLegacyExternalStorage`) holding
+`READ_EXTERNAL_STORAGE` still sees the directory. Internal storage is safe on Android 10
+whatever a device check would find, so the rule does not wait for one.
+
+| # | Finding | Resolution |
+| --- | --- | --- |
+| 1 | The weekly backup (`AutoBackupFiles.directory`), the manual export (`BackupViewModel`) and the share (`BackupSharing`) each resolved the directory themselves, with no SDK branch. | Fixed: one resolver, the domain port `BackupDirectory`, implemented once by `AppBackupDirectory` in `:core:data` and bound as a singleton. All three, and "Delete all data" through `AutoBackupFiles`, ask it. `BackupSharing` now takes the file, not its name. |
+| 2 | On API 26 to 28 the directory is readable by other apps, and on API 29 by one in legacy storage mode. | Fixed: internal storage below API 30 (`AppBackupDirectory.FIRST_SCOPED_SDK`). |
+| 3 | Installs upgraded from a build that wrote to shared storage keep their old files there, where nothing would list them or delete them. | Fixed: the first resolution in a process moves every `titan-*.json` from the other root's `backups/` into the chosen one. It deletes the `titan-*.json.tmp` scratch files, which are truncated histories, and removes the old directory if it is left empty. The move is idempotent, and a file that cannot be moved is retried by the next process. It also covers a phone upgraded to Android 11 with its backups in `filesDir`. |
+| 4 | The share must still work from internal storage. | Already declared: `file_paths.xml` has a `files-path` for `backups/` beside the `external-files-path`. `BackupSharingTest` now shares one file from each root and reads both back. |
+| 5 | Backups in `filesDir` must stay out of Android's own backup (#180). | Already true: both rule files exclude `backups` in the `file` and `external` domains. Android 8 to 10 read `backup_rules.xml`, which has the `file` line. `BackupRulesTest` now reads the directory name from `BackupDirectory.NAME`. |
+| 6 | The privacy policy described the folder as shared storage on every version. | Fixed in all four languages, effective 12 November 2026. |
+
+#### Evidence
+
+`AppBackupDirectoryTest` (Robolectric, `@Config(sdk = [28])`, `@Config(sdk = [29])` and the
+project's usual 34):
+
+```text
+below Android 11 backups are in internal storage
+on Android 10 backups are in internal storage too
+from Android 11 backups are in the external files directory
+from Android 11 a device with no external volume keeps them in internal storage
+below Android 11 an older install's backups are moved out of shared storage
+the emptied shared-storage directory is removed
+the move runs once per process and again harmlessly in the next
+a backup already in place is kept over the copy in shared storage
+from Android 11 backups left in internal storage follow the directory
+a backup too large to restore is left where it is
+asking for every directory to wipe first settles the process without moving anything
+asking for every directory to look in still lets the move run
+nothing to move is not a failure, and creates nothing
+```
+
+All thirteen pass. Nine of them were first run on 2026-11-12, with the threshold at API 29,
+against the old resolution (`getExternalFilesDir(null) ?: filesDir` on every version, nothing
+moved): six of those nine failed, all five at API 28 and the API 34 test that follows backups
+out of internal storage.
+
+### The emulator check: not run
+
+The machine this was done on has no emulator and no Android system image, so the issue's
+readability check was **not run**. Readable or not readable is still to be recorded. The
+procedure:
+
+1. Create and boot an API 28 AVD, for example
+   `sdkmanager "system-images;android-28;google_apis;x86_64"`, then
+   `avdmanager create avd -n api28 -k "system-images;android-28;google_apis;x86_64"` and
+   `emulator -avd api28`.
+2. Install a release-variant build of `main` *before* #259 (package `app.titan.gym`; the debug
+   build's package is `app.titan.gym.debug`, and its path changes to match). Export a backup.
+3. Install a dummy reader app that declares `READ_EXTERNAL_STORAGE` and targets API 28. Grant
+   it the permission (`adb shell pm grant <reader> android.permission.READ_EXTERNAL_STORAGE`).
+   Have it list and read `/sdcard/Android/data/app.titan.gym/files/backups`, for example by
+   `File(...).listFiles()` and `readText()` in its `onCreate`, logging the result.
+4. Record the result here: **readable** confirms the finding.
+5. Install this change over it and open the backup screen. The reader should now find the
+   directory gone, and the exported file should be in
+   `/data/data/app.titan.gym/files/backups` (`adb shell run-as` on a debuggable build).
+6. Optionally, repeat steps 2 to 4 on an API 29 AVD, with the reader still targeting API 28.
+   The result no longer changes anything: this change keeps the backups in internal storage
+   on API 29 either way. **Readable** confirms that the threshold had to be API 30.
+
+### Residual risk
+
+- **The files are still plain JSON.** Root access can still read them, and so can anyone who
+  holds the unlocked phone and uses *Share*. Encryption at rest (option 2) is not done.
+- **A file that cannot be moved stays in shared storage** until a later process manages it,
+  for example when the disk is too full for the copy. Nothing reports it. "Delete all data"
+  still reaches it, because it empties both roots.
+- **A backup larger than `ExportFormat.MAX_DOCUMENT_BYTES` (64 MiB) is never moved.** No
+  restore would read it, and below Android 11 the old directory is one other apps can write
+  to, so it is as likely planted as the app's. It stays in shared storage, unreported, until
+  "Delete all data" or an uninstall. The app's own export reaches that size only at about four
+  times the target scale.
+- **Copies that already left.** Another app may already have read or copied a backup from
+  shared storage before the upgrade. Nothing can recall that.
+- **Reachability on Android 8 to 10.** A backup there can only be taken off the phone with
+  *Share* or *Save a copy…* right after an export. The weekly automatic backups cannot be
+  copied off at all, and a file manager no longer finds any backup. The backup screen's
+  sentences do not say where backups live, so none needed changing.
+
+### Needs the owner
+
+- Run the emulator check above (steps 1 to 5 on API 28) and record **readable** or **not
+  readable** here and on #259.
+- Mirror the privacy policy change (new effective date 12 November 2026) into the site
+  repository's four `privacy.mdx` pages, as `compliance-checklist.md` requires.

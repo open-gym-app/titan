@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import androidx.test.core.app.ApplicationProvider
+import com.titan.core.domain.backup.BackupDirectory
 import com.titan.core.domain.backup.ExportFormat
 import com.titan.core.domain.backup.ImportSource
 import com.titan.core.domain.backup.model.ImportError
@@ -52,8 +53,9 @@ import java.io.File
  * renamed into place, a content URI read back, an `ImportError` turned into an outcome — and a
  * fake export that wrote three bytes would exercise none of it. So `ExportUseCase` and
  * `ImportUseCase` are the real ones, and the bytes really go to a disk: Robolectric gives
- * `getExternalFilesDir` a temporary directory, and the restore reads them back through
- * `ContentResolver`.
+ * `filesDir` a temporary directory, and the restore reads them back through `ContentResolver`.
+ * Which directory on which Android version is `:core:data`'s `AppBackupDirectoryTest`; here the
+ * [BackupDirectory] is a fixed one, and every file the tests look for is found through it.
  *
  * The *store* under them is faked, and has to be: a feature module may not depend on
  * `:core:data`. Whether the rows survive a round trip over a real SQLite is
@@ -132,6 +134,52 @@ class BackupViewModelTest {
             // Tests run pinned to UTC — see the root build script — so the stamp is the clock's
             // own reading rather than a function of the machine.
             assertEquals("titan-backup-2026-09-06-1229.json", (outcome as ExportOutcome.Succeeded).fileName)
+        }
+
+    /**
+     * The share is handed the file by the ViewModel, so the export, the copy and the share all
+     * find it in the one directory [BackupDirectory] names.
+     */
+    @Test
+    fun `the share is pointed at the file the export wrote`() =
+        runTest {
+            val viewModel = viewModel()
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val outcome = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
+
+            val shared = viewModel.exportedFile(outcome.fileName)
+            assertEquals(backupFile(outcome.fileName), shared)
+            assertTrue("$shared should exist", shared.isFile)
+        }
+
+    /**
+     * From Android 11 the directory follows whichever volume is mounted, so the root it names
+     * can change between the export and the tap on Share. The file the export wrote is still
+     * the one handed over, not a name under the other root with nothing behind it.
+     */
+    @Test
+    fun `the share finds the export after the directory moves to the other root`() =
+        runTest {
+            val external = File(requireNotNull(context.getExternalFilesDir(null)), BackupDirectory.NAME)
+            var current = backupDirectory.resolve()
+            val moving = object : BackupDirectory {
+                override fun resolve(): File = current
+
+                override fun everyDirectory(): List<File> =
+                    listOf(current, external, backupDirectory.resolve()).distinct()
+            }
+            val viewModel = viewModel(directory = moving)
+            collect(viewModel)
+
+            viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
+            val outcome = viewModel.uiState.first { it.lastExport != null }.lastExport as ExportOutcome.Succeeded
+            current = external
+
+            val shared = viewModel.exportedFile(outcome.fileName)
+            assertEquals(backupFile(outcome.fileName), shared)
+            assertTrue("$shared should exist", shared.isFile)
         }
 
     /** The rows the exporter counted are the rows the outcome reports. */
@@ -242,7 +290,7 @@ class BackupViewModelTest {
             viewModel.onEvent(BackupEvent.ExportRequested(APP_VERSION))
             viewModel.uiState.first { it.lastExport != null }
 
-            val leftovers = backupDirectory().listFiles().orEmpty().filter { it.name.endsWith(".tmp") }
+            val leftovers = backupDirectory.resolve().listFiles().orEmpty().filter { it.name.endsWith(".tmp") }
             assertEquals(emptyList<File>(), leftovers)
         }
 
@@ -343,7 +391,7 @@ class BackupViewModelTest {
         runTest {
             val viewModel = viewModel()
             collect(viewModel)
-            val file = File(backupDirectory().apply { mkdirs() }, "not-a-backup.json")
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "not-a-backup.json")
             file.writeText("{ this is not a backup")
 
             restore(viewModel, file)
@@ -359,7 +407,7 @@ class BackupViewModelTest {
             val viewModel = viewModel()
             collect(viewModel)
 
-            restore(viewModel, File(backupDirectory(), "gone.json"))
+            restore(viewModel, File(backupDirectory.resolve(), "gone.json"))
             val outcome = viewModel.uiState.first { it.lastRestore != null }.lastRestore
 
             assertTrue("was $outcome", (outcome as RestoreOutcome.Failed).error is ImportError.IoFailure)
@@ -372,7 +420,7 @@ class BackupViewModelTest {
             backend.seedOneSession()
             val viewModel = viewModel()
             collect(viewModel)
-            val file = File(backupDirectory().apply { mkdirs() }, "broken.json")
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "broken.json")
             file.writeText("nonsense")
 
             restore(viewModel, file)
@@ -389,7 +437,7 @@ class BackupViewModelTest {
     @Test
     fun `a picked document is named in the confirmation`() =
         runTest {
-            val file = File(backupDirectory().apply { mkdirs() }, "any.json").apply { writeText("{}") }
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "any.json").apply { writeText("{}") }
             val viewModel = viewModel()
             collect(viewModel)
 
@@ -420,7 +468,7 @@ class BackupViewModelTest {
     @Test
     fun `a file path is refused without opening the confirmation`() =
         runTest {
-            val file = File(backupDirectory().apply { mkdirs() }, "local.json").apply { writeText("{}") }
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "local.json").apply { writeText("{}") }
             val viewModel = viewModel()
             collect(viewModel)
 
@@ -486,7 +534,7 @@ class BackupViewModelTest {
     fun `a refused location restored from saved state is refused at the confirmation`() =
         runTest {
             backend.seedOneSession()
-            val file = File(backupDirectory().apply { mkdirs() }, "local.json").apply { writeText("{}") }
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "local.json").apply { writeText("{}") }
             val served = documents.serve(file).toString()
             val savedState = SavedStateHandle()
             viewModel(savedState).onEvent(BackupEvent.RestoreFileChosen(served))
@@ -507,7 +555,7 @@ class BackupViewModelTest {
     @Test
     fun `the picked name survives process death with the file`() =
         runTest {
-            val file = File(backupDirectory().apply { mkdirs() }, "any.json").apply { writeText("{}") }
+            val file = File(backupDirectory.resolve().apply { mkdirs() }, "any.json").apply { writeText("{}") }
             val savedState = SavedStateHandle()
             val first = viewModel(savedState)
             collect(first)
@@ -725,38 +773,44 @@ class BackupViewModelTest {
         assertEquals(BackupPhase.Idle, state.phase)
     }
 
-    private fun viewModel(savedState: SavedStateHandle = SavedStateHandle()): BackupViewModel {
-        val factory = viewModelFactory { initializer { newViewModel(savedState) } }
+    private fun viewModel(
+        savedState: SavedStateHandle = SavedStateHandle(),
+        directory: BackupDirectory = backupDirectory,
+    ): BackupViewModel {
+        val factory = viewModelFactory { initializer { newViewModel(savedState, directory) } }
         return ViewModelProvider.create(viewModels, factory)["backup-${created.size}", BackupViewModel::class]
             .also { created += it }
     }
 
-    private fun newViewModel(savedState: SavedStateHandle) =
-        BackupViewModel(
-            savedStateHandle = savedState,
-            context = context,
-            exportBackup = ExportUseCase(
-                backupRepository = backend.backupRepository,
-                userPreferencesRepository = backend.preferences,
-            ),
-            importBackup = ImportUseCase(
-                backupRepository = backend.backupRepository,
-                userPreferencesRepository = backend.preferences,
-                inProgressSessionRepository = backend.draft,
-                templateDraftRepository = backend.templateDraft,
-                sessionStateRepository = backend.sessionState,
-                backgroundRestTimer = NoRestTimer,
-                idleSessionMonitor = NoIdleSessionMonitor,
-                reminderScheduler = backend.reminders,
-            ),
-            setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
-                autoBackupRepository = backend.autoBackup,
-                scheduler = backend.scheduler,
-            ),
-            clock = { EXPORTED_AT },
-            localDataRepository = backend.localDataRepository,
+    private fun newViewModel(
+        savedState: SavedStateHandle,
+        directory: BackupDirectory,
+    ) = BackupViewModel(
+        savedStateHandle = savedState,
+        context = context,
+        backupDirectory = directory,
+        exportBackup = ExportUseCase(
+            backupRepository = backend.backupRepository,
+            userPreferencesRepository = backend.preferences,
+        ),
+        importBackup = ImportUseCase(
+            backupRepository = backend.backupRepository,
+            userPreferencesRepository = backend.preferences,
+            inProgressSessionRepository = backend.draft,
+            templateDraftRepository = backend.templateDraft,
+            sessionStateRepository = backend.sessionState,
+            backgroundRestTimer = NoRestTimer,
+            idleSessionMonitor = NoIdleSessionMonitor,
+            reminderScheduler = backend.reminders,
+        ),
+        setAutoBackupEnabled = SetAutoBackupEnabledUseCase(
             autoBackupRepository = backend.autoBackup,
-        )
+            scheduler = backend.scheduler,
+        ),
+        clock = { EXPORTED_AT },
+        localDataRepository = backend.localDataRepository,
+        autoBackupRepository = backend.autoBackup,
+    )
 
     /**
      * `uiState` is a `stateIn(WhileSubscribed)`, so every test collects it in the background
@@ -769,7 +823,7 @@ class BackupViewModelTest {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect { } }
     }
 
-    private fun backupDirectory() = File(context.getExternalFilesDir(null) ?: context.filesDir, "backups")
+    private val backupDirectory = BackupDirectory { File(context.filesDir, BackupDirectory.NAME) }
 
     /**
      * Somewhere to copy *to* that is not [backupDirectory].
@@ -779,7 +833,7 @@ class BackupViewModelTest {
      */
     private val temporaryFolder: File get() = context.cacheDir
 
-    private fun backupFile(name: String) = File(backupDirectory(), name)
+    private fun backupFile(name: String) = File(backupDirectory.resolve(), name)
 
     /**
      * [file] as an [ImportSource] — a handle that re-opens, which is what the decoder needs:

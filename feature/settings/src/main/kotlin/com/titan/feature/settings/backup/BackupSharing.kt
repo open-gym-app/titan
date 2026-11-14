@@ -8,7 +8,12 @@ import com.titan.feature.settings.R
 import java.io.File
 
 /**
- * Hands [fileName] to the system share sheet through the app's `FileProvider`.
+ * Hands [file], a backup in the directory `BackupViewModel.exportedFile` resolves, to the system
+ * share sheet through the app's `FileProvider`.
+ *
+ * The file rather than its name, so where backups live is decided once, by the `BackupDirectory`
+ * the export and the weekly backup also ask, and not again here. `file_paths.xml` serves both
+ * roots that directory can be under; a file anywhere else makes `getUriForFile` throw.
  *
  * The authority is derived from the running package rather than written down, so it follows
  * the `applicationIdSuffix` the debug and staging builds add — a literal would be wrong on two
@@ -25,8 +30,7 @@ import java.io.File
  * backup, as a crash while handing the file over. A `Context` extension that only works for one
  * kind of context is a signature that lies; `BackupSharingTest` is what caught it.
  */
-internal fun Context.shareBackup(fileName: String) {
-    val file = File(File(getExternalFilesDir(null) ?: filesDir, BackupViewModel.BACKUP_DIRECTORY), fileName)
+internal fun Context.shareBackup(file: File) {
     val uri: Uri = FileProvider.getUriForFile(this, "$packageName$FILE_PROVIDER_SUFFIX", file)
 
     val send = Intent(Intent.ACTION_SEND).apply {

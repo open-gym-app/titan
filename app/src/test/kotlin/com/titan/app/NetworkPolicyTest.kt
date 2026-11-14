@@ -68,7 +68,7 @@ class NetworkPolicyTest {
         val root = File("..").canonicalFile
         val manifests = root.walkTopDown()
             .onEnter { it == root || (it.name != "build" && !it.name.startsWith(".")) }
-            .filter { it.name == "AndroidManifest.xml" && it.parentFile.parentFile?.name == "src" }
+            .filter { it.name == "AndroidManifest.xml" && it.parentFile?.parentFile?.name == "src" }
             .toList()
 
         assertTrue("expected to find the project's manifests", manifests.size > 1)

@@ -1,11 +1,10 @@
 package com.titan.app
 
-import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.di.DATABASE_NAME
 import com.titan.core.data.di.DATASTORE_DIRECTORY
 import com.titan.core.data.repository.InProgressSessionRepositoryImpl
 import com.titan.core.data.repository.TemplateDraftRepositoryImpl
-import com.titan.feature.settings.backup.BackupViewModel
+import com.titan.core.domain.backup.BackupDirectory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -68,12 +67,13 @@ class BackupRulesTest {
         // somebody was writing on another phone is not something to restore over this one.
         "file" to TemplateDraftRepositoryImpl.DOCUMENT_NAME,
         "file" to TemplateDraftRepositoryImpl.SCRATCH_NAME,
-        // Exported and automatic backups, in both domains the directory can land in: under the
-        // app's external files directory normally, and under `files/` on a device where
-        // `getExternalFilesDir` is null and the writers fall back. "Deleted on uninstall" is
-        // only true while both lines are here.
-        "file" to AutoBackupFiles.BACKUP_DIRECTORY,
-        "external" to AutoBackupFiles.BACKUP_DIRECTORY,
+        // Exported and automatic backups, in both domains the directory can land in: under
+        // `files/` below Android 11 (#259) and on a device with no external volume, and under
+        // the app's external files directory otherwise. Every writer resolves it through the
+        // one `BackupDirectory`, so one constant names it. "Deleted on uninstall" is only true
+        // while both lines are here.
+        "file" to BackupDirectory.NAME,
+        "external" to BackupDirectory.NAME,
     )
 
     @Test
@@ -98,22 +98,6 @@ class BackupRulesTest {
     @Test
     fun `the pre-Android 12 rules exclude the same paths`() {
         assertEquals(persistedPaths, excludesIn("full-backup-content"))
-    }
-
-    /**
-     * The backup directory is named twice in the app, and this is what makes the pair a
-     * contract.
-     *
-     * `:feature:settings` may not depend on `:core:data` (docs/ARCHITECTURE.md), so the manual
-     * export and the weekly automatic one cannot share a constant: `BackupViewModel` spells the
-     * directory and so does [AutoBackupFiles], and a comment asking nobody to change one copy
-     * is not a contract. `:app` depends on both, which is the whole reason it exists, so the
-     * assertion belongs here. Were the two to drift, [persistedPaths] would go on excluding
-     * whichever one it reads and the other writer would keep filling a directory that travels.
-     */
-    @Test
-    fun `both writers agree on the directory the rules exclude`() {
-        assertEquals(AutoBackupFiles.BACKUP_DIRECTORY, BackupViewModel.BACKUP_DIRECTORY)
     }
 
     /**

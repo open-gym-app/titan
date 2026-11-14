@@ -7,6 +7,7 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
+import com.titan.core.data.backup.AppBackupDirectory
 import com.titan.core.data.backup.AutoBackupFiles
 import com.titan.core.data.db.CountingInProgressSessionRepository
 import com.titan.core.data.db.CountingTemplateDraftRepository
@@ -66,7 +67,7 @@ class BackupWorkerTest : RoomTestBase() {
     private val backup by lazy { BackupRepositoryImpl(db, Dispatchers.Unconfined) }
     private val preferences = InMemoryUserPreferencesRepository()
     private val autoBackup = InMemoryAutoBackupRepository()
-    private val files = AutoBackupFiles(context)
+    private val files = AutoBackupFiles(AppBackupDirectory(context))
 
     /** Moved between runs, so four runs are four days rather than four writes to one file. */
     private var now = FIRST_SUNDAY

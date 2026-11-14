@@ -1,6 +1,6 @@
 # Política de privacidad de Titan
 
-*Vigente desde el 4 de octubre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
+*Vigente desde el 12 de noviembre de 2026. También disponible en [English](PRIVACY.md), [français](PRIVACY.fr.md) y [português (Brasil)](PRIVACY.pt-BR.md). En caso de discrepancia, prevalece la versión en inglés.*
 
 Titan es un diario de entrenamiento para Android. Es gratuito, de código abierto y lo
 desarrollan voluntarios. Esta política cubre la app Titan (`app.titan.gym`) tal como se
@@ -32,10 +32,15 @@ Todo ello se guarda en la base de datos y los archivos de ajustes privados de la
 Android no deja leer a ninguna otra app.
 
 Si activas la **Copia automática semanal** (Ajustes › Copia de seguridad y restauración), la
-app también escribe una vez por semana un archivo de copia en su propia carpeta del
-almacenamiento compartido del dispositivo (`Android/data/app.titan.gym/files/backups`).
-Conserva las tres más recientes y borra las anteriores. Esos archivos se quedan en el
-teléfono, y Android los borra cuando desinstalas la app.
+app también escribe una vez por semana un archivo de copia en su propia carpeta de copias, la
+misma en la que escribe **Exportar una copia de seguridad**. Conserva las tres más recientes y
+borra las anteriores. En Android 11 y versiones posteriores, que impiden el acceso de otras
+apps a esa carpeta, está en el almacenamiento compartido del dispositivo
+(`Android/data/app.titan.gym/files/backups`). En Android 8 a 10, donde otras apps con acceso al
+almacenamiento podrían leer esa ubicación, la carpeta está en cambio en el almacenamiento
+interno privado de la app, y una copia solo sale de ella cuando usas **Compartir** o
+**Guardar una copia…** en Ajustes › Copia de seguridad y restauración. Esos archivos se quedan
+en el teléfono, y Android los borra cuando desinstalas la app.
 
 ### Datos de salud
 
